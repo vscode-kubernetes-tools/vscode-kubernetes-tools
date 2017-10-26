@@ -26,6 +26,7 @@ import * as kubeconfig from './kubeconfig';
 import { create as kubectlCreate, Kubectl } from './kubectl';
 import * as explorer from './explorer';
 import { create as draftCreate, Draft } from './draft';
+import * as logger from './logger';
 
 let explainActive = false;
 let swaggerSpecPromise = null;
