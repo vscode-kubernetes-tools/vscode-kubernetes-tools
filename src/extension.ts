@@ -28,6 +28,7 @@ import * as explorer from './explorer';
 import { create as draftCreate, Draft } from './draft';
 import * as logger from './logger';
 import { HelmRequirementsCodeLensProvider } from './helm.requirementsCodeLens';
+import { HelmTemplateHoverProvider } from './helm.hoverProvider';
 
 let explainActive = false;
 let swaggerSpecPromise = null;
@@ -89,7 +90,8 @@ export function activate(context) {
             { language: 'yaml', scheme: 'file' },
             { provideHover: provideHoverYaml }
         ),
-
+        vscode.languages.registerHoverProvider(HELM_MODE, new HelmTemplateHoverProvider()),
+        
         // Tree data providers
         vscode.window.registerTreeDataProvider('extension.vsKubernetesExplorer', treeProvider),
 
