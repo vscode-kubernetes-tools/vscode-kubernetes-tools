@@ -1,0 +1,14 @@
+{
+    "rules": {
+        "only-arrow-functions": [
+            true, "allow-declarations", "allow-named-functions"
+        ],
+        "no-var-keyword": true,
+        "object-literal-key-quotes": [
+            true, "as-needed"
+        ],
+        "prefer-for-of": true,
+        "semicolon": [true, "always"],
+        "arrow-parens": true
+    }
+}

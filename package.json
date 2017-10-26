@@ -2,7 +2,7 @@
     "name": "vscode-kubernetes-tools",
     "displayName": "Kubernetes",
     "description": "Develop, deploy and debug Kubernetes applications",
-    "version": "0.0.1",
+    "version": "0.1.0",
     "publisher": "Microsoft",
     "engines": {
         "vscode": "^1.13.0"
@@ -11,9 +11,201 @@
         "Other"
     ],
     "activationEvents": [
+        "onCommand:extension.vsKubernetesCreate",
+        "onCommand:extension.vsKubernetesDelete",
+        "onCommand:extension.vsKubernetesApply",
+        "onCommand:extension.vsKubernetesExplain",
+        "onCommand:extension.vsKubernetesLoad",
+        "onCommand:extension.vsKubernetesGet",
+        "onCommand:extension.vsKubernetesRun",
+        "onCommand:extension.vsKubernetesLogs",
+        "onCommand:extension.vsKubernetesExpose",
+        "onCommand:extension.vsKubernetesDescribe",
+        "onCommand:extension.vsKubernetesSync",
+        "onCommand:extension.vsKubernetesExec",
+        "onCommand:extension.vsKubernetesTerminal",
+        "onCommand:extension.vsKubernetesDiff",
+        "onCommand:extension.vsKubernetesScale",
+        "onCommand:extension.vsKubernetesDebug",
+        "onCommand:extension.vsKubernetesRemoveDebug",
+        "onCommand:extension.vsKubernetesConfigureFromAcs",
+        "onCommand:extension.vsKubernetesDraftCreate",
+        "onCommand:extension.vsKubernetesDraftUp",
+        "onView:extension.vsKubernetesExplorer"
     ],
     "main": "./out/src/extension",
     "contributes": {
+        "configuration": {
+            "type": "object",
+            "title": "Kubernetes configuration",
+            "properties": {
+                "vs-kubernetes": {
+                    "type": "object",
+                    "description": "Kubernetes configuration",
+                    "properties": {
+                        "vs-kubernetes.namespace": {
+                            "type": "string",
+                            "default": "default",
+                            "description": "The namespace to use for all commands"
+                        },
+                        "vs-kubernetes.kubectl-path": {
+                            "type": "string",
+                            "default": null,
+                            "description": "File path to a kubectl binary."
+                        },
+                        "vs-kubernetes.draft-path": {
+                            "type": "string",
+                            "default": null,
+                            "description": "File path to a draft binary."
+                        }
+                    }
+                },
+                "vsdocker.imageUser": {
+                    "type": "string",
+                    "default": null,
+                    "description": "Image prefix for docker images ie 'docker.io/brendanburns'"
+                }
+            }
+        },
+        "views": {
+            "explorer": [
+                {
+                    "id": "extension.vsKubernetesExplorer",
+                    "name": "Kubernetes"
+                }
+            ]
+        },
+        "menus": {
+            "view/title": [
+                {
+                    "command" : "extension.vsKubernetesRefreshExplorer",
+                    "when": "view == extension.vsKubernetesExplorer",
+                    "group": "navigation"
+                }
+            ],
+            "view/item/context": [
+                {
+                    "command": "extension.vsKubernetesLoad",
+                    "group": "0",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource"
+                },
+                {
+                    "command": "extension.vsKubernetesDescribe",
+                    "group": "2",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource"
+                },
+                {
+                    "command": "extension.vsKubernetesLoad",
+                    "group": "0",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
+                },
+                {
+                    "command": "extension.vsKubernetesTerminal",
+                    "group": "1",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
+                },
+                {
+                    "command": "extension.vsKubernetesDescribe",
+                    "group": "2",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
+                },
+                {
+                    "command": "extension.vsKubernetesLogs",
+                    "group": "2",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
+                }
+            ],
+            "commandPalette": [
+                {
+                    "command" : "extension.vsKubernetesRefreshExplorer",
+                    "when": "view == extension.vsKubernetesExplorer"
+                }
+            ]
+        },
+        "commands": [{
+            "command": "extension.vsKubernetesCreate",
+            "title": "Create",
+            "category": "Kubernetes"
+        }, {
+            "command": "extension.vsKubernetesDelete",
+            "title": "Delete",
+            "category": "Kubernetes"
+        }, {
+            "command": "extension.vsKubernetesApply",
+            "title": "Apply",
+            "category": "Kubernetes"
+        }, {
+            "command": "extension.vsKubernetesExplain",
+            "title": "Explain",
+            "category": "Kubernetes"
+        }, {
+            "command": "extension.vsKubernetesLoad",
+            "title": "Load",
+            "category": "Kubernetes"
+        }, {
+            "command": "extension.vsKubernetesGet",
+            "title": "Get",
+            "category": "Kubernetes"
+        }, {
+            "command": "extension.vsKubernetesRun",
+            "title": "Run",
+            "category": "Kubernetes"
+        }, {
+            "command": "extension.vsKubernetesLogs",
+            "title": "Logs",
+            "category": "Kubernetes"
+        }, {
+            "command": "extension.vsKubernetesExpose",
+            "title": "Expose",
+            "category": "Kubernetes"
+        }, {
+            "command": "extension.vsKubernetesDescribe",
+            "title": "Describe",
+            "category": "Kubernetes"
+        }, {
+            "command": "extension.vsKubernetesSync",
+            "title": "Sync",
+            "category": "Kubernetes"
+        }, {
+            "command": "extension.vsKubernetesExec",
+            "title": "Exec",
+            "category": "Kubernetes"
+        }, {
+            "command": "extension.vsKubernetesTerminal",
+            "title": "Terminal",
+            "category": "Kubernetes"
+        }, {
+            "command": "extension.vsKubernetesDiff",
+            "title": "Diff",
+            "category": "Kubernetes"
+        }, {
+            "command": "extension.vsKubernetesScale",
+            "title": "Scale",
+            "category": "Kubernetes"
+        }, {
+            "command": "extension.vsKubernetesDebug",
+            "title": "Debug",
+            "category": "Kubernetes"
+        }, {
+            "command": "extension.vsKubernetesRemoveDebug",
+            "title": "Remove Debug",
+            "category": "Kubernetes"
+        }, {
+            "command": "extension.vsKubernetesConfigureFromAcs",
+            "title": "Configure from ACS",
+            "category": "Kubernetes"
+        }, {
+            "command": "extension.vsKubernetesDraftCreate",
+            "title": "Create",
+            "category": "Kubernetes Draft"
+        }, {
+            "command": "extension.vsKubernetesDraftUp",
+            "title": "Up",
+            "category": "Kubernetes Draft"
+        }, {
+            "command": "extension.vsKubernetesRefreshExplorer",
+            "title": "Refresh"
+        }]
     },
     "scripts": {
         "vscode:prepublish": "tsc -p ./",
@@ -21,11 +213,25 @@
         "postinstall": "node ./node_modules/vscode/bin/install",
         "test": "node ./node_modules/vscode/bin/test"
     },
+    "dependencies": {
+        "shelljs": "^0.7.7",
+        "js-yaml": "^3.8.2",
+        "dockerfile-parse": "^0.2.0",
+        "k8s": "^0.4.12",
+        "tmp": "^0.0.31",
+        "pluralize": "^4.0.0",
+        "uuid": "^3.1.0"
+    },
     "devDependencies": {
-        "typescript": "^2.0.3",
+        "typescript": "^2.2.32",
+        "tslint": "^4.5.1",
         "vscode": "^1.0.0",
         "mocha": "^2.3.3",
         "@types/node": "^6.0.40",
         "@types/mocha": "^2.2.32"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/Azure/vscode-kubernetes-tools"
     }
 }
