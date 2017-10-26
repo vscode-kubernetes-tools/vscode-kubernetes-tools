@@ -27,6 +27,7 @@ import { create as kubectlCreate, Kubectl } from './kubectl';
 import * as explorer from './explorer';
 import { create as draftCreate, Draft } from './draft';
 import * as logger from './logger';
+import { HelmRequirementsCodeLensProvider } from './helm.requirementsCodeLens';
 
 let explainActive = false;
 let swaggerSpecPromise = null;
@@ -34,6 +35,13 @@ let swaggerSpecPromise = null;
 const kubectl = kubectlCreate(host, fs, shell);
 const draft = draftCreate(host, fs, shell);
 const acsui = acs.uiProvider(fs, shell);
+
+// Filters for different Helm file types.
+// TODO: Consistently apply these to the provders registered.
+export const HELM_MODE: vscode.DocumentFilter = { language: "helm", scheme: "file" };
+export const HELM_REQ_MODE: vscode.DocumentFilter = { language: "helm", scheme: "file", pattern: "**/requirements.yaml"};
+export const HELM_CHART_MODE: vscode.DocumentFilter = { language: "helm", scheme: "file", pattern: "**/Chart.yaml" };
+export const HELM_TPL_MODE: vscode.DocumentFilter = { language: "helm", scheme: "file", pattern: "**/templates/*.*" };
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
@@ -43,6 +51,8 @@ export function activate(context) {
     const treeProvider = explorer.create(kubectl, host);
 
     const subscriptions = [
+
+        // Commands
         vscode.commands.registerCommand('extension.vsKubernetesCreate',
             maybeRunKubernetesCommandForActiveWindow.bind(this, 'create -f')
         ),
@@ -66,7 +76,11 @@ export function activate(context) {
         vscode.commands.registerCommand('extension.vsKubernetesDraftCreate', execDraftCreate),
         vscode.commands.registerCommand('extension.vsKubernetesDraftUp', execDraftUp),
         vscode.commands.registerCommand('extension.vsKubernetesRefreshExplorer', () => treeProvider.refresh()),
+
+        // HTML renderers
         vscode.workspace.registerTextDocumentContentProvider(acs.uriScheme, acsui),
+
+        // Hover providers
         vscode.languages.registerHoverProvider(
             { language: 'json', scheme: 'file' },
             { provideHover: provideHoverJson }
@@ -75,7 +89,12 @@ export function activate(context) {
             { language: 'yaml', scheme: 'file' },
             { provideHover: provideHoverYaml }
         ),
-        vscode.window.registerTreeDataProvider('extension.vsKubernetesExplorer', treeProvider)
+
+        // Tree data providers
+        vscode.window.registerTreeDataProvider('extension.vsKubernetesExplorer', treeProvider),
+
+        // Code lenses
+        vscode.languages.registerCodeLensProvider(HELM_REQ_MODE, new HelmRequirementsCodeLensProvider())
     ];
 
     subscriptions.forEach((element) => {
