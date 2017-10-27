@@ -27,8 +27,12 @@ import { create as kubectlCreate, Kubectl } from './kubectl';
 import * as explorer from './explorer';
 import { create as draftCreate, Draft } from './draft';
 import * as logger from './logger';
+import * as helm from './helm';
+import * as helmexec from './helm.exec';
 import { HelmRequirementsCodeLensProvider } from './helm.requirementsCodeLens';
 import { HelmTemplateHoverProvider } from './helm.hoverProvider';
+import { HelmTemplatePreviewDocumentProvider, HelmInspectDocumentProvider } from './helm.documentProvider';
+import { HelmTemplateCompletionProvider } from './helm.completionProvider';
 
 let explainActive = false;
 let swaggerSpecPromise = null;
@@ -50,10 +54,18 @@ export function activate(context) {
     kubectl.checkPresent('activation');
 
     const treeProvider = explorer.create(kubectl, host);
+    const previewProvider = new HelmTemplatePreviewDocumentProvider();
+    const inspectProvider = new HelmInspectDocumentProvider();
+    const completionProvider = new HelmTemplateCompletionProvider();
+    const completionFilter = [
+        "helm", 
+        {language: "yaml", pattern: "**/templates/*.yaml"},
+        {pattern: "**/templates/NOTES.txt"}
+    ];
 
     const subscriptions = [
 
-        // Commands
+        // Commands - Kubernetes
         vscode.commands.registerCommand('extension.vsKubernetesCreate',
             maybeRunKubernetesCommandForActiveWindow.bind(this, 'create -f')
         ),
@@ -78,9 +90,25 @@ export function activate(context) {
         vscode.commands.registerCommand('extension.vsKubernetesDraftUp', execDraftUp),
         vscode.commands.registerCommand('extension.vsKubernetesRefreshExplorer', () => treeProvider.refresh()),
 
+        // Commands - Helm
+        vscode.commands.registerCommand('extension.helmVersion', helmexec.helmVersion),
+        vscode.commands.registerCommand('extension.helmTemplate', helmexec.helmTemplate),
+        vscode.commands.registerCommand('extension.helmTemplatePreview', helmexec.helmTemplatePreview),
+        vscode.commands.registerCommand('extension.helmLint', helmexec.helmLint),
+        vscode.commands.registerCommand('extension.helmInspectValues', helmexec.helmInspectValues),
+        vscode.commands.registerCommand('extension.helmDryRun', helmexec.helmDryRun),
+        vscode.commands.registerCommand('extension.helmDepUp', helmexec.helmDepUp),
+        vscode.commands.registerCommand('extension.helmInsertReq', helmexec.insertRequirement),
+        vscode.commands.registerCommand('extension.helmCreate', helmexec.helmCreate),
+
         // HTML renderers
         vscode.workspace.registerTextDocumentContentProvider(acs.uriScheme, acsui),
+        vscode.workspace.registerTextDocumentContentProvider(helm.PREVIEW_SCHEME, previewProvider),
+        vscode.workspace.registerTextDocumentContentProvider(helm.INSPECT_SCHEME, inspectProvider),
 
+        // Completion providers
+        vscode.languages.registerCompletionItemProvider(completionFilter, completionProvider),
+        
         // Hover providers
         vscode.languages.registerHoverProvider(
             { language: 'json', scheme: 'file' },
@@ -98,6 +126,34 @@ export function activate(context) {
         // Code lenses
         vscode.languages.registerCodeLensProvider(HELM_REQ_MODE, new HelmRequirementsCodeLensProvider())
     ];
+
+    // On save, refresh the Helm YAML preview.
+    vscode.workspace.onDidSaveTextDocument((e: vscode.TextDocument) => {
+        if (!editorIsActive()) {
+            logger.helm.log("WARNING: No active editor during save. Nothing saved.");
+            return;
+        }
+        if (e === vscode.window.activeTextEditor.document) {
+            let doc = vscode.window.activeTextEditor.document;
+            if (doc.uri.scheme != "file") {
+                return;
+            }
+            let u = vscode.Uri.parse(helm.PREVIEW_URI);
+            previewProvider.update(u);
+        }
+	});
+    // On editor change, refresh the Helm YAML preview
+    vscode.window.onDidChangeActiveTextEditor((e: vscode.TextEditor) => {
+        if (!editorIsActive()) {
+            return;
+        }
+        let doc = vscode.window.activeTextEditor.document;
+        if (doc.uri.scheme != "file") {
+            return;
+        }
+        let u = vscode.Uri.parse(helm.PREVIEW_URI);
+        previewProvider.update(u);
+    });
 
     subscriptions.forEach((element) => {
         context.subscriptions.push(element);
@@ -1271,4 +1327,9 @@ async function execDraftUp() {
     const draftPath = await draft.path();
     const term = vscode.window.createTerminal(`draft up`, draftPath, [ 'up' ]);  // TODO: this doesn't show output colourised - how to do that in a safe portable way?
     term.show(true);
+}
+
+function editorIsActive(): boolean {
+    // force type coercion
+    return (vscode.window.activeTextEditor) ? true : false;
 }

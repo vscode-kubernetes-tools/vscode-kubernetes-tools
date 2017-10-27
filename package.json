@@ -30,6 +30,12 @@
         "onCommand:extension.vsKubernetesDebug",
         "onCommand:extension.vsKubernetesRemoveDebug",
         "onCommand:extension.vsKubernetesConfigureFromAcs",
+        "onCommand:extension.helmTemplate",
+        "onCommand:extension.helmTemplatePreview",
+        "onCommand:extension.helmLint",
+        "onCommand:extension.helmDryRun",
+        "onCommand:extension.helmVersion",
+        "onCommand:extension.helmCreate",
         "onCommand:extension.vsKubernetesDraftCreate",
         "onCommand:extension.vsKubernetesDraftUp",
         "onView:extension.vsKubernetesExplorer",
@@ -78,6 +84,19 @@
             ]
         },
         "menus": {
+            "explorer/context": [
+                {
+                    "title": "Update Dependencies",
+                    "when": "resourceFilename == requirements.yaml",
+                    "command": "extension.helmDepUp",
+                    "group": "navigation@99"
+                },
+                {
+                    "when": "",
+                    "command": "extension.helmInspectValues",
+                    "group": "navigation@98"
+                }
+            ],
             "view/title": [
                 {
                     "command" : "extension.vsKubernetesRefreshExplorer",
@@ -206,7 +225,53 @@
             "category": "Kubernetes Draft"
         }, {
             "command": "extension.vsKubernetesRefreshExplorer",
-            "title": "Refresh"
+            "title": "Refresh",
+            "category": "Kubernetes"
+        }, {
+            "command": "extension.helmVersion",
+            "title": "Version (Client)",
+            "description": "Get the version of the local Helm client.",
+            "category": "Helm"
+        }, {
+            "command": "extension.helmLint",
+            "title": "Lint",
+            "description": "Run the Helm linter on this chart.",
+            "category": "Helm"
+        }, {
+            "command": "extension.helmDepUp",
+            "title": "Dependency Update",
+            "description": "Update the dependencies listed in requirements.yaml.",
+            "category": "Helm"
+        }, {
+            "command": "extension.helmDryRun",
+            "title": "Dry Run",
+            "description": "Run 'helm install --dry-run --debug' on this chart.",
+            "category": "Helm"
+        }, {
+            "command": "extension.helmTemplate",
+            "title": "Template",
+            "description": "Run 'helm template' on this chart. Requires the helm-template plugin.",
+            "category": "Helm"
+        }, {
+            "command": "extension.helmInsertReq",
+            "title": "Insert Dependency",
+            "description": "Insert a dependency YAML fragment",
+            "category": "Helm"
+        }, {
+            "command": "extension.helmTemplatePreview",
+            "title": "Preview Template",
+            "description": "Run 'helm template' on this chart and show only this file. Requires the helm-template plugin.",
+            "category": "Helm"
+        }, {
+            "command": "extension.helmInspectValues",
+            "title": "Inspect Chart",
+            "description": "Inspect a Helm Chart",
+            "category": "Helm"
+        }, {
+            "command": "extension.helmCreate",
+            "title": "Create Chart",
+            "description": "Create a new Helm Chart",
+            "category": "Helm"
         }],
         "languages": [
             {
