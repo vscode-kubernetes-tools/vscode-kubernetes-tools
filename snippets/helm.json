@@ -192,8 +192,8 @@
   "range-list": {
     "prefix": "rangeList",
     "body": [
-      "{{- range \\$i, \\$val := ${1:$list} }}",
-      "  ${2}",
+      "{{- range \\$i, \\$val := ${1:list} }}",
+      "  $2",
       "{{ end -}}"
     ],
     "description": "Loop over a list"
@@ -201,8 +201,8 @@
   "range-map": {
     "prefix": "rangeDict",
     "body": [
-      "{{- range \\$key, \\$val := ${1:$dict} }}",
-      "  ${2}",
+      "{{- range \\$key, \\$val := ${1:dict} }}",
+      "  $2",
       "{{ end -}}"
     ],
     "description": "Loop over a dict or map"
@@ -210,8 +210,8 @@
   "range-until": {
     "prefix": "rangeUntil",
     "body": [
-      "{{- range \\$i := until ${1:$number} }}",
-      "  ${2}",
+      "{{- range \\$i := until ${1:number} }}",
+      "  $2",
       "{{ end -}}"
     ],
     "description": "Loop a fixed number of times."
