@@ -99,6 +99,10 @@ export function helmLint() {
 // helmInspect inspects a packaged chart or a chart dir and returns the values.
 // If a non-tgz, non-directory file is passed, this tries to find a parent chart.
 export function helmInspectValues(u: vscode.Uri) {
+    if (!u) {
+        vscode.window.showErrorMessage("Helm Inspect Values is primarily for inspecting packaged charts and directories. Launch the command from a file or directory in the Explorer pane.");
+        return;
+    }
     let uri = vscode.Uri.parse("helm-inspect-values://" + u.fsPath);
     vscode.commands.executeCommand("vscode.previewHtml", uri, vscode.ViewColumn.Two, "Inspect");
 }
