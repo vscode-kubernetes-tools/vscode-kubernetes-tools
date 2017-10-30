@@ -283,6 +283,10 @@ export function searchForChart(name: string, version?: string): Requirement {
     }
     let hh = helmHome();
     let reposFile = filepath.join(hh, "repository", "repositories.yaml");
+    if (!fs.existsSync(reposFile)) {
+        vscode.window.showErrorMessage("Helm repositories file " + reposFile + " not found.");
+        return;
+    }
     let repos = YAML.load(reposFile);
     let req;
     repos.repositories.forEach((repo) => {

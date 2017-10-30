@@ -36,6 +36,8 @@
         "onCommand:extension.helmDryRun",
         "onCommand:extension.helmVersion",
         "onCommand:extension.helmCreate",
+        "onCommand:extension.helmInsertReq",
+        "onCommand:extension.helmDepUp",
         "onCommand:extension.vsKubernetesDraftCreate",
         "onCommand:extension.vsKubernetesDraftUp",
         "onView:extension.vsKubernetesExplorer",
