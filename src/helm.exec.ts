@@ -50,6 +50,10 @@ export function helmTemplatePreview() {
         return;
     }
 
+    if (!ensureHelm()) {
+        return;
+    }
+
     let u = vscode.Uri.parse(HELM_PREVIEW_URI);
     let f = filepath.basename(filePath);
     vscode.commands.executeCommand("vscode.previewHtml", u, vscode.ViewColumn.Two, `Preview ${ f }`);
@@ -222,10 +226,7 @@ export function pickChartForFile(file: string, fn) {
 //
 // This will abort and send an error message if Helm is not installed.
 export function helmExec(args: string, fn) {
-    try {
-        ensureHelm();
-    } catch (e) {
-        vscode.window.showErrorMessage("You must install Helm on your executable path");
+    if (!ensureHelm()) {
         return;
     }
     let cmd = "helm " + args;
@@ -239,8 +240,10 @@ export function isHelmChart(path: string): boolean {
 
 export function ensureHelm() {
     if (!shell.which("helm")) {
-        throw "helm not installed";
+        vscode.window.showErrorMessage("You must install Helm on your executable path");
+        return false;
     }
+    return true;
 }
 
 export class Requirement {
