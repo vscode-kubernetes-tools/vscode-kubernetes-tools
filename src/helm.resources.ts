@@ -1,21 +1,22 @@
 import * as vscode from 'vscode';
 import * as v1 from './v1';
 import * as _ from 'lodash';
-import * as shell from 'shelljs';
+import * as shelljs from 'shelljs';
 import * as filepath from 'path';
+import { shell } from './shell';
 
 // Resources describes Kubernetes resource keywords.
 export class Resources {
     public all(): vscode.CompletionItem[] {
-        let home = shell.env["HOME"];
+        let home = shell.home();
         let schemaDir = filepath.join(home, ".kube/schema");
-        if (!shell.test("-d", schemaDir)) {
+        if (!shelljs.test("-d", schemaDir)) {
             // Return the default set.
             return this.v1();
         }
         // Otherwise, try to dynamically build completion items from the
         // entire schema.
-        let kversion = _.last(shell.ls(schemaDir));
+        let kversion = _.last(shelljs.ls(schemaDir));
         console.log("Loading schema for version " + kversion);
 
         // Inside of the schemaDir, there are some top-level copies of the schemata.
@@ -25,12 +26,12 @@ export class Resources {
         // TPRs.
         let res = [];
         let path = filepath.join(schemaDir, kversion);
-        shell.ls(path).forEach((item) => {
+        shelljs.ls(path).forEach((item) => {
             let itemPath = filepath.join(path, item);
-            if (shell.test('-d', itemPath)) {
+            if (shelljs.test('-d', itemPath)) {
                 return;
             }
-            let schema = JSON.parse(shell.cat(itemPath));
+            let schema = JSON.parse(shelljs.cat(itemPath));
             if (!schema.models) {
                 return;
             }
