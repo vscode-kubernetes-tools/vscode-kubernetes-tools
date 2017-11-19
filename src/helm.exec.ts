@@ -107,6 +107,9 @@ export function helmInspectValues(u: vscode.Uri) {
         vscode.window.showErrorMessage("Helm Inspect Values is primarily for inspecting packaged charts and directories. Launch the command from a file or directory in the Explorer pane.");
         return;
     }
+    if (!ensureHelm()) {
+        return;
+    }
     let uri = vscode.Uri.parse("helm-inspect-values://" + u.fsPath);
     vscode.commands.executeCommand("vscode.previewHtml", uri, vscode.ViewColumn.Two, "Inspect");
 }

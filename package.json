@@ -92,12 +92,12 @@
                     "title": "Update Dependencies",
                     "when": "resourceFilename == requirements.yaml",
                     "command": "extension.helmDepUp",
-                    "group": "navigation@99"
+                    "group": "2_helm@99"
                 },
                 {
                     "when": "",
                     "command": "extension.helmInspectValues",
-                    "group": "navigation@98"
+                    "group": "2_helm@98"
                 }
             ],
             "view/title": [
