@@ -39,8 +39,9 @@
         "onCommand:extension.helmInsertReq",
         "onCommand:extension.helmDepUp",
         "onCommand:extension.helmInspectValues",
-        "onCommand:extension.vsKubernetesDraftCreate",
-        "onCommand:extension.vsKubernetesDraftUp",
+        "onCommand:extension.draftVersion",
+        "onCommand:extension.draftCreate",
+        "onCommand:extension.draftUp",
         "onView:extension.vsKubernetesExplorer",
         "onLanguage:helm"
     ],
@@ -219,13 +220,20 @@
             "title": "Configure from ACS",
             "category": "Kubernetes"
         }, {
-            "command": "extension.vsKubernetesDraftCreate",
-            "title": "Create",
-            "category": "Kubernetes Draft"
+            "command": "extension.draftVersion",
+            "title": "Version",
+            "description": "Get the version of the local Draft client.",
+            "category": "Draft"
         }, {
-            "command": "extension.vsKubernetesDraftUp",
+            "command": "extension.draftUp",
             "title": "Up",
-            "category": "Kubernetes Draft"
+            "description": "Build, deploy, and run the app in-cluster.",
+            "category": "Draft"
+        },  {
+            "command": "extension.draftCreate",
+            "title": "Create",
+            "description": "Create a new Draft project",
+            "category": "Draft"
         }, {
             "command": "extension.vsKubernetesRefreshExplorer",
             "title": "Refresh",

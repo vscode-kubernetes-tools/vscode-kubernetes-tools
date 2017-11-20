@@ -86,8 +86,6 @@ export function activate(context) {
         vscode.commands.registerCommand('extension.vsKubernetesDebug', debugKubernetes),
         vscode.commands.registerCommand('extension.vsKubernetesRemoveDebug', removeDebugKubernetes),
         vscode.commands.registerCommand('extension.vsKubernetesConfigureFromAcs', configureFromAcsKubernetes),
-        vscode.commands.registerCommand('extension.vsKubernetesDraftCreate', execDraftCreate),
-        vscode.commands.registerCommand('extension.vsKubernetesDraftUp', execDraftUp),
         vscode.commands.registerCommand('extension.vsKubernetesRefreshExplorer', () => treeProvider.refresh()),
 
         // Commands - Helm
@@ -100,6 +98,11 @@ export function activate(context) {
         vscode.commands.registerCommand('extension.helmDepUp', helmexec.helmDepUp),
         vscode.commands.registerCommand('extension.helmInsertReq', helmexec.insertRequirement),
         vscode.commands.registerCommand('extension.helmCreate', helmexec.helmCreate),
+
+        // Commands - Draft
+        vscode.commands.registerCommand('extension.draftVersion', execDraftVersion),
+        vscode.commands.registerCommand('extension.draftCreate', execDraftCreate),
+        vscode.commands.registerCommand('extension.draftUp', execDraftUp),
 
         // HTML renderers
         vscode.workspace.registerTextDocumentContentProvider(acs.uriScheme, acsui),
@@ -1247,6 +1250,20 @@ async function configureFromAcsKubernetes(request? : acs.UIRequest) {
     }
 }
 
+async function execDraftVersion() {
+    if (!(await draft.checkPresent())) {
+        return;
+    }
+
+    const dvResult = await draft.invoke("version");
+
+    if (dvResult.code === 0) {
+        host.showInformationMessage(dvResult.stdout);
+    } else {
+        host.showErrorMessage(dvResult.stderr);
+    }
+}
+
 async function execDraftCreate() {
     if (vscode.workspace.rootPath === undefined) {
         vscode.window.showErrorMessage('This command requires an open folder.');
@@ -1274,7 +1291,7 @@ enum DraftCreateResult {
 
 async function execDraftCreateApp(appName : string, pack? : string) : Promise<void> {
     const packOpt = pack ? ` -p ${pack}` : '';
-    const dcResult = await draft.invoke(`create -a ${appName} ${packOpt}`);
+    const dcResult = await draft.invoke(`create -a ${appName} ${packOpt} "${vscode.workspace.rootPath}"`);
 
     switch (draftCreateResult(dcResult, !!pack)) {
         case DraftCreateResult.Succeeded:
