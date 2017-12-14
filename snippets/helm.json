@@ -1,0 +1,238 @@
+{
+  "Chart.yaml": {
+    "prefix": "Chart.yaml",
+    "body": [
+      "apiVersion: v1",
+      "name: \"$1\"",
+      "description: \"${2:A helm chart}\"",
+      "version: 0.1.0"
+    ],
+    "description": "Create a Chart.yaml file"
+  },
+  "ConfigMap": {
+    "prefix": "kindConfigMap",
+    "body": [
+      "kind: ConfigMap",
+      "apiVersion: v1",
+      "metadata:",
+      "  name: ${1}",
+      "  namespace: ${3:default}",
+      "data:",
+      "  ${2}"
+    ],
+    "description": "Create a ConfigMap manifest"
+  },
+  "Deployment": {
+    "prefix": "kindDeployment",
+    "body": [
+      "apiVersion: extensions/v1beta1",
+      "kind: Deployment",
+      "metadata: {{ \\$fullname := printf \"%s-%s\" .Release.Name .Chart.Name | trunc 63 | trimSuffix \"-\" }}",
+      "  name: {{ \\$fullname }}",
+      "  labels:",
+      "    chart: \"{{ .Chart.Name }}-{{ .Chart.Version | replace \"+\" \"_\" }}\"",
+      "spec:",
+      "  replicas: {{ default 1 .Values.replicaCount | int }}",
+      "  template:",
+      "    metadata:",
+      "      labels:",
+      "        app: {{ \\$fullname }}",
+      "    spec:",
+      "      containers:",
+      "      - name: {{ .Chart.Name }}",
+      "        image: \"{{ .Values.image }}\"",
+      "        imagePullPolicy: IfNotPresent",
+      "        ports:",
+      "        - containerPort: {{ .Values.service.internalPort | int }}",
+      "        livenessProbe:",
+      "          httpGet:",
+      "            path: /",
+      "            port: {{ .Values.service.internalPort | int }}",
+      "        readinessProbe:",
+      "          httpGet:",
+      "            path: /",
+      "            port: {{ .Values.service.internalPort | int }}",
+      "        resources:",
+      "{{ toYaml .Values.resources | indent 10 }}"
+    ],
+    "description": "Create a Deployment manifest"
+  },
+  "Ingress": {
+    "prefix": "kindIngress",
+    "body": [
+      "{{- if .Values.ingress.enabled -}}",
+      "{{- \\$serviceName := $1 . -}}",
+      "{{- \\$servicePort := .Values.service.externalPort -}}",
+      "apiVersion: extensions/v1beta1",
+      "kind: Ingress",
+      "metadata:",
+      "  name: $1",
+      "  labels:",
+      "    app: $1",
+      "    chart: \"{{ .Chart.Name }}-{{ .Chart.Version | replace \"+\" \"_\" }}\"",
+      "    release: \"{{ .Release.Name }}\"",
+      "    heritage: \"{{ .Release.Service }}\"",
+      "  annotations:",
+      "    {{- range \\$key, \\$value := .Values.ingress.annotations }}",
+      "      {{ \\$key }}: {{ \\$value | quote }}",
+      "    {{- end }}",
+      "spec:",
+      "  rules:",
+      "    {{- range \\$host := .Values.ingress.hosts }}",
+      "    - host: {{ \\$host }}",
+      "      http:",
+      "        paths:",
+      "          - path: /",
+      "            backend:",
+      "              serviceName: {{ \\$serviceName }}",
+      "              servicePort: {{ \\$servicePort }}",
+      "    {{- end -}}",
+      "  {{- if .Values.ingress.tls }}",
+      "  tls:",
+      "{{ toYaml .Values.ingress.tls | indent 4 }}",
+      "  {{- end -}}",
+      "{{- end -}}"
+    ],
+    "description": "Create a Ingress manifest"
+  },
+  "Pod": {
+    "prefix": "kindPod",
+    "body": [
+      "apiVersion: v1",
+      "kind: Pod",
+      "metadata:",
+      "  name: \"{{.Release.Name}}-{{.Values.Name}}\"",
+      "  labels:",
+      "    # The \"heritage\" label is used to track which tool deployed a given chart.",
+      "    # It is useful for admins who want to see what releases a particular tool",
+      "    # is responsible for.",
+      "    heritage: {{.Release.Service | quote }}",
+      "    # The \"release\" convention makes it easy to tie a release to all of the",
+      "    # Kubernetes resources that were created as part of that release.",
+      "    release: {{.Release.Name | quote }}",
+      "    # This makes it easy to audit chart usage.",
+      "    chart: \"{{.Chart.Name}}-{{.Chart.Version}}\"",
+      "spec:",
+      "  # This shows how to use a simple value. This will look for a passed-in value",
+      "  # called restartPolicy. If it is not found, it will use the default value.",
+      "  # {{default \"Never\" .restartPolicy}} is a slightly optimized version of the",
+      "  # more conventional syntax: {{.restartPolicy | default \"Never\"}}",
+      "  restartPolicy: {{default \"Never\" .Values.restartPolicy}}",
+      "  containers:",
+      "  - name: main",
+      "    image: \"{{ default \"alpine:3.3\" .Values.image }}\""
+    ],
+    "description": "Create a Pod manifest"
+  },
+  "Secret": {
+    "prefix": "kindSecret",
+    "body": [
+      "apiVersion: v1",
+      "kind: Secret",
+      "metadata:",
+      "  name: mysecret",
+      "type: Opaque",
+      "data:",
+      "  # Example:",
+      "  # password: {{ .Values.password | b64enc }}"
+    ],
+    "description": "Create a Secret manifest"
+  },
+  "Service": {
+    "prefix": "kindSerice",
+    "body": [
+      "apiVersion: v1",
+      "kind: Service",
+      "metadata:",
+      "  name: $1",
+      "  labels:",
+      "    chart: \"{{ .Chart.Name }}-{{ .Chart.Version | replace \"+\" \"_\" }}\"",
+      "spec:",
+      "  type: {{ .Values.service.type }}",
+      "  ports:",
+      "  - port: {{ .Values.service.externalPort }}",
+      "    targetPort: {{ .Values.service.internalPort }}",
+      "    protocol: TCP",
+      "    name: {{ .Values.service.name }}",
+      "  selector:",
+      "    app: $1"
+    ],
+    "description": "Create a Service manifest"
+  },
+  "define": {
+    "prefix": "define",
+    "body": [
+      "{{- define \"${1}\" }}",
+      "${2}",
+      "{{- end -}}"
+    ],
+    "description": "Define a template"
+  },
+  "if": {
+    "prefix": "if",
+    "body": [
+      "{{- if ${1:condition} -}}",
+      "{{- end -}}"
+    ],
+    "description": "Create a conditional"
+  },
+  "ifelse": {
+    "prefix": "ifElse",
+    "body": [
+      "{{- if ${1:condition} -}}",
+      "  ${2}",
+      "{{- elseif ${3:condition2} -}}",
+      "  ${4}",
+      "{{- else -}}",
+      "  ${5}",
+      "{{- end -}}"
+    ],
+    "description": "Create a conditional with elseif, else"
+  },
+  "range-list": {
+    "prefix": "rangeList",
+    "body": [
+      "{{- range \\$i, \\$val := ${1:list} }}",
+      "  $2",
+      "{{ end -}}"
+    ],
+    "description": "Loop over a list"
+  },
+  "range-map": {
+    "prefix": "rangeDict",
+    "body": [
+      "{{- range \\$key, \\$val := ${1:dict} }}",
+      "  $2",
+      "{{ end -}}"
+    ],
+    "description": "Loop over a dict or map"
+  },
+  "range-until": {
+    "prefix": "rangeUntil",
+    "body": [
+      "{{- range \\$i := until ${1:number} }}",
+      "  $2",
+      "{{ end -}}"
+    ],
+    "description": "Loop a fixed number of times."
+  },
+  "requirements.yaml": {
+    "prefix": "requirements.yaml",
+    "body": [
+      "dependencies:",
+      "- name: ${1:redis}",
+      "  version: \"${2:\u003e0.1.0}\"",
+      "  repository: ${3:https://kubernetes-charts.storage.googleapis.com/}"
+    ],
+    "description": "Create a Helm requirements.yaml"
+  },
+  "with": {
+    "prefix": "with",
+    "body": [
+      "{{- with ${1:.Values} }}",
+      "  ${2}",
+      "{{- end -}}"
+    ],
+    "description": "Create a with block"
+  }
+}

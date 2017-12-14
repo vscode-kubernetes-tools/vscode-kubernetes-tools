@@ -1,0 +1,4 @@
+dependencies:
+- name: ${1:redis}
+  version: "${2:>0.1.0}"
+  repository: ${3:https://kubernetes-charts.storage.googleapis.com/}
