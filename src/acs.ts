@@ -3,6 +3,7 @@
 import { TextDocumentContentProvider, Uri, EventEmitter, Event, ProviderResult, CancellationToken } from 'vscode';
 import { Shell } from './shell';
 import { FS } from './fs';
+import { Advanceable, Errorable, UIRequest, StageData, OperationState, OperationMap } from './wizard';
 
 export const uriScheme : string = "acsconfigure";
 
@@ -14,51 +15,11 @@ export function uiProvider(fs: FS, shell: Shell) : TextDocumentContentProvider &
     return new UIProvider(fs, shell);
 }
 
-export interface Advanceable {
-    start(operationId: string) : void;
-    next(request: UIRequest): Promise<void>;
-}
-
-interface Errorable<T> {
-    readonly succeeded: boolean;
-    readonly result: T;
-    readonly error: string[];
-}
-
-export interface UIRequest {
-    readonly operationId: string;
-    readonly requestData: string;
-}
-
-interface StageData {
-    readonly actionDescription: string;
-    readonly result: Errorable<any>;
-}
-
-interface OperationState {
-    readonly stage: OperationStage;
-    readonly last: StageData;
-}
-
 enum OperationStage {
     Initial,
     PromptForSubscription,
     PromptForCluster,
     Complete,
-}
-
-class OperationMap {
-
-    private operations: any = {};
-
-    set(operationId: string, operationState: OperationState) {
-        this.operations[operationId] = operationState;
-    }
-
-    get(operationId: string) : OperationState {
-        return this.operations[operationId];
-    }
-
 }
 
 interface Context {
@@ -77,7 +38,7 @@ class UIProvider implements TextDocumentContentProvider, Advanceable {
 	private _onDidChange: EventEmitter<Uri> = new EventEmitter<Uri>();
     readonly onDidChange: Event<Uri> = this._onDidChange.event;
 
-    private operations: OperationMap = new OperationMap;
+    private operations: OperationMap<OperationStage> = new OperationMap<OperationStage>();
 
     provideTextDocumentContent(uri: Uri, token: CancellationToken) : ProviderResult<string> {
         const operationId = uri.path.substr(1);
@@ -106,7 +67,7 @@ class UIProvider implements TextDocumentContentProvider, Advanceable {
     }
 }
 
-async function next(context: Context, sourceState: OperationState, requestData: string) : Promise<OperationState> {
+async function next(context: Context, sourceState: OperationState<OperationStage>, requestData: string) : Promise<OperationState<OperationStage>> {
     switch (sourceState.stage) {
         case OperationStage.Initial:
             return {
@@ -263,7 +224,7 @@ function installCliInfo(context: Context) {
     }
 }
 
-function render(operationId: string, state: OperationState) : string {
+function render(operationId: string, state: OperationState<OperationStage>) : string {
     switch (state.stage) {
         case OperationStage.Initial:
              return renderInitial();
@@ -391,7 +352,7 @@ function internalError(error: string) : string {
     return `
 <h1>Internal extension error</h1>
 ${styles()}
-<p class='error'>An internal error occurred in the vs-kubernetes extension.</p>
+<p class='error'>An internal error occurred in the vscode-kubernetes-tools extension.</p>
 <p>This is not an Azure or Kubernetes issue.  Please report error text '${error}' to the extension authors.</p>
 `;
 }
