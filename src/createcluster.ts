@@ -3,7 +3,7 @@
 import { TextDocumentContentProvider, Uri, EventEmitter, Event, ProviderResult, CancellationToken } from 'vscode';
 import { Shell } from './shell';
 import { FS } from './fs';
-import { Advanceable, Errorable, UIRequest, StageData, OperationState, OperationMap, advanceUri as wizardAdvanceUri, selectionChangedScript as wizardSelectionChangedScript, script, waitScript } from './wizard';
+import { Advanceable, Errorable, UIRequest, StageData, OperationState, OperationMap, advanceUri as wizardAdvanceUri, selectionChangedScript as wizardSelectionChangedScript, script, waitScript, extend } from './wizard';
 import { error } from 'util';
 
 export const uriScheme : string = "k8screatecluster";
@@ -80,8 +80,10 @@ async function next(context: Context, sourceState: OperationState<OperationStage
         case OperationStage.PromptForClusterType:
             const selectedClusterType : string = requestData;
             if (selectedClusterType == 'Azure Kubernetes Service' || selectedClusterType == 'Azure Container Service') {
+                const subscriptions = await getSubscriptionList(context);
+                const stateInfo = extend(subscriptions, (subs) => { return { clusterType: selectedClusterType, subscriptions: subs }; });
                 return {
-                    last: await getSubscriptionList(context),
+                    last: stateInfo,
                     stage: OperationStage.AzurePromptForSubscription
                 };
             } else {
@@ -92,8 +94,10 @@ async function next(context: Context, sourceState: OperationState<OperationStage
             }
         case OperationStage.AzurePromptForSubscription:
             const selectedSubscription : string = requestData;
+            const selectedClusterTypeEx = sourceState.last.result.result.clusterType;
+            const stateInfo = {clusterType: selectedClusterTypeEx, subscription: selectedSubscription };
             return {
-                last: { actionDescription: 'fie', result: { succeeded: true, result: selectedSubscription, error: [] } },
+                last: { actionDescription: 'fie', result: { succeeded: true, result: stateInfo, error: [] } },
                 stage: OperationStage.Complete
             };
         default:
@@ -226,7 +230,7 @@ function renderPromptForSubscription(operationId: string, last: StageData) : str
     if (!last.result.succeeded) {
         return notifyCliError('PromptForSubscription', last);
     }
-    const subscriptions : string[] = last.result.result;
+    const subscriptions : string[] = last.result.result.subscriptions;
     if (!subscriptions || subscriptions.length === 0) {
         return notifyNoOptions('PromptForSubscription', 'No subscriptions', 'There are no Azure subscriptions associated with your Azure login.');
     }
@@ -254,9 +258,10 @@ function renderPromptForSubscription(operationId: string, last: StageData) : str
 
 function renderComplete(last: StageData) : string {
     const title = last.result.succeeded ? 'Creating cluster' : `Error ${last.actionDescription}`;
-    const createResult = last.result.result;
-    const clusterType = createResult as string;
-    const message = `<p>You chose ${clusterType}</p>`;
+    const stateInfo = last.result.result;
+    const clusterType = stateInfo.clusterType as string;
+    const subscription = stateInfo.subscription as string;
+    const message = `<p>You chose ${clusterType} in ${subscription}</p>`;
     return `<!-- Complete -->
             <h1>${title}</h1>
             ${styles()}
