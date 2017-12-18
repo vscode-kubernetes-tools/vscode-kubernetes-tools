@@ -3,7 +3,7 @@
 import { TextDocumentContentProvider, Uri, EventEmitter, Event, ProviderResult, CancellationToken } from 'vscode';
 import { Shell } from './shell';
 import { FS } from './fs';
-import { Advanceable, Errorable, UIRequest, StageData, OperationState, OperationMap } from './wizard';
+import { Advanceable, Errorable, UIRequest, StageData, OperationState, OperationMap, advanceUri as wizardAdvanceUri, selectionChangedScript as wizardSelectionChangedScript, script, waitScript } from './wizard';
 
 export const uriScheme : string = "acsconfigure";
 
@@ -391,44 +391,14 @@ function styles() : string {
 `;
 }
 
-function script(text: string) : string {
-    return `
-<script>
-${text}
-</script>
-`;
-}
-
-function waitScript(title: string) : string {
-    const js = `
-function promptWait() {
-    document.getElementById('h').innerText = '${title}';
-    document.getElementById('content').innerText = '';
-}
-`;
-    return script(js);
-}
+const commandName = 'vsKubernetesConfigureFromAcs';
 
 function selectionChangedScript(operationId: string) : string {
-    const js = `
-function selectionChanged() {
-    var selectCtrl = document.getElementById('selector');
-    var selection = selectCtrl.options[selectCtrl.selectedIndex].value;
-    var request = '{"operationId":"${operationId}", "requestData":"' + selection + '"}';
-    document.getElementById('nextlink').href = encodeURI('command:extension.vsKubernetesConfigureFromAcs?' + request);
-}
-`;
-
-    return script(js);
+    return wizardSelectionChangedScript(commandName, operationId);
 }
 
 function advanceUri(operationId: string, requestData: string) : string {
-    const request : UIRequest = {
-        operationId: operationId,
-        requestData: requestData
-    };
-    const uri = encodeURI("command:extension.vsKubernetesConfigureFromAcs?" + JSON.stringify(request));
-    return uri;
+    return wizardAdvanceUri(commandName, operationId, requestData);
 }
 
 async function verifyPrerequisitesAsync(context: Context) : Promise<string[]> {
