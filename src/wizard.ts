@@ -51,8 +51,43 @@ export function selectionChangedScript(commandName: string, operationId: string)
 function selectionChanged() {
     var selectCtrl = document.getElementById('selector');
     var selection = selectCtrl.options[selectCtrl.selectedIndex].value;
-    var request = '{"operationId":"${operationId}", "requestData":"' + selection + '"}';
+    var request = '{"operationId":"${operationId}","requestData":"' + selection + '"}';
     document.getElementById('nextlink').href = encodeURI('command:extension.${commandName}?' + request);
+}
+`;
+
+    return script(js);
+}
+
+export interface ControlMapping {
+    readonly ctrlName : string;
+    readonly extractVal : string;
+    readonly jsonKey : string;
+}
+
+export function selectionChangedScriptMulti(commandName: string, operationId: string, mappings: ControlMapping[]) : string {
+    let gatherRequestJs = "";
+    for (const mapping of mappings) {
+        const ctrlName : string = mapping.ctrlName;
+        const extractVal : string = mapping.extractVal;
+        const jsonKey : string = mapping.jsonKey;
+        const mappingJs = `
+    var ${jsonKey}Ctrl = document.getElementById('${ctrlName}');
+    var ${jsonKey}Value = ${extractVal};
+    selection = selection + '\\\\"${jsonKey}\\\\":\\\\"' + ${jsonKey}Value + '\\\\",';
+`;
+        gatherRequestJs = gatherRequestJs + mappingJs;
+    }
+
+    const js = `
+function selectionChanged() {
+    var selection = "{";
+    ${gatherRequestJs}
+    selection = selection.slice(0, -1) + "}";
+    var request = '{"operationId":"${operationId}","requestData":"' + selection + '"}';
+    document.getElementById('nextlink').href = encodeURI('command:extension.${commandName}?' + request);
+    var u = document.getElementById('uri');
+    if (u) { u.innerText = document.getElementById('nextlink').href; }
 }
 `;
 

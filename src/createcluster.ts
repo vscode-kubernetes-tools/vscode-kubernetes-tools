@@ -3,7 +3,7 @@
 import { TextDocumentContentProvider, Uri, EventEmitter, Event, ProviderResult, CancellationToken } from 'vscode';
 import { Shell } from './shell';
 import { FS } from './fs';
-import { Advanceable, Errorable, UIRequest, StageData, OperationState, OperationMap, advanceUri as wizardAdvanceUri, selectionChangedScript as wizardSelectionChangedScript, script, waitScript, extend } from './wizard';
+import { Advanceable, Errorable, UIRequest, StageData, OperationState, OperationMap, advanceUri as wizardAdvanceUri, selectionChangedScript as wizardSelectionChangedScript, selectionChangedScriptMulti as wizardSelectionChangedScriptMulti, script, waitScript, extend, ControlMapping } from './wizard';
 import { error } from 'util';
 
 export const uriScheme : string = "k8screatecluster";
@@ -16,10 +16,21 @@ export function uiProvider(fs: FS, shell: Shell) : TextDocumentContentProvider &
     return new UIProvider(fs, shell);
 }
 
+// Sequence:
+// * Which cloud?
+//   * Which subscription?
+//   * Cluster name, RG name (and check if RG exists cos we need to create it if not), location
+//   * Master VM size, master count (ACS only - skip maybe?)
+//   * Agent VM size, agent count, agent OS disk size (?)
+//   * k8s version? (AKS = -k, ACS = --orchestrator-type + --orchestrator-release)
+//   * az acs/aks create --no-wait
+
 enum OperationStage {
     Initial,
     PromptForClusterType,
     AzurePromptForSubscription,
+    AzurePromptForMetadata,
+    AzurePromptForAgentSettings,
     InternalError,
     Complete,
 }
@@ -81,9 +92,9 @@ async function next(context: Context, sourceState: OperationState<OperationStage
             const selectedClusterType : string = requestData;
             if (selectedClusterType == 'Azure Kubernetes Service' || selectedClusterType == 'Azure Container Service') {
                 const subscriptions = await getSubscriptionList(context);
-                const stateInfo = extend(subscriptions, (subs) => { return { clusterType: selectedClusterType, subscriptions: subs }; });
+                const pctStateInfo = extend(subscriptions, (subs) => { return { clusterType: selectedClusterType, subscriptions: subs }; });
                 return {
-                    last: stateInfo,
+                    last: pctStateInfo,
                     stage: OperationStage.AzurePromptForSubscription
                 };
             } else {
@@ -94,10 +105,24 @@ async function next(context: Context, sourceState: OperationState<OperationStage
             }
         case OperationStage.AzurePromptForSubscription:
             const selectedSubscription : string = requestData;
-            const selectedClusterTypeEx = sourceState.last.result.result.clusterType;
-            const stateInfo = {clusterType: selectedClusterTypeEx, subscription: selectedSubscription };
+            const selectedClusterTypeEx = sourceState.last.result.result.clusterType;  // TODO: rename
+            const psStateInfo = {clusterType: selectedClusterTypeEx, subscription: selectedSubscription };
             return {
-                last: { actionDescription: 'fie', result: { succeeded: true, result: stateInfo, error: [] } },
+                last: { actionDescription: 'selecting subscription', result: { succeeded: true, result: psStateInfo, error: [] } },
+                stage: OperationStage.AzurePromptForMetadata
+            };
+        case OperationStage.AzurePromptForMetadata:
+            const metadata = JSON.parse(requestData);
+            const pmStateInfo = extend(sourceState.last, (v) => Object.assign({}, v, {metadata: metadata}));
+            return {
+                last: { actionDescription: 'collecting cluster metadata', result: { succeeded: true, result: pmStateInfo, error: [] } },
+                stage: OperationStage.AzurePromptForAgentSettings
+            };
+        case OperationStage.AzurePromptForAgentSettings:
+            const agentSettings = JSON.parse(requestData);
+            const pasStateInfo = extend(sourceState.last, (v) => Object.assign({}, v, {agentSettings: agentSettings}));
+            return {
+                last: { actionDescription: 'collecting agent settings', result: { succeeded: true, result: pasStateInfo, error: [] } },
                 stage: OperationStage.Complete
             };
         default:
@@ -116,11 +141,9 @@ function unsupportedClusterType(clusterType: string) : StageData {
 }
 
 function listClusterTypes() : StageData {
-    // list subs
     const clusterTypes = [
         'Azure Kubernetes Service',
-        'Azure Container Service',
-        'Honest Johns All-Reliable Bargain Kubernetes Hosting'
+        'Azure Container Service'
     ];
     return {
         actionDescription: 'listing cluster types',
@@ -189,6 +212,10 @@ function render(operationId: string, state: OperationState<OperationStage>) : st
             return renderPromptForClusterType(operationId, state.last);
         case OperationStage.AzurePromptForSubscription:
             return renderPromptForSubscription(operationId, state.last);
+        case OperationStage.AzurePromptForMetadata:
+            return renderPromptForMetadata(operationId, state.last);
+        case OperationStage.AzurePromptForAgentSettings:
+            return renderPromptForAgentSettings(operationId, state.last);
         case OperationStage.InternalError:
            return renderInternalError(state.last);
         case OperationStage.Complete:
@@ -222,7 +249,6 @@ function renderPromptForClusterType(operationId: string, last: StageData) : stri
             <a id='nextlink' href='${initialUri}' onclick='promptWait()'>Next &gt;</a>
             </p>
             </div>`;
-
 }
 
 // TODO: duplicate of code in acs.ts
@@ -256,12 +282,67 @@ function renderPromptForSubscription(operationId: string, last: StageData) : str
             </div>`;
 }
 
+function renderPromptForMetadata(operationId: string, last: StageData) : string {
+    const locations : string[] = [ 'Australia Southeast', 'West US', 'Europe North' ];
+    const initialUri = advanceUri(operationId, `{"location":"${locations[0]}","clusterName":"k8scluster","resourceGroupName":"k8scluster"}`);
+    const options = locations.map((s) => `<option value="${s}">${s}</option>`).join('\n');
+    const mappings = [
+        {ctrlName: "selector", extractVal: "locationCtrl.options[locationCtrl.selectedIndex].value", jsonKey: "location"},
+        {ctrlName: "clustername", extractVal: "clusterNameCtrl.value", jsonKey: "clusterName"},
+        {ctrlName: "resourcegroupname", extractVal: "resourceGroupNameCtrl.value", jsonKey: "resourceGroupName"}
+    ];
+    return `<!-- PromptForMetadata -->
+            <h1 id='h'>Azure cluster settings</h1>
+            ${styles()}
+            ${selectionChangedScriptMulti(operationId, mappings)}
+            <div id='content'>
+            <p>Cluster name: <input id='clustername' type='text' value='k8scluster' onchange='selectionChanged()'/>
+            <p>Resource group name: <input id='resourcegroupname' type='text' value='k8scluster' onchange='selectionChanged()'/>
+            <p>
+            Location: <select id='selector' onchange='selectionChanged()'>
+            ${options}
+            </select>
+            </p>
+
+            <p>
+            <a id='nextlink' href='${initialUri}' onclick='promptWait()'>Next &gt;</a>
+            </p>
+            </div>`;
+}
+
+function renderPromptForAgentSettings(operationId: string, last: StageData) : string {
+    const vmSizes : string[] = [ 'Standard_D2_v2', 'Standard_D3_v2', 'Standard_D4_v2' ];
+    const initialUri = advanceUri(operationId, `{"vmSize": "${vmSizes[0]}", "count": 3}`);
+    const options = vmSizes.map((s) => `<option value="${s}">${s}</option>`).join('\n');
+    const mappings = [
+        {ctrlName: "selector", extractVal: "vmSizeCtrl.options[vmSizeCtrl.selectedIndex].value", jsonKey: "vmSize"},
+        {ctrlName: "agentcount", extractVal: "countCtrl.value", jsonKey: "count"},
+    ];
+    return `<!-- PromptForAgentSettings -->
+            <h1 id='h'>Azure agent settings</h1>
+            ${styles()}
+            ${selectionChangedScriptMulti(operationId, mappings)}
+            <div id='content'>
+            <p>Agent count: <input id='agentcount' type='text' value='3' onchange='selectionChanged()'/>
+            <p>
+            Agent VM size: <select id='selector' onchange='selectionChanged()'>
+            ${options}
+            </select>
+            </p>
+
+            <p>
+            <a id='nextlink' href='${initialUri}' onclick='promptWait()'>Create &gt;</a>
+            </p>
+            </div>`;
+
+}
+
 function renderComplete(last: StageData) : string {
     const title = last.result.succeeded ? 'Creating cluster' : `Error ${last.actionDescription}`;
     const stateInfo = last.result.result;
     const clusterType = stateInfo.clusterType as string;
     const subscription = stateInfo.subscription as string;
-    const message = `<p>You chose ${clusterType} in ${subscription}</p>`;
+    const message = `<p>${JSON.stringify(stateInfo, undefined, 2)}</p>`;
     return `<!-- Complete -->
             <h1>${title}</h1>
             ${styles()}
@@ -344,5 +425,9 @@ function advanceUri(operationId: string, requestData: string) : string {
 
 function selectionChangedScript(operationId: string) : string {
     return wizardSelectionChangedScript(commandName, operationId);
+}
+
+function selectionChangedScriptMulti(operationId: string, mappings: ControlMapping[]) : string {
+    return wizardSelectionChangedScriptMulti(commandName, operationId, mappings);
 }
 
