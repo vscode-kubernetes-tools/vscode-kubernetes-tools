@@ -92,9 +92,9 @@ async function next(context: Context, sourceState: OperationState<OperationStage
             const selectedClusterType : string = requestData;
             if (selectedClusterType == 'Azure Kubernetes Service' || selectedClusterType == 'Azure Container Service') {
                 const subscriptions = await getSubscriptionList(context);
-                const pctStateInfo = extend(subscriptions, (subs) => { return { clusterType: selectedClusterType, subscriptions: subs }; });
+                const pctStateInfo = extend(subscriptions.result, (subs) => { return { clusterType: selectedClusterType, subscriptions: subs }; });
                 return {
-                    last: pctStateInfo,
+                    last: { actionDescription: 'selecting cluster type', result: pctStateInfo },
                     stage: OperationStage.AzurePromptForSubscription
                 };
             } else {
@@ -105,7 +105,7 @@ async function next(context: Context, sourceState: OperationState<OperationStage
             }
         case OperationStage.AzurePromptForSubscription:
             const selectedSubscription : string = requestData;
-            const selectedClusterTypeEx = sourceState.last.result.result.clusterType;  // TODO: rename
+            const selectedClusterTypeEx = sourceState.last.result.result.clusterType;  // TODO: why the insane nesting?  // TODO: rename
             const psStateInfo = {clusterType: selectedClusterTypeEx, subscription: selectedSubscription };
             return {
                 last: { actionDescription: 'selecting subscription', result: { succeeded: true, result: psStateInfo, error: [] } },
@@ -113,16 +113,17 @@ async function next(context: Context, sourceState: OperationState<OperationStage
             };
         case OperationStage.AzurePromptForMetadata:
             const metadata = JSON.parse(requestData);
-            const pmStateInfo = extend(sourceState.last, (v) => Object.assign({}, v, {metadata: metadata}));
+            const pmStateInfo = extend(sourceState.last.result, (v) => Object.assign({}, v, {metadata: metadata}));
             return {
-                last: { actionDescription: 'collecting cluster metadata', result: { succeeded: true, result: pmStateInfo, error: [] } },
+                last: { actionDescription: 'collecting cluster metadata', result: pmStateInfo },
                 stage: OperationStage.AzurePromptForAgentSettings
             };
         case OperationStage.AzurePromptForAgentSettings:
             const agentSettings = JSON.parse(requestData);
-            const pasStateInfo = extend(sourceState.last, (v) => Object.assign({}, v, {agentSettings: agentSettings}));
+            const pasStateInfo = extend(sourceState.last.result, (v) => Object.assign({}, v, {agentSettings: agentSettings}));
+            const creationResult = await createCluster(context, pasStateInfo.result);
             return {
-                last: { actionDescription: 'collecting agent settings', result: { succeeded: true, result: pasStateInfo, error: [] } },
+                last: creationResult,
                 stage: OperationStage.Complete
             };
         default:
@@ -202,7 +203,75 @@ async function listSubscriptionsAsync(context: Context) : Promise<Errorable<stri
     }
 }
 
+async function loginAsync(context: Context, subscription: string) : Promise<Errorable<void>> {
+    const sr = await context.shell.exec(`az account set --subscription "${subscription}"`);
+
+    if (sr.code === 0 && !sr.stderr) {
+        return { succeeded: true, result: null, error: [] };
+    } else {
+        return { succeeded: false, result: null, error: [sr.stderr] };
+    }
+}
+
 // end TODO
+
+async function ensureResourceGroupAsync(context: Context, resourceGroupName: string, location: string) : Promise<Errorable<void>> {
+    const sr = await context.shell.exec(`az group create -n "${resourceGroupName}" -l "${location}"`);
+
+    if (sr.code === 0 && !sr.stderr) {
+        return { succeeded: true, result: null, error: [] };
+    } else {
+        return { succeeded: false, result: null, error: [sr.stderr] };
+    }
+}
+
+async function execCreateClusterCmd(context: Context, options: any) : Promise<Errorable<void>> {
+    let clusterCmd = 'aks';
+    if (options.clusterType == 'Azure Container Service') {
+        clusterCmd = 'acs';
+    }
+    let createCmd = `az ${clusterCmd} create -n "${options.metadata.clusterName}" -g "${options.metadata.resourceGroupName}" -l "${options.metadata.location}" --agent-count ${options.agentSettings.count} --agent-vm-size "${options.agentSettings.vmSize}" --no-wait`;  // use long form options for ACS compatibility
+    if (clusterCmd == 'acs') {
+        createCmd = createCmd + " -t Kubernetes";
+    }
+    
+    const sr = await context.shell.exec(createCmd);
+
+    if (sr.code === 0 && !sr.stderr) {
+        return { succeeded: true, result: null, error: [] };
+    } else {
+        return { succeeded: false, result: null, error: [sr.stderr] };
+    }
+}
+
+async function createCluster(context: Context, options: any) : Promise<StageData> {
+    const description = `
+    Created ${options.clusterType} cluster ${options.metadata.clusterName} in ${options.metadata.resourceGroupName} with ${options.agentSettings.count} agents.
+    `;
+
+    const login = await loginAsync(context, options.subscription);
+    if (!login.succeeded) {
+        return {
+            actionDescription: 'logging into subscription',
+            result: login
+        };
+    }
+
+    const ensureResourceGroup = await ensureResourceGroupAsync(context, options.metadata.resourceGroupName, options.metadata.location);
+    if (!ensureResourceGroup.succeeded) {
+        return {
+            actionDescription: 'ensuring resource group exists',
+            result: ensureResourceGroup
+        };
+    }
+
+    const createCluster = await execCreateClusterCmd(context, options);
+
+    return {
+        actionDescription: 'creating cluster',
+        result: createCluster
+    };
+}
 
 function render(operationId: string, state: OperationState<OperationStage>) : string {
     switch (state.stage) {
@@ -265,7 +334,6 @@ function renderPromptForSubscription(operationId: string, last: StageData) : str
     return `<!-- PromptForSubscription -->
             <h1 id='h'>Choose subscription</h1>
             ${styles()}
-            ${waitScript('Listing clusters')}
             ${selectionChangedScript(operationId)}
             <div id='content'>
             <p>
@@ -283,7 +351,7 @@ function renderPromptForSubscription(operationId: string, last: StageData) : str
 }
 
 function renderPromptForMetadata(operationId: string, last: StageData) : string {
-    const locations : string[] = [ 'Australia Southeast', 'West US', 'Europe North' ];
+    const locations : string[] = [ 'Australia Southeast', 'East US', 'Central US', 'West US', 'Europe West' ];
     const initialUri = advanceUri(operationId, `{"location":"${locations[0]}","clusterName":"k8scluster","resourceGroupName":"k8scluster"}`);
     const options = locations.map((s) => `<option value="${s}">${s}</option>`).join('\n');
     const mappings = [
@@ -321,6 +389,7 @@ function renderPromptForAgentSettings(operationId: string, last: StageData) : st
     return `<!-- PromptForAgentSettings -->
             <h1 id='h'>Azure agent settings</h1>
             ${styles()}
+            ${waitScript('Creating cluster')}
             ${selectionChangedScriptMulti(operationId, mappings)}
             <div id='content'>
             <p>Agent count: <input id='agentcount' type='text' value='3' onchange='selectionChanged()'/>
@@ -338,11 +407,12 @@ function renderPromptForAgentSettings(operationId: string, last: StageData) : st
 }
 
 function renderComplete(last: StageData) : string {
-    const title = last.result.succeeded ? 'Creating cluster' : `Error ${last.actionDescription}`;
-    const stateInfo = last.result.result;
-    const clusterType = stateInfo.clusterType as string;
-    const subscription = stateInfo.subscription as string;
-    const message = `<p>${JSON.stringify(stateInfo, undefined, 2)}</p>`;
+    const title = last.result.succeeded ? 'Cluster creation has started' : `Error ${last.actionDescription}`;
+    const message = last.result.succeeded ?
+        `<p class='success'>Azure is creating the cluster, but this may take some time. You can now close this window.</p>` :
+        `<p class='error'>An error occurred while creating the cluster.</p>
+         <p><b>Details</b></p>
+         <p>${last.result.error[0]}</p>`;
     return `<!-- Complete -->
             <h1>${title}</h1>
             ${styles()}
@@ -354,6 +424,7 @@ function renderInternalError(last: StageData) : string {
 }
 
 // TODO: consider consolidating notifyCliError, notifyNoOptions, internalError() and styles() with acs
+// (note text of notifyCliError is slightly different though)
 function notifyCliError(stageId: string, last: StageData) : string {
     return `<!-- ${stageId} -->
         <h1>Error ${last.actionDescription}</h1>
@@ -361,7 +432,6 @@ function notifyCliError(stageId: string, last: StageData) : string {
         <ul>
         <li>Log into the Azure CLI (run az login in the terminal)</li>
         <li>Install the Azure CLI <a href='https://docs.microsoft.com/cli/azure/install-azure-cli'>(see the instructions for your operating system)</a></li>
-        <li>Configure Kubernetes from the command line using the az acs command</li>
         </ul>
         <p><b>Details</b></p>
         <p>${last.result.error}</p>`;

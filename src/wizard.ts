@@ -112,13 +112,10 @@ function promptWait() {
     return script(js);
 }
 
-export function extend(source: StageData, transformer: (o: any) => any) : StageData {
+export function extend(source: Errorable<any>, transformer: (o: any) => any) : Errorable<any> {
     return {
-        actionDescription: source.actionDescription,
-        result: {
-            succeeded: source.result.succeeded, 
-            result: transformer(source.result.result),
-            error: source.result.error
-        }
+        succeeded: source.succeeded, 
+        result: transformer(source.result),
+        error: source.error
     };
 }
