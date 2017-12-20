@@ -9,6 +9,20 @@ export interface Context {
     readonly shell: Shell;
 }
 
+export interface ServiceLocation {
+    readonly displayName: string;
+    readonly isPreview: boolean;
+}
+
+export interface Locations {
+    readonly locations: any;
+}
+
+export interface LocationRenderInfo {
+    readonly location: string;
+    readonly displayText: string;
+}
+
 export async function getSubscriptionList(context: Context) : Promise<StageData> {
     // check for prerequisites
     const prerequisiteErrors = await verifyPrerequisitesAsync(context);
@@ -30,7 +44,7 @@ export async function getSubscriptionList(context: Context) : Promise<StageData>
 async function verifyPrerequisitesAsync(context: Context) : Promise<string[]> {
     const errors = new Array<string>();
     
-    const sr = await context.shell.exec('az --help');
+    const sr = await context.shell.exec('az --version');
     if (sr.code !== 0 || sr.stderr) {
         errors.push('Azure CLI 2.0 not found - install Azure CLI 2.0 and log in');
     }

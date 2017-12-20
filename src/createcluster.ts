@@ -4,7 +4,7 @@ import { TextDocumentContentProvider, Uri, EventEmitter, Event, ProviderResult, 
 import { Shell } from './shell';
 import { FS } from './fs';
 import { Advanceable, Errorable, UIRequest, StageData, OperationState, OperationMap, advanceUri as wizardAdvanceUri, selectionChangedScript as wizardSelectionChangedScript, selectionChangedScriptMulti as wizardSelectionChangedScriptMulti, script, waitScript, extend, ControlMapping } from './wizard';
-import { Context, getSubscriptionList, loginAsync } from './azure';
+import { Context, getSubscriptionList, loginAsync, ServiceLocation, Locations } from './azure';
 import { error } from 'util';
 
 export const uriScheme : string = "k8screatecluster";
@@ -33,6 +33,7 @@ enum OperationStage {
     AzurePromptForMetadata,
     AzurePromptForAgentSettings,
     InternalError,
+    ExternalError,
     Complete,
 }
 
@@ -101,8 +102,17 @@ async function next(context: Context, sourceState: OperationState<OperationStage
             }
         case OperationStage.AzurePromptForSubscription:
             const selectedSubscription : string = requestData;
-            const selectedClusterTypeEx = sourceState.last.result.result.clusterType;  // TODO: why the insane nesting?  // TODO: rename
-            const psStateInfo = {clusterType: selectedClusterTypeEx, subscription: selectedSubscription };
+            const selectedClusterTypeEx = sourceState.last.result.result.clusterType;  // TODO: rename
+            const serviceLocations = selectedClusterTypeEx == 'Azure Container Service' ?
+                await listAcsLocations(context) :
+                await listAksLocations(context);
+            if (!serviceLocations.succeeded) {
+                return {
+                    last: { actionDescription: 'listing available regions', result: serviceLocations },
+                    stage: OperationStage.ExternalError
+                };
+            }
+            const psStateInfo = {clusterType: selectedClusterTypeEx, subscription: selectedSubscription, serviceLocations: serviceLocations.result };
             return {
                 last: { actionDescription: 'selecting subscription', result: { succeeded: true, result: psStateInfo, error: [] } },
                 stage: OperationStage.AzurePromptForMetadata
@@ -148,6 +158,69 @@ function listClusterTypes() : StageData {
     };
 }
 
+async function listLocations(context: Context) : Promise<Errorable<Locations>> {
+    let query = "[].{name:name,displayName:displayName}";
+    if (context.shell.isUnix()) {
+        query = `'${query}'`;
+    }
+
+    const sr = await context.shell.exec(`az account list-locations --query ${query} -ojson`);
+    
+    if (sr.code === 0 && !sr.stderr) {
+        const response = JSON.parse(sr.stdout);
+        let locations : any = {};
+        for (const r of response) {
+            locations[r.name] = r.displayName;
+        }
+        const result = { locations: locations };
+        return { succeeded: true, result: result, error: [] };
+    } else {
+        return { succeeded: false, result: { locations: {} }, error: [sr.stderr] };
+    }
+}
+
+async function listAcsLocations(context: Context) : Promise<Errorable<ServiceLocation[]>> {
+    const locationInfo = await listLocations(context);
+    if (!locationInfo.succeeded) {
+        return { succeeded: false, result: [], error: locationInfo.error };
+    }
+    const locations = locationInfo.result;
+
+    const sr = await context.shell.exec(`az acs list-locations -ojson`);
+    
+    if (sr.code === 0 && !sr.stderr) {
+        const response = JSON.parse(sr.stdout);
+        const result = locationDisplayNamesEx(response.productionRegions, response.previewRegions, locations) ;
+        return { succeeded: true, result: result, error: [] };
+    } else {
+        return { succeeded: false, result: [], error: [sr.stderr] };
+    }
+}
+
+async function listAksLocations(context: Context) : Promise<Errorable<ServiceLocation[]>> {
+    const locationInfo = await listLocations(context);
+    if (!locationInfo.succeeded) {
+        return { succeeded: false, result: [], error: locationInfo.error };
+    }
+    const locations = locationInfo.result;
+
+    // There's no CLI for this, so we have to hardwire it for now
+    const productionRegions = [];
+    const previewRegions = ["centralus", "eastus", "westeurope"];
+    const result = locationDisplayNamesEx(productionRegions, previewRegions, locations);
+    return { succeeded: true, result: result, error: [] };
+}
+
+function locationDisplayNames(names: string[], preview: boolean, locationInfo: Locations) : ServiceLocation[] {
+    return names.map((n) => { return { displayName: locationInfo.locations[n], isPreview: preview }; });
+}
+
+function locationDisplayNamesEx(production: string[], preview: string[], locationInfo: Locations) : ServiceLocation[] {
+    let result = locationDisplayNames(production, false, locationInfo) ;
+    result = result.concat(locationDisplayNames(preview, true, locationInfo));
+    return result;
+}
+
 async function resourceGroupExists(context: Context, resourceGroupName: string) : Promise<boolean> {
     const sr = await context.shell.exec(`az group show -n "${resourceGroupName}" -ojson`);
     
@@ -156,7 +229,6 @@ async function resourceGroupExists(context: Context, resourceGroupName: string) 
     } else {
         return false;
     }
- 
 }
 
 async function ensureResourceGroupAsync(context: Context, resourceGroupName: string, location: string) : Promise<Errorable<void>> {
@@ -178,9 +250,11 @@ async function execCreateClusterCmd(context: Context, options: any) : Promise<Er
     if (options.clusterType == 'Azure Container Service') {
         clusterCmd = 'acs';
     }
-    let createCmd = `az ${clusterCmd} create -n "${options.metadata.clusterName}" -g "${options.metadata.resourceGroupName}" -l "${options.metadata.location}" --agent-count ${options.agentSettings.count} --agent-vm-size "${options.agentSettings.vmSize}" --no-wait`;  // use long form options for ACS compatibility
+    let createCmd = `az ${clusterCmd} create -n "${options.metadata.clusterName}" -g "${options.metadata.resourceGroupName}" -l "${options.metadata.location}" --no-wait `;
     if (clusterCmd == 'acs') {
-        createCmd = createCmd + " -t Kubernetes";
+        createCmd = createCmd + `--agent-count ${options.agentSettings.count} --agent-vm-size "${options.agentSettings.vmSize}" -t Kubernetes`;
+    } else {
+        createCmd = createCmd + `--node-count ${options.agentSettings.count} --node-vm-size "${options.agentSettings.vmSize}"`;
     }
     
     const sr = await context.shell.exec(createCmd);
@@ -235,6 +309,8 @@ function render(operationId: string, state: OperationState<OperationStage>) : st
             return renderPromptForAgentSettings(operationId, state.last);
         case OperationStage.InternalError:
            return renderInternalError(state.last);
+        case OperationStage.InternalError:
+           return renderExternalError(state.last);
         case OperationStage.Complete:
             return renderComplete(state.last);
         default:
@@ -282,6 +358,7 @@ function renderPromptForSubscription(operationId: string, last: StageData) : str
     return `<!-- PromptForSubscription -->
             <h1 id='h'>Choose subscription</h1>
             ${styles()}
+            ${waitScript('Getting available regions')}
             ${selectionChangedScript(operationId)}
             <div id='content'>
             <p>
@@ -300,9 +377,9 @@ function renderPromptForSubscription(operationId: string, last: StageData) : str
 
 function renderPromptForMetadata(operationId: string, last: StageData) : string {
     // TODO: make this part of data model, and derive from cluster type (for AKS preview regions)
-    const locations : string[] = [ 'Australia Southeast', 'East US', 'Central US', 'West US', 'Europe West' ];
-    const initialUri = advanceUri(operationId, `{"location":"${locations[0]}","clusterName":"k8scluster","resourceGroupName":"k8scluster"}`);
-    const options = locations.map((s) => `<option value="${s}">${s}</option>`).join('\n');
+    const serviceLocations : ServiceLocation[] = last.result.result.serviceLocations;
+    const initialUri = advanceUri(operationId, `{"location":"${serviceLocations[0].displayName}","clusterName":"k8scluster","resourceGroupName":"k8scluster"}`);
+    const options = serviceLocations.map((s) => `<option value="${s.displayName}">${s.displayName + (s.isPreview ? " (preview)" : "")}</option>`).join('\n');
     const mappings = [
         {ctrlName: "selector", extractVal: "locationCtrl.options[locationCtrl.selectedIndex].value", jsonKey: "location"},
         {ctrlName: "clustername", extractVal: "clusterNameCtrl.value", jsonKey: "clusterName"},
@@ -357,9 +434,11 @@ function renderPromptForAgentSettings(operationId: string, last: StageData) : st
 
 function renderComplete(last: StageData) : string {
     const title = last.result.succeeded ? 'Cluster creation has started' : `Error ${last.actionDescription}`;
+    const additionalDiagnostic = diagnoseCreationError(last.result);
     const message = last.result.succeeded ?
         `<p class='success'>Azure is creating the cluster, but this may take some time. You can now close this window.</p>` :
         `<p class='error'>An error occurred while creating the cluster.</p>
+         ${additionalDiagnostic}
          <p><b>Details</b></p>
          <p>${last.result.error[0]}</p>`;
     return `<!-- Complete -->
@@ -368,8 +447,27 @@ function renderComplete(last: StageData) : string {
             ${message}`;
 }
 
+function diagnoseCreationError(e: Errorable<any>) : string {
+    if (e.succeeded) {
+        return '';
+    }
+    if (e.error[0].indexOf('unrecognized arguments') >= 0) {
+        return '<p>You may be using an older version of the Azure CLI. Check Azure CLI version is 2.0.23 or above.<p>';
+    }
+    return '';
+}
+
 function renderInternalError(last: StageData) : string {
     return internalError(last.result.error[0]);
+}
+
+function renderExternalError(last: StageData) : string {
+    return `
+    <h1>Error ${last.actionDescription}</h1>
+    ${styles()}
+    <p class='error'>An error occurred while ${last.actionDescription}.</p>
+    <p><b>Details</b></p>
+    <p>${last.result.error}</p>`;
 }
 
 // TODO: consider consolidating notifyCliError, notifyNoOptions, internalError() and styles() with acs
@@ -393,6 +491,7 @@ ${styles()}
 <p class='error'>${message}</p>
 `;
 }
+
 function internalError(error: string) : string {
     return `
 <h1>Internal extension error</h1>
