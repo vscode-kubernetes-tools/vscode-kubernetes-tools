@@ -215,7 +215,22 @@ async function loginAsync(context: Context, subscription: string) : Promise<Erro
 
 // end TODO
 
+async function resourceGroupExists(context: Context, resourceGroupName: string) : Promise<boolean> {
+    const sr = await context.shell.exec(`az group show -n "${resourceGroupName}" -ojson`);
+    
+    if (sr.code === 0 && !sr.stderr) {
+        return sr.stdout !== null && sr.stdout.length > 0;
+    } else {
+        return false;
+    }
+ 
+}
+
 async function ensureResourceGroupAsync(context: Context, resourceGroupName: string, location: string) : Promise<Errorable<void>> {
+    if (await resourceGroupExists(context, resourceGroupName)) {
+        return { succeeded: true, result: null, error: [] };
+    }
+
     const sr = await context.shell.exec(`az group create -n "${resourceGroupName}" -l "${location}"`);
 
     if (sr.code === 0 && !sr.stderr) {
@@ -351,6 +366,7 @@ function renderPromptForSubscription(operationId: string, last: StageData) : str
 }
 
 function renderPromptForMetadata(operationId: string, last: StageData) : string {
+    // TODO: make this part of data model, and derive from cluster type (for AKS preview regions)
     const locations : string[] = [ 'Australia Southeast', 'East US', 'Central US', 'West US', 'Europe West' ];
     const initialUri = advanceUri(operationId, `{"location":"${locations[0]}","clusterName":"k8scluster","resourceGroupName":"k8scluster"}`);
     const options = locations.map((s) => `<option value="${s}">${s}</option>`).join('\n');
