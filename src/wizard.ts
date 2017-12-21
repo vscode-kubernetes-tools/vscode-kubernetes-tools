@@ -119,3 +119,38 @@ export function extend(source: Errorable<any>, transformer: (o: any) => any) : E
         error: source.error
     };
 }
+
+export function styles() : string {
+    return `
+<style>
+.vscode-light a {
+    color: navy;
+}
+
+.vscode-dark a {
+    color: azure;
+}
+
+.vscode-light .error {
+    color: red;
+    font-weight: bold;
+}
+
+.vscode-dark .error {
+    color: red;
+    font-weight: bold;
+}
+
+.vscode-light .success {
+    color: green;
+    font-weight: bold;
+}
+
+.vscode-dark .success {
+    color: darkseagreen;
+    font-weight: bold;
+}
+</style>
+`;
+}
+

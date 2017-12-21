@@ -3,7 +3,7 @@
 import { TextDocumentContentProvider, Uri, EventEmitter, Event, ProviderResult, CancellationToken } from 'vscode';
 import { Shell } from './shell';
 import { FS } from './fs';
-import { Advanceable, Errorable, UIRequest, StageData, OperationState, OperationMap, advanceUri as wizardAdvanceUri, selectionChangedScript as wizardSelectionChangedScript, script, waitScript } from './wizard';
+import { Advanceable, Errorable, UIRequest, StageData, OperationState, OperationMap, advanceUri as wizardAdvanceUri, selectionChangedScript as wizardSelectionChangedScript, script, waitScript, styles } from './wizard';
 import { Context, getSubscriptionList, loginAsync } from './azure';
 
 export const uriScheme : string = "acsconfigure";
@@ -332,40 +332,6 @@ function internalError(error: string) : string {
 ${styles()}
 <p class='error'>An internal error occurred in the vscode-kubernetes-tools extension.</p>
 <p>This is not an Azure or Kubernetes issue.  Please report error text '${error}' to the extension authors.</p>
-`;
-}
-
-function styles() : string {
-    return `
-<style>
-.vscode-light a {
-    color: navy;
-}
-
-.vscode-dark a {
-    color: azure;
-}
-
-.vscode-light .error {
-    color: red;
-    font-weight: bold;
-}
-
-.vscode-dark .error {
-    color: red;
-    font-weight: bold;
-}
-
-.vscode-light .success {
-    color: green;
-    font-weight: bold;
-}
-
-.vscode-dark .success {
-    color: darkseagreen;
-    font-weight: bold;
-}
-</style>
 `;
 }
 

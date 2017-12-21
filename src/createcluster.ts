@@ -3,7 +3,7 @@
 import { TextDocumentContentProvider, Uri, EventEmitter, Event, ProviderResult, CancellationToken } from 'vscode';
 import { Shell } from './shell';
 import { FS } from './fs';
-import { Advanceable, Errorable, UIRequest, StageData, OperationState, OperationMap, advanceUri as wizardAdvanceUri, selectionChangedScript as wizardSelectionChangedScript, selectionChangedScriptMulti as wizardSelectionChangedScriptMulti, script, waitScript, extend, ControlMapping } from './wizard';
+import { Advanceable, Errorable, UIRequest, StageData, OperationState, OperationMap, advanceUri as wizardAdvanceUri, selectionChangedScript as wizardSelectionChangedScript, selectionChangedScriptMulti as wizardSelectionChangedScriptMulti, script, waitScript, extend, ControlMapping, styles } from './wizard';
 import { Context, getSubscriptionList, loginAsync, ServiceLocation, Locations } from './azure';
 import { error } from 'util';
 
@@ -119,7 +119,14 @@ async function next(context: Context, sourceState: OperationState<OperationStage
             };
         case OperationStage.AzurePromptForMetadata:
             const metadata = JSON.parse(requestData);
-            const pmStateInfo = extend(sourceState.last.result, (v) => Object.assign({}, v, {metadata: metadata}));
+            const vmSizes = await listVMSizes(context, metadata.location);
+            if (!vmSizes.succeeded) {
+                return {
+                    last: { actionDescription: 'listing available node sizes', result: vmSizes },
+                    stage: OperationStage.ExternalError
+                };
+            }
+            const pmStateInfo = extend(sourceState.last.result, (v) => Object.assign({}, v, {metadata: metadata, vmSizes: vmSizes.result}));
             return {
                 last: { actionDescription: 'collecting cluster metadata', result: pmStateInfo },
                 stage: OperationStage.AzurePromptForAgentSettings
@@ -219,6 +226,18 @@ function locationDisplayNamesEx(production: string[], preview: string[], locatio
     let result = locationDisplayNames(production, false, locationInfo) ;
     result = result.concat(locationDisplayNames(preview, true, locationInfo));
     return result;
+}
+
+async function listVMSizes(context: Context, location: string) : Promise<Errorable<string[]>> {
+    const sr = await context.shell.exec(`az vm list-sizes -l "${location}" -ojson`);
+    
+    if (sr.code === 0 && !sr.stderr) {
+        const response : any[] = JSON.parse(sr.stdout);
+        const result = response.map((r) => r.name as string);
+        return { succeeded: true, result: result, error: [] };
+    } else {
+        return { succeeded: false, result: [], error: [sr.stderr] };
+    }
 }
 
 async function resourceGroupExists(context: Context, resourceGroupName: string) : Promise<boolean> {
@@ -344,7 +363,7 @@ function renderPromptForClusterType(operationId: string, last: StageData) : stri
             </div>`;
 }
 
-// TODO: duplicate of code in acs.ts
+// TODO: near-duplicate of code in acs.ts
 function renderPromptForSubscription(operationId: string, last: StageData) : string {
     if (!last.result.succeeded) {
         return notifyCliError('PromptForSubscription', last);
@@ -376,7 +395,6 @@ function renderPromptForSubscription(operationId: string, last: StageData) : str
 }
 
 function renderPromptForMetadata(operationId: string, last: StageData) : string {
-    // TODO: make this part of data model, and derive from cluster type (for AKS preview regions)
     const serviceLocations : ServiceLocation[] = last.result.result.serviceLocations;
     const initialUri = advanceUri(operationId, `{"location":"${serviceLocations[0].displayName}","clusterName":"k8scluster","resourceGroupName":"k8scluster"}`);
     const options = serviceLocations.map((s) => `<option value="${s.displayName}">${s.displayName + (s.isPreview ? " (preview)" : "")}</option>`).join('\n');
@@ -388,6 +406,7 @@ function renderPromptForMetadata(operationId: string, last: StageData) : string 
     return `<!-- PromptForMetadata -->
             <h1 id='h'>Azure cluster settings</h1>
             ${styles()}
+            ${waitScript('Getting available node sizes')}
             ${selectionChangedScriptMulti(operationId, mappings)}
             <div id='content'>
             <p>Cluster name: <input id='clustername' type='text' value='k8scluster' onchange='selectionChanged()'/>
@@ -405,7 +424,8 @@ function renderPromptForMetadata(operationId: string, last: StageData) : string 
 }
 
 function renderPromptForAgentSettings(operationId: string, last: StageData) : string {
-    const vmSizes : string[] = [ 'Standard_D2_v2', 'Standard_D3_v2', 'Standard_D4_v2' ];
+    // TODO: select Standard_D2_v2
+    const vmSizes : string[] = last.result.result.vmSizes; // [ 'Standard_D2_v2', 'Standard_D3_v2', 'Standard_D4_v2' ];
     const initialUri = advanceUri(operationId, `{"vmSize": "${vmSizes[0]}", "count": 3}`);
     const options = vmSizes.map((s) => `<option value="${s}">${s}</option>`).join('\n');
     const mappings = [
@@ -498,40 +518,6 @@ function internalError(error: string) : string {
 ${styles()}
 <p class='error'>An internal error occurred in the vscode-kubernetes-tools extension.</p>
 <p>This is not an Azure or Kubernetes issue.  Please report error text '${error}' to the extension authors.</p>
-`;
-}
-
-function styles() : string {
-    return `
-<style>
-.vscode-light a {
-    color: navy;
-}
-
-.vscode-dark a {
-    color: azure;
-}
-
-.vscode-light .error {
-    color: red;
-    font-weight: bold;
-}
-
-.vscode-dark .error {
-    color: red;
-    font-weight: bold;
-}
-
-.vscode-light .success {
-    color: green;
-    font-weight: bold;
-}
-
-.vscode-dark .success {
-    color: darkseagreen;
-    font-weight: bold;
-}
-</style>
 `;
 }
 
