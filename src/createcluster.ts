@@ -430,10 +430,10 @@ function renderPromptForAgentSettings(operationId: string, last: StageData) : st
     if (!last.result.succeeded) {
         return notifyCliError('PromptForAgentSettings', last);
     }
-    // TODO: select Standard_D2_v2
     const vmSizes : string[] = last.result.result.vmSizes;
-    const initialUri = advanceUri(operationId, `{"vmSize": "${vmSizes[0]}", "count": 3}`);
-    const options = vmSizes.map((s) => `<option value="${s}">${s}</option>`).join('\n');
+    const defaultSize = "Standard_D2_v2";
+    const initialUri = advanceUri(operationId, `{"vmSize": "${defaultSize}", "count": 3}`);
+    const options = vmSizes.map((s) => `<option value="${s}" ${s == defaultSize ? "selected=true" : ""}>${s}</option>`).join('\n');
     const mappings = [
         {ctrlName: "selector", extractVal: "vmSizeCtrl.options[vmSizeCtrl.selectedIndex].value", jsonKey: "vmSize"},
         {ctrlName: "agentcount", extractVal: "countCtrl.value", jsonKey: "count"},
