@@ -395,6 +395,9 @@ function renderPromptForSubscription(operationId: string, last: StageData) : str
 }
 
 function renderPromptForMetadata(operationId: string, last: StageData) : string {
+    if (!last.result.succeeded) {
+        return notifyCliError('PromptForMetadata', last);
+    }
     const serviceLocations : ServiceLocation[] = last.result.result.serviceLocations;
     const initialUri = advanceUri(operationId, `{"location":"${serviceLocations[0].displayName}","clusterName":"k8scluster","resourceGroupName":"k8scluster"}`);
     const options = serviceLocations.map((s) => `<option value="${s.displayName}">${s.displayName + (s.isPreview ? " (preview)" : "")}</option>`).join('\n');
@@ -424,6 +427,9 @@ function renderPromptForMetadata(operationId: string, last: StageData) : string 
 }
 
 function renderPromptForAgentSettings(operationId: string, last: StageData) : string {
+    if (!last.result.succeeded) {
+        return notifyCliError('PromptForAgentSettings', last);
+    }
     // TODO: select Standard_D2_v2
     const vmSizes : string[] = last.result.result.vmSizes;
     const initialUri = advanceUri(operationId, `{"vmSize": "${vmSizes[0]}", "count": 3}`);
