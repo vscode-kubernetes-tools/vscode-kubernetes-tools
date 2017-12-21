@@ -425,7 +425,7 @@ function renderPromptForMetadata(operationId: string, last: StageData) : string 
 
 function renderPromptForAgentSettings(operationId: string, last: StageData) : string {
     // TODO: select Standard_D2_v2
-    const vmSizes : string[] = last.result.result.vmSizes; // [ 'Standard_D2_v2', 'Standard_D3_v2', 'Standard_D4_v2' ];
+    const vmSizes : string[] = last.result.result.vmSizes;
     const initialUri = advanceUri(operationId, `{"vmSize": "${vmSizes[0]}", "count": 3}`);
     const options = vmSizes.map((s) => `<option value="${s}">${s}</option>`).join('\n');
     const mappings = [
