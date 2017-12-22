@@ -58,7 +58,7 @@ export function activate(context) {
     const inspectProvider = new HelmInspectDocumentProvider();
     const completionProvider = new HelmTemplateCompletionProvider();
     const completionFilter = [
-        "helm", 
+        "helm",
         {language: "yaml", pattern: "**/templates/*.yaml"},
         {pattern: "**/templates/NOTES.txt"}
     ];
@@ -111,7 +111,7 @@ export function activate(context) {
 
         // Completion providers
         vscode.languages.registerCompletionItemProvider(completionFilter, completionProvider),
-        
+
         // Hover providers
         vscode.languages.registerHoverProvider(
             { language: 'json', scheme: 'file' },
@@ -122,7 +122,7 @@ export function activate(context) {
             { provideHover: provideHoverYaml }
         ),
         vscode.languages.registerHoverProvider(HELM_MODE, new HelmTemplateHoverProvider()),
-        
+
         // Tree data providers
         vscode.window.registerTreeDataProvider('extension.vsKubernetesExplorer', treeProvider),
 
@@ -797,9 +797,16 @@ function findPod(callback) {
         // pass
     }
 
-    selectPodForApp((pod) => {
-        callback(pod.metadata);
-    });
+    quickPickKindName(
+        [kuberesources.allKinds.pod],
+        {nameOptional: false},
+        (pod) => {
+            callback({
+                name: pod.split('/')[1],
+                namespace: undefined // should figure out how to handle namespaces.
+            });
+        }
+    );
 }
 
 function selectPodForApp(callback) {
