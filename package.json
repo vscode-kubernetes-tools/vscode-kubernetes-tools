@@ -30,6 +30,7 @@
         "onCommand:extension.vsKubernetesDebug",
         "onCommand:extension.vsKubernetesRemoveDebug",
         "onCommand:extension.vsKubernetesConfigureFromAcs",
+        "onCommand:extension.vsKubernetesCreateCluster",
         "onCommand:extension.helmTemplate",
         "onCommand:extension.helmTemplatePreview",
         "onCommand:extension.helmLint",
@@ -220,6 +221,10 @@
             "title": "Configure from ACS",
             "category": "Kubernetes"
         }, {
+            "command": "extension.vsKubernetesCreateCluster",
+            "title": "Create Cluster",
+            "category": "Kubernetes"
+        }, {
             "command": "extension.draftVersion",
             "title": "Version",
             "description": "Get the version of the local Draft client.",
@@ -327,6 +332,7 @@
         "pluralize": "^4.0.0",
         "uuid": "^3.1.0",
         "yamljs": "0.2.10",
+        "compare-versions": "^3.1.0",
         "lodash": ">3"
     },
     "devDependencies": {

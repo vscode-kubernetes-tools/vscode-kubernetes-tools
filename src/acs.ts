@@ -3,6 +3,8 @@
 import { TextDocumentContentProvider, Uri, EventEmitter, Event, ProviderResult, CancellationToken } from 'vscode';
 import { Shell } from './shell';
 import { FS } from './fs';
+import { Advanceable, Errorable, UIRequest, StageData, OperationState, OperationMap, advanceUri as wizardAdvanceUri, selectionChangedScript as wizardSelectionChangedScript, script, waitScript, styles } from './wizard';
+import { Context, getSubscriptionList, setSubscriptionAsync } from './azure';
 
 export const uriScheme : string = "acsconfigure";
 
@@ -14,56 +16,11 @@ export function uiProvider(fs: FS, shell: Shell) : TextDocumentContentProvider &
     return new UIProvider(fs, shell);
 }
 
-export interface Advanceable {
-    start(operationId: string) : void;
-    next(request: UIRequest): Promise<void>;
-}
-
-interface Errorable<T> {
-    readonly succeeded: boolean;
-    readonly result: T;
-    readonly error: string[];
-}
-
-export interface UIRequest {
-    readonly operationId: string;
-    readonly requestData: string;
-}
-
-interface StageData {
-    readonly actionDescription: string;
-    readonly result: Errorable<any>;
-}
-
-interface OperationState {
-    readonly stage: OperationStage;
-    readonly last: StageData;
-}
-
 enum OperationStage {
     Initial,
     PromptForSubscription,
     PromptForCluster,
     Complete,
-}
-
-class OperationMap {
-
-    private operations: any = {};
-
-    set(operationId: string, operationState: OperationState) {
-        this.operations[operationId] = operationState;
-    }
-
-    get(operationId: string) : OperationState {
-        return this.operations[operationId];
-    }
-
-}
-
-interface Context {
-    readonly fs: FS;
-    readonly shell: Shell;
 }
 
 class UIProvider implements TextDocumentContentProvider, Advanceable {
@@ -77,7 +34,7 @@ class UIProvider implements TextDocumentContentProvider, Advanceable {
 	private _onDidChange: EventEmitter<Uri> = new EventEmitter<Uri>();
     readonly onDidChange: Event<Uri> = this._onDidChange.event;
 
-    private operations: OperationMap = new OperationMap;
+    private operations: OperationMap<OperationStage> = new OperationMap<OperationStage>();
 
     provideTextDocumentContent(uri: Uri, token: CancellationToken) : ProviderResult<string> {
         const operationId = uri.path.substr(1);
@@ -106,11 +63,11 @@ class UIProvider implements TextDocumentContentProvider, Advanceable {
     }
 }
 
-async function next(context: Context, sourceState: OperationState, requestData: string) : Promise<OperationState> {
+async function next(context: Context, sourceState: OperationState<OperationStage>, requestData: string) : Promise<OperationState<OperationStage>> {
     switch (sourceState.stage) {
         case OperationStage.Initial:
             return {
-                last: await getSubscriptionList(context),
+                last: await getSubscriptionList(context, 'acs'),
                 stage: OperationStage.PromptForSubscription
             };
         case OperationStage.PromptForSubscription:
@@ -148,27 +105,9 @@ function parseCluster(encoded: string) {
     };
 }
 
-async function getSubscriptionList(context: Context) : Promise<StageData> {
-    // check for prerequisites
-    const prerequisiteErrors = await verifyPrerequisitesAsync(context);
-    if (prerequisiteErrors.length > 0) {
-        return {
-            actionDescription: 'checking prerequisites',
-            result: { succeeded: false, result: false, error: prerequisiteErrors }
-        };
-    }
-
-    // list subs
-    const subscriptions = await listSubscriptionsAsync(context);
-    return {
-        actionDescription: 'listing subscriptions',
-        result: subscriptions
-    };
-}
-
 async function getClusterList(context: Context, subscription: string) : Promise<StageData> {
     // log in
-    const login = await loginAsync(context, subscription);
+    const login = await setSubscriptionAsync(context, subscription);
     if (!login.succeeded) {
         return {
             actionDescription: 'logging into subscription',
@@ -263,7 +202,7 @@ function installCliInfo(context: Context) {
     }
 }
 
-function render(operationId: string, state: OperationState) : string {
+function render(operationId: string, state: OperationState<OperationStage>) : string {
     switch (state.stage) {
         case OperationStage.Initial:
              return renderInitial();
@@ -391,124 +330,19 @@ function internalError(error: string) : string {
     return `
 <h1>Internal extension error</h1>
 ${styles()}
-<p class='error'>An internal error occurred in the vs-kubernetes extension.</p>
+<p class='error'>An internal error occurred in the vscode-kubernetes-tools extension.</p>
 <p>This is not an Azure or Kubernetes issue.  Please report error text '${error}' to the extension authors.</p>
 `;
 }
 
-function styles() : string {
-    return `
-<style>
-.vscode-light a {
-    color: navy;
-}
-
-.vscode-dark a {
-    color: azure;
-}
-
-.vscode-light .error {
-    color: red;
-    font-weight: bold;
-}
-
-.vscode-dark .error {
-    color: red;
-    font-weight: bold;
-}
-
-.vscode-light .success {
-    color: green;
-    font-weight: bold;
-}
-
-.vscode-dark .success {
-    color: darkseagreen;
-    font-weight: bold;
-}
-</style>
-`;
-}
-
-function script(text: string) : string {
-    return `
-<script>
-${text}
-</script>
-`;
-}
-
-function waitScript(title: string) : string {
-    const js = `
-function promptWait() {
-    document.getElementById('h').innerText = '${title}';
-    document.getElementById('content').innerText = '';
-}
-`;
-    return script(js);
-}
+const commandName = 'vsKubernetesConfigureFromAcs';
 
 function selectionChangedScript(operationId: string) : string {
-    const js = `
-function selectionChanged() {
-    var selectCtrl = document.getElementById('selector');
-    var selection = selectCtrl.options[selectCtrl.selectedIndex].value;
-    var request = '{"operationId":"${operationId}", "requestData":"' + selection + '"}';
-    document.getElementById('nextlink').href = encodeURI('command:extension.vsKubernetesConfigureFromAcs?' + request);
-}
-`;
-
-    return script(js);
+    return wizardSelectionChangedScript(commandName, operationId);
 }
 
 function advanceUri(operationId: string, requestData: string) : string {
-    const request : UIRequest = {
-        operationId: operationId,
-        requestData: requestData
-    };
-    const uri = encodeURI("command:extension.vsKubernetesConfigureFromAcs?" + JSON.stringify(request));
-    return uri;
-}
-
-async function verifyPrerequisitesAsync(context: Context) : Promise<string[]> {
-    const errors = new Array<string>();
-    
-    const sr = await context.shell.exec('az --help');
-    if (sr.code !== 0 || sr.stderr) {
-        errors.push('Azure CLI 2.0 not found - install Azure CLI 2.0 and log in');
-    }
-
-    prereqCheckSSHKeys(context, errors);
-
-    return errors;
-}
-
-function prereqCheckSSHKeys(context: Context, errors: Array<String>) {
-    const sshKeyFile = context.shell.combinePath(context.shell.home(), '.ssh/id_rsa');
-    if (!context.fs.existsSync(sshKeyFile)) {
-        errors.push('SSH keys not found - expected key file at ' + sshKeyFile);
-    }
-}
-
-async function listSubscriptionsAsync(context: Context) : Promise<Errorable<string[]>> {
-    const sr = await context.shell.exec("az account list --all --query [*].name -ojson");
-    
-    if (sr.code === 0 && !sr.stderr) {  // az account list returns exit code 0 even if not logged in
-        const accountNames : string[] = JSON.parse(sr.stdout);
-        return { succeeded: true, result: accountNames, error: [] };
-    } else {
-        return { succeeded: false, result: [], error: [sr.stderr] };
-    }
-}
-
-async function loginAsync(context: Context, subscription: string) : Promise<Errorable<void>> {
-    const sr = await context.shell.exec(`az account set --subscription "${subscription}"`);
-
-    if (sr.code === 0 && !sr.stderr) {
-        return { succeeded: true, result: null, error: [] };
-    } else {
-        return { succeeded: false, result: null, error: [sr.stderr] };
-    }
+    return wizardAdvanceUri(commandName, operationId, requestData);
 }
 
 async function listClustersAsync(context: Context) : Promise<Errorable<string[]>> {

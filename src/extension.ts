@@ -20,6 +20,8 @@ import { host } from './host';
 import * as explainer from './explainer';
 import { shell, ShellResult } from './shell';
 import * as acs from './acs';
+import * as createCluster from './createcluster';
+import { UIRequest as WizardUIRequest } from './wizard';
 import * as kuberesources from './kuberesources';
 import * as docker from './docker';
 import * as kubeconfig from './kubeconfig';
@@ -40,6 +42,7 @@ let swaggerSpecPromise = null;
 const kubectl = kubectlCreate(host, fs, shell);
 const draft = draftCreate(host, fs, shell);
 const acsui = acs.uiProvider(fs, shell);
+const createClusterUI = createCluster.uiProvider(fs, shell);
 
 // Filters for different Helm file types.
 // TODO: Consistently apply these to the provders registered.
@@ -86,6 +89,7 @@ export function activate(context) {
         vscode.commands.registerCommand('extension.vsKubernetesDebug', debugKubernetes),
         vscode.commands.registerCommand('extension.vsKubernetesRemoveDebug', removeDebugKubernetes),
         vscode.commands.registerCommand('extension.vsKubernetesConfigureFromAcs', configureFromAcsKubernetes),
+        vscode.commands.registerCommand('extension.vsKubernetesCreateCluster', createClusterKubernetes),
         vscode.commands.registerCommand('extension.vsKubernetesRefreshExplorer', () => treeProvider.refresh()),
 
         // Commands - Helm
@@ -106,6 +110,7 @@ export function activate(context) {
 
         // HTML renderers
         vscode.workspace.registerTextDocumentContentProvider(acs.uriScheme, acsui),
+        vscode.workspace.registerTextDocumentContentProvider(createCluster.uriScheme, createClusterUI),
         vscode.workspace.registerTextDocumentContentProvider(helm.PREVIEW_SCHEME, previewProvider),
         vscode.workspace.registerTextDocumentContentProvider(helm.INSPECT_SCHEME, inspectProvider),
 
@@ -1246,7 +1251,7 @@ function removeDebugKubernetes() {
     });
 }
 
-async function configureFromAcsKubernetes(request? : acs.UIRequest) {
+async function configureFromAcsKubernetes(request? : WizardUIRequest) {
     if (request) {
         await acsui.next(request);
     } else {
@@ -1254,6 +1259,17 @@ async function configureFromAcsKubernetes(request? : acs.UIRequest) {
         acsui.start(newId);
         vscode.commands.executeCommand('vscode.previewHtml', acs.operationUri(newId), 2, "Configure Kubernetes");
         await acsui.next({ operationId: newId, requestData: undefined });
+    }
+}
+
+async function createClusterKubernetes(request? : WizardUIRequest) {
+    if (request) {
+        await createClusterUI.next(request);
+    } else {
+        const newId : string = uuid.v4();
+        createClusterUI.start(newId);
+        vscode.commands.executeCommand('vscode.previewHtml', createCluster.operationUri(newId), 2, "Create Kubernetes Cluster");
+        await createClusterUI.next({ operationId: newId, requestData: undefined });
     }
 }
 
