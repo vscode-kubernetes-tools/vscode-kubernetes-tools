@@ -998,10 +998,7 @@ function execTerminalOnPod(podName : string, terminalCmd : string) {
 
 async function isBashOnPod(podName : string): Promise<boolean> {
     const result = await kubectl.invokeAsync(`exec ${podName} -- ls -la /bin/bash`);
-    if (result.code !== 0) {
-        return false;
-    }
-    return true;
+    return !result.code;
 }
 
 function syncKubernetes() {
