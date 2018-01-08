@@ -4,7 +4,7 @@ import { TextDocumentContentProvider, Uri, EventEmitter, Event, ProviderResult, 
 import { Shell } from './shell';
 import { FS } from './fs';
 import { Advanceable, Errorable, UIRequest, StageData, OperationState, OperationMap, advanceUri as wizardAdvanceUri, selectionChangedScript as wizardSelectionChangedScript, script, waitScript, styles } from './wizard';
-import { Context, getSubscriptionList, loginAsync } from './azure';
+import { Context, getSubscriptionList, setSubscriptionAsync } from './azure';
 
 export const uriScheme : string = "acsconfigure";
 
@@ -67,7 +67,7 @@ async function next(context: Context, sourceState: OperationState<OperationStage
     switch (sourceState.stage) {
         case OperationStage.Initial:
             return {
-                last: await getSubscriptionList(context),
+                last: await getSubscriptionList(context, 'acs'),
                 stage: OperationStage.PromptForSubscription
             };
         case OperationStage.PromptForSubscription:
@@ -107,7 +107,7 @@ function parseCluster(encoded: string) {
 
 async function getClusterList(context: Context, subscription: string) : Promise<StageData> {
     // log in
-    const login = await loginAsync(context, subscription);
+    const login = await setSubscriptionAsync(context, subscription);
     if (!login.succeeded) {
         return {
             actionDescription: 'logging into subscription',

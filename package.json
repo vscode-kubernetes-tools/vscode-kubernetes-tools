@@ -332,6 +332,7 @@
         "pluralize": "^4.0.0",
         "uuid": "^3.1.0",
         "yamljs": "0.2.10",
+        "compare-versions": "^3.1.0",
         "lodash": ">3"
     },
     "devDependencies": {

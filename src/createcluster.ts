@@ -4,7 +4,7 @@ import { TextDocumentContentProvider, Uri, EventEmitter, Event, ProviderResult, 
 import { Shell } from './shell';
 import { FS } from './fs';
 import { Advanceable, Errorable, UIRequest, StageData, OperationState, OperationMap, advanceUri as wizardAdvanceUri, selectionChangedScript as wizardSelectionChangedScript, selectionChangedScriptMulti as wizardSelectionChangedScriptMulti, script, waitScript, extend, ControlMapping, styles } from './wizard';
-import { Context, getSubscriptionList, loginAsync, ServiceLocation, Locations } from './azure';
+import { Context, getSubscriptionList, setSubscriptionAsync, ServiceLocation, Locations } from './azure';
 import { error } from 'util';
 
 export const uriScheme : string = "k8screatecluster";
@@ -88,7 +88,7 @@ async function next(context: Context, sourceState: OperationState<OperationStage
         case OperationStage.PromptForClusterType:
             const selectedClusterType : string = requestData;
             if (selectedClusterType == 'Azure Kubernetes Service' || selectedClusterType == 'Azure Container Service') {
-                const subscriptions = await getSubscriptionList(context);
+                const subscriptions = await getSubscriptionList(context, getClusterCommand(selectedClusterType));
                 const pctStateInfo = extend(subscriptions.result, (subs) => { return { clusterType: selectedClusterType, subscriptions: subs }; });
                 return {
                     last: { actionDescription: 'selecting cluster type', result: pctStateInfo },
@@ -264,11 +264,15 @@ async function ensureResourceGroupAsync(context: Context, resourceGroupName: str
     }
 }
 
-async function execCreateClusterCmd(context: Context, options: any) : Promise<Errorable<void>> {
-    let clusterCmd = 'aks';
-    if (options.clusterType == 'Azure Container Service') {
-        clusterCmd = 'acs';
+function getClusterCommand(clusterType: string) : string {
+    if (clusterType == 'Azure Container Service') {
+        return 'acs';
     }
+    return 'aks';
+}
+
+async function execCreateClusterCmd(context: Context, options: any) : Promise<Errorable<void>> {
+    const clusterCmd = getClusterCommand(options.clusterType);
     let createCmd = `az ${clusterCmd} create -n "${options.metadata.clusterName}" -g "${options.metadata.resourceGroupName}" -l "${options.metadata.location}" --no-wait `;
     if (clusterCmd == 'acs') {
         createCmd = createCmd + `--agent-count ${options.agentSettings.count} --agent-vm-size "${options.agentSettings.vmSize}" -t Kubernetes`;
@@ -290,7 +294,7 @@ async function createCluster(context: Context, options: any) : Promise<StageData
     Created ${options.clusterType} cluster ${options.metadata.clusterName} in ${options.metadata.resourceGroupName} with ${options.agentSettings.count} agents.
     `;
 
-    const login = await loginAsync(context, options.subscription);
+    const login = await setSubscriptionAsync(context, options.subscription);
     if (!login.succeeded) {
         return {
             actionDescription: 'logging into subscription',

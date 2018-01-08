@@ -3,6 +3,7 @@
 import { Shell } from './shell';
 import { FS } from './fs';
 import { Errorable, StageData } from './wizard';
+import * as compareVersions from 'compare-versions';
 
 export interface Context {
     readonly fs: FS;
@@ -23,9 +24,11 @@ export interface LocationRenderInfo {
     readonly displayText: string;
 }
 
-export async function getSubscriptionList(context: Context) : Promise<StageData> {
+const MIN_AZ_CLI_VERSION = '2.0.23';
+
+export async function getSubscriptionList(context: Context, forCommand: string) : Promise<StageData> {
     // check for prerequisites
-    const prerequisiteErrors = await verifyPrerequisitesAsync(context);
+    const prerequisiteErrors = await verifyPrerequisitesAsync(context, forCommand);
     if (prerequisiteErrors.length > 0) {
         return {
             actionDescription: 'checking prerequisites',
@@ -41,17 +44,34 @@ export async function getSubscriptionList(context: Context) : Promise<StageData>
     };
 }
 
-async function verifyPrerequisitesAsync(context: Context) : Promise<string[]> {
+async function verifyPrerequisitesAsync(context: Context, forCommand: string) : Promise<string[]> {
     const errors = new Array<string>();
     
-    const sr = await context.shell.exec('az --version');
-    if (sr.code !== 0 || sr.stderr) {
+    const azVersion = await azureCliVersion(context);
+    if (azVersion === null) {
         errors.push('Azure CLI 2.0 not found - install Azure CLI 2.0 and log in');
+    } else if (compareVersions(azVersion, MIN_AZ_CLI_VERSION) < 0) {
+        errors.push(`Azure CLI required version is ${MIN_AZ_CLI_VERSION} (you have ${azVersion}) - you need to upgrade Azure CLI 2.0`);
     }
 
-    prereqCheckSSHKeys(context, errors);
+    if (forCommand == 'acs') {
+        prereqCheckSSHKeys(context, errors);
+    }
 
     return errors;
+}
+
+async function azureCliVersion(context: Context) : Promise<string> {
+    const sr = await context.shell.exec('az --version');
+    if (sr.code !== 0 || sr.stderr) {
+        return null;
+    } else {
+        const versionMatches = /azure-cli \(([^)]+)\)/.exec(sr.stdout);
+        if (versionMatches === null || versionMatches.length < 2) {
+            return null;
+        }
+        return versionMatches[1];
+    }
 }
 
 function prereqCheckSSHKeys(context: Context, errors: Array<String>) {
@@ -72,7 +92,7 @@ async function listSubscriptionsAsync(context: Context) : Promise<Errorable<stri
     }
 }
 
-export async function loginAsync(context: Context, subscription: string) : Promise<Errorable<void>> {
+export async function setSubscriptionAsync(context: Context, subscription: string) : Promise<Errorable<void>> {
     const sr = await context.shell.exec(`az account set --subscription "${subscription}"`);
 
     if (sr.code === 0 && !sr.stderr) {
