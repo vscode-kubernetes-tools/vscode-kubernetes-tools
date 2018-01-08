@@ -952,8 +952,8 @@ function execKubernetes() {
 async function terminalKubernetes(explorerNode? : explorer.ResourceNode) {
     if (explorerNode) {
         // For those images (e.g. built from Busybox) where bash may not be installed by default, use sh instead.
-        const bash = await checkBash(explorerNode.id);
-        execTerminalOnPod(explorerNode.id, bash ? 'bash' : 'sh');
+        const isBash = await isBashOnPod(explorerNode.id);
+        execTerminalOnPod(explorerNode.id, isBash ? 'bash' : 'sh');
     } else {
         execKubernetesCore(true);
     }
@@ -996,15 +996,12 @@ function execTerminalOnPod(podName : string, terminalCmd : string) {
     term.show();
 }
 
-function checkBash(podName : string): Promise<boolean> {
-    return new Promise((resolve, reject) => {
-        kubectl.invoke(`exec ${podName} -- ls -la /bin/bash`, (code, stdout, stderr) => {
-            if (code !== 0) {
-                resolve(false);
-            }
-            resolve(true);
-        });
-    });
+async function isBashOnPod(podName : string): Promise<boolean> {
+    const result = await kubectl.invokeAsync(`exec ${podName} -- ls -la /bin/bash`);
+    if (result.code !== 0) {
+        return false;
+    }
+    return true;
 }
 
 function syncKubernetes() {

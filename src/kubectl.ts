@@ -6,6 +6,7 @@ import * as binutil from './binutil';
 export interface Kubectl {
     checkPresent(errorMessageMode : CheckPresentMessageMode) : Promise<boolean>;
     invoke(command : string, handler? : ShellHandler) : Promise<void>;
+    invokeAsync(command : string) : Promise<ShellResult>;
     asLines(command : string): Promise<string[] | ShellResult>;
     path() : string;
 }
@@ -30,6 +31,9 @@ class KubectlImpl implements Kubectl {
     }
     invoke(command : string, handler? : ShellHandler) : Promise<void> {
         return invoke(this.context, command, handler);
+    }
+    invokeAsync(command : string) : Promise<ShellResult> {
+        return invokeAsync(this.context, command);
     }
     asLines(command : string) : Promise<string[] | ShellResult> {
         return asLines(this.context, command);
@@ -77,7 +81,7 @@ async function invoke(context : Context, command : string, handler? : ShellHandl
     await kubectlInternal(context, command, handler || kubectlDone(context));
 }
 
-async function invokeAsync(context : Context, command : string, handler? : ShellHandler) : Promise<ShellResult> {
+async function invokeAsync(context : Context, command : string) : Promise<ShellResult> {
     const bin = baseKubectlPath(context);
     let cmd = bin + ' ' + command;
     return await context.shell.exec(cmd);
