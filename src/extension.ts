@@ -961,9 +961,11 @@ function execKubernetes() {
     execKubernetesCore(false);
 }
 
-function terminalKubernetes(explorerNode? : explorer.ResourceNode) {
+async function terminalKubernetes(explorerNode? : explorer.ResourceNode) {
     if (explorerNode) {
-        execTerminalOnPod(explorerNode.id, 'bash');
+        // For those images (e.g. built from Busybox) where bash may not be installed by default, use sh instead.
+        const isBash = await isBashOnPod(explorerNode.id);
+        execTerminalOnPod(explorerNode.id, isBash ? 'bash' : 'sh');
     } else {
         execKubernetesCore(true);
     }
@@ -1001,9 +1003,14 @@ function execKubernetesCore(isTerminal) {
 }
 
 function execTerminalOnPod(podName : string, terminalCmd : string) {
-    const terminalExecCmd : string[] = ['exec', '-it', podName, terminalCmd];
+    const terminalExecCmd : string[] = ['exec', '-it', podName, '--', terminalCmd];
     const term = vscode.window.createTerminal(`${terminalCmd} on ${podName}`, kubectl.path(), terminalExecCmd);
     term.show();
+}
+
+async function isBashOnPod(podName : string): Promise<boolean> {
+    const result = await kubectl.invokeAsync(`exec ${podName} -- ls -la /bin/bash`);
+    return !result.code;
 }
 
 function syncKubernetes() {
