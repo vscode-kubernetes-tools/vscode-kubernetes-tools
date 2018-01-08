@@ -1157,16 +1157,18 @@ const _doDebug = (name, image, cmd) => {
             waitForRunningPod(podName, () => {
                 kubectl.invoke(` port-forward ${podName} 5858:5858 8000:8000`);
 
-                vscode.commands.executeCommand(
-                    'vscode.startDebug',
-                    {
-                        type: 'node',
-                        request: 'attach',
-                        name: 'Attach to Process',
-                        port: 5858,
-                        localRoot: vscode.workspace.rootPath,
-                        remoteRoot: '/'
-                    }
+                const debugConfiguration = {
+                    type: 'node',
+                    request: 'attach',
+                    name: 'Attach to Process',
+                    port: 5858,
+                    localRoot: vscode.workspace.rootPath,
+                    remoteRoot: '/'
+                };
+                
+                vscode.debug.startDebugging(
+                    undefined,
+                    debugConfiguration
                 ).then(() => {
                     vscode.window.showInformationMessage('Debug session established', 'Expose Service').then((opt) => {
                         if (opt !== 'Expose Service') {
