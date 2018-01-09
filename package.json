@@ -16,6 +16,8 @@
     "keywords": [
         "kubernetes",
         "k8s",
+        "helm",
+        "draft",
         "azure"
     ],
     "activationEvents": [

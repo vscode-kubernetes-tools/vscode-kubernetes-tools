@@ -14,6 +14,7 @@ It also assumes that you have the following binaries on your `PATH`:
    * `kubectl`
    * `docker`
    * `git`
+   * `helm` (optional)
    * `draft` (optional)
 
 If you don't have those on your PATH then the extension will fail in
@@ -24,11 +25,19 @@ For setting up `kubectl` you have a couple of additional options:
    * If `kubectl` is not on your PATH then you can tell the extension its location using the `vs-kubernetes.kubectl-path` workspace setting. This should be the full file name and path of the kubectl binary.
    * If you are using the extension to work with an Azure Container Service then you can install and configure `kubectl` using the `Kubernetes Configure from ACS` command.
 
-For setting up `draft` you can also do this via configuration.
+### Setting up your environment for Helm and Draft
+
+`helm` support requires that you have Helm installed and configured.  From there you should also install `helm-template`:
+
+`$ helm plugin install https://github.com/technosophos/helm-template`
+
+To use the `Helm: DryRun` command, your Kubernetes cluster must be running Tiller.
+
+For setting up `draft` you can provide a path to the binary via configuration (`vs-kubernetes.draft-path`) if it is not on your PATH.
 
 ### Setting up the image repository path
 
-If you want to use the `Kubernetes Run` and `Kubernetes Debug` features
+If you want to use the `Kubernetes: Run` and `Kubernetes: Debug` features
 then you need to have correctly set the image and repository for your
 images. You can do this via preferences in VS-Code:
 
@@ -46,44 +55,62 @@ And then add:
 
 Where `<your-image-prefix-here>` is something like `docker.io/brendanburns`.
 
-
 ## Features
 
-`vs-kubernetes` supports a number of commands for interacting with Kubernetes, they are accessible via the command
-menu (`ctrl-shift-p`)
+`vs-kubernetes` supports a number of commands for interacting with Kubernetes; these are accessible via the command menu (`Ctrl+Shift+P`) and may be bound to keys in the normal way.
 
 ### General commands
 
-   * `Kubernetes Load` - Load a resource from the Kubernetes API and create a new editor window.
-   * `Kubernetes Get` - Get the status for a specific resource.
-   * `Kubernetes Logs` - Get logs for a pod in an output window.
+   * `Kubernetes: Load` - Load a resource from the Kubernetes API and create a new editor window.
+   * `Kubernetes: Get` - Get the status for a specific resource.
+   * `Kubernetes: Logs` - Get logs for a pod in an output window.
 
 ### Commands while viewing a Kubernetes file
 
-   * `Kubernetes Explain` - Use the `kubectl explain ...` tool to annotate Kubernetes API objects
-   * `Kubernetes Create` - Create an object using the current document
-   * `Kubernetes Delete` - Delete an object contained in the current document.
-   * `Kubernetes Apply` - Apply changes to an object contained in the current document.
-   * `Kubernetes Expose` - Expose the object in the current document as a service.
+   * `Kubernetes: Explain` - Use the `kubectl explain ...` tool to annotate Kubernetes API objects
+   * `Kubernetes: Create` - Create an object using the current document
+   * `Kubernetes: Delete` - Delete an object contained in the current document.
+   * `Kubernetes: Apply` - Apply changes to an object contained in the current document.
+   * `Kubernetes: Expose` - Expose the object in the current document as a service.
 
 ### Commands for application directories
 
-   * `Kubernetes Run` - Run the current application as a Kubernetes Deployment
-   * `Kubernetes Terminal` - Open an interactive terminal session in a pod of the Kubernetes Deployment
-   * `Kubernetes Exec` - Run a command in a pod of the Kubernetes Deployment
-   * `Kubernetes Debug` - Run the current application as a Kubernetes Deployment and attach a debugging session to it (currently works only for Node.js deployments)
-   * `Kubernetes Remove Debug` - Remove the deployment and/or service created for a `Kubernetes Debug` session
+   * `Kubernetes: Run` - Run the current application as a Kubernetes Deployment
+   * `Kubernetes: Terminal` - Open an interactive terminal session in a pod of the Kubernetes Deployment
+   * `Kubernetes: Exec` - Run a command in a pod of the Kubernetes Deployment
+   * `Kubernetes: Debug` - Run the current application as a Kubernetes Deployment and attach a debugging session to it (currently works only for Node.js deployments)
+   * `Kubernetes: Remove Debug` - Remove the deployment and/or service created for a `Kubernetes Debug` session
 
 ### Configuration commands
 
-   * `Kubernetes Configure from ACS` - Install and configure the Kubernetes command line tool (kubectl) from an Azure Container Service
+   * `Kubernetes: Configure from ACS` - Install and configure the Kubernetes command line tool (kubectl) from an Azure Container Service
+
+### Helm support
+
+[Helm](https://helm.sh/) is the package manager for Kubernetes and provides a way for you to define, install and upgrade applications using 'charts.'  This extension provides a set of tools for creating and testing Helm charts:
+
+
+   * Syntax highlighting for YAML + Helm Templates
+   * Autocomplete for Helm, Sprig, and Go Tpl functions
+   * Help text (on hover) for Helm, Sprig, and Go Tpl functions
+   * Snippets for quickly scaffolding new charts and templates
+   * Commands for...
+     * `Helm: Lint` - Lint your chart
+     * `Helm: Preview Template` - Open a preview window and preview how your template will render
+     * `Helm: Template` - Run your chart through the template engine
+     * `Helm: DryRun` - Run a helm install --dry-run --debug on a remote cluster and get the results
+     * `Helm: Version` - Get the Helm version
+     * `Helm: Dependency Update` - Update a chart's dependencies.
+   * Code lenses for:
+     * requirements.yaml (Add and update dependencies)
+   * Right-click on a chart .tgz file, and choose inspect chart to preview all configurable chart values.
 
 ### Draft support
 
 [Draft](http://blog.kubernetes.io/2017/05/draft-kubernetes-container-development.html) is a tool to simplify the process of developing a new Kubernetes application, by creating the necessary deployment components and by keeping code in the cluster in sync with the code on your computer.
 
-  * `Kubernetes Draft: Create` - Set up Draft in the current folder (prerequisite for syncing using Draft)
-  * `Kubernetes Draft: Up` - Runs Draft to watch the current folder and keep the cluster in sync with it
+  * `Draft: Create` - Set up Draft in the current folder (prerequisite for syncing using Draft)
+  * `Draft: Up` - Runs Draft to watch the current folder and keep the cluster in sync with it
 
 **NOTE:** Draft itself is in 'draft' form and is not yet stable. So the extension support for Draft is strictly experimental - assumptions may break, and commands and behavior may change!
 
@@ -97,7 +124,8 @@ menu (`ctrl-shift-p`)
 
 ## Known Issues
 
-Nothing known (plenty unknown ;)
+  * `Kubernetes: Debug` command currently works only with Node.js applications
+  * For deeply nested Helm charts, template previews are generated against highest (umbrella) chart values (though for `Helm: Template` calls you can pick your chart)
 
 ## Release Notes
 
