@@ -104,7 +104,7 @@
             ],
             "view/title": [
                 {
-                    "command" : "extension.vsKubernetesRefreshExplorer",
+                    "command": "extension.vsKubernetesRefreshExplorer",
                     "when": "view == extension.vsKubernetesExplorer",
                     "group": "navigation"
                 }
@@ -143,152 +143,185 @@
             ],
             "commandPalette": [
                 {
-                    "command" : "extension.vsKubernetesRefreshExplorer",
+                    "command": "extension.vsKubernetesRefreshExplorer",
                     "when": "view == extension.vsKubernetesExplorer"
                 }
             ]
         },
-        "commands": [{
-            "command": "extension.vsKubernetesCreate",
-            "title": "Create",
-            "category": "Kubernetes"
-        }, {
-            "command": "extension.vsKubernetesDelete",
-            "title": "Delete",
-            "category": "Kubernetes"
-        }, {
-            "command": "extension.vsKubernetesApply",
-            "title": "Apply",
-            "category": "Kubernetes"
-        }, {
-            "command": "extension.vsKubernetesExplain",
-            "title": "Explain",
-            "category": "Kubernetes"
-        }, {
-            "command": "extension.vsKubernetesLoad",
-            "title": "Load",
-            "category": "Kubernetes"
-        }, {
-            "command": "extension.vsKubernetesGet",
-            "title": "Get",
-            "category": "Kubernetes"
-        }, {
-            "command": "extension.vsKubernetesRun",
-            "title": "Run",
-            "category": "Kubernetes"
-        }, {
-            "command": "extension.vsKubernetesLogs",
-            "title": "Logs",
-            "category": "Kubernetes"
-        }, {
-            "command": "extension.vsKubernetesExpose",
-            "title": "Expose",
-            "category": "Kubernetes"
-        }, {
-            "command": "extension.vsKubernetesDescribe",
-            "title": "Describe",
-            "category": "Kubernetes"
-        }, {
-            "command": "extension.vsKubernetesSync",
-            "title": "Sync",
-            "category": "Kubernetes"
-        }, {
-            "command": "extension.vsKubernetesExec",
-            "title": "Exec",
-            "category": "Kubernetes"
-        }, {
-            "command": "extension.vsKubernetesTerminal",
-            "title": "Terminal",
-            "category": "Kubernetes"
-        }, {
-            "command": "extension.vsKubernetesDiff",
-            "title": "Diff",
-            "category": "Kubernetes"
-        }, {
-            "command": "extension.vsKubernetesScale",
-            "title": "Scale",
-            "category": "Kubernetes"
-        }, {
-            "command": "extension.vsKubernetesDebug",
-            "title": "Debug",
-            "category": "Kubernetes"
-        }, {
-            "command": "extension.vsKubernetesRemoveDebug",
-            "title": "Remove Debug",
-            "category": "Kubernetes"
-        }, {
-            "command": "extension.vsKubernetesConfigureFromAcs",
-            "title": "Configure from ACS",
-            "category": "Kubernetes"
-        }, {
-            "command": "extension.vsKubernetesCreateCluster",
-            "title": "Create Cluster",
-            "category": "Kubernetes"
-        }, {
-            "command": "extension.draftVersion",
-            "title": "Version",
-            "description": "Get the version of the local Draft client.",
-            "category": "Draft"
-        }, {
-            "command": "extension.draftUp",
-            "title": "Up",
-            "description": "Build, deploy, and run the app in-cluster.",
-            "category": "Draft"
-        },  {
-            "command": "extension.draftCreate",
-            "title": "Create",
-            "description": "Create a new Draft project",
-            "category": "Draft"
-        }, {
-            "command": "extension.vsKubernetesRefreshExplorer",
-            "title": "Refresh",
-            "category": "Kubernetes"
-        }, {
-            "command": "extension.helmVersion",
-            "title": "Version (Client)",
-            "description": "Get the version of the local Helm client.",
-            "category": "Helm"
-        }, {
-            "command": "extension.helmLint",
-            "title": "Lint",
-            "description": "Run the Helm linter on this chart.",
-            "category": "Helm"
-        }, {
-            "command": "extension.helmDepUp",
-            "title": "Dependency Update",
-            "description": "Update the dependencies listed in requirements.yaml.",
-            "category": "Helm"
-        }, {
-            "command": "extension.helmDryRun",
-            "title": "Dry Run",
-            "description": "Run 'helm install --dry-run --debug' on this chart.",
-            "category": "Helm"
-        }, {
-            "command": "extension.helmTemplate",
-            "title": "Template",
-            "description": "Run 'helm template' on this chart. Requires the helm-template plugin.",
-            "category": "Helm"
-        }, {
-            "command": "extension.helmInsertReq",
-            "title": "Insert Dependency",
-            "description": "Insert a dependency YAML fragment",
-            "category": "Helm"
-        }, {
-            "command": "extension.helmTemplatePreview",
-            "title": "Preview Template",
-            "description": "Run 'helm template' on this chart and show only this file. Requires the helm-template plugin.",
-            "category": "Helm"
-        }, {
-            "command": "extension.helmInspectValues",
-            "title": "Inspect Chart",
-            "description": "Inspect a Helm Chart",
-            "category": "Helm"
-        }, {
-            "command": "extension.helmCreate",
-            "title": "Create Chart",
-            "description": "Create a new Helm Chart",
-            "category": "Helm"
-        }],
+        "commands": [
+            {
+                "command": "extension.vsKubernetesCreate",
+                "title": "Create",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesDelete",
+                "title": "Delete",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesApply",
+                "title": "Apply",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesExplain",
+                "title": "Explain",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesLoad",
+                "title": "Load",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesGet",
+                "title": "Get",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesRun",
+                "title": "Run",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesLogs",
+                "title": "Logs",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesExpose",
+                "title": "Expose",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesDescribe",
+                "title": "Describe",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesSync",
+                "title": "Sync",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesExec",
+                "title": "Exec",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesTerminal",
+                "title": "Terminal",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesDiff",
+                "title": "Diff",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesScale",
+                "title": "Scale",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesDebug",
+                "title": "Debug",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesRemoveDebug",
+                "title": "Remove Debug",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesConfigureFromAcs",
+                "title": "Configure from ACS",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesCreateCluster",
+                "title": "Create Cluster",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.draftVersion",
+                "title": "Version",
+                "description": "Get the version of the local Draft client.",
+                "category": "Draft"
+            },
+            {
+                "command": "extension.draftUp",
+                "title": "Up",
+                "description": "Build, deploy, and run the app in-cluster.",
+                "category": "Draft"
+            },
+            {
+                "command": "extension.draftCreate",
+                "title": "Create",
+                "description": "Create a new Draft project",
+                "category": "Draft"
+            },
+            {
+                "command": "extension.vsKubernetesRefreshExplorer",
+                "title": "Refresh",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.helmVersion",
+                "title": "Version (Client)",
+                "description": "Get the version of the local Helm client.",
+                "category": "Helm"
+            },
+            {
+                "command": "extension.helmLint",
+                "title": "Lint",
+                "description": "Run the Helm linter on this chart.",
+                "category": "Helm"
+            },
+            {
+                "command": "extension.helmDepUp",
+                "title": "Dependency Update",
+                "description": "Update the dependencies listed in requirements.yaml.",
+                "category": "Helm"
+            },
+            {
+                "command": "extension.helmDryRun",
+                "title": "Dry Run",
+                "description": "Run 'helm install --dry-run --debug' on this chart.",
+                "category": "Helm"
+            },
+            {
+                "command": "extension.helmTemplate",
+                "title": "Template",
+                "description": "Run 'helm template' on this chart. Requires the helm-template plugin.",
+                "category": "Helm"
+            },
+            {
+                "command": "extension.helmInsertReq",
+                "title": "Insert Dependency",
+                "description": "Insert a dependency YAML fragment",
+                "category": "Helm"
+            },
+            {
+                "command": "extension.helmTemplatePreview",
+                "title": "Preview Template",
+                "description": "Run 'helm template' on this chart and show only this file. Requires the helm-template plugin.",
+                "category": "Helm"
+            },
+            {
+                "command": "extension.helmInspectValues",
+                "title": "Inspect Chart",
+                "description": "Inspect a Helm Chart",
+                "category": "Helm"
+            },
+            {
+                "command": "extension.helmCreate",
+                "title": "Create Chart",
+                "description": "Create a new Helm Chart",
+                "category": "Helm"
+            }
+        ],
         "languages": [
             {
                 "id": "helm",
