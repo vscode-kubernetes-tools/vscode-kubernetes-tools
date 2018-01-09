@@ -3,10 +3,10 @@
 import { TextDocumentContentProvider, Uri, EventEmitter, Event, ProviderResult, CancellationToken } from 'vscode';
 import { Shell } from './shell';
 import { FS } from './fs';
-import { Advanceable, Errorable, UIRequest, StageData, OperationState, OperationMap, advanceUri as wizardAdvanceUri, selectionChangedScript as wizardSelectionChangedScript, script, waitScript, styles } from './wizard';
+import { Advanceable, Errorable, UIRequest, StageData, OperationState, OperationMap, advanceUri as wizardAdvanceUri, selectionChangedScript as wizardSelectionChangedScript, script, waitScript, styles, extend } from './wizard';
 import { Context, getSubscriptionList, setSubscriptionAsync } from './azure';
 
-export const uriScheme : string = "acsconfigure";
+export const uriScheme : string = "k8sconfigure";
 
 export function operationUri(operationId: string) : Uri {
     return Uri.parse(`${uriScheme}://operations/${operationId}`);
@@ -18,8 +18,10 @@ export function uiProvider(fs: FS, shell: Shell) : TextDocumentContentProvider &
 
 enum OperationStage {
     Initial,
+    PromptForClusterType,
     PromptForSubscription,
     PromptForCluster,
+    InternalError,
     Complete,
 }
 
@@ -67,19 +69,47 @@ async function next(context: Context, sourceState: OperationState<OperationStage
     switch (sourceState.stage) {
         case OperationStage.Initial:
             return {
-                last: await getSubscriptionList(context, 'acs'),
-                stage: OperationStage.PromptForSubscription
+                last: listClusterTypes(),
+                stage: OperationStage.PromptForClusterType
             };
+        case OperationStage.PromptForClusterType:
+            const selectedClusterType : string = requestData;
+            if (selectedClusterType == 'Azure Kubernetes Service' || selectedClusterType == 'Azure Container Service') {
+                const subscriptions = await getSubscriptionList(context, getClusterCommand(selectedClusterType));
+                const pctStateInfo = extend(subscriptions.result, (subs) => { return { clusterType: selectedClusterType, subscriptions: subs }; });
+                return {
+                    last: { actionDescription: 'selecting cluster type', result: pctStateInfo },
+                    stage: OperationStage.PromptForSubscription
+                };
+            } else {
+                return {
+                    last: unsupportedClusterType(selectedClusterType),
+                    stage: OperationStage.InternalError
+                };
+            }
         case OperationStage.PromptForSubscription:
             const selectedSubscription : string = requestData;
+            const clusterType : string = sourceState.last.result.result.clusterType;
+            const clusterList = await getClusterList(context, selectedSubscription, clusterType);
+            if (!clusterList.result.succeeded) {
+                return {
+                    last: clusterList,
+                    stage: OperationStage.PromptForCluster
+                };
+            }
+            const psStateInfo = {clusterType: clusterType, clusterList: clusterList.result.result};
             return {
-                last: await getClusterList(context, selectedSubscription),
+                last: {
+                    actionDescription: clusterList.actionDescription,
+                    result: { succeeded: true, result: psStateInfo, error: [] }
+                },
                 stage: OperationStage.PromptForCluster
             };
         case OperationStage.PromptForCluster:
             const selectedCluster = parseCluster(requestData);
+            const clusterTypeEncore : string = sourceState.last.result.result.clusterType;  // TODO: rename
             return {
-                last: await configureCluster(context, selectedCluster.name, selectedCluster.resourceGroup),
+                last: await configureCluster(context, clusterTypeEncore, selectedCluster.name, selectedCluster.resourceGroup),
                 stage: OperationStage.Complete
             };
         default:
@@ -88,6 +118,24 @@ async function next(context: Context, sourceState: OperationState<OperationStage
                 last: sourceState.last
             };
     }
+}
+
+function unsupportedClusterType(clusterType: string) : StageData {
+    return {
+        actionDescription: 'selecting cluster type',
+        result: { succeeded: false, result: '', error: ['Unsupported cluster type ' + clusterType] }
+    };
+}
+
+function listClusterTypes() : StageData {
+    const clusterTypes = [
+        'Azure Kubernetes Service',
+        'Azure Container Service'
+    ];
+    return {
+        actionDescription: 'listing cluster types',
+        result: { succeeded: true, result: clusterTypes, error: [] }
+    };
 }
 
 function formatCluster(cluster: any) : string {
@@ -105,7 +153,7 @@ function parseCluster(encoded: string) {
     };
 }
 
-async function getClusterList(context: Context, subscription: string) : Promise<StageData> {
+async function getClusterList(context: Context, subscription: string, clusterType: string) : Promise<StageData> {
     // log in
     const login = await setSubscriptionAsync(context, subscription);
     if (!login.succeeded) {
@@ -116,16 +164,16 @@ async function getClusterList(context: Context, subscription: string) : Promise<
     }
 
     // list clusters
-    const clusters = await listClustersAsync(context);
+    const clusters = await listClustersAsync(context, clusterType);
     return {
         actionDescription: 'listing clusters',
         result: clusters
     };
 }
 
-async function configureCluster(context: Context, clusterName: string, clusterGroup: string) : Promise<StageData> {
-    const downloadCliPromise = downloadCli(context);
-    const getCredentialsPromise = getCredentials(context, clusterName, clusterGroup);
+async function configureCluster(context: Context, clusterType: string, clusterName: string, clusterGroup: string) : Promise<StageData> {
+    const downloadCliPromise = downloadCli(context, clusterType);
+    const getCredentialsPromise = getCredentials(context, clusterType, clusterName, clusterGroup);
 
     const [cliResult, credsResult] = await Promise.all([downloadCliPromise, getCredentialsPromise]);
 
@@ -144,8 +192,8 @@ async function configureCluster(context: Context, clusterName: string, clusterGr
     };
 }
 
-async function downloadCli(context: Context) : Promise<any> {
-    const cliInfo = installCliInfo(context);
+async function downloadCli(context: Context, clusterType: string) : Promise<any> {
+    const cliInfo = installCliInfo(context, clusterType);
 
     const sr = await context.shell.exec(cliInfo.commandLine);
     if (sr.code === 0) {
@@ -162,8 +210,8 @@ async function downloadCli(context: Context) : Promise<any> {
     }
 }
 
-async function getCredentials(context: Context, clusterName: string, clusterGroup: string) : Promise<any> {
-    const cmd = 'az acs kubernetes get-credentials -n ' + clusterName + ' -g ' + clusterGroup;
+async function getCredentials(context: Context, clusterType: string, clusterName: string, clusterGroup: string) : Promise<any> {
+    const cmd = `az ${getClusterCommandAndSubcommand(clusterType)} get-credentials -n ` + clusterName + ' -g ' + clusterGroup;
     const sr = await context.shell.exec(cmd);
 
     if (sr.code === 0 && !sr.stderr) {
@@ -178,8 +226,8 @@ async function getCredentials(context: Context, clusterName: string, clusterGrou
     }
 }
 
-function installCliInfo(context: Context) {
-    const cmdCore = 'az acs kubernetes install-cli';
+function installCliInfo(context: Context, clusterType: string) {
+    const cmdCore = `az ${getClusterCommandAndSubcommand(clusterType)} install-cli`;
     const isWindows = context.shell.isWindows();
     if (isWindows) {
         // The default Windows install location requires admin permissions; install
@@ -206,13 +254,17 @@ function render(operationId: string, state: OperationState<OperationStage>) : st
     switch (state.stage) {
         case OperationStage.Initial:
              return renderInitial();
+        case OperationStage.PromptForClusterType:
+            return renderPromptForClusterType(operationId, state.last);
         case OperationStage.PromptForSubscription:
             return renderPromptForSubscription(operationId, state.last);
         case OperationStage.PromptForCluster:
             return renderPromptForCluster(operationId, state.last);
         case OperationStage.Complete:
             return renderComplete(state.last);
-        default:
+        case OperationStage.InternalError:
+            return renderInternalError(state.last);
+         default:
             return internalError(`Unknown operation stage ${state.stage}`);
     }
 }
@@ -222,14 +274,37 @@ function render(operationId: string, state: OperationState<OperationStage>) : st
 // would also allow us to check the data being passed into the rendering method...
 
 function renderInitial() : string {
-    return '<!-- Initial --><h1>Listing subscriptions</h1><p>Please wait...</p>';
+    return '<!-- Initial --><h1>Listing cluster types</h1><p>Please wait...</p>';
+}
+
+// TODO: (near-?) duplicate of function in createcluster.ts
+function renderPromptForClusterType(operationId: string, last: StageData) : string {
+    const clusterTypes : string[] = last.result.result;
+    const initialUri = advanceUri(operationId, clusterTypes[0]);
+    const options = clusterTypes.map((s) => `<option value="${s}">${s}</option>`).join('\n');
+    return `<!-- PromptForClusterType -->
+            <h1 id='h'>Choose cluster type</h1>
+            ${styles()}
+            ${waitScript('Contacting cloud')}
+            ${selectionChangedScript(operationId)}
+            <div id='content'>
+            <p>
+            Cluster type: <select id='selector' onchange='selectionChanged()'>
+            ${options}
+            </select>
+            </p>
+
+            <p>
+            <a id='nextlink' href='${initialUri}' onclick='promptWait()'>Next &gt;</a>
+            </p>
+            </div>`;
 }
 
 function renderPromptForSubscription(operationId: string, last: StageData) : string {
     if (!last.result.succeeded) {
         return notifyCliError('PromptForSubscription', last);
     }
-    const subscriptions : string[] = last.result.result;
+    const subscriptions : string[] = last.result.result.subscriptions;
     if (!subscriptions || subscriptions.length === 0) {
         return notifyNoOptions('PromptForSubscription', 'No subscriptions', 'There are no Azure subscriptions associated with your Azure login.');
     }
@@ -259,7 +334,7 @@ function renderPromptForCluster(operationId: string, last: StageData) : string {
     if (!last.result.succeeded) {
         return notifyCliError('PromptForCluster', last);
     }
-    const clusters : any[] = last.result.result;
+    const clusters : any[] = last.result.result.clusterList;
     if (!clusters || clusters.length === 0) {
         return notifyNoOptions('PromptForCluster', 'No clusters', 'There are no Kubernetes clusters in the selected subscription.');
     }
@@ -305,6 +380,10 @@ function renderComplete(last: StageData) : string {
             ${getCredsOutput}`;
 }
 
+function renderInternalError(last: StageData) : string {
+    return internalError(last.result.error[0]);
+}
+
 function notifyCliError(stageId: string, last: StageData) : string {
     return `<!-- ${stageId} -->
         <h1>Error ${last.actionDescription}</h1>
@@ -312,7 +391,7 @@ function notifyCliError(stageId: string, last: StageData) : string {
         <ul>
         <li>Log into the Azure CLI (run az login in the terminal)</li>
         <li>Install the Azure CLI <a href='https://docs.microsoft.com/cli/azure/install-azure-cli'>(see the instructions for your operating system)</a></li>
-        <li>Configure Kubernetes from the command line using the az acs command</li>
+        <li>Configure Kubernetes from the command line using the az acs or az aks command</li>
         </ul>
         <p><b>Details</b></p>
         <p>${last.result.error}</p>`;
@@ -335,7 +414,7 @@ ${styles()}
 `;
 }
 
-const commandName = 'vsKubernetesConfigureFromAcs';
+const commandName = 'vsKubernetesConfigureFromCluster';
 
 function selectionChangedScript(operationId: string) : string {
     return wizardSelectionChangedScript(commandName, operationId);
@@ -345,12 +424,9 @@ function advanceUri(operationId: string, requestData: string) : string {
     return wizardAdvanceUri(commandName, operationId, requestData);
 }
 
-async function listClustersAsync(context: Context) : Promise<Errorable<string[]>> {
-    let query = '[?orchestratorProfile.orchestratorType==`Kubernetes`].{name:name,resourceGroup:resourceGroup}';
-    if (context.shell.isUnix()) {
-        query = `'${query}'`;
-    }
-    const sr = await context.shell.exec(`az acs list --query ${query} -ojson`);
+async function listClustersAsync(context: Context, clusterType: string) : Promise<Errorable<string[]>> {
+    let cmd = getListClustersCommand(context, clusterType);
+    const sr = await context.shell.exec(cmd);
 
     if (sr.code === 0 && !sr.stderr) {
         const clusters : any[] = JSON.parse(sr.stdout);
@@ -358,5 +434,34 @@ async function listClustersAsync(context: Context) : Promise<Errorable<string[]>
     } else {
         return { succeeded: false, result: [], error: [sr.stderr] };
     }
+}
 
+function listClustersFilter(clusterType: string): string {
+    if (clusterType == 'Azure Container Service') {
+        return '?orchestratorProfile.orchestratorType==`Kubernetes`';
+    }
+    return '';
+}
+
+function getListClustersCommand(context: Context, clusterType: string) : string {
+    let filter = listClustersFilter(clusterType);
+    let query = '[' + filter + '].{name:name,resourceGroup:resourceGroup}';
+    if (context.shell.isUnix()) {
+        query = `'${query}'`;
+    }
+    return `az ${getClusterCommand(clusterType)} list --query ${query} -ojson`;
+}
+
+function getClusterCommand(clusterType: string) : string {
+    if (clusterType == 'Azure Container Service') {
+        return 'acs';
+    }
+    return 'aks';
+}
+
+function getClusterCommandAndSubcommand(clusterType: string) : string {
+    if (clusterType == 'Azure Container Service') {
+        return 'acs kubernetes';
+    }
+    return 'aks';
 }

@@ -38,7 +38,7 @@
         "onCommand:extension.vsKubernetesScale",
         "onCommand:extension.vsKubernetesDebug",
         "onCommand:extension.vsKubernetesRemoveDebug",
-        "onCommand:extension.vsKubernetesConfigureFromAcs",
+        "onCommand:extension.vsKubernetesConfigureFromCluster",
         "onCommand:extension.vsKubernetesCreateCluster",
         "onCommand:extension.helmTemplate",
         "onCommand:extension.helmTemplatePreview",
@@ -244,8 +244,8 @@
                 "category": "Kubernetes"
             },
             {
-                "command": "extension.vsKubernetesConfigureFromAcs",
-                "title": "Configure from ACS",
+                "command": "extension.vsKubernetesConfigureFromCluster",
+                "title": "Configure from Cluster",
                 "category": "Kubernetes"
             },
             {
