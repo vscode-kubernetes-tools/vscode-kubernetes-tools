@@ -38,8 +38,8 @@ For setting up `draft` you can provide a path to the binary via configuration (`
 ### Setting up the image repository path
 
 If you want to use the `Kubernetes: Run` and `Kubernetes: Debug` features
-then you need to have correctly set the image and repository for your
-images. You can do this via preferences in VS-Code:
+then you need to have correctly set the user and repository for your
+images. You can do this via preferences in VS Code:
 
 File > Preferences
 
