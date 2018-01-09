@@ -11,6 +11,7 @@ export function create(kubectl : Kubectl, host : Host) : KubernetesExplorer {
 export interface ResourceNode {
     readonly id : string;
     readonly resourceId : string;
+    readonly metadata?: any;
 }
 
 export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObject> {
@@ -20,6 +21,9 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObj
     constructor(private readonly kubectl : Kubectl, private readonly host : Host) {}
 
     getTreeItem(element: KubernetesObject) : vscode.TreeItem | Thenable<vscode.TreeItem> {
+        if (element instanceof VirtualKubernetesResource) {
+            return element.getTreeItem();
+        }
         const collapsibleState = isKind(element) ? vscode.TreeItemCollapsibleState.Collapsed: vscode.TreeItemCollapsibleState.None;
         const label = isKind(element) ? element.kind.pluralDisplayName : element.id;
         let treeItem = new vscode.TreeItem(label, collapsibleState);
@@ -38,10 +42,12 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObj
     }
 
     getChildren(parent? : KubernetesObject) : vscode.ProviderResult<KubernetesObject[]> {
-        if (parent) {
+        if (parent instanceof VirtualKubernetesResource) {
+            return parent.getChildren();
+        } else if (parent) {
             return getChildren(parent, this.kubectl, this.host);
         }
-        return kuberesources.commonKinds.map((k) => new KubernetesKind(k));
+        return getClusters(this.kubectl, this.host);
     }
 
     refresh(): void {
@@ -56,6 +62,20 @@ function isKind(obj: KubernetesObject) : obj is KubernetesKind {
 
 function isResource(obj: KubernetesObject) : obj is KubernetesResource {
     return !!(<KubernetesResource>obj).resourceId;
+}
+
+async function getClusters(kubectl: Kubectl, host: Host) : Promise<KubernetesObject[]> {
+    const shellResult = await kubectl.invokeAsync("config view -o json");
+    if (shellResult.code !== 0) {
+        return [];
+    }
+    const configJson = JSON.parse(shellResult.stdout);
+    const currentContext = configJson["current-context"];
+    const contexts = configJson.contexts;
+    return contexts.map((c) => new VirtualKubernetesResource(c.context.cluster, 'cluster', {
+        context: c.name,
+        active: c.name === currentContext
+    }));
 }
 
 async function getChildren(parent : KubernetesObject, kubectl: Kubectl, host: Host) : Promise<KubernetesObject[]> {
@@ -90,5 +110,40 @@ class KubernetesResource implements KubernetesObject, ResourceNode {
     readonly resourceId: string;
     constructor(kind: kuberesources.ResourceKind, readonly id: string) {
         this.resourceId = kind.abbreviation + '/' + id;
+    }
+}
+
+class VirtualKubernetesResource implements KubernetesObject, ResourceNode {
+    readonly resourceId: string;
+
+    constructor (readonly id : string, readonly kind : string, readonly metadata?: any) {
+        this.resourceId = kind + "/" + id;
+    }
+
+    getChildren() : vscode.ProviderResult<KubernetesObject[]> {
+        if (this.kind === 'cluster') {
+            return [
+                new KubernetesKind(kuberesources.allKinds.node),
+                new VirtualKubernetesResource('Workloads', 'workload'),
+                new KubernetesKind(kuberesources.allKinds.service)
+            ];
+        } else if (this.kind === 'workload') {
+            return [
+                new KubernetesKind(kuberesources.allKinds.deployment),
+                new KubernetesKind(kuberesources.allKinds.job),
+                new KubernetesKind(kuberesources.allKinds.pod)
+            ];
+        }
+        return [];
+    }
+
+    getTreeItem() : vscode.TreeItem | Thenable<vscode.TreeItem> {
+        const treeItem = new vscode.TreeItem(this.id, vscode.TreeItemCollapsibleState.Collapsed);
+        treeItem.contextValue = null;
+        if (this.kind === 'cluster' && !this.metadata.active) {
+            treeItem.collapsibleState = vscode.TreeItemCollapsibleState.None;
+            treeItem.contextValue = "vsKubernetes.resource.cluster";
+        }
+        return treeItem;
     }
 }

@@ -111,6 +111,10 @@
             ],
             "view/item/context": [
                 {
+                    "command": "extension.vsKubernetesUseContext",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.cluster"
+                },
+                {
                     "command": "extension.vsKubernetesLoad",
                     "group": "0",
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource"
@@ -145,6 +149,10 @@
                 {
                     "command": "extension.vsKubernetesRefreshExplorer",
                     "when": "view == extension.vsKubernetesExplorer"
+                },
+                {
+                    "command": "extension.vsKubernetesUseContext",
+                    "when": "false == true"
                 }
             ]
         },
@@ -245,6 +253,10 @@
                 "category": "Kubernetes"
             },
             {
+                "command": "extension.vsKubernetesUseContext",
+                "title": "Set to current cluster"
+            },
+            {
                 "command": "extension.draftVersion",
                 "title": "Version",
                 "description": "Get the version of the local Draft client.",
@@ -265,7 +277,11 @@
             {
                 "command": "extension.vsKubernetesRefreshExplorer",
                 "title": "Refresh",
-                "category": "Kubernetes"
+                "category": "Kubernetes",
+                "icon": {
+                    "light": "images/light/refresh.svg",
+                    "dark": "images/dark/refresh.svg"
+                }
             },
             {
                 "command": "extension.helmVersion",

@@ -91,6 +91,7 @@ export function activate(context) {
         vscode.commands.registerCommand('extension.vsKubernetesConfigureFromAcs', configureFromAcsKubernetes),
         vscode.commands.registerCommand('extension.vsKubernetesCreateCluster', createClusterKubernetes),
         vscode.commands.registerCommand('extension.vsKubernetesRefreshExplorer', () => treeProvider.refresh()),
+        vscode.commands.registerCommand('extension.vsKubernetesUseContext', useContextKubernetes),
 
         // Commands - Helm
         vscode.commands.registerCommand('extension.helmVersion', helmexec.helmVersion),
@@ -1279,6 +1280,16 @@ async function createClusterKubernetes(request? : WizardUIRequest) {
         createClusterUI.start(newId);
         vscode.commands.executeCommand('vscode.previewHtml', createCluster.operationUri(newId), 2, "Create Kubernetes Cluster");
         await createClusterUI.next({ operationId: newId, requestData: undefined });
+    }
+}
+
+async function useContextKubernetes(explorerNode: explorer.ResourceNode) {
+    const targetContext = explorerNode.metadata.context;
+    const shellResult = await kubectl.invokeAsync(`config use-context ${targetContext}`);
+    if (!shellResult.code) {
+        vscode.commands.executeCommand("extension.vsKubernetesRefreshExplorer");
+    } else {
+        vscode.window.showErrorMessage(`set current cluster failed: ${shellResult.stderr}`);
     }
 }
 
