@@ -152,7 +152,7 @@
                 },
                 {
                     "command": "extension.vsKubernetesUseContext",
-                    "when": "false == true"
+                    "when": "view == extension.vsKubernetesExplorer"
                 }
             ]
         },
@@ -254,7 +254,8 @@
             },
             {
                 "command": "extension.vsKubernetesUseContext",
-                "title": "Set to current cluster"
+                "title": "Set to current cluster",
+                "category": "Kubernetes"
             },
             {
                 "command": "extension.draftVersion",
