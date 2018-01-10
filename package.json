@@ -112,7 +112,7 @@
             "view/item/context": [
                 {
                     "command": "extension.vsKubernetesUseContext",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.cluster"
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.cluster.inactive"
                 },
                 {
                     "command": "extension.vsKubernetesLoad",
@@ -254,7 +254,7 @@
             },
             {
                 "command": "extension.vsKubernetesUseContext",
-                "title": "Set to current cluster",
+                "title": "Set to Current Cluster",
                 "category": "Kubernetes"
             },
             {
