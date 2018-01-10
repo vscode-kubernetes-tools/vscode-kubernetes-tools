@@ -212,7 +212,7 @@ async function downloadCli(context: Context, clusterType: string) : Promise<any>
 }
 
 async function getCredentials(context: Context, clusterType: string, clusterName: string, clusterGroup: string) : Promise<any> {
-    const cmd = `az ${getClusterCommandAndSubcommand(clusterType)} get-credentials -n ` + clusterName + ' -g ' + clusterGroup;
+    const cmd = `az ${getClusterCommandAndSubcommand(clusterType)} get-credentials -n ${clusterName} -g ${clusterGroup}`;
     const sr = await context.shell.exec(cmd);
 
     if (sr.code === 0 && !sr.stderr) {
@@ -446,7 +446,7 @@ function listClustersFilter(clusterType: string): string {
 
 function getListClustersCommand(context: Context, clusterType: string) : string {
     let filter = listClustersFilter(clusterType);
-    let query = '[' + filter + '].{name:name,resourceGroup:resourceGroup}';
+    let query = `[${filter}].{name:name,resourceGroup:resourceGroup}`;
     if (context.shell.isUnix()) {
         query = `'${query}'`;
     }
