@@ -106,20 +106,6 @@ async function next(context: Context, sourceState: OperationState<OperationStage
                 stage: OperationStage.PromptForCluster
             };
             return psStageData;
-            // if (!clusterList.result.succeeded) {
-            //     return {
-            //         last: clusterList,
-            //         stage: OperationStage.PromptForCluster
-            //     };
-            // }
-            // const psStateInfo = {clusterType: clusterType, clusterList: clusterList.result.result};
-            // return {
-            //     last: {
-            //         actionDescription: clusterList.actionDescription,
-            //         result: { succeeded: true, result: psStateInfo, error: [] }
-            //     },
-            //     stage: OperationStage.PromptForCluster
-            // };
         case OperationStage.PromptForCluster:
             const selectedCluster = parseCluster(requestData);
             const clusterTypeEncore : string = sourceState.last.result.result.clusterType;  // TODO: rename
