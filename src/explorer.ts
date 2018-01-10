@@ -67,11 +67,12 @@ function isResource(obj: KubernetesObject) : obj is KubernetesResource {
 async function getClusters(kubectl: Kubectl, host: Host) : Promise<KubernetesObject[]> {
     const shellResult = await kubectl.invokeAsync("config view -o json");
     if (shellResult.code !== 0) {
+        host.showErrorMessage(shellResult.stderr);
         return [];
     }
-    const configJson = JSON.parse(shellResult.stdout);
-    const currentContext = configJson["current-context"];
-    const contexts = configJson.contexts;
+    const kubectlConfig = JSON.parse(shellResult.stdout);
+    const currentContext = kubectlConfig["current-context"];
+    const contexts = kubectlConfig.contexts;
     return contexts.map((c) => new VirtualKubernetesResource(c.context.cluster, 'cluster', {
         context: c.name,
         active: c.name === currentContext
@@ -116,7 +117,7 @@ class KubernetesResource implements KubernetesObject, ResourceNode {
 class VirtualKubernetesResource implements KubernetesObject, ResourceNode {
     readonly resourceId: string;
 
-    constructor (readonly id : string, readonly kind : string, readonly metadata?: any) {
+    constructor (readonly id: string, readonly kind: string, readonly metadata?: any) {
         this.resourceId = kind + "/" + id;
     }
 
@@ -142,7 +143,7 @@ class VirtualKubernetesResource implements KubernetesObject, ResourceNode {
         treeItem.contextValue = null;
         if (this.kind === 'cluster' && !this.metadata.active) {
             treeItem.collapsibleState = vscode.TreeItemCollapsibleState.None;
-            treeItem.contextValue = "vsKubernetes.resource.cluster";
+            treeItem.contextValue = "vsKubernetes.resource.cluster.inactive";
         }
         return treeItem;
     }

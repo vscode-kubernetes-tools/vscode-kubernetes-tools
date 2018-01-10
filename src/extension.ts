@@ -1286,10 +1286,10 @@ async function createClusterKubernetes(request? : WizardUIRequest) {
 async function useContextKubernetes(explorerNode: explorer.ResourceNode) {
     const targetContext = explorerNode.metadata.context;
     const shellResult = await kubectl.invokeAsync(`config use-context ${targetContext}`);
-    if (!shellResult.code) {
+    if (shellResult.code === 0) {
         vscode.commands.executeCommand("extension.vsKubernetesRefreshExplorer");
     } else {
-        vscode.window.showErrorMessage(`set current cluster failed: ${shellResult.stderr}`);
+        vscode.window.showErrorMessage(`Failed to set '${targetContext}' as current cluster: ${shellResult.stderr}`);
     }
 }
 
