@@ -19,7 +19,7 @@ import * as uuid from 'uuid';
 import { host } from './host';
 import * as explainer from './explainer';
 import { shell, ShellResult } from './shell';
-import * as configureFromCluster from './acs';
+import * as configureFromCluster from './configurefromcluster';
 import * as createCluster from './createcluster';
 import { UIRequest as WizardUIRequest } from './wizard';
 import * as kuberesources from './kuberesources';

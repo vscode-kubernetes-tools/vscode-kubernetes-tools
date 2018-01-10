@@ -76,6 +76,12 @@ async function next(context: Context, sourceState: OperationState<OperationStage
             const selectedClusterType : string = requestData;
             if (selectedClusterType == 'Azure Kubernetes Service' || selectedClusterType == 'Azure Container Service') {
                 const subscriptions = await getSubscriptionList(context, getClusterCommand(selectedClusterType));
+                if (!subscriptions.result.succeeded) {
+                    return {
+                        last: subscriptions,
+                        stage: OperationStage.PromptForSubscription
+                    };
+                }
                 const pctStateInfo = extend(subscriptions.result, (subs) => { return { clusterType: selectedClusterType, subscriptions: subs }; });
                 return {
                     last: { actionDescription: 'selecting cluster type', result: pctStateInfo },
@@ -91,20 +97,29 @@ async function next(context: Context, sourceState: OperationState<OperationStage
             const selectedSubscription : string = requestData;
             const clusterType : string = sourceState.last.result.result.clusterType;
             const clusterList = await getClusterList(context, selectedSubscription, clusterType);
-            if (!clusterList.result.succeeded) {
-                return {
-                    last: clusterList,
-                    stage: OperationStage.PromptForCluster
-                };
-            }
-            const psStateInfo = {clusterType: clusterType, clusterList: clusterList.result.result};
-            return {
+            const psStateInfo = extend(clusterList.result, (cl) => {return {clusterType: clusterType, clusterList: cl};});
+            const psStageData = {
                 last: {
                     actionDescription: clusterList.actionDescription,
-                    result: { succeeded: true, result: psStateInfo, error: [] }
+                    result: psStateInfo
                 },
                 stage: OperationStage.PromptForCluster
             };
+            return psStageData;
+            // if (!clusterList.result.succeeded) {
+            //     return {
+            //         last: clusterList,
+            //         stage: OperationStage.PromptForCluster
+            //     };
+            // }
+            // const psStateInfo = {clusterType: clusterType, clusterList: clusterList.result.result};
+            // return {
+            //     last: {
+            //         actionDescription: clusterList.actionDescription,
+            //         result: { succeeded: true, result: psStateInfo, error: [] }
+            //     },
+            //     stage: OperationStage.PromptForCluster
+            // };
         case OperationStage.PromptForCluster:
             const selectedCluster = parseCluster(requestData);
             const clusterTypeEncore : string = sourceState.last.result.result.clusterType;  // TODO: rename
