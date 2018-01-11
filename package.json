@@ -2,7 +2,7 @@
     "name": "vscode-kubernetes-tools",
     "displayName": "Kubernetes",
     "description": "Develop, deploy and debug Kubernetes applications",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "preview": true,
     "publisher": "ms-kubernetes-tools",
     "engines": {
@@ -20,6 +20,7 @@
         "draft",
         "azure"
     ],
+    "icon": "images/k8s-logo.png",
     "activationEvents": [
         "onCommand:extension.vsKubernetesCreate",
         "onCommand:extension.vsKubernetesDelete",
