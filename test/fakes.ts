@@ -55,14 +55,14 @@ export function host(settings : FakeHostSettings = {}) : any {
             }
             return settings.configuration || { };
         }
-    }
+    };
 }
 
 export function fs(settings : FakeFSSettings = {}) : any {
     return {
         existsSync: (path) => (settings.existentPaths || []).indexOf(path) >= 0,
         dirSync: (path) => (settings.onDirSync || nop)(path),
-    }
+    };
 }
 
 export function shell(settings : FakeShellSettings = {}) : any {
@@ -73,7 +73,7 @@ export function shell(settings : FakeShellSettings = {}) : any {
         combinePath: (b: string, r: string) => (settings.isWindows ? `${b}\\${r}` : `${b}/${r}`),
         execCore: (cmd, opts) => fakeShellExec(settings, cmd),
         exec: (cmd) => fakeShellExec(settings, cmd),
-    }
+    };
 }
 
 function fakeShellExec(settings : FakeShellSettings, cmd : string) : Promise<ShellResult> {
@@ -91,5 +91,5 @@ export function kubectl(settings : FakeKubectlSettings = {}) : any {
     const asLines = settings.asLines || ((s : string) => []);
     return {
         asLines: (cmd) => new Promise((resolve, reject) => resolve(asLines(cmd)))
-    }
+    };
 }

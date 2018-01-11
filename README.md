@@ -23,7 +23,7 @@ unexpected ways.
 For setting up `kubectl` you have a couple of additional options:
 
    * If `kubectl` is not on your PATH then you can tell the extension its location using the `vs-kubernetes.kubectl-path` workspace setting. This should be the full file name and path of the kubectl binary.
-   * If you are using the extension to work with an Azure Container Service then you can install and configure `kubectl` using the `Kubernetes Configure from ACS` command.
+   * If you are using the extension to work with Azure Container Services or Azure Kubernetes Services then you can install and configure `kubectl` using the `Kubernetes Configure from Cluster` command.
 
 ### Setting up your environment for Helm and Draft
 
@@ -83,7 +83,7 @@ Where `<your-image-prefix-here>` is something like `docker.io/brendanburns`.
 
 ### Configuration commands
 
-   * `Kubernetes: Configure from ACS` - Install and configure the Kubernetes command line tool (kubectl) from an Azure Container Service
+   * `Kubernetes Configure from Cluster` - Install and configure the Kubernetes command line tool (kubectl) from an Azure Container Service (ACS) or Azure Kubernetes Service (AKS) cluster
 
 ### Helm support
 
@@ -144,3 +144,5 @@ provided by the bot. You will only need to do this once across all repos using o
 This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
 For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
 contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
+
+For technical information about contributing, see [CONTRIBUTING.md](CONTRIBUTING.md).

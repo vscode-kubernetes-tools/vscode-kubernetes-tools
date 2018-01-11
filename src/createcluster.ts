@@ -332,7 +332,7 @@ function render(operationId: string, state: OperationState<OperationStage>) : st
             return renderPromptForAgentSettings(operationId, state.last);
         case OperationStage.InternalError:
            return renderInternalError(state.last);
-        case OperationStage.InternalError:
+        case OperationStage.ExternalError:
            return renderExternalError(state.last);
         case OperationStage.Complete:
             return renderComplete(state.last);
