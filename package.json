@@ -3,13 +3,22 @@
     "displayName": "Kubernetes",
     "description": "Develop, deploy and debug Kubernetes applications",
     "version": "0.1.0",
-    "publisher": "Microsoft",
+    "preview": true,
+    "publisher": "ms-kubernetes-tools",
     "engines": {
         "vscode": "^1.19.0"
     },
     "license": "MIT",
     "categories": [
+        "Azure",
         "Other"
+    ],
+    "keywords": [
+        "kubernetes",
+        "k8s",
+        "helm",
+        "draft",
+        "azure"
     ],
     "activationEvents": [
         "onCommand:extension.vsKubernetesCreate",
