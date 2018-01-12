@@ -396,12 +396,14 @@
         "lodash": ">3"
     },
     "devDependencies": {
-        "typescript": "^2.2.32",
-        "tslint": "^4.5.1",
-        "vscode": "^1.0.0",
-        "mocha": "^2.3.3",
+        "@types/mocha": "^2.2.32",
         "@types/node": "^6.0.40",
-        "@types/mocha": "^2.2.32"
+        "gulp": "^3.9.1",
+        "gulp-tslint": "^8.1.2",
+        "mocha": "^2.3.3",
+        "tslint": "^5.9.1",
+        "typescript": "^2.2.32",
+        "vscode": "^1.0.0"
     },
     "repository": {
         "type": "git",
