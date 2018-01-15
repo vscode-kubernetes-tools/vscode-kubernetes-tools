@@ -185,7 +185,7 @@ suite("kubectl tests", () => {
                 assert.equal(kubectlInvoked, false);
             });
 
-        })
+        });
 
         suite("If kubectl is present", () => {
 
@@ -222,7 +222,7 @@ suite("kubectl tests", () => {
                 assert.equal(hasMatchingInvoke, true);
             });
 
-        })
+        });
 
         suite("When we call kubectl", () => {
 
@@ -243,7 +243,7 @@ suite("kubectl tests", () => {
 
             test("...we pass the results of kubectl to the callback", async () => {
                 const fakeKubectlResult = { code: 1, stdout: 'kubectl out', stderr: 'kubectl err' };
-                let calledBackWith : any = { }
+                let calledBackWith : any = { };
                 const kubectl = kubectlCreateWithFakes({
                     shell: fakes.shell({
                         recognisedCommands: [{command: 'where.exe kubectl.exe', code: 0, stdout: 'c:\\kubectl.exe'}],
@@ -303,8 +303,8 @@ suite("kubectl tests", () => {
                 assert.equal(errors[0], "Kubectl command failed: " + fakeKubectlResult.stderr);
             });
 
-        })
+        });
 
     });
 
-})
+});

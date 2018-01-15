@@ -29,7 +29,7 @@ export interface ShellResult {
     readonly code : number;
     readonly stdout : string;
     readonly stderr : string;
-};
+}
 
 export type ShellHandler = (code : number, stdout : string, stderr : string) => void;
 
