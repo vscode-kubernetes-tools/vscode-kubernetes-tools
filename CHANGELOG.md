@@ -1,5 +1,12 @@
 # Change Log
 
+## 0.1.3
+
+* Tree view improvements:
+  * Choose your active cluster from those defined in your `kubeconfig`
+  * Structure is now better aligned to Kubernetes dashboard
+* Fixed `Draft: Up` display for non-watch mode
+
 ## 0.1.0
 
 Combined `vs-kubernetes` and `vscode-helm` into one extension.
