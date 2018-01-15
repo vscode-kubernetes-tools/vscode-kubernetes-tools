@@ -1379,14 +1379,16 @@ async function execDraftUp() {
     if (!(await draft.checkPresent())) {
         return;
     }
-    // if it's already running... how can we tell?
 
-    // TODO: If non-watching then we should pipe the output to an Output window rather than using
-    // a terminal which exits when the command exits - but then do we have to manage the
-    // process?
+    // if it's already running... how can we tell?
     const draftPath = await draft.path();
-    const term = vscode.window.createTerminal(`draft up`, draftPath, [ 'up' ]);  // TODO: this doesn't show output colourised - how to do that in a safe portable way?
-    term.show(true);
+    if (shell.isUnix()) {
+        const term = vscode.window.createTerminal('draft up', `bash`, [ '-c', `${draftPath} up ; bash` ]);
+        term.show(true);
+    } else {
+        const term = vscode.window.createTerminal('draft up', `PowerShell`, [ '-NoExit', `${draftPath} up` ]);
+        term.show(true);
+    }
 }
 
 function editorIsActive(): boolean {

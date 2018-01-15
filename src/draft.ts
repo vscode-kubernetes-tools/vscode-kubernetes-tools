@@ -105,7 +105,7 @@ async function checkForDraftInternal(context : Context) : Promise<boolean> {
 
 function isFolderMapped(context: Context, path: string) : boolean {
     // Heuristic based on files created by 'draft create'
-    const tomlFile = syspath.join(path, '.draftignore');
-    const ignoreFile = syspath.join(path, 'draft.toml');
+    const tomlFile = syspath.join(path, 'draft.toml');
+    const ignoreFile = syspath.join(path, '.draftignore');
     return context.fs.existsSync(tomlFile) && context.fs.existsSync(ignoreFile);
 }
