@@ -545,7 +545,7 @@ function findVersion() {
     return {
         then: findVersionInternal
     };
-};
+}
 
 function findVersionInternal(fn) {
     // No .git dir, use 'latest'
