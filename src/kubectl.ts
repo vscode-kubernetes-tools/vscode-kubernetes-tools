@@ -6,6 +6,7 @@ import * as binutil from './binutil';
 export interface Kubectl {
     checkPresent(errorMessageMode : CheckPresentMessageMode) : Promise<boolean>;
     invoke(command : string, handler? : ShellHandler) : Promise<void>;
+    invokeWithProgress(command : string, progressMessage: string, handler? : ShellHandler) : Promise<{}>;
     invokeAsync(command : string) : Promise<ShellResult>;
     asLines(command : string): Promise<string[] | ShellResult>;
     path() : string;
@@ -31,6 +32,9 @@ class KubectlImpl implements Kubectl {
     }
     invoke(command : string, handler? : ShellHandler) : Promise<void> {
         return invoke(this.context, command, handler);
+    }
+    invokeWithProgress(command : string, progressMessage: string, handler? : ShellHandler) : Promise<{}> {
+        return invokeWithProgress(this.context, command, progressMessage, handler);
     }
     invokeAsync(command : string) : Promise<ShellResult> {
         return invokeAsync(this.context, command);
@@ -79,6 +83,21 @@ function getCheckKubectlContextMessage(errorMessageMode : CheckPresentMessageMod
 
 async function invoke(context : Context, command : string, handler? : ShellHandler) : Promise<void> {
     await kubectlInternal(context, command, handler || kubectlDone(context));
+}
+
+async function invokeWithProgress(context : Context, command: string, progressMessage: string, handler?: ShellHandler): Promise<{}> {
+    return context.host.withProgress((p) => {
+        return new Promise((resolve, reject) => {
+            p.report({ message: progressMessage });
+            invoke(context, command, (code, stdout, stderr) => {
+                resolve();
+                if (!handler) {
+                    handler = kubectlDone(context);
+                }
+                handler(code, stdout, stderr);
+            });
+        });
+    });
 }
 
 async function invokeAsync(context : Context, command : string) : Promise<ShellResult> {

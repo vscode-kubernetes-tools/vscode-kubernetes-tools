@@ -6,6 +6,7 @@ export interface Host {
     showInformationMessage(message : string, ...items : string[]) : Thenable<string>;
     showQuickPick(items : string[], options : vscode.QuickPickOptions) : Thenable<string>;
     showQuickPick<T extends vscode.QuickPickItem>(items : T[], options : vscode.QuickPickOptions) : Thenable<T>;
+    withProgress<R>(task: (progress: vscode.Progress<{ message?: string; }>) => Thenable<R>): Thenable<R>;
     getConfiguration(key : string) : any;
 }
 
@@ -14,6 +15,7 @@ export const host : Host = {
     showWarningMessage : showWarningMessage,
     showInformationMessage : showInformationMessage,
     showQuickPick : showQuickPickAny,
+    withProgress: withProgress,
     getConfiguration : getConfiguration,
 };
 
@@ -52,6 +54,10 @@ function showQuickPickAny(items : any, options : vscode.QuickPickOptions) : any 
     } else {
         return showQuickPickT(items, options);
     }
+}
+
+function withProgress<R>(task: (progress: vscode.Progress<{ message?: string; }>) => Thenable<R>): Thenable<R> {
+    return vscode.window.withProgress({ location: vscode.ProgressLocation.Window }, task);
 }
 
 function getConfiguration(key : string) : any {
