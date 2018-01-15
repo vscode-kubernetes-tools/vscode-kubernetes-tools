@@ -1386,7 +1386,7 @@ async function execDraftUp() {
         const term = vscode.window.createTerminal('draft up', `bash`, [ '-c', `${draftPath} up ; bash` ]);
         term.show(true);
     } else {
-        const term = vscode.window.createTerminal('draft up', `PowerShell`, [ '-NoExit', `${draftPath} up` ]);
+        const term = vscode.window.createTerminal('draft up', 'powershell.exe', [ '-NoExit', `${draftPath}`, `up` ]);
         term.show(true);
     }
 }
