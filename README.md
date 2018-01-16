@@ -129,7 +129,7 @@ Where `<your-image-prefix-here>` is something like `docker.io/brendanburns`.
 
 ## Release Notes
 
-See the [change log](changelog.md).
+See the [change log](CHANGELOG.md).
 
 # Contributing
 
