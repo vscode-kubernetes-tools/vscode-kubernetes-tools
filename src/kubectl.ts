@@ -34,13 +34,13 @@ class KubectlImpl implements Kubectl {
     invoke(command : string, handler? : ShellHandler) : Promise<void> {
         return invoke(this.context, command, handler);
     }
-    invokeWithProgress(command : string, progressMessage: string, handler? : ShellHandler) : Promise<void> {
+    invokeWithProgress(command : string, progressMessage : string, handler? : ShellHandler) : Promise<void> {
         return invokeWithProgress(this.context, command, progressMessage, handler);
     }
     invokeAsync(command : string) : Promise<ShellResult> {
         return invokeAsync(this.context, command);
     }
-    invokeAsyncWithProgress(command : string, progressMessage: string) : Promise<ShellResult> {
+    invokeAsyncWithProgress(command : string, progressMessage : string) : Promise<ShellResult> {
         return invokeAsyncWithProgress(this.context, command, progressMessage);
     }
     asLines(command : string) : Promise<string[] | ShellResult> {
