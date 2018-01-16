@@ -378,7 +378,7 @@
             {
                 "language": "kubernetes-output",
                 "scopeName": "kubernetes.output",
-                "path": "./syntaxes/kubernetes.output.tmLanguage"
+                "path": "./syntaxes/kubernetes-output.tmLanguage.json"
             }
         ],
         "snippets": [
