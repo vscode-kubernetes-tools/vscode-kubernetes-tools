@@ -20,6 +20,7 @@
         "draft",
         "azure"
     ],
+    "aiKey": "AIF-d9b70cd4-b9f9-4d70-929b-a071c400b217",
     "icon": "images/k8s-logo.png",
     "activationEvents": [
         "onCommand:extension.vsKubernetesCreate",
@@ -485,7 +486,8 @@
         "uuid": "^3.1.0",
         "yamljs": "0.2.10",
         "compare-versions": "^3.1.0",
-        "lodash": ">3"
+        "lodash": ">3",
+        "vscode-extension-telemetry": "^0.0.6"
     },
     "devDependencies": {
         "@types/mocha": "^2.2.32",
