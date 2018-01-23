@@ -4,7 +4,7 @@ import { TextDocumentContentProvider, Uri, EventEmitter, Event, ProviderResult, 
 import { Shell } from './shell';
 import { FS } from './fs';
 import { Advanceable, Errorable, UIRequest, StageData, OperationState, OperationMap, advanceUri as wizardAdvanceUri, selectionChangedScript as wizardSelectionChangedScript, selectionChangedScriptMulti as wizardSelectionChangedScriptMulti, script, waitScript, extend, ControlMapping, styles } from './wizard';
-import { Context, getSubscriptionList, setSubscriptionAsync, configureCluster, ServiceLocation, Locations } from './azure';
+import { Context, getSubscriptionList, setSubscriptionAsync, configureCluster, getClusterCommand, getClusterCommandAndSubcommand, ServiceLocation, Locations } from './azure';
 import { error } from 'util';
 
 export const uriScheme : string = "k8screatecluster";
@@ -136,9 +136,14 @@ async function next(context: Context, sourceState: OperationState<OperationStage
             const agentSettings = JSON.parse(requestData);
             const creationInfo = extend(sourceState.last.result, (v) => Object.assign({}, v, {agentSettings: agentSettings}));
             const creationResult = await createCluster(context, creationInfo.result);
-            const pasStateInfo = extend(creationInfo, (v) => Object.assign({}, v, {creationResult: creationResult}));
+            if (!creationResult.result.succeeded) {
+                return {
+                    last: creationResult,
+                    stage: OperationStage.Complete
+                }
+            }
             return {
-                last: { actionDescription: 'creating cluster', result: pasStateInfo },
+                last: { actionDescription: 'creating cluster', result: creationInfo },
                 stage: OperationStage.Complete
             };
         case OperationStage.Complete:
@@ -279,13 +284,6 @@ async function ensureResourceGroupAsync(context: Context, resourceGroupName: str
     } else {
         return { succeeded: false, result: null, error: [sr.stderr] };
     }
-}
-
-function getClusterCommand(clusterType: string) : string {
-    if (clusterType == 'Azure Container Service') {
-        return 'acs';
-    }
-    return 'aks';
 }
 
 async function execCreateClusterCmd(context: Context, options: any) : Promise<Errorable<void>> {

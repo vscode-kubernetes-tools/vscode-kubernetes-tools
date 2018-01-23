@@ -4,6 +4,7 @@ import { Shell } from './shell';
 import { FS } from './fs';
 import { Errorable, StageData } from './wizard';
 import * as compareVersions from 'compare-versions';
+import { sleep } from './sleep';
 
 export interface Context {
     readonly fs: FS;
@@ -104,7 +105,7 @@ export async function setSubscriptionAsync(context: Context, subscription: strin
 
 export async function configureCluster(context: Context, clusterType: string, clusterName: string, clusterGroup: string) : Promise<StageData> {
     const downloadCliPromise = downloadCli(context, clusterType);
-    const getCredentialsPromise = getCredentials(context, clusterType, clusterName, clusterGroup);
+    const getCredentialsPromise = getCredentials(context, clusterType, clusterName, clusterGroup, 5);
 
     const [cliResult, credsResult] = await Promise.all([downloadCliPromise, getCredentialsPromise]);
 
@@ -141,19 +142,25 @@ async function downloadCli(context: Context, clusterType: string) : Promise<any>
     }
 }
 
-async function getCredentials(context: Context, clusterType: string, clusterName: string, clusterGroup: string) : Promise<any> {
-    const cmd = `az ${getClusterCommandAndSubcommand(clusterType)} get-credentials -n ${clusterName} -g ${clusterGroup}`;
-    const sr = await context.shell.exec(cmd);
+async function getCredentials(context: Context, clusterType: string, clusterName: string, clusterGroup: string, maxAttempts: number) : Promise<any> {
+    let attempts = 0;
+    while (true) {
+        attempts++;
+        const cmd = `az ${getClusterCommandAndSubcommand(clusterType)} get-credentials -n ${clusterName} -g ${clusterGroup}`;
+        const sr = await context.shell.exec(cmd);
 
-    if (sr.code === 0 && !sr.stderr) {
-        return {
-            succeeded: true
-        };
-    } else {
-        return {
-            succeeded: false,
-            error: sr.stderr
-        };
+        if (sr.code === 0 && !sr.stderr) {
+            return {
+                succeeded: true
+            };
+        } else if (attempts < maxAttempts) {
+            await sleep(15000);
+        } else {
+            return {
+                succeeded: false,
+                error: sr.stderr
+            };
+        }
     }
 }
 
