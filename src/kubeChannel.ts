@@ -9,8 +9,9 @@ class KubeChannel implements IKubeChannel {
 
     showOutput(message: any, title?: string) {
         if (title) {
-            const HIGHLIGHTING_TITLE = `[${title} ${(new Date()).toISOString().replace(/z|t/gi, ' ').trim()}]`;
-            this.channel.appendLine(HIGHLIGHTING_TITLE);
+            const simplifiedTime = (new Date()).toISOString().replace(/z|t/gi, ' ').trim(); // YYYY-MM-DD HH:mm:ss.sss
+            const hightlightingTitle = `[${title} ${simplifiedTime}]`;
+            this.channel.appendLine(hightlightingTitle);
         }
         this.channel.appendLine(message);
         this.channel.show();
