@@ -101,3 +101,96 @@ export async function setSubscriptionAsync(context: Context, subscription: strin
         return { succeeded: false, result: null, error: [sr.stderr] };
     }
 }
+
+export async function configureCluster(context: Context, clusterType: string, clusterName: string, clusterGroup: string) : Promise<StageData> {
+    const downloadCliPromise = downloadCli(context, clusterType);
+    const getCredentialsPromise = getCredentials(context, clusterType, clusterName, clusterGroup);
+
+    const [cliResult, credsResult] = await Promise.all([downloadCliPromise, getCredentialsPromise]);
+
+    const result = {
+        gotCli: cliResult.succeeded,
+        cliInstallFile: cliResult.installFile,
+        cliOnDefaultPath: cliResult.onDefaultPath,
+        cliError: cliResult.error,
+        gotCredentials: credsResult.succeeded,
+        credentialsError: credsResult.error
+    };
+    
+    return {
+        actionDescription: 'configuring Kubernetes',
+        result: { succeeded: cliResult.succeeded && credsResult.succeeded, result: result, error: [] }  // TODO: this ends up not fitting our structure very well - fix?
+    };
+}
+
+async function downloadCli(context: Context, clusterType: string) : Promise<any> {
+    const cliInfo = installCliInfo(context, clusterType);
+
+    const sr = await context.shell.exec(cliInfo.commandLine);
+    if (sr.code === 0) {
+        return {
+            succeeded: true,
+            installFile: cliInfo.installFile,
+            onDefaultPath: !context.shell.isWindows()
+        };
+    } else {
+        return {
+            succeeded: false,
+            error: sr.stderr
+        };
+    }
+}
+
+async function getCredentials(context: Context, clusterType: string, clusterName: string, clusterGroup: string) : Promise<any> {
+    const cmd = `az ${getClusterCommandAndSubcommand(clusterType)} get-credentials -n ${clusterName} -g ${clusterGroup}`;
+    const sr = await context.shell.exec(cmd);
+
+    if (sr.code === 0 && !sr.stderr) {
+        return {
+            succeeded: true
+        };
+    } else {
+        return {
+            succeeded: false,
+            error: sr.stderr
+        };
+    }
+}
+
+function installCliInfo(context: Context, clusterType: string) {
+    const cmdCore = `az ${getClusterCommandAndSubcommand(clusterType)} install-cli`;
+    const isWindows = context.shell.isWindows();
+    if (isWindows) {
+        // The default Windows install location requires admin permissions; install
+        // into a user profile directory instead. We process the path explicitly
+        // instead of using %LOCALAPPDATA% in the command, so that we can render the
+        // physical path when notifying the user.
+        const appDataDir = process.env['LOCALAPPDATA'];
+        const installDir = appDataDir + '\\kubectl';
+        const installFile = installDir + '\\kubectl.exe';
+        const cmd = `(if not exist "${installDir}" md "${installDir}") & ${cmdCore} --install-location="${installFile}"`;
+        return { installFile: installFile, commandLine: cmd };
+    } else {
+        // Bah, the default Linux install location requires admin permissions too!
+        // Fortunately, $HOME/bin is on the path albeit not created by default.
+        const homeDir = process.env['HOME'];
+        const installDir = homeDir + '/bin';
+        const installFile = installDir + '/kubectl';
+        const cmd = `mkdir -p "${installDir}" ; ${cmdCore} --install-location="${installFile}"`;
+        return { installFile: installFile, commandLine: cmd };
+    }
+}
+
+export function getClusterCommand(clusterType: string) : string {
+    if (clusterType == 'Azure Container Service') {
+        return 'acs';
+    }
+    return 'aks';
+}
+
+export function getClusterCommandAndSubcommand(clusterType: string) : string {
+    if (clusterType == 'Azure Container Service') {
+        return 'acs kubernetes';
+    }
+    return 'aks';
+}

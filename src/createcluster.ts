@@ -1,10 +1,10 @@
 'use strict';
 
-import { TextDocumentContentProvider, Uri, EventEmitter, Event, ProviderResult, CancellationToken } from 'vscode';
+import { TextDocumentContentProvider, Uri, EventEmitter, Event, ProviderResult, CancellationToken, extensions } from 'vscode';
 import { Shell } from './shell';
 import { FS } from './fs';
 import { Advanceable, Errorable, UIRequest, StageData, OperationState, OperationMap, advanceUri as wizardAdvanceUri, selectionChangedScript as wizardSelectionChangedScript, selectionChangedScriptMulti as wizardSelectionChangedScriptMulti, script, waitScript, extend, ControlMapping, styles } from './wizard';
-import { Context, getSubscriptionList, setSubscriptionAsync, ServiceLocation, Locations } from './azure';
+import { Context, getSubscriptionList, setSubscriptionAsync, configureCluster, ServiceLocation, Locations } from './azure';
 import { error } from 'util';
 
 export const uriScheme : string = "k8screatecluster";
@@ -35,6 +35,7 @@ enum OperationStage {
     InternalError,
     ExternalError,
     Complete,
+    PostCreation,
 }
 
 // TODO: feels like we should be able to deduplicate this with the ACS UI provider
@@ -133,11 +134,27 @@ async function next(context: Context, sourceState: OperationState<OperationStage
             };
         case OperationStage.AzurePromptForAgentSettings:
             const agentSettings = JSON.parse(requestData);
-            const pasStateInfo = extend(sourceState.last.result, (v) => Object.assign({}, v, {agentSettings: agentSettings}));
-            const creationResult = await createCluster(context, pasStateInfo.result);
+            const creationInfo = extend(sourceState.last.result, (v) => Object.assign({}, v, {agentSettings: agentSettings}));
+            const creationResult = await createCluster(context, creationInfo.result);
+            const pasStateInfo = extend(creationInfo, (v) => Object.assign({}, v, {creationResult: creationResult}));
             return {
-                last: creationResult,
+                last: { actionDescription: 'creating cluster', result: pasStateInfo },
                 stage: OperationStage.Complete
+            };
+        case OperationStage.Complete:
+            const clusterTypeEncore : string = sourceState.last.result.result.clusterType;
+            const selectedCluster : any = sourceState.last.result.result.metadata;
+            const waitResult = await waitForCluster(context, clusterTypeEncore, selectedCluster.clusterName, selectedCluster.resourceGroupName);
+            if (!waitResult.succeeded) {
+                return {
+                    last: {actionDescription: 'waiting for cluster', result: waitResult},
+                    stage: OperationStage.PostCreation
+                };
+            }
+            const configureResult = await configureCluster(context, clusterTypeEncore, selectedCluster.clusterName, selectedCluster.resourceGroupName);
+            return {
+                last: configureResult,
+                stage: OperationStage.PostCreation
             };
         default:
             return {
@@ -318,6 +335,18 @@ async function createCluster(context: Context, options: any) : Promise<StageData
     };
 }
 
+async function waitForCluster(context: Context, clusterType: string, clusterName: string, clusterResourceGroup: string): Promise<Errorable<void>> {
+    const clusterCmd = getClusterCommand(clusterType);
+    const waitCmd = `az ${clusterCmd} wait --created -n ${clusterName} -g ${clusterResourceGroup}`;
+    const sr = await context.shell.exec(waitCmd);
+
+    if (sr.code === 0) {
+        return { succeeded: true, result: null, error: [] };
+    } else {
+        return { succeeded: false, result: null, error: [sr.stderr] };
+    }
+}
+
 function render(operationId: string, state: OperationState<OperationStage>) : string {
     switch (state.stage) {
         case OperationStage.Initial:
@@ -335,7 +364,9 @@ function render(operationId: string, state: OperationState<OperationStage>) : st
         case OperationStage.ExternalError:
            return renderExternalError(state.last);
         case OperationStage.Complete:
-            return renderComplete(state.last);
+            return renderComplete(operationId, state.last);
+        case OperationStage.PostCreation:
+            return renderPostCreation(state.last);
         default:
             return internalError(`Unknown operation stage ${state.stage}`);
     }
@@ -462,19 +493,48 @@ function renderPromptForAgentSettings(operationId: string, last: StageData) : st
 
 }
 
-function renderComplete(last: StageData) : string {
+function renderComplete(operationId: string, last: StageData) : string {
     const title = last.result.succeeded ? 'Cluster creation has started' : `Error ${last.actionDescription}`;
     const additionalDiagnostic = diagnoseCreationError(last.result);
+    const initialUri = advanceUri(operationId, `{}`);
     const message = last.result.succeeded ?
-        `<p class='success'>Azure is creating the cluster, but this may take some time. You can now close this window.</p>` :
+        `<div id='content'>
+         <p class='success'>Azure is creating the cluster, but this may take some time. You can now close this window,
+         or wait for creation to complete so that we can configure the extension to use the cluster.</p>
+         <p><a id='nextlink' href='${initialUri}' onclick='promptWait()'>Wait and configure the extension &gt;</a></p>
+         </div>` :
         `<p class='error'>An error occurred while creating the cluster.</p>
          ${additionalDiagnostic}
          <p><b>Details</b></p>
          <p>${last.result.error[0]}</p>`;
     return `<!-- Complete -->
+            <h1 id='h'>${title}</h1>
+            ${styles()}
+            ${waitScript('Waiting for cluster - this will take several minutes')}
+            ${message}`;
+}
+
+// TODO: duplicate of configurefromcluster.renderComplete
+function renderPostCreation(last: StageData) : string {
+    const title = last.result.succeeded ? 'Configuration completed' : `Error ${last.actionDescription}`;
+    const configResult = last.result.result;
+    const pathMessage = configResult.cliOnDefaultPath ? '' :
+        '<p>This location is not on your system PATH. Add this directory to your path, or set the VS Code <b>vs-kubernetes.kubectl-path</b> config setting.</p>';
+    const getCliOutput = configResult.gotCli ?
+        `<p class='success'>kubectl installed at ${configResult.cliInstallFile}</p>${pathMessage}` :
+        `<p class='error'>An error occurred while downloading kubectl.</p>
+         <p><b>Details</b></p>
+         <p>${configResult.cliError}</p>`;
+    const getCredsOutput = last.result.result.gotCredentials ?
+        `<p class='success'>Successfully configured kubectl with Azure Container Service cluster credentials.</p>` :
+        `<p class='error'>An error occurred while getting Azure Container Service cluster credentials.</p>
+         <p><b>Details</b></p>
+         <p>${configResult.credentialsError}</p>`;
+    return `<!-- Complete -->
             <h1>${title}</h1>
             ${styles()}
-            ${message}`;
+            ${getCliOutput}
+            ${getCredsOutput}`;
 }
 
 function diagnoseCreationError(e: Errorable<any>) : string {
