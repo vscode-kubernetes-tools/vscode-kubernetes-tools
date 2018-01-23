@@ -16,17 +16,20 @@ export class HelmTemplateCompletionProvider implements vscode.CompletionItemProv
     private valuesCache;
 
     public constructor() {
-        this.refreshValues();
+        this.refreshValues({ warnIfNoCharts: false });
     }
 
-    public refreshValues() {
+    public refreshValues(options: UIOptions) {
         let ed = vscode.window.activeTextEditor;
         if (!ed) {
             return;
         }
 
+        // The user may have opened an unrelated YAML file, so don't warn
+        // about a lack of charts unless we have reason to believe they really
+        // are doing Helm stuff.
         let self = this;
-        exec.pickChartForFile(ed.document.fileName, (f) => {
+        exec.pickChartForFile(ed.document.fileName, options.warnIfNoCharts || false, (f) => {
             let valsYaml = path.join(f, "values.yaml");
             if (!existsSync(valsYaml)) {
                 return;
@@ -161,4 +164,8 @@ export class HelmTemplateCompletionProvider implements vscode.CompletionItemProv
         });
     }
     */
+}
+
+interface UIOptions {
+    readonly warnIfNoCharts? : boolean;
 }

@@ -180,12 +180,17 @@ export function loadChartMetadata(chartDir: string): Chart {
 }
 
 // Given a file, show any charts that this file belongs to.
-export function pickChartForFile(file: string, fn) {
+export function pickChartForFile(file: string, warnIfNoCharts: boolean, fn) {
     vscode.workspace.findFiles("**/Chart.yaml", "", 1024).then((matches) => {
         //logger.log(`Found ${ matches.length } charts`)
         switch(matches.length) {
             case 0:
-                vscode.window.showErrorMessage("No charts found");
+                // It's quite possible the user has opened an unrelated YAML file,
+                // such as a k8s resource file.  We don't want to bother the user
+                // unless they're specifically invoking a Helm command on that file.
+                if (warnIfNoCharts) {
+                    vscode.window.showErrorMessage("No charts found");
+                }
                 return;
             case 1:
                 // Assume that if there is only one chart, that's the one to run.
