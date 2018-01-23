@@ -6,7 +6,9 @@ import * as binutil from './binutil';
 export interface Kubectl {
     checkPresent(errorMessageMode : CheckPresentMessageMode) : Promise<boolean>;
     invoke(command : string, handler? : ShellHandler) : Promise<void>;
+    invokeWithProgress(command : string, progressMessage: string, handler? : ShellHandler) : Promise<void>;
     invokeAsync(command : string) : Promise<ShellResult>;
+    invokeAsyncWithProgress(command : string, progressMessage: string) : Promise<ShellResult>;
     asLines(command : string): Promise<string[] | ShellResult>;
     path() : string;
 }
@@ -32,8 +34,14 @@ class KubectlImpl implements Kubectl {
     invoke(command : string, handler? : ShellHandler) : Promise<void> {
         return invoke(this.context, command, handler);
     }
+    invokeWithProgress(command : string, progressMessage : string, handler? : ShellHandler) : Promise<void> {
+        return invokeWithProgress(this.context, command, progressMessage, handler);
+    }
     invokeAsync(command : string) : Promise<ShellResult> {
         return invokeAsync(this.context, command);
+    }
+    invokeAsyncWithProgress(command : string, progressMessage : string) : Promise<ShellResult> {
+        return invokeAsyncWithProgress(this.context, command, progressMessage);
     }
     asLines(command : string) : Promise<string[] | ShellResult> {
         return asLines(this.context, command);
@@ -81,10 +89,29 @@ async function invoke(context : Context, command : string, handler? : ShellHandl
     await kubectlInternal(context, command, handler || kubectlDone(context));
 }
 
+async function invokeWithProgress(context : Context, command : string, progressMessage : string, handler? : ShellHandler) : Promise<void> {
+    return context.host.withProgress((p) => {
+        return new Promise<void>((resolve, reject) => {
+            p.report({ message: progressMessage });
+            kubectlInternal(context, command, (code, stdout, stderr) => {
+                resolve();
+                (handler || kubectlDone(context))(code, stdout, stderr);
+            });
+        });
+    });
+}
+
 async function invokeAsync(context : Context, command : string) : Promise<ShellResult> {
     const bin = baseKubectlPath(context);
     let cmd = bin + ' ' + command;
     return await context.shell.exec(cmd);
+}
+
+async function invokeAsyncWithProgress(context : Context, command : string, progressMessage : string): Promise<ShellResult> {
+    return context.host.withProgress(async (p) => {
+        p.report({ message: progressMessage });
+        return await invokeAsync(context, command);
+    });
 }
 
 async function kubectlInternal(context : Context, command : string, handler : ShellHandler) : Promise<void> {

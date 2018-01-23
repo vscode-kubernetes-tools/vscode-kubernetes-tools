@@ -361,6 +361,12 @@
                     ".tpl"
                 ],
                 "configuration": "./language-configuration.json"
+            },
+            {
+                "id": "kubernetes-output",
+                "mimetypes": [
+                    "text/x-code-output"
+                ]
             }
         ],
         "grammars": [
@@ -368,6 +374,11 @@
                 "language": "helm",
                 "scopeName": "source.helm",
                 "path": "./syntaxes/helm.tmLanguage.json"
+            },
+            {
+                "language": "kubernetes-output",
+                "scopeName": "kubernetes.output",
+                "path": "./syntaxes/kubernetes-output.tmLanguage.json"
             }
         ],
         "snippets": [

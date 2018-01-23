@@ -24,6 +24,7 @@ import * as createCluster from './createcluster';
 import { UIRequest as WizardUIRequest } from './wizard';
 import * as kuberesources from './kuberesources';
 import * as docker from './docker';
+import { kubeChannel } from './kubeChannel';
 import * as kubeconfig from './kubeconfig';
 import { create as kubectlCreate, Kubectl } from './kubectl';
 import * as explorer from './explorer';
@@ -490,7 +491,7 @@ function loadKubernetes(explorerNode? : explorer.ResourceNode) {
 }
 
 function loadKubernetesCore(value : string) {
-    kubectl.invoke(" -o json get " + value, (result, stdout, stderr) => {
+    kubectl.invokeWithProgress(" -o json get " + value, `Loading ${value}...`, (result, stdout, stderr) => {
         if (result !== 0) {
             vscode.window.showErrorMessage('Get command failed: ' + stderr);
             return;
@@ -656,13 +657,13 @@ function buildPushThenExec(fn) {
                         fn(name, image);
                     } else {
                         vscode.window.showErrorMessage('Image push failed. See Output window for details.');
-                        showOutput(stderr, 'Docker');
+                        kubeChannel.showOutput(stderr, 'Docker');
                         console.log(stderr);
                     }
                 });
             } else {
                 vscode.window.showErrorMessage('Image build failed. See Output window for details.');
-                showOutput(stderr, 'Docker');
+                kubeChannel.showOutput(stderr, 'Docker');
                 console.log(stderr);
             }
         });
@@ -878,8 +879,8 @@ function getLogsCore(podName : string, podNamespace? : string) {
     if (podNamespace && podNamespace.length > 0) {
         cmd += ' --namespace=' + podNamespace;
     }
-    const fn = kubectlOutputTo(podName + '-output');
-    kubectl.invoke(cmd, fn);
+    const fn = kubectlOutputTo(podName + '-logs');
+    kubectl.invokeWithProgress(cmd, 'Loading logs...', fn);
 }
 
 function kubectlOutputTo(name : string) {
@@ -891,13 +892,7 @@ function kubectlOutput(result, stdout, stderr, name) {
         vscode.window.showErrorMessage('Command failed: ' + stderr);
         return;
     }
-    showOutput(stdout, name);
-}
-
-function showOutput(text, name) {
-    let channel = vscode.window.createOutputChannel(name);
-    channel.append(text);
-    channel.show();
+    kubeChannel.showOutput(stdout, name);
 }
 
 function getPorts() {
@@ -927,7 +922,7 @@ function describeKubernetes(explorerNode? : explorer.ResourceNode) {
 
 function describeKubernetesCore(kindName : string) {
     const fn = kubectlOutputTo(kindName + "-describe");
-    kubectl.invoke(' describe ' + kindName, fn);
+    kubectl.invokeWithProgress(' describe ' + kindName, `Describing ${kindName}...`, fn);
 }
 
 function selectContainerForPod(pod, callback) {
