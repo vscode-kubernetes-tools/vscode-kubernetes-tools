@@ -104,10 +104,10 @@ export async function setSubscriptionAsync(context: Context, subscription: strin
 }
 
 export async function configureCluster(context: Context, clusterType: string, clusterName: string, clusterGroup: string) : Promise<StageData> {
-    const downloadCliPromise = downloadCli(context, clusterType);
+    const downloadKubectlCliPromise = downloadKubectlCli(context, clusterType);
     const getCredentialsPromise = getCredentials(context, clusterType, clusterName, clusterGroup, 5);
 
-    const [cliResult, credsResult] = await Promise.all([downloadCliPromise, getCredentialsPromise]);
+    const [cliResult, credsResult] = await Promise.all([downloadKubectlCliPromise, getCredentialsPromise]);
 
     const result = {
         gotCli: cliResult.succeeded,
@@ -124,8 +124,8 @@ export async function configureCluster(context: Context, clusterType: string, cl
     };
 }
 
-async function downloadCli(context: Context, clusterType: string) : Promise<any> {
-    const cliInfo = installCliInfo(context, clusterType);
+async function downloadKubectlCli(context: Context, clusterType: string) : Promise<any> {
+    const cliInfo = installKubectlCliInfo(context, clusterType);
 
     const sr = await context.shell.exec(cliInfo.commandLine);
     if (sr.code === 0) {
@@ -164,7 +164,7 @@ async function getCredentials(context: Context, clusterType: string, clusterName
     }
 }
 
-function installCliInfo(context: Context, clusterType: string) {
+function installKubectlCliInfo(context: Context, clusterType: string) {
     const cmdCore = `az ${getClusterCommandAndSubcommand(clusterType)} install-cli`;
     const isWindows = context.shell.isWindows();
     if (isWindows) {
