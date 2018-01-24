@@ -11,11 +11,11 @@ export function create(kubectl : Kubectl, host : Host) : KubernetesExplorer {
     return new KubernetesExplorer(kubectl, host);
 }
 
-export function createKindTreeNode(kind: kuberesources.ResourceKind) : TreeNode {
+export function createKindTreeNode(kind: kuberesources.ResourceKind) : KubernetesTreeNode {
     return new KubernetesKind(kind);
 }
 
-export function createResourceTreeNode(kind: kuberesources.ResourceKind, id: string, metadata?: any) : TreeNode {
+export function createResourceTreeNode(kind: kuberesources.ResourceKind, id: string, metadata?: any) : KubernetesTreeNode {
     return new KubernetesResource(kind, id, metadata);
 }
 
@@ -36,7 +36,7 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObj
     constructor(private readonly kubectl : Kubectl, private readonly host : Host) {}
 
     getTreeItem(element: KubernetesObject) : vscode.TreeItem | Thenable<vscode.TreeItem> {
-        if (element instanceof TreeNode) {
+        if (element instanceof KubernetesTreeNode) {
             return element.getTreeItem();
         }
         return new vscode.TreeItem(element.id, vscode.TreeItemCollapsibleState.None);
@@ -44,7 +44,7 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObj
 
     getChildren(parent? : KubernetesObject) : vscode.ProviderResult<KubernetesObject[]> {
         if (parent) {
-            return (parent instanceof TreeNode) ? parent.getChildren(this.kubectl, this.host) : [];
+            return (parent instanceof KubernetesTreeNode) ? parent.getChildren(this.kubectl, this.host) : [];
         }
         return this.getClusters(this.kubectl);
     }
@@ -59,14 +59,14 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObj
     }
 }
 
-abstract class TreeNode implements KubernetesObject {
+abstract class KubernetesTreeNode implements KubernetesObject {
     constructor(readonly id: string) {
     }
     abstract getChildren(kubectl: Kubectl, host : Host) : vscode.ProviderResult<KubernetesObject[]>;
     abstract getTreeItem() : vscode.TreeItem | Thenable<vscode.TreeItem>;
 }
 
-class KubernetesKind extends TreeNode {
+class KubernetesKind extends KubernetesTreeNode {
     constructor(readonly kind: kuberesources.ResourceKind) {
         super(kind.abbreviation);
     }
@@ -96,7 +96,7 @@ class KubernetesKind extends TreeNode {
     }
 }
 
-class KubernetesResource extends TreeNode implements ResourceNode {
+class KubernetesResource extends KubernetesTreeNode implements ResourceNode {
     readonly resourceId: string;
     constructor(readonly kind: kuberesources.ResourceKind, readonly id: string, readonly metadata?: any) {
         super(id);
@@ -129,7 +129,7 @@ class KubernetesResource extends TreeNode implements ResourceNode {
     }
 }
 
-class VirtualKubernetesResource extends TreeNode implements ResourceNode {
+class VirtualKubernetesResource extends KubernetesTreeNode implements ResourceNode {
     readonly resourceId: string;
 
     constructor (readonly id: string, readonly kind: string, readonly metadata?: any) {

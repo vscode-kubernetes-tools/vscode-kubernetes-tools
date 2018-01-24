@@ -1306,7 +1306,7 @@ async function useContextKubernetes(explorerNode: explorer.ResourceNode) {
     const targetContext = explorerNode.metadata.context;
     const shellResult = await kubectl.invokeAsync(`config use-context ${targetContext}`);
     if (shellResult.code === 0) {
-        vscode.commands.executeCommand("extension.vsKubernetesRefreshExplorer");
+        return vscode.commands.executeCommand("extension.vsKubernetesRefreshExplorer");
     } else {
         vscode.window.showErrorMessage(`Failed to set '${targetContext}' as current cluster: ${shellResult.stderr}`);
     }
@@ -1325,13 +1325,13 @@ async function clusterInfoKubernetes(explorerNode: explorer.ResourceNode) {
 async function deleteContextKubernetes(explorerNode: explorer.ResourceNode) {
     const answer = await vscode.window.showInformationMessage(`Do you want to delete the cluser '${explorerNode.id}' from the kubeconfig?`, "NO", "YES");
     if (answer === "YES" && (await kubectlUtils.deleteCluster(kubectl, explorerNode.metadata))) {
-        vscode.commands.executeCommand("extension.vsKubernetesRefreshExplorer");
+        return vscode.commands.executeCommand("extension.vsKubernetesRefreshExplorer");
     }
 }
 
 async function useNamespaceKubernetes(explorerNode: explorer.KubernetesObject) {
     if (await kubectlUtils.switchNamespace(kubectl, explorerNode.id)) {
-        vscode.commands.executeCommand("extension.vsKubernetesRefreshExplorer");
+        return vscode.commands.executeCommand("extension.vsKubernetesRefreshExplorer");
     }
 }
 

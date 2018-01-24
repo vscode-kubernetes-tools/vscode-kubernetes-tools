@@ -92,11 +92,7 @@ export function kubectl(settings : FakeKubectlSettings = {}) : any {
     const asLines = settings.asLines || ((s : string) => []);
     const invokeAsync = settings.invokeAsync || ((s : string) => ({ code: 0, stderr: "", stdout: ""}));
     return {
-        asLines: (cmd) => wrapAsPromise(asLines(cmd)),
-        invokeAsync: (cmd) => wrapAsPromise(invokeAsync(cmd)),
+        asLines: async (cmd) => asLines(cmd),
+        invokeAsync: async (cmd) => invokeAsync(cmd),
     };
-}
-
-export function wrapAsPromise(result: any): Promise<any> {
-    return new Promise((resolve, reject) => resolve(result));
 }
