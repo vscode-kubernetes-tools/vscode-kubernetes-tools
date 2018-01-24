@@ -36,7 +36,7 @@ export class HelmInspectDocumentProvider implements vscode.TextDocumentContentPr
                 exec.helmExec("inspect values " + file, printer);
                 return;
             }
-            exec.pickChartForFile(file, (path) => {
+            exec.pickChartForFile(file, { warnIfNoCharts: true }, (path) => {
                 exec.helmExec("inspect values "+ path, printer);
             });
         });
@@ -67,7 +67,7 @@ export class HelmTemplatePreviewDocumentProvider implements vscode.TextDocumentC
             let tpl = vscode.window.activeTextEditor.document.fileName;
 
             // First, we need to get the top-most chart:
-            exec.pickChartForFile(tpl, (chartPath) => {
+            exec.pickChartForFile(tpl, { warnIfNoCharts: true }, (chartPath) => {
                 // We need the relative path for 'helm template'
                 let reltpl = filepath.relative(filepath.dirname(chartPath), tpl);
                 exec.helmExec("template " + chartPath + " --execute " + reltpl, (code, out, err) => {
