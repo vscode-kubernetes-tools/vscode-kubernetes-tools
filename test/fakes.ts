@@ -33,6 +33,7 @@ export interface FakeShellSettings {
 
 export interface FakeKubectlSettings {
     asLines? : (cmd: string) => string[] | ShellResult;
+    invokeAsync? : (cmd: string) => ShellResult;
 }
 
 export function host(settings : FakeHostSettings = {}) : any {
@@ -89,7 +90,13 @@ function fakeShellExec(settings : FakeShellSettings, cmd : string) : Promise<She
 
 export function kubectl(settings : FakeKubectlSettings = {}) : any {
     const asLines = settings.asLines || ((s : string) => []);
+    const invokeAsync = settings.invokeAsync || ((s : string) => ({ code: 0, stderr: "", stdout: ""}));
     return {
-        asLines: (cmd) => new Promise((resolve, reject) => resolve(asLines(cmd)))
+        asLines: (cmd) => wrapAsPromise(asLines(cmd)),
+        invokeAsync: (cmd) => wrapAsPromise(invokeAsync(cmd)),
     };
+}
+
+export function wrapAsPromise(result: any): Promise<any> {
+    return new Promise((resolve, reject) => resolve(result));
 }

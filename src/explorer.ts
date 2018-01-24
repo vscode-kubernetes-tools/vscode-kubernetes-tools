@@ -1,11 +1,26 @@
+import * as path from 'path';
 import * as vscode from 'vscode';
+
 import * as shell from './shell';
 import { Kubectl } from './kubectl';
+import * as kubectlUtils from './kubectlUtils';
 import { Host } from './host';
 import * as kuberesources from './kuberesources';
 
 export function create(kubectl : Kubectl, host : Host) : KubernetesExplorer {
     return new KubernetesExplorer(kubectl, host);
+}
+
+export function createKindTreeNode(kind: kuberesources.ResourceKind) : TreeNode {
+    return new KubernetesKind(kind);
+}
+
+export function createResourceTreeNode(kind: kuberesources.ResourceKind, id: string, metadata?: any) : TreeNode {
+    return new KubernetesResource(kind, id, metadata);
+}
+
+export interface KubernetesObject {
+    readonly id : string;
 }
 
 export interface ResourceNode {
@@ -21,109 +36,111 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObj
     constructor(private readonly kubectl : Kubectl, private readonly host : Host) {}
 
     getTreeItem(element: KubernetesObject) : vscode.TreeItem | Thenable<vscode.TreeItem> {
-        if (element instanceof VirtualKubernetesResource) {
+        if (element instanceof TreeNode) {
             return element.getTreeItem();
         }
-        const collapsibleState = isKind(element) ? vscode.TreeItemCollapsibleState.Collapsed: vscode.TreeItemCollapsibleState.None;
-        const label = isKind(element) ? element.kind.pluralDisplayName : element.id;
-        let treeItem = new vscode.TreeItem(label, collapsibleState);
-        if (isResource(element)) {
-            treeItem.command = {
-                command: "extension.vsKubernetesLoad",
-                title: "Load",
-                arguments: [ element ]
-            };
-            treeItem.contextValue = "vsKubernetes.resource";
-            if (element.resourceId.startsWith('pod')) {
-                treeItem.contextValue = "vsKubernetes.resource.pod";
-            }
-        }
-        return treeItem;
+        return new vscode.TreeItem(element.id, vscode.TreeItemCollapsibleState.None);
     }
 
     getChildren(parent? : KubernetesObject) : vscode.ProviderResult<KubernetesObject[]> {
-        if (parent instanceof VirtualKubernetesResource) {
-            return parent.getChildren();
-        } else if (parent) {
-            return getChildren(parent, this.kubectl, this.host);
+        if (parent) {
+            return (parent instanceof TreeNode) ? parent.getChildren(this.kubectl, this.host) : [];
         }
-        return getClusters(this.kubectl, this.host);
+        return this.getClusters(this.kubectl);
     }
 
     refresh(): void {
         this._onDidChangeTreeData.fire();
     }
 
-}
-
-function isKind(obj: KubernetesObject) : obj is KubernetesKind {
-    return !!(<KubernetesKind>obj).kind;
-}
-
-function isResource(obj: KubernetesObject) : obj is KubernetesResource {
-    return !!(<KubernetesResource>obj).resourceId;
-}
-
-async function getClusters(kubectl: Kubectl, host: Host) : Promise<KubernetesObject[]> {
-    const shellResult = await kubectl.invokeAsync("config view -o json");
-    if (shellResult.code !== 0) {
-        host.showErrorMessage(shellResult.stderr);
-        return [];
+    private async getClusters(kubectl: Kubectl) : Promise<KubernetesObject[]> {
+        const clusters = await kubectlUtils.getClusters(kubectl);
+        return clusters.map((c) => new VirtualKubernetesResource(c.name, 'cluster', c));
     }
-    const kubectlConfig = JSON.parse(shellResult.stdout);
-    const currentContext = kubectlConfig["current-context"];
-    const contexts = kubectlConfig.contexts;
-    return contexts.map((c) => new VirtualKubernetesResource(c.context.cluster, 'cluster', {
-        context: c.name,
-        active: c.name === currentContext
-    }));
 }
 
-async function getChildren(parent : KubernetesObject, kubectl: Kubectl, host: Host) : Promise<KubernetesObject[]> {
-    if (isKind(parent)) {
-        const childrenLines = await kubectl.asLines("get " + parent.kind.abbreviation);
+abstract class TreeNode implements KubernetesObject {
+    constructor(readonly id: string) {
+    }
+    abstract getChildren(kubectl: Kubectl, host : Host) : vscode.ProviderResult<KubernetesObject[]>;
+    abstract getTreeItem() : vscode.TreeItem | Thenable<vscode.TreeItem>;
+}
+
+class KubernetesKind extends TreeNode {
+    constructor(readonly kind: kuberesources.ResourceKind) {
+        super(kind.abbreviation);
+    }
+
+    async getChildren(kubectl: Kubectl, host : Host) : Promise<KubernetesObject[]> {
+        if (this.kind === kuberesources.allKinds.namespace) {
+            const namespaces = await kubectlUtils.getNamespaces(kubectl);
+            return namespaces.map((ns) => new KubernetesResource(this.kind, ns.name, ns));
+        }
+        const childrenLines = await kubectl.asLines("get " + this.kind.abbreviation);
         if (shell.isShellResult(childrenLines)) {
             host.showErrorMessage(childrenLines.stderr);
             return [ { id: "Error" } ];
         }
-        return childrenLines.map((l) => parse(parent.kind, l));
+        return childrenLines.map((l) => this.parse(this.kind, l));
     }
-    return [];
-}
 
-function parse(kind : kuberesources.ResourceKind, kubeLine : string) : KubernetesObject {
-    const bits = kubeLine.split(' ');
-    return new KubernetesResource(kind, bits[0]);
-}
+    getTreeItem() : vscode.TreeItem | Thenable<vscode.TreeItem> {
+        const treeItem = new vscode.TreeItem(this.kind.pluralDisplayName, vscode.TreeItemCollapsibleState.Collapsed);
+        treeItem.contextValue = `vsKubernetes.kind`;
+        return treeItem;
+    }
 
-interface KubernetesObject {
-    readonly id : string;
-}
-
-class KubernetesKind implements KubernetesObject {
-    readonly id: string;
-    constructor(readonly kind: kuberesources.ResourceKind) {
-        this.id = kind.abbreviation;
+    private parse(kind : kuberesources.ResourceKind, kubeLine : string) : KubernetesObject {
+        const bits = kubeLine.split(' ');
+        return new KubernetesResource(kind, bits[0]);
     }
 }
 
-class KubernetesResource implements KubernetesObject, ResourceNode {
+class KubernetesResource extends TreeNode implements ResourceNode {
     readonly resourceId: string;
-    constructor(kind: kuberesources.ResourceKind, readonly id: string) {
+    constructor(readonly kind: kuberesources.ResourceKind, readonly id: string, readonly metadata?: any) {
+        super(id);
         this.resourceId = kind.abbreviation + '/' + id;
     }
+
+    getChildren(kubectl: Kubectl, host : Host) : vscode.ProviderResult<KubernetesObject[]> {
+        return [];
+    }
+
+    getTreeItem() : vscode.TreeItem | Thenable<vscode.TreeItem> {
+        let treeItem = new vscode.TreeItem(this.id, vscode.TreeItemCollapsibleState.None);
+        treeItem.command = {
+            command: "extension.vsKubernetesLoad",
+            title: "Load",
+            arguments: [ this ]
+        };
+        treeItem.contextValue = `vsKubernetes.resource`;
+        if (this.kind === kuberesources.allKinds.namespace) {
+            treeItem.contextValue = `vsKubernetes.resource.${this.kind.abbreviation}`;
+            if (this.metadata.active) {
+                treeItem.label = "*" + treeItem.label;
+            } else {
+                treeItem.contextValue += ".inactive";
+            }
+        } else if (this.kind === kuberesources.allKinds.pod) {
+            treeItem.contextValue = `vsKubernetes.resource.${this.kind.abbreviation}`;
+        }
+        return treeItem;
+    }
 }
 
-class VirtualKubernetesResource implements KubernetesObject, ResourceNode {
+class VirtualKubernetesResource extends TreeNode implements ResourceNode {
     readonly resourceId: string;
 
     constructor (readonly id: string, readonly kind: string, readonly metadata?: any) {
+        super(id);
         this.resourceId = kind + "/" + id;
     }
 
-    getChildren() : vscode.ProviderResult<KubernetesObject[]> {
+    getChildren(kubectl: Kubectl, host : Host) : vscode.ProviderResult<KubernetesObject[]> {
         if (this.kind === 'cluster') {
             return [
+                new KubernetesKind(kuberesources.allKinds.namespace),
                 new KubernetesKind(kuberesources.allKinds.node),
                 new VirtualKubernetesResource('Workloads', 'workload'),
                 new KubernetesKind(kuberesources.allKinds.service)
@@ -140,10 +157,13 @@ class VirtualKubernetesResource implements KubernetesObject, ResourceNode {
 
     getTreeItem() : vscode.TreeItem | Thenable<vscode.TreeItem> {
         const treeItem = new vscode.TreeItem(this.id, vscode.TreeItemCollapsibleState.Collapsed);
-        treeItem.contextValue = null;
-        if (this.kind === 'cluster' && !this.metadata.active) {
-            treeItem.collapsibleState = vscode.TreeItemCollapsibleState.None;
-            treeItem.contextValue = "vsKubernetes.resource.cluster.inactive";
+        treeItem.contextValue = `vsKubernetes.resource.${this.kind}`;
+        if (this.kind === 'cluster') {
+            treeItem.iconPath = vscode.Uri.file(path.join(__dirname, "../../images/k8s-logo.png"));
+            if (!this.metadata.active) {
+                treeItem.collapsibleState = vscode.TreeItemCollapsibleState.None;
+                treeItem.contextValue += ".inactive";
+            }
         }
         return treeItem;
     }

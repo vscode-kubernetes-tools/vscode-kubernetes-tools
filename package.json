@@ -117,16 +117,60 @@
                     "command": "extension.vsKubernetesRefreshExplorer",
                     "when": "view == extension.vsKubernetesExplorer",
                     "group": "navigation"
+                },
+                {
+                    "command": "extension.vsKubernetesCreateCluster",
+                    "when": "view == extension.vsKubernetesExplorer"
+                },
+                {
+                    "command": "extension.vsKubernetesConfigureFromCluster",
+                    "when": "view == extension.vsKubernetesExplorer"
                 }
             ],
             "view/item/context": [
                 {
                     "command": "extension.vsKubernetesUseContext",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.cluster.inactive"
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.cluster.inactive",
+                    "group": "0@1"
+                },
+                {
+                    "command": "extension.vsKubernetesDeleteContext",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.cluster.inactive",
+                    "group": "0@2"
+                },
+                {
+                    "command": "extension.vsKubernetesClusterInfo",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.cluster",
+                    "group": "0@1"
+                },
+                {
+                    "command": "extension.vsKubernetesDeleteContext",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.cluster",
+                    "group": "0@2"
+                },
+                {
+                    "command": "extension.vsKubernetesUseNamespace",
+                    "group": "0",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.namespace.inactive"
+                },
+                {
+                    "command": "extension.vsKubernetesGet",
+                    "group": "1@1",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.kind"
                 },
                 {
                     "command": "extension.vsKubernetesLoad",
                     "group": "0",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource"
+                },
+                {
+                    "command": "extension.vsKubernetesGet",
+                    "group": "1@1",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource"
+                },
+                {
+                    "command": "extension.vsKubernetesDelete",
+                    "group": "1@2",
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource"
                 },
                 {
@@ -140,8 +184,18 @@
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
                 },
                 {
+                    "command": "extension.vsKubernetesGet",
+                    "group": "1@1",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
+                },
+                {
+                    "command": "extension.vsKubernetesDelete",
+                    "group": "1@2",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
+                },
+                {
                     "command": "extension.vsKubernetesTerminal",
-                    "group": "1",
+                    "group": "1@3",
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
                 },
                 {
@@ -162,6 +216,18 @@
                 },
                 {
                     "command": "extension.vsKubernetesUseContext",
+                    "when": "view == extension.vsKubernetesExplorer"
+                },
+                {
+                    "command": "extension.vsKubernetesClusterInfo",
+                    "when": "view == extension.vsKubernetesExplorer"
+                },
+                {
+                    "command": "extension.vsKubernetesDeleteContext",
+                    "when": "view == extension.vsKubernetesExplorer"
+                },
+                {
+                    "command": "extension.vsKubernetesUseNamespace",
                     "when": "view == extension.vsKubernetesExplorer"
                 }
             ]
@@ -265,6 +331,21 @@
             {
                 "command": "extension.vsKubernetesUseContext",
                 "title": "Set to Current Cluster",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesClusterInfo",
+                "title": "Show Cluster Info",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesDeleteContext",
+                "title": "Delete from kubeconfig",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesUseNamespace",
+                "title": "Set to Current Namespace",
                 "category": "Kubernetes"
             },
             {

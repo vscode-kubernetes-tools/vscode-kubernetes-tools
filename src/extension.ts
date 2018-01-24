@@ -27,6 +27,7 @@ import * as docker from './docker';
 import { kubeChannel } from './kubeChannel';
 import * as kubeconfig from './kubeconfig';
 import { create as kubectlCreate, Kubectl } from './kubectl';
+import * as kubectlUtils from './kubectlUtils';
 import * as explorer from './explorer';
 import { create as draftCreate, Draft } from './draft';
 import * as logger from './logger';
@@ -93,6 +94,9 @@ export function activate(context) {
         vscode.commands.registerCommand('extension.vsKubernetesCreateCluster', createClusterKubernetes),
         vscode.commands.registerCommand('extension.vsKubernetesRefreshExplorer', () => treeProvider.refresh()),
         vscode.commands.registerCommand('extension.vsKubernetesUseContext', useContextKubernetes),
+        vscode.commands.registerCommand('extension.vsKubernetesClusterInfo', clusterInfoKubernetes),
+        vscode.commands.registerCommand('extension.vsKubernetesDeleteContext', deleteContextKubernetes),
+        vscode.commands.registerCommand('extension.vsKubernetesUseNamespace', useNamespaceKubernetes),
 
         // Commands - Helm
         vscode.commands.registerCommand('extension.helmVersion', helmexec.helmVersion),
@@ -498,7 +502,7 @@ function loadKubernetesCore(value : string) {
         }
 
         const filename = value.replace('/', '-');
-        const filepath = path.join(vscode.workspace.rootPath, filename + '.json');
+        const filepath = path.join(vscode.workspace.rootPath || "", filename + '.json');
 
         vscode.workspace.openTextDocument(vscode.Uri.parse('untitled:' + filepath)).then((doc) => {
             const start = new vscode.Position(0, 0),
@@ -531,15 +535,21 @@ function exposeKubernetes() {
     kubectl.invoke(cmd);
 }
 
-function getKubernetes() {
-    let kindName = findKindName();
-    if (kindName) {
-        maybeRunKubernetesCommandForActiveWindow('get --no-headers -o wide -f ');
-        return;
+function getKubernetes(explorerNode? : any) {
+    if (explorerNode) {
+        const id = explorerNode.resourceId || explorerNode.id;
+        const fn = kubectlOutputTo(id + '-get');
+        kubectl.invoke(`get ${id} -o wide`, fn);
+    } else {
+        let kindName = findKindName();
+        if (kindName) {
+            maybeRunKubernetesCommandForActiveWindow('get --no-headers -o wide -f ');
+            return;
+        }
+        findKindNameOrPrompt(kuberesources.commonKinds, 'get', { nameOptional: true }, (value) => {
+            kubectl.invoke(" get " + value + " -o wide --no-headers");
+        });
     }
-    findKindNameOrPrompt(kuberesources.commonKinds, 'get', { nameOptional: true }, (value) => {
-        kubectl.invoke(" get " + value + " -o wide --no-headers");
-    });
 }
 
 function findVersion() {
@@ -1031,16 +1041,30 @@ function syncKubernetes() {
     });
 }
 
-const deleteKubernetes = () => {
-    findKindNameOrPrompt(kuberesources.commonKinds, 'delete', { nameOptional: true }, (kindName) => {
-        if (kindName) {
-            let commandArgs = kindName;
-            if (!containsName(kindName)) {
-                commandArgs = kindName + " --all";
+const deleteKubernetes = async (explorerNode? : explorer.ResourceNode) => {
+    if (explorerNode) {
+        const answer = await vscode.window.showInformationMessage(`Do you want to delete the resource '${explorerNode.resourceId}'?`, "NO", "YES");
+        if (answer === "YES") {
+            const shellResult = await kubectl.invokeAsyncWithProgress(`delete ${explorerNode.resourceId}`, `Deleting ${explorerNode.resourceId}...`);
+            if (shellResult.code !== 0) {
+                vscode.window.showErrorMessage(`Failed to delete resource '${explorerNode.resourceId}': ${shellResult.stderr}`);
+                return;
+            } else {
+                await vscode.window.showInformationMessage(shellResult.stdout);
+                vscode.commands.executeCommand("extension.vsKubernetesRefreshExplorer");
             }
-            kubectl.invoke('delete ' + commandArgs);
         }
-    });
+    } else {
+        findKindNameOrPrompt(kuberesources.commonKinds, 'delete', { nameOptional: true }, (kindName) => {
+            if (kindName) {
+                let commandArgs = kindName;
+                if (!containsName(kindName)) {
+                    commandArgs = kindName + " --all";
+                }
+                kubectl.invoke('delete ' + commandArgs);
+            }
+        });
+    }
 };
 
 const applyKubernetes = () => {
@@ -1285,6 +1309,29 @@ async function useContextKubernetes(explorerNode: explorer.ResourceNode) {
         vscode.commands.executeCommand("extension.vsKubernetesRefreshExplorer");
     } else {
         vscode.window.showErrorMessage(`Failed to set '${targetContext}' as current cluster: ${shellResult.stderr}`);
+    }
+}
+
+async function clusterInfoKubernetes(explorerNode: explorer.ResourceNode) {
+    const targetContext = explorerNode.metadata.context;
+    const shellResult = await kubectl.invokeAsync(`cluster-info`);
+    if (shellResult.code === 0) {
+        kubeChannel.showOutput(shellResult.stdout, `cluster-info for ${explorerNode.resourceId}`);
+    } else {
+        vscode.window.showErrorMessage(`Failed to get cluster info: ${shellResult.stderr}`);
+    }
+}
+
+async function deleteContextKubernetes(explorerNode: explorer.ResourceNode) {
+    const answer = await vscode.window.showInformationMessage(`Do you want to delete the cluser '${explorerNode.id}' from the kubeconfig?`, "NO", "YES");
+    if (answer === "YES" && (await kubectlUtils.deleteCluster(kubectl, explorerNode.metadata))) {
+        vscode.commands.executeCommand("extension.vsKubernetesRefreshExplorer");
+    }
+}
+
+async function useNamespaceKubernetes(explorerNode: explorer.KubernetesObject) {
+    if (await kubectlUtils.switchNamespace(kubectl, explorerNode.id)) {
+        vscode.commands.executeCommand("extension.vsKubernetesRefreshExplorer");
     }
 }
 
