@@ -140,7 +140,7 @@ async function next(context: Context, sourceState: OperationState<OperationStage
                 return {
                     last: creationResult,
                     stage: OperationStage.Complete
-                }
+                };
             }
             return {
                 last: { actionDescription: 'creating cluster', result: creationInfo },
