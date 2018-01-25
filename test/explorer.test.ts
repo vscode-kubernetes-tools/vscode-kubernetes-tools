@@ -61,7 +61,7 @@ suite("Explorer tests", () => {
                 const explorer = explorerCreateWithFakes({
                     kubectl: fakes.kubectl({ asLines: (c) => { command = c; return ["a"]; } })
                 });
-                const parent : any = kubeExplorer.createKindTreeNode(kuberesources.allKinds.pod);
+                const parent : any = kubeExplorer.createKubernetesResourceFolder(kuberesources.allKinds.pod);
                 const nodes = await explorer.getChildren(parent);
                 assert.equal(command, "get pod");
             });
@@ -70,7 +70,7 @@ suite("Explorer tests", () => {
                 const explorer = explorerCreateWithFakes({
                     kubectl: fakes.kubectl({ asLines: (_) => ["a b c", "d e f"]})
                 });
-                const parent : any = kubeExplorer.createKindTreeNode(kuberesources.allKinds.pod);
+                const parent : any = kubeExplorer.createKubernetesResourceFolder(kuberesources.allKinds.pod);
                 const nodes = await explorer.getChildren(parent);
                 assert.equal(nodes.length, 2);
             });
@@ -79,7 +79,7 @@ suite("Explorer tests", () => {
                 const explorer = explorerCreateWithFakes({
                     kubectl: fakes.kubectl({ asLines: (_) => ["a b c", "d e f"]})
                 });
-                const parent : any = kubeExplorer.createKindTreeNode(kuberesources.allKinds.pod);
+                const parent : any = kubeExplorer.createKubernetesResourceFolder(kuberesources.allKinds.pod);
                 const nodes = await explorer.getChildren(parent);
                 assert.equal(nodes[0].id, 'a');
                 assert.equal(nodes[1].id, 'd');
@@ -89,7 +89,7 @@ suite("Explorer tests", () => {
                 const explorer = explorerCreateWithFakes({
                     kubectl: fakes.kubectl({ asLines: (_) => { return { code: 1, stdout: "", stderr: "Oh no!"}; } })
                 });
-                const parent : any = kubeExplorer.createKindTreeNode(kuberesources.allKinds.pod);
+                const parent : any = kubeExplorer.createKubernetesResourceFolder(kuberesources.allKinds.pod);
                 const nodes = await explorer.getChildren(parent);
                 assert.equal(nodes.length, 1);
                 assert.equal(nodes[0].id, "Error");
@@ -101,16 +101,10 @@ suite("Explorer tests", () => {
                     kubectl: fakes.kubectl({ asLines: (_) => { return { code: 1, stdout: "", stderr: "Oh no!"}; } }),
                     host: fakes.host({errors: errors})
                 });
-                const parent : any = kubeExplorer.createKindTreeNode(kuberesources.allKinds.pod);
+                const parent : any = kubeExplorer.createKubernetesResourceFolder(kuberesources.allKinds.pod);
                 const nodes = await explorer.getChildren(parent);
                 assert.equal(errors.length, 1);
                 assert.equal(errors[0], "Oh no!");
-            });
-
-            test("...and the parent is not a Kubernetes kind, it returns an empty list", async () => {
-                const explorer = explorerCreateWithFakes({});
-                const nodes = await explorer.getChildren({ id: 'my-pod' });
-                assert.equal(nodes.length, 0);
             });
         });
     });
@@ -121,14 +115,14 @@ suite("Explorer tests", () => {
 
             test("...it is expandable", async () => {
                 const explorer = explorerCreateWithFakes({});
-                const obj : any = kubeExplorer.createKindTreeNode(kuberesources.allKinds.pod);
+                const obj : any = kubeExplorer.createKubernetesResourceFolder(kuberesources.allKinds.pod);
                 const treeItem = await explorer.getTreeItem(obj);
                 assert.equal(treeItem.collapsibleState, vscode.TreeItemCollapsibleState.Collapsed);
             });
 
             test("...its label is the kind plural name", async () => {
                 const explorer = explorerCreateWithFakes({});
-                const obj : any = kubeExplorer.createKindTreeNode(kuberesources.allKinds.deployment);
+                const obj : any = kubeExplorer.createKubernetesResourceFolder(kuberesources.allKinds.deployment);
                 const treeItem = await explorer.getTreeItem(obj);
                 assert.equal(treeItem.label, 'Deployments');
             });
@@ -138,14 +132,14 @@ suite("Explorer tests", () => {
 
             test("...it is not expandable", async () => {
                 const explorer = explorerCreateWithFakes({});
-                const obj : any = kubeExplorer.createResourceTreeNode(kuberesources.allKinds.pod, "my-pod");
+                const obj : any = kubeExplorer.createKubernetesResource(kuberesources.allKinds.pod, "my-pod");
                 const treeItem = await explorer.getTreeItem(obj);
                 assert.equal(treeItem.collapsibleState, vscode.TreeItemCollapsibleState.None);
             });
 
             test("...its label is the ID", async () => {
                 const explorer = explorerCreateWithFakes({});
-                const obj : any = kubeExplorer.createResourceTreeNode(kuberesources.allKinds.pod, "my-pod");
+                const obj : any = kubeExplorer.createKubernetesResource(kuberesources.allKinds.pod, "my-pod");
                 const treeItem = await explorer.getTreeItem(obj);
                 assert.equal(treeItem.label, 'my-pod');
             });

@@ -62,7 +62,7 @@ export async function deleteCluster(kubectl: Kubectl, cluster: Cluster): Promise
         return false;
     }
 
-    vscode.window.showInformationMessage(`Delete cluster '${cluster.name}' and associated data from the kubeconfig.`);
+    vscode.window.showInformationMessage(`Deleted cluster '${cluster.name}' and associated data from the kubeconfig.`);
     return true;
 }
 

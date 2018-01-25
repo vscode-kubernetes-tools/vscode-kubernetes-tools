@@ -1320,7 +1320,7 @@ async function createClusterKubernetes(request? : WizardUIRequest) {
     }
 }
 
-async function useContextKubernetes(explorerNode: explorer.ResourceNode) {
+async function useContextKubernetes(explorerNode: explorer.KubernetesObject) {
     const targetContext = explorerNode.metadata.context;
     const shellResult = await kubectl.invokeAsync(`config use-context ${targetContext}`);
     if (shellResult.code === 0) {
@@ -1330,18 +1330,18 @@ async function useContextKubernetes(explorerNode: explorer.ResourceNode) {
     }
 }
 
-async function clusterInfoKubernetes(explorerNode: explorer.ResourceNode) {
+async function clusterInfoKubernetes(explorerNode: explorer.KubernetesObject) {
     const targetContext = explorerNode.metadata.context;
     const shellResult = await kubectl.invokeAsync(`cluster-info`);
     if (shellResult.code === 0) {
-        kubeChannel.showOutput(shellResult.stdout, `cluster-info for ${explorerNode.resourceId}`);
+        kubeChannel.showOutput(shellResult.stdout, `cluster-info for ${explorerNode.id}`);
     } else {
         vscode.window.showErrorMessage(`Failed to get cluster info: ${shellResult.stderr}`);
     }
 }
 
-async function deleteContextKubernetes(explorerNode: explorer.ResourceNode) {
-    const answer = await vscode.window.showWarningMessage(`Do you want to delete the cluser '${explorerNode.id}' from the kubeconfig?`, ...deleteMessageItems);
+async function deleteContextKubernetes(explorerNode: explorer.KubernetesObject) {
+    const answer = await vscode.window.showWarningMessage(`Do you want to delete the cluster '${explorerNode.id}' from the kubeconfig?`, ...deleteMessageItems);
     if (answer.isCloseAffordance) {
         return;
     }

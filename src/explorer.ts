@@ -11,22 +11,24 @@ export function create(kubectl : Kubectl, host : Host) : KubernetesExplorer {
     return new KubernetesExplorer(kubectl, host);
 }
 
-export function createKindTreeNode(kind: kuberesources.ResourceKind) : KubernetesTreeNode {
-    return new KubernetesKind(kind);
+export function createKubernetesResourceFolder(kind: kuberesources.ResourceKind) : KubernetesObject {
+    return new KubernetesResourceFolder(kind);
 }
 
-export function createResourceTreeNode(kind: kuberesources.ResourceKind, id: string, metadata?: any) : KubernetesTreeNode {
+export function createKubernetesResource(kind: kuberesources.ResourceKind, id: string, metadata?: any) : KubernetesObject {
     return new KubernetesResource(kind, id, metadata);
 }
 
 export interface KubernetesObject {
     readonly id : string;
+    readonly metadata?: any;
+    getChildren(kubectl: Kubectl, host : Host) : vscode.ProviderResult<KubernetesObject[]>;
+    getTreeItem() : vscode.TreeItem | Thenable<vscode.TreeItem>;
 }
 
 export interface ResourceNode {
     readonly id : string;
-    readonly resourceId : string;
-    readonly metadata?: any;
+    readonly resourceId: string;
 }
 
 export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObject> {
@@ -36,70 +38,117 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObj
     constructor(private readonly kubectl : Kubectl, private readonly host : Host) {}
 
     getTreeItem(element: KubernetesObject) : vscode.TreeItem | Thenable<vscode.TreeItem> {
-        if (element instanceof KubernetesTreeNode) {
-            return element.getTreeItem();
-        }
-        return new vscode.TreeItem(element.id, vscode.TreeItemCollapsibleState.None);
+        return element.getTreeItem();
     }
 
     getChildren(parent? : KubernetesObject) : vscode.ProviderResult<KubernetesObject[]> {
         if (parent) {
-            return (parent instanceof KubernetesTreeNode) ? parent.getChildren(this.kubectl, this.host) : [];
+            return parent.getChildren(this.kubectl, this.host);
         }
-        return this.getClusters(this.kubectl);
+        return this.getClusters();
     }
 
     refresh(): void {
         this._onDidChangeTreeData.fire();
     }
 
-    private async getClusters(kubectl: Kubectl) : Promise<KubernetesObject[]> {
-        const clusters = await kubectlUtils.getClusters(kubectl);
-        return clusters.map((c) => new VirtualKubernetesResource(c.name, 'cluster', c));
+    private async getClusters() : Promise<KubernetesObject[]> {
+        const clusters = await kubectlUtils.getClusters(this.kubectl);
+        return clusters.map((cluster) => new KubernetesCluster(cluster.name, cluster));
     }
 }
 
-abstract class KubernetesTreeNode implements KubernetesObject {
+/**
+ * Dummy object will be displayed as a placeholder in the tree explorer. Cannot be expanded and has no action menus on it.
+ * For example, display an "Error" dummy node when failing to get children of expandable parent.
+ */
+class DummyObject implements KubernetesObject {
     constructor(readonly id: string) {
-    }
-    abstract getChildren(kubectl: Kubectl, host : Host) : vscode.ProviderResult<KubernetesObject[]>;
-    abstract getTreeItem() : vscode.TreeItem | Thenable<vscode.TreeItem>;
-}
-
-class KubernetesKind extends KubernetesTreeNode {
-    constructor(readonly kind: kuberesources.ResourceKind) {
-        super(kind.abbreviation);
-    }
-
-    async getChildren(kubectl: Kubectl, host : Host) : Promise<KubernetesObject[]> {
-        if (this.kind === kuberesources.allKinds.namespace) {
-            const namespaces = await kubectlUtils.getNamespaces(kubectl);
-            return namespaces.map((ns) => new KubernetesResource(this.kind, ns.name, ns));
-        }
-        const childrenLines = await kubectl.asLines("get " + this.kind.abbreviation);
-        if (shell.isShellResult(childrenLines)) {
-            host.showErrorMessage(childrenLines.stderr);
-            return [ { id: "Error" } ];
-        }
-        return childrenLines.map((l) => this.parse(this.kind, l));
     }
 
     getTreeItem() : vscode.TreeItem | Thenable<vscode.TreeItem> {
-        const treeItem = new vscode.TreeItem(this.kind.pluralDisplayName, vscode.TreeItemCollapsibleState.Collapsed);
-        treeItem.contextValue = `vsKubernetes.kind`;
-        return treeItem;
+        return new vscode.TreeItem(this.id, vscode.TreeItemCollapsibleState.None);
     }
 
-    private parse(kind : kuberesources.ResourceKind, kubeLine : string) : KubernetesObject {
-        const bits = kubeLine.split(' ');
-        return new KubernetesResource(kind, bits[0]);
+    getChildren(kubectl: Kubectl, host : Host) : vscode.ProviderResult<KubernetesObject[]> {
+        return [];
     }
 }
 
-class KubernetesResource extends KubernetesTreeNode implements ResourceNode {
+class KubernetesCluster implements KubernetesObject {
+    constructor(readonly id: string, readonly metadata?: any) {
+    }
+
+    getChildren(kubectl: Kubectl, host : Host) : vscode.ProviderResult<KubernetesObject[]> {
+        return [
+            new KubernetesNamespaceFolder(),
+            new KubernetesResourceFolder(kuberesources.allKinds.node),
+            new KubernetesWorkloadFolder(),
+            new KubernetesResourceFolder(kuberesources.allKinds.service)
+        ];
+    }
+
+    getTreeItem() : vscode.TreeItem | Thenable<vscode.TreeItem> {
+        const treeItem = new vscode.TreeItem(this.id, vscode.TreeItemCollapsibleState.Collapsed);
+        treeItem.contextValue = "vsKubernetes.cluster";
+        treeItem.iconPath = vscode.Uri.file(path.join(__dirname, "../../images/k8s-logo.png"));
+        if (!this.metadata.active) {
+            treeItem.collapsibleState = vscode.TreeItemCollapsibleState.None;
+            treeItem.contextValue += ".inactive";
+        }
+        return treeItem;
+    }
+}
+
+abstract class KubernetesFolder implements KubernetesObject {
+    constructor(readonly id: string, readonly displayName: string, readonly contextValue?: string) {
+    }
+
+    abstract getChildren(kubectl: Kubectl, host : Host) : vscode.ProviderResult<KubernetesObject[]>;
+
+    getTreeItem() : vscode.TreeItem | Thenable<vscode.TreeItem> {
+        const treeItem = new vscode.TreeItem(this.displayName, vscode.TreeItemCollapsibleState.Collapsed);
+        treeItem.contextValue = this.contextValue || `vsKubernetes.${this.id}`;
+        return treeItem;
+    }
+}
+
+class KubernetesWorkloadFolder extends KubernetesFolder {
+    constructor() {
+        super("workload", "Workloads");
+    }
+
+    getChildren(kubectl: Kubectl, host : Host) : vscode.ProviderResult<KubernetesObject[]> {
+        return [
+            new KubernetesResourceFolder(kuberesources.allKinds.deployment),
+            new KubernetesResourceFolder(kuberesources.allKinds.job),
+            new KubernetesResourceFolder(kuberesources.allKinds.pod)
+        ];
+    }
+}
+
+class KubernetesResourceFolder extends KubernetesFolder {
+    constructor(readonly kind: kuberesources.ResourceKind) {
+        super(kind.abbreviation, kind.pluralDisplayName, "vsKubernetes.kind");
+    }
+
+    async getChildren(kubectl: Kubectl, host : Host) : Promise<KubernetesObject[]> {
+        const childrenLines = await kubectl.asLines("get " + this.kind.abbreviation);
+        if (shell.isShellResult(childrenLines)) {
+            host.showErrorMessage(childrenLines.stderr);
+            return [ new DummyObject("Error") ];
+        }
+        return childrenLines.map((line) => {
+            const bits = line.split(' ');
+            return new KubernetesResource(this.kind, bits[0]);
+        });
+    }
+}
+
+class KubernetesResource implements KubernetesObject, ResourceNode {
     readonly resourceId: string;
+
     constructor(readonly kind: kuberesources.ResourceKind, readonly id: string, readonly metadata?: any) {
-        super(id);
         this.resourceId = kind.abbreviation + '/' + id;
     }
 
@@ -115,55 +164,36 @@ class KubernetesResource extends KubernetesTreeNode implements ResourceNode {
             arguments: [ this ]
         };
         treeItem.contextValue = `vsKubernetes.resource`;
-        if (this.kind === kuberesources.allKinds.namespace) {
-            treeItem.contextValue = `vsKubernetes.resource.${this.kind.abbreviation}`;
-            if (this.metadata.active) {
-                treeItem.label = "*" + treeItem.label;
-            } else {
-                treeItem.contextValue += ".inactive";
-            }
-        } else if (this.kind === kuberesources.allKinds.pod) {
+        if (this.kind === kuberesources.allKinds.pod) {
             treeItem.contextValue = `vsKubernetes.resource.${this.kind.abbreviation}`;
         }
         return treeItem;
     }
 }
 
-class VirtualKubernetesResource extends KubernetesTreeNode implements ResourceNode {
-    readonly resourceId: string;
-
-    constructor (readonly id: string, readonly kind: string, readonly metadata?: any) {
-        super(id);
-        this.resourceId = kind + "/" + id;
+class KubernetesNamespaceFolder extends KubernetesResourceFolder {
+    constructor() {
+        super(kuberesources.allKinds.namespace);
     }
 
-    getChildren(kubectl: Kubectl, host : Host) : vscode.ProviderResult<KubernetesObject[]> {
-        if (this.kind === 'cluster') {
-            return [
-                new KubernetesKind(kuberesources.allKinds.namespace),
-                new KubernetesKind(kuberesources.allKinds.node),
-                new VirtualKubernetesResource('Workloads', 'workload'),
-                new KubernetesKind(kuberesources.allKinds.service)
-            ];
-        } else if (this.kind === 'workload') {
-            return [
-                new KubernetesKind(kuberesources.allKinds.deployment),
-                new KubernetesKind(kuberesources.allKinds.job),
-                new KubernetesKind(kuberesources.allKinds.pod)
-            ];
-        }
-        return [];
+    async getChildren(kubectl: Kubectl, host : Host) : Promise<KubernetesObject[]> {
+        const namespaces = await kubectlUtils.getNamespaces(kubectl);
+        return namespaces.map((ns) => new KubernetesNamespaceResource(this.kind, ns.name, ns));
+    }
+}
+
+class KubernetesNamespaceResource extends KubernetesResource {
+    constructor(readonly kind: kuberesources.ResourceKind, readonly id: string, readonly metadata?: any) {
+        super(kind, id, metadata);
     }
 
-    getTreeItem() : vscode.TreeItem | Thenable<vscode.TreeItem> {
-        const treeItem = new vscode.TreeItem(this.id, vscode.TreeItemCollapsibleState.Collapsed);
-        treeItem.contextValue = `vsKubernetes.resource.${this.kind}`;
-        if (this.kind === 'cluster') {
-            treeItem.iconPath = vscode.Uri.file(path.join(__dirname, "../../images/k8s-logo.png"));
-            if (!this.metadata.active) {
-                treeItem.collapsibleState = vscode.TreeItemCollapsibleState.None;
-                treeItem.contextValue += ".inactive";
-            }
+    async getTreeItem() : Promise<vscode.TreeItem> {
+        const treeItem = await super.getTreeItem();
+        treeItem.contextValue = `vsKubernetes.resource.${this.kind.abbreviation}`;
+        if (this.metadata.active) {
+            treeItem.label = "* " + treeItem.label;
+        } else {
+            treeItem.contextValue += ".inactive";
         }
         return treeItem;
     }

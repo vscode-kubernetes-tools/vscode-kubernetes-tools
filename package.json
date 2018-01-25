@@ -130,22 +130,22 @@
             "view/item/context": [
                 {
                     "command": "extension.vsKubernetesUseContext",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.cluster.inactive",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.cluster.inactive",
                     "group": "0@1"
                 },
                 {
                     "command": "extension.vsKubernetesDeleteContext",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.cluster.inactive",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.cluster.inactive",
                     "group": "0@2"
                 },
                 {
                     "command": "extension.vsKubernetesClusterInfo",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.cluster",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.cluster",
                     "group": "0@1"
                 },
                 {
                     "command": "extension.vsKubernetesDeleteContext",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.cluster",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.cluster",
                     "group": "0@2"
                 },
                 {
@@ -330,7 +330,7 @@
             },
             {
                 "command": "extension.vsKubernetesUseContext",
-                "title": "Set to Current Cluster",
+                "title": "Set as Current Cluster",
                 "category": "Kubernetes"
             },
             {
@@ -345,7 +345,7 @@
             },
             {
                 "command": "extension.vsKubernetesUseNamespace",
-                "title": "Set to Current Namespace",
+                "title": "Set as Current Namespace",
                 "category": "Kubernetes"
             },
             {
