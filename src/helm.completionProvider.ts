@@ -16,17 +16,22 @@ export class HelmTemplateCompletionProvider implements vscode.CompletionItemProv
     private valuesCache;
 
     public constructor() {
-        this.refreshValues();
+        // The extension activates on things like 'Kubernetes tree visible',
+        // which can occur on any project (not just projects containing k8s
+        // manifests or Helm charts). So we don't want the mere initialisation
+        // of the completion provider to trigger an error message if there are
+        // no charts - this will actually be the *probable* case.
+        this.refreshValues({ warnIfNoCharts: false });
     }
 
-    public refreshValues() {
+    public refreshValues(options: exec.PickChartUIOptions) {
         let ed = vscode.window.activeTextEditor;
         if (!ed) {
             return;
         }
 
         let self = this;
-        exec.pickChartForFile(ed.document.fileName, (f) => {
+        exec.pickChartForFile(ed.document.fileName, options, (f) => {
             let valsYaml = path.join(f, "values.yaml");
             if (!existsSync(valsYaml)) {
                 return;
@@ -161,4 +166,8 @@ export class HelmTemplateCompletionProvider implements vscode.CompletionItemProv
         });
     }
     */
+}
+
+interface UIOptions {
+    readonly warnIfNoCharts? : boolean;
 }

@@ -9,6 +9,10 @@ import * as fs from "fs";
 export const HELM_PREVIEW_SCHEME = 'helm-template-preview';
 export const HELM_PREVIEW_URI = HELM_PREVIEW_SCHEME + '://preview';
 
+export interface PickChartUIOptions {
+    readonly warnIfNoCharts : boolean;
+}
+
 // This file contains utilities for executing command line tools, notably Helm.
 
 export function helmVersion() {
@@ -180,12 +184,14 @@ export function loadChartMetadata(chartDir: string): Chart {
 }
 
 // Given a file, show any charts that this file belongs to.
-export function pickChartForFile(file: string, fn) {
+export function pickChartForFile(file: string, options: PickChartUIOptions, fn) {
     vscode.workspace.findFiles("**/Chart.yaml", "", 1024).then((matches) => {
         //logger.log(`Found ${ matches.length } charts`)
         switch(matches.length) {
             case 0:
-                vscode.window.showErrorMessage("No charts found");
+                if (options.warnIfNoCharts) {
+                    vscode.window.showErrorMessage("No charts found");
+                }
                 return;
             case 1:
                 // Assume that if there is only one chart, that's the one to run.
