@@ -46,6 +46,16 @@ const draft = draftCreate(host, fs, shell);
 const configureFromClusterUI = configureFromCluster.uiProvider(fs, shell);
 const createClusterUI = createCluster.uiProvider(fs, shell);
 
+const deleteMessageItems: vscode.MessageItem[] = [
+    {
+        title: "Delete"
+    },
+    {
+        title: "Close",
+        isCloseAffordance: true
+    }
+];
+
 // Filters for different Helm file types.
 // TODO: Consistently apply these to the provders registered.
 export const HELM_MODE: vscode.DocumentFilter = { language: "helm", scheme: "file" };
@@ -1043,25 +1053,33 @@ function syncKubernetes() {
 
 const deleteKubernetes = async (explorerNode? : explorer.ResourceNode) => {
     if (explorerNode) {
-        const answer = await vscode.window.showInformationMessage(`Do you want to delete the resource '${explorerNode.resourceId}'?`, "NO", "YES");
-        if (answer === "YES") {
-            const shellResult = await kubectl.invokeAsyncWithProgress(`delete ${explorerNode.resourceId}`, `Deleting ${explorerNode.resourceId}...`);
-            if (shellResult.code !== 0) {
-                vscode.window.showErrorMessage(`Failed to delete resource '${explorerNode.resourceId}': ${shellResult.stderr}`);
-                return;
-            } else {
-                await vscode.window.showInformationMessage(shellResult.stdout);
-                vscode.commands.executeCommand("extension.vsKubernetesRefreshExplorer");
-            }
+        const answer = await vscode.window.showWarningMessage(`Do you want to delete the resource '${explorerNode.resourceId}'?`, ...deleteMessageItems);
+        if (answer.isCloseAffordance) {
+            return;
+        }
+        const shellResult = await kubectl.invokeAsyncWithProgress(`delete ${explorerNode.resourceId}`, `Deleting ${explorerNode.resourceId}...`);
+        if (shellResult.code !== 0) {
+            await vscode.window.showErrorMessage(`Failed to delete resource '${explorerNode.resourceId}': ${shellResult.stderr}`);
+            return;
+        } else {
+            await vscode.window.showInformationMessage(shellResult.stdout);
+            return await vscode.commands.executeCommand("extension.vsKubernetesRefreshExplorer");
         }
     } else {
-        findKindNameOrPrompt(kuberesources.commonKinds, 'delete', { nameOptional: true }, (kindName) => {
+        findKindNameOrPrompt(kuberesources.commonKinds, 'delete', { nameOptional: true }, async (kindName) => {
             if (kindName) {
                 let commandArgs = kindName;
                 if (!containsName(kindName)) {
                     commandArgs = kindName + " --all";
                 }
-                kubectl.invoke('delete ' + commandArgs);
+                const shellResult = await kubectl.invokeAsyncWithProgress(`delete ${commandArgs}`, `Deleting ${kindName}...`);
+                if (shellResult.code !== 0) {
+                    await vscode.window.showErrorMessage(`Failed to delete resource '${kindName}': ${shellResult.stderr}`);
+                    return;
+                } else {
+                    await vscode.window.showInformationMessage(shellResult.stdout);
+                    return await vscode.commands.executeCommand("extension.vsKubernetesRefreshExplorer");
+                }
             }
         });
     }
@@ -1323,8 +1341,11 @@ async function clusterInfoKubernetes(explorerNode: explorer.ResourceNode) {
 }
 
 async function deleteContextKubernetes(explorerNode: explorer.ResourceNode) {
-    const answer = await vscode.window.showInformationMessage(`Do you want to delete the cluser '${explorerNode.id}' from the kubeconfig?`, "NO", "YES");
-    if (answer === "YES" && (await kubectlUtils.deleteCluster(kubectl, explorerNode.metadata))) {
+    const answer = await vscode.window.showWarningMessage(`Do you want to delete the cluser '${explorerNode.id}' from the kubeconfig?`, ...deleteMessageItems);
+    if (answer.isCloseAffordance) {
+        return;
+    }
+    if (await kubectlUtils.deleteCluster(kubectl, explorerNode.metadata)) {
         return vscode.commands.executeCommand("extension.vsKubernetesRefreshExplorer");
     }
 }

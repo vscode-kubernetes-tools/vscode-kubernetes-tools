@@ -1,3 +1,4 @@
+import * as sysfs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
@@ -7,7 +8,6 @@ import * as fakes from './fakes';
 
 import { Host } from '../src/host';
 import { Shell, ShellResult } from '../src/shell';
-import { fs } from '../src/fs';
 import * as kubeExplorer from '../src/explorer';
 import * as kuberesources from '../src/kuberesources';
 
@@ -36,7 +36,7 @@ suite("Explorer tests", () => {
                             if (cmd === "config view -o json") {
                                 return {
                                     code: 0,
-                                    stdout: fs.readFileSync(path.join(__dirname, "../../test/kube-config.json"), 'utf-8'),
+                                    stdout: sysfs.readFileSync(path.join(__dirname, "../../test/kube-config.json"), 'utf-8'),
                                     stderr: ""
                                 };
                             }
