@@ -44,21 +44,21 @@ export async function deleteCluster(kubectl: Kubectl, cluster: Cluster): Promise
     const deleteClusterResult = await kubectl.invokeAsyncWithProgress(`config delete-cluster ${cluster.name}`, "Deleting cluster...");
     if (deleteClusterResult.code !== 0) {
         kubeChannel.showOutput(`Failed to delete the specified cluster ${cluster.name} from the kubeconfig: ${deleteClusterResult.stderr}`, `Delete-${cluster.name}`);
-        vscode.window.showErrorMessage("Failed. See the output window for more details.");
+        vscode.window.showErrorMessage(`Delete ${cluster.name} failed. See Output window for more details.`);
         return false;
     }
 
     const deleteUserResult = await kubectl.invokeAsyncWithProgress(`config unset users.${cluster.user}`, "Deleting user...");
     if (deleteUserResult.code !== 0) {
         kubeChannel.showOutput(`Failed to delete user info for cluster ${cluster.name} from the kubeconfig: ${deleteUserResult.stderr}`);
-        vscode.window.showErrorMessage("Failed. See the output window for more details.");
+        vscode.window.showErrorMessage(`Delete ${cluster.name} Failed. See Output window for more details.`);
         return false;
     }
 
     const deleteContextResult = await kubectl.invokeAsyncWithProgress(`config delete-context ${cluster.context}`, "Deleting context...");
     if (deleteContextResult.code !== 0) {
         kubeChannel.showOutput(`Failed to delete the specified cluster's context ${cluster.context} from the kubeconfig: ${deleteContextResult.stderr}`);
-        vscode.window.showErrorMessage("Failed. See the output window for more details.");
+        vscode.window.showErrorMessage(`Delete ${cluster.name} Failed. See Output window for more details.`);
         return false;
     }
 
@@ -98,15 +98,15 @@ async function currentNamespace(kubectl: Kubectl): Promise<string> {
 export async function switchNamespace(kubectl: Kubectl, namespace: string): Promise<boolean> {
     const shellResult = await kubectl.invokeAsync("config current-context");
     if (shellResult.code !== 0) {
-        kubeChannel.showOutput(`Failed. Cannot get the current context: ${shellResult.stderr}`, `Switch-namespace-${namespace}`);
-        vscode.window.showErrorMessage("Failed. See the output window for more details.");
+        kubeChannel.showOutput(`Failed. Cannot get the current context: ${shellResult.stderr}`, `Switch namespace ${namespace}`);
+        vscode.window.showErrorMessage("Switch namespace failed. See Output window for more details.");
         return false;
     }
     const updateResult = await kubectl.invokeAsyncWithProgress(`config set-context ${shellResult.stdout.trim()} --namespace="${namespace}"`,
         "Switching namespace...");
     if (updateResult.code !== 0) {
-        kubeChannel.showOutput(`Failed to switch the namespace: ${shellResult.stderr}`, `Switch-namespace-${namespace}`);
-        vscode.window.showErrorMessage("Failed. See the output window for more details.");
+        kubeChannel.showOutput(`Failed to switch the namespace: ${shellResult.stderr}`, `Switch namespace ${namespace}`);
+        vscode.window.showErrorMessage("Switch namespace failed. See Output window for more details.");
         return false;
     }
     return true;

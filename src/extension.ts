@@ -51,7 +51,7 @@ const deleteMessageItems: vscode.MessageItem[] = [
         title: "Delete"
     },
     {
-        title: "Close",
+        title: "Cancel",
         isCloseAffordance: true
     }
 ];
@@ -1051,6 +1051,19 @@ function syncKubernetes() {
     });
 }
 
+async function refreshExplorer() {
+    await vscode.commands.executeCommand("extension.vsKubernetesRefreshExplorer");
+}
+
+async function reportDeleteResult(resourceId: string, shellResult: ShellResult) {
+    if (shellResult.code !== 0) {
+        await vscode.window.showErrorMessage(`Failed to delete resource '${resourceId}': ${shellResult.stderr}`);
+        return;
+    }
+    await vscode.window.showInformationMessage(shellResult.stdout);
+    refreshExplorer();
+}
+
 const deleteKubernetes = async (explorerNode? : explorer.ResourceNode) => {
     if (explorerNode) {
         const answer = await vscode.window.showWarningMessage(`Do you want to delete the resource '${explorerNode.resourceId}'?`, ...deleteMessageItems);
@@ -1058,13 +1071,7 @@ const deleteKubernetes = async (explorerNode? : explorer.ResourceNode) => {
             return;
         }
         const shellResult = await kubectl.invokeAsyncWithProgress(`delete ${explorerNode.resourceId}`, `Deleting ${explorerNode.resourceId}...`);
-        if (shellResult.code !== 0) {
-            await vscode.window.showErrorMessage(`Failed to delete resource '${explorerNode.resourceId}': ${shellResult.stderr}`);
-            return;
-        } else {
-            await vscode.window.showInformationMessage(shellResult.stdout);
-            return await vscode.commands.executeCommand("extension.vsKubernetesRefreshExplorer");
-        }
+        await reportDeleteResult(explorerNode.resourceId, shellResult);
     } else {
         findKindNameOrPrompt(kuberesources.commonKinds, 'delete', { nameOptional: true }, async (kindName) => {
             if (kindName) {
@@ -1073,13 +1080,7 @@ const deleteKubernetes = async (explorerNode? : explorer.ResourceNode) => {
                     commandArgs = kindName + " --all";
                 }
                 const shellResult = await kubectl.invokeAsyncWithProgress(`delete ${commandArgs}`, `Deleting ${kindName}...`);
-                if (shellResult.code !== 0) {
-                    await vscode.window.showErrorMessage(`Failed to delete resource '${kindName}': ${shellResult.stderr}`);
-                    return;
-                } else {
-                    await vscode.window.showInformationMessage(shellResult.stdout);
-                    return await vscode.commands.executeCommand("extension.vsKubernetesRefreshExplorer");
-                }
+                await reportDeleteResult(kindName, shellResult);
             }
         });
     }
@@ -1324,7 +1325,7 @@ async function useContextKubernetes(explorerNode: explorer.KubernetesObject) {
     const targetContext = explorerNode.metadata.context;
     const shellResult = await kubectl.invokeAsync(`config use-context ${targetContext}`);
     if (shellResult.code === 0) {
-        return vscode.commands.executeCommand("extension.vsKubernetesRefreshExplorer");
+        refreshExplorer();
     } else {
         vscode.window.showErrorMessage(`Failed to set '${targetContext}' as current cluster: ${shellResult.stderr}`);
     }
@@ -1346,13 +1347,13 @@ async function deleteContextKubernetes(explorerNode: explorer.KubernetesObject) 
         return;
     }
     if (await kubectlUtils.deleteCluster(kubectl, explorerNode.metadata)) {
-        return vscode.commands.executeCommand("extension.vsKubernetesRefreshExplorer");
+        refreshExplorer();
     }
 }
 
 async function useNamespaceKubernetes(explorerNode: explorer.KubernetesObject) {
     if (await kubectlUtils.switchNamespace(kubectl, explorerNode.id)) {
-        return vscode.commands.executeCommand("extension.vsKubernetesRefreshExplorer");
+        refreshExplorer();
     }
 }
 
