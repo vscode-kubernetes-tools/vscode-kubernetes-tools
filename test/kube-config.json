@@ -1,0 +1,34 @@
+{
+    "kind": "Config",
+    "apiVersion": "v1",
+    "preferences": {},
+    "clusters": [
+        {
+            "name": "minikube",
+            "cluster": {
+                "server": "https://10.172.15.57:8443",
+                "certificate-authority": "C:\\Users\\devdivcn\\.minikube\\ca.crt"
+            }
+        }
+    ],
+    "users": [
+        {
+            "name": "minikube",
+            "user": {
+                "client-certificate": "C:\\Users\\devdivcn\\.minikube\\client.crt",
+                "client-key": "C:\\Users\\devdivcn\\.minikube\\client.key"
+            }
+        }
+    ],
+    "contexts": [
+        {
+            "name": "minikube",
+            "context": {
+                "cluster": "minikube",
+                "user": "minikube",
+                "namespace": "default"
+            }
+        }
+    ],
+    "current-context": "minikube"
+}
