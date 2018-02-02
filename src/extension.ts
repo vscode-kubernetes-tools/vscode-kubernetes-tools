@@ -153,7 +153,7 @@ export function activate(context) {
         vscode.languages.registerCodeLensProvider(HELM_REQ_MODE, new HelmRequirementsCodeLensProvider()),
 
         // Telemetry
-        new Reporter(context)
+        registerTelemetry(context)
     ];
 
     // On save, refresh the Helm YAML preview.
@@ -195,6 +195,10 @@ export const deactivate = () => { };
 function registerCommand(command: string, callback: (...args: any[]) => any): vscode.Disposable {
     const wrappedCallback = telemetry.telemetrise(command, callback);
     return vscode.commands.registerCommand(command, wrappedCallback);
+}
+
+function registerTelemetry(context: vscode.ExtensionContext) : vscode.Disposable {
+    return new Reporter(context);
 }
 
 function provideHover(document, position, token, syntax) : Promise<vscode.Hover> {
