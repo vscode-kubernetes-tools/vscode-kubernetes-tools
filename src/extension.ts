@@ -37,6 +37,8 @@ import { HelmRequirementsCodeLensProvider } from './helm.requirementsCodeLens';
 import { HelmTemplateHoverProvider } from './helm.hoverProvider';
 import { HelmTemplatePreviewDocumentProvider, HelmInspectDocumentProvider } from './helm.documentProvider';
 import { HelmTemplateCompletionProvider } from './helm.completionProvider';
+import { Reporter } from './telemetry';
+import * as telemetry from './telemetry-helper';
 
 let explainActive = false;
 let swaggerSpecPromise = null;
@@ -81,48 +83,48 @@ export function activate(context) {
     const subscriptions = [
 
         // Commands - Kubernetes
-        vscode.commands.registerCommand('extension.vsKubernetesCreate',
+        registerCommand('extension.vsKubernetesCreate',
             maybeRunKubernetesCommandForActiveWindow.bind(this, 'create -f')
         ),
-        vscode.commands.registerCommand('extension.vsKubernetesDelete', deleteKubernetes),
-        vscode.commands.registerCommand('extension.vsKubernetesApply', applyKubernetes),
-        vscode.commands.registerCommand('extension.vsKubernetesExplain', explainActiveWindow),
-        vscode.commands.registerCommand('extension.vsKubernetesLoad', loadKubernetes),
-        vscode.commands.registerCommand('extension.vsKubernetesGet', getKubernetes),
-        vscode.commands.registerCommand('extension.vsKubernetesRun', runKubernetes),
-        vscode.commands.registerCommand('extension.vsKubernetesLogs', logsKubernetes),
-        vscode.commands.registerCommand('extension.vsKubernetesExpose', exposeKubernetes),
-        vscode.commands.registerCommand('extension.vsKubernetesDescribe', describeKubernetes),
-        vscode.commands.registerCommand('extension.vsKubernetesSync', syncKubernetes),
-        vscode.commands.registerCommand('extension.vsKubernetesExec', execKubernetes),
-        vscode.commands.registerCommand('extension.vsKubernetesTerminal', terminalKubernetes),
-        vscode.commands.registerCommand('extension.vsKubernetesDiff', diffKubernetes),
-        vscode.commands.registerCommand('extension.vsKubernetesScale', scaleKubernetes),
-        vscode.commands.registerCommand('extension.vsKubernetesDebug', debugKubernetes),
-        vscode.commands.registerCommand('extension.vsKubernetesRemoveDebug', removeDebugKubernetes),
-        vscode.commands.registerCommand('extension.vsKubernetesConfigureFromCluster', configureFromClusterKubernetes),
-        vscode.commands.registerCommand('extension.vsKubernetesCreateCluster', createClusterKubernetes),
-        vscode.commands.registerCommand('extension.vsKubernetesRefreshExplorer', () => treeProvider.refresh()),
-        vscode.commands.registerCommand('extension.vsKubernetesUseContext', useContextKubernetes),
-        vscode.commands.registerCommand('extension.vsKubernetesClusterInfo', clusterInfoKubernetes),
-        vscode.commands.registerCommand('extension.vsKubernetesDeleteContext', deleteContextKubernetes),
-        vscode.commands.registerCommand('extension.vsKubernetesUseNamespace', useNamespaceKubernetes),
+        registerCommand('extension.vsKubernetesDelete', deleteKubernetes),
+        registerCommand('extension.vsKubernetesApply', applyKubernetes),
+        registerCommand('extension.vsKubernetesExplain', explainActiveWindow),
+        registerCommand('extension.vsKubernetesLoad', loadKubernetes),
+        registerCommand('extension.vsKubernetesGet', getKubernetes),
+        registerCommand('extension.vsKubernetesRun', runKubernetes),
+        registerCommand('extension.vsKubernetesLogs', logsKubernetes),
+        registerCommand('extension.vsKubernetesExpose', exposeKubernetes),
+        registerCommand('extension.vsKubernetesDescribe', describeKubernetes),
+        registerCommand('extension.vsKubernetesSync', syncKubernetes),
+        registerCommand('extension.vsKubernetesExec', execKubernetes),
+        registerCommand('extension.vsKubernetesTerminal', terminalKubernetes),
+        registerCommand('extension.vsKubernetesDiff', diffKubernetes),
+        registerCommand('extension.vsKubernetesScale', scaleKubernetes),
+        registerCommand('extension.vsKubernetesDebug', debugKubernetes),
+        registerCommand('extension.vsKubernetesRemoveDebug', removeDebugKubernetes),
+        registerCommand('extension.vsKubernetesConfigureFromCluster', configureFromClusterKubernetes),
+        registerCommand('extension.vsKubernetesCreateCluster', createClusterKubernetes),
+        registerCommand('extension.vsKubernetesRefreshExplorer', () => treeProvider.refresh()),
+        registerCommand('extension.vsKubernetesUseContext', useContextKubernetes),
+        registerCommand('extension.vsKubernetesClusterInfo', clusterInfoKubernetes),
+        registerCommand('extension.vsKubernetesDeleteContext', deleteContextKubernetes),
+        registerCommand('extension.vsKubernetesUseNamespace', useNamespaceKubernetes),
 
         // Commands - Helm
-        vscode.commands.registerCommand('extension.helmVersion', helmexec.helmVersion),
-        vscode.commands.registerCommand('extension.helmTemplate', helmexec.helmTemplate),
-        vscode.commands.registerCommand('extension.helmTemplatePreview', helmexec.helmTemplatePreview),
-        vscode.commands.registerCommand('extension.helmLint', helmexec.helmLint),
-        vscode.commands.registerCommand('extension.helmInspectValues', helmexec.helmInspectValues),
-        vscode.commands.registerCommand('extension.helmDryRun', helmexec.helmDryRun),
-        vscode.commands.registerCommand('extension.helmDepUp', helmexec.helmDepUp),
-        vscode.commands.registerCommand('extension.helmInsertReq', helmexec.insertRequirement),
-        vscode.commands.registerCommand('extension.helmCreate', helmexec.helmCreate),
+        registerCommand('extension.helmVersion', helmexec.helmVersion),
+        registerCommand('extension.helmTemplate', helmexec.helmTemplate),
+        registerCommand('extension.helmTemplatePreview', helmexec.helmTemplatePreview),
+        registerCommand('extension.helmLint', helmexec.helmLint),
+        registerCommand('extension.helmInspectValues', helmexec.helmInspectValues),
+        registerCommand('extension.helmDryRun', helmexec.helmDryRun),
+        registerCommand('extension.helmDepUp', helmexec.helmDepUp),
+        registerCommand('extension.helmInsertReq', helmexec.insertRequirement),
+        registerCommand('extension.helmCreate', helmexec.helmCreate),
 
         // Commands - Draft
-        vscode.commands.registerCommand('extension.draftVersion', execDraftVersion),
-        vscode.commands.registerCommand('extension.draftCreate', execDraftCreate),
-        vscode.commands.registerCommand('extension.draftUp', execDraftUp),
+        registerCommand('extension.draftVersion', execDraftVersion),
+        registerCommand('extension.draftCreate', execDraftCreate),
+        registerCommand('extension.draftUp', execDraftUp),
 
         // HTML renderers
         vscode.workspace.registerTextDocumentContentProvider(configureFromCluster.uriScheme, configureFromClusterUI),
@@ -148,7 +150,10 @@ export function activate(context) {
         vscode.window.registerTreeDataProvider('extension.vsKubernetesExplorer', treeProvider),
 
         // Code lenses
-        vscode.languages.registerCodeLensProvider(HELM_REQ_MODE, new HelmRequirementsCodeLensProvider())
+        vscode.languages.registerCodeLensProvider(HELM_REQ_MODE, new HelmRequirementsCodeLensProvider()),
+
+        // Telemetry
+        registerTelemetry(context)
     ];
 
     // On save, refresh the Helm YAML preview.
@@ -186,6 +191,15 @@ export function activate(context) {
 
 // this method is called when your extension is deactivated
 export const deactivate = () => { };
+
+function registerCommand(command: string, callback: (...args: any[]) => any): vscode.Disposable {
+    const wrappedCallback = telemetry.telemetrise(command, callback);
+    return vscode.commands.registerCommand(command, wrappedCallback);
+}
+
+function registerTelemetry(context: vscode.ExtensionContext) : vscode.Disposable {
+    return new Reporter(context);
+}
 
 function provideHover(document, position, token, syntax) : Promise<vscode.Hover> {
     return new Promise(async (resolve) => {
@@ -1031,7 +1045,13 @@ async function isBashOnPod(podName : string): Promise<boolean> {
 
 function syncKubernetes() {
     selectPodForApp((pod) => {
+        if (!pod) {
+            return;
+        }
         selectContainerForPod(pod, (container) => {
+            if (!container) {
+                return;
+            }
             let pieces = container.image.split(':');
             if (pieces.length !== 2) {
                 vscode.window.showErrorMessage(`unexpected image name: ${container.image}`);
