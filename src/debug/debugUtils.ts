@@ -51,7 +51,7 @@ async function buildDockerImage(dockerClient: string, image: string, shellOpts: 
         throw new Error(`Image build failed: ${buildResult.stderr}`);
     }
     kubeChannel.showOutput(image + ' built.', "Docker build");
-};
+}
 
 async function pushDockerImage(dockerClient: string, image: string, shellOpts: any): Promise<void> {
     // Push docker image.
@@ -124,7 +124,7 @@ export async function runDockerImageInK8s(kubectl: Kubectl, image: string, expos
         throw new Error(`Failed to run the image "${image}" on kubernetes: ${runResult.stderr}`);
     }
     return deploymentName;
-};
+}
 
 /**
  * Query the pod list for the specified label.

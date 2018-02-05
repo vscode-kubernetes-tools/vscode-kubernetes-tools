@@ -89,7 +89,8 @@ export class DebugService implements IDebugService {
                 // Run docker image in k8s container.
                 p.report({ message: "Running docker image on k8s..."});
                 appName = await debugUtils.runDockerImageInK8s(this.kubectl, image, [portInfo.app, portInfo.debug], containerEnv);
-    
+                kubeChannel.showOutput(`Successfully exec image ${image} on kubernetes`, "Exec on kubernetes");
+
                 // Find the running debug pod.
                 p.report({ message: "Finding the debug pod..."});
                 const podList = await debugUtils.findPodsByLabel(this.kubectl, `run=${appName}`);
@@ -97,7 +98,7 @@ export class DebugService implements IDebugService {
                     throw new Error("Failed to find debug pod.");
                 }
                 const podName = podList.items[0].metadata.name;
-                kubeChannel.showOutput(`Debug pod running as: ${podName}`, "Run debug pod");
+                kubeChannel.showOutput(`Debug pod running as: ${podName}`, "Find debug pod");
                 
                 // Wait for the debug pod status to be running.
                 p.report({ message: "Waiting for the pod to be ready..."});
@@ -110,6 +111,7 @@ export class DebugService implements IDebugService {
                 // Wait for the port-forward proxy to be ready.
                 p.report({ message: "Waiting for port-forwarding ready..."});
                 await this.waitForProxyReady(proxyResult.proxyProcess);
+                kubeChannel.showOutput(`Create port-forward ${proxyResult.proxyDebugPort}:${portInfo.debug} ${proxyResult.proxyAppPort}:${portInfo.app}`, "Create port-forward");
                 
                 // Start debug session.
                 p.report({ message: `Starting ${this.debugProvider.getDebuggerType()} debug session...`});
@@ -207,7 +209,7 @@ export class DebugService implements IDebugService {
             if (debugSession.name === sessionName) {
                 kubeChannel.showOutput("The debug session is started, you could start debugging your application now.", "Start debugging");
                 if (proxyAppPort) {
-                    kubeChannel.showOutput(`The local proxy url for your service is http://localhost:${proxyAppPort}`, "Create proxy for service");
+                    kubeChannel.showOutput(`The local proxy url for your service is http://localhost:${proxyAppPort}`, "Proxy for service");
                     vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(`http://localhost:${proxyAppPort}`));
                 }
             }
