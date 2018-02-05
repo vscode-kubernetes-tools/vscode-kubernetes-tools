@@ -22,7 +22,7 @@ export class JavaDebugProvider implements IDebugProvider {
         }
         const answer = await vscode.window.showInformationMessage(`Please install java debugger extension '${defaultJavaDebuggerExtension}' before debugging.`, "Install Now");
         if (answer === "Install Now") {
-            return debugUtils.installVscodeExtension(defaultJavaDebuggerExtension);
+            return await debugUtils.installVscodeExtension(defaultJavaDebuggerExtension);
         }
         return false;
     }

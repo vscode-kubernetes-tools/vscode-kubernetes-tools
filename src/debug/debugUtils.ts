@@ -47,20 +47,18 @@ async function buildDockerImage(dockerClient: string, image: string, shellOpts: 
     // Build docker image.
     const buildResult = await shell.execCore(`${dockerClient} build -t ${image} .`, shellOpts);
     if (buildResult.code !== 0) {
-        kubeChannel.showOutput(buildResult.stderr, 'Docker build');
         throw new Error(`Image build failed: ${buildResult.stderr}`);
     }
-    kubeChannel.showOutput(image + ' built.', "Docker build");
+    kubeChannel.showOutput(image + ' built.');
 }
 
 async function pushDockerImage(dockerClient: string, image: string, shellOpts: any): Promise<void> {
     // Push docker image.
     const pushResult = await shell.execCore(`${dockerClient} push ${image}`, shellOpts);
     if (pushResult.code !== 0) {
-        kubeChannel.showOutput(pushResult.stderr, 'Docker push');
         throw new Error(`Image push failed: ${pushResult.stderr}`);
     }
-    kubeChannel.showOutput(image + ' pushed.', "Docker push");
+    kubeChannel.showOutput(image + ' pushed.');
 }
 
 /**
@@ -154,17 +152,16 @@ export async function findPodsByLabel(kubectl: Kubectl, labelQuery: string): Pro
 export async function waitForRunningPod(kubectl: Kubectl, podName: string): Promise<void> {
     const shellResult = await kubectl.invokeAsync(`get pod/${podName} --no-headers`);
     if (shellResult.code !== 0) {
-        kubeChannel.showOutput(`Failed to get pod status: ${shellResult.stderr}`, "Query pod status");
         throw new Error(`Failed to get pod status: ${shellResult.stderr}`);
     }
     const status = shellResult.stdout.split(/\s+/)[2];
-    kubeChannel.showOutput(`pod/${podName} status: ${status}`, "Query pod status");
+    kubeChannel.showOutput(`pod/${podName} status: ${status}`);
     if (status === "Running") {
         return;
     } else if (status !== "ContainerCreating" && status !== "Pending" && status !== "Succeeded") {
         const logsResult = await kubectl.invokeAsync(`logs pod/${podName}`);
         kubeChannel.showOutput(`Failed to start the pod "${podName}", it's status is "${status}".\n
-            See more details from the pod logs:\n${logsResult.code === 0 ? logsResult.stdout : logsResult.stderr}`, `Query pod status`);
+            See more details from the pod logs:\n${logsResult.code === 0 ? logsResult.stdout : logsResult.stderr}`);
         throw new Error(`Failed to start the pod "${podName}", it's status is "${status}".`);
     }
 
