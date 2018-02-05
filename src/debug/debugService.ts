@@ -86,7 +86,7 @@ export class DebugService implements IDebugService {
                     shellOpts.env = Object.assign({}, shellOpts.env, dockerEnv);
                 }
                 const image = await debugUtils.buildAndPushDockerImage(DockerClient.docker, shellOpts, imagePrefix);
-                kubeChannel.showOutput(`Finished to build/push docker image ${image}.`)
+                kubeChannel.showOutput(`Finished to build/push docker image ${image}.`);
 
                 // Run docker image in k8s container.
                 p.report({ message: "Running docker image on k8s..."});
@@ -106,7 +106,7 @@ export class DebugService implements IDebugService {
                 
                 // Wait for the debug pod status to be running.
                 p.report({ message: "Waiting for the pod to be ready..."});
-                kubeChannel.showOutput(`Starting to wait the pod ${podName} status to become running...`, "Wait for pod")
+                kubeChannel.showOutput(`Starting to wait the pod ${podName} status to become running...`, "Wait for pod");
                 await debugUtils.waitForRunningPod(this.kubectl, podName);
                 kubeChannel.showOutput(`Finshed to wait.`);
     
