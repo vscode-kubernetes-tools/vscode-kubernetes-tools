@@ -14,7 +14,7 @@ export interface Namespace {
     readonly active: boolean;
 }
 
-async function getKubeconfig(kubectl: Kubectl): Promise<any> {
+export async function getKubeconfig(kubectl: Kubectl): Promise<any> {
     const shellResult = await kubectl.invokeAsync("config view -o json");
     if (shellResult.code !== 0) {
         vscode.window.showErrorMessage(shellResult.stderr);
