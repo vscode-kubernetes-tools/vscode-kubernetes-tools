@@ -78,7 +78,7 @@ export class DebugService implements IDebugService {
                 // Build docker image.
                 p.report({ message: "Building docker image..."});
                 const shellOpts = Object.assign({ }, shell.execOpts(), { cwd });
-                if (imagePrefix) {
+                if (!imagePrefix) {
                     // In order to allow local kubernetes cluster (e.g. minikube) to have access to local docker images,
                     // need override docker-env before running docker build.
                     const dockerEnv = await debugUtils.resolveDockerEnv(this.kubectl);
@@ -203,7 +203,7 @@ export class DebugService implements IDebugService {
         });
     }
 
-    private async startDebugging(workspaceFolder: string, sessionName: string, proxyDebugPort: any, proxyAppPort: any, callback: () => Promise<any>) {
+    private async startDebugging(workspaceFolder: string, sessionName: string, proxyDebugPort: any, proxyAppPort: any, onTerminateCallback: () => Promise<any>) {
         const disposables: vscode.Disposable[] = [];
         disposables.push(vscode.debug.onDidStartDebugSession((debugSession) => {
             if (debugSession.name === sessionName) {
@@ -218,14 +218,14 @@ export class DebugService implements IDebugService {
         disposables.push(vscode.debug.onDidTerminateDebugSession(async (debugSession) => {
             if (debugSession.name === sessionName) {
                 disposables.forEach((d) => d.dispose());
-                await callback();
+                await onTerminateCallback();
             }
         }));
 
-        const success = this.debugProvider.startDebugging(workspaceFolder, sessionName, proxyDebugPort);
+        const success = await this.debugProvider.startDebugging(workspaceFolder, sessionName, proxyDebugPort);
         if (!success) {
             disposables.forEach((d) => d.dispose());
-            await callback();
+            await onTerminateCallback();
         }
         return success;
     }
