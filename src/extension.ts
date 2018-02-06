@@ -379,6 +379,22 @@ function initStatusBar() {
     return statusBarItem;
 }
 
+/**
+ * Run a kubectl command in a new vscode terminal.
+ * 
+ * @param terminalName the terminal name.
+ * @param subCommand the kubectl subcommand to run.
+ */
+function runKubectlCommandInTerminal(terminalName: string, subCommand: string) {
+    let kubectlPath = kubectl.path().trim();
+    if (kubectlPath.indexOf(" ") > -1 && !/^['"]/.test(kubectlPath)) {
+        kubectlPath = `"${kubectlPath}"`;
+    }
+    const terminal: vscode.Terminal = vscode.window.createTerminal(terminalName);
+    terminal.sendText(`${kubectlPath} ${subCommand}`);
+    terminal.show();
+}
+
 // Runs a command for the text in the active window.
 // Expects that it can append a filename to 'command' to create a complete kubectl command.
 //
@@ -421,14 +437,14 @@ function maybeRunKubernetesCommandForActiveWindow(command) {
                         vscode.window.showErrorMessage("Save failed.");
                         return;
                     }
-                    kubectl.invoke(`${command} "${editor.document.fileName}"`);
+                    runKubectlCommandInTerminal("kubectl", `${command} "${editor.document.fileName}"`);
                 });
             }
         });
     } else {
         const fullCommand = `${command} "${editor.document.fileName}"`;
         console.log(fullCommand);
-        kubectl.invoke(fullCommand);
+        runKubectlCommandInTerminal("kubectl", fullCommand);
     }
     return true;
 }
@@ -437,7 +453,7 @@ function kubectlViaTempFile(command, fileContent) {
     const tmpobj = tmp.fileSync();
     fs.writeFileSync(tmpobj.name, fileContent);
     console.log(tmpobj.name);
-    kubectl.invoke(`${command} ${tmpobj.name}`);
+    runKubectlCommandInTerminal("kubectl", `${command} ${tmpobj.name}`);
 }
 
 /**
@@ -556,14 +572,13 @@ function exposeKubernetes() {
         cmd += ' --port=' + ports[0];
     }
 
-    kubectl.invoke(cmd);
+    runKubectlCommandInTerminal("kubectl-expose", cmd);
 }
 
 function getKubernetes(explorerNode? : any) {
     if (explorerNode) {
         const id = explorerNode.resourceId || explorerNode.id;
-        const fn = kubectlOutputTo(id + '-get');
-        kubectl.invoke(`get ${id} -o wide`, fn);
+        runKubectlCommandInTerminal("kubectl-get", `get ${id} -o wide`);
     } else {
         let kindName = findKindName();
         if (kindName) {
@@ -571,7 +586,7 @@ function getKubernetes(explorerNode? : any) {
             return;
         }
         findKindNameOrPrompt(kuberesources.commonKinds, 'get', { nameOptional: true }, (value) => {
-            kubectl.invoke(" get " + value + " -o wide --no-headers");
+            runKubectlCommandInTerminal("kubectl-get", `get ${value} -o wide --no-headers`);
         });
     }
 }
@@ -671,7 +686,7 @@ function promptScaleKubernetes(kindName : string) {
 }
 
 function invokeScaleKubernetes(kindName : string, replicas : number) {
-    kubectl.invoke(`scale --replicas=${replicas} ${kindName}`);
+    runKubectlCommandInTerminal("kubectl-scale", `scale --replicas=${replicas} ${kindName}`);
 }
 
 function runKubernetes() {
@@ -913,8 +928,7 @@ function getLogsCore(podName : string, podNamespace? : string) {
     if (podNamespace && podNamespace.length > 0) {
         cmd += ' --namespace=' + podNamespace;
     }
-    const fn = kubectlOutputTo(podName + '-logs');
-    kubectl.invokeWithProgress(cmd, 'Loading logs...', fn);
+    runKubectlCommandInTerminal("kubectl-logs", cmd);
 }
 
 function kubectlOutputTo(name : string) {
@@ -946,17 +960,12 @@ function getPorts() {
 
 function describeKubernetes(explorerNode? : explorer.ResourceNode) {
     if (explorerNode) {
-        describeKubernetesCore(explorerNode.resourceId);
+        runKubectlCommandInTerminal("kubectl-describe", `describe ${explorerNode.resourceId}`);
     } else {
         findKindNameOrPrompt(kuberesources.commonKinds, 'describe', { nameOptional: true }, (value) => {
-            describeKubernetesCore(value);
+            runKubectlCommandInTerminal("kubectl-describe", `describe ${value}`);
         });
     }
-}
-
-function describeKubernetesCore(kindName : string) {
-    const fn = kubectlOutputTo(kindName + "-describe");
-    kubectl.invokeWithProgress(' describe ' + kindName, `Describing ${kindName}...`, fn);
 }
 
 function selectContainerForPod(pod, callback) {
@@ -1026,8 +1035,7 @@ function execKubernetesCore(isTerminal) {
             }
 
             const execCmd = ' exec ' + pod.metadata.name + ' ' + cmd;
-            const fn = kubectlOutputTo(pod.metadata.name + '-exec');
-            kubectl.invoke(execCmd, fn);
+            runKubectlCommandInTerminal("kubectl-exec", execCmd);
         });
     });
 }
@@ -1075,23 +1083,13 @@ async function refreshExplorer() {
     await vscode.commands.executeCommand("extension.vsKubernetesRefreshExplorer");
 }
 
-async function reportDeleteResult(resourceId: string, shellResult: ShellResult) {
-    if (shellResult.code !== 0) {
-        await vscode.window.showErrorMessage(`Failed to delete resource '${resourceId}': ${shellResult.stderr}`);
-        return;
-    }
-    await vscode.window.showInformationMessage(shellResult.stdout);
-    refreshExplorer();
-}
-
 const deleteKubernetes = async (explorerNode? : explorer.ResourceNode) => {
     if (explorerNode) {
         const answer = await vscode.window.showWarningMessage(`Do you want to delete the resource '${explorerNode.resourceId}'?`, ...deleteMessageItems);
         if (answer.isCloseAffordance) {
             return;
         }
-        const shellResult = await kubectl.invokeAsyncWithProgress(`delete ${explorerNode.resourceId}`, `Deleting ${explorerNode.resourceId}...`);
-        await reportDeleteResult(explorerNode.resourceId, shellResult);
+        runKubectlCommandInTerminal("kubectl-delete", `delete ${explorerNode.resourceId}`);
     } else {
         findKindNameOrPrompt(kuberesources.commonKinds, 'delete', { nameOptional: true }, async (kindName) => {
             if (kindName) {
@@ -1099,8 +1097,7 @@ const deleteKubernetes = async (explorerNode? : explorer.ResourceNode) => {
                 if (!containsName(kindName)) {
                     commandArgs = kindName + " --all";
                 }
-                const shellResult = await kubectl.invokeAsyncWithProgress(`delete ${commandArgs}`, `Deleting ${kindName}...`);
-                await reportDeleteResult(kindName, shellResult);
+                runKubectlCommandInTerminal("kubectl-delete", `delete ${commandArgs}`);
             }
         });
     }
@@ -1353,12 +1350,7 @@ async function useContextKubernetes(explorerNode: explorer.KubernetesObject) {
 
 async function clusterInfoKubernetes(explorerNode: explorer.KubernetesObject) {
     const targetContext = explorerNode.metadata.context;
-    const shellResult = await kubectl.invokeAsync(`cluster-info`);
-    if (shellResult.code === 0) {
-        kubeChannel.showOutput(shellResult.stdout, `cluster-info for ${explorerNode.id}`);
-    } else {
-        vscode.window.showErrorMessage(`Failed to get cluster info: ${shellResult.stderr}`);
-    }
+    runKubectlCommandInTerminal(`cluster-info for ${targetContext}`, "cluster-info");
 }
 
 async function deleteContextKubernetes(explorerNode: explorer.KubernetesObject) {
