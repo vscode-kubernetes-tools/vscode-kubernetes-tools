@@ -17,6 +17,8 @@ export const allKinds = {
     job: new ResourceKind("Job", "Jobs", "job"),
     pod: new ResourceKind("Pod", "Pods", "pod"),
     service: new ResourceKind("Service", "Services", "service"),
+    configMap: new ResourceKind("ConfigMap", "ConfigMaps", "configmap"),
+    secret: new ResourceKind("Secret", "Secrets", "secret"),
 };
 
 export const commonKinds = [

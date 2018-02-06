@@ -84,7 +84,8 @@ class KubernetesCluster implements KubernetesObject {
             new KubernetesNamespaceFolder(),
             new KubernetesResourceFolder(kuberesources.allKinds.node),
             new KubernetesWorkloadFolder(),
-            new KubernetesResourceFolder(kuberesources.allKinds.service)
+            new KubernetesResourceFolder(kuberesources.allKinds.service),
+            new KubernetesConfigFolder()
         ];
     }
 
@@ -123,6 +124,19 @@ class KubernetesWorkloadFolder extends KubernetesFolder {
             new KubernetesResourceFolder(kuberesources.allKinds.deployment),
             new KubernetesResourceFolder(kuberesources.allKinds.job),
             new KubernetesResourceFolder(kuberesources.allKinds.pod)
+        ];
+    }
+}
+
+class KubernetesConfigFolder extends KubernetesFolder {
+    constructor() {
+        super("config", "Configs");
+    }
+
+    getChildren(kubectl: Kubectl, host : Host) : vscode.ProviderResult<KubernetesObject[]> {
+        return [
+            new KubernetesResourceFolder(kuberesources.allKinds.configMap),
+            new KubernetesResourceFolder(kuberesources.allKinds.secret)
         ];
     }
 }
