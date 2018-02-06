@@ -9,10 +9,10 @@ const supportedProviders: IDebugProvider[] = [
 ];
 
 async function showProviderPick(): Promise<IDebugProvider> {
-    if (this.supportedProviders.length < 1) {
+    if (supportedProviders.length < 1) {
         return null;
-    } else if (this.supportedProviders.length === 1) {
-        return this.supportedProviders[0];
+    } else if (supportedProviders.length === 1) {
+        return supportedProviders[0];
     }
 
     const providerItems = supportedProviders.map((provider) => {

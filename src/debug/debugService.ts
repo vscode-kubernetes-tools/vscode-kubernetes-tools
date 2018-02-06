@@ -63,7 +63,7 @@ export class DebugService implements IDebugService {
         const imagePrefix = vscode.workspace.getConfiguration().get("vsdocker.imageUser", null);
         const containerEnv= {};
         const portInfo = await this.debugProvider.getDockerResolver().resolvePortsFromFile(this.dockerParser, containerEnv);
-        if (!portInfo.debug) {
+        if (!portInfo || !portInfo.debug) {
             vscode.window.showErrorMessage("Cannot resolve debug port from Dockerfile.");
             return;
         }
