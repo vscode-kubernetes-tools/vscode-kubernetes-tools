@@ -5,9 +5,7 @@ import { helm as logger } from './logger';
 import * as YAML from 'yamljs';
 import * as _ from 'lodash';
 import * as fs from "fs";
-
-export const HELM_PREVIEW_SCHEME = 'helm-template-preview';
-export const HELM_PREVIEW_URI = HELM_PREVIEW_SCHEME + '://preview';
+import * as helm from './helm';
 
 export interface PickChartUIOptions {
     readonly warnIfNoCharts : boolean;
@@ -58,9 +56,10 @@ export function helmTemplatePreview() {
         return;
     }
 
-    let u = vscode.Uri.parse(HELM_PREVIEW_URI);
+    let u = vscode.Uri.parse(helm.PREVIEW_URI);
     let f = filepath.basename(filePath);
     vscode.commands.executeCommand("vscode.previewHtml", u, vscode.ViewColumn.Two, `Preview ${ f }`);
+    helm.recordPreviewHasBeenShown();
 }
 
 export function helmDepUp() {
