@@ -14,7 +14,6 @@ import { shell } from "../shell";
 
 import { DockerfileParser } from "../docker/dockerfileParser";
 import * as dockerUtils from "../docker/dockerUtils";
-import { IDockerParser } from "../docker/parser";
 
 interface ProxyResult {
     readonly proxyProcess: ChildProcess;
@@ -29,7 +28,6 @@ export interface IDebugService {
 
 export class DebugService implements IDebugService {
     private debugProvider: IDebugProvider;
-    private dockerParser: IDockerParser;
 
     constructor(private readonly kubectl: Kubectl) {
     }
@@ -53,8 +51,8 @@ export class DebugService implements IDebugService {
             vscode.window.showErrorMessage(`No Dockerfile found in the workspace ${workspaceFolder.name}`);
             return;
         }
-        this.dockerParser = new DockerfileParser(dockerfilePath);
-        this.debugProvider = await providerRegistry.getDebugProvider(this.dockerParser.getBaseImage());
+        const dockerParser = new DockerfileParser(dockerfilePath);
+        this.debugProvider = await providerRegistry.getDebugProvider(dockerParser.getBaseImage());
         if (!this.debugProvider) {
             return;
         } else if (!await this.debugProvider.isDebuggerInstalled()) {
@@ -64,13 +62,9 @@ export class DebugService implements IDebugService {
         const cwd = workspaceFolder.uri.fsPath;
         const imagePrefix = vscode.workspace.getConfiguration().get("vsdocker.imageUser", null);
         const containerEnv = {};
-        const portInfo = await this.debugProvider.resolvePortsFromFile(this.dockerParser, containerEnv);
-        if (!portInfo || !portInfo.debugPort) {
-            vscode.window.showErrorMessage("Cannot resolve debug port from Dockerfile.");
-            return;
-        }
-        if (!portInfo.appPort || !Number.isInteger(Number(portInfo.appPort))) {
-            vscode.window.showErrorMessage(`Cannot resolve application port from Dockerfile.`);
+        const portInfo = await this.debugProvider.resolvePortsFromFile(dockerParser, containerEnv);
+        if (!portInfo || !portInfo.debugPort || !portInfo.appPort) {
+            vscode.window.showErrorMessage("Cannot resolve debug/application port from Dockerfile.");
             return;
         }
 

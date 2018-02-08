@@ -15,6 +15,11 @@ export interface Namespace {
     readonly active: boolean;
 }
 
+export interface ClusterConfig {
+    readonly server: string;
+    readonly certificateAuthority: string;
+}
+
 export async function getKubeconfig(kubectl: Kubectl): Promise<any> {
     const shellResult = await kubectl.invokeAsync("config view -o json");
     if (shellResult.code !== 0) {
@@ -22,6 +27,19 @@ export async function getKubeconfig(kubectl: Kubectl): Promise<any> {
         return null;
     }
     return JSON.parse(shellResult.stdout);
+}
+
+export async function getCurrentClusterConfig(kubectl: Kubectl): Promise<ClusterConfig | undefined> {
+    const kubeConfig = await getKubeconfig(kubectl);
+    if (!kubeConfig) {
+        return undefined;
+    }
+    const contextConfig = kubeConfig.contexts.find((context) => context.name === kubeConfig["current-context"]);
+    const clusterConfig = kubeConfig.clusters.find((cluster) => cluster.name === contextConfig.context.cluster);
+    return {
+        server: clusterConfig.cluster.server,
+        certificateAuthority: clusterConfig.cluster["certificate-authority"]
+    };
 }
 
 export async function getClusters(kubectl: Kubectl): Promise<Cluster[]> {

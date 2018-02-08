@@ -12,18 +12,14 @@ class RawDockerfile {
         this.commandEntries = rawDockerfileParser(dockerData, { includeComments: false });
     }
 
-    public getCommandsOfType(commands: string[]): CommandEntry[] {
-        const targetEntries = [];
-        this.commandEntries.forEach((entry) => {
+    public getCommandsOfType(...commands: string[]): CommandEntry[] {
+        return this.commandEntries.filter((entry) => {
             const cmdName = entry.name.toLowerCase();
-            if (commands.find((key) => key === cmdName)) {
-                targetEntries.push(entry);
-            }
+            return commands.find((key) => key === cmdName);
         });
-        return targetEntries;
     }
 
-    public getCommandArgs(command: string): string[] {
+    public mergeCommandArgsOfType(command: string): string[] {
         let args = [];
         this.commandEntries.forEach((entry) => {
             if (entry.name.toLowerCase() === command) {
@@ -34,7 +30,7 @@ class RawDockerfile {
     }
 
     public searchInArgs(regularExpression: RegExp, scope?: string[]): RegExpMatchArray {
-        const scopeEntries = (scope ? this.getCommandsOfType(scope) : this.commandEntries);
+        const scopeEntries = (scope ? this.getCommandsOfType(...scope) : this.commandEntries);
         for (const entry of scopeEntries) {
             const args = Array.isArray(entry.args) ? entry.args : [ String(entry.args) ];
             for (const arg of args) {
@@ -50,20 +46,25 @@ class RawDockerfile {
 }
 
 export class DockerfileParser implements IDockerParser {
-    readonly dockerfile;
+    private readonly dockerfile;
 
     constructor(private readonly dockerfilePath: string) {
         this.dockerfile = new RawDockerfile(dockerfilePath);
     }
 
     getBaseImage(): string {
-        const fromEntries = this.dockerfile.getCommandsOfType(["from"]);
-        const baseImagePaths = ((fromEntries.length ? String(fromEntries[0].args) : "").split(":")[0]).split("/");
-        return baseImagePaths[baseImagePaths.length - 1].toLowerCase();
+        const fromEntries = this.dockerfile.getCommandsOfType("from");
+        if (fromEntries.length === 0) {
+            return "";
+        }
+        const baseImageTag = fromEntries[0].args;
+        const baseImageID = baseImageTag.split(":")[0];
+        const baseImageNameParts = baseImageTag.split("/");
+        return baseImageNameParts[baseImageNameParts.length - 1].toLowerCase();
     }
 
     getExposedPorts(): string[] {
-        return this.dockerfile.getCommandArgs("expose");
+        return this.dockerfile.mergeCommandArgsOfType("expose");
     }
 
     searchLaunchArgs(regularExpression: RegExp): RegExpMatchArray {

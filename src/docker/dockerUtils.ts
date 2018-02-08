@@ -1,10 +1,11 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
+import * as url from "url";
 
 import { kubeChannel } from "../kubeChannel";
 import { Kubectl } from "../kubectl";
-import { getKubeconfig } from "../kubectlUtils";
+import { getCurrentClusterConfig } from "../kubectlUtils";
 import { shell, ShellResult } from "../shell";
 import { DockerfileParser } from "./dockerfileParser";
 
@@ -80,31 +81,30 @@ async function pushDockerImage(dockerClient: string, image: string, shellOpts: a
  */
 export async function resolveDockerEnv(kubectl: Kubectl): Promise<{}> {
     const dockerEnv = {};
-    const versionResult = await shell.exec(`docker version --format "{{.Client.APIVersion}}"`);
-    dockerEnv["DOCKER_API_VERSION"] = "1.23";
-    if (versionResult.code === 0) {
-        dockerEnv["DOCKER_API_VERSION"] = versionResult.stdout.trim();
-    }
-    const kubeConfig = await getKubeconfig(kubectl);
-    if (!kubeConfig) {
+    dockerEnv["DOCKER_API_VERSION"] = await dockerApiVersion();
+    const currentCluster = await getCurrentClusterConfig(kubectl);
+    if (!currentCluster || !currentCluster.server || !currentCluster.certificateAuthority) {
         return {};
     }
-    const contextConfig = kubeConfig.contexts.find((context) => context.name === kubeConfig["current-context"]);
-    const clusterConfig = kubeConfig.clusters.find((cluster) => cluster.name === contextConfig.context.cluster);
-    const server = clusterConfig.cluster.server;
-    const certificate = clusterConfig.cluster["certificate-authority"];
-    if (!certificate) {
-        return {};
-    }
-    if (/^https/.test(server)) {
+    
+    if (/^https/.test(currentCluster.server)) {
         dockerEnv["DOCKER_TLS_VERIFY"] = 1;
     }
-    dockerEnv["DOCKER_HOST"] = server.replace(/^https?:/, "tcp:").replace(/:\d+$/, ":2376");
-    const certDir = path.dirname(certificate);
+    const serverUrl = url.parse(currentCluster.server);
+    dockerEnv["DOCKER_HOST"] = `tcp://${serverUrl.hostname}:2376`;
+    const certDir = path.dirname(currentCluster.certificateAuthority);
     if (fs.existsSync(path.join(certDir, "certs"))) {
         dockerEnv["DOCKER_CERT_PATH"] = path.join(certDir, "certs");
     } else {
         dockerEnv["DOCKER_CERT_PATH"] = certDir;
     }
     return dockerEnv;
+}
+
+async function dockerApiVersion(): Promise<string> {
+    const versionResult = await shell.exec(`docker version --format "{{.Client.APIVersion}}"`);
+    if (versionResult.code === 0) {
+        return versionResult.stdout.trim();
+    }
+    return "1.23";
 }
