@@ -21,7 +21,7 @@ async function showProviderPick(): Promise<IDebugProvider> {
         };
     });
     
-    const pickedProvider = await vscode.window.showQuickPick(<any[]> providerItems, { placeHolder: "Please select the debug type." });
+    const pickedProvider = await vscode.window.showQuickPick(<any[]> providerItems, { placeHolder: "Select the environment" });
     if (!pickedProvider) {
         return null;
     }
