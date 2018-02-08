@@ -16,7 +16,7 @@ export function isKubernetesYamlFile(text) {
         /[^a-zA-Z]kind\s*\:/g.exec(text) ||
         /^apiVersion\s*\:/g.exec(text) ||
         /[^a-zA-Z]apiVersion\s*\:/g.exec(text)
-    )
+    );
 }
 
 /**
