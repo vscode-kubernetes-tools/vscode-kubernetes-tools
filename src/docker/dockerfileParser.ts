@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import { CommandEntry, parse as rawDockerfileParser} from 'docker-file-parser';
 
-import { IDockerParser } from "./debugInterfaces";
+import { IDockerParser } from "./parser";
 import { shell, ShellResult } from "../shell";
 
 class RawDockerfile {

@@ -1,11 +1,10 @@
 import * as vscode from "vscode";
 
-import { IDebugProvider, IDockerParser } from "./debugInterfaces";
+import { IDebugProvider } from "./debugProvider";
 import { JavaDebugProvider } from "./javaDebugProvider";
-import { JavaDockerResolver } from "./javaDockerResolver";
 
 const supportedProviders: IDebugProvider[] = [
-    new JavaDebugProvider(new JavaDockerResolver())
+    new JavaDebugProvider()
 ];
 
 async function showProviderPick(): Promise<IDebugProvider> {
@@ -32,7 +31,7 @@ async function showProviderPick(): Promise<IDebugProvider> {
 export async function getDebugProvider(baseImage?: string): Promise<IDebugProvider> {
     let debugProvider = null;
     if (baseImage) {
-        debugProvider = supportedProviders.find((provider) => provider.getDockerResolver().isSupportedImage(baseImage));
+        debugProvider = supportedProviders.find((provider) => provider.isSupportedImage(baseImage));
     }
     if (!debugProvider) {
         debugProvider = await showProviderPick();

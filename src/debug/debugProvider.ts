@@ -1,7 +1,8 @@
 import * as vscode from "vscode";
 
-import { Kubectl } from '../kubectl';
+import { Kubectl } from "../kubectl";
 import { ShellResult } from "../shell";
+import { IDockerParser } from "../docker/parser";
 
 export interface PortInfo {
     debugPort: string;
@@ -31,14 +32,7 @@ export interface IDebugProvider {
      */
     startDebugging(workspaceFolder: string, sessionName: string, port: number): Promise<boolean>;
 
-    /**
-     * Get the associated docker resolver for the provider.
-     */
-    getDockerResolver(): IDockerResolver;
-}
-
-export interface IDockerResolver {
-    /**
+        /**
      * The docker image is supported by the provider or not.
      * 
      */
@@ -53,21 +47,4 @@ export interface IDockerResolver {
      * Resolve the debug port info from the container's shell environment.
      */
     resolvePortsFromContainer(kubectl: Kubectl, pod: string, container: string): Promise<PortInfo>;
-}
-
-export interface IDockerParser {
-    /**
-     * Parse the inherited base image from the dockerfile.
-     */
-    getBaseImage(): string;
-
-    /**
-     *  Parse the exposed ports from the dockerfile.
-     */
-    getExposedPorts(): string[];
-
-    /**
-     * Search the debug options from the launch command.
-     */
-    searchLaunchArgs(regularExpression: RegExp): RegExpMatchArray;
 }
