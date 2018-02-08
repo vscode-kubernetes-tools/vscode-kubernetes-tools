@@ -130,7 +130,7 @@ class KubernetesWorkloadFolder extends KubernetesFolder {
 
 class KubernetesConfigFolder extends KubernetesFolder {
     constructor() {
-        super("config", "Configs");
+        super("config", "Configuration");
     }
 
     getChildren(kubectl: Kubectl, host : Host) : vscode.ProviderResult<KubernetesObject[]> {
