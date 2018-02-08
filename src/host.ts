@@ -8,6 +8,8 @@ export interface Host {
     showQuickPick<T extends vscode.QuickPickItem>(items : T[], options : vscode.QuickPickOptions) : Thenable<T>;
     withProgress<R>(task: (progress: vscode.Progress<{ message?: string; }>) => Thenable<R>): Thenable<R>;
     getConfiguration(key : string) : any;
+    createTerminal(name? : string, shellPath? : string, shellArgs? : string[]) : vscode.Terminal;
+    onDidCloseTerminal(listener: (e: vscode.Terminal) => any) : vscode.Disposable;
 }
 
 export const host : Host = {
@@ -17,6 +19,8 @@ export const host : Host = {
     showQuickPick : showQuickPickAny,
     withProgress: withProgress,
     getConfiguration : getConfiguration,
+    createTerminal : createTerminal,
+    onDidCloseTerminal : onDidCloseTerminal
 };
 
 function showErrorMessage(message : string, ...items : string[]) : Thenable<string> {
@@ -62,4 +66,12 @@ function withProgress<R>(task: (progress: vscode.Progress<{ message?: string; }>
 
 function getConfiguration(key : string) : any {
     return vscode.workspace.getConfiguration(key);
+}
+
+function createTerminal(name? : string, shellPath? : string, shellArgs? : string[]) : vscode.Terminal {
+    return vscode.window.createTerminal(name, shellPath, shellArgs);
+}
+
+function onDidCloseTerminal(listener: (e: vscode.Terminal) => any) : vscode.Disposable {
+    return vscode.window.onDidCloseTerminal(listener);
 }

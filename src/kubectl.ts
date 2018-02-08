@@ -9,6 +9,12 @@ export interface Kubectl {
     invokeWithProgress(command : string, progressMessage: string, handler? : ShellHandler) : Promise<void>;
     invokeAsync(command : string) : Promise<ShellResult>;
     invokeAsyncWithProgress(command : string, progressMessage: string) : Promise<ShellResult>;
+    /**
+     * Invoke a kubectl command in Terminal.
+     * @param command the subcommand to run.
+     * @param terminalName if empty, run the command in the shared Terminal; otherwise run it in a new Terminal.
+     */
+    invokeInTerminal(command : string, terminalName? : string) : void;
     asLines(command : string): Promise<string[] | ShellResult>;
     path() : string;
 }
@@ -27,6 +33,7 @@ class KubectlImpl implements Kubectl {
     }
 
     private readonly context : Context;
+    private terminal : any;
 
     checkPresent(errorMessageMode : CheckPresentMessageMode) : Promise<boolean> {
         return checkPresent(this.context, errorMessageMode);
@@ -43,11 +50,27 @@ class KubectlImpl implements Kubectl {
     invokeAsyncWithProgress(command : string, progressMessage : string) : Promise<ShellResult> {
         return invokeAsyncWithProgress(this.context, command, progressMessage);
     }
+    invokeInTerminal(command : string, terminalName? : string) : void {
+        const terminal = terminalName ? this.context.host.createTerminal(terminalName) : this.getSharedTerminal();
+        return invokeInTerminal(this.context, command, terminal);
+    }
     asLines(command : string) : Promise<string[] | ShellResult> {
         return asLines(this.context, command);
     }
     path() : string {
         return path(this.context);
+    }
+    private getSharedTerminal() : any {
+        if (!this.terminal) {
+            this.terminal = this.context.host.createTerminal('kubectl');
+            const disposable = this.context.host.onDidCloseTerminal((terminal) => {
+                if (terminal === this.terminal) {
+                    this.terminal = null;
+                    disposable.dispose();
+                }
+            });
+        }
+        return this.terminal;
     }
 }
 
@@ -112,6 +135,15 @@ async function invokeAsyncWithProgress(context : Context, command : string, prog
         p.report({ message: progressMessage });
         return await invokeAsync(context, command);
     });
+}
+
+function invokeInTerminal(context : Context, command : string, terminal : any) : void {
+    let bin = baseKubectlPath(context).trim();
+    if (bin.indexOf(" ") > -1 && !/^['"]/.test(bin)) {
+        bin = `"${bin}"`;
+    }
+    terminal.sendText(`${bin} ${command}`);
+    terminal.show();
 }
 
 async function kubectlInternal(context : Context, command : string, handler : ShellHandler) : Promise<void> {

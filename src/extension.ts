@@ -379,22 +379,6 @@ function initStatusBar() {
     return statusBarItem;
 }
 
-/**
- * Run a kubectl command in a new vscode terminal.
- * 
- * @param terminalName the terminal name.
- * @param subCommand the kubectl subcommand to run.
- */
-function runKubectlCommandInTerminal(terminalName: string, subCommand: string) {
-    let kubectlPath = kubectl.path().trim();
-    if (kubectlPath.indexOf(" ") > -1 && !/^['"]/.test(kubectlPath)) {
-        kubectlPath = `"${kubectlPath}"`;
-    }
-    const terminal: vscode.Terminal = vscode.window.createTerminal(terminalName);
-    terminal.sendText(`${kubectlPath} ${subCommand}`);
-    terminal.show();
-}
-
 // Runs a command for the text in the active window.
 // Expects that it can append a filename to 'command' to create a complete kubectl command.
 //
@@ -437,14 +421,14 @@ function maybeRunKubernetesCommandForActiveWindow(command) {
                         vscode.window.showErrorMessage("Save failed.");
                         return;
                     }
-                    runKubectlCommandInTerminal("kubectl", `${command} "${editor.document.fileName}"`);
+                    kubectl.invokeInTerminal(`${command} "${editor.document.fileName}"`);
                 });
             }
         });
     } else {
         const fullCommand = `${command} "${editor.document.fileName}"`;
         console.log(fullCommand);
-        runKubectlCommandInTerminal("kubectl", fullCommand);
+        kubectl.invokeInTerminal(fullCommand);
     }
     return true;
 }
@@ -453,7 +437,7 @@ function kubectlViaTempFile(command, fileContent) {
     const tmpobj = tmp.fileSync();
     fs.writeFileSync(tmpobj.name, fileContent);
     console.log(tmpobj.name);
-    runKubectlCommandInTerminal("kubectl", `${command} ${tmpobj.name}`);
+    kubectl.invoke(`${command} ${tmpobj.name}`);
 }
 
 /**
@@ -572,13 +556,13 @@ function exposeKubernetes() {
         cmd += ' --port=' + ports[0];
     }
 
-    runKubectlCommandInTerminal("kubectl-expose", cmd);
+    kubectl.invokeInTerminal(cmd);
 }
 
 function getKubernetes(explorerNode? : any) {
     if (explorerNode) {
         const id = explorerNode.resourceId || explorerNode.id;
-        runKubectlCommandInTerminal("kubectl-get", `get ${id} -o wide`);
+        kubectl.invokeInTerminal(`get ${id} -o wide`);
     } else {
         let kindName = findKindName();
         if (kindName) {
@@ -586,7 +570,7 @@ function getKubernetes(explorerNode? : any) {
             return;
         }
         findKindNameOrPrompt(kuberesources.commonKinds, 'get', { nameOptional: true }, (value) => {
-            runKubectlCommandInTerminal("kubectl-get", `get ${value} -o wide --no-headers`);
+            kubectl.invokeInTerminal(`get ${value} -o wide --no-headers`);
         });
     }
 }
@@ -686,7 +670,7 @@ function promptScaleKubernetes(kindName : string) {
 }
 
 function invokeScaleKubernetes(kindName : string, replicas : number) {
-    runKubectlCommandInTerminal("kubectl-scale", `scale --replicas=${replicas} ${kindName}`);
+    kubectl.invokeInTerminal(`scale --replicas=${replicas} ${kindName}`);
 }
 
 function runKubernetes() {
@@ -928,7 +912,7 @@ function getLogsCore(podName : string, podNamespace? : string) {
     if (podNamespace && podNamespace.length > 0) {
         cmd += ' --namespace=' + podNamespace;
     }
-    runKubectlCommandInTerminal("kubectl-logs", cmd);
+    kubectl.invokeInTerminal(cmd);
 }
 
 function kubectlOutputTo(name : string) {
@@ -960,10 +944,10 @@ function getPorts() {
 
 function describeKubernetes(explorerNode? : explorer.ResourceNode) {
     if (explorerNode) {
-        runKubectlCommandInTerminal("kubectl-describe", `describe ${explorerNode.resourceId}`);
+        kubectl.invokeInTerminal(`describe ${explorerNode.resourceId}`);
     } else {
         findKindNameOrPrompt(kuberesources.commonKinds, 'describe', { nameOptional: true }, (value) => {
-            runKubectlCommandInTerminal("kubectl-describe", `describe ${value}`);
+            kubectl.invokeInTerminal(`describe ${value}`);
         });
     }
 }
@@ -1035,7 +1019,7 @@ function execKubernetesCore(isTerminal) {
             }
 
             const execCmd = ' exec ' + pod.metadata.name + ' ' + cmd;
-            runKubectlCommandInTerminal("kubectl-exec", execCmd);
+            kubectl.invokeInTerminal(execCmd);
         });
     });
 }
@@ -1089,7 +1073,7 @@ const deleteKubernetes = async (explorerNode? : explorer.ResourceNode) => {
         if (answer.isCloseAffordance) {
             return;
         }
-        runKubectlCommandInTerminal("kubectl-delete", `delete ${explorerNode.resourceId}`);
+        kubectl.invokeInTerminal(`delete ${explorerNode.resourceId}`);
     } else {
         findKindNameOrPrompt(kuberesources.commonKinds, 'delete', { nameOptional: true }, async (kindName) => {
             if (kindName) {
@@ -1097,7 +1081,7 @@ const deleteKubernetes = async (explorerNode? : explorer.ResourceNode) => {
                 if (!containsName(kindName)) {
                     commandArgs = kindName + " --all";
                 }
-                runKubectlCommandInTerminal("kubectl-delete", `delete ${commandArgs}`);
+                kubectl.invokeInTerminal(`delete ${commandArgs}`);
             }
         });
     }
@@ -1350,7 +1334,7 @@ async function useContextKubernetes(explorerNode: explorer.KubernetesObject) {
 
 async function clusterInfoKubernetes(explorerNode: explorer.KubernetesObject) {
     const targetContext = explorerNode.metadata.context;
-    runKubectlCommandInTerminal(`cluster-info for ${targetContext}`, "cluster-info");
+    kubectl.invokeInTerminal("cluster-info");
 }
 
 async function deleteContextKubernetes(explorerNode: explorer.KubernetesObject) {
