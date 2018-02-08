@@ -4,13 +4,7 @@ import { CommandEntry, parse as rawDockerfileParser} from 'docker-file-parser';
 import { IDockerParser } from "./debugInterfaces";
 import { shell, ShellResult } from "../shell";
 
-interface IRawDockerfile {
-    getCommandEntries(commands: string[]): CommandEntry[];
-    getCommandArgs(command: string): string[];
-    searchInArgs(regularExpression: RegExp, scope?: string[]): RegExpMatchArray;
-}
-
-class RawDockerfile implements IRawDockerfile {
+class RawDockerfile {
     private commandEntries: CommandEntry[];
 
     constructor(private readonly dockerfilePath: string) {
@@ -18,7 +12,7 @@ class RawDockerfile implements IRawDockerfile {
         this.commandEntries = rawDockerfileParser(dockerData, { includeComments: false });
     }
 
-    public getCommandEntries(commands: string[]): CommandEntry[] {
+    public getCommandsOfType(commands: string[]): CommandEntry[] {
         const targetEntries = [];
         this.commandEntries.forEach((entry) => {
             const cmdName = entry.name.toLowerCase();
@@ -40,10 +34,10 @@ class RawDockerfile implements IRawDockerfile {
     }
 
     public searchInArgs(regularExpression: RegExp, scope?: string[]): RegExpMatchArray {
-        const scopeEntries = (scope ? this.getCommandEntries(scope) : this.commandEntries);
-        for (let entry of scopeEntries) {
+        const scopeEntries = (scope ? this.getCommandsOfType(scope) : this.commandEntries);
+        for (const entry of scopeEntries) {
             const args = Array.isArray(entry.args) ? entry.args : [ String(entry.args) ];
-            for (let arg of args) {
+            for (const arg of args) {
                 const matches = arg.match(regularExpression);
                 if (matches && matches.length) {
                     return matches;
@@ -56,14 +50,14 @@ class RawDockerfile implements IRawDockerfile {
 }
 
 export class DockerfileParser implements IDockerParser {
-    readonly dockerfile: IRawDockerfile;
+    readonly dockerfile;
 
     constructor(private readonly dockerfilePath: string) {
         this.dockerfile = new RawDockerfile(dockerfilePath);
     }
 
     getBaseImage(): string {
-        const fromEntries = this.dockerfile.getCommandEntries(["from"]);
+        const fromEntries = this.dockerfile.getCommandsOfType(["from"]);
         const baseImagePaths = ((fromEntries.length ? String(fromEntries[0].args) : "").split(":")[0]).split("/");
         return baseImagePaths[baseImagePaths.length - 1].toLowerCase();
     }

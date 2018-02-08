@@ -113,13 +113,13 @@ export async function runDockerImageInK8s(kubectl: Kubectl, image: string, expos
         "run",
         deploymentName,
         `--image=${image}`,
-        !imagePrefix ? " --image-pull-policy=Never" : "",
+        imagePrefix ? "" : "--image-pull-policy=Never",
         ...exposedPorts.map((port) => port ? `--port=${port}` : ""),
         ...Object.keys(env || {}).map((key) => `--env="${key}=${env[key]}"`)
     ];
     const runResult = await kubectl.invokeAsync(runCmd.join(" "));
     if (runResult.code !== 0) {
-        throw new Error(`Failed to run the image "${image}" on kubernetes: ${runResult.stderr}`);
+        throw new Error(`Failed to run the image "${image}" on Kubernetes: ${runResult.stderr}`);
     }
     return deploymentName;
 }
@@ -150,23 +150,28 @@ export async function findPodsByLabel(kubectl: Kubectl, labelQuery: string): Pro
  * @param podName the pod name.
  */
 export async function waitForRunningPod(kubectl: Kubectl, podName: string): Promise<void> {
-    const shellResult = await kubectl.invokeAsync(`get pod/${podName} --no-headers`);
-    if (shellResult.code !== 0) {
-        throw new Error(`Failed to get pod status: ${shellResult.stderr}`);
+    while (true) {
+        const shellResult = await kubectl.invokeAsync(`get pod/${podName} --no-headers`);
+        if (shellResult.code !== 0) {
+            throw new Error(`Failed to get pod status: ${shellResult.stderr}`);
+        }
+        const status = shellResult.stdout.split(/\s+/)[2];
+        kubeChannel.showOutput(`pod/${podName} status: ${status}`);
+        if (status === "Running") {
+            return;
+        } else if (!isTransientPodState(status)) {
+            const logsResult = await kubectl.invokeAsync(`logs pod/${podName}`);
+            kubeChannel.showOutput(`Failed to start the pod "${podName}". Its status is "${status}".
+                Pod logs:\n${logsResult.code === 0 ? logsResult.stdout : logsResult.stderr}`);
+            throw new Error(`Failed to start the pod "${podName}". Its status is "${status}".`);
+        }
+    
+        await sleep(1000);
     }
-    const status = shellResult.stdout.split(/\s+/)[2];
-    kubeChannel.showOutput(`pod/${podName} status: ${status}`);
-    if (status === "Running") {
-        return;
-    } else if (status !== "ContainerCreating" && status !== "Pending" && status !== "Succeeded") {
-        const logsResult = await kubectl.invokeAsync(`logs pod/${podName}`);
-        kubeChannel.showOutput(`Failed to start the pod "${podName}", it's status is "${status}".\n
-            See more details from the pod logs:\n${logsResult.code === 0 ? logsResult.stdout : logsResult.stderr}`);
-        throw new Error(`Failed to start the pod "${podName}", it's status is "${status}".`);
-    }
+}
 
-    await sleep(1000);
-    await waitForRunningPod(kubectl, podName);
+function isTransientPodState(status: string): boolean {
+    return status === "ContainerCreating" || status === "Pending" || status === "Succeeded";
 }
 
 /**
@@ -178,8 +183,8 @@ export async function installVscodeExtension(extensionId: string): Promise<boole
     const vscodeCliPath = path.join(path.dirname(process.argv0), "bin", "code");
     const shellResult = await shell.exec(`"${vscodeCliPath}" --install-extension ${extensionId}`);
     if (shellResult.code === 0) {
-        const restartAns = await vscode.window.showInformationMessage(`Extension '${extensionId}' was successfully installed. Restart to enable it.`, "Restart Now");
-        if (restartAns === "Restart Now") {
+        const answer = await vscode.window.showInformationMessage(`Extension '${extensionId}' was successfully installed. Restart to enable it.`, "Restart Now");
+        if (answer === "Restart Now") {
             await vscode.commands.executeCommand("workbench.action.reloadWindow");
             return true;
         }

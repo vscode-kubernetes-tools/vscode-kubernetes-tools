@@ -27,7 +27,7 @@ export class JavaDebugProvider implements IDebugProvider {
         return false;
     }
 
-    public async startDebugging(workspaceFolder: string, sessionName: string, port: string): Promise<boolean> {
+    public async startDebugging(workspaceFolder: string, sessionName: string, port: number): Promise<boolean> {
         const debugConfiguration = {
             type: "java",
             request: "attach",

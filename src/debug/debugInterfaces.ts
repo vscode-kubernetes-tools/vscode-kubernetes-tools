@@ -4,8 +4,8 @@ import { Kubectl } from '../kubectl';
 import { ShellResult } from "../shell";
 
 export interface PortInfo {
-    debug: string;
-    app: string;
+    debugPort: string;
+    appPort: string;
 }
 
 export interface IDebugProvider {
@@ -29,7 +29,7 @@ export interface IDebugProvider {
      * @param port the debugging port exposed by the target program.
      * @return A thenable that resolves when debugging could be successfully started.
      */
-    startDebugging(workspaceFolder: string, sessionName: string, port: string): Promise<boolean>;
+    startDebugging(workspaceFolder: string, sessionName: string, port: number): Promise<boolean>;
 
     /**
      * Get the associated docker resolver for the provider.
