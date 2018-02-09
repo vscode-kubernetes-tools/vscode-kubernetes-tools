@@ -52,50 +52,51 @@ export class JavaDebugProvider implements IDebugProvider {
     }
 
     public async resolvePortsFromFile(dockerParser: IDockerParser, env: {}): Promise<PortInfo | undefined> {
-        const portInfo: PortInfo = {
-            debugPort: null,
-            appPort: null
-        };
+        let rawDebugPortInfo: string;
+        let rawAppPortInfo: string;
 
         // Resolve the debug port.
         const matches = dockerParser.searchLaunchArgs(javaDebugOptsRegExp);
         if (matches) {
             const addresses = matches[2].split("=")[1].split(":");
-            portInfo.debugPort = addresses[addresses.length - 1];
+            rawDebugPortInfo = addresses[addresses.length - 1];
         } else if (dockerParser.searchLaunchArgs(/\$\{?JAVA_OPTS\}?/)) {
             env["JAVA_OPTS"] = defaultJavaDebugOpts;
-            portInfo.debugPort = defaultJavaDebugPort;
+            rawDebugPortInfo = defaultJavaDebugPort;
         }
         // Cannot resolve the debug port from Dockerfile, then ask user to specify it.
-        if (!portInfo.debugPort) {
+        if (!rawDebugPortInfo) {
             const input = await vscode.window.showInputBox({
-                prompt: `Please specify debug port exposed by the Dockerfile (e.g. 5005)`,
+                prompt: `Please specify debug port exposed for debugging (e.g. 5005)`,
                 placeHolder: "5005"
             });
-            portInfo.debugPort = (input ? input.trim() : null);
+            rawDebugPortInfo = (input ? input.trim() : null);
         }
-        if (!portInfo.debugPort) {
+        if (!rawDebugPortInfo) {
             return;
         }
         
         // Resolve the app port.
         const dockerExpose = dockerParser.getExposedPorts();
         if (dockerExpose.length) {
-            const possiblePorts = dockerExpose.filter((port) => port !== portInfo.debugPort);
+            const possiblePorts = dockerExpose.filter((port) => port !== rawDebugPortInfo);
             if (possiblePorts.length === 1) {
-                portInfo.appPort = possiblePorts[0];
+                rawAppPortInfo = possiblePorts[0];
             } else if (possiblePorts.length > 1) {
-                portInfo.appPort = await vscode.window.showQuickPick(possiblePorts, { placeHolder: "Choose the application port you want to expose for debugging." });
+                rawAppPortInfo = await vscode.window.showQuickPick(possiblePorts, { placeHolder: "Choose the application port you want to expose for debugging." });
             }
             // If the exposed port is a variable, then need set it in environment variables.
-            if (/\$\{?(\w+)\}?/.test(portInfo.appPort)) {
-                const varName = portInfo.appPort.match(/\$\{?(\w+)\}?/)[1];
+            if (/\$\{?(\w+)\}?/.test(rawAppPortInfo)) {
+                const varName = rawAppPortInfo.match(/\$\{?(\w+)\}?/)[1];
                 env[varName] = defaultJavaAppPort;
-                portInfo.appPort = defaultJavaAppPort;
+                rawAppPortInfo = defaultJavaAppPort;
             }
         }
 
-        return portInfo;
+        return {
+            debugPort: Number(rawDebugPortInfo),
+            appPort: Number(rawAppPortInfo)
+        };
     }
 
     public async resolvePortsFromContainer(kubectl: Kubectl, pod: string, container: string): Promise<PortInfo> {

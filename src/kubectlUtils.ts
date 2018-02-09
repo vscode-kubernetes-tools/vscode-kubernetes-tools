@@ -140,7 +140,7 @@ export async function switchNamespace(kubectl: Kubectl, namespace: string): Prom
  * @param env the additional environment variables when running the docker container.
  * @return the deployment name.
  */
-export async function runAsDeployment(kubectl: Kubectl, image: string, exposedPorts: string[], env: any): Promise<string> {
+export async function runAsDeployment(kubectl: Kubectl, image: string, exposedPorts: number[], env: any): Promise<string> {
     let imageName = image.split(":")[0];
     let imagePrefix = imageName.substring(0, imageName.lastIndexOf("/")+1);
     let baseName = imageName.substring(imageName.lastIndexOf("/")+1);

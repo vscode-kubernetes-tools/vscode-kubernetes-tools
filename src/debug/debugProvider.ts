@@ -5,8 +5,8 @@ import { ShellResult } from "../shell";
 import { IDockerParser } from "../docker/parser";
 
 export interface PortInfo {
-    debugPort: string;
-    appPort: string;
+    debugPort: number;
+    appPort: number;
 }
 
 export interface IDebugProvider {

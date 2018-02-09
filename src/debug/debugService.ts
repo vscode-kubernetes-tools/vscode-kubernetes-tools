@@ -132,7 +132,7 @@ export class DebugService implements IDebugService {
         return image;
     }
 
-    private async runAsDeploymentStep(image: string, exposedPorts: string[], containerEnv: any): Promise<string> {
+    private async runAsDeploymentStep(image: string, exposedPorts: number[], containerEnv: any): Promise<string> {
         kubeChannel.showOutput(`Starting to run image ${image} on kubernetes cluster...`, "Run on Kubernetes");
         const appName = await kubectlUtils.runAsDeployment(this.kubectl, image, exposedPorts, containerEnv);
         kubeChannel.showOutput(`Finished launching image ${image} as a deployment ${appName} on Kubernetes cluster.`);
@@ -156,13 +156,13 @@ export class DebugService implements IDebugService {
         kubeChannel.showOutput(`Finshed waiting.`);
     }
 
-    private async setupPortForwardStep(podName: string, debugPort: string, appPort: string): Promise<ProxyResult> {
+    private async setupPortForwardStep(podName: string, debugPort: number, appPort: number): Promise<ProxyResult> {
         kubeChannel.showOutput(`Setting up port forwarding on pod ${podName}...`, "Set up port forwarding");
         const proxyResult = await this.createPortForward(this.kubectl, podName, debugPort, appPort);
         kubeChannel.showOutput(`Created port-forward ${proxyResult.proxyDebugPort}:${debugPort} ${proxyResult.proxyAppPort}:${appPort}`);
         
         // Wait for the port-forward proxy to be ready.
-        kubeChannel.showOutput("Waiting for the port proxy to be ready...");
+        kubeChannel.showOutput("Waiting for port forwarding to be ready...");
         await this.waitForProxyReady(proxyResult.proxyProcess);
         kubeChannel.showOutput("Port forwarding is ready.");
 
@@ -192,7 +192,7 @@ export class DebugService implements IDebugService {
         }
     }
 
-    private async createPortForward(kubectl: Kubectl, podName, debugPort, appPort): Promise<ProxyResult> {
+    private async createPortForward(kubectl: Kubectl, podName: string, debugPort: number, appPort: number): Promise<ProxyResult> {
         let portMapping = [];
         // Find a free local port for forwarding data to remote app port.
         let proxyAppPort = 0;
