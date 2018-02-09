@@ -159,7 +159,9 @@ export function activate(context) {
     // On save, refresh the Helm YAML preview.
     vscode.workspace.onDidSaveTextDocument((e: vscode.TextDocument) => {
         if (!editorIsActive()) {
-            logger.helm.log("WARNING: No active editor during save. Nothing saved.");
+            if (helm.hasPreviewBeenShown()) {
+                logger.helm.log("WARNING: No active editor during save. Helm preview was not updated.");
+            }
             return;
         }
         if (e === vscode.window.activeTextEditor.document) {
