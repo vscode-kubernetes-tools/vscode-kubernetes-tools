@@ -39,6 +39,7 @@ import { HelmTemplatePreviewDocumentProvider, HelmInspectDocumentProvider } from
 import { HelmTemplateCompletionProvider } from './helm.completionProvider';
 import { Reporter } from './telemetry';
 import * as telemetry from './telemetry-helper';
+import {dashboardKubernetes} from './components/kubectl/proxy';
 
 let explainActive = false;
 let swaggerSpecPromise = null;
@@ -109,6 +110,7 @@ export function activate(context) {
         registerCommand('extension.vsKubernetesClusterInfo', clusterInfoKubernetes),
         registerCommand('extension.vsKubernetesDeleteContext', deleteContextKubernetes),
         registerCommand('extension.vsKubernetesUseNamespace', useNamespaceKubernetes),
+        registerCommand('extension.vsKubernetesDashboard', dashboardKubernetes),
 
         // Commands - Helm
         registerCommand('extension.helmVersion', helmexec.helmVersion),
@@ -1226,7 +1228,7 @@ const _doDebug = (name, image, cmd) => {
                     localRoot: vscode.workspace.rootPath,
                     remoteRoot: '/'
                 };
-                
+
                 vscode.debug.startDebugging(
                     undefined,
                     debugConfiguration

@@ -42,6 +42,7 @@
         "onCommand:extension.vsKubernetesRemoveDebug",
         "onCommand:extension.vsKubernetesConfigureFromCluster",
         "onCommand:extension.vsKubernetesCreateCluster",
+        "onCommand:extension.vsKubernetesDashboard",
         "onCommand:extension.helmTemplate",
         "onCommand:extension.helmTemplatePreview",
         "onCommand:extension.helmLint",
@@ -350,6 +351,11 @@
                 "category": "Kubernetes"
             },
             {
+                "command": "extension.vsKubernetesDashboard",
+                "title": "Open Dashboard",
+                "category": "Kubernetes"
+            },
+            {
                 "command": "extension.draftVersion",
                 "title": "Version",
                 "description": "Get the version of the local Draft client.",
@@ -477,17 +483,18 @@
         "test": "node ./node_modules/vscode/bin/test"
     },
     "dependencies": {
-        "shelljs": "^0.7.7",
-        "js-yaml": "^3.8.2",
-        "dockerfile-parse": "^0.2.0",
-        "k8s": "^0.4.12",
-        "tmp": "^0.0.31",
-        "pluralize": "^4.0.0",
-        "uuid": "^3.1.0",
-        "yamljs": "0.2.10",
         "compare-versions": "^3.1.0",
+        "dockerfile-parse": "^0.2.0",
+        "js-yaml": "^3.8.2",
+        "k8s": "^0.4.12",
         "lodash": ">3",
-        "vscode-extension-telemetry": "^0.0.6"
+        "opn": "^5.2.0",
+        "pluralize": "^4.0.0",
+        "shelljs": "^0.7.7",
+        "tmp": "^0.0.31",
+        "uuid": "^3.1.0",
+        "vscode-extension-telemetry": "^0.0.6",
+        "yamljs": "0.2.10"
     },
     "devDependencies": {
         "@types/mocha": "^2.2.32",
