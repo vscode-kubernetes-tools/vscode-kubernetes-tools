@@ -146,6 +146,12 @@
                     "group": "0@1"
                 },
                 {
+                    "command": "extension.vsKubernetesDashboard",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.cluster",
+                    "group": "0@3"
+
+                },
+                {
                     "command": "extension.vsKubernetesDeleteContext",
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.cluster",
                     "group": "0@2"
