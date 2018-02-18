@@ -2,7 +2,7 @@
     "name": "vscode-kubernetes-tools",
     "displayName": "Kubernetes",
     "description": "Develop, deploy and debug Kubernetes applications",
-    "version": "0.1.4",
+    "version": "0.1.5",
     "preview": true,
     "publisher": "ms-kubernetes-tools",
     "engines": {
@@ -149,7 +149,6 @@
                     "command": "extension.vsKubernetesDashboard",
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.cluster",
                     "group": "0@3"
-
                 },
                 {
                     "command": "extension.vsKubernetesDeleteContext",
