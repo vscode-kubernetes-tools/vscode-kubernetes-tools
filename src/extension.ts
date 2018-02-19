@@ -44,6 +44,8 @@ import { DebugSession } from './debug/debugSession';
 import { getDebugProviderOfType, getSupportedDebuggerTypes } from './debug/providerRegistry';
 
 import { registerYamlSchemaSupport } from './yaml-support/yaml-schema';
+import * as clusterproviderregistry from './components/clusterprovider/clusterproviderregistry';
+import * as azureclusterprovider from './components/clusterprovider/azure/azureclusterprovider';
 
 let explainActive = false;
 let swaggerSpecPromise = null;
@@ -52,6 +54,7 @@ const kubectl = kubectlCreate(host, fs, shell);
 const draft = draftCreate(host, fs, shell);
 const configureFromClusterUI = configureFromCluster.uiProvider(fs, shell);
 const createClusterUI = createCluster.uiProvider(fs, shell);
+const clusterProviderRegistry = clusterproviderregistry.get();
 
 const deleteMessageItems: vscode.MessageItem[] = [
     {
@@ -163,6 +166,8 @@ export async function activate(context) {
         registerTelemetry(context)
     ];
 
+    azureclusterprovider.init(clusterProviderRegistry);
+
     // On save, refresh the Helm YAML preview.
     vscode.workspace.onDidSaveTextDocument((e: vscode.TextDocument) => {
         if (!editorIsActive()) {
@@ -198,6 +203,10 @@ export async function activate(context) {
     }, this);
 
     await registerYamlSchemaSupport();
+    
+    return {
+        clusterProviderRegistry: clusterProviderRegistry
+    };
 }
 
 // this method is called when your extension is deactivated

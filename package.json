@@ -511,6 +511,8 @@
         "opn": "^5.2.0",
         "pluralize": "^4.0.0",
         "portfinder": "^1.0.13",
+        "restify": "^6.3.4",
+        "@types/restify": "^5.0.7",
         "shelljs": "^0.7.7",
         "tmp": "^0.0.31",
         "uuid": "^3.1.0",

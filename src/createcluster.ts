@@ -6,6 +6,7 @@ import { FS } from './fs';
 import { Advanceable, Errorable, UIRequest, StageData, OperationState, OperationMap, advanceUri as wizardAdvanceUri, selectionChangedScript as wizardSelectionChangedScript, selectionChangedScriptMulti as wizardSelectionChangedScriptMulti, script, waitScript, extend, ControlMapping, styles } from './wizard';
 import { Context, getSubscriptionList, setSubscriptionAsync, configureCluster, getClusterCommand, getClusterCommandAndSubcommand, ServiceLocation, Locations } from './azure';
 import { error } from 'util';
+import * as clusterproviderregistry from './components/clusterprovider/clusterproviderregistry';
 
 export const uriScheme : string = "k8screatecluster";
 
@@ -177,10 +178,7 @@ function unsupportedClusterType(clusterType: string) : StageData {
 }
 
 function listClusterTypes() : StageData {
-    const clusterTypes = [
-        'Azure Kubernetes Service',
-        'Azure Container Service'
-    ];
+    const clusterTypes = clusterproviderregistry.get().list().map((p) => p.displayName);
     return {
         actionDescription: 'listing cluster types',
         result: { succeeded: true, result: clusterTypes, error: [] }
