@@ -1402,14 +1402,18 @@ async function configureFromClusterKubernetes(request? : WizardUIRequest) {
 }
 
 async function createClusterKubernetes(request? : WizardUIRequest) {
-    if (request) {
-        await createClusterUI.next(request);
-    } else {
-        const newId : string = uuid.v4();
-        createClusterUI.start(newId);
-        vscode.commands.executeCommand('vscode.previewHtml', createCluster.operationUri(newId), 2, "Create Kubernetes Cluster");
-        await createClusterUI.next({ operationId: newId, requestData: undefined });
-    }
+
+    const newId : string = uuid.v4();
+    vscode.commands.executeCommand('vscode.previewHtml', createCluster.operationUri(newId), 2, "Create Kubernetes Cluster");
+
+    // if (request) {
+    //     await createClusterUI.next(request);
+    // } else {
+    //     const newId : string = uuid.v4();
+    //     createClusterUI.start(newId);
+    //     vscode.commands.executeCommand('vscode.previewHtml', createCluster.operationUri(newId), 2, "Create Kubernetes Cluster");
+    //     await createClusterUI.next({ operationId: newId, requestData: undefined });
+    // }
 }
 
 async function useContextKubernetes(explorerNode: explorer.KubernetesObject) {

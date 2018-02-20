@@ -7,6 +7,7 @@ import { Advanceable, Errorable, UIRequest, StageData, OperationState, Operation
 import { Context, getSubscriptionList, setSubscriptionAsync, configureCluster, getClusterCommand, getClusterCommandAndSubcommand, ServiceLocation, Locations } from './azure';
 import { error } from 'util';
 import * as clusterproviderregistry from './components/clusterprovider/clusterproviderregistry';
+import * as clusterproviderserver from './components/clusterprovider/clusterproviderserver';
 
 export const uriScheme : string = "k8screatecluster";
 
@@ -54,9 +55,10 @@ class UIProvider implements TextDocumentContentProvider, Advanceable {
     private operations: OperationMap<OperationStage> = new OperationMap<OperationStage>();
 
     provideTextDocumentContent(uri: Uri, token: CancellationToken) : ProviderResult<string> {
-        const operationId = uri.path.substr(1);
-        const operationState = this.operations.get(operationId);
-        return render(operationId, operationState);
+        return renderPromptForClusterType("", undefined);
+        // const operationId = uri.path.substr(1);
+        // const operationState = this.operations.get(operationId);
+        // return render(operationId, operationState);
     }
 
     start(operationId: string): void {
@@ -178,7 +180,7 @@ function unsupportedClusterType(clusterType: string) : StageData {
 }
 
 function listClusterTypes() : StageData {
-    const clusterTypes = clusterproviderregistry.get().list().map((p) => p.displayName);
+    const clusterTypes = clusterproviderregistry.get().list();
     return {
         actionDescription: 'listing cluster types',
         result: { succeeded: true, result: clusterTypes, error: [] }
@@ -373,25 +375,32 @@ function renderInitial() : string {
 }
 
 function renderPromptForClusterType(operationId: string, last: StageData) : string {
-    const clusterTypes : string[] = last.result.result;
-    const initialUri = advanceUri(operationId, clusterTypes[0]);
-    const options = clusterTypes.map((s) => `<option value="${s}">${s}</option>`).join('\n');
-    return `<!-- PromptForClusterType -->
-            <h1 id='h'>Choose cluster type</h1>
-            ${styles()}
-            ${waitScript('Contacting cloud')}
-            ${selectionChangedScript(operationId)}
-            <div id='content'>
-            <p>
-            Cluster type: <select id='selector' onchange='selectionChanged()'>
-            ${options}
-            </select>
-            </p>
+    clusterproviderserver.init();
 
-            <p>
-            <a id='nextlink' href='${initialUri}' onclick='promptWait()'>Next &gt;</a>
-            </p>
-            </div>`;
+    return `
+    <html>
+    <head>
+        <style>
+            iframe {
+                width: 100%;
+                height: 100%;
+                border: 0px;
+            }
+        </style>
+        <script>
+        function styleme() {
+            // TODO: shameful, shameful, shameful
+            var vscodeStyles = document.getElementById('_defaultStyles');
+            var contentFrame = document.getElementById('contentFrame');
+            var embeddedDocStyles = contentFrame.contentDocument.getElementById('styleholder');
+            embeddedDocStyles.textContent = vscodeStyles.textContent;
+        }
+        </script>
+    </head>
+    <body>
+        <iframe id='contentFrame' src='http://localhost:44010/' onload='styleme()' />
+    </body>
+    </html>`;
 }
 
 // TODO: near-duplicate of code in acs.ts
