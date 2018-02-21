@@ -166,7 +166,7 @@ export async function activate(context) {
         registerTelemetry(context)
     ];
 
-    azureclusterprovider.init(clusterProviderRegistry);
+    azureclusterprovider.init(clusterProviderRegistry, { shell: shell, fs: fs });
 
     // On save, refresh the Helm YAML preview.
     vscode.workspace.onDidSaveTextDocument((e: vscode.TextDocument) => {

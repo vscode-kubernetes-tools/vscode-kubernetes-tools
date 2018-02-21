@@ -32,7 +32,7 @@ function handleGetProviderListHtml(request: restify.Request, response: restify.R
     }
     `);
     
-    const html = `<html><body><div class="vscode-dark"><h1 id='h'>Choose cluster type</h1>
+    const html = `<html><body><h1 id='h'>Choose cluster type</h1>
             <style id='styleholder'>
             </style>
             ${styles()}
@@ -47,7 +47,7 @@ function handleGetProviderListHtml(request: restify.Request, response: restify.R
             <p>
             <a id='nextlink' href='${initialUri}'>Next &gt;</a>
             </p>
-            </div></div></body></html>`;
+            </div></body></html>`;
 
     response.contentType = 'text/html';
     response.send(html);
