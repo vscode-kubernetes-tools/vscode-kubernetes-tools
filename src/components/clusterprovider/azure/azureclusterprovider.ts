@@ -50,7 +50,7 @@ async function getHandleCreateHtml(request: restify.Request): Promise<string> {
     } else if (id && subscription && metadata && !agentSettings) {
         return await promptForAgentSettings(id, subscription, JSON.parse(metadata));
     } else if (id && subscription && metadata && agentSettings) {
-        return "<h1>YAY AGENTY GOODNESS</h1>";
+        return await createCluster(id, subscription, JSON.parse(metadata), JSON.parse(agentSettings));
     }
 }
 
@@ -165,6 +165,30 @@ async function promptForAgentSettings(id: string, subscription: string, metadata
 
 }
 
+async function createCluster(id: string, subscription: string, metadata: any, agentSettings: any) : Promise<string> {
+
+    const options = { clusterType: id, subscription: subscription, metadata: metadata, agentSettings: agentSettings };
+    const createResult = await createClusterImpl(context, options);
+
+    const title = createResult.result.succeeded ? 'Cluster creation has started' : `Error ${createResult.actionDescription}`;
+    const additionalDiagnostic = diagnoseCreationError(createResult.result);
+    const initialUri = "http://localhost:44011/arsebiscuits"; // advanceUri(operationId, `{}`);
+    const message = createResult.result.succeeded ?
+        `<div id='content'>
+         <p class='success'>Azure is creating the cluster, but this may take some time. You can now close this window,
+         or wait for creation to complete so that we can configure the extension to use the cluster.</p>
+         <p><a id='nextlink' href='${initialUri}' onclick='promptWait()'>Wait and configure the extension &gt;</a></p>
+         </div>` :
+        `<p class='error'>An error occurred while creating the cluster.</p>
+         ${additionalDiagnostic}
+         <p><b>Details</b></p>
+         <p>${createResult.result.error[0]}</p>`;
+    return `<!-- Complete -->
+            <h1 id='h'>${title}</h1>
+            ${message}`;
+
+}
+
 async function listLocations(context: azure.Context) : Promise<Errorable<azure.Locations>> {
     let query = "[].{name:name,displayName:displayName}";
     if (context.shell.isUnix()) {
@@ -240,6 +264,99 @@ async function listVMSizes(context: azure.Context, location: string) : Promise<E
     }
 }
 
+async function resourceGroupExists(context: azure.Context, resourceGroupName: string) : Promise<boolean> {
+    const sr = await context.shell.exec(`az group show -n "${resourceGroupName}" -ojson`);
+    
+    if (sr.code === 0 && !sr.stderr) {
+        return sr.stdout !== null && sr.stdout.length > 0;
+    } else {
+        return false;
+    }
+}
+
+async function ensureResourceGroupAsync(context: azure.Context, resourceGroupName: string, location: string) : Promise<Errorable<void>> {
+    if (await resourceGroupExists(context, resourceGroupName)) {
+        return { succeeded: true, result: null, error: [] };
+    }
+
+    const sr = await context.shell.exec(`az group create -n "${resourceGroupName}" -l "${location}"`);
+
+    if (sr.code === 0 && !sr.stderr) {
+        return { succeeded: true, result: null, error: [] };
+    } else {
+        return { succeeded: false, result: null, error: [sr.stderr] };
+    }
+}
+
+async function execCreateClusterCmd(context: azure.Context, options: any) : Promise<Errorable<void>> {
+    const clusterCmd = azure.getClusterCommand(options.clusterType);
+    let createCmd = `az ${clusterCmd} create -n "${options.metadata.clusterName}" -g "${options.metadata.resourceGroupName}" -l "${options.metadata.location}" --no-wait `;
+    if (clusterCmd == 'acs') {
+        createCmd = createCmd + `--agent-count ${options.agentSettings.count} --agent-vm-size "${options.agentSettings.vmSize}" -t Kubernetes`;
+    } else {
+        createCmd = createCmd + `--node-count ${options.agentSettings.count} --node-vm-size "${options.agentSettings.vmSize}"`;
+    }
+    
+    const sr = await context.shell.exec(createCmd);
+
+    if (sr.code === 0 && !sr.stderr) {
+        return { succeeded: true, result: null, error: [] };
+    } else {
+        return { succeeded: false, result: null, error: [sr.stderr] };
+    }
+}
+
+async function createClusterImpl(context: azure.Context, options: any) : Promise<{actionDescription: string, result: Errorable<void>}> {
+    const description = `
+    Created ${options.clusterType} cluster ${options.metadata.clusterName} in ${options.metadata.resourceGroupName} with ${options.agentSettings.count} agents.
+    `;
+
+    const login = await azure.setSubscriptionAsync(context, options.subscription);
+    if (!login.succeeded) {
+        return {
+            actionDescription: 'logging into subscription',
+            result: login
+        };
+    }
+
+    const ensureResourceGroup = await ensureResourceGroupAsync(context, options.metadata.resourceGroupName, options.metadata.location);
+    if (!ensureResourceGroup.succeeded) {
+        return {
+            actionDescription: 'ensuring resource group exists',
+            result: ensureResourceGroup
+        };
+    }
+
+    const createCluster = await execCreateClusterCmd(context, options);
+
+    return {
+        actionDescription: 'creating cluster',
+        result: createCluster
+    };
+}
+
+async function waitForCluster(context: azure.Context, clusterType: string, clusterName: string, clusterResourceGroup: string): Promise<Errorable<void>> {
+    const clusterCmd = azure.getClusterCommand(clusterType);
+    const waitCmd = `az ${clusterCmd} wait --created -n ${clusterName} -g ${clusterResourceGroup}`;
+    const sr = await context.shell.exec(waitCmd);
+
+    if (sr.code === 0) {
+        return { succeeded: true, result: null, error: [] };
+    } else {
+        return { succeeded: false, result: null, error: [sr.stderr] };
+    }
+}
+
+function diagnoseCreationError(e: Errorable<any>) : string {
+    if (e.succeeded) {
+        return '';
+    }
+    if (e.error[0].indexOf('unrecognized arguments') >= 0) {
+        return '<p>You may be using an older version of the Azure CLI. Check Azure CLI version is 2.0.23 or above.<p>';
+    }
+    return '';
+}
+
 function selectionChangedScriptMulti(baseUri: string, queryId: string, mappings: ControlMapping[]) : string {
     let gatherRequestJs = "";
     for (const mapping of mappings) {
@@ -249,7 +366,7 @@ function selectionChangedScriptMulti(baseUri: string, queryId: string, mappings:
         const mappingJs = `
     var ${jsonKey}Ctrl = document.getElementById('${ctrlName}');
     var ${jsonKey}Value = ${extractVal};
-    selection = selection + '\\\\"${jsonKey}\\\\":\\\\"' + ${jsonKey}Value + '\\\\",';
+    selection = selection + '\\"${jsonKey}\\":\\"' + ${jsonKey}Value + '\\",';
 `;
         gatherRequestJs = gatherRequestJs + mappingJs;
     }
