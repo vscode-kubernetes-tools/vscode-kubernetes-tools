@@ -1,7 +1,7 @@
 import * as restify from 'restify';
 import * as clusterproviderregistry from '../clusterproviderregistry';
 import * as azure from '../../../azure';
-import { Errorable, ControlMapping, script } from '../../../wizard';
+import { Errorable, ControlMapping, script, styles, waitScript } from '../../../wizard';
 import { agent } from 'spdy';
 
 let clusterServer : restify.Server;
@@ -42,6 +42,11 @@ async function getHandleCreateHtml(request: restify.Request): Promise<string> {
     const subscription: string = request.query["subscription"];
     const metadata: string = request.query["metadata"];
     const agentSettings: string = request.query["agentSettings"];
+    const waiting: boolean = request.query["waiting"] == 'true';
+
+    if (waiting) {
+        return await waitForClusterAndReportConfigResult(id, JSON.parse(metadata));
+    }
 
     if (id && !subscription) {
         return await promptForSubscription(id);
@@ -172,7 +177,7 @@ async function createCluster(id: string, subscription: string, metadata: any, ag
 
     const title = createResult.result.succeeded ? 'Cluster creation has started' : `Error ${createResult.actionDescription}`;
     const additionalDiagnostic = diagnoseCreationError(createResult.result);
-    const initialUri = "http://localhost:44011/arsebiscuits"; // advanceUri(operationId, `{}`);
+    const initialUri = encodeURI(`http://localhost:${clusterPort}/create?id=${id}&subscription=${subscription}&metadata=${JSON.stringify(metadata)}&waiting=true`);
     const message = createResult.result.succeeded ?
         `<div id='content'>
          <p class='success'>Azure is creating the cluster, but this may take some time. You can now close this window,
@@ -185,8 +190,40 @@ async function createCluster(id: string, subscription: string, metadata: any, ag
          <p>${createResult.result.error[0]}</p>`;
     return `<!-- Complete -->
             <h1 id='h'>${title}</h1>
+            ${styles()}
+            ${waitScript('Waiting for cluster - this will take several minutes')}
             ${message}`;
 
+}
+
+async function waitForClusterAndReportConfigResult(id: string, metadata: any) : Promise<string> {
+
+    const waitResult = await waitForCluster(context, id, metadata.clusterName, metadata.resourceGroupName);
+    if (!waitResult.succeeded) {
+        return `<h1>Error creating cluster</h1><p>Error details: ${waitResult.error[0]}</p>`;
+    }
+
+    const configureResult = await azure.configureCluster(context, id, metadata.clusterName, metadata.resourceGroupName);
+
+    const title = configureResult.result.succeeded ? 'Configuration completed' : `Error ${configureResult.actionDescription}`;
+    const configResult = configureResult.result.result;
+    const pathMessage = configResult.cliOnDefaultPath ? '' :
+        '<p>This location is not on your system PATH. Add this directory to your path, or set the VS Code <b>vs-kubernetes.kubectl-path</b> config setting.</p>';
+    const getCliOutput = configResult.gotCli ?
+        `<p class='success'>kubectl installed at ${configResult.cliInstallFile}</p>${pathMessage}` :
+        `<p class='error'>An error occurred while downloading kubectl.</p>
+         <p><b>Details</b></p>
+         <p>${configResult.cliError}</p>`;
+    const getCredsOutput = configResult.gotCredentials ?
+        `<p class='success'>Successfully configured kubectl with Azure Container Service cluster credentials.</p>` :
+        `<p class='error'>An error occurred while getting Azure Container Service cluster credentials.</p>
+         <p><b>Details</b></p>
+         <p>${configResult.credentialsError}</p>`;
+    return `<!-- Complete -->
+            <h1>${title}</h1>
+            ${styles()}
+            ${getCliOutput}
+            ${getCredsOutput}`;
 }
 
 async function listLocations(context: azure.Context) : Promise<Errorable<azure.Locations>> {
@@ -376,7 +413,7 @@ function selectionChanged() {
     var selection = "{";
     ${gatherRequestJs}
     selection = selection.slice(0, -1) + "}";
-    document.getElementById('nextlink').href = encodeURI("${baseUri}" + "&${queryId}=" + selection);
+    document.getElementById('nextlink').href = encodeURI('${baseUri}' + "&${queryId}=" + selection);
     var u = document.getElementById('uri');
     if (u) { u.innerText = document.getElementById('nextlink').href; }
 }
