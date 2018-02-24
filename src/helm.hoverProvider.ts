@@ -2,6 +2,8 @@ import * as vscode from 'vscode';
 import { FuncMap } from './helm.funcmap';
 import { Resources } from './helm.resources';
 
+import { yamlLocator, yamlUtil } from './yaml-language-support/yaml-support'
+
 // Provide hover support
 export class HelmTemplateHoverProvider implements vscode.HoverProvider {
     private funcmap;
@@ -40,6 +42,15 @@ export class HelmTemplateHoverProvider implements vscode.HoverProvider {
         }
 
         if (this.notInAction(doc, pos, word)) {
+            try {
+                // have a test against whether the word is a key element in yaml
+                const { matchedNode } = yamlLocator.getYamlElement(doc, pos);
+                if (!yamlUtil.isKey(matchedNode)) {
+                    return Promise.resolve(null);
+                }
+            } catch (ex) {
+                console.log(ex);
+            }
             let found = this.findResourceDef(word);
             if (found) {
                 return new vscode.Hover(found, wordRange);
