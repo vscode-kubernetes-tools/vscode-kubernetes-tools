@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 
-import { parse, findNodeAtPosition, util as yamlUtil } from 'node-yaml-parser'
+import { parse, findNodeAtPosition, util as yamlUtil } from 'node-yaml-parser';
 
 export interface YamlCache {
     // the document model list represents the yaml text
@@ -35,7 +35,7 @@ export interface YamlMatchedElement {
     /**
      * Parse the yaml text and find the best node&document for the given position.
      *
-     * @param {vscode.textDocument} textDocument vscode text document
+     * @param {vscode.TextDocument} textDocument vscode text document
      * @param {vscode.Position} pos vscode position
      * @returns {YamlMatchedElement} the search results of yaml elements at the given position
      */

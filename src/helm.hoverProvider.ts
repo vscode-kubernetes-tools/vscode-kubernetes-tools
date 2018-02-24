@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { FuncMap } from './helm.funcmap';
 import { Resources } from './helm.resources';
 
-import { yamlLocator, yamlUtil } from './yaml-language-support/yaml-support'
+import { yamlLocator, yamlUtil } from './yaml-language-support/yaml-support';
 
 // Provide hover support
 export class HelmTemplateHoverProvider implements vscode.HoverProvider {
