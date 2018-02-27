@@ -1147,7 +1147,7 @@ const diffKubernetes = (callback) => {
             fileName = file;
             if (vscode.window.activeTextEditor && vscode.window.activeTextEditor.document) {
                 const langId = vscode.window.activeTextEditor.document.languageId.toLowerCase();
-                if (langId == "yaml" || langId == "helm") {
+                if (langId === "yaml" || langId === "helm") {
                     fileFormat = "yaml";
                 }
             }
@@ -1164,7 +1164,7 @@ const diffKubernetes = (callback) => {
         kubectl.invoke(` get -o ${fileFormat} ${kindName}`, (result, stdout, stderr) => {
             if (result == 1 && stderr.indexOf('NotFound') >= 0) {
                 vscode.window.showWarningMessage(`Resource ${kindName} does not exist - this will create a new resource.`, 'Create').then((choice) => {
-                    if (choice == 'Create') {
+                    if (choice === 'Create') {
                         maybeRunKubernetesCommandForActiveWindow('create -f');
                     }
                 });
