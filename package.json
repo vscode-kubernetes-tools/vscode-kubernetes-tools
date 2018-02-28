@@ -2,7 +2,7 @@
     "name": "vscode-kubernetes-tools",
     "displayName": "Kubernetes",
     "description": "Develop, deploy and debug Kubernetes applications",
-    "version": "0.1.4",
+    "version": "0.1.5",
     "preview": true,
     "publisher": "ms-kubernetes-tools",
     "engines": {
@@ -42,6 +42,7 @@
         "onCommand:extension.vsKubernetesRemoveDebug",
         "onCommand:extension.vsKubernetesConfigureFromCluster",
         "onCommand:extension.vsKubernetesCreateCluster",
+        "onCommand:extension.vsKubernetesDashboard",
         "onCommand:extension.helmTemplate",
         "onCommand:extension.helmTemplatePreview",
         "onCommand:extension.helmLint",
@@ -143,6 +144,11 @@
                     "command": "extension.vsKubernetesClusterInfo",
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.cluster",
                     "group": "0@1"
+                },
+                {
+                    "command": "extension.vsKubernetesDashboard",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.cluster",
+                    "group": "0@3"
                 },
                 {
                     "command": "extension.vsKubernetesDeleteContext",
@@ -350,6 +356,11 @@
                 "category": "Kubernetes"
             },
             {
+                "command": "extension.vsKubernetesDashboard",
+                "title": "Open Dashboard",
+                "category": "Kubernetes"
+            },
+            {
                 "command": "extension.draftVersion",
                 "title": "Version",
                 "description": "Get the version of the local Draft client.",
@@ -483,6 +494,7 @@
         "js-yaml": "^3.8.2",
         "k8s": "^0.4.12",
         "lodash": ">3",
+        "opn": "^5.2.0",
         "pluralize": "^4.0.0",
         "portfinder": "^1.0.13",
         "shelljs": "^0.7.7",

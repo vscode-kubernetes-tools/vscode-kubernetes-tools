@@ -51,8 +51,8 @@ export class DebugService implements IDebugService {
             vscode.window.showErrorMessage(`No Dockerfile found in the workspace ${workspaceFolder.name}`);
             return;
         }
-        const dockerParser = new DockerfileParser(dockerfilePath);
-        this.debugProvider = await providerRegistry.getDebugProvider(dockerParser.getBaseImage());
+        const dockerfile = new DockerfileParser().parse(dockerfilePath);
+        this.debugProvider = await providerRegistry.getDebugProvider(dockerfile.getBaseImage());
         if (!this.debugProvider) {
             return;
         } else if (!await this.debugProvider.isDebuggerInstalled()) {
@@ -62,7 +62,7 @@ export class DebugService implements IDebugService {
         const cwd = workspaceFolder.uri.fsPath;
         const imagePrefix = vscode.workspace.getConfiguration().get("vsdocker.imageUser", null);
         const containerEnv = {};
-        const portInfo = await this.debugProvider.resolvePortsFromFile(dockerParser, containerEnv);
+        const portInfo = await this.debugProvider.resolvePortsFromFile(dockerfile, containerEnv);
         if (!portInfo || !portInfo.debugPort || !portInfo.appPort) {
             vscode.window.showErrorMessage("Cannot resolve debug/application port from Dockerfile.");
             return;
@@ -74,36 +74,34 @@ export class DebugService implements IDebugService {
                 // Build/push docker image.
                 p.report({ message: "Building docker image..."});
                 const shellOpts = Object.assign({ }, shell.execOpts(), { cwd });
-                const image = await this.buildDockerImageStep(imagePrefix, shellOpts);
+                const imageName = await this.buildDockerImage(imagePrefix, shellOpts);
 
                 // Run docker image in k8s container.
                 p.report({ message: "Running docker image on Kubernetes..."});
-                appName = await this.runAsDeploymentStep(image, [portInfo.appPort, portInfo.debugPort], containerEnv);
-
+                appName = await this.runAsDeployment(imageName, [portInfo.appPort, portInfo.debugPort], containerEnv);
 
                 // Find the running debug pod.
                 p.report({ message: "Finding the debug pod..."});
-                const podName = await this.findDebugPodStep(appName);
+                const podName = await this.findDebugPod(appName);
                 
                 // Wait for the debug pod status to be running.
                 p.report({ message: "Waiting for the pod to be ready..."});
-                await this.waitForPodStep(podName);
+                await this.waitForPod(podName);
     
                 // Setup port-forward.
                 p.report({ message: "Setting up port forwarding..."});
-                const proxyResult = await this.setupPortForwardStep(podName, portInfo.debugPort, portInfo.appPort);
+                const proxyResult = await this.setupPortForward(podName, portInfo.debugPort, portInfo.appPort);
                 
                 // Start debug session.
                 p.report({ message: `Starting ${this.debugProvider.getDebuggerType()} debug session...`});
-                await this.startDebugSessionStep(appName, cwd, proxyResult);
+                await this.startDebugSession(appName, cwd, proxyResult);
             } catch (error) {
                 vscode.window.showErrorMessage(error);
-                kubeChannel.showOutput(`Debug on Kubernetes failed. The errors was: ${error}.`);
+                kubeChannel.showOutput(`Debug on Kubernetes failed. The errors were: ${error}.`);
                 if (appName) {
                     await this.cleanupResourceStep(`deployment/${appName}`);
                 }
             }
-            return null;
         });
     }
 
@@ -118,28 +116,31 @@ export class DebugService implements IDebugService {
         return;
     }
 
-    private async buildDockerImageStep(imagePrefix: string, shellOpts: any): Promise<string> {
+    private async buildDockerImage(imagePrefix: string, shellOpts: any): Promise<string> {
         kubeChannel.showOutput("Starting to build/push docker image...", "Docker build/push");
         if (!imagePrefix) {
             // In order to allow local kubernetes cluster (e.g. minikube) to have access to local docker images,
             // need override docker-env before running docker build.
-            const dockerEnv = await dockerUtils.resolveDockerEnv(this.kubectl);
+            const dockerEnv = await dockerUtils.resolveKubernetesDockerEnv(this.kubectl);
             shellOpts.env = Object.assign({}, shellOpts.env, dockerEnv);
         }
-        const image = await dockerUtils.buildAndPushDockerImage(dockerUtils.DockerClient.docker, shellOpts, imagePrefix);
-        kubeChannel.showOutput(`Finished building/pushing docker image ${image}.`);
+        const imageName = await dockerUtils.buildAndPushDockerImage(dockerUtils.DockerClient.docker, shellOpts, imagePrefix);
+        kubeChannel.showOutput(`Finished building/pushing docker image ${imageName}.`);
 
-        return image;
+        return imageName;
     }
 
-    private async runAsDeploymentStep(image: string, exposedPorts: number[], containerEnv: any): Promise<string> {
+    private async runAsDeployment(image: string, exposedPorts: number[], containerEnv: any): Promise<string> {
         kubeChannel.showOutput(`Starting to run image ${image} on kubernetes cluster...`, "Run on Kubernetes");
-        const appName = await kubectlUtils.runAsDeployment(this.kubectl, image, exposedPorts, containerEnv);
+        const imageName = image.split(":")[0];
+        const baseName = imageName.substring(imageName.lastIndexOf("/")+1);
+        const deploymentName = `${baseName}-debug-${Date.now()}`;
+        const appName = await kubectlUtils.runAsDeployment(this.kubectl, deploymentName, image, exposedPorts, containerEnv);
         kubeChannel.showOutput(`Finished launching image ${image} as a deployment ${appName} on Kubernetes cluster.`);
         return appName;
     }
 
-    private async findDebugPodStep(appName: string): Promise<string> {
+    private async findDebugPod(appName: string): Promise<string> {
         kubeChannel.showOutput(`Searching for pods with label run=${appName}`, "Find debug pod");
         const podList = await kubectlUtils.findPodsByLabel(this.kubectl, `run=${appName}`);
         if (podList.items.length === 0) {
@@ -150,13 +151,13 @@ export class DebugService implements IDebugService {
         return podName;
     }
 
-    private async waitForPodStep(podName: string): Promise<void> {
+    private async waitForPod(podName: string): Promise<void> {
         kubeChannel.showOutput(`Waiting for pod ${podName} status to become Running...`, "Wait for pod");
         await kubectlUtils.waitForRunningPod(this.kubectl, podName);
         kubeChannel.showOutput(`Finshed waiting.`);
     }
 
-    private async setupPortForwardStep(podName: string, debugPort: number, appPort: number): Promise<ProxyResult> {
+    private async setupPortForward(podName: string, debugPort: number, appPort: number): Promise<ProxyResult> {
         kubeChannel.showOutput(`Setting up port forwarding on pod ${podName}...`, "Set up port forwarding");
         const proxyResult = await this.createPortForward(this.kubectl, podName, debugPort, appPort);
         kubeChannel.showOutput(`Created port-forward ${proxyResult.proxyDebugPort}:${debugPort} ${proxyResult.proxyAppPort}:${appPort}`);
@@ -169,7 +170,7 @@ export class DebugService implements IDebugService {
         return proxyResult;
     }
 
-    private async startDebugSessionStep(appName: string, cwd: string, proxyResult: ProxyResult): Promise<void> {
+    private async startDebugSession(appName: string, cwd: string, proxyResult: ProxyResult): Promise<void> {
         kubeChannel.showOutput("Starting debug session...", "Start debug session");
         const sessionName = appName || `${Date.now()}`;
         await this.startDebugging(cwd, sessionName, proxyResult.proxyDebugPort, proxyResult.proxyAppPort, async () => {

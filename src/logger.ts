@@ -17,7 +17,7 @@ class LoggingConsole implements Logger {
     log(msg: string) {
         this.channel.append(msg);
         this.channel.append("\n");
-        this.channel.show();
+        this.channel.show(true);
     }
     dispose() {
         this.channel.dispose();

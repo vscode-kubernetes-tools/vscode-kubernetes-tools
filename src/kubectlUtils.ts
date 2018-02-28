@@ -20,7 +20,7 @@ export interface ClusterConfig {
     readonly certificateAuthority: string;
 }
 
-export async function getKubeconfig(kubectl: Kubectl): Promise<any> {
+async function getKubeconfig(kubectl: Kubectl): Promise<any> {
     const shellResult = await kubectl.invokeAsync("config view -o json");
     if (shellResult.code !== 0) {
         vscode.window.showErrorMessage(shellResult.stderr);
@@ -134,23 +134,26 @@ export async function switchNamespace(kubectl: Kubectl, namespace: string): Prom
 /**
  * Run the specified image in the kubernetes cluster.
  * 
- * @param kubectl the kubectl client. 
+ * @param kubectl the kubectl client.
+ * @param deploymentName the deployment name.
  * @param image the docker image.
  * @param exposedPorts the exposed ports.
  * @param env the additional environment variables when running the docker container.
  * @return the deployment name.
  */
-export async function runAsDeployment(kubectl: Kubectl, image: string, exposedPorts: number[], env: any): Promise<string> {
+export async function runAsDeployment(kubectl: Kubectl, deploymentName: string, image: string, exposedPorts: number[], env: any): Promise<string> {
     let imageName = image.split(":")[0];
     let imagePrefix = imageName.substring(0, imageName.lastIndexOf("/")+1);
-    let baseName = imageName.substring(imageName.lastIndexOf("/")+1);
-    const deploymentName = `${baseName}-debug-${Date.now()}`;
+    if (!deploymentName) {
+        let baseName = imageName.substring(imageName.lastIndexOf("/")+1);
+        const deploymentName = `${baseName}-${Date.now()}`;
+    }
     let runCmd = [
         "run",
         deploymentName,
         `--image=${image}`,
         imagePrefix ? "" : "--image-pull-policy=Never",
-        ...exposedPorts.map((port) => port ? `--port=${port}` : ""),
+        ...exposedPorts.map((port) => `--port=${port}`),
         ...Object.keys(env || {}).map((key) => `--env="${key}=${env[key]}"`)
     ];
     const runResult = await kubectl.invokeAsync(runCmd.join(" "));

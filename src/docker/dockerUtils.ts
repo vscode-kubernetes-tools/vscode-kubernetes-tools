@@ -54,7 +54,7 @@ async function getDefaultImageName(cwd: string, imagePrefix?: string): Promise<s
 async function findVersion(cwd: string): Promise<string> {
     const shellOpts = Object.assign({ }, shell.execOpts(), { cwd });
     const shellResult = await shell.execCore('git describe --always --dirty', shellOpts);
-    return shellResult.code !== 0 ? "latest" : shellResult.stdout.trim();
+    return shellResult.code === 0 ? shellResult.stdout.trim() : "latest";
 }
 
 async function buildDockerImage(dockerClient: DockerClient, image: string, shellOpts: any): Promise<void> {
@@ -79,7 +79,7 @@ async function pushDockerImage(dockerClient: string, image: string, shellOpts: a
  * When using the command "minikube docker-env" to get the local kubernetes docker env, it needs run with the admin privilege.
  * To workaround this, this function will try to resolve the equivalent docker env from kubeconfig instead.
  */
-export async function resolveDockerEnv(kubectl: Kubectl): Promise<{}> {
+export async function resolveKubernetesDockerEnv(kubectl: Kubectl): Promise<{}> {
     const dockerEnv = {};
     dockerEnv["DOCKER_API_VERSION"] = await dockerApiVersion();
     const currentCluster = await getCurrentClusterConfig(kubectl);
@@ -102,9 +102,10 @@ export async function resolveDockerEnv(kubectl: Kubectl): Promise<{}> {
 }
 
 async function dockerApiVersion(): Promise<string> {
+    const defaultDockerVersion = "1.23";
     const versionResult = await shell.exec(`docker version --format "{{.Client.APIVersion}}"`);
     if (versionResult.code === 0) {
         return versionResult.stdout.trim();
     }
-    return "1.23";
+    return defaultDockerVersion;
 }

@@ -85,6 +85,11 @@ Where `<your-image-prefix-here>` is something like `docker.io/brendanburns`.
 
    * `Kubernetes Configure from Cluster` - Install and configure the Kubernetes command line tool (kubectl) from an Azure Container Service (ACS) or Azure Kubernetes Service (AKS) cluster
 
+
+### Miscellaneous commands
+
+   * `Kubernetes Open Dashboard` - Opens the Kubernetes Dashboard in your browser.
+
 ### Helm support
 
 [Helm](https://helm.sh/) is the package manager for Kubernetes and provides a way for you to define, install and upgrade applications using 'charts.'  This extension provides a set of tools for creating and testing Helm charts:

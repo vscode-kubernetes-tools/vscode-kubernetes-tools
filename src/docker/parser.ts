@@ -1,4 +1,4 @@
-export interface IDockerParser {
+export interface IDockerfile {
     /**
      * Parse the inherited base image from the dockerfile.
      */
@@ -13,4 +13,11 @@ export interface IDockerParser {
      * Search the debug options from the launch command.
      */
     searchLaunchArgs(regularExpression: RegExp): RegExpMatchArray;
+}
+
+export interface IDockerParser {
+    /**
+     * Parse the docker file.
+     */
+    parse(filePath: string): IDockerfile;
 }

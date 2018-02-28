@@ -1,5 +1,14 @@
 # Change Log
 
+## 0.1.5
+
+* Added support for Kubernetes dashboard
+* ConfigMaps and Secrets are now show in the tree view
+* Fixes to Explain command
+* UX fixes for Helm warning it's not updating the preview
+
+Thanks to contributors Jinbo Wang and Bhargav Nookala.
+
 ## 0.1.4
 
 * Tree view improvements:

@@ -4,7 +4,7 @@ import * as vscode from 'vscode';
 import { IDebugProvider, PortInfo } from './debugProvider';
 import * as extensionUtils from "../extensionUtils";
 import { Kubectl } from '../kubectl';
-import { IDockerParser } from "../docker/parser";
+import { IDockerfile } from "../docker/parser";
 
 // Use the java debugger extension provided by microsoft team for java debugging.
 const defaultJavaDebuggerExtensionId = "vscjava.vscode-java-debug";
@@ -46,21 +46,24 @@ export class JavaDebugProvider implements IDebugProvider {
     }
 
     public isSupportedImage(baseImage: string): boolean {
+        if (!baseImage) {
+            return false;
+        }
         return baseImage.indexOf("java") >= 0
             || baseImage.indexOf("openjdk") >= 0
             || baseImage.indexOf("oracle") >= 0;
     }
 
-    public async resolvePortsFromFile(dockerParser: IDockerParser, env: {}): Promise<PortInfo | undefined> {
+    public async resolvePortsFromFile(dockerfile: IDockerfile, env: {}): Promise<PortInfo | undefined> {
         let rawDebugPortInfo: string;
         let rawAppPortInfo: string;
 
         // Resolve the debug port.
-        const matches = dockerParser.searchLaunchArgs(javaDebugOptsRegExp);
+        const matches = dockerfile.searchLaunchArgs(javaDebugOptsRegExp);
         if (matches) {
             const addresses = matches[2].split("=")[1].split(":");
             rawDebugPortInfo = addresses[addresses.length - 1];
-        } else if (dockerParser.searchLaunchArgs(/\$\{?JAVA_OPTS\}?/)) {
+        } else if (dockerfile.searchLaunchArgs(/\$\{?JAVA_OPTS\}?/)) {
             env["JAVA_OPTS"] = defaultJavaDebugOpts;
             rawDebugPortInfo = defaultJavaDebugPort;
         }
@@ -77,19 +80,25 @@ export class JavaDebugProvider implements IDebugProvider {
         }
         
         // Resolve the app port.
-        const dockerExpose = dockerParser.getExposedPorts();
-        if (dockerExpose.length) {
-            const possiblePorts = dockerExpose.filter((port) => port !== rawDebugPortInfo);
+        const exposedPorts = dockerfile.getExposedPorts();
+        if (exposedPorts.length) {
+            const possiblePorts = exposedPorts.filter((port) => port !== rawDebugPortInfo);
             if (possiblePorts.length === 1) {
                 rawAppPortInfo = possiblePorts[0];
             } else if (possiblePorts.length > 1) {
                 rawAppPortInfo = await vscode.window.showQuickPick(possiblePorts, { placeHolder: "Choose the application port you want to expose for debugging." });
             }
             // If the exposed port is a variable, then need set it in environment variables.
-            if (/\$\{?(\w+)\}?/.test(rawAppPortInfo)) {
-                const varName = rawAppPortInfo.match(/\$\{?(\w+)\}?/)[1];
-                env[varName] = defaultJavaAppPort;
-                rawAppPortInfo = defaultJavaAppPort;
+            const portRegExp = /\$\{?(\w+)\}?/;
+            if (portRegExp.test(rawAppPortInfo)) {
+                const varName = rawAppPortInfo.match(portRegExp)[1];
+                if (rawAppPortInfo.trim() === `$${varName}` || rawAppPortInfo.trim() === `\${${varName}}`) {
+                    env[varName] = defaultJavaAppPort;
+                    rawAppPortInfo = defaultJavaAppPort;
+                } else {
+                    vscode.window.showErrorMessage(`Invalid port variable ${rawAppPortInfo} in the docker file.`);
+                    return;
+                }
             }
         }
 

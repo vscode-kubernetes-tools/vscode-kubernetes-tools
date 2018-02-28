@@ -1,21 +1,21 @@
 import * as fs from 'fs';
-import { CommandEntry, parse as rawDockerfileParser} from 'docker-file-parser';
+import { CommandEntry, parse } from 'docker-file-parser';
 
-import { IDockerParser } from "./parser";
+import { IDockerfile, IDockerParser } from "./parser";
 import { shell, ShellResult } from "../shell";
 
 class RawDockerfile {
-    private commandEntries: CommandEntry[];
+    private readonly commandEntries: CommandEntry[];
 
     constructor(private readonly dockerfilePath: string) {
         const dockerData = fs.readFileSync(dockerfilePath, 'utf-8');
-        this.commandEntries = rawDockerfileParser(dockerData, { includeComments: false });
+        this.commandEntries = parse(dockerData, { includeComments: false });
     }
 
     public getCommandsOfType(...commands: string[]): CommandEntry[] {
         return this.commandEntries.filter((entry) => {
             const cmdName = entry.name.toLowerCase();
-            return commands.find((key) => key === cmdName);
+            return commands.find((command) => command === cmdName);
         });
     }
 
@@ -29,9 +29,9 @@ class RawDockerfile {
         return args;
     }
 
-    public searchInArgs(regularExpression: RegExp, scope?: string[]): RegExpMatchArray {
-        const scopeEntries = (scope ? this.getCommandsOfType(...scope) : this.commandEntries);
-        for (const entry of scopeEntries) {
+    public searchInArgs(regularExpression: RegExp, commands?: string[]): RegExpMatchArray {
+        const commandEntries = (commands ? this.getCommandsOfType(...commands) : this.commandEntries);
+        for (const entry of commandEntries) {
             const args = Array.isArray(entry.args) ? entry.args : [ String(entry.args) ];
             for (const arg of args) {
                 const matches = arg.match(regularExpression);
@@ -45,7 +45,7 @@ class RawDockerfile {
     }
 }
 
-export class DockerfileParser implements IDockerParser {
+class Dockerfile implements IDockerfile {
     private readonly dockerfile;
 
     constructor(private readonly dockerfilePath: string) {
@@ -55,7 +55,7 @@ export class DockerfileParser implements IDockerParser {
     getBaseImage(): string {
         const fromEntries = this.dockerfile.getCommandsOfType("from");
         if (fromEntries.length === 0) {
-            return "";
+            return;
         }
         const baseImageTag = fromEntries[0].args;
         const baseImageID = baseImageTag.split(":")[0];
@@ -69,5 +69,11 @@ export class DockerfileParser implements IDockerParser {
 
     searchLaunchArgs(regularExpression: RegExp): RegExpMatchArray {
         return this.dockerfile.searchInArgs(regularExpression, ["run", "cmd", "entrypoint"]);
+    }
+}
+
+export class DockerfileParser implements IDockerParser {
+    parse(dockerfilePath: string): IDockerfile {
+        return new Dockerfile(dockerfilePath);
     }
 }

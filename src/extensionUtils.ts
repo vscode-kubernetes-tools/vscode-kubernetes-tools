@@ -12,8 +12,8 @@ export async function installVscodeExtension(extensionId: string): Promise<boole
     const vscodeCliPath = path.join(path.dirname(process.argv0), "bin", "code");
     const shellResult = await shell.exec(`"${vscodeCliPath}" --install-extension ${extensionId}`);
     if (shellResult.code === 0) {
-        const answer = await vscode.window.showInformationMessage(`Extension '${extensionId}' was successfully installed. Restart to enable it.`, "Reload Now");
-        if (answer === "Restart Now") {
+        const answer = await vscode.window.showInformationMessage(`Extension '${extensionId}' was successfully installed. Reload to enable it.`, "Reload Now");
+        if (answer === "Reload Now") {
             await vscode.commands.executeCommand("workbench.action.reloadWindow");
             return true;
         }
