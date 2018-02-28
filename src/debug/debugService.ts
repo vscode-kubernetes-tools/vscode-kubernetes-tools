@@ -99,7 +99,7 @@ export class DebugService implements IDebugService {
                 vscode.window.showErrorMessage(error);
                 kubeChannel.showOutput(`Debug on Kubernetes failed. The errors were: ${error}.`);
                 if (appName) {
-                    await this.cleanupResourceStep(`deployment/${appName}`);
+                    await this.cleanupResource(`deployment/${appName}`);
                 }
             }
         });
@@ -176,12 +176,12 @@ export class DebugService implements IDebugService {
         await this.startDebugging(cwd, sessionName, proxyResult.proxyDebugPort, proxyResult.proxyAppPort, async () => {
             proxyResult.proxyProcess.kill();
             if (appName) {
-                await this.cleanupResourceStep(`deployment/${appName}`);
+                await this.cleanupResource(`deployment/${appName}`);
             }
         });
     }
 
-    private async cleanupResourceStep(resourceId: string): Promise<void> {
+    private async cleanupResource(resourceId: string): Promise<void> {
         kubeChannel.showOutput(`Starting to clean up debug resource...`, "Cleanup debug resource");
         const deleteResult = await this.kubectl.invokeAsync(`delete ${resourceId}`);
         if (deleteResult.code !== 0) {
