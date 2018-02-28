@@ -50,8 +50,8 @@ export class YamlLocator {
      */
     public getMatchedElement(textDocument: vscode.TextDocument, pos: vscode.Position): YamlMatchedElement {
         const key: string = textDocument.uri.toString();
-        const cache = this._cache[key];
         this.ensureCache(key, textDocument);
+        const cache = this._cache[key];
         // findNodeAtPosition will find the matched node at given position
         return findNodeAtPosition(cache.yamlDocs, cache.lineLengths, pos.line, pos.character);
     }
