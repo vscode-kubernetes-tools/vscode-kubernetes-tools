@@ -98,8 +98,8 @@ export async function registerYamlSchemaSupport() {
             return '';
         }
         if (_uri.path.includes('+')) {
-            const resources = _uri.path.slice(1).split('+');
-            return jsonToString(resources.map((r) => `"$ref": "kubernetes://manifest/${r}"`).join(','));
+            const manifestRef = _uri.path.slice(1).split('+').map((r) => `"$ref": "kubernetes://manifest/${r}"`);
+            return jsonToString({ oneOf: [...manifestRef] });
         }
         let manifestType = _uri.path.slice(1);
         //apiVersionKind[0] is apiVersion and apiVersionKind[1] is kind
