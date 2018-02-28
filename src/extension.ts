@@ -41,6 +41,8 @@ import { Reporter } from './telemetry';
 import * as telemetry from './telemetry-helper';
 import {dashboardKubernetes} from './components/kubectl/proxy';
 
+import { registerYamlSchemaSupport } from './yaml-support/yaml-schema';
+
 let explainActive = false;
 let swaggerSpecPromise = null;
 
@@ -191,6 +193,8 @@ export function activate(context) {
     subscriptions.forEach((element) => {
         context.subscriptions.push(element);
     }, this);
+
+    return registerYamlSchemaSupport();
 }
 
 // this method is called when your extension is deactivated
