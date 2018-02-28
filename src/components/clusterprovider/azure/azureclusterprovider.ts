@@ -16,9 +16,10 @@ export function init(registry: clusterproviderregistry.ClusterProviderRegistry, 
             }
         });
         
-        clusterServer.use(restify.plugins.queryParser());
+        clusterServer.use(restify.plugins.queryParser(), restify.plugins.bodyParser());
         clusterServer.listen(clusterPort);
         clusterServer.get('/create', handleCreate);
+        clusterServer.post('/create/metadata', handleCreateMetadata);
     
         registry.register({id: 'acs', displayName: "Azure Container Service", port: clusterPort});
         registry.register({id: 'aks', displayName: "Azure Kubernetes Service", port: clusterPort});
@@ -30,6 +31,20 @@ export function init(registry: clusterproviderregistry.ClusterProviderRegistry, 
 async function handleCreate(request: restify.Request, response: restify.Response, next: restify.Next) {
 
     const html = await getHandleCreateHtml(request);
+
+    response.contentType = 'text/html';
+    response.send("<html><body><style id='styleholder'></style>" + html + "</body></html>");
+    
+    next();
+}
+
+// TODO: it right
+async function handleCreateMetadata(request: restify.Request, response: restify.Response, next: restify.Next) {
+
+    const id: string = request.body['id'];
+    const subscription: string = request.body['subscription'];
+
+    const html = await promptForMetadata(id, subscription);
 
     response.contentType = 'text/html';
     response.send("<html><body><style id='styleholder'></style>" + html + "</body></html>");
@@ -73,20 +88,31 @@ async function promptForSubscription(id: string) : Promise<string> {
         return `<h1>You have no Azure subscriptions</h1>`;
     }
 
-    const initialUri = mklink(subscriptions[0]);
-    const options = subscriptions.map((s) => `<option value="${mklink(s)}">${s}</option>`).join('\n');
+    const options = subscriptions.map((s) => `<option value="${s}">${s}</option>`).join('\n');
     return `<!-- PromptForSubscription -->
-            <script>
-            function selectionChanged() {
-                var selectCtrl = document.getElementById('selector');
-                var selection = selectCtrl.options[selectCtrl.selectedIndex].value;
-                document.getElementById('nextlink').href = selection;
-            }
-            </script>
+            <style>
+            .link-button {
+                background: none;
+                border: none;
+                color: blue;
+                text-decoration: underline;
+                cursor: pointer;
+                font-size: 1em;
+                font-family: serif;
+              }
+              .link-button:focus {
+                outline: none;
+              }
+              .link-button:active {
+                color:red;
+              }
+            </style>
             <h1 id='h'>Choose subscription</h1>
             <div id='content'>
+            <form id='form' action='create/metadata' method='post'>
+            <input type='hidden' name='id' value='${id}' />
             <p>
-            Azure subscription: <select id='selector' onchange='selectionChanged()'>
+            Azure subscription: <select name='subscription' id='selector'>
             ${options}
             </select>
             </p>
@@ -94,8 +120,10 @@ async function promptForSubscription(id: string) : Promise<string> {
             <p><b>Important! The selected subscription will be set as the active subscription for the Azure CLI.</b></p>
 
             <p>
-            <a id='nextlink' href='${initialUri}'>Next &gt;</a>
-            </p>`;
+            <button type='submit' class='link-button'>Next &gt;</button>
+            </p>
+            </form>
+            </div>`;
 }
 
 async function promptForMetadata(id: string, subscription: string) : Promise<string> {
