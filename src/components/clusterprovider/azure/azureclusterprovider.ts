@@ -18,8 +18,8 @@ export function init(registry: clusterproviderregistry.ClusterProviderRegistry, 
         
         clusterServer.use(restify.plugins.queryParser(), restify.plugins.bodyParser());
         clusterServer.listen(clusterPort);
-        clusterServer.get('/create', handleCreate);
-        clusterServer.post('/create/metadata', handleCreateMetadata);
+        clusterServer.get('/create', handleGet);
+        clusterServer.post('/create', handlePost);
     
         registry.register({id: 'acs', displayName: "Azure Container Service", port: clusterPort});
         registry.register({id: 'aks', displayName: "Azure Kubernetes Service", port: clusterPort});
@@ -28,9 +28,16 @@ export function init(registry: clusterproviderregistry.ClusterProviderRegistry, 
     }
 }
 
-async function handleCreate(request: restify.Request, response: restify.Response, next: restify.Next) {
+async function handleGet(request: restify.Request, response: restify.Response, next: restify.Next) {
+    await handleRequest(request, { id: request.query["id"] }, response, next);
+}
 
-    const html = await getHandleCreateHtml(request);
+async function handlePost(request: restify.Request, response: restify.Response, next: restify.Next) {
+    await handleRequest(request, request.body, response, next);
+}
+
+async function handleRequest(request: restify.Request, requestData: any, response: restify.Response, next: restify.Next) {
+    const html = await getHandleCreateHtml(request.query["step"], requestData);
 
     response.contentType = 'text/html';
     response.send("<html><body><style id='styleholder'></style>" + html + "</body></html>");
@@ -38,46 +45,51 @@ async function handleCreate(request: restify.Request, response: restify.Response
     next();
 }
 
-// TODO: it right
-async function handleCreateMetadata(request: restify.Request, response: restify.Response, next: restify.Next) {
-
-    const id: string = request.body['id'];
-    const subscription: string = request.body['subscription'];
-
-    const html = await promptForMetadata(id, subscription);
-
-    response.contentType = 'text/html';
-    response.send("<html><body><style id='styleholder'></style>" + html + "</body></html>");
-    
-    next();
-}
-
-async function getHandleCreateHtml(request: restify.Request): Promise<string> {
-    const id: string = request.query["id"];
-    const subscription: string = request.query["subscription"];
-    const metadata: string = request.query["metadata"];
-    const agentSettings: string = request.query["agentSettings"];
-    const waiting: boolean = request.query["waiting"] == 'true';
-
-    if (waiting) {
-        return await waitForClusterAndReportConfigResult(id, JSON.parse(metadata));
-    }
-
-    if (id && !subscription) {
-        return await promptForSubscription(id);
-    } else if (id && subscription && !metadata) {
-        return await promptForMetadata(id, subscription);
-    } else if (id && subscription && metadata && !agentSettings) {
-        return await promptForAgentSettings(id, subscription, JSON.parse(metadata));
-    } else if (id && subscription && metadata && agentSettings) {
-        return await createCluster(id, subscription, JSON.parse(metadata), JSON.parse(agentSettings));
+async function getHandleCreateHtml(step: string | undefined, requestData: any | undefined): Promise<string> {
+    if (!step) {
+        return await promptForSubscription(requestData);
+    } else if (step === "metadata") {
+        return await promptForMetadata(requestData);
+    } else if (step === "agentSettings") {
+        return await promptForAgentSettings(requestData);
+    } else if (step === "create") {
+        return await createCluster(requestData);
+    } else if (step === "wait") {
+        return await waitForClusterAndReportConfigResult(requestData);
     }
 }
 
-async function promptForSubscription(id: string) : Promise<string> {
-    const mklink = (sub: string) => encodeURI(`http://localhost:${clusterPort}/create?id=${id}&subscription=${sub}`);
+function formStyles() : string {
+    return `
+    <style>
+    .link-button {
+        background: none;
+        border: none;
+        color: blue;
+        text-decoration: underline;
+        cursor: pointer;
+        font-size: 1em;
+        font-family: sans-serif;
+    }
+    .link-button:focus {
+        outline: none;
+    }
+    .link-button:active {
+        color:red;
+    }
+    </style>`;
+}
 
-    const slr = await azure.getSubscriptionList(context, id);
+function propagationFields(previousData: any) : string {
+    let formFields = "";
+    for (const k in previousData) {
+        formFields = formFields + `<input type='hidden' name='${k}' value='${previousData[k]}' />\n`;
+    }
+    return formFields;
+}
+
+async function promptForSubscription(previousData: any) : Promise<string> {
+    const slr = await azure.getSubscriptionList(context, previousData.id);
     if (!slr.result.succeeded) {
         return `<h1>Error ${slr.actionDescription}</h1><p>Error details: ${slr.result.error[0]}</p>`;
     }
@@ -88,29 +100,14 @@ async function promptForSubscription(id: string) : Promise<string> {
         return `<h1>You have no Azure subscriptions</h1>`;
     }
 
+
     const options = subscriptions.map((s) => `<option value="${s}">${s}</option>`).join('\n');
     return `<!-- PromptForSubscription -->
-            <style>
-            .link-button {
-                background: none;
-                border: none;
-                color: blue;
-                text-decoration: underline;
-                cursor: pointer;
-                font-size: 1em;
-                font-family: serif;
-              }
-              .link-button:focus {
-                outline: none;
-              }
-              .link-button:active {
-                color:red;
-              }
-            </style>
             <h1 id='h'>Choose subscription</h1>
+            ${formStyles()}
             <div id='content'>
-            <form id='form' action='create/metadata' method='post'>
-            <input type='hidden' name='id' value='${id}' />
+            <form id='form' action='create?step=metadata' method='post'>
+            ${propagationFields(previousData)}
             <p>
             Azure subscription: <select name='subscription' id='selector'>
             ${options}
@@ -126,10 +123,8 @@ async function promptForSubscription(id: string) : Promise<string> {
             </div>`;
 }
 
-async function promptForMetadata(id: string, subscription: string) : Promise<string> {
-    const baseUri = `http://localhost:${clusterPort}/create?id=${id}&subscription=${subscription}`;
-
-    const serviceLocations = id == 'acs' ?
+async function promptForMetadata(previousData: any) : Promise<string> {
+    const serviceLocations = previousData.id === 'acs' ?
         await listAcsLocations(context) :
         await listAksLocations(context);
 
@@ -137,80 +132,86 @@ async function promptForMetadata(id: string, subscription: string) : Promise<str
         return "<h1>Error getting locations</h1>";
     }
 
-    const initialUri = encodeURI(baseUri + `&metadata={"location":"${serviceLocations.result[0].displayName}","clusterName":"k8scluster","resourceGroupName":"k8scluster"}`);
-
     const options = serviceLocations.result.map((s) => `<option value="${s.displayName}">${s.displayName + (s.isPreview ? " (preview)" : "")}</option>`).join('\n');
-    const mappings = [
-        {ctrlName: "selector", extractVal: "locationCtrl.options[locationCtrl.selectedIndex].value", jsonKey: "location"},
-        {ctrlName: "clustername", extractVal: "clusterNameCtrl.value", jsonKey: "clusterName"},
-        {ctrlName: "resourcegroupname", extractVal: "resourceGroupNameCtrl.value", jsonKey: "resourceGroupName"}
-    ];
 
     return `<!-- PromptForMetadata -->
             <h1 id='h'>Azure cluster settings</h1>
-            ${selectionChangedScriptMulti(baseUri, "metadata", mappings)}
+            ${formStyles()}
             <div id='content'>
-            <p>Cluster name: <input id='clustername' type='text' value='k8scluster' onchange='selectionChanged()'/>
-            <p>Resource group name: <input id='resourcegroupname' type='text' value='k8scluster' onchange='selectionChanged()'/>
+            <form id='form' action='create?step=agentSettings' method='post'>
+            ${propagationFields(previousData)}
+            <p>Cluster name: <input name='clustername' type='text' value='k8scluster' />
+            <p>Resource group name: <input name='resourcegroupname' type='text' value='k8scluster' />
             <p>
-            Location: <select id='selector' onchange='selectionChanged()'>
+            Location: <select name='location'>
             ${options}
             </select>
             </p>
 
             <p>
-            <a id='nextlink' href='${initialUri}' onclick='promptWait()'>Next &gt;</a>
+            <button type='submit' class='link-button'>Next &gt;</button>
             </p>
+            </form>
             </div>`;
-
 }
 
-async function promptForAgentSettings(id: string, subscription: string, metadata: any) : Promise<string> {
-    const baseUri = `http://localhost:${clusterPort}/create?id=${id}&subscription=${subscription}&metadata=${JSON.stringify(metadata)}`;
-
-    const vmSizes = await listVMSizes(context, metadata.location);
+async function promptForAgentSettings(previousData: any) : Promise<string> {
+    const vmSizes = await listVMSizes(context, previousData.location);
     if (!vmSizes.succeeded) {
         return `<h1>Error getting VM sizes</h1><p>Error detail: ${vmSizes.error[0]}</p>`;
     }
 
     const defaultSize = "Standard_D2_v2";
-    const initialUri = encodeURI(baseUri + `&agentSettings={"vmSize": "${defaultSize}", "count": 3}`);
     const options = vmSizes.result.map((s) => `<option value="${s}" ${s == defaultSize ? "selected=true" : ""}>${s}</option>`).join('\n');
-    const mappings = [
-        {ctrlName: "selector", extractVal: "vmSizeCtrl.options[vmSizeCtrl.selectedIndex].value", jsonKey: "vmSize"},
-        {ctrlName: "agentcount", extractVal: "countCtrl.value", jsonKey: "count"},
-    ];
+
     return `<!-- PromptForAgentSettings -->
             <h1 id='h'>Azure agent settings</h1>
-            ${selectionChangedScriptMulti(baseUri, "agentSettings", mappings)}
+            ${formStyles()}
             <div id='content'>
-            <p>Agent count: <input id='agentcount' type='text' value='3' onchange='selectionChanged()'/>
+            <form id='form' action='create?step=create' method='post'>
+            ${propagationFields(previousData)}
+            <p>Agent count: <input name='agentcount' type='text' value='3'/>
             <p>
-            Agent VM size: <select id='selector' onchange='selectionChanged()'>
+            Agent VM size: <select name='agentvmsize'>
             ${options}
             </select>
             </p>
 
             <p>
-            <a id='nextlink' href='${initialUri}' onclick='promptWait()'>Create &gt;</a>
+            <button type='submit' class='link-button'>Next &gt;</button>
             </p>
+            </form>
             </div>`;
-
 }
 
-async function createCluster(id: string, subscription: string, metadata: any, agentSettings: any) : Promise<string> {
+async function createCluster(previousData: any) : Promise<string> {
 
-    const options = { clusterType: id, subscription: subscription, metadata: metadata, agentSettings: agentSettings };
+    const options = {
+        clusterType: previousData.id,
+        subscription: previousData.subscription,
+        metadata: {
+            location: previousData.location,
+            resourceGroupName: previousData.resourcegroupname,
+            clusterName: previousData.clustername
+        },
+        agentSettings: {
+            count: previousData.agentcount,
+            vmSize: previousData.agentvmsize
+            
+        } };
     const createResult = await createClusterImpl(context, options);
 
     const title = createResult.result.succeeded ? 'Cluster creation has started' : `Error ${createResult.actionDescription}`;
     const additionalDiagnostic = diagnoseCreationError(createResult.result);
-    const initialUri = encodeURI(`http://localhost:${clusterPort}/create?id=${id}&subscription=${subscription}&metadata=${JSON.stringify(metadata)}&waiting=true`);
     const message = createResult.result.succeeded ?
         `<div id='content'>
+         ${formStyles()}
+         <form id='form' action='create?step=wait' method='post'>
+         ${propagationFields(previousData)}
          <p class='success'>Azure is creating the cluster, but this may take some time. You can now close this window,
          or wait for creation to complete so that we can configure the extension to use the cluster.</p>
-         <p><a id='nextlink' href='${initialUri}' onclick='promptWait()'>Wait and configure the extension &gt;</a></p>
+         <p><button type='submit' class='link-button' onclick='promptWait()'>Wait and configure the extension &gt;</button></p>
+         </form>
          </div>` :
         `<p class='error'>An error occurred while creating the cluster.</p>
          ${additionalDiagnostic}
@@ -224,14 +225,14 @@ async function createCluster(id: string, subscription: string, metadata: any, ag
 
 }
 
-async function waitForClusterAndReportConfigResult(id: string, metadata: any) : Promise<string> {
+async function waitForClusterAndReportConfigResult(previousData) : Promise<string> {
 
-    const waitResult = await waitForCluster(context, id, metadata.clusterName, metadata.resourceGroupName);
+    const waitResult = await waitForCluster(context, previousData.id, previousData.clusterame, previousData.resourcegroupname);
     if (!waitResult.succeeded) {
         return `<h1>Error creating cluster</h1><p>Error details: ${waitResult.error[0]}</p>`;
     }
 
-    const configureResult = await azure.configureCluster(context, id, metadata.clusterName, metadata.resourceGroupName);
+    const configureResult = await azure.configureCluster(context, previousData.id, previousData.clusterame, previousData.resourcegroupname);
 
     const title = configureResult.result.succeeded ? 'Configuration completed' : `Error ${configureResult.actionDescription}`;
     const configResult = configureResult.result.result;
