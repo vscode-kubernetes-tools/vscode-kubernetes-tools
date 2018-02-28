@@ -37,7 +37,7 @@ export interface YamlMatchedElement {
 /**
  * A yaml interpreter parse the yaml text and find the matched ast node from vscode location.
  */
- export class YamlLocator {
+export class YamlLocator {
     // a mapping of URIs to cached documents
     private _cache:{ [key:string]: YamlCachedDocuments; }  = {};
 
