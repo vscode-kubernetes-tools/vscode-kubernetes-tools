@@ -88,5 +88,4 @@ export class YamlLocator {
 // a global instance of yaml locator
 const yamlLocator = new YamlLocator();
 
-// yamlUtil contains the important util functions for handling with yaml elements
 export { yamlLocator };

@@ -42,7 +42,7 @@ export class HelmTemplateHoverProvider implements vscode.HoverProvider {
         if (this.notInAction(doc, pos, word)) {
             try {
                 // when the word is in value position, it should not pop up hovers, for example,
-                // the following yaml should pop up window for metadata
+                // the following yaml should not show pop up window for 'metadata'
                 // selector:
                 //  app: metadata
 
@@ -50,7 +50,7 @@ export class HelmTemplateHoverProvider implements vscode.HoverProvider {
                     return;
                 }
             } catch (ex) {
-                // ignore since the editing yaml may be able to parse
+                // ignore since the editing yaml may not be able to parse
             }
             let found = this.findResourceDef(word);
             if (found) {

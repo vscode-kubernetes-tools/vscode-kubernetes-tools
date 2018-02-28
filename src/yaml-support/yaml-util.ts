@@ -14,6 +14,6 @@ export function isPositionInKey(doc: vscode.TextDocument, pos: vscode.Position):
         return false;
     }
 
-    const {matchedNode} = yamlLocator.getMatchedElement(doc, pos);
+    const { matchedNode } = yamlLocator.getMatchedElement(doc, pos);
     return yamlUtil.isKey(matchedNode);
 }
