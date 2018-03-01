@@ -178,7 +178,7 @@ async function promptForAgentSettings(previousData: any) : Promise<string> {
             </p>
 
             <p>
-            <button type='submit' class='link-button'>Next &gt;</button>
+            <button type='submit' class='link-button'>Create cluster &gt;</button>
             </p>
             </form>
             </div>`;
@@ -210,7 +210,7 @@ async function createCluster(previousData: any) : Promise<string> {
          ${propagationFields(previousData)}
          <p class='success'>Azure is creating the cluster, but this may take some time. You can now close this window,
          or wait for creation to complete so that we can configure the extension to use the cluster.</p>
-         <p><button type='submit' class='link-button' onclick='promptWait()'>Wait and configure the extension &gt;</button></p>
+         <p><button type='submit' class='link-button'>Wait and configure the extension &gt;</button></p>
          </form>
          </div>` :
         `<p class='error'>An error occurred while creating the cluster.</p>
@@ -225,14 +225,35 @@ async function createCluster(previousData: any) : Promise<string> {
 
 }
 
-async function waitForClusterAndReportConfigResult(previousData) : Promise<string> {
+let refreshCount = 0;  // TODO: ugh
 
-    const waitResult = await waitForCluster(context, previousData.id, previousData.clusterame, previousData.resourcegroupname);
+function refreshorama() : string {
+    return ".".repeat(refreshCount % 4);
+}
+
+async function waitForClusterAndReportConfigResult(previousData: any) : Promise<string> {
+
+    ++refreshCount;
+
+    const waitResult = await waitForCluster(context, previousData.id, previousData.clustername, previousData.resourcegroupname);
     if (!waitResult.succeeded) {
         return `<h1>Error creating cluster</h1><p>Error details: ${waitResult.error[0]}</p>`;
     }
 
-    const configureResult = await azure.configureCluster(context, previousData.id, previousData.clusterame, previousData.resourcegroupname);
+    if (waitResult.result.stillWaiting) {
+        return `<h1>Waiting for cluster - this will take several minutes${refreshorama()}</h1>
+            <form id='form' action='create?step=wait' method='post'>
+            ${propagationFields(previousData)}
+            </form>
+            <script>
+            window.setTimeout(function() {
+                var f = document.getElementById('form');
+                f.submit();
+            }, 100)
+            </script>`;
+    }
+
+    const configureResult = await azure.configureCluster(context, previousData.id, previousData.clustername, previousData.resourcegroupname);
 
     const title = configureResult.result.succeeded ? 'Configuration completed' : `Error ${configureResult.actionDescription}`;
     const configResult = configureResult.result.result;
@@ -401,15 +422,19 @@ async function createClusterImpl(context: azure.Context, options: any) : Promise
     };
 }
 
-async function waitForCluster(context: azure.Context, clusterType: string, clusterName: string, clusterResourceGroup: string): Promise<Errorable<void>> {
+interface WaitResult {
+    readonly stillWaiting?: boolean;
+}
+
+async function waitForCluster(context: azure.Context, clusterType: string, clusterName: string, clusterResourceGroup: string): Promise<Errorable<WaitResult>> {
     const clusterCmd = azure.getClusterCommand(clusterType);
-    const waitCmd = `az ${clusterCmd} wait --created -n ${clusterName} -g ${clusterResourceGroup}`;
+    const waitCmd = `az ${clusterCmd} wait --created --timeout 15 -n ${clusterName} -g ${clusterResourceGroup} -o json`;
     const sr = await context.shell.exec(waitCmd);
 
     if (sr.code === 0) {
-        return { succeeded: true, result: null, error: [] };
+        return { succeeded: true, result: { stillWaiting: sr.stdout !== "" }, error: [] };
     } else {
-        return { succeeded: false, result: null, error: [sr.stderr] };
+        return { succeeded: false, result: { }, error: [sr.stderr] };
     }
 }
 
