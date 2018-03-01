@@ -55,17 +55,17 @@ export async function registerYamlSchemaSupport() {
         if (ext.id === VSCODE_YAML) {
             try {
                 yamlPlugin = await Promise.resolve(ext.activate());
-                if (!yamlPlugin) {
-                    console.log('vscode-yaml plugin doesn\'t expose the entry to register custom schema provider.');
-                    return;
-                }
+                break;
             } catch (error) {
                 console.log('Failed to activate the Yaml Extension: ' + error);
             }
             break;
         }
     }
-
+    if (!yamlPlugin) {
+        console.log('vscode-yaml plugin doesn\'t expose the entry to register custom schema provider.');
+        return;
+    }
     // register for kubernetes schema provider
     yamlPlugin.registerContributor('kubernetes', (resource) => {
         const textEditor = vscode.window.visibleTextEditors.find((editor) => editor.document.uri.toString() === resource);
