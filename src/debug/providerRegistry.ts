@@ -17,15 +17,16 @@ async function showProviderPick(): Promise<IDebugProvider> {
     const providerItems = supportedProviders.map((provider) => {
         return {
             label: provider.getDebuggerType(),
+            description: "",
             provider
         };
     });
     
-    const pickedProvider = await vscode.window.showQuickPick(<any[]> providerItems, { placeHolder: "Select the environment" });
+    const pickedProvider = await vscode.window.showQuickPick(<vscode.QuickPickItem[]> providerItems, { placeHolder: "Select the environment" });
     if (!pickedProvider) {
         return null;
     }
-    return pickedProvider.provider;
+    return (<any> pickedProvider).provider;
 }
 
 export async function getDebugProvider(baseImage?: string): Promise<IDebugProvider> {

@@ -23,7 +23,6 @@ interface ProxyResult {
 
 export interface IDebugSession {
     launch(workspaceFolder: vscode.WorkspaceFolder): Promise<void>;
-    attach(workspaceFolder: vscode.WorkspaceFolder, pod?: string): Promise<void>;
 }
 
 export class DebugSession implements IDebugSession {
@@ -72,12 +71,12 @@ export class DebugSession implements IDebugSession {
             let appName;
             try {
                 // Build/push docker image.
-                p.report({ message: "Building docker image..."});
+                p.report({ message: "Building Docker image..."});
                 const shellOpts = Object.assign({ }, shell.execOpts(), { cwd });
                 const imageName = await this.buildDockerImage(imagePrefix, shellOpts);
 
                 // Run docker image in k8s container.
-                p.report({ message: "Running docker image on Kubernetes..."});
+                p.report({ message: "Running Docker image on Kubernetes..."});
                 appName = await this.runAsDeployment(imageName, [portInfo.appPort, portInfo.debugPort], containerEnv);
 
                 // Find the running debug pod.
@@ -105,19 +104,8 @@ export class DebugSession implements IDebugSession {
         });
     }
 
-    /**
-     * In attach mode, the user should choose the running pod first, then the debugger will attach to it.
-     * 
-     * @param workspaceFolder the active workspace folder.
-     * @param pod the debug pod name.
-     */
-    public async attach(workspaceFolder: vscode.WorkspaceFolder, pod?: string): Promise<void> {
-        // TODO
-        return;
-    }
-
     private async buildDockerImage(imagePrefix: string, shellOpts: any): Promise<string> {
-        kubeChannel.showOutput("Starting to build/push docker image...", "Docker build/push");
+        kubeChannel.showOutput("Starting to build/push Docker image...", "Docker build/push");
         if (!imagePrefix) {
             // In order to allow local kubernetes cluster (e.g. minikube) to have access to local docker images,
             // need override docker-env before running docker build.
@@ -125,13 +113,13 @@ export class DebugSession implements IDebugSession {
             shellOpts.env = Object.assign({}, shellOpts.env, dockerEnv);
         }
         const imageName = await dockerUtils.buildAndPushDockerImage(dockerUtils.DockerClient.docker, shellOpts, imagePrefix);
-        kubeChannel.showOutput(`Finished building/pushing docker image ${imageName}.`);
+        kubeChannel.showOutput(`Finished building/pushing Docker image ${imageName}.`);
 
         return imageName;
     }
 
     private async runAsDeployment(image: string, exposedPorts: number[], containerEnv: any): Promise<string> {
-        kubeChannel.showOutput(`Starting to run image ${image} on kubernetes cluster...`, "Run on Kubernetes");
+        kubeChannel.showOutput(`Starting to run image ${image} on Kubernetes cluster...`, "Run on Kubernetes");
         const imageName = image.split(":")[0];
         const baseName = imageName.substring(imageName.lastIndexOf("/")+1);
         const deploymentName = `${baseName}-debug-${Date.now()}`;

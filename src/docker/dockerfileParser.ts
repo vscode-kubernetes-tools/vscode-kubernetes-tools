@@ -46,7 +46,7 @@ class RawDockerfile {
 }
 
 class Dockerfile implements IDockerfile {
-    private readonly dockerfile;
+    private readonly dockerfile: RawDockerfile;
 
     constructor(private readonly dockerfilePath: string) {
         this.dockerfile = new RawDockerfile(dockerfilePath);
@@ -57,7 +57,7 @@ class Dockerfile implements IDockerfile {
         if (fromEntries.length === 0) {
             return;
         }
-        const baseImageTag = fromEntries[0].args;
+        const baseImageTag = String(fromEntries[0].args);
         const baseImageID = baseImageTag.split(":")[0];
         const baseImageNameParts = baseImageTag.split("/");
         return baseImageNameParts[baseImageNameParts.length - 1].toLowerCase();

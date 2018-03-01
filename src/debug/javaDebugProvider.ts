@@ -60,7 +60,7 @@ export class JavaDebugProvider implements IDebugProvider {
 
         // Resolve the debug port.
         const matches = dockerfile.searchLaunchArgs(javaDebugOptsRegExp);
-        if (matches) {
+        if (matches && matches.length) {
             const addresses = matches[2].split("=")[1].split(":");
             rawDebugPortInfo = addresses[addresses.length - 1];
         } else if (dockerfile.searchLaunchArgs(/\$\{?JAVA_OPTS\}?/)) {
@@ -106,10 +106,5 @@ export class JavaDebugProvider implements IDebugProvider {
             debugPort: Number(rawDebugPortInfo),
             appPort: Number(rawAppPortInfo)
         };
-    }
-
-    public async resolvePortsFromContainer(kubectl: Kubectl, pod: string, container: string): Promise<PortInfo> {
-        //TODO
-        return null;
     }
 }
