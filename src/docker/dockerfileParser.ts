@@ -41,7 +41,7 @@ class RawDockerfile {
             }
         }
 
-        return null;
+        return [];
     }
 }
 

@@ -20,3 +20,10 @@ export async function installVscodeExtension(extensionId: string): Promise<boole
     }
     return false;
 }
+
+export function isNonEmptyArray(value: any[]): boolean {
+    if (value && value.length) {
+        return true;
+    }
+    return false;
+}
