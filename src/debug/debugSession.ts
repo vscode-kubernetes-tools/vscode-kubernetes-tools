@@ -21,12 +21,12 @@ interface ProxyResult {
     readonly proxyAppPort: number;
 }
 
-export interface IDebugService {
-    launchDebug(workspaceFolder: vscode.WorkspaceFolder): Promise<void>;
-    attachDebug(workspaceFolder: vscode.WorkspaceFolder, pod?: string): Promise<void>;
+export interface IDebugSession {
+    launch(workspaceFolder: vscode.WorkspaceFolder): Promise<void>;
+    attach(workspaceFolder: vscode.WorkspaceFolder, pod?: string): Promise<void>;
 }
 
-export class DebugService implements IDebugService {
+export class DebugSession implements IDebugSession {
     private debugProvider: IDebugProvider;
 
     constructor(private readonly kubectl: Kubectl) {
@@ -41,7 +41,7 @@ export class DebugService implements IDebugService {
      * 
      * @param workspaceFolder the active workspace folder.
      */
-    public async launchDebug(workspaceFolder: vscode.WorkspaceFolder): Promise<void> {
+    public async launch(workspaceFolder: vscode.WorkspaceFolder): Promise<void> {
         if (!workspaceFolder) {
             return;
         }
@@ -111,7 +111,7 @@ export class DebugService implements IDebugService {
      * @param workspaceFolder the active workspace folder.
      * @param pod the debug pod name.
      */
-    public async attachDebug(workspaceFolder: vscode.WorkspaceFolder, pod?: string): Promise<void> {
+    public async attach(workspaceFolder: vscode.WorkspaceFolder, pod?: string): Promise<void> {
         // TODO
         return;
     }
