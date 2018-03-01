@@ -19,9 +19,9 @@ export function loadSchema(schemaFile: string) {
             let groupKindNode = node[KUBERNETES_GROUP_VERSION_KIND];
             delete node[KUBERNETES_GROUP_VERSION_KIND];
             if (groupKindNode.length) {
-                groupKindNode.forEach((node) => {
-                    const apiVersion = ((node.Group ? node.Group + '/' : '') + node.Version);
-                    const kind = node.Kind;
+                groupKindNode.forEach((groupKindNodeItem) => {
+                    const apiVersion = ((groupKindNodeItem.Group ? groupKindNodeItem.Group + '/' : '') + groupKindNodeItem.Version);
+                    const kind = groupKindNodeItem.Kind;
                     _definitions[apiVersion + GROUP_VERSION_KIND_SEPARATOR + kind] = _definitions[name.toLowerCase()] = {
                         apiVersion,
                         name,
@@ -98,7 +98,9 @@ export async function registerYamlSchemaSupport() {
             return '';
         }
         if (_uri.path.includes('+')) {
-            const manifestRef = _uri.path.slice(1).split('+').map((r) => `"$ref": "kubernetes://manifest/${r}"`);
+            const manifestRef = _uri.path.slice(1).split('+').map((r) => {
+                return {$ref: `kubernetes://manifest/${r}`};
+            });
             return jsonToString({ oneOf: [...manifestRef] });
         }
         let manifestType = _uri.path.slice(1);
