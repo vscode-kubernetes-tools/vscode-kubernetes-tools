@@ -18,8 +18,8 @@ export function init(registry: clusterproviderregistry.ClusterProviderRegistry, 
         
         clusterServer.use(restify.plugins.queryParser(), restify.plugins.bodyParser());
         clusterServer.listen(clusterPort);
-        clusterServer.get('/create', handleGet);
-        clusterServer.post('/create', handlePost);
+        clusterServer.get('/create', handleGetCreate);
+        clusterServer.post('/create', handlePostCreate);
     
         registry.register({id: 'acs', displayName: "Azure Container Service", port: clusterPort});
         registry.register({id: 'aks', displayName: "Azure Kubernetes Service", port: clusterPort});
@@ -28,15 +28,15 @@ export function init(registry: clusterproviderregistry.ClusterProviderRegistry, 
     }
 }
 
-async function handleGet(request: restify.Request, response: restify.Response, next: restify.Next) {
-    await handleRequest(request, { id: request.query["id"] }, response, next);
+async function handleGetCreate(request: restify.Request, response: restify.Response, next: restify.Next) {
+    await handleCreate(request, { clusterType: request.query["clusterType"] }, response, next);
 }
 
-async function handlePost(request: restify.Request, response: restify.Response, next: restify.Next) {
-    await handleRequest(request, request.body, response, next);
+async function handlePostCreate(request: restify.Request, response: restify.Response, next: restify.Next) {
+    await handleCreate(request, request.body, response, next);
 }
 
-async function handleRequest(request: restify.Request, requestData: any, response: restify.Response, next: restify.Next) {
+async function handleCreate(request: restify.Request, requestData: any, response: restify.Response, next: restify.Next) {
     const html = await getHandleCreateHtml(request.query["step"], requestData);
 
     response.contentType = 'text/html';
@@ -124,7 +124,7 @@ async function promptForSubscription(previousData: any) : Promise<string> {
 }
 
 async function promptForMetadata(previousData: any) : Promise<string> {
-    const serviceLocations = previousData.id === 'acs' ?
+    const serviceLocations = previousData.clusterType === 'acs' ?
         await listAcsLocations(context) :
         await listAksLocations(context);
 
@@ -187,7 +187,7 @@ async function promptForAgentSettings(previousData: any) : Promise<string> {
 async function createCluster(previousData: any) : Promise<string> {
 
     const options = {
-        clusterType: previousData.id,
+        clusterType: previousData.clusterType,
         subscription: previousData.subscription,
         metadata: {
             location: previousData.location,
@@ -235,7 +235,7 @@ async function waitForClusterAndReportConfigResult(previousData: any) : Promise<
 
     ++refreshCount;
 
-    const waitResult = await waitForCluster(context, previousData.id, previousData.clustername, previousData.resourcegroupname);
+    const waitResult = await waitForCluster(context, previousData.clusterType, previousData.clustername, previousData.resourcegroupname);
     if (!waitResult.succeeded) {
         return `<h1>Error creating cluster</h1><p>Error details: ${waitResult.error[0]}</p>`;
     }
@@ -253,7 +253,7 @@ async function waitForClusterAndReportConfigResult(previousData: any) : Promise<
             </script>`;
     }
 
-    const configureResult = await azure.configureCluster(context, previousData.id, previousData.clustername, previousData.resourcegroupname);
+    const configureResult = await azure.configureCluster(context, previousData.clusterType, previousData.clustername, previousData.resourcegroupname);
 
     const title = configureResult.result.succeeded ? 'Configuration completed' : `Error ${configureResult.actionDescription}`;
     const configResult = configureResult.result.result;
@@ -446,32 +446,4 @@ function diagnoseCreationError(e: Errorable<any>) : string {
         return '<p>You may be using an older version of the Azure CLI. Check Azure CLI version is 2.0.23 or above.<p>';
     }
     return '';
-}
-
-function selectionChangedScriptMulti(baseUri: string, queryId: string, mappings: ControlMapping[]) : string {
-    let gatherRequestJs = "";
-    for (const mapping of mappings) {
-        const ctrlName : string = mapping.ctrlName;
-        const extractVal : string = mapping.extractVal;
-        const jsonKey : string = mapping.jsonKey;
-        const mappingJs = `
-    var ${jsonKey}Ctrl = document.getElementById('${ctrlName}');
-    var ${jsonKey}Value = ${extractVal};
-    selection = selection + '\\"${jsonKey}\\":\\"' + ${jsonKey}Value + '\\",';
-`;
-        gatherRequestJs = gatherRequestJs + mappingJs;
-    }
-
-    const js = `
-function selectionChanged() {
-    var selection = "{";
-    ${gatherRequestJs}
-    selection = selection.slice(0, -1) + "}";
-    document.getElementById('nextlink').href = encodeURI('${baseUri}' + "&${queryId}=" + selection);
-    var u = document.getElementById('uri');
-    if (u) { u.innerText = document.getElementById('nextlink').href; }
-}
-`;
-
-    return script(js);
 }

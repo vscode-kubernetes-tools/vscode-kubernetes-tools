@@ -21,8 +21,8 @@ export function init() {
 
 function handleGetProviderListHtml(request: restify.Request, response: restify.Response, next: restify.Next) {
     const clusterTypes = clusterproviderregistry.get().list();
-    const initialUri = `http://localhost:${clusterTypes[0].port}/create?id=${clusterTypes[0].id}`;
-    const options = clusterTypes.map((cp) => `<option value="http://localhost:${cp.port}/create?id=${cp.id}">${cp.displayName}</option>`).join('\n');
+    const initialUri = `http://localhost:${clusterTypes[0].port}/create?clusterType=${clusterTypes[0].id}`;
+    const options = clusterTypes.map((cp) => `<option value="http://localhost:${cp.port}/create?clusterType=${cp.id}">${cp.displayName}</option>`).join('\n');
 
     const selectionChangedScript = script(`
     function selectionChanged() {
