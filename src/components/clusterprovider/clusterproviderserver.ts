@@ -19,6 +19,10 @@ export function init() {
     }
 }
 
+export function url() {
+    return `http://localhost:${cpPort}/`;
+}
+
 function handleGetProviderListHtml(request: restify.Request, response: restify.Response, next: restify.Next) {
     const clusterTypes = clusterproviderregistry.get().list();
     const initialUri = `http://localhost:${clusterTypes[0].port}/create?clusterType=${clusterTypes[0].id}`;

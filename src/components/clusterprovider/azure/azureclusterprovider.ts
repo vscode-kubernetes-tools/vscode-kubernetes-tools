@@ -4,6 +4,7 @@ import * as azure from '../../../azure';
 import { Errorable, ControlMapping, script, styles, waitScript } from '../../../wizard';
 import { agent } from 'spdy';
 
+// TODO: de-globalise
 let clusterServer : restify.Server;
 const clusterPort = 44011;
 let context : azure.Context;

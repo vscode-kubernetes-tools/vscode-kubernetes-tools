@@ -53,7 +53,7 @@ let swaggerSpecPromise = null;
 const kubectl = kubectlCreate(host, fs, shell);
 const draft = draftCreate(host, fs, shell);
 const configureFromClusterUI = configureFromCluster.uiProvider(fs, shell);
-const createClusterUI = createCluster.uiProvider(fs, shell);
+const createClusterUI = createCluster.uiProvider();
 const clusterProviderRegistry = clusterproviderregistry.get();
 
 const deleteMessageItems: vscode.MessageItem[] = [
@@ -1401,19 +1401,9 @@ async function configureFromClusterKubernetes(request? : WizardUIRequest) {
     }
 }
 
-async function createClusterKubernetes(request? : WizardUIRequest) {
-
+async function createClusterKubernetes() {
     const newId : string = uuid.v4();
     vscode.commands.executeCommand('vscode.previewHtml', createCluster.operationUri(newId), 2, "Create Kubernetes Cluster");
-
-    // if (request) {
-    //     await createClusterUI.next(request);
-    // } else {
-    //     const newId : string = uuid.v4();
-    //     createClusterUI.start(newId);
-    //     vscode.commands.executeCommand('vscode.previewHtml', createCluster.operationUri(newId), 2, "Create Kubernetes Cluster");
-    //     await createClusterUI.next({ operationId: newId, requestData: undefined });
-    // }
 }
 
 async function useContextKubernetes(explorerNode: explorer.KubernetesObject) {
