@@ -21,9 +21,11 @@ export function init(registry: clusterproviderregistry.ClusterProviderRegistry, 
         clusterServer.listen(clusterPort);
         clusterServer.get('/create', handleGetCreate);
         clusterServer.post('/create', handlePostCreate);
+        clusterServer.get('/configure', handleGetConfigure);
+        clusterServer.post('/configure', handlePostConfigure);
     
-        registry.register({id: 'acs', displayName: "Azure Container Service", port: clusterPort});
-        registry.register({id: 'aks', displayName: "Azure Kubernetes Service", port: clusterPort});
+        registry.register({id: 'acs', displayName: "Azure Container Service", port: clusterPort, supportedActions: ['create','configure']});
+        registry.register({id: 'aks', displayName: "Azure Kubernetes Service", port: clusterPort, supportedActions: ['create','configure']});
 
         context = ctx;
     }
@@ -37,6 +39,14 @@ async function handlePostCreate(request: restify.Request, response: restify.Resp
     await handleCreate(request, request.body, response, next);
 }
 
+async function handleGetConfigure(request: restify.Request, response: restify.Response, next: restify.Next) {
+    await handleConfigure(request, { clusterType: request.query["clusterType"] }, response, next);
+}
+
+async function handlePostConfigure(request: restify.Request, response: restify.Response, next: restify.Next) {
+    await handleConfigure(request, request.body, response, next);
+}
+
 async function handleCreate(request: restify.Request, requestData: any, response: restify.Response, next: restify.Next) {
     const html = await getHandleCreateHtml(request.query["step"], requestData);
 
@@ -46,9 +56,19 @@ async function handleCreate(request: restify.Request, requestData: any, response
     next();
 }
 
+// TODO: oh the duplication
+async function handleConfigure(request: restify.Request, requestData: any, response: restify.Response, next: restify.Next) {
+    const html = await getHandleConfigureHtml(request.query["step"], requestData);
+
+    response.contentType = 'text/html';
+    response.send("<html><body><style id='styleholder'></style>" + html + "</body></html>");
+    
+    next();
+}
+
 async function getHandleCreateHtml(step: string | undefined, requestData: any | undefined): Promise<string> {
     if (!step) {
-        return await promptForSubscription(requestData);
+        return await promptForSubscription(requestData, "create", "metadata");
     } else if (step === "metadata") {
         return await promptForMetadata(requestData);
     } else if (step === "agentSettings") {
@@ -57,6 +77,14 @@ async function getHandleCreateHtml(step: string | undefined, requestData: any | 
         return await createCluster(requestData);
     } else if (step === "wait") {
         return await waitForClusterAndReportConfigResult(requestData);
+    }
+}
+
+async function getHandleConfigureHtml(step: string | undefined, requestData: any | undefined): Promise<string> {
+    if (!step) {
+        return await promptForSubscription(requestData, "configure", "biscuits");
+    } else if (step === "biscuits") {
+        return "<h1>TBD</h1>";
     }
 }
 
@@ -95,7 +123,7 @@ function propagationFields(previousData: any) : string {
     return formFields;
 }
 
-async function promptForSubscription(previousData: any) : Promise<string> {
+async function promptForSubscription(previousData: any, action: clusterproviderregistry.ClusterProviderAction, nextStep: string) : Promise<string> {
     const slr = await azure.getSubscriptionList(context, previousData.id);
     if (!slr.result.succeeded) {
         return `<h1>Error ${slr.actionDescription}</h1><p>Error details: ${slr.result.error[0]}</p>`;
@@ -107,7 +135,6 @@ async function promptForSubscription(previousData: any) : Promise<string> {
         return `<h1>You have no Azure subscriptions</h1>`;
     }
 
-
     const options = subscriptions.map((s) => `<option value="${s}">${s}</option>`).join('\n');
     return `<!-- PromptForSubscription -->
             <h1 id='h'>Choose subscription</h1>
@@ -115,7 +142,7 @@ async function promptForSubscription(previousData: any) : Promise<string> {
             ${styles()}
             ${waitScript('Contacting Microsoft Azure')}
             <div id='content'>
-            <form id='form' action='create?step=metadata' method='post' onsubmit='return promptWait();'>
+            <form id='form' action='${action}?step=${nextStep}' method='post' onsubmit='return promptWait();'>
             ${propagationFields(previousData)}
             <p>
             Azure subscription: <select name='subscription' id='selector'>

@@ -52,7 +52,7 @@ let swaggerSpecPromise = null;
 
 const kubectl = kubectlCreate(host, fs, shell);
 const draft = draftCreate(host, fs, shell);
-const configureFromClusterUI = configureFromCluster.uiProvider(fs, shell);
+const configureFromClusterUI = configureFromCluster.uiProvider();
 const createClusterUI = createCluster.uiProvider();
 const clusterProviderRegistry = clusterproviderregistry.get();
 
@@ -1390,15 +1390,9 @@ function removeDebugKubernetes() {
     });
 }
 
-async function configureFromClusterKubernetes(request? : WizardUIRequest) {
-    if (request) {
-        await configureFromClusterUI.next(request);
-    } else {
-        const newId : string = uuid.v4();
-        configureFromClusterUI.start(newId);
-        vscode.commands.executeCommand('vscode.previewHtml', configureFromCluster.operationUri(newId), 2, "Configure Kubernetes");
-        await configureFromClusterUI.next({ operationId: newId, requestData: undefined });
-    }
+async function configureFromClusterKubernetes() {
+    const newId : string = uuid.v4();
+    vscode.commands.executeCommand('vscode.previewHtml', configureFromCluster.operationUri(newId), 2, "Configure Kubernetes");
 }
 
 async function createClusterKubernetes() {

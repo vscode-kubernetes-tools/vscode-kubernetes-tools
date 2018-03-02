@@ -5,7 +5,7 @@ import { styles, script, waitScript } from '../../wizard';
 let cpServer : restify.Server;
 const cpPort = 44010;
 
-export function init() {
+export function init() : void {
     if (!cpServer) {
         cpServer = restify.createServer({
             formatters: {
@@ -15,18 +15,41 @@ export function init() {
 
         cpServer.use(restify.plugins.queryParser());
         cpServer.listen(cpPort);
-        cpServer.get('/', handleGetProviderListHtml);
+        cpServer.get('/', handleGetProviderList);
     }
 }
 
-export function url() {
-    return `http://localhost:${cpPort}/`;
+export function url(action: clusterproviderregistry.ClusterProviderAction) : string {
+    return `http://localhost:${cpPort}/?action=${action}`;
 }
 
-function handleGetProviderListHtml(request: restify.Request, response: restify.Response, next: restify.Next) {
-    const clusterTypes = clusterproviderregistry.get().list();
-    const initialUri = `http://localhost:${clusterTypes[0].port}/create?clusterType=${clusterTypes[0].id}`;
-    const options = clusterTypes.map((cp) => `<option value="http://localhost:${cp.port}/create?clusterType=${cp.id}">${cp.displayName}</option>`).join('\n');
+function handleGetProviderList(request: restify.Request, response: restify.Response, next: restify.Next) : void {
+    const action = request.query["action"];
+
+    const html = handleGetProviderListHtml(action);
+
+    response.contentType = 'text/html';
+    response.send(html);
+    next();
+}
+
+function handleGetProviderListHtml(action: clusterproviderregistry.ClusterProviderAction) : string {
+    const clusterTypes = clusterproviderregistry.get().list().filter((cp) => cp.supportedActions.indexOf(action) >= 0);
+
+    if (clusterTypes.length === 0) {
+        return `<html><body><h1 id='h'>No suitable providers</h1>
+            <style id='styleholder'>
+            </style>
+            ${styles()}
+            <div id='content'>
+            <p>There aren't any providers loaded that support this command.
+            You could try looking for Kubernetes providers in the Visual Studio
+            Code Marketplace.</p>
+            </div></body></html>`;
+    }
+
+    const initialUri = `http://localhost:${clusterTypes[0].port}/${action}?clusterType=${clusterTypes[0].id}`;
+    const options = clusterTypes.map((cp) => `<option value="http://localhost:${cp.port}/${action}?clusterType=${cp.id}">${cp.displayName}</option>`).join('\n');
 
     const selectionChangedScript = script(`
     function selectionChanged() {
@@ -54,7 +77,5 @@ function handleGetProviderListHtml(request: restify.Request, response: restify.R
             </p>
             </div></body></html>`;
 
-    response.contentType = 'text/html';
-    response.send(html);
-    next();
+    return html;
 }
