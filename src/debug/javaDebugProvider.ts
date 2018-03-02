@@ -68,10 +68,12 @@ export class JavaDebugProvider implements IDebugProvider {
             env["JAVA_OPTS"] = defaultJavaDebugOpts;
             rawDebugPortInfo = defaultJavaDebugPort;
         }
+
         // Cannot resolve the debug port from Dockerfile, then ask user to specify it.
         if (!rawDebugPortInfo) {
             rawDebugPortInfo = await debugUtils.promptForDebugPort(defaultJavaDebugPort);
         }
+
         if (!rawDebugPortInfo) {
             return;
         }
@@ -80,23 +82,7 @@ export class JavaDebugProvider implements IDebugProvider {
         const exposedPorts = dockerfile.getExposedPorts();
         if (exposedPorts.length) {
             const possiblePorts = exposedPorts.filter((port) => port !== rawDebugPortInfo);
-            if (possiblePorts.length === 1) {
-                rawAppPortInfo = possiblePorts[0];
-            } else if (possiblePorts.length > 1) {
-                rawAppPortInfo = await vscode.window.showQuickPick(possiblePorts, { placeHolder: "Choose the application port you want to expose for debugging." });
-            }
-            // If the exposed port is a variable, then need set it in environment variables.
-            const portRegExp = /\$\{?(\w+)\}?/;
-            if (portRegExp.test(rawAppPortInfo)) {
-                const varName = rawAppPortInfo.match(portRegExp)[1];
-                if (rawAppPortInfo.trim() === `$${varName}` || rawAppPortInfo.trim() === `\${${varName}}`) {
-                    env[varName] = defaultJavaAppPort;
-                    rawAppPortInfo = defaultJavaAppPort;
-                } else {
-                    vscode.window.showErrorMessage(`Invalid port variable ${rawAppPortInfo} in the docker file.`);
-                    return;
-                }
-            }
+            rawAppPortInfo = await debugUtils.promptForAppPort(possiblePorts, defaultJavaAppPort, env);
         }
 
         return {
@@ -107,32 +93,14 @@ export class JavaDebugProvider implements IDebugProvider {
 
     public async resolvePortsFromContainer(kubectl: Kubectl, pod: string, container: string): Promise<PortInfo> {
         let rawDebugPortInfo: string;
-
-        const execCmd = `exec ${pod} ${container ? "-c ${selectedContainer}" : ""} -- ps -ef`;
-        const execResult = await kubectl.invokeAsync(execCmd);
-        if (execResult.code === 0) {
-            /**
-             * PID   USER     TIME   COMMAND
-             *  1    root     2:09   java -Djava.security.egd=file:/dev/./urandom -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=1044,quiet=y -jar target/app.jar
-             * 44    root     0:00   sh
-             * 48    root     0:00   ps -ef
-             */
-            const ps = execResult.stdout.split("\n");
-            const columnCount = ps[0].trim().split(/\s+/).length;
-            for (let i = 1; i < ps.length; i++) {
-                const cols = ps[i].trim().split(/\s+/);
-                if (cols.length < columnCount) {
-                    continue;
-                }
-                const cmd = cols.slice(columnCount - 1, cols.length).join(" ");
-                const matches = cmd.match(fullJavaDebugOptsRegExp);
-                if (extensionUtils.isNonEmptyArray(matches)) {
-                    const addressArgs = matches[2];
-                    const value = addressArgs.split("=")[1];
-                    const fields = value.split(":");
-                    rawDebugPortInfo = fields[fields.length - 1];
-                    break;
-                }
+        const commandLines = await debugUtils.getCommandsOfProcesses(kubectl, pod, container);
+        for (const commandLine of commandLines) {
+            // java -Djava.security.egd=file:/dev/./urandom -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=1044,quiet=y -jar target/app.jar
+            const matches = commandLine.match(fullJavaDebugOptsRegExp);
+            if (extensionUtils.isNonEmptyArray(matches)) {
+                const addresses = matches[2].split("=")[1].split(":");
+                rawDebugPortInfo = addresses[addresses.length - 1];
+                break;
             }
         }
 
@@ -141,8 +109,7 @@ export class JavaDebugProvider implements IDebugProvider {
         }
 
         return {
-            debugPort: Number(rawDebugPortInfo),
-            appPort: 0
+            debugPort: Number(rawDebugPortInfo)
         };
     }
 }

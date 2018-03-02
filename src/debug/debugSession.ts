@@ -52,10 +52,8 @@ export class DebugSession implements IDebugSession {
             return;
         }
         const dockerfile = new DockerfileParser().parse(dockerfilePath);
-        this.debugProvider = await providerRegistry.getDebugProvider(dockerfile.getBaseImage());
+        this.debugProvider = await this.pickupAndInstallDebugProvider(dockerfile.getBaseImage());
         if (!this.debugProvider) {
-            return;
-        } else if (!await this.debugProvider.isDebuggerInstalled()) {
             return;
         }
 
@@ -117,10 +115,8 @@ export class DebugSession implements IDebugSession {
         }
 
         // Select the image type to attach.
-        this.debugProvider = await providerRegistry.getDebugProvider();
+        this.debugProvider = await this.pickupAndInstallDebugProvider();
         if (!this.debugProvider) {
-            return;
-        } else if (!await this.debugProvider.isDebuggerInstalled()) {
             return;
         }
 
@@ -130,6 +126,7 @@ export class DebugSession implements IDebugSession {
         if (!resource) {
             return;
         }
+
         if (pod) {
             containers = resource.spec.containers;
         } else {
@@ -141,10 +138,12 @@ export class DebugSession implements IDebugSession {
                     containers: pod.spec.containers
                 };
             });
+
             const selectedPod = await vscode.window.showQuickPick(podPickItems, { placeHolder: `Please select a pod to attach` });
             if (!selectedPod) {
                 return;
             }
+
             targetPod = (<any> selectedPod).name;
             containers = (<any> selectedPod).containers;
         }
@@ -158,10 +157,12 @@ export class DebugSession implements IDebugSession {
                     name: container.name
                 };
             });
+
             const selectedContainer = await vscode.window.showQuickPick(containerPickItems, { placeHolder: "Please select a container to attach" });
             if (!selectedContainer) {
                 return;
             }
+
             targetContainer = (<any> selectedContainer).name;
         }
 
@@ -186,6 +187,17 @@ export class DebugSession implements IDebugSession {
                 kubeChannel.showOutput(`Debug on Kubernetes failed. The errors were: ${error}.`);
             }
         });
+    }
+
+    private async pickupAndInstallDebugProvider(baseImage?: string): Promise<IDebugProvider | undefined> {
+        let debugProvider: IDebugProvider = await providerRegistry.getDebugProvider();
+        if (!debugProvider) {
+            return;
+        } else if (!await debugProvider.isDebuggerInstalled()) {
+            return;
+        }
+
+        return debugProvider;
     }
 
     private async buildDockerImage(imagePrefix: string, shellOpts: any): Promise<string> {

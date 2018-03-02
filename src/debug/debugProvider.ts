@@ -6,7 +6,7 @@ import { IDockerfile } from "../docker/parser";
 
 export interface PortInfo {
     readonly debugPort: number;
-    readonly appPort: number;
+    readonly appPort?: number;
 }
 
 export interface IDebugProvider {
