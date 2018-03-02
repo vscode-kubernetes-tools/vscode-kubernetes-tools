@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { Kubectl } from "./kubectl";
 import { kubeChannel } from "./kubeChannel";
+import { sleep } from "./sleep";
 
 export interface Cluster {
     readonly name: string;
@@ -14,6 +15,11 @@ export interface Namespace {
     readonly active: boolean;
 }
 
+export interface ClusterConfig {
+    readonly server: string;
+    readonly certificateAuthority: string;
+}
+
 async function getKubeconfig(kubectl: Kubectl): Promise<any> {
     const shellResult = await kubectl.invokeAsync("config view -o json");
     if (shellResult.code !== 0) {
@@ -21,6 +27,19 @@ async function getKubeconfig(kubectl: Kubectl): Promise<any> {
         return null;
     }
     return JSON.parse(shellResult.stdout);
+}
+
+export async function getCurrentClusterConfig(kubectl: Kubectl): Promise<ClusterConfig | undefined> {
+    const kubeConfig = await getKubeconfig(kubectl);
+    if (!kubeConfig) {
+        return undefined;
+    }
+    const contextConfig = kubeConfig.contexts.find((context) => context.name === kubeConfig["current-context"]);
+    const clusterConfig = kubeConfig.clusters.find((cluster) => cluster.name === contextConfig.context.cluster);
+    return {
+        server: clusterConfig.cluster.server,
+        certificateAuthority: clusterConfig.cluster["certificate-authority"]
+    };
 }
 
 export async function getClusters(kubectl: Kubectl): Promise<Cluster[]> {
@@ -110,4 +129,86 @@ export async function switchNamespace(kubectl: Kubectl, namespace: string): Prom
         return false;
     }
     return true;
+}
+
+/**
+ * Run the specified image in the kubernetes cluster.
+ * 
+ * @param kubectl the kubectl client.
+ * @param deploymentName the deployment name.
+ * @param image the docker image.
+ * @param exposedPorts the exposed ports.
+ * @param env the additional environment variables when running the docker container.
+ * @return the deployment name.
+ */
+export async function runAsDeployment(kubectl: Kubectl, deploymentName: string, image: string, exposedPorts: number[], env: any): Promise<string> {
+    let imageName = image.split(":")[0];
+    let imagePrefix = imageName.substring(0, imageName.lastIndexOf("/")+1);
+    if (!deploymentName) {
+        let baseName = imageName.substring(imageName.lastIndexOf("/")+1);
+        const deploymentName = `${baseName}-${Date.now()}`;
+    }
+    let runCmd = [
+        "run",
+        deploymentName,
+        `--image=${image}`,
+        imagePrefix ? "" : "--image-pull-policy=Never",
+        ...exposedPorts.map((port) => `--port=${port}`),
+        ...Object.keys(env || {}).map((key) => `--env="${key}=${env[key]}"`)
+    ];
+    const runResult = await kubectl.invokeAsync(runCmd.join(" "));
+    if (runResult.code !== 0) {
+        throw new Error(`Failed to run the image "${image}" on Kubernetes: ${runResult.stderr}`);
+    }
+    return deploymentName;
+}
+
+/**
+ * Query the pod list for the specified label.
+ * 
+ * @param kubectl the kubectl client.
+ * @param labelQuery the query label.
+ * @return the pod list.
+ */
+export async function findPodsByLabel(kubectl: Kubectl, labelQuery: string): Promise<any> {
+    const getResult = await kubectl.invokeAsync(`get pods -o json -l ${labelQuery}`);
+    if (getResult.code !== 0) {
+        throw new Error('Kubectl command failed: ' + getResult.stderr);
+    }
+    try {
+        return JSON.parse(getResult.stdout);
+    } catch (ex) {
+        throw new Error('unexpected error: ' + ex);
+    }
+}
+
+/**
+ * Wait and block until the specified pod's status becomes running.
+ * 
+ * @param kubectl the kubectl client.
+ * @param podName the pod name.
+ */
+export async function waitForRunningPod(kubectl: Kubectl, podName: string): Promise<void> {
+    while (true) {
+        const shellResult = await kubectl.invokeAsync(`get pod/${podName} --no-headers`);
+        if (shellResult.code !== 0) {
+            throw new Error(`Failed to get pod status: ${shellResult.stderr}`);
+        }
+        const status = shellResult.stdout.split(/\s+/)[2];
+        kubeChannel.showOutput(`pod/${podName} status: ${status}`);
+        if (status === "Running") {
+            return;
+        } else if (!isTransientPodState(status)) {
+            const logsResult = await kubectl.invokeAsync(`logs pod/${podName}`);
+            kubeChannel.showOutput(`Failed to start the pod "${podName}". Its status is "${status}".
+                Pod logs:\n${logsResult.code === 0 ? logsResult.stdout : logsResult.stderr}`);
+            throw new Error(`Failed to start the pod "${podName}". Its status is "${status}".`);
+        }
+    
+        await sleep(1000);
+    }
+}
+
+function isTransientPodState(status: string): boolean {
+    return status === "ContainerCreating" || status === "Pending" || status === "Succeeded";
 }
