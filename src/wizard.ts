@@ -106,7 +106,7 @@ export function waitScript(title: string) : string {
     const js = `
 function promptWait() {
     document.getElementById('h').innerText = '${title}';
-    document.getElementById('content').innerText = '';
+    document.getElementById('content').style.visibility = 'hidden';
 }
 `;
     return script(js);

@@ -38,6 +38,14 @@ function renderPromptForClusterType() : string {
                 height: 100%;
                 border: 0px;
             }
+            .vscode-light #theme-canary {
+                display: none;
+                visibility: hidden;
+            }
+            .vscode-dark #theme-canary {
+                display: none;
+                visibility: visible;
+            }
         </style>
         <script>
         function styleme() {
@@ -46,10 +54,15 @@ function renderPromptForClusterType() : string {
             var contentFrame = document.getElementById('contentFrame');
             var embeddedDocStyles = contentFrame.contentDocument.getElementById('styleholder');
             embeddedDocStyles.textContent = vscodeStyles.textContent;
+            var b = document.getElementById('theme-canary');
+            var canary = window.getComputedStyle(b).visibility;
+            var theme = (canary === 'hidden') ? 'vscode-light' : 'vscode-dark';
+            contentFrame.contentDocument.body.setAttribute('class', theme);
         }
         </script>
     </head>
     <body>
+        <p id='theme-canary'>Theme canary - if you see this, it's a bug</p>
         <iframe id='contentFrame' src='${clusterproviderserver.url()}' onload='styleme()' />
     </body>
     </html>`;

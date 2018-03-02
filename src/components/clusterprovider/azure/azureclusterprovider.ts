@@ -72,6 +72,12 @@ function formStyles() : string {
         font-size: 1em;
         font-family: sans-serif;
     }
+    .vscode-light .link-button {
+        color: navy;
+    }
+    .vscode-dark .link-button {
+        color: azure;
+    }
     .link-button:focus {
         outline: none;
     }
@@ -106,8 +112,10 @@ async function promptForSubscription(previousData: any) : Promise<string> {
     return `<!-- PromptForSubscription -->
             <h1 id='h'>Choose subscription</h1>
             ${formStyles()}
+            ${styles()}
+            ${waitScript('Contacting Microsoft Azure')}
             <div id='content'>
-            <form id='form' action='create?step=metadata' method='post'>
+            <form id='form' action='create?step=metadata' method='post' onsubmit='return promptWait();'>
             ${propagationFields(previousData)}
             <p>
             Azure subscription: <select name='subscription' id='selector'>
@@ -138,8 +146,10 @@ async function promptForMetadata(previousData: any) : Promise<string> {
     return `<!-- PromptForMetadata -->
             <h1 id='h'>Azure cluster settings</h1>
             ${formStyles()}
+            ${styles()}
+            ${waitScript("Contacting Microsoft Azure")}
             <div id='content'>
-            <form id='form' action='create?step=agentSettings' method='post'>
+            <form id='form' action='create?step=agentSettings' method='post' onsubmit='return promptWait();'>
             ${propagationFields(previousData)}
             <p>Cluster name: <input name='clustername' type='text' value='k8scluster' />
             <p>Resource group name: <input name='resourcegroupname' type='text' value='k8scluster' />
@@ -168,8 +178,10 @@ async function promptForAgentSettings(previousData: any) : Promise<string> {
     return `<!-- PromptForAgentSettings -->
             <h1 id='h'>Azure agent settings</h1>
             ${formStyles()}
+            ${styles()}
+            ${waitScript('Contacting Microsoft Azure')}
             <div id='content'>
-            <form id='form' action='create?step=create' method='post'>
+            <form id='form' action='create?step=create' method='post' onsubmit='return promptWait();'>
             ${propagationFields(previousData)}
             <p>Agent count: <input name='agentcount' type='text' value='3'/>
             <p>
@@ -207,7 +219,9 @@ async function createCluster(previousData: any) : Promise<string> {
     const message = createResult.result.succeeded ?
         `<div id='content'>
          ${formStyles()}
-         <form id='form' action='create?step=wait' method='post'>
+         ${styles()}
+         ${waitScript('Contacting Microsoft Azure')}
+         <form id='form' action='create?step=wait' method='post' onsubmit='return promptWait();'>
          ${propagationFields(previousData)}
          <p class='success'>Azure is creating the cluster, but this may take some time. You can now close this window,
          or wait for creation to complete so that we can configure the extension to use the cluster.</p>

@@ -1,6 +1,6 @@
 import * as restify from 'restify';
 import * as clusterproviderregistry from './clusterproviderregistry';
-import { styles, script } from '../../wizard';
+import { styles, script, waitScript } from '../../wizard';
 
 let cpServer : restify.Server;
 const cpPort = 44010;
@@ -41,6 +41,7 @@ function handleGetProviderListHtml(request: restify.Request, response: restify.R
             </style>
             ${styles()}
             ${selectionChangedScript}
+            ${waitScript('Loading provider')}
             <div id='content'>
             <p>
             Cluster type: <select id='selector' onchange='selectionChanged()'>
@@ -49,7 +50,7 @@ function handleGetProviderListHtml(request: restify.Request, response: restify.R
             </p>
 
             <p>
-            <a id='nextlink' href='${initialUri}'>Next &gt;</a>
+            <a id='nextlink' href='${initialUri}' onclick='promptWait()'>Next &gt;</a>
             </p>
             </div></body></html>`;
 
