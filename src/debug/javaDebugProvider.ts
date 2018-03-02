@@ -107,4 +107,49 @@ export class JavaDebugProvider implements IDebugProvider {
             appPort: Number(rawAppPortInfo)
         };
     }
+
+    public async resolvePortsFromContainer(kubectl: Kubectl, pod: string, container: string): Promise<PortInfo> {
+        let rawDebugPortInfo: string;
+
+        const execCmd = `exec ${pod} ${container ? "-c ${selectedContainer}" : ""} -- ps -ef`;
+        const execResult = await kubectl.invokeAsync(execCmd);
+        if (execResult.code === 0) {
+            /**
+             * PID   USER     TIME   COMMAND
+             *  1    root     2:09   java -Djava.security.egd=file:/dev/./urandom -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=1044,quiet=y -jar target/app.jar
+             * 44    root     0:00   sh
+             * 48    root     0:00   ps -ef
+             */
+            const ps = execResult.stdout.split("\n");
+            const columnCount = ps[0].trim().split(/\s+/).length;
+            for (let i = 1; i < ps.length; i++) {
+                const cols = ps[i].trim().split(/\s+/);
+                if (cols.length < columnCount) {
+                    continue;
+                }
+                const cmd = cols.slice(columnCount - 1, cols.length).join(" ");
+                const matches = cmd.match(fullJavaDebugOptsRegExp);
+                if (extensionUtils.isNonEmptyArray(matches)) {
+                    const addressArgs = matches[2];
+                    const value = addressArgs.split("=")[1];
+                    const fields = value.split(":");
+                    rawDebugPortInfo = fields[fields.length - 1];
+                    break;
+                }
+            }
+        }
+
+        if (!rawDebugPortInfo) {
+            const input = await vscode.window.showInputBox({
+                prompt: `Please specify debug port exposed for debugging (e.g. 5005)`,
+                placeHolder: defaultJavaDebugPort
+            });
+            rawDebugPortInfo = (input ? input.trim() : null);
+        }
+
+        return {
+            debugPort: Number(rawDebugPortInfo),
+            appPort: 0
+        };
+    }
 }
