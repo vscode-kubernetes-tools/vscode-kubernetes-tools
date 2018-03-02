@@ -212,3 +212,19 @@ export async function waitForRunningPod(kubectl: Kubectl, podName: string): Prom
 function isTransientPodState(status: string): boolean {
     return status === "ContainerCreating" || status === "Pending" || status === "Succeeded";
 }
+
+/**
+ * Get the specified resource information.
+ *
+ * @param kubectl the kubectl client.
+ * @param resourceId the resource id.
+ * @return the result as a json object, or undefined if errors happen.
+ */
+export async function getResourceAsJson(kubectl: Kubectl, resourceId: string): Promise<any> {
+    const shellResult = await kubectl.invokeAsync(`get ${resourceId} -o json`);
+    if (shellResult.code !== 0) {
+        vscode.window.showErrorMessage(shellResult.stderr);
+        return;
+    }
+    return JSON.parse(shellResult.stdout.trim());
+}

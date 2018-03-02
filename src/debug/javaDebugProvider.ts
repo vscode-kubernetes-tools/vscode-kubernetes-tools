@@ -1,9 +1,10 @@
 import * as path from "path";
-import * as vscode from 'vscode';
+import * as vscode from "vscode";
 
-import { IDebugProvider, PortInfo } from './debugProvider';
+import { IDebugProvider, PortInfo } from "./debugProvider";
+import * as debugUtils from "./debugUtils";
 import * as extensionUtils from "../extensionUtils";
-import { Kubectl } from '../kubectl';
+import { Kubectl } from "../kubectl";
 import { IDockerfile } from "../docker/parser";
 
 // Use the java debugger extension provided by microsoft team for java debugging.
@@ -69,11 +70,7 @@ export class JavaDebugProvider implements IDebugProvider {
         }
         // Cannot resolve the debug port from Dockerfile, then ask user to specify it.
         if (!rawDebugPortInfo) {
-            const input = await vscode.window.showInputBox({
-                prompt: `Please specify debug port exposed for debugging (e.g. 5005)`,
-                placeHolder: "5005"
-            });
-            rawDebugPortInfo = (input ? input.trim() : null);
+            rawDebugPortInfo = await debugUtils.promptForDebugPort(defaultJavaDebugPort);
         }
         if (!rawDebugPortInfo) {
             return;
@@ -140,11 +137,7 @@ export class JavaDebugProvider implements IDebugProvider {
         }
 
         if (!rawDebugPortInfo) {
-            const input = await vscode.window.showInputBox({
-                prompt: `Please specify debug port exposed for debugging (e.g. 5005)`,
-                placeHolder: defaultJavaDebugPort
-            });
-            rawDebugPortInfo = (input ? input.trim() : null);
+            rawDebugPortInfo = await debugUtils.promptForDebugPort(defaultJavaDebugPort);
         }
 
         return {

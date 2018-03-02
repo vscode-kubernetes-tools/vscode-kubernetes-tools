@@ -125,23 +125,15 @@ export class DebugSession implements IDebugSession {
         }
 
         // Select the target pod to attach.
-        let targetPod, targetContainer, containers = [];
+        let targetPod = pod, targetContainer, containers = [];
+        const resource = await kubectlUtils.getResourceAsJson(this.kubectl, pod ? `pod/${pod}` : "pods");
+        if (!resource) {
+            return;
+        }
         if (pod) {
-            targetPod = pod;
-            const shellResult = await this.kubectl.invokeAsync(`get pod/${pod} -o json`);
-            if (shellResult.code !== 0) {
-                vscode.window.showErrorMessage(shellResult.stderr);
-                return;
-            }
-            containers = JSON.parse(shellResult.stdout.trim()).spec.containers;
+            containers = resource.spec.containers;
         } else {
-            const shellResult = await this.kubectl.invokeAsync("get pods -o json");
-            if (shellResult.code !== 0) {
-                vscode.window.showErrorMessage(shellResult.stderr);
-                return;
-            }
-            const podObj = JSON.parse(shellResult.stdout.trim());
-            const podPickItems: vscode.QuickPickItem[] = podObj.items.map((pod) => {
+            const podPickItems: vscode.QuickPickItem[] = resource.items.map((pod) => {
                 return {
                     label: `${pod.metadata.name} (${pod.spec.nodeName})`,
                     description: "pod",
