@@ -2,7 +2,7 @@
 
 import { Shell } from './shell';
 import { FS } from './fs';
-import { Errorable, StageData } from './wizard';
+import { Errorable, ActionResult } from './wizard';
 import * as compareVersions from 'compare-versions';
 import { sleep } from './sleep';
 
@@ -25,15 +25,24 @@ export interface LocationRenderInfo {
     readonly displayText: string;
 }
 
+export interface ConfigureResult {
+    readonly gotCli: boolean;
+    readonly cliInstallFile: string;
+    readonly cliOnDefaultPath: boolean;
+    readonly cliError: string;
+    readonly gotCredentials: boolean;
+    readonly credentialsError: string;
+}
+
 const MIN_AZ_CLI_VERSION = '2.0.23';
 
-export async function getSubscriptionList(context: Context, forCommand: string) : Promise<StageData> {
+export async function getSubscriptionList(context: Context, forCommand: string) : Promise<ActionResult<string[]>> {
     // check for prerequisites
     const prerequisiteErrors = await verifyPrerequisitesAsync(context, forCommand);
     if (prerequisiteErrors.length > 0) {
         return {
             actionDescription: 'checking prerequisites',
-            result: { succeeded: false, result: false, error: prerequisiteErrors }
+            result: { succeeded: false, result: [], error: prerequisiteErrors }
         };
     }
 
@@ -103,7 +112,7 @@ export async function setSubscriptionAsync(context: Context, subscription: strin
     }
 }
 
-export async function configureCluster(context: Context, clusterType: string, clusterName: string, clusterGroup: string) : Promise<StageData> {
+export async function configureCluster(context: Context, clusterType: string, clusterName: string, clusterGroup: string) : Promise<ActionResult<ConfigureResult>> {
     const downloadKubectlCliPromise = downloadKubectlCli(context, clusterType);
     const getCredentialsPromise = getCredentials(context, clusterType, clusterName, clusterGroup, 5);
 

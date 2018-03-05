@@ -1,8 +1,14 @@
 import * as restify from 'restify';
 import * as clusterproviderregistry from '../clusterproviderregistry';
 import * as azure from '../../../azure';
-import { Errorable, ControlMapping, script, styles, waitScript } from '../../../wizard';
+import { Errorable, script, styles, waitScript, ActionResult } from '../../../wizard';
 import { agent } from 'spdy';
+import { request } from 'https';
+
+interface ClusterInfo {
+    readonly name: string;
+    readonly resourceGroup: string;
+}
 
 // TODO: de-globalise
 let clusterServer : restify.Server;
@@ -82,9 +88,11 @@ async function getHandleCreateHtml(step: string | undefined, requestData: any | 
 
 async function getHandleConfigureHtml(step: string | undefined, requestData: any | undefined): Promise<string> {
     if (!step) {
-        return await promptForSubscription(requestData, "configure", "biscuits");
-    } else if (step === "biscuits") {
-        return "<h1>TBD</h1>";
+        return await promptForSubscription(requestData, "configure", "cluster");
+    } else if (step === "cluster") {
+        return await promptForCluster(requestData);
+    } else if (step === "configure") {
+        return await configureKubernetes(requestData);
     }
 }
 
@@ -157,6 +165,47 @@ async function promptForSubscription(previousData: any, action: clusterproviderr
             </p>
             </form>
             </div>`;
+}
+
+async function promptForCluster(previousData: any) : Promise<string> {
+    const clusterList = await getClusterList(context, previousData.subscription, previousData.clusterType);
+
+    if (!clusterList.result.succeeded) {
+        return notifyCliError('PromptForCluster', clusterList);
+    }
+
+    const clusters = clusterList.result.result;
+
+    if (!clusters || clusters.length === 0) {
+        return notifyNoOptions('PromptForCluster', 'No clusters', 'There are no Kubernetes clusters in the selected subscription.');
+    }
+
+    const options = clusters.map((c) => `<option value="${formatCluster(c)}">${c.name} (in ${c.resourceGroup})</option>`).join('\n');
+    return `<!-- PromptForCluster -->
+            <h1 id='h'>Choose cluster</h1>
+            ${formStyles()}
+            ${styles()}
+            ${waitScript('Configuring Kubernetes')}
+            <div id='content'>
+            <form id='form' action='configure?step=configure' method='post' onsubmit='return promptWait();'>
+            ${propagationFields(previousData)}
+            <p>
+            Kubernetes cluster: <select name='cluster'>
+            ${options}
+            </select>
+            </p>
+
+            <p>
+            <button type='submit' class='link-button'>Configure &gt;</button>
+            </p>
+            </form>
+            </div>`;
+}
+
+async function configureKubernetes(previousData: any) : Promise<string> {
+    const selectedCluster = parseCluster(previousData.cluster);
+    const configureResult = await azure.configureCluster(context, previousData.clusterType, selectedCluster.name, selectedCluster.resourceGroup);
+    return renderConfigurationResult(configureResult);
 }
 
 async function promptForMetadata(previousData: any) : Promise<string> {
@@ -297,6 +346,10 @@ async function waitForClusterAndReportConfigResult(previousData: any) : Promise<
 
     const configureResult = await azure.configureCluster(context, previousData.clusterType, previousData.clustername, previousData.resourcegroupname);
 
+    return renderConfigurationResult(configureResult);
+}
+
+function renderConfigurationResult(configureResult: ActionResult<azure.ConfigureResult>) : string {
     const title = configureResult.result.succeeded ? 'Configuration completed' : `Error ${configureResult.actionDescription}`;
     const configResult = configureResult.result.result;
     const pathMessage = configResult.cliOnDefaultPath ? '' :
@@ -316,6 +369,64 @@ async function waitForClusterAndReportConfigResult(previousData: any) : Promise<
             ${styles()}
             ${getCliOutput}
             ${getCredsOutput}`;
+}
+
+async function getClusterList(context: azure.Context, subscription: string, clusterType: string) : Promise<ActionResult<ClusterInfo[]>> {
+    // log in
+    const login = await azure.setSubscriptionAsync(context, subscription);
+    if (!login.succeeded) {
+        return {
+            actionDescription: 'logging into subscription',
+            result: { succeeded: false, result: [], error: login.error }
+        };
+    }
+
+    // list clusters
+    const clusters = await listClustersAsync(context, clusterType);
+    return {
+        actionDescription: 'listing clusters',
+        result: clusters
+    };
+}
+
+async function listClustersAsync(context: azure.Context, clusterType: string) : Promise<Errorable<ClusterInfo[]>> {
+    let cmd = getListClustersCommand(context, clusterType);
+    const sr = await context.shell.exec(cmd);
+
+    if (sr.code === 0 && !sr.stderr) {
+        const clusters : ClusterInfo[] = JSON.parse(sr.stdout);
+        return { succeeded: true, result: clusters, error: [] };
+    } else {
+        return { succeeded: false, result: [], error: [sr.stderr] };
+    }
+}
+
+function listClustersFilter(clusterType: string): string {
+    if (clusterType == 'acs') {
+        return '?orchestratorProfile.orchestratorType==`Kubernetes`';
+    }
+    return '';
+}
+
+function getListClustersCommand(context: azure.Context, clusterType: string) : string {
+    let filter = listClustersFilter(clusterType);
+    let query = `[${filter}].{name:name,resourceGroup:resourceGroup}`;
+    if (context.shell.isUnix()) {
+        query = `'${query}'`;
+    }
+    return `az ${azure.getClusterCommand(clusterType)} list --query ${query} -ojson`;
+}
+
+function formatCluster(cluster: any) : string {
+    return cluster.resourceGroup + '/' + cluster.name;
+}
+
+function parseCluster(encoded: string) : ClusterInfo {
+    const delimiterPos = encoded.indexOf('/');
+    return {
+        resourceGroup: encoded.substr(0, delimiterPos),
+        name: encoded.substr(delimiterPos + 1)
+    };
 }
 
 async function listLocations(context: azure.Context) : Promise<Errorable<azure.Locations>> {
@@ -435,7 +546,7 @@ async function execCreateClusterCmd(context: azure.Context, options: any) : Prom
     }
 }
 
-async function createClusterImpl(context: azure.Context, options: any) : Promise<{actionDescription: string, result: Errorable<void>}> {
+async function createClusterImpl(context: azure.Context, options: any) : Promise<ActionResult<void>> {
     const description = `
     Created ${options.clusterType} cluster ${options.metadata.clusterName} in ${options.metadata.resourceGroupName} with ${options.agentSettings.count} agents.
     `;
@@ -488,4 +599,34 @@ function diagnoseCreationError(e: Errorable<any>) : string {
         return '<p>You may be using an older version of the Azure CLI. Check Azure CLI version is 2.0.23 or above.<p>';
     }
     return '';
+}
+
+function notifyCliError<T>(stageId: string, last: ActionResult<T>) : string {
+    return `<!-- ${stageId} -->
+        <h1>Error ${last.actionDescription}</h1>
+        <p><span class='error'>The Azure command line failed.</span>  See below for the error message.  You may need to:</p>
+        <ul>
+        <li>Log into the Azure CLI (run az login in the terminal)</li>
+        <li>Install the Azure CLI <a href='https://docs.microsoft.com/cli/azure/install-azure-cli'>(see the instructions for your operating system)</a></li>
+        <li>Configure Kubernetes from the command line using the az acs or az aks command</li>
+        </ul>
+        <p><b>Details</b></p>
+        <p>${last.result.error}</p>`;
+}
+
+function notifyNoOptions(stageId: string, title: string, message: string) : string {
+    return `
+<h1>${title}</h1>
+${styles()}
+<p class='error'>${message}</p>
+`;
+}
+
+function internalError(error: string) : string {
+    return `
+<h1>Internal extension error</h1>
+${styles()}
+<p class='error'>An internal error occurred in the vscode-kubernetes-tools extension.</p>
+<p>This is not an Azure or Kubernetes issue.  Please report error text '${error}' to the extension authors.</p>
+`;
 }

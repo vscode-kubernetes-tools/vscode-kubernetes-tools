@@ -21,7 +21,6 @@ import * as explainer from './explainer';
 import { shell, ShellResult } from './shell';
 import * as configureFromCluster from './configurefromcluster';
 import * as createCluster from './createcluster';
-import { UIRequest as WizardUIRequest } from './wizard';
 import * as kuberesources from './kuberesources';
 import * as docker from './docker';
 import { kubeChannel } from './kubeChannel';
