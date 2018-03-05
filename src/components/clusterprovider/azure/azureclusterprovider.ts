@@ -131,6 +131,34 @@ function propagationFields(previousData: any) : string {
     return formFields;
 }
 
+interface FormData {
+    stepId: string;
+    title: string;
+    waitText: string;
+    action: string;
+    nextStep: string;
+    submitText: string;
+    previousData: any;
+    formContent: string;
+}
+
+function formPage(fd: FormData) : string {
+    return `<!-- ${fd.stepId} -->
+            <h1 id='h'>${fd.title}</h1>
+            ${formStyles()}
+            ${styles()}
+            ${waitScript(fd.waitText)}
+            <div id='content'>
+            <form id='form' action='${fd.action}?step=${fd.nextStep}' method='post' onsubmit='return promptWait();'>
+            ${propagationFields(fd.previousData)}
+            ${fd.formContent}
+            <p>
+            <button type='submit' class='link-button'>${fd.submitText} &gt;</button>
+            </p>
+            </form>
+            </div>`;
+}
+
 async function promptForSubscription(previousData: any, action: clusterproviderregistry.ClusterProviderAction, nextStep: string) : Promise<string> {
     const slr = await azure.getSubscriptionList(context, previousData.id);
     if (!slr.result.succeeded) {
@@ -144,14 +172,15 @@ async function promptForSubscription(previousData: any, action: clusterproviderr
     }
 
     const options = subscriptions.map((s) => `<option value="${s}">${s}</option>`).join('\n');
-    return `<!-- PromptForSubscription -->
-            <h1 id='h'>Choose subscription</h1>
-            ${formStyles()}
-            ${styles()}
-            ${waitScript('Contacting Microsoft Azure')}
-            <div id='content'>
-            <form id='form' action='${action}?step=${nextStep}' method='post' onsubmit='return promptWait();'>
-            ${propagationFields(previousData)}
+    return formPage({
+        stepId: 'PromptForSubscription',
+        title: 'Choose subscription',
+        waitText: 'Contacting Microsoft Azure',
+        action: action,
+        nextStep: nextStep,
+        submitText: 'Next',
+        previousData: previousData,
+        formContent: `
             <p>
             Azure subscription: <select name='subscription' id='selector'>
             ${options}
@@ -159,12 +188,8 @@ async function promptForSubscription(previousData: any, action: clusterproviderr
             </p>
 
             <p><b>Important! The selected subscription will be set as the active subscription for the Azure CLI.</b></p>
-
-            <p>
-            <button type='submit' class='link-button'>Next &gt;</button>
-            </p>
-            </form>
-            </div>`;
+        `
+    });
 }
 
 async function promptForCluster(previousData: any) : Promise<string> {
@@ -181,25 +206,22 @@ async function promptForCluster(previousData: any) : Promise<string> {
     }
 
     const options = clusters.map((c) => `<option value="${formatCluster(c)}">${c.name} (in ${c.resourceGroup})</option>`).join('\n');
-    return `<!-- PromptForCluster -->
-            <h1 id='h'>Choose cluster</h1>
-            ${formStyles()}
-            ${styles()}
-            ${waitScript('Configuring Kubernetes')}
-            <div id='content'>
-            <form id='form' action='configure?step=configure' method='post' onsubmit='return promptWait();'>
-            ${propagationFields(previousData)}
+    return formPage({
+        stepId: 'PromptForCluster',
+        title: 'Choose cluster',
+        waitText: 'Configuring Kubernetes',
+        action: 'configure',
+        nextStep: 'configure',
+        submitText: 'Configure',
+        previousData: previousData,
+        formContent: `
             <p>
             Kubernetes cluster: <select name='cluster'>
             ${options}
             </select>
             </p>
-
-            <p>
-            <button type='submit' class='link-button'>Configure &gt;</button>
-            </p>
-            </form>
-            </div>`;
+        `
+    });
 }
 
 async function configureKubernetes(previousData: any) : Promise<string> {
@@ -219,14 +241,15 @@ async function promptForMetadata(previousData: any) : Promise<string> {
 
     const options = serviceLocations.result.map((s) => `<option value="${s.displayName}">${s.displayName + (s.isPreview ? " (preview)" : "")}</option>`).join('\n');
 
-    return `<!-- PromptForMetadata -->
-            <h1 id='h'>Azure cluster settings</h1>
-            ${formStyles()}
-            ${styles()}
-            ${waitScript("Contacting Microsoft Azure")}
-            <div id='content'>
-            <form id='form' action='create?step=agentSettings' method='post' onsubmit='return promptWait();'>
-            ${propagationFields(previousData)}
+    return formPage({
+        stepId: 'PromptForMetadata',
+        title: 'Azure cluster settings',
+        waitText: 'Contacting Microsoft Azure',
+        action: 'create',
+        nextStep: 'agentSettings',
+        submitText: 'Next',
+        previousData: previousData,
+        formContent: `
             <p>Cluster name: <input name='clustername' type='text' value='k8scluster' />
             <p>Resource group name: <input name='resourcegroupname' type='text' value='k8scluster' />
             <p>
@@ -234,12 +257,8 @@ async function promptForMetadata(previousData: any) : Promise<string> {
             ${options}
             </select>
             </p>
-
-            <p>
-            <button type='submit' class='link-button'>Next &gt;</button>
-            </p>
-            </form>
-            </div>`;
+        `
+    });
 }
 
 async function promptForAgentSettings(previousData: any) : Promise<string> {
@@ -251,26 +270,23 @@ async function promptForAgentSettings(previousData: any) : Promise<string> {
     const defaultSize = "Standard_D2_v2";
     const options = vmSizes.result.map((s) => `<option value="${s}" ${s == defaultSize ? "selected=true" : ""}>${s}</option>`).join('\n');
 
-    return `<!-- PromptForAgentSettings -->
-            <h1 id='h'>Azure agent settings</h1>
-            ${formStyles()}
-            ${styles()}
-            ${waitScript('Contacting Microsoft Azure')}
-            <div id='content'>
-            <form id='form' action='create?step=create' method='post' onsubmit='return promptWait();'>
-            ${propagationFields(previousData)}
+    return formPage({
+        stepId: 'PromptForAgentSettings',
+        title: 'Azure agent settings',
+        waitText: 'Contacting Microsoft Azure',
+        action: 'create',
+        nextStep: 'create',
+        submitText: 'Create cluster',
+        previousData: previousData,
+        formContent: `
             <p>Agent count: <input name='agentcount' type='text' value='3'/>
             <p>
             Agent VM size: <select name='agentvmsize'>
             ${options}
             </select>
             </p>
-
-            <p>
-            <button type='submit' class='link-button'>Create cluster &gt;</button>
-            </p>
-            </form>
-            </div>`;
+        `
+    });
 }
 
 async function createCluster(previousData: any) : Promise<string> {
