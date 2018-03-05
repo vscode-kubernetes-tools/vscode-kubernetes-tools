@@ -53,8 +53,21 @@ async function handlePostConfigure(request: restify.Request, response: restify.R
     await handleConfigure(request, request.body, response, next);
 }
 
-async function handleCreate(request: restify.Request, requestData: any, response: restify.Response, next: restify.Next) {
-    const html = await getHandleCreateHtml(request.query["step"], requestData);
+async function handleCreate(request: restify.Request, requestData: any, response: restify.Response, next: restify.Next) : Promise<void> {
+    await handleRequest(getHandleCreateHtml, request, requestData, response, next);
+}
+
+async function handleConfigure(request: restify.Request, requestData: any, response: restify.Response, next: restify.Next) : Promise<void> {
+    await handleRequest(getHandleConfigureHtml, request, requestData, response, next);
+}
+
+type HtmlRequestHandler = (
+    step: string | undefined,
+    requestData: any,
+) => Promise<string>;
+
+async function handleRequest(handler: HtmlRequestHandler, request: restify.Request, requestData: any, response: restify.Response, next: restify.Next) {
+    const html = await handler(request.query["step"], requestData);
 
     response.contentType = 'text/html';
     response.send("<html><body><style id='styleholder'></style>" + html + "</body></html>");
@@ -62,17 +75,7 @@ async function handleCreate(request: restify.Request, requestData: any, response
     next();
 }
 
-// TODO: oh the duplication
-async function handleConfigure(request: restify.Request, requestData: any, response: restify.Response, next: restify.Next) {
-    const html = await getHandleConfigureHtml(request.query["step"], requestData);
-
-    response.contentType = 'text/html';
-    response.send("<html><body><style id='styleholder'></style>" + html + "</body></html>");
-    
-    next();
-}
-
-async function getHandleCreateHtml(step: string | undefined, requestData: any | undefined): Promise<string> {
+async function getHandleCreateHtml(step: string | undefined, requestData: any): Promise<string> {
     if (!step) {
         return await promptForSubscription(requestData, "create", "metadata");
     } else if (step === "metadata") {
@@ -83,16 +86,20 @@ async function getHandleCreateHtml(step: string | undefined, requestData: any | 
         return await createCluster(requestData);
     } else if (step === "wait") {
         return await waitForClusterAndReportConfigResult(requestData);
+    } else {
+        return renderInternalError(`AzureStepError (${step})`);
     }
 }
 
-async function getHandleConfigureHtml(step: string | undefined, requestData: any | undefined): Promise<string> {
+async function getHandleConfigureHtml(step: string | undefined, requestData: any): Promise<string> {
     if (!step) {
         return await promptForSubscription(requestData, "configure", "cluster");
     } else if (step === "cluster") {
         return await promptForCluster(requestData);
     } else if (step === "configure") {
         return await configureKubernetes(requestData);
+    } else {
+        return renderInternalError(`AzureStepError (${step})`);
     }
 }
 
