@@ -334,7 +334,7 @@ async function createCluster(previousData: any) : Promise<string> {
 
 let refreshCount = 0;  // TODO: ugh
 
-function refreshorama() : string {
+function refreshCountIndicator() : string {
     return ".".repeat(refreshCount % 4);
 }
 
@@ -348,7 +348,7 @@ async function waitForClusterAndReportConfigResult(previousData: any) : Promise<
     }
 
     if (waitResult.result.stillWaiting) {
-        return `<h1>Waiting for cluster - this will take several minutes${refreshorama()}</h1>
+        return `<h1>Waiting for cluster - this will take several minutes${refreshCountIndicator()}</h1>
             <form id='form' action='create?step=wait' method='post'>
             ${propagationFields(previousData)}
             </form>
