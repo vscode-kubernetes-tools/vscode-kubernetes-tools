@@ -487,6 +487,9 @@
         "postinstall": "node ./node_modules/vscode/bin/install",
         "test": "node ./node_modules/vscode/bin/test"
     },
+    "extensionDependencies": [
+        "redhat.vscode-yaml"
+    ],
     "dependencies": {
         "compare-versions": "^3.1.0",
         "dockerfile-parse": "^0.2.0",

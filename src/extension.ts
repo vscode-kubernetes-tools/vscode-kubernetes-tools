@@ -70,7 +70,7 @@ export const HELM_TPL_MODE: vscode.DocumentFilter = { language: "helm", scheme: 
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
-export function activate(context) {
+export async function activate(context) {
     kubectl.checkPresent('activation');
 
     const treeProvider = explorer.create(kubectl, host);
@@ -194,7 +194,7 @@ export function activate(context) {
         context.subscriptions.push(element);
     }, this);
 
-    return registerYamlSchemaSupport();
+    await registerYamlSchemaSupport();
 }
 
 // this method is called when your extension is deactivated

@@ -9,6 +9,15 @@ export interface YamlNode {
     readonly endPosition: number;
 }
 
+export interface YamlMappingItem extends YamlNode {
+    readonly key: YamlNode;
+    readonly value: YamlNode;
+}
+
+export interface YamlMap extends YamlNode {
+    readonly mappings: YamlMappingItem[];
+}
+
 export interface YamlDocument {
     readonly nodes: YamlNode[];
     readonly errors: string[];
