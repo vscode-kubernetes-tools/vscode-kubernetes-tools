@@ -160,15 +160,15 @@ function formPage(fd: FormData) : string {
 }
 
 async function promptForSubscription(previousData: any, action: clusterproviderregistry.ClusterProviderAction, nextStep: string) : Promise<string> {
-    const slr = await azure.getSubscriptionList(context, previousData.id);
-    if (!slr.result.succeeded) {
-        return `<h1>Error ${slr.actionDescription}</h1><p>Error details: ${slr.result.error[0]}</p>`;
+    const subscriptionList = await azure.getSubscriptionList(context, previousData.id);
+    if (!subscriptionList.result.succeeded) {
+        return renderCliError('PromptForSubscription', subscriptionList);
     }
 
-    const subscriptions : string[] = slr.result.result;
+    const subscriptions : string[] = subscriptionList.result.result;
 
     if (!subscriptions || !subscriptions.length) {
-        return `<h1>You have no Azure subscriptions</h1>`;
+        return renderNoOptions('PromptForSubscription', 'No Azure subscriptions', 'You have no Azure subscriptions.');
     }
 
     const options = subscriptions.map((s) => `<option value="${s}">${s}</option>`).join('\n');
@@ -196,13 +196,13 @@ async function promptForCluster(previousData: any) : Promise<string> {
     const clusterList = await getClusterList(context, previousData.subscription, previousData.clusterType);
 
     if (!clusterList.result.succeeded) {
-        return notifyCliError('PromptForCluster', clusterList);
+        return renderCliError('PromptForCluster', clusterList);
     }
 
     const clusters = clusterList.result.result;
 
     if (!clusters || clusters.length === 0) {
-        return notifyNoOptions('PromptForCluster', 'No clusters', 'There are no Kubernetes clusters in the selected subscription.');
+        return renderNoOptions('PromptForCluster', 'No clusters', 'There are no Kubernetes clusters in the selected subscription.');
     }
 
     const options = clusters.map((c) => `<option value="${formatCluster(c)}">${c.name} (in ${c.resourceGroup})</option>`).join('\n');
@@ -236,7 +236,10 @@ async function promptForMetadata(previousData: any) : Promise<string> {
         await listAksLocations(context);
 
     if (!serviceLocations.succeeded) {
-        return "<h1>Error getting locations</h1>";
+        return renderCliError('PromptForMetadata', {
+            actionDescription: 'listing available regions',
+            result: serviceLocations
+        });
     }
 
     const options = serviceLocations.result.map((s) => `<option value="${s.displayName}">${s.displayName + (s.isPreview ? " (preview)" : "")}</option>`).join('\n');
@@ -264,7 +267,10 @@ async function promptForMetadata(previousData: any) : Promise<string> {
 async function promptForAgentSettings(previousData: any) : Promise<string> {
     const vmSizes = await listVMSizes(context, previousData.location);
     if (!vmSizes.succeeded) {
-        return `<h1>Error getting VM sizes</h1><p>Error detail: ${vmSizes.error[0]}</p>`;
+        return renderCliError('PromptForAgentSettings', {
+            actionDescription: 'listing available node sizes',
+            result: vmSizes
+        });
     }
 
     const defaultSize = "Standard_D2_v2";
@@ -617,7 +623,7 @@ function diagnoseCreationError(e: Errorable<any>) : string {
     return '';
 }
 
-function notifyCliError<T>(stageId: string, last: ActionResult<T>) : string {
+function renderCliError<T>(stageId: string, last: ActionResult<T>) : string {
     return `<!-- ${stageId} -->
         <h1>Error ${last.actionDescription}</h1>
         <p><span class='error'>The Azure command line failed.</span>  See below for the error message.  You may need to:</p>
@@ -630,7 +636,7 @@ function notifyCliError<T>(stageId: string, last: ActionResult<T>) : string {
         <p>${last.result.error}</p>`;
 }
 
-function notifyNoOptions(stageId: string, title: string, message: string) : string {
+function renderNoOptions(stageId: string, title: string, message: string) : string {
     return `
 <h1>${title}</h1>
 ${styles()}
@@ -638,11 +644,20 @@ ${styles()}
 `;
 }
 
-function internalError(error: string) : string {
+function renderInternalError(error: string) : string {
     return `
 <h1>Internal extension error</h1>
 ${styles()}
 <p class='error'>An internal error occurred in the vscode-kubernetes-tools extension.</p>
 <p>This is not an Azure or Kubernetes issue.  Please report error text '${error}' to the extension authors.</p>
 `;
+}
+
+function renderExternalError<T>(last: ActionResult<T>) : string {
+    return `
+    <h1>Error ${last.actionDescription}</h1>
+    ${styles()}
+    <p class='error'>An error occurred while ${last.actionDescription}.</p>
+    <p><b>Details</b></p>
+    <p>${last.result.error}</p>`;
 }
