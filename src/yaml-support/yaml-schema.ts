@@ -133,9 +133,6 @@ export async function registerYamlSchemaSupport() {
 }
 
 // convert '#/definitions/com.github.openshift.origin.pkg.build.apis.build.v1.ImageLabel' to
-// convert $ref = '#/definitions/io.k8s.kubernetes.pkg.apis.extensions.v1beta1.HTTPIngressPath' to
-//'$ref': 'kubernetes://schema/io.k8s.kubernetes.pkg.apis.extensions.v1beta1.httpingresspath'
-
 // 'com.github.openshift.origin.pkg.build.apis.build.v1.ImageLabel'
 function getNameInDefinitions ($ref: string): string {
     const prefix = '#/definitions/';
