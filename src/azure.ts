@@ -25,6 +25,11 @@ export interface LocationRenderInfo {
     readonly displayText: string;
 }
 
+export interface ClusterInfo {
+    readonly name: string;
+    readonly resourceGroup: string;
+}
+
 export interface ConfigureResult {
     readonly gotCli: boolean;
     readonly cliInstallFile: string;
@@ -32,6 +37,10 @@ export interface ConfigureResult {
     readonly cliError: string;
     readonly gotCredentials: boolean;
     readonly credentialsError: string;
+}
+
+export interface WaitResult {
+    readonly stillWaiting?: boolean;
 }
 
 const MIN_AZ_CLI_VERSION = '2.0.23';
@@ -109,6 +118,209 @@ export async function setSubscriptionAsync(context: Context, subscription: strin
         return { succeeded: true, result: null, error: [] };
     } else {
         return { succeeded: false, result: null, error: [sr.stderr] };
+    }
+}
+export async function getClusterList(context: Context, subscription: string, clusterType: string) : Promise<ActionResult<ClusterInfo[]>> {
+    // log in
+    const login = await setSubscriptionAsync(context, subscription);
+    if (!login.succeeded) {
+        return {
+            actionDescription: 'logging into subscription',
+            result: { succeeded: false, result: [], error: login.error }
+        };
+    }
+
+    // list clusters
+    const clusters = await listClustersAsync(context, clusterType);
+    return {
+        actionDescription: 'listing clusters',
+        result: clusters
+    };
+}
+
+async function listClustersAsync(context: Context, clusterType: string) : Promise<Errorable<ClusterInfo[]>> {
+    let cmd = getListClustersCommand(context, clusterType);
+    const sr = await context.shell.exec(cmd);
+
+    if (sr.code === 0 && !sr.stderr) {
+        const clusters : ClusterInfo[] = JSON.parse(sr.stdout);
+        return { succeeded: true, result: clusters, error: [] };
+    } else {
+        return { succeeded: false, result: [], error: [sr.stderr] };
+    }
+}
+
+function listClustersFilter(clusterType: string): string {
+    if (clusterType == 'acs') {
+        return '?orchestratorProfile.orchestratorType==`Kubernetes`';
+    }
+    return '';
+}
+
+function getListClustersCommand(context: Context, clusterType: string) : string {
+    let filter = listClustersFilter(clusterType);
+    let query = `[${filter}].{name:name,resourceGroup:resourceGroup}`;
+    if (context.shell.isUnix()) {
+        query = `'${query}'`;
+    }
+    return `az ${getClusterCommand(clusterType)} list --query ${query} -ojson`;
+}
+
+async function listLocations(context: Context) : Promise<Errorable<Locations>> {
+    let query = "[].{name:name,displayName:displayName}";
+    if (context.shell.isUnix()) {
+        query = `'${query}'`;
+    }
+
+    const sr = await context.shell.exec(`az account list-locations --query ${query} -ojson`);
+    
+    if (sr.code === 0 && !sr.stderr) {
+        const response = JSON.parse(sr.stdout);
+        let locations : any = {};
+        for (const r of response) {
+            locations[r.name] = r.displayName;
+        }
+        const result = { locations: locations };
+        return { succeeded: true, result: result, error: [] };
+    } else {
+        return { succeeded: false, result: { locations: {} }, error: [sr.stderr] };
+    }
+}
+
+export async function listAcsLocations(context: Context) : Promise<Errorable<ServiceLocation[]>> {
+    const locationInfo = await listLocations(context);
+    if (!locationInfo.succeeded) {
+        return { succeeded: false, result: [], error: locationInfo.error };
+    }
+    const locations = locationInfo.result;
+
+    const sr = await context.shell.exec(`az acs list-locations -ojson`);
+    
+    if (sr.code === 0 && !sr.stderr) {
+        const response = JSON.parse(sr.stdout);
+        const result = locationDisplayNamesEx(response.productionRegions, response.previewRegions, locations) ;
+        return { succeeded: true, result: result, error: [] };
+    } else {
+        return { succeeded: false, result: [], error: [sr.stderr] };
+    }
+}
+
+export async function listAksLocations(context: Context) : Promise<Errorable<ServiceLocation[]>> {
+    const locationInfo = await listLocations(context);
+    if (!locationInfo.succeeded) {
+        return { succeeded: false, result: [], error: locationInfo.error };
+    }
+    const locations = locationInfo.result;
+
+    // There's no CLI for this, so we have to hardwire it for now
+    const productionRegions = [];
+    const previewRegions = ["centralus", "eastus", "westeurope"];
+    const result = locationDisplayNamesEx(productionRegions, previewRegions, locations);
+    return { succeeded: true, result: result, error: [] };
+}
+
+function locationDisplayNames(names: string[], preview: boolean, locationInfo: Locations) : ServiceLocation[] {
+    return names.map((n) => { return { displayName: locationInfo.locations[n], isPreview: preview }; });
+}
+
+function locationDisplayNamesEx(production: string[], preview: string[], locationInfo: Locations) : ServiceLocation[] {
+    let result = locationDisplayNames(production, false, locationInfo) ;
+    result = result.concat(locationDisplayNames(preview, true, locationInfo));
+    return result;
+}
+
+export async function listVMSizes(context: Context, location: string) : Promise<Errorable<string[]>> {
+    const sr = await context.shell.exec(`az vm list-sizes -l "${location}" -ojson`);
+    
+    if (sr.code === 0 && !sr.stderr) {
+        const response : any[] = JSON.parse(sr.stdout);
+        const result = response.map((r) => r.name as string);
+        return { succeeded: true, result: result, error: [] };
+    } else {
+        return { succeeded: false, result: [], error: [sr.stderr] };
+    }
+}
+
+async function resourceGroupExists(context: Context, resourceGroupName: string) : Promise<boolean> {
+    const sr = await context.shell.exec(`az group show -n "${resourceGroupName}" -ojson`);
+    
+    if (sr.code === 0 && !sr.stderr) {
+        return sr.stdout !== null && sr.stdout.length > 0;
+    } else {
+        return false;
+    }
+}
+
+async function ensureResourceGroupAsync(context: Context, resourceGroupName: string, location: string) : Promise<Errorable<void>> {
+    if (await resourceGroupExists(context, resourceGroupName)) {
+        return { succeeded: true, result: null, error: [] };
+    }
+
+    const sr = await context.shell.exec(`az group create -n "${resourceGroupName}" -l "${location}"`);
+
+    if (sr.code === 0 && !sr.stderr) {
+        return { succeeded: true, result: null, error: [] };
+    } else {
+        return { succeeded: false, result: null, error: [sr.stderr] };
+    }
+}
+
+async function execCreateClusterCmd(context: Context, options: any) : Promise<Errorable<void>> {
+    const clusterCmd = getClusterCommand(options.clusterType);
+    let createCmd = `az ${clusterCmd} create -n "${options.metadata.clusterName}" -g "${options.metadata.resourceGroupName}" -l "${options.metadata.location}" --no-wait `;
+    if (clusterCmd == 'acs') {
+        createCmd = createCmd + `--agent-count ${options.agentSettings.count} --agent-vm-size "${options.agentSettings.vmSize}" -t Kubernetes`;
+    } else {
+        createCmd = createCmd + `--node-count ${options.agentSettings.count} --node-vm-size "${options.agentSettings.vmSize}"`;
+    }
+    
+    const sr = await context.shell.exec(createCmd);
+
+    if (sr.code === 0 && !sr.stderr) {
+        return { succeeded: true, result: null, error: [] };
+    } else {
+        return { succeeded: false, result: null, error: [sr.stderr] };
+    }
+}
+
+export async function createCluster(context: Context, options: any) : Promise<ActionResult<void>> {
+    const description = `
+    Created ${options.clusterType} cluster ${options.metadata.clusterName} in ${options.metadata.resourceGroupName} with ${options.agentSettings.count} agents.
+    `;
+
+    const login = await setSubscriptionAsync(context, options.subscription);
+    if (!login.succeeded) {
+        return {
+            actionDescription: 'logging into subscription',
+            result: login
+        };
+    }
+
+    const ensureResourceGroup = await ensureResourceGroupAsync(context, options.metadata.resourceGroupName, options.metadata.location);
+    if (!ensureResourceGroup.succeeded) {
+        return {
+            actionDescription: 'ensuring resource group exists',
+            result: ensureResourceGroup
+        };
+    }
+
+    const createCluster = await execCreateClusterCmd(context, options);
+
+    return {
+        actionDescription: 'creating cluster',
+        result: createCluster
+    };
+}
+
+export async function waitForCluster(context: Context, clusterType: string, clusterName: string, clusterResourceGroup: string): Promise<Errorable<WaitResult>> {
+    const clusterCmd = getClusterCommand(clusterType);
+    const waitCmd = `az ${clusterCmd} wait --created --timeout 15 -n ${clusterName} -g ${clusterResourceGroup} -o json`;
+    const sr = await context.shell.exec(waitCmd);
+
+    if (sr.code === 0) {
+        return { succeeded: true, result: { stillWaiting: sr.stdout !== "" }, error: [] };
+    } else {
+        return { succeeded: false, result: { }, error: [sr.stderr] };
     }
 }
 
@@ -197,14 +409,14 @@ function installKubectlCliInfo(context: Context, clusterType: string) {
     }
 }
 
-export function getClusterCommand(clusterType: string) : string {
+function getClusterCommand(clusterType: string) : string {
     if (clusterType == 'Azure Container Service' || clusterType == 'acs') {
         return 'acs';
     }
     return 'aks';
 }
 
-export function getClusterCommandAndSubcommand(clusterType: string) : string {
+function getClusterCommandAndSubcommand(clusterType: string) : string {
     if (clusterType == 'Azure Container Service' || clusterType == 'acs') {
         return 'acs kubernetes';
     }

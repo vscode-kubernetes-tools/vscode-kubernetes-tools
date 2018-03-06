@@ -38,6 +38,7 @@ import { HelmTemplatePreviewDocumentProvider, HelmInspectDocumentProvider } from
 import { HelmTemplateCompletionProvider } from './helm.completionProvider';
 import { Reporter } from './telemetry';
 import * as telemetry from './telemetry-helper';
+import * as extensionapi from './extension.api';
 import {dashboardKubernetes} from './components/kubectl/proxy';
 import { DebugSession } from './debug/debugSession';
 import { getDebugProviderOfType, getSupportedDebuggerTypes } from './debug/providerRegistry';
@@ -74,7 +75,7 @@ export const HELM_TPL_MODE: vscode.DocumentFilter = { language: "helm", scheme: 
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
-export async function activate(context) {
+export function activate(context) : extensionapi.ExtensionAPI {
     kubectl.checkPresent('activation');
 
     const treeProvider = explorer.create(kubectl, host);
@@ -204,6 +205,7 @@ export async function activate(context) {
     await registerYamlSchemaSupport();
     
     return {
+        apiVersion: '0.1',
         clusterProviderRegistry: clusterProviderRegistry
     };
 }

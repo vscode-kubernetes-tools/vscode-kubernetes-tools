@@ -1,14 +1,11 @@
 import * as restify from 'restify';
 import * as clusterproviderregistry from '../clusterproviderregistry';
 import * as azure from '../../../azure';
-import { Errorable, script, styles, waitScript, ActionResult } from '../../../wizard';
+import { Errorable, script, styles, formStyles, waitScript, ActionResult } from '../../../wizard';
 import { agent } from 'spdy';
 import { request } from 'https';
 
-interface ClusterInfo {
-    readonly name: string;
-    readonly resourceGroup: string;
-}
+// HTTP request dispatch
 
 // TODO: de-globalise
 let clusterServer : restify.Server;
@@ -103,32 +100,7 @@ async function getHandleConfigureHtml(step: string | undefined, requestData: any
     }
 }
 
-function formStyles() : string {
-    return `
-    <style>
-    .link-button {
-        background: none;
-        border: none;
-        color: blue;
-        text-decoration: underline;
-        cursor: pointer;
-        font-size: 1em;
-        font-family: sans-serif;
-    }
-    .vscode-light .link-button {
-        color: navy;
-    }
-    .vscode-dark .link-button {
-        color: azure;
-    }
-    .link-button:focus {
-        outline: none;
-    }
-    .link-button:active {
-        color:red;
-    }
-    </style>`;
-}
+// HTML rendering boilerplate
 
 function propagationFields(previousData: any) : string {
     let formFields = "";
@@ -166,6 +138,8 @@ function formPage(fd: FormData) : string {
             </div>`;
 }
 
+// Pages for the various wizard steps
+
 async function promptForSubscription(previousData: any, action: clusterproviderregistry.ClusterProviderAction, nextStep: string) : Promise<string> {
     const subscriptionList = await azure.getSubscriptionList(context, previousData.id);
     if (!subscriptionList.result.succeeded) {
@@ -200,7 +174,7 @@ async function promptForSubscription(previousData: any, action: clusterproviderr
 }
 
 async function promptForCluster(previousData: any) : Promise<string> {
-    const clusterList = await getClusterList(context, previousData.subscription, previousData.clusterType);
+    const clusterList = await azure.getClusterList(context, previousData.subscription, previousData.clusterType);
 
     if (!clusterList.result.succeeded) {
         return renderCliError('PromptForCluster', clusterList);
@@ -239,8 +213,8 @@ async function configureKubernetes(previousData: any) : Promise<string> {
 
 async function promptForMetadata(previousData: any) : Promise<string> {
     const serviceLocations = previousData.clusterType === 'acs' ?
-        await listAcsLocations(context) :
-        await listAksLocations(context);
+        await azure.listAcsLocations(context) :
+        await azure.listAksLocations(context);
 
     if (!serviceLocations.succeeded) {
         return renderCliError('PromptForMetadata', {
@@ -272,7 +246,7 @@ async function promptForMetadata(previousData: any) : Promise<string> {
 }
 
 async function promptForAgentSettings(previousData: any) : Promise<string> {
-    const vmSizes = await listVMSizes(context, previousData.location);
+    const vmSizes = await azure.listVMSizes(context, previousData.location);
     if (!vmSizes.succeeded) {
         return renderCliError('PromptForAgentSettings', {
             actionDescription: 'listing available node sizes',
@@ -317,7 +291,7 @@ async function createCluster(previousData: any) : Promise<string> {
             vmSize: previousData.agentvmsize
             
         } };
-    const createResult = await createClusterImpl(context, options);
+    const createResult = await azure.createCluster(context, options);
 
     const title = createResult.result.succeeded ? 'Cluster creation has started' : `Error ${createResult.actionDescription}`;
     const additionalDiagnostic = diagnoseCreationError(createResult.result);
@@ -355,7 +329,7 @@ async function waitForClusterAndReportConfigResult(previousData: any) : Promise<
 
     ++refreshCount;
 
-    const waitResult = await waitForCluster(context, previousData.clusterType, previousData.clustername, previousData.resourcegroupname);
+    const waitResult = await azure.waitForCluster(context, previousData.clusterType, previousData.clustername, previousData.resourcegroupname);
     if (!waitResult.succeeded) {
         return `<h1>Error creating cluster</h1><p>Error details: ${waitResult.error[0]}</p>`;
     }
@@ -400,225 +374,7 @@ function renderConfigurationResult(configureResult: ActionResult<azure.Configure
             ${getCredsOutput}`;
 }
 
-async function getClusterList(context: azure.Context, subscription: string, clusterType: string) : Promise<ActionResult<ClusterInfo[]>> {
-    // log in
-    const login = await azure.setSubscriptionAsync(context, subscription);
-    if (!login.succeeded) {
-        return {
-            actionDescription: 'logging into subscription',
-            result: { succeeded: false, result: [], error: login.error }
-        };
-    }
-
-    // list clusters
-    const clusters = await listClustersAsync(context, clusterType);
-    return {
-        actionDescription: 'listing clusters',
-        result: clusters
-    };
-}
-
-async function listClustersAsync(context: azure.Context, clusterType: string) : Promise<Errorable<ClusterInfo[]>> {
-    let cmd = getListClustersCommand(context, clusterType);
-    const sr = await context.shell.exec(cmd);
-
-    if (sr.code === 0 && !sr.stderr) {
-        const clusters : ClusterInfo[] = JSON.parse(sr.stdout);
-        return { succeeded: true, result: clusters, error: [] };
-    } else {
-        return { succeeded: false, result: [], error: [sr.stderr] };
-    }
-}
-
-function listClustersFilter(clusterType: string): string {
-    if (clusterType == 'acs') {
-        return '?orchestratorProfile.orchestratorType==`Kubernetes`';
-    }
-    return '';
-}
-
-function getListClustersCommand(context: azure.Context, clusterType: string) : string {
-    let filter = listClustersFilter(clusterType);
-    let query = `[${filter}].{name:name,resourceGroup:resourceGroup}`;
-    if (context.shell.isUnix()) {
-        query = `'${query}'`;
-    }
-    return `az ${azure.getClusterCommand(clusterType)} list --query ${query} -ojson`;
-}
-
-function formatCluster(cluster: any) : string {
-    return cluster.resourceGroup + '/' + cluster.name;
-}
-
-function parseCluster(encoded: string) : ClusterInfo {
-    const delimiterPos = encoded.indexOf('/');
-    return {
-        resourceGroup: encoded.substr(0, delimiterPos),
-        name: encoded.substr(delimiterPos + 1)
-    };
-}
-
-async function listLocations(context: azure.Context) : Promise<Errorable<azure.Locations>> {
-    let query = "[].{name:name,displayName:displayName}";
-    if (context.shell.isUnix()) {
-        query = `'${query}'`;
-    }
-
-    const sr = await context.shell.exec(`az account list-locations --query ${query} -ojson`);
-    
-    if (sr.code === 0 && !sr.stderr) {
-        const response = JSON.parse(sr.stdout);
-        let locations : any = {};
-        for (const r of response) {
-            locations[r.name] = r.displayName;
-        }
-        const result = { locations: locations };
-        return { succeeded: true, result: result, error: [] };
-    } else {
-        return { succeeded: false, result: { locations: {} }, error: [sr.stderr] };
-    }
-}
-
-async function listAcsLocations(context: azure.Context) : Promise<Errorable<azure.ServiceLocation[]>> {
-    const locationInfo = await listLocations(context);
-    if (!locationInfo.succeeded) {
-        return { succeeded: false, result: [], error: locationInfo.error };
-    }
-    const locations = locationInfo.result;
-
-    const sr = await context.shell.exec(`az acs list-locations -ojson`);
-    
-    if (sr.code === 0 && !sr.stderr) {
-        const response = JSON.parse(sr.stdout);
-        const result = locationDisplayNamesEx(response.productionRegions, response.previewRegions, locations) ;
-        return { succeeded: true, result: result, error: [] };
-    } else {
-        return { succeeded: false, result: [], error: [sr.stderr] };
-    }
-}
-
-async function listAksLocations(context: azure.Context) : Promise<Errorable<azure.ServiceLocation[]>> {
-    const locationInfo = await listLocations(context);
-    if (!locationInfo.succeeded) {
-        return { succeeded: false, result: [], error: locationInfo.error };
-    }
-    const locations = locationInfo.result;
-
-    // There's no CLI for this, so we have to hardwire it for now
-    const productionRegions = [];
-    const previewRegions = ["centralus", "eastus", "westeurope"];
-    const result = locationDisplayNamesEx(productionRegions, previewRegions, locations);
-    return { succeeded: true, result: result, error: [] };
-}
-
-function locationDisplayNames(names: string[], preview: boolean, locationInfo: azure.Locations) : azure.ServiceLocation[] {
-    return names.map((n) => { return { displayName: locationInfo.locations[n], isPreview: preview }; });
-}
-
-function locationDisplayNamesEx(production: string[], preview: string[], locationInfo: azure.Locations) : azure.ServiceLocation[] {
-    let result = locationDisplayNames(production, false, locationInfo) ;
-    result = result.concat(locationDisplayNames(preview, true, locationInfo));
-    return result;
-}
-
-async function listVMSizes(context: azure.Context, location: string) : Promise<Errorable<string[]>> {
-    const sr = await context.shell.exec(`az vm list-sizes -l "${location}" -ojson`);
-    
-    if (sr.code === 0 && !sr.stderr) {
-        const response : any[] = JSON.parse(sr.stdout);
-        const result = response.map((r) => r.name as string);
-        return { succeeded: true, result: result, error: [] };
-    } else {
-        return { succeeded: false, result: [], error: [sr.stderr] };
-    }
-}
-
-async function resourceGroupExists(context: azure.Context, resourceGroupName: string) : Promise<boolean> {
-    const sr = await context.shell.exec(`az group show -n "${resourceGroupName}" -ojson`);
-    
-    if (sr.code === 0 && !sr.stderr) {
-        return sr.stdout !== null && sr.stdout.length > 0;
-    } else {
-        return false;
-    }
-}
-
-async function ensureResourceGroupAsync(context: azure.Context, resourceGroupName: string, location: string) : Promise<Errorable<void>> {
-    if (await resourceGroupExists(context, resourceGroupName)) {
-        return { succeeded: true, result: null, error: [] };
-    }
-
-    const sr = await context.shell.exec(`az group create -n "${resourceGroupName}" -l "${location}"`);
-
-    if (sr.code === 0 && !sr.stderr) {
-        return { succeeded: true, result: null, error: [] };
-    } else {
-        return { succeeded: false, result: null, error: [sr.stderr] };
-    }
-}
-
-async function execCreateClusterCmd(context: azure.Context, options: any) : Promise<Errorable<void>> {
-    const clusterCmd = azure.getClusterCommand(options.clusterType);
-    let createCmd = `az ${clusterCmd} create -n "${options.metadata.clusterName}" -g "${options.metadata.resourceGroupName}" -l "${options.metadata.location}" --no-wait `;
-    if (clusterCmd == 'acs') {
-        createCmd = createCmd + `--agent-count ${options.agentSettings.count} --agent-vm-size "${options.agentSettings.vmSize}" -t Kubernetes`;
-    } else {
-        createCmd = createCmd + `--node-count ${options.agentSettings.count} --node-vm-size "${options.agentSettings.vmSize}"`;
-    }
-    
-    const sr = await context.shell.exec(createCmd);
-
-    if (sr.code === 0 && !sr.stderr) {
-        return { succeeded: true, result: null, error: [] };
-    } else {
-        return { succeeded: false, result: null, error: [sr.stderr] };
-    }
-}
-
-async function createClusterImpl(context: azure.Context, options: any) : Promise<ActionResult<void>> {
-    const description = `
-    Created ${options.clusterType} cluster ${options.metadata.clusterName} in ${options.metadata.resourceGroupName} with ${options.agentSettings.count} agents.
-    `;
-
-    const login = await azure.setSubscriptionAsync(context, options.subscription);
-    if (!login.succeeded) {
-        return {
-            actionDescription: 'logging into subscription',
-            result: login
-        };
-    }
-
-    const ensureResourceGroup = await ensureResourceGroupAsync(context, options.metadata.resourceGroupName, options.metadata.location);
-    if (!ensureResourceGroup.succeeded) {
-        return {
-            actionDescription: 'ensuring resource group exists',
-            result: ensureResourceGroup
-        };
-    }
-
-    const createCluster = await execCreateClusterCmd(context, options);
-
-    return {
-        actionDescription: 'creating cluster',
-        result: createCluster
-    };
-}
-
-interface WaitResult {
-    readonly stillWaiting?: boolean;
-}
-
-async function waitForCluster(context: azure.Context, clusterType: string, clusterName: string, clusterResourceGroup: string): Promise<Errorable<WaitResult>> {
-    const clusterCmd = azure.getClusterCommand(clusterType);
-    const waitCmd = `az ${clusterCmd} wait --created --timeout 15 -n ${clusterName} -g ${clusterResourceGroup} -o json`;
-    const sr = await context.shell.exec(waitCmd);
-
-    if (sr.code === 0) {
-        return { succeeded: true, result: { stillWaiting: sr.stdout !== "" }, error: [] };
-    } else {
-        return { succeeded: false, result: { }, error: [sr.stderr] };
-    }
-}
+// Error rendering helpers
 
 function diagnoseCreationError(e: Errorable<any>) : string {
     if (e.succeeded) {
@@ -667,4 +423,18 @@ function renderExternalError<T>(last: ActionResult<T>) : string {
     <p class='error'>An error occurred while ${last.actionDescription}.</p>
     <p><b>Details</b></p>
     <p>${last.result.error}</p>`;
+}
+
+// Utility helpers
+
+function formatCluster(cluster: any) : string {
+    return cluster.resourceGroup + '/' + cluster.name;
+}
+
+function parseCluster(encoded: string) : azure.ClusterInfo {
+    const delimiterPos = encoded.indexOf('/');
+    return {
+        resourceGroup: encoded.substr(0, delimiterPos),
+        name: encoded.substr(delimiterPos + 1)
+    };
 }

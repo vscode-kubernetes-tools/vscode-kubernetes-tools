@@ -74,3 +74,31 @@ export function styles() : string {
 `;
 }
 
+export function formStyles() : string {
+    return `
+<style>
+.link-button {
+    background: none;
+    border: none;
+    color: blue;
+    text-decoration: underline;
+    cursor: pointer;
+    font-size: 1em;
+    font-family: sans-serif;
+}
+.vscode-light .link-button {
+    color: navy;
+}
+.vscode-dark .link-button {
+    color: azure;
+}
+.link-button:focus {
+    outline: none;
+}
+.link-button:active {
+    color:red;
+}
+</style>
+`;
+}
+
