@@ -10,91 +10,98 @@ import { request } from 'https';
 // TODO: de-globalise
 let clusterServer : restify.Server;
 const clusterPort = 44011;
-let context : azure.Context;
 
-export function init(registry: clusterproviderregistry.ClusterProviderRegistry, ctx: azure.Context) {
+type HtmlRequestHandler = (
+    step: string | undefined,
+    context: azure.Context,
+    requestData: any,
+) => Promise<string>;
+
+export function init(registry: clusterproviderregistry.ClusterProviderRegistry, context: azure.Context) {
     if (!clusterServer) {
         clusterServer = restify.createServer({
             formatters: {
                 'text/html': (req, resp, body) => body
             }
         });
+
+        const htmlServer = new HtmlServer(context);
         
         clusterServer.use(restify.plugins.queryParser(), restify.plugins.bodyParser());
         clusterServer.listen(clusterPort);
-        clusterServer.get('/create', handleGetCreate);
-        clusterServer.post('/create', handlePostCreate);
-        clusterServer.get('/configure', handleGetConfigure);
-        clusterServer.post('/configure', handlePostConfigure);
+
+        // You MUST use fat arrow notation for the handler callbacks: passing the
+        // function reference directly will foul up the 'this' pointer.
+        clusterServer.get('/create', (req, resp, n) => htmlServer.handleGetCreate(req, resp, n));
+        clusterServer.post('/create', (req, resp, n) => htmlServer.handlePostCreate(req, resp, n));
+        clusterServer.get('/configure', (req, resp, n) => htmlServer.handleGetConfigure(req, resp, n));
+        clusterServer.post('/configure', (req, resp, n) => htmlServer.handlePostConfigure(req, resp, n));
     
         registry.register({id: 'acs', displayName: "Azure Container Service", port: clusterPort, supportedActions: ['create','configure']});
         registry.register({id: 'aks', displayName: "Azure Kubernetes Service", port: clusterPort, supportedActions: ['create','configure']});
-
-        context = ctx;
     }
 }
 
-async function handleGetCreate(request: restify.Request, response: restify.Response, next: restify.Next) {
-    await handleCreate(request, { clusterType: request.query["clusterType"] }, response, next);
-}
+class HtmlServer {
+    constructor(private readonly context: azure.Context) {}
 
-async function handlePostCreate(request: restify.Request, response: restify.Response, next: restify.Next) {
-    await handleCreate(request, request.body, response, next);
-}
-
-async function handleGetConfigure(request: restify.Request, response: restify.Response, next: restify.Next) {
-    await handleConfigure(request, { clusterType: request.query["clusterType"] }, response, next);
-}
-
-async function handlePostConfigure(request: restify.Request, response: restify.Response, next: restify.Next) {
-    await handleConfigure(request, request.body, response, next);
-}
-
-async function handleCreate(request: restify.Request, requestData: any, response: restify.Response, next: restify.Next) : Promise<void> {
-    await handleRequest(getHandleCreateHtml, request, requestData, response, next);
-}
-
-async function handleConfigure(request: restify.Request, requestData: any, response: restify.Response, next: restify.Next) : Promise<void> {
-    await handleRequest(getHandleConfigureHtml, request, requestData, response, next);
-}
-
-type HtmlRequestHandler = (
-    step: string | undefined,
-    requestData: any,
-) => Promise<string>;
-
-async function handleRequest(handler: HtmlRequestHandler, request: restify.Request, requestData: any, response: restify.Response, next: restify.Next) {
-    const html = await handler(request.query["step"], requestData);
-
-    response.contentType = 'text/html';
-    response.send("<html><body><style id='styleholder'></style>" + html + "</body></html>");
+    async handleGetCreate(request: restify.Request, response: restify.Response, next: restify.Next) {
+        await this.handleCreate(request, { clusterType: request.query["clusterType"] }, response, next);
+    }
     
-    next();
+    async handlePostCreate(request: restify.Request, response: restify.Response, next: restify.Next) {
+        await this.handleCreate(request, request.body, response, next);
+    }
+    
+    async handleGetConfigure(request: restify.Request, response: restify.Response, next: restify.Next) {
+        await this.handleConfigure(request, { clusterType: request.query["clusterType"] }, response, next);
+    }
+    
+    async handlePostConfigure(request: restify.Request, response: restify.Response, next: restify.Next) {
+        await this.handleConfigure(request, request.body, response, next);
+    }
+    
+    async handleCreate(request: restify.Request, requestData: any, response: restify.Response, next: restify.Next) : Promise<void> {
+        await this.handleRequest(getHandleCreateHtml, request, requestData, response, next);
+    }
+    
+    async handleConfigure(request: restify.Request, requestData: any, response: restify.Response, next: restify.Next) : Promise<void> {
+        await this.handleRequest(getHandleConfigureHtml, request, requestData, response, next);
+    }
+
+    async handleRequest(handler: HtmlRequestHandler, request: restify.Request, requestData: any, response: restify.Response, next: restify.Next) {
+        const html = await handler(request.query["step"], this.context, requestData);
+    
+        response.contentType = 'text/html';
+        response.send("<html><body><style id='styleholder'></style>" + html + "</body></html>");
+        
+        next();
+    }
 }
 
-async function getHandleCreateHtml(step: string | undefined, requestData: any): Promise<string> {
+async function getHandleCreateHtml(step: string | undefined, context: azure.Context, requestData: any): Promise<string> {
     if (!step) {
-        return await promptForSubscription(requestData, "create", "metadata");
+        return await promptForSubscription(requestData, context, "create", "metadata");
     } else if (step === "metadata") {
-        return await promptForMetadata(requestData);
+        return await promptForMetadata(requestData, context);
     } else if (step === "agentSettings") {
-        return await promptForAgentSettings(requestData);
+        return await promptForAgentSettings(requestData, context);
     } else if (step === "create") {
-        return await createCluster(requestData);
+        return await createCluster(requestData, context);
     } else if (step === "wait") {
-        return await waitForClusterAndReportConfigResult(requestData);
+        return await waitForClusterAndReportConfigResult(requestData, context);
     } else {
         return renderInternalError(`AzureStepError (${step})`);
     }
 }
 
-async function getHandleConfigureHtml(step: string | undefined, requestData: any): Promise<string> {
+async function getHandleConfigureHtml(step: string | undefined, context: azure.Context, requestData: any): Promise<string> {
     if (!step) {
-        return await promptForSubscription(requestData, "configure", "cluster");
+        return await promptForSubscription(requestData, context, "configure", "cluster");
     } else if (step === "cluster") {
-        return await promptForCluster(requestData);
+        return await promptForCluster(requestData, context);
     } else if (step === "configure") {
-        return await configureKubernetes(requestData);
+        return await configureKubernetes(requestData, context);
     } else {
         return renderInternalError(`AzureStepError (${step})`);
     }
@@ -140,7 +147,7 @@ function formPage(fd: FormData) : string {
 
 // Pages for the various wizard steps
 
-async function promptForSubscription(previousData: any, action: clusterproviderregistry.ClusterProviderAction, nextStep: string) : Promise<string> {
+async function promptForSubscription(previousData: any, context: azure.Context, action: clusterproviderregistry.ClusterProviderAction, nextStep: string) : Promise<string> {
     const subscriptionList = await azure.getSubscriptionList(context, previousData.id);
     if (!subscriptionList.result.succeeded) {
         return renderCliError('PromptForSubscription', subscriptionList);
@@ -173,7 +180,7 @@ async function promptForSubscription(previousData: any, action: clusterproviderr
     });
 }
 
-async function promptForCluster(previousData: any) : Promise<string> {
+async function promptForCluster(previousData: any, context: azure.Context) : Promise<string> {
     const clusterList = await azure.getClusterList(context, previousData.subscription, previousData.clusterType);
 
     if (!clusterList.result.succeeded) {
@@ -205,13 +212,13 @@ async function promptForCluster(previousData: any) : Promise<string> {
     });
 }
 
-async function configureKubernetes(previousData: any) : Promise<string> {
+async function configureKubernetes(previousData: any, context: azure.Context) : Promise<string> {
     const selectedCluster = parseCluster(previousData.cluster);
     const configureResult = await azure.configureCluster(context, previousData.clusterType, selectedCluster.name, selectedCluster.resourceGroup);
     return renderConfigurationResult(configureResult);
 }
 
-async function promptForMetadata(previousData: any) : Promise<string> {
+async function promptForMetadata(previousData: any, context: azure.Context) : Promise<string> {
     const serviceLocations = previousData.clusterType === 'acs' ?
         await azure.listAcsLocations(context) :
         await azure.listAksLocations(context);
@@ -245,7 +252,7 @@ async function promptForMetadata(previousData: any) : Promise<string> {
     });
 }
 
-async function promptForAgentSettings(previousData: any) : Promise<string> {
+async function promptForAgentSettings(previousData: any, context: azure.Context) : Promise<string> {
     const vmSizes = await azure.listVMSizes(context, previousData.location);
     if (!vmSizes.succeeded) {
         return renderCliError('PromptForAgentSettings', {
@@ -276,7 +283,7 @@ async function promptForAgentSettings(previousData: any) : Promise<string> {
     });
 }
 
-async function createCluster(previousData: any) : Promise<string> {
+async function createCluster(previousData: any, context: azure.Context) : Promise<string> {
 
     const options = {
         clusterType: previousData.clusterType,
@@ -325,7 +332,7 @@ function refreshCountIndicator() : string {
     return ".".repeat(refreshCount % 4);
 }
 
-async function waitForClusterAndReportConfigResult(previousData: any) : Promise<string> {
+async function waitForClusterAndReportConfigResult(previousData: any, context: azure.Context) : Promise<string> {
 
     ++refreshCount;
 
