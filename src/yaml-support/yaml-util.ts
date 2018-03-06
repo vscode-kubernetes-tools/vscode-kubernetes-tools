@@ -75,13 +75,13 @@ export function getKubernetesGroupVersionKind(groupKindNodeItem) {
     const version = getValue(groupKindNodeItem, 'version', true);
     const apiVersion = group ? group + '/' + version: version;
     const kind = getValue(groupKindNodeItem, 'kind', true);
-    return { id: (apiVersion + GROUP_VERSION_KIND_SEPARATOR + kind).toLowerCase(), apiVersion, kind };
+    return { id: apiVersion + GROUP_VERSION_KIND_SEPARATOR + kind, apiVersion, kind };
 }
 
 
 // test whether two strings are equal ignore case
 export function equalIgnoreCase(a: string, b: string) {
-    return a && b && typeof a === 'string' && typeof b === 'string' && a.toUpperCase() === b.toUpperCase();
+    return a && b && typeof a === 'string' && typeof b === 'string' && a.toLowerCase() === b.toLowerCase();
 }
 
 // Get the string value of key in a yaml mapping node(parsed by node-yaml-parser)

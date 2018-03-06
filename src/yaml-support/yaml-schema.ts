@@ -32,20 +32,21 @@ export function loadSchema(schemaFile: string) {
                 // a direct kubernetes manifest has two reference keys, id && name
                 // id: apiVersion + kind
                 // name: the name in 'definitions' of schema
-                _definitions[id] = _definitions[name.toLowerCase()] = {
+                saveSchema({
+                    id,
                     apiVersion,
                     name,
                     kind,
                     ...currentSchema
-                };
+                });
             });
         } else {
             // if x-kubernetes-group-version-kind cannot be found, then it is an in-direct schema refereed by
             // direct kubernetes manifest, eg: io.k8s.kubernetes.pkg.api.v1.PodSpec
-            _definitions[name.toLowerCase()] = {
+            saveSchema({
                 name,
                 ...currentSchema
-            };
+            });
         }
 
         // fix on each node in properties for $ref since it will directly reference '#/definitions/...'
@@ -106,29 +107,19 @@ export async function registerYamlSchemaSupport() {
         // eg: kubernetes://schema/io.k8s.kubernetes.pkg.apis.extensions.v1beta1.httpingresspath will have
         // path '/io.k8s.kubernetes.pkg.apis.extensions.v1beta1.httpingresspath'
         const manifestType = _uri.path.slice(1);
-
         // if it is a multiple choice, make an 'oneof' schema.
         if (manifestType.includes('+')) {
             const manifestRefList = manifestType.split('+').map(util.makeRefOnKubernetes);
             return JSON.stringify({ oneOf: manifestRefList });
         }
-        if (_definitions[manifestType]) {
-            return JSON.stringify(_definitions[manifestType]);
-        }
+        const schema = findSchemaByIdOrName(manifestType);
 
-        // if we cannot find any schema in _definitions for manifestType, we will iterate the values in  _definitions to
-        // find the schema with the apiVersion and kind
-        //apiVersionKind[0] is apiVersion and apiVersionKind[1] is kind
-        const apiVersionKind = manifestType.split(GROUP_VERSION_KIND_SEPARATOR);
-        const apiVersion = apiVersionKind[0];
-        const kind = apiVersionKind[1];
-        const matchedSchema = _.values(_definitions).find((schema) =>
-            util.equalIgnoreCase(apiVersion, schema.apiVersion) &&
-            util.equalIgnoreCase(kind, schema.kind));
-        if (matchedSchema) {
-            return JSON.stringify(matchedSchema);
+        // convert it to string since vscode-yaml need the string format
+        if (schema) {
+            return JSON.stringify(schema);
         }
         return undefined;
+
     });
 }
 
@@ -161,28 +152,57 @@ function patchOnRef(node) {
     }
 
     if (node.$ref) {
-        const referId = getNameInDefinitions(node.$ref.toLowerCase());
-        const match = _definitions[referId];
-        if (match) {
+        const name = getNameInDefinitions(node.$ref);
+        const schema = findSchemaByIdOrName(name);
+        if (schema) {
             // replacing $ref
-            node.$ref = util.makeKubernetesUri(match.name);
+            node.$ref = util.makeKubernetesUri(schema.name);
         }
     }
 }
 
-// find redhat.vscode-yaml extension and try to activate it
+// find redhat.vscode-yaml extension and try to activate it to get the yaml contributor
 async function activateYamlExtension() {
     const ext: vscode.Extension<any> = vscode.extensions.getExtension(VSCODE_YAML_EXTENSION_ID);
     if (!ext) {
-        vscode.window.showWarningMessage('Please install the "YAML Support by Red Hat" extension in marketplace.');
+        vscode.window.showWarningMessage('Please install \'YAML Support by Red Hat\' via the Extensions pane.');
         return;
     }
     const yamlPlugin = await ext.activate();
 
     if (!yamlPlugin || !yamlPlugin.registerContributor) {
-        vscode.window.showWarningMessage('Please install the latest "YAML Support by Red Hat" extension in marketplace.');
+        vscode.window.showWarningMessage('The installed Red Hat YAML extension doesn\'t support Kubernetes Intellisense. Please upgrade \'YAML Support by Red Hat\' via the Extensions pane.');
         return;
     }
 
     return yamlPlugin;
+}
+
+// save the schema to the _definitions
+function saveSchema(schema: any) {
+    if (schema.name) {
+        _definitions[schema.name.toLowerCase()] = schema;
+    }
+    if (schema.id) {
+        _definitions[schema.id.toLowerCase()] = schema;
+    }
+}
+
+// find the schema saved at _definitions
+function findSchemaByIdOrName(key) {
+    // property keys in _definitions are always low case
+    key = key.toLowerCase();
+    let matchedSchema = _definitions[key];
+    if (!matchedSchema) {
+        // if we cannot find any schema in _definitions for manifestType, we will iterate the values in  _definitions to
+        // find the schema with the apiVersion and kind
+        //apiVersionKind[0] is apiVersion and apiVersionKind[1] is kind
+        const apiVersionKind = key.split(GROUP_VERSION_KIND_SEPARATOR);
+        const apiVersion = apiVersionKind[0];
+        const kind = apiVersionKind[1];
+        matchedSchema = (apiVersion && kind) ? _.values(_definitions).find((schema) =>
+            util.equalIgnoreCase(apiVersion, schema.apiVersion) &&
+            util.equalIgnoreCase(kind, schema.kind)) : undefined;
+    }
+    return matchedSchema;
 }
