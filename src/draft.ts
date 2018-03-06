@@ -9,6 +9,7 @@ export interface Draft {
     isFolderMapped(path: string) : boolean;
     packs() : Promise<string[] | undefined>;
     invoke(args: string) : Promise<ShellResult>;
+    invokeAsync(command : string) : Promise<ShellResult>;
     path() : Promise<string | undefined>;
 }
 
@@ -46,6 +47,10 @@ class DraftImpl implements Draft {
     invoke(args: string) : Promise<ShellResult> {
         return invoke(this.context, args);
     }
+    
+    invokeAsync(command : string) : Promise<ShellResult> {
+        return invokeAsync(this.context, command);
+    }
 
     path() : Promise<string | undefined> {
         return path(this.context);
@@ -79,6 +84,11 @@ async function invoke(context : Context, args : string) : Promise<ShellResult> {
         const result = context.shell.exec(context.binPath + ' ' + args);
         return result;
     }
+}
+
+async function invokeAsync(context : Context, command : string) : Promise<ShellResult> {
+    let cmd = context.binPath + ' ' + command;
+    return await context.shell.exec(cmd);
 }
 
 async function path(context : Context) : Promise<string | undefined> {

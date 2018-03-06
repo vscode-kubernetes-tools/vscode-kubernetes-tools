@@ -39,7 +39,8 @@ import { HelmTemplatePreviewDocumentProvider, HelmInspectDocumentProvider } from
 import { HelmTemplateCompletionProvider } from './helm.completionProvider';
 import { Reporter } from './telemetry';
 import * as telemetry from './telemetry-helper';
-import {dashboardKubernetes} from './components/kubectl/proxy';
+import { dashboardKubernetes } from './components/kubectl/proxy';
+import { sleep } from './sleep';
 
 let explainActive = false;
 let swaggerSpecPromise = null;
@@ -62,7 +63,7 @@ const deleteMessageItems: vscode.MessageItem[] = [
 // Filters for different Helm file types.
 // TODO: Consistently apply these to the provders registered.
 export const HELM_MODE: vscode.DocumentFilter = { language: "helm", scheme: "file" };
-export const HELM_REQ_MODE: vscode.DocumentFilter = { language: "helm", scheme: "file", pattern: "**/requirements.yaml"};
+export const HELM_REQ_MODE: vscode.DocumentFilter = { language: "helm", scheme: "file", pattern: "**/requirements.yaml" };
 export const HELM_CHART_MODE: vscode.DocumentFilter = { language: "helm", scheme: "file", pattern: "**/Chart.yaml" };
 export const HELM_TPL_MODE: vscode.DocumentFilter = { language: "helm", scheme: "file", pattern: "**/templates/*.*" };
 
@@ -77,8 +78,8 @@ export function activate(context) {
     const completionProvider = new HelmTemplateCompletionProvider();
     const completionFilter = [
         "helm",
-        {language: "yaml", pattern: "**/templates/*.yaml"},
-        {pattern: "**/templates/NOTES.txt"}
+        { language: "yaml", pattern: "**/templates/*.yaml" },
+        { pattern: "**/templates/NOTES.txt" }
     ];
 
     const subscriptions = [
@@ -128,6 +129,10 @@ export function activate(context) {
         registerCommand('extension.draftCreate', execDraftCreate),
         registerCommand('extension.draftUp', execDraftUp),
 
+        registerCommand('extension.draftCreateDebug', execDraftCreateDebug),
+        registerCommand('extension.draftUpDebug', execDraftUpDebug),
+        registerCommand('extension.draftDebug', execDraftDebug),
+
         // HTML renderers
         vscode.workspace.registerTextDocumentContentProvider(configureFromCluster.uriScheme, configureFromClusterUI),
         vscode.workspace.registerTextDocumentContentProvider(createCluster.uriScheme, createClusterUI),
@@ -174,7 +179,7 @@ export function activate(context) {
             let u = vscode.Uri.parse(helm.PREVIEW_URI);
             previewProvider.update(u);
         }
-	});
+    });
     // On editor change, refresh the Helm YAML preview
     vscode.window.onDidChangeActiveTextEditor((e: vscode.TextEditor) => {
         if (!editorIsActive()) {
@@ -1460,7 +1465,82 @@ async function execDraftCreateApp(appName : string, pack? : string) : Promise<vo
     }
 }
 
-function draftCreateResult(sr : ShellResult, hadPack : boolean) {
+async function execDraftCreateDebug() {
+
+    const pack = "github.com/radu-matei/draft-packs/packs/node-debug/"
+
+    if (vscode.workspace.rootPath === undefined) {
+        vscode.window.showErrorMessage('This command requires an open folder.');
+        return;
+    }
+    if (draft.isFolderMapped(vscode.workspace.rootPath)) {
+        vscode.window.showInformationMessage('This folder is already configured for draft. Run draft up to deploy.');
+        return;
+    }
+    if (!(await draft.checkPresent())) {
+        return;
+    }
+    const proposedAppName = path.basename(vscode.workspace.rootPath);
+    const appName = await vscode.window.showInputBox({ value: proposedAppName, prompt: "Choose a name for the Helm release" });
+    if (appName) {
+        await execDraftCreateApp(appName, pack);
+    }
+}
+
+async function execDraftUpDebug() {
+    const draftPath = await draft.path();
+    const term = vscode.window.createTerminal('draft logs', `bash`, ['-c', `${draftPath} logs ; bash`]);
+    term.show(true);
+
+    vscode.window.showInformationMessage("Starting draft up")
+    await draft.invokeAsync('up').then((result) => {
+        vscode.window.showInformationMessage("Finished draft up")
+        execDraftDebug() 
+    })
+
+}
+
+async function execDraftDebug() {
+
+    // exits with code 0 when it found a pod to connect to
+    // replicaCount is set to 1 in the debug pack, because with rolling updates, 
+    // it will find a running pod soon to be terminated, connect to it and then it gets killed
+    // TODO - fix this once helm install --wait is functional
+    await draft.invokeAsync('connect --wait')
+
+    const draftPath = await draft.path();
+
+    // TODO - make ports parameters
+    const term = vscode.window.createTerminal('draft connect', `bash`, ['-c', `${draftPath} connect -p 8080:8080 -p 9229:9229 ; bash`]);
+    term.show(true);
+    
+    vscode.window.showInformationMessage("Attaching debugger...")
+
+    // we know there is a ready pod, this shoud be enough time for 
+    // the portforward stuff to create the connection 
+    // TODO - how can this be avoided? what happens if network is busy?
+    await sleep(5000)
+
+    const debugConfiguration = {
+        type: 'node',
+        request: 'attach',
+        name: 'Attach to Process',
+        address: 'localhost',
+        // TODO - make this configurable - part of draft.toml?
+        port: 9229,
+        localRoot: vscode.workspace.rootPath,
+        remoteRoot: '/usr/src/app'
+    };
+    
+    
+    vscode.debug.startDebugging(undefined, debugConfiguration)
+    vscode.debug.onDidTerminateDebugSession((e) => {
+        term.dispose()
+    })
+
+}
+
+function draftCreateResult(sr: ShellResult, hadPack: boolean) {
     if (sr.code === 0) {
         return DraftCreateResult.Succeeded;
     }

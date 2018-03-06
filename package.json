@@ -54,7 +54,10 @@
         "onCommand:extension.helmInspectValues",
         "onCommand:extension.draftVersion",
         "onCommand:extension.draftCreate",
+        "onCommand:extension.draftCreateDebug",
         "onCommand:extension.draftUp",
+        "onCommand:extension.draftUpDebug",
+        "onCommand:extension.draftDebug",
         "onView:extension.vsKubernetesExplorer",
         "onLanguage:helm"
     ],
@@ -376,6 +379,24 @@
                 "command": "extension.draftCreate",
                 "title": "Create",
                 "description": "Create a new Draft project",
+                "category": "Draft"
+            },
+            {
+                "command": "extension.draftCreateDebug",
+                "title": "Create (debug pack)",
+                "description": "Create a new Draft project using the Node Debug pack",
+                "category": "Draft"
+            },
+            {
+                "command": "extension.draftUpDebug",
+                "title": "up --debug",
+                "description": "Debug the Draft application",
+                "category": "Draft"
+            },
+            {
+                "command": "extension.draftDebug",
+                "title": "Debug",
+                "description": "Debug your Draft application",
                 "category": "Draft"
             },
             {
