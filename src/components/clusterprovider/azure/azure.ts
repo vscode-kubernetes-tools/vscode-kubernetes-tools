@@ -1,10 +1,10 @@
 'use strict';
 
-import { Shell } from './shell';
-import { FS } from './fs';
-import { Errorable, ActionResult, fromShellJson, fromShellExitCode } from './wizard';
+import { Shell } from '../../../shell';
+import { FS } from '../../../fs';
+import { Errorable, ActionResult, fromShellJson, fromShellExitCode } from '../../../wizard';
 import * as compareVersions from 'compare-versions';
-import { sleep } from './sleep';
+import { sleep } from '../../../sleep';
 
 export interface Context {
     readonly fs: FS;

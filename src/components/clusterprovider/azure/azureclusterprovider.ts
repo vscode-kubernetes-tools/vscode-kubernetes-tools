@@ -1,6 +1,6 @@
 import * as restify from 'restify';
 import * as clusterproviderregistry from '../clusterproviderregistry';
-import * as azure from '../../../azure';
+import * as azure from './azure';
 import { Errorable, script, styles, formStyles, waitScript, ActionResult } from '../../../wizard';
 
 // HTTP request dispatch
