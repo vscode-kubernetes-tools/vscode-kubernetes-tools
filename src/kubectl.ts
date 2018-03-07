@@ -1,3 +1,4 @@
+import { Terminal } from 'vscode';
 import { Host } from './host';
 import { FS } from './fs';
 import { Shell, ShellHandler, ShellResult } from './shell';
@@ -33,7 +34,7 @@ class KubectlImpl implements Kubectl {
     }
 
     private readonly context : Context;
-    private terminal : any;
+    private sharedTerminal : Terminal;
 
     checkPresent(errorMessageMode : CheckPresentMessageMode) : Promise<boolean> {
         return checkPresent(this.context, errorMessageMode);
@@ -60,17 +61,17 @@ class KubectlImpl implements Kubectl {
     path() : string {
         return path(this.context);
     }
-    private getSharedTerminal() : any {
-        if (!this.terminal) {
-            this.terminal = this.context.host.createTerminal('kubectl');
+    private getSharedTerminal() : Terminal {
+        if (!this.sharedTerminal) {
+            this.sharedTerminal = this.context.host.createTerminal('kubectl');
             const disposable = this.context.host.onDidCloseTerminal((terminal) => {
-                if (terminal === this.terminal) {
-                    this.terminal = null;
+                if (terminal === this.sharedTerminal) {
+                    this.sharedTerminal = null;
                     disposable.dispose();
                 }
             });
         }
-        return this.terminal;
+        return this.sharedTerminal;
     }
 }
 
@@ -137,7 +138,7 @@ async function invokeAsyncWithProgress(context : Context, command : string, prog
     });
 }
 
-function invokeInTerminal(context : Context, command : string, terminal : any) : void {
+function invokeInTerminal(context : Context, command : string, terminal : Terminal) : void {
     let bin = baseKubectlPath(context).trim();
     if (bin.indexOf(" ") > -1 && !/^['"]/.test(bin)) {
         bin = `"${bin}"`;

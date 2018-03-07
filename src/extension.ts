@@ -670,7 +670,7 @@ function promptScaleKubernetes(kindName : string) {
 }
 
 function invokeScaleKubernetes(kindName : string, replicas : number) {
-    kubectl.invokeInTerminal(`scale --replicas=${replicas} ${kindName}`);
+    kubectl.invoke(`scale --replicas=${replicas} ${kindName}`);
 }
 
 function runKubernetes() {
@@ -1067,13 +1067,23 @@ async function refreshExplorer() {
     await vscode.commands.executeCommand("extension.vsKubernetesRefreshExplorer");
 }
 
+async function reportDeleteResult(resourceId: string, shellResult: ShellResult) {
+    if (shellResult.code !== 0) {
+        await vscode.window.showErrorMessage(`Failed to delete resource '${resourceId}': ${shellResult.stderr}`);
+        return;
+    }
+    await vscode.window.showInformationMessage(shellResult.stdout);
+    refreshExplorer();
+}
+
 const deleteKubernetes = async (explorerNode? : explorer.ResourceNode) => {
     if (explorerNode) {
         const answer = await vscode.window.showWarningMessage(`Do you want to delete the resource '${explorerNode.resourceId}'?`, ...deleteMessageItems);
         if (answer.isCloseAffordance) {
             return;
         }
-        kubectl.invokeInTerminal(`delete ${explorerNode.resourceId}`);
+        const shellResult = await kubectl.invokeAsyncWithProgress(`delete ${explorerNode.resourceId}`, `Deleting ${explorerNode.resourceId}...`);
+        await reportDeleteResult(explorerNode.resourceId, shellResult);
     } else {
         findKindNameOrPrompt(kuberesources.commonKinds, 'delete', { nameOptional: true }, async (kindName) => {
             if (kindName) {
@@ -1081,7 +1091,8 @@ const deleteKubernetes = async (explorerNode? : explorer.ResourceNode) => {
                 if (!containsName(kindName)) {
                     commandArgs = kindName + " --all";
                 }
-                kubectl.invokeInTerminal(`delete ${commandArgs}`);
+                const shellResult = await kubectl.invokeAsyncWithProgress(`delete ${commandArgs}`, `Deleting ${kindName}...`);
+                await reportDeleteResult(kindName, shellResult);
             }
         });
     }
