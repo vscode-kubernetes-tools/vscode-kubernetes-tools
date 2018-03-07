@@ -206,6 +206,11 @@
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
                 },
                 {
+                    "command": "extension.vsKubernetesDebugAttach",
+                    "group": "1@4",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
+                },
+                {
                     "command": "extension.vsKubernetesDescribe",
                     "group": "2",
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
@@ -317,7 +322,12 @@
             },
             {
                 "command": "extension.vsKubernetesDebug",
-                "title": "Debug",
+                "title": "Debug (Launch)",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesDebugAttach",
+                "title": "Debug (Attach)",
                 "category": "Kubernetes"
             },
             {

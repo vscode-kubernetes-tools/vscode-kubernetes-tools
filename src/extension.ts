@@ -40,6 +40,8 @@ import { HelmTemplateCompletionProvider } from './helm.completionProvider';
 import { Reporter } from './telemetry';
 import * as telemetry from './telemetry-helper';
 import {dashboardKubernetes} from './components/kubectl/proxy';
+import { DebugSession } from './debug/debugSession';
+import { getSupportedDebuggerTypes } from './debug/providerRegistry';
 
 let explainActive = false;
 let swaggerSpecPromise = null;
@@ -103,6 +105,7 @@ export function activate(context) {
         registerCommand('extension.vsKubernetesScale', scaleKubernetes),
         registerCommand('extension.vsKubernetesDebug', debugKubernetes),
         registerCommand('extension.vsKubernetesRemoveDebug', removeDebugKubernetes),
+        registerCommand('extension.vsKubernetesDebugAttach', debugAttachKubernetes),
         registerCommand('extension.vsKubernetesConfigureFromCluster', configureFromClusterKubernetes),
         registerCommand('extension.vsKubernetesCreateCluster', createClusterKubernetes),
         registerCommand('extension.vsKubernetesRefreshExplorer', () => treeProvider.refresh()),
@@ -1193,8 +1196,43 @@ const diffKubernetes = (callback) => {
     });
 };
 
-const debugKubernetes = () => {
-    buildPushThenExec(_debugInternal);
+async function showWorkspaceFolderPick(): Promise<vscode.WorkspaceFolder> {
+    if (!vscode.workspace.workspaceFolders) {
+        vscode.window.showErrorMessage('This command requires an open folder.');
+        return;
+    } else if (vscode.workspace.workspaceFolders.length === 1) {
+        return vscode.workspace.workspaceFolders[0];
+    }
+    return await vscode.window.showWorkspaceFolderPick();
+}
+
+const debugKubernetes = async () => {
+    const workspaceFolder = await showWorkspaceFolderPick();
+    if (workspaceFolder) {
+        const legacySupportedDebuggers = ["node"]; // legacy code support node debugging.
+        const providerSupportedDebuggers = getSupportedDebuggerTypes();
+        const supportedDebuggers = providerSupportedDebuggers.concat(legacySupportedDebuggers);
+        const appType = await vscode.window.showQuickPick(supportedDebuggers, {
+            placeHolder: "Select the environment"
+        });
+
+        if (!appType) {
+            return;
+        }
+
+        if (providerSupportedDebuggers.indexOf(appType) > -1) {
+            new DebugSession(kubectl).launch(vscode.workspace.workspaceFolders[0]);
+        } else {
+            buildPushThenExec(_debugInternal);
+        }
+    }
+};
+
+const debugAttachKubernetes = async (explorerNode: explorer.KubernetesObject) => {
+    const workspaceFolder = await showWorkspaceFolderPick();
+    if (workspaceFolder) {
+        new DebugSession(kubectl).attach(workspaceFolder, explorerNode ? explorerNode.id : null);
+    }
 };
 
 const _debugInternal = (name, image) => {
