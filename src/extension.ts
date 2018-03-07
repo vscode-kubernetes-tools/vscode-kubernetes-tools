@@ -462,12 +462,10 @@ function getTextForActiveWindow(callback) {
     if (editor.selection) {
         text = editor.document.getText(editor.selection);
 
-        if (text.length === 0) {
+        if (text.length > 0) {
+            callback(text, null);
             return;
         }
-
-        callback(text, null);
-        return;
     }
 
     if (editor.document.isUntitled) {
@@ -1137,13 +1135,22 @@ const diffKubernetes = (callback) => {
         let kindName = null;
         let fileName = null;
 
+        let fileFormat = "json";
+
         if (data) {
+            fileFormat = (data.trim().length > 0 && data.trim()[0] == '{') ? "json" : "yaml";
             kindName = findKindNameForText(data);
-            fileName = path.join(os.tmpdir(), 'local.json');
+            fileName = path.join(os.tmpdir(), `local.${fileFormat}`);
             fs.writeFile(fileName, data, handleError);
         } else if (file) {
             kindName = findKindName();
             fileName = file;
+            if (vscode.window.activeTextEditor && vscode.window.activeTextEditor.document) {
+                const langId = vscode.window.activeTextEditor.document.languageId.toLowerCase();
+                if (langId === "yaml" || langId === "helm") {
+                    fileFormat = "yaml";
+                }
+            }
         } else {
             vscode.window.showInformationMessage('Nothing to diff.');
             return;
@@ -1154,19 +1161,27 @@ const diffKubernetes = (callback) => {
             return;
         }
 
-        kubectl.invoke(` get -o json ${kindName}`, (result, stdout, stderr) => {
-            if (result !== 0) {
+        kubectl.invoke(` get -o ${fileFormat} ${kindName}`, (result, stdout, stderr) => {
+            if (result == 1 && stderr.indexOf('NotFound') >= 0) {
+                vscode.window.showWarningMessage(`Resource ${kindName} does not exist - this will create a new resource.`, 'Create').then((choice) => {
+                    if (choice === 'Create') {
+                        maybeRunKubernetesCommandForActiveWindow('create -f');
+                    }
+                });
+                return;
+            }
+            else if (result !== 0) {
                 vscode.window.showErrorMessage('Error running command: ' + stderr);
                 return;
             }
 
-            let otherFile = path.join(os.tmpdir(), 'server.json');
-            fs.writeFile(otherFile, stdout, handleError);
+            let serverFile = path.join(os.tmpdir(), `server.${fileFormat}`);
+            fs.writeFile(serverFile, stdout, handleError);
 
             vscode.commands.executeCommand(
                 'vscode.diff',
-                vscode.Uri.parse('file://' + otherFile),
-                vscode.Uri.parse('file://' + fileName)).then((result) => {
+                shell.fileUri(serverFile),
+                shell.fileUri(fileName)).then((result) => {
                     console.log(result);
                     if (!callback) {
                         return;

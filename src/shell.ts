@@ -8,6 +8,7 @@ export interface Shell {
     isUnix() : boolean;
     home() : string;
     combinePath(basePath : string, relativePath : string);
+    fileUri(filePath) : vscode.Uri;
     execOpts() : any;
     exec(cmd : string) : Promise<ShellResult>;
     execCore(cmd : string, opts : any) : Promise<ShellResult>;
@@ -18,6 +19,7 @@ export const shell : Shell = {
     isUnix : isUnix,
     home : home,
     combinePath : combinePath,
+    fileUri : fileUri,
     execOpts : execOpts,
     exec : exec,
     execCore : execCore
@@ -53,6 +55,13 @@ function combinePath(basePath : string, relativePath : string) {
         separator = '\\';
     }
     return basePath + separator + relativePath;
+}
+
+function fileUri(filePath : string) : vscode.Uri {
+    if (isWindows()) {
+        return vscode.Uri.parse('file:///' + filePath.replace(/\\/g, '/'));
+    }
+    return vscode.Uri.parse('file://' + filePath);
 }
 
 function execOpts() : any {
