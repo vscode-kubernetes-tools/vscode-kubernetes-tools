@@ -23,6 +23,7 @@ interface ProxyResult {
 
 export interface IDebugSession {
     launch(workspaceFolder: vscode.WorkspaceFolder): Promise<void>;
+    attach(workspaceFolder: vscode.WorkspaceFolder, pod?: string): Promise<void>;
 }
 
 export class DebugSession implements IDebugSession {
@@ -51,10 +52,8 @@ export class DebugSession implements IDebugSession {
             return;
         }
         const dockerfile = new DockerfileParser().parse(dockerfilePath);
-        this.debugProvider = await providerRegistry.getDebugProvider(dockerfile.getBaseImage());
+        this.debugProvider = await this.pickupAndInstallDebugProvider(dockerfile.getBaseImage());
         if (!this.debugProvider) {
-            return;
-        } else if (!await this.debugProvider.isDebuggerInstalled()) {
             return;
         }
 
@@ -104,6 +103,103 @@ export class DebugSession implements IDebugSession {
         });
     }
 
+    /**
+     * In attach mode, the user should choose the running pod first, then the debugger will attach to it.
+     *
+     * @param workspaceFolder the active workspace folder.
+     * @param pod the target pod name.
+     */
+    public async attach(workspaceFolder: vscode.WorkspaceFolder, pod?: string): Promise<void> {
+        if (!workspaceFolder) {
+            return;
+        }
+
+        // Select the image type to attach.
+        this.debugProvider = await this.pickupAndInstallDebugProvider();
+        if (!this.debugProvider) {
+            return;
+        }
+
+        // Select the target pod to attach.
+        let targetPod = pod, targetContainer, containers = [];
+        const resource = await kubectlUtils.getResourceAsJson(this.kubectl, pod ? `pod/${pod}` : "pods");
+        if (!resource) {
+            return;
+        }
+
+        if (pod) {
+            containers = resource.spec.containers;
+        } else {
+            const podPickItems: vscode.QuickPickItem[] = resource.items.map((pod) => {
+                return {
+                    label: `${pod.metadata.name} (${pod.spec.nodeName})`,
+                    description: "pod",
+                    name: pod.metadata.name,
+                    containers: pod.spec.containers
+                };
+            });
+
+            const selectedPod = await vscode.window.showQuickPick(podPickItems, { placeHolder: `Please select a pod to attach` });
+            if (!selectedPod) {
+                return;
+            }
+
+            targetPod = (<any> selectedPod).name;
+            containers = (<any> selectedPod).containers;
+        }
+
+        // Select the target container to attach.
+        if (containers.length > 1) {
+            const containerPickItems: vscode.QuickPickItem[] = containers.map((container) => {
+                return {
+                    label: `${container.name} (${container.image})`,
+                    description: "container",
+                    name: container.name
+                };
+            });
+
+            const selectedContainer = await vscode.window.showQuickPick(containerPickItems, { placeHolder: "Please select a container to attach" });
+            if (!selectedContainer) {
+                return;
+            }
+
+            targetContainer = (<any> selectedContainer).name;
+        }
+
+        // Find the debug port to attach.
+        const portInfo = await this.debugProvider.resolvePortsFromContainer(this.kubectl, targetPod, targetContainer);
+        if (!portInfo || !portInfo.debugPort) {
+            vscode.window.showErrorMessage("Cannot resolve the debug port to attach.");
+            return;
+        }
+
+        vscode.window.withProgress({ location: vscode.ProgressLocation.Window }, async (p) => {
+            try {
+                // Setup port-forward.
+                p.report({ message: "Setting up port forwarding..."});
+                const proxyResult = await this.setupPortForward(targetPod, portInfo.debugPort);
+
+                // Start debug session.
+                p.report({ message: `Starting ${this.debugProvider.getDebuggerType()} debug session...`});
+                await this.startDebugSession(null, workspaceFolder.uri.fsPath, proxyResult);
+            } catch (error) {
+                vscode.window.showErrorMessage(error);
+                kubeChannel.showOutput(`Debug on Kubernetes failed. The errors were: ${error}.`);
+            }
+        });
+    }
+
+    private async pickupAndInstallDebugProvider(baseImage?: string): Promise<IDebugProvider | undefined> {
+        let debugProvider: IDebugProvider = await providerRegistry.getDebugProvider();
+        if (!debugProvider) {
+            return;
+        } else if (!await debugProvider.isDebuggerInstalled()) {
+            return;
+        }
+
+        return debugProvider;
+    }
+
     private async buildDockerImage(imagePrefix: string, shellOpts: any): Promise<string> {
         kubeChannel.showOutput("Starting to build/push Docker image...", "Docker build/push");
         if (!imagePrefix) {
@@ -145,10 +241,10 @@ export class DebugSession implements IDebugSession {
         kubeChannel.showOutput(`Finshed waiting.`);
     }
 
-    private async setupPortForward(podName: string, debugPort: number, appPort: number): Promise<ProxyResult> {
+    private async setupPortForward(podName: string, debugPort: number, appPort?: number): Promise<ProxyResult> {
         kubeChannel.showOutput(`Setting up port forwarding on pod ${podName}...`, "Set up port forwarding");
         const proxyResult = await this.createPortForward(this.kubectl, podName, debugPort, appPort);
-        kubeChannel.showOutput(`Created port-forward ${proxyResult.proxyDebugPort}:${debugPort} ${proxyResult.proxyAppPort}:${appPort}`);
+        kubeChannel.showOutput(`Created port-forward ${proxyResult.proxyDebugPort}:${debugPort} ${appPort ? proxyResult.proxyAppPort + ":" + appPort : ""}`);
         
         // Wait for the port-forward proxy to be ready.
         kubeChannel.showOutput("Waiting for port forwarding to be ready...");
@@ -181,7 +277,7 @@ export class DebugSession implements IDebugSession {
         }
     }
 
-    private async createPortForward(kubectl: Kubectl, podName: string, debugPort: number, appPort: number): Promise<ProxyResult> {
+    private async createPortForward(kubectl: Kubectl, podName: string, debugPort: number, appPort?: number): Promise<ProxyResult> {
         let portMapping = [];
         // Find a free local port for forwarding data to remote app port.
         let proxyAppPort = 0;
