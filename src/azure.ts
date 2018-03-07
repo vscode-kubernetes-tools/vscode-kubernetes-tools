@@ -2,7 +2,7 @@
 
 import { Shell } from './shell';
 import { FS } from './fs';
-import { Errorable, ActionResult } from './wizard';
+import { Errorable, ActionResult, fromShellJson, fromShellExitCode } from './wizard';
 import * as compareVersions from 'compare-versions';
 import { sleep } from './sleep';
 
@@ -102,24 +102,16 @@ function prereqCheckSSHKeys(context: Context, errors: Array<String>) {
 
 async function listSubscriptionsAsync(context: Context) : Promise<Errorable<string[]>> {
     const sr = await context.shell.exec("az account list --all --query [*].name -ojson");
-    
-    if (sr.code === 0 && !sr.stderr) {  // az account list returns exit code 0 even if not logged in
-        const accountNames : string[] = JSON.parse(sr.stdout);
-        return { succeeded: true, result: accountNames, error: [] };
-    } else {
-        return { succeeded: false, result: [], error: [sr.stderr] };
-    }
+
+    return fromShellJson<string[]>(sr);
 }
 
 export async function setSubscriptionAsync(context: Context, subscription: string) : Promise<Errorable<void>> {
     const sr = await context.shell.exec(`az account set --subscription "${subscription}"`);
 
-    if (sr.code === 0 && !sr.stderr) {
-        return { succeeded: true, result: null, error: [] };
-    } else {
-        return { succeeded: false, result: null, error: [sr.stderr] };
-    }
+    return fromShellExitCode(sr);
 }
+
 export async function getClusterList(context: Context, subscription: string, clusterType: string) : Promise<ActionResult<ClusterInfo[]>> {
     // log in
     const login = await setSubscriptionAsync(context, subscription);
@@ -142,16 +134,11 @@ async function listClustersAsync(context: Context, clusterType: string) : Promis
     let cmd = getListClustersCommand(context, clusterType);
     const sr = await context.shell.exec(cmd);
 
-    if (sr.code === 0 && !sr.stderr) {
-        const clusters : ClusterInfo[] = JSON.parse(sr.stdout);
-        return { succeeded: true, result: clusters, error: [] };
-    } else {
-        return { succeeded: false, result: [], error: [sr.stderr] };
-    }
+    return fromShellJson<ClusterInfo[]>(sr);
 }
 
 function listClustersFilter(clusterType: string): string {
-    if (clusterType == 'acs') {
+    if (clusterType === 'acs') {
         return '?orchestratorProfile.orchestratorType==`Kubernetes`';
     }
     return '';
@@ -173,18 +160,14 @@ async function listLocations(context: Context) : Promise<Errorable<Locations>> {
     }
 
     const sr = await context.shell.exec(`az account list-locations --query ${query} -ojson`);
-    
-    if (sr.code === 0 && !sr.stderr) {
-        const response = JSON.parse(sr.stdout);
+
+    return fromShellJson<Locations>(sr, (response) => {
         let locations : any = {};
         for (const r of response) {
             locations[r.name] = r.displayName;
         }
-        const result = { locations: locations };
-        return { succeeded: true, result: result, error: [] };
-    } else {
-        return { succeeded: false, result: { locations: {} }, error: [sr.stderr] };
-    }
+        return { locations: locations };
+    });
 }
 
 export async function listAcsLocations(context: Context) : Promise<Errorable<ServiceLocation[]>> {
@@ -196,13 +179,8 @@ export async function listAcsLocations(context: Context) : Promise<Errorable<Ser
 
     const sr = await context.shell.exec(`az acs list-locations -ojson`);
     
-    if (sr.code === 0 && !sr.stderr) {
-        const response = JSON.parse(sr.stdout);
-        const result = locationDisplayNamesEx(response.productionRegions, response.previewRegions, locations) ;
-        return { succeeded: true, result: result, error: [] };
-    } else {
-        return { succeeded: false, result: [], error: [sr.stderr] };
-    }
+    return fromShellJson<ServiceLocation[]>(sr, (response) =>
+        locationDisplayNamesEx(response.productionRegions, response.previewRegions, locations));
 }
 
 export async function listAksLocations(context: Context) : Promise<Errorable<ServiceLocation[]>> {
@@ -232,13 +210,7 @@ function locationDisplayNamesEx(production: string[], preview: string[], locatio
 export async function listVMSizes(context: Context, location: string) : Promise<Errorable<string[]>> {
     const sr = await context.shell.exec(`az vm list-sizes -l "${location}" -ojson`);
     
-    if (sr.code === 0 && !sr.stderr) {
-        const response : any[] = JSON.parse(sr.stdout);
-        const result = response.map((r) => r.name as string);
-        return { succeeded: true, result: result, error: [] };
-    } else {
-        return { succeeded: false, result: [], error: [sr.stderr] };
-    }
+    return fromShellJson<string[]>(sr, (response) => response.map((r) => r.name as string));
 }
 
 async function resourceGroupExists(context: Context, resourceGroupName: string) : Promise<boolean> {
@@ -258,11 +230,7 @@ async function ensureResourceGroupAsync(context: Context, resourceGroupName: str
 
     const sr = await context.shell.exec(`az group create -n "${resourceGroupName}" -l "${location}"`);
 
-    if (sr.code === 0 && !sr.stderr) {
-        return { succeeded: true, result: null, error: [] };
-    } else {
-        return { succeeded: false, result: null, error: [sr.stderr] };
-    }
+    return fromShellExitCode(sr);
 }
 
 async function execCreateClusterCmd(context: Context, options: any) : Promise<Errorable<void>> {
@@ -276,11 +244,7 @@ async function execCreateClusterCmd(context: Context, options: any) : Promise<Er
     
     const sr = await context.shell.exec(createCmd);
 
-    if (sr.code === 0 && !sr.stderr) {
-        return { succeeded: true, result: null, error: [] };
-    } else {
-        return { succeeded: false, result: null, error: [sr.stderr] };
-    }
+    return fromShellExitCode(sr);
 }
 
 export async function createCluster(context: Context, options: any) : Promise<ActionResult<void>> {

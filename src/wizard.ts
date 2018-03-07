@@ -1,3 +1,5 @@
+import { ShellResult } from "./shell";
+
 export interface Errorable<T> {
     readonly succeeded: boolean;
     readonly result: T;
@@ -100,5 +102,21 @@ export function formStyles() : string {
 }
 </style>
 `;
+}
+
+export function fromShellExitCode(sr: ShellResult) : Errorable<void> {
+    if (sr.code === 0 && !sr.stderr) {
+        return { succeeded: true, result: null, error: [] };
+    }
+    return { succeeded: false, result: null, error: [ sr.stderr ] };
+}
+
+export function fromShellJson<T>(sr: ShellResult, processor?: (raw: any) => T) : Errorable<T> {
+    if (sr.code === 0 && !sr.stderr) {
+        const raw : any = JSON.parse(sr.stdout);
+        const result = processor ? processor(raw) : (raw as T);
+        return { succeeded: true, result: result, error: [] };
+    }
+    return { succeeded: false, result: undefined, error: [ sr.stderr ] };
 }
 

@@ -2,14 +2,12 @@ import * as restify from 'restify';
 import * as clusterproviderregistry from '../clusterproviderregistry';
 import * as azure from '../../../azure';
 import { Errorable, script, styles, formStyles, waitScript, ActionResult } from '../../../wizard';
-import { agent } from 'spdy';
-import { request } from 'https';
 
 // HTTP request dispatch
 
 // TODO: de-globalise
-let clusterServer : restify.Server;
-const clusterPort = 44011;
+let wizardServer : restify.Server;
+const wizardPort = 44011;
 
 type HtmlRequestHandler = (
     step: string | undefined,
@@ -17,9 +15,9 @@ type HtmlRequestHandler = (
     requestData: any,
 ) => Promise<string>;
 
-export function init(registry: clusterproviderregistry.ClusterProviderRegistry, context: azure.Context) {
-    if (!clusterServer) {
-        clusterServer = restify.createServer({
+export function init(registry: clusterproviderregistry.ClusterProviderRegistry, context: azure.Context) : void {
+    if (!wizardServer) {
+        wizardServer = restify.createServer({
             formatters: {
                 'text/html': (req, resp, body) => body
             }
@@ -27,18 +25,18 @@ export function init(registry: clusterproviderregistry.ClusterProviderRegistry, 
 
         const htmlServer = new HtmlServer(context);
         
-        clusterServer.use(restify.plugins.queryParser(), restify.plugins.bodyParser());
-        clusterServer.listen(clusterPort);
+        wizardServer.use(restify.plugins.queryParser(), restify.plugins.bodyParser());
+        wizardServer.listen(wizardPort);
 
         // You MUST use fat arrow notation for the handler callbacks: passing the
         // function reference directly will foul up the 'this' pointer.
-        clusterServer.get('/create', (req, resp, n) => htmlServer.handleGetCreate(req, resp, n));
-        clusterServer.post('/create', (req, resp, n) => htmlServer.handlePostCreate(req, resp, n));
-        clusterServer.get('/configure', (req, resp, n) => htmlServer.handleGetConfigure(req, resp, n));
-        clusterServer.post('/configure', (req, resp, n) => htmlServer.handlePostConfigure(req, resp, n));
+        wizardServer.get('/create', (req, resp, n) => htmlServer.handleGetCreate(req, resp, n));
+        wizardServer.post('/create', (req, resp, n) => htmlServer.handlePostCreate(req, resp, n));
+        wizardServer.get('/configure', (req, resp, n) => htmlServer.handleGetConfigure(req, resp, n));
+        wizardServer.post('/configure', (req, resp, n) => htmlServer.handlePostConfigure(req, resp, n));
     
-        registry.register({id: 'acs', displayName: "Azure Container Service", port: clusterPort, supportedActions: ['create','configure']});
-        registry.register({id: 'aks', displayName: "Azure Kubernetes Service", port: clusterPort, supportedActions: ['create','configure']});
+        registry.register({id: 'acs', displayName: "Azure Container Service", port: wizardPort, supportedActions: ['create','configure']});
+        registry.register({id: 'aks', displayName: "Azure Kubernetes Service", port: wizardPort, supportedActions: ['create','configure']});
     }
 }
 
