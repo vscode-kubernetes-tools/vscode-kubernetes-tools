@@ -620,8 +620,16 @@ function findVersionInternal(fn) {
     });
 }
 
-async function findPods(labelQuery: string) : Promise<FindPodsResult> {
-    const sr = await kubectl.invokeAsync(` get pods -o json -l ${labelQuery}`);
+async function findAllPods() : Promise<FindPodsResult> {
+    return await findPodsCore('');
+}
+
+async function findPodsByLabel(labelQuery: string) : Promise<FindPodsResult> {
+    return await findPodsCore(`-l ${labelQuery}`);
+}
+
+async function findPodsCore(findPodCmdOptions: string) : Promise<FindPodsResult> {
+    const sr = await kubectl.invokeAsync(` get pods -o json ${findPodCmdOptions}`);
 
     if (sr.code !== 0) {
         vscode.window.showErrorMessage('Kubectl command failed: ' + sr.stderr);
@@ -640,12 +648,12 @@ async function findPods(labelQuery: string) : Promise<FindPodsResult> {
 
 async function findPodsForApp() : Promise<FindPodsResult> {
     let appName = path.basename(vscode.workspace.rootPath);
-    return await findPods(`run=${appName}`);
+    return await findPodsByLabel(`run=${appName}`);
 }
 
 async function findDebugPodsForApp() : Promise<FindPodsResult> {
     let appName = path.basename(vscode.workspace.rootPath);
-    return await findPods(`run=${appName}-debug`);
+    return await findPodsByLabel(`run=${appName}-debug`);
 }
 
 interface FindPodsResult {
@@ -876,8 +884,18 @@ function findPod(callback) {
     );
 }
 
-async function selectPodForApp(): Promise<any | null> {
-    const findPodsResult = await findPodsForApp();
+enum PodSelectionFallback {
+    None,
+    AnyPod,
+}
+
+enum PodSelectionScope {
+    App,
+    All,
+}
+
+async function selectPod(scope: PodSelectionScope, fallback: PodSelectionFallback) : Promise<any | null> {
+    const findPodsResult = scope === PodSelectionScope.App ? await findPodsForApp() : await findAllPods();
     
     if (!findPodsResult.succeeded) {
         return null;
@@ -886,7 +904,11 @@ async function selectPodForApp(): Promise<any | null> {
     const podList = findPodsResult.pods;
 
     if (podList.length === 0) {
-        vscode.window.showErrorMessage('Couldn\'t find any relevant pods.');
+        if (fallback === PodSelectionFallback.AnyPod) {
+            return selectPod(PodSelectionScope.All, PodSelectionFallback.None);
+        }
+        const scopeMessage = scope === PodSelectionScope.App ? "associated with this app" : "in the cluster";
+        vscode.window.showErrorMessage(`Couldn't find any pods ${scopeMessage}.`);
         return null;
     }
     if (podList.length === 1) {
@@ -908,7 +930,7 @@ async function selectPodForApp(): Promise<any | null> {
     let name = value.substring(ix + 1);
 
     for (const element of podList) {
-        if (element.name !== name) {
+        if (element.metadata.name !== name) {
             continue;
         }
 
@@ -1040,7 +1062,7 @@ async function execKubernetesCore(isTerminal) : Promise<void> {
         return;
     }
 
-    const pod = await selectPodForApp();
+    const pod = await selectPod(PodSelectionScope.App, PodSelectionFallback.AnyPod);
 
     if (!pod || !pod.metadata) {
         return;
@@ -1068,7 +1090,7 @@ async function isBashOnPod(podName : string): Promise<boolean> {
 }
 
 async function syncKubernetes() : Promise<void> {
-    const pod = await selectPodForApp();
+    const pod = await selectPod(PodSelectionScope.App, PodSelectionFallback.None);
 
     if (!pod) {
         return;
