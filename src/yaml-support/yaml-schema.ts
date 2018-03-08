@@ -100,7 +100,7 @@ function requestYamlSchemaContentCallback(uri: string): string {
         const manifestRefList = manifestType.split('+').map(util.makeRefOnKubernetes);
         return JSON.stringify({ oneOf: manifestRefList });
     }
-    const schema = findSchemaByIdOrName(manifestType);
+    const schema = _definitions[manifestType];
 
     // convert it to string since vscode-yaml need the string format
     if (schema) {
@@ -209,7 +209,7 @@ function replaceDefinitionRefsWithYamlSchemaUris(node: any): void {
 
     if (node.$ref) {
         const name = getNameInDefinitions(node.$ref);
-        const schema = findSchemaByIdOrName(name);
+        const schema = _definitions[name];
         if (schema) {
             // replacing $ref
             node.$ref = util.makeKubernetesUri(schema.name);
@@ -241,10 +241,4 @@ function saveSchema(schema: KubernetesSchema): void {
     if (schema.id) {
         _definitions[schema.id.toLowerCase()] = schema;
     }
-}
-
-// find the schema saved at _definitions
-function findSchemaByIdOrName(key: string): KubernetesSchema {
-    // property keys in _definitions are always low case
-    return _definitions[key.toLowerCase()];
 }

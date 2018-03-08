@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as _ from 'lodash';
 import * as vscode from 'vscode';
 
-import { yamlLocator, YamlMap, YamlNode } from './yaml-locator';
+import { yamlLocator, YamlMap } from './yaml-locator';
 import { util as yamlUtil } from 'node-yaml-parser';
 import { GROUP_VERSION_KIND_SEPARATOR, KUBERNETES_SCHEMA_PREFIX } from "./yaml-constant";
 
@@ -30,7 +30,7 @@ export function isPositionInKey(doc: vscode.TextDocument, pos: vscode.Position):
 /**
  * Load json data from a json file.
  * @param {string} file
- * @returns {any} the parsed data if no error occurs, otherwise undefined is returned
+ * @returns the parsed data if no error occurs, otherwise undefined is returned
  */
 export function loadJson(file: string): any {
     if (fs.existsSync(file)) {
@@ -43,7 +43,6 @@ export function loadJson(file: string): any {
     return undefined;
 }
 
-
 /**
  * Construct a kubernetes uri for kubernetes manifest, if there are multiple type of manifest, combine them
  * using a '+' character, duplicate ids is allowed and will be removed.
@@ -55,12 +54,16 @@ export function loadJson(file: string): any {
  *  httpingresspath, the uri is converted to low case.
  */
 export function makeKubernetesUri(ids: string | string[]): string {
+    if (!ids) {
+        throw new Error("'id' is required for constructing a schema uri.");
+    }
+
     if (_.isString(ids)) {
-        return makeKubernetesUri([<string>ids]);
+        return KUBERNETES_SCHEMA_PREFIX + (<string>ids).toLowerCase();
     }
     const newIds = _.uniq(ids);
     if (newIds.length === 1) {
-        return KUBERNETES_SCHEMA_PREFIX + newIds[0].toLowerCase();
+        return makeKubernetesUri(newIds[0]);
     } else if (ids.length > 1) {
         return KUBERNETES_SCHEMA_PREFIX + newIds.map((id) => id.toLowerCase()).join('+');
     } else {
@@ -73,7 +76,6 @@ export function makeRefOnKubernetes(id: string): { $ref: string } {
     return { $ref: makeKubernetesUri(id) };
 }
 
-
 // extract id, apiVersion, kind from x-kubernetes-group-version-kind node in schema
 export function parseKubernetesGroupVersionKind(groupKindNodeItem: any): {id: string, apiVersion: string, kind: string} {
     const group = getStringValue(groupKindNodeItem, 'group', StringComparison.OrdinalIgnoreCase);
@@ -82,7 +84,6 @@ export function parseKubernetesGroupVersionKind(groupKindNodeItem: any): {id: st
     const kind = getStringValue(groupKindNodeItem, 'kind', StringComparison.OrdinalIgnoreCase);
     return { id: apiVersion + GROUP_VERSION_KIND_SEPARATOR + kind, apiVersion, kind };
 }
-
 
 // test whether two strings are equal ignore case
 export function equalIgnoreCase(a: string, b: string): boolean {
