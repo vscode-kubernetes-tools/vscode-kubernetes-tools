@@ -1199,7 +1199,7 @@ const diffKubernetes = (callback) => {
 async function showWorkspaceFolderPick(): Promise<vscode.WorkspaceFolder> {
     if (!vscode.workspace.workspaceFolders) {
         vscode.window.showErrorMessage('This command requires an open folder.');
-        return;
+        return undefined;
     } else if (vscode.workspace.workspaceFolders.length === 1) {
         return vscode.workspace.workspaceFolders[0];
     }
