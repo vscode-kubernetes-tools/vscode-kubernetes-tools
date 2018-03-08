@@ -103,7 +103,7 @@ export function getYamlMappingValue(mapRootNode: YamlMap, key: string,
         return undefined;
     }
     const keyValueItem = mapRootNode.mappings.find((mapping) => mapping.key &&
-        (ignoreCase ? key === mapping.key.raw : equalIgnoreCase(key, mapping.key.raw)));
+        (ignoreCase === StringComparison.OrdinalIgnoreCase ? key === mapping.key.raw : equalIgnoreCase(key, mapping.key.raw)));
     return keyValueItem ? keyValueItem.value.raw : undefined;
 }
 
@@ -115,7 +115,7 @@ function getStringValue(node, key: string, ignoreCase: StringComparison = String
     if (node.hasOwnProperty(key)) {
         return <string>node[key];
     }
-    if (ignoreCase) {
+    if (ignoreCase === StringComparison.OrdinalIgnoreCase) {
         for (const _key of Object.keys(node)) {
             if (equalIgnoreCase(key, _key)) {
                 return <string>node[_key];
