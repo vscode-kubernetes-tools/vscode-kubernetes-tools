@@ -190,7 +190,7 @@ function getNameInDefinitions ($ref: string): string {
     }
 }
 
-// patch on schema $ref with values like 'kubernetes://schema/...'
+// replace schema $ref with values like 'kubernetes://schema/...'
 function replaceDefinitionRefsWithYamlSchemaUris(node: any): void {
     if (!node) {
         return;
