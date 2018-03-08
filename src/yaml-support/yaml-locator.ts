@@ -60,9 +60,9 @@ export class YamlLocator {
     public getMatchedElement(textDocument: vscode.TextDocument, pos: vscode.Position): YamlMatchedElement {
         const key: string = textDocument.uri.toString();
         this.ensureCache(key, textDocument);
-        const cache = this._cache[key];
+        const cacheEntry = this._cache[key];
         // findNodeAtPosition will find the matched node at given position
-        return findNodeAtPosition(cache.yamlDocs, cache.lineLengths, pos.line, pos.character);
+        return findNodeAtPosition(cacheEntry.yamlDocs, cacheEntry.lineLengths, pos.line, pos.character);
     }
 
     /**
@@ -72,13 +72,13 @@ export class YamlLocator {
      * @param {vscode.Position} pos vscode position
      * @returns {YamlMatchedElement} the search results of yaml elements at the given position
      */
-    public getYamlDocuments(textDocument: vscode.TextDocument): any[] {
+    public getYamlDocuments(textDocument: vscode.TextDocument): YamlDocument[] {
         const key: string = textDocument.uri.toString();
         this.ensureCache(key, textDocument);
         return this._cache[key].yamlDocs;
     }
 
-    private ensureCache(key: string, textDocument: vscode.TextDocument) {
+    private ensureCache(key: string, textDocument: vscode.TextDocument): void {
         if (!this._cache[key]) {
             this._cache[key] = <YamlCachedDocuments> { version: -1 };
         }
@@ -86,9 +86,9 @@ export class YamlLocator {
         if (this._cache[key].version !== textDocument.version) {
             // the document and line lengths from parse method is cached into YamlCachedDocuments to avoid duplicate
             // parse against the same text.
-            const { documents, lineLens } = parse(textDocument.getText());
+            const { documents, lineLengths } = parse(textDocument.getText());
             this._cache[key].yamlDocs = documents;
-            this._cache[key].lineLengths = lineLens;
+            this._cache[key].lineLengths = lineLengths;
             this._cache[key].version = textDocument.version;
         }
     }

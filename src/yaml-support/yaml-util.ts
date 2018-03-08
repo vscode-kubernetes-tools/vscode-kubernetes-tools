@@ -6,6 +6,11 @@ import { yamlLocator, YamlMap, YamlNode } from './yaml-locator';
 import { util as yamlUtil } from 'node-yaml-parser';
 import { GROUP_VERSION_KIND_SEPARATOR, KUBERNETES_SCHEMA_PREFIX } from "./yaml-constant";
 
+export enum StringComparison {
+    Ordinal,
+    OrdinalIgnoreCase
+}
+
 /**
  * Test whether the current position is at any key in yaml file.
  *
@@ -64,24 +69,24 @@ export function makeKubernetesUri(ids: string | string[]): string {
 }
 
 // create a $ref schema for kubernetes manifest
-export function makeRefOnKubernetes(id: string) {
+export function makeRefOnKubernetes(id: string): { $ref: string } {
     return { $ref: makeKubernetesUri(id) };
 }
 
 
 // extract id, apiVersion, kind from x-kubernetes-group-version-kind node in schema
-export function getKubernetesGroupVersionKind(groupKindNodeItem) {
-    const group = getValue(groupKindNodeItem, 'group', true);
-    const version = getValue(groupKindNodeItem, 'version', true);
+export function parseKubernetesGroupVersionKind(groupKindNodeItem: any): {id: string, apiVersion: string, kind: string} {
+    const group = getStringValue(groupKindNodeItem, 'group', StringComparison.OrdinalIgnoreCase);
+    const version = getStringValue(groupKindNodeItem, 'version', StringComparison.OrdinalIgnoreCase);
     const apiVersion = group ? group + '/' + version: version;
-    const kind = getValue(groupKindNodeItem, 'kind', true);
+    const kind = getStringValue(groupKindNodeItem, 'kind', StringComparison.OrdinalIgnoreCase);
     return { id: apiVersion + GROUP_VERSION_KIND_SEPARATOR + kind, apiVersion, kind };
 }
 
 
 // test whether two strings are equal ignore case
-export function equalIgnoreCase(a: string, b: string) {
-    return a && b && typeof a === 'string' && typeof b === 'string' && a.toLowerCase() === b.toLowerCase();
+export function equalIgnoreCase(a: string, b: string): boolean {
+    return _.isString(a) && _.isString(b) && a.toLowerCase() === b.toLowerCase();
 }
 
 // Get the string value of key in a yaml mapping node(parsed by node-yaml-parser)
@@ -90,24 +95,29 @@ export function equalIgnoreCase(a: string, b: string) {
 //      key1: value1
 //      key2: value2
 //
-export function getPropertyValue(mapNode: YamlMap, key: string, ignoreCase: boolean = false) {
+export function getYamlMappingValue(mapRootNode: YamlMap, key: string,
+                                    ignoreCase: StringComparison = StringComparison.Ordinal): string {
     // TODO, unwrap quotes
-    return mapNode.mappings.find((mapping) => mapping.key &&
+    if (!key) {
+        return undefined;
+    }
+    const keyValueItem = mapRootNode.mappings.find((mapping) => mapping.key &&
         (ignoreCase ? key === mapping.key.raw : equalIgnoreCase(key, mapping.key.raw)));
+    return keyValueItem ? keyValueItem.value.raw : undefined;
 }
 
-// get the value in a javascript object with key(may be case sensitive due to the third parameter)
-function getValue(node, key: string, ignoreCase: boolean = false) {
+// get the string value in a javascript object with key(may be case sensitive due to the third parameter)
+function getStringValue(node, key: string, ignoreCase: StringComparison = StringComparison.Ordinal): string {
     if (!node) {
         return undefined;
     }
     if (node.hasOwnProperty(key)) {
-        return node[key];
+        return <string>node[key];
     }
     if (ignoreCase) {
         for (const _key of Object.keys(node)) {
             if (equalIgnoreCase(key, _key)) {
-                return node[_key];
+                return <string>node[_key];
             }
         }
     }
