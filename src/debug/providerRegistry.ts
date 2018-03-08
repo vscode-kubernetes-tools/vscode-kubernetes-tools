@@ -37,3 +37,7 @@ export async function getDebugProvider(baseImage?: string): Promise<IDebugProvid
 export function getSupportedDebuggerTypes(): string[] {
     return supportedProviders.map((provider) => provider.getDebuggerType());
 }
+
+export function getDebugProviderOfType(debuggerType: string): IDebugProvider {
+    return supportedProviders.find((debugProvider) => debugProvider.getDebuggerType() === debuggerType);
+}

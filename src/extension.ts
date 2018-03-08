@@ -41,7 +41,7 @@ import { Reporter } from './telemetry';
 import * as telemetry from './telemetry-helper';
 import {dashboardKubernetes} from './components/kubectl/proxy';
 import { DebugSession } from './debug/debugSession';
-import { getSupportedDebuggerTypes } from './debug/providerRegistry';
+import { getDebugProviderOfType, getSupportedDebuggerTypes } from './debug/providerRegistry';
 
 let explainActive = false;
 let swaggerSpecPromise = null;
@@ -1212,16 +1212,17 @@ const debugKubernetes = async () => {
         const legacySupportedDebuggers = ["node"]; // legacy code support node debugging.
         const providerSupportedDebuggers = getSupportedDebuggerTypes();
         const supportedDebuggers = providerSupportedDebuggers.concat(legacySupportedDebuggers);
-        const appType = await vscode.window.showQuickPick(supportedDebuggers, {
+        const debuggerType = await vscode.window.showQuickPick(supportedDebuggers, {
             placeHolder: "Select the environment"
         });
 
-        if (!appType) {
+        if (!debuggerType) {
             return;
         }
 
-        if (providerSupportedDebuggers.indexOf(appType) > -1) {
-            new DebugSession(kubectl).launch(vscode.workspace.workspaceFolders[0]);
+        const debugProvider = getDebugProviderOfType(debuggerType);
+        if (debugProvider) {
+            new DebugSession(kubectl).launch(vscode.workspace.workspaceFolders[0], debugProvider);
         } else {
             buildPushThenExec(_debugInternal);
         }

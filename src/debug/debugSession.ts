@@ -22,7 +22,7 @@ interface ProxyResult {
 }
 
 export interface IDebugSession {
-    launch(workspaceFolder: vscode.WorkspaceFolder): Promise<void>;
+    launch(workspaceFolder: vscode.WorkspaceFolder, debugProvider?: IDebugProvider): Promise<void>;
     attach(workspaceFolder: vscode.WorkspaceFolder, pod?: string): Promise<void>;
 }
 
@@ -40,8 +40,9 @@ export class DebugSession implements IDebugSession {
      * Besides, when the debug session is terminated, kill the port-forward and cleanup the created kubernetes resources (deployment/pod) automatically.
      * 
      * @param workspaceFolder the active workspace folder.
+     * @param debugProvider the debug provider. If not specified, prompt user to pick up a debug provider from the supported list.
      */
-    public async launch(workspaceFolder: vscode.WorkspaceFolder): Promise<void> {
+    public async launch(workspaceFolder: vscode.WorkspaceFolder, debugProvider?: IDebugProvider): Promise<void> {
         if (!workspaceFolder) {
             return;
         }
@@ -52,7 +53,11 @@ export class DebugSession implements IDebugSession {
             return;
         }
         const dockerfile = new DockerfileParser().parse(dockerfilePath);
-        this.debugProvider = await this.pickupAndInstallDebugProvider(dockerfile.getBaseImage());
+        if (debugProvider) {
+            this.debugProvider = (await debugProvider.isDebuggerInstalled())? debugProvider : null;
+        } else {
+            this.debugProvider = await this.pickupAndInstallDebugProvider(dockerfile.getBaseImage());
+        }
         if (!this.debugProvider) {
             return;
         }
