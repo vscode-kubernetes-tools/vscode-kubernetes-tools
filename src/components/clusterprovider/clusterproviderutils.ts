@@ -3,8 +3,8 @@
 import * as clusterproviderregistry from './clusterproviderregistry';
 import * as clusterproviderserver from './clusterproviderserver';
 
-export function renderWizardContainer(action: clusterproviderregistry.ClusterProviderAction) : string {
-    clusterproviderserver.init();
+export async function renderWizardContainer(action: clusterproviderregistry.ClusterProviderAction) : Promise<string> {
+    await clusterproviderserver.init();
 
     return `
     <html>

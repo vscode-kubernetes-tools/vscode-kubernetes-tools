@@ -1,11 +1,12 @@
 import * as restify from 'restify';
+import * as portfinder from 'portfinder';
 import * as clusterproviderregistry from './clusterproviderregistry';
 import { styles, script, waitScript } from '../../wizard';
 
 let cpServer : restify.Server;
-const cpPort = 44010;
+let cpPort : number;
 
-export function init() : void {
+export async function init() : Promise<void> {
     if (!cpServer) {
         cpServer = restify.createServer({
             formatters: {
@@ -13,8 +14,10 @@ export function init() : void {
             }
         });
 
+        cpPort = await portfinder.getPortPromise({ port: 44000 });
+
         cpServer.use(restify.plugins.queryParser());
-        cpServer.listen(cpPort);
+        cpServer.listen(cpPort, '127.0.0.1');
         cpServer.get('/', handleGetProviderList);
     }
 }

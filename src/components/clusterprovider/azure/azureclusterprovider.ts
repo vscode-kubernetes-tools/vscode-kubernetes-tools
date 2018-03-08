@@ -1,4 +1,5 @@
 import * as restify from 'restify';
+import * as portfinder from 'portfinder';
 import * as clusterproviderregistry from '../clusterproviderregistry';
 import * as azure from './azure';
 import { Errorable, script, styles, formStyles, waitScript, ActionResult } from '../../../wizard';
@@ -7,7 +8,7 @@ import { Errorable, script, styles, formStyles, waitScript, ActionResult } from 
 
 // TODO: de-globalise
 let wizardServer : restify.Server;
-const wizardPort = 44011;
+let wizardPort : number;
 
 type HtmlRequestHandler = (
     step: string | undefined,
@@ -15,7 +16,7 @@ type HtmlRequestHandler = (
     requestData: any,
 ) => Promise<string>;
 
-export function init(registry: clusterproviderregistry.ClusterProviderRegistry, context: azure.Context) : void {
+export async function init(registry: clusterproviderregistry.ClusterProviderRegistry, context: azure.Context) : Promise<void> {
     if (!wizardServer) {
         wizardServer = restify.createServer({
             formatters: {
@@ -23,10 +24,12 @@ export function init(registry: clusterproviderregistry.ClusterProviderRegistry, 
             }
         });
 
+        wizardPort = await portfinder.getPortPromise({ port: 44000 });
+
         const htmlServer = new HtmlServer(context);
         
         wizardServer.use(restify.plugins.queryParser(), restify.plugins.bodyParser());
-        wizardServer.listen(wizardPort);
+        wizardServer.listen(wizardPort, '127.0.0.1');
 
         // You MUST use fat arrow notation for the handler callbacks: passing the
         // function reference directly will foul up the 'this' pointer.

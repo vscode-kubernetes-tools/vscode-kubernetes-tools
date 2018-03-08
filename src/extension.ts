@@ -75,7 +75,7 @@ export const HELM_TPL_MODE: vscode.DocumentFilter = { language: "helm", scheme: 
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
-export function activate(context) : extensionapi.ExtensionAPI {
+export async function activate(context) : Promise<extensionapi.ExtensionAPI> {
     kubectl.checkPresent('activation');
 
     const treeProvider = explorer.create(kubectl, host);
@@ -166,7 +166,7 @@ export function activate(context) : extensionapi.ExtensionAPI {
         registerTelemetry(context)
     ];
 
-    azureclusterprovider.init(clusterProviderRegistry, { shell: shell, fs: fs });
+    await azureclusterprovider.init(clusterProviderRegistry, { shell: shell, fs: fs });
 
     // On save, refresh the Helm YAML preview.
     vscode.workspace.onDidSaveTextDocument((e: vscode.TextDocument) => {
