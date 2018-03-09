@@ -40,6 +40,7 @@ import { Reporter } from './telemetry';
 import * as telemetry from './telemetry-helper';
 import * as extensionapi from './extension.api';
 import {dashboardKubernetes} from './components/kubectl/proxy';
+import { Git } from './components/git/git';
 import { DebugSession } from './debug/debugSession';
 import { getDebugProviderOfType, getSupportedDebuggerTypes } from './debug/providerRegistry';
 
@@ -55,6 +56,7 @@ const draft = draftCreate(host, fs, shell);
 const configureFromClusterUI = configureFromCluster.uiProvider();
 const createClusterUI = createCluster.uiProvider();
 const clusterProviderRegistry = clusterproviderregistry.get();
+const git = new Git(shell);
 
 const deleteMessageItems: vscode.MessageItem[] = [
     {
@@ -1081,31 +1083,36 @@ async function isBashOnPod(podName : string): Promise<boolean> {
 
 async function syncKubernetes() : Promise<void> {
     const pod = await selectPod(PodSelectionScope.App, PodSelectionFallback.None);
-
     if (!pod) {
         return;
     }
 
     const container = await selectContainerForPod(pod);
-
     if (!container) {
         return;
     }
-    let pieces = container.image.split(':');
+    
+    const pieces = container.image.split(':');
     if (pieces.length !== 2) {
-        vscode.window.showErrorMessage(`unexpected image name: ${container.image}`);
+        vscode.window.showErrorMessage(`Sync requires image tag to have a version which is a Git commit ID. Actual image tag was ${container.image}`);
         return;
     }
 
-    const cmd = `git checkout ${pieces[1]}`;
+    const commitId = pieces[1];
+    const whenCreated = await git.whenCreated(commitId);
+    const versionMessage = whenCreated ?
+        `The Git commit deployed to the cluster is  ${commitId} (created ${whenCreated.trim()} ago). This will check out that commit.` :
+        `The image version deployed to the cluster is ${commitId}. This will look for a Git commit with that name/ID and check it out.`;
 
-    //eslint-disable-next-line no-unused-vars
-    shell.execCore(cmd, shell.execOpts()).then(({code, stdout, stderr}) => {
-        if (code !== 0) {
-            vscode.window.showErrorMessage(`git checkout returned: ${code}`);
-            return 'error';
+    const choice = await vscode.window.showInformationMessage(versionMessage, 'OK');
+
+    if (choice === 'OK') {
+        const checkoutResult = await git.checkout(commitId);
+
+        if (!checkoutResult.succeeded) {
+            vscode.window.showErrorMessage(`Error checking out commit ${commitId}: ${checkoutResult.error[0]}`);
         }
-    });
+    }
 }
 
 async function refreshExplorer() {
