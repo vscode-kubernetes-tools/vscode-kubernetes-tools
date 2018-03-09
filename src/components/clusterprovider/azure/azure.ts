@@ -374,14 +374,14 @@ function installKubectlCliInfo(context: Context, clusterType: string) {
 }
 
 function getClusterCommand(clusterType: string) : string {
-    if (clusterType == 'Azure Container Service' || clusterType == 'acs') {
+    if (clusterType === 'Azure Container Service' || clusterType === 'acs') {
         return 'acs';
     }
     return 'aks';
 }
 
 function getClusterCommandAndSubcommand(clusterType: string) : string {
-    if (clusterType == 'Azure Container Service' || clusterType == 'acs') {
+    if (clusterType === 'Azure Container Service' || clusterType === 'acs') {
         return 'acs kubernetes';
     }
     return 'aks';
