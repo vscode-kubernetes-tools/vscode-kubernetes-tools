@@ -41,6 +41,8 @@ import { Reporter } from './telemetry';
 import * as telemetry from './telemetry-helper';
 import {dashboardKubernetes} from './components/kubectl/proxy';
 
+import { registerYamlSchemaSupport } from './yaml-support/yaml-schema';
+
 let explainActive = false;
 let swaggerSpecPromise = null;
 
@@ -68,7 +70,7 @@ export const HELM_TPL_MODE: vscode.DocumentFilter = { language: "helm", scheme: 
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
-export function activate(context) {
+export async function activate(context) {
     kubectl.checkPresent('activation');
 
     const treeProvider = explorer.create(kubectl, host);
@@ -191,6 +193,8 @@ export function activate(context) {
     subscriptions.forEach((element) => {
         context.subscriptions.push(element);
     }, this);
+
+    await registerYamlSchemaSupport();
 }
 
 // this method is called when your extension is deactivated

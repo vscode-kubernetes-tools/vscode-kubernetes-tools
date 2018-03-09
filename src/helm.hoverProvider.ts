@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
 import { FuncMap } from './helm.funcmap';
 import { Resources } from './helm.resources';
+import { isPositionInKey } from "./yaml-support/yaml-util";
+
 
 // Provide hover support
 export class HelmTemplateHoverProvider implements vscode.HoverProvider {
@@ -23,8 +25,6 @@ export class HelmTemplateHoverProvider implements vscode.HoverProvider {
             return Promise.resolve(null);
         }
 
-        // FIXME: right now, the line `foo: {{foo}}` may match both the action and the resource def
-
         if (this.inActionVal(doc, pos, word)) {
             let found = this.findVal(word);
             if (found) {
@@ -40,6 +40,18 @@ export class HelmTemplateHoverProvider implements vscode.HoverProvider {
         }
 
         if (this.notInAction(doc, pos, word)) {
+            try {
+                // when the word is in value position, it should not pop up hovers, for example,
+                // the following yaml should not show pop up window for 'metadata'
+                // selector:
+                //  app: metadata
+
+                if (!isPositionInKey(doc, pos)) {
+                    return;
+                }
+            } catch (ex) {
+                // ignore since the editing yaml may not be able to parse
+            }
             let found = this.findResourceDef(word);
             if (found) {
                 return new vscode.Hover(found, wordRange);
