@@ -21,7 +21,6 @@ import * as explainer from './explainer';
 import { shell, ShellResult } from './shell';
 import * as configureFromCluster from './configurefromcluster';
 import * as createCluster from './createcluster';
-import { UIRequest as WizardUIRequest } from './wizard';
 import * as kuberesources from './kuberesources';
 import * as docker from './docker';
 import { kubeChannel } from './kubeChannel';
@@ -39,19 +38,23 @@ import { HelmTemplatePreviewDocumentProvider, HelmInspectDocumentProvider } from
 import { HelmTemplateCompletionProvider } from './helm.completionProvider';
 import { Reporter } from './telemetry';
 import * as telemetry from './telemetry-helper';
+import * as extensionapi from './extension.api';
 import {dashboardKubernetes} from './components/kubectl/proxy';
 import { DebugSession } from './debug/debugSession';
 import { getDebugProviderOfType, getSupportedDebuggerTypes } from './debug/providerRegistry';
 
 import { registerYamlSchemaSupport } from './yaml-support/yaml-schema';
+import * as clusterproviderregistry from './components/clusterprovider/clusterproviderregistry';
+import * as azureclusterprovider from './components/clusterprovider/azure/azureclusterprovider';
 
 let explainActive = false;
 let swaggerSpecPromise = null;
 
 const kubectl = kubectlCreate(host, fs, shell);
 const draft = draftCreate(host, fs, shell);
-const configureFromClusterUI = configureFromCluster.uiProvider(fs, shell);
-const createClusterUI = createCluster.uiProvider(fs, shell);
+const configureFromClusterUI = configureFromCluster.uiProvider();
+const createClusterUI = createCluster.uiProvider();
+const clusterProviderRegistry = clusterproviderregistry.get();
 
 const deleteMessageItems: vscode.MessageItem[] = [
     {
@@ -72,7 +75,7 @@ export const HELM_TPL_MODE: vscode.DocumentFilter = { language: "helm", scheme: 
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
-export async function activate(context) {
+export async function activate(context) : Promise<extensionapi.ExtensionAPI> {
     kubectl.checkPresent('activation');
 
     const treeProvider = explorer.create(kubectl, host);
@@ -163,6 +166,8 @@ export async function activate(context) {
         registerTelemetry(context)
     ];
 
+    await azureclusterprovider.init(clusterProviderRegistry, { shell: shell, fs: fs });
+
     // On save, refresh the Helm YAML preview.
     vscode.workspace.onDidSaveTextDocument((e: vscode.TextDocument) => {
         if (!editorIsActive()) {
@@ -198,6 +203,11 @@ export async function activate(context) {
     }, this);
 
     await registerYamlSchemaSupport();
+    
+    return {
+        apiVersion: '0.1',
+        clusterProviderRegistry: clusterProviderRegistry
+    };
 }
 
 // this method is called when your extension is deactivated
@@ -1381,26 +1391,14 @@ function removeDebugKubernetes() {
     });
 }
 
-async function configureFromClusterKubernetes(request? : WizardUIRequest) {
-    if (request) {
-        await configureFromClusterUI.next(request);
-    } else {
-        const newId : string = uuid.v4();
-        configureFromClusterUI.start(newId);
-        vscode.commands.executeCommand('vscode.previewHtml', configureFromCluster.operationUri(newId), 2, "Configure Kubernetes");
-        await configureFromClusterUI.next({ operationId: newId, requestData: undefined });
-    }
+async function configureFromClusterKubernetes() {
+    const newId : string = uuid.v4();
+    vscode.commands.executeCommand('vscode.previewHtml', configureFromCluster.operationUri(newId), 2, "Configure Kubernetes");
 }
 
-async function createClusterKubernetes(request? : WizardUIRequest) {
-    if (request) {
-        await createClusterUI.next(request);
-    } else {
-        const newId : string = uuid.v4();
-        createClusterUI.start(newId);
-        vscode.commands.executeCommand('vscode.previewHtml', createCluster.operationUri(newId), 2, "Create Kubernetes Cluster");
-        await createClusterUI.next({ operationId: newId, requestData: undefined });
-    }
+async function createClusterKubernetes() {
+    const newId : string = uuid.v4();
+    vscode.commands.executeCommand('vscode.previewHtml', createCluster.operationUri(newId), 2, "Create Kubernetes Cluster");
 }
 
 async function useContextKubernetes(explorerNode: explorer.KubernetesObject) {
