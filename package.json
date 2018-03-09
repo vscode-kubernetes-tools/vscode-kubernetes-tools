@@ -206,6 +206,11 @@
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
                 },
                 {
+                    "command": "extension.vsKubernetesDebugAttach",
+                    "group": "1@4",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
+                },
+                {
                     "command": "extension.vsKubernetesDescribe",
                     "group": "2",
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
@@ -317,7 +322,12 @@
             },
             {
                 "command": "extension.vsKubernetesDebug",
-                "title": "Debug",
+                "title": "Debug (Launch)",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesDebugAttach",
+                "title": "Debug (Attach)",
                 "category": "Kubernetes"
             },
             {
@@ -487,6 +497,9 @@
         "postinstall": "node ./node_modules/vscode/bin/install",
         "test": "node ./node_modules/vscode/bin/test"
     },
+    "extensionDependencies": [
+        "redhat.vscode-yaml"
+    ],
     "dependencies": {
         "compare-versions": "^3.1.0",
         "docker-file-parser": "^1.0.3",
@@ -494,13 +507,17 @@
         "js-yaml": "^3.8.2",
         "k8s": "^0.4.12",
         "lodash": ">3",
+        "node-yaml-parser": "^0.0.6",
         "opn": "^5.2.0",
         "pluralize": "^4.0.0",
         "portfinder": "^1.0.13",
+        "restify": "^6.3.4",
+        "@types/restify": "^5.0.7",
         "shelljs": "^0.7.7",
         "tmp": "^0.0.31",
         "uuid": "^3.1.0",
         "vscode-extension-telemetry": "^0.0.6",
+        "vscode-uri": "^1.0.1",
         "yamljs": "0.2.10"
     },
     "devDependencies": {

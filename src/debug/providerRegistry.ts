@@ -8,12 +8,6 @@ const supportedProviders: IDebugProvider[] = [
 ];
 
 async function showProviderPick(): Promise<IDebugProvider> {
-    if (supportedProviders.length < 1) {
-        return null;
-    } else if (supportedProviders.length === 1) {
-        return supportedProviders[0];
-    }
-
     const providerItems = supportedProviders.map((provider) => {
         return {
             label: provider.getDebuggerType(),
@@ -38,4 +32,12 @@ export async function getDebugProvider(baseImage?: string): Promise<IDebugProvid
         debugProvider = await showProviderPick();
     }
     return debugProvider;
+}
+
+export function getSupportedDebuggerTypes(): string[] {
+    return supportedProviders.map((provider) => provider.getDebuggerType());
+}
+
+export function getDebugProviderOfType(debuggerType: string): IDebugProvider {
+    return supportedProviders.find((debugProvider) => debugProvider.getDebuggerType() === debuggerType);
 }
