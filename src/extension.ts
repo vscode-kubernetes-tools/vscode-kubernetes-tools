@@ -914,30 +914,20 @@ async function selectPod(scope: PodSelectionScope, fallback: PodSelectionFallbac
     if (podList.length === 1) {
         return podList[0];
     }
-    let names = [];
 
-    for (const element of podList) {
-        names.push(`${element.metadata.namespace}/${element.metadata.name}`);
-    }
+    const pickItems = podList.map((element) => { return {
+        label: `${element.metadata.namespace}/${element.metadata.name}`,
+        description: '',
+        pod: element
+    };});
 
-    const value = await vscode.window.showQuickPick(names);
+    const value = await vscode.window.showQuickPick(pickItems);
 
     if (!value) {
         return null;
     }
 
-    let ix = value.indexOf('/');
-    let name = value.substring(ix + 1);
-
-    for (const element of podList) {
-        if (element.metadata.name !== name) {
-            continue;
-        }
-
-        return element;
-    }
-
-    return null;
+    return value.pod;
 }
 
 function logsKubernetes(explorerNode? : explorer.ResourceNode) {
@@ -1013,26 +1003,26 @@ async function selectContainerForPod(pod) : Promise<any | null> {
     if (!pod) {
         return null;
     }
-    if (pod.spec.containers.length === 1) {
+
+    const containers : any[] = pod.spec.containers;
+    
+    if (containers.length === 1) {
         return pod.spec.containers[0];
     }
-    let names = [];
+    
+    const pickItems = containers.map((element) => { return {
+        label: `${element.metadata.namespace}/${element.metadata.name}`,
+        description: '',
+        container: element
+    };});
 
-    for (const element of pod.spec.containers) {
-        names.push(element.name);
+    const value = await vscode.window.showQuickPick(pickItems);
+
+    if (!value) {
+        return null;
     }
 
-    const value = vscode.window.showQuickPick(names);
-
-    for (const element of pod.spec.containers) {
-        if (element.name !== value) {
-            continue;
-        }
-
-        return element;
-    }
-
-    return null;
+    return value.container;
 }
 
 function execKubernetes() {
