@@ -620,30 +620,45 @@ function findVersionInternal(fn) {
     });
 }
 
-function findPods(labelQuery, callback) {
-    kubectl.invoke(` get pods -o json -l ${labelQuery}`, (result, stdout, stderr) => {
-        if (result !== 0) {
-            vscode.window.showErrorMessage('Kubectl command failed: ' + stderr);
-            return;
-        }
-        try {
-            let podList = JSON.parse(stdout);
-            callback(podList);
-        } catch (ex) {
-            console.log(ex);
-            vscode.window.showErrorMessage('unexpected error: ' + ex);
-        }
-    });
+async function findAllPods() : Promise<FindPodsResult> {
+    return await findPodsCore('');
 }
 
-function findPodsForApp(callback) {
-    let appName = path.basename(vscode.workspace.rootPath);
-    findPods(`run=${appName}`, callback);
+async function findPodsByLabel(labelQuery: string) : Promise<FindPodsResult> {
+    return await findPodsCore(`-l ${labelQuery}`);
 }
 
-function findDebugPodsForApp(callback) {
+async function findPodsCore(findPodCmdOptions: string) : Promise<FindPodsResult> {
+    const sr = await kubectl.invokeAsync(` get pods -o json ${findPodCmdOptions}`);
+
+    if (sr.code !== 0) {
+        vscode.window.showErrorMessage('Kubectl command failed: ' + sr.stderr);
+        return { succeeded: false, pods: [] };
+    }
+
+    try {
+        const podList = JSON.parse(sr.stdout);
+        return { succeeded: true, pods: podList.items };
+    } catch (ex) {
+        console.log(ex);
+        vscode.window.showErrorMessage('unexpected error: ' + ex);
+        return { succeeded: false, pods: [] };
+    }
+}
+
+async function findPodsForApp() : Promise<FindPodsResult> {
     let appName = path.basename(vscode.workspace.rootPath);
-    findPods(`run=${appName}-debug`, callback);
+    return await findPodsByLabel(`run=${appName}`);
+}
+
+async function findDebugPodsForApp() : Promise<FindPodsResult> {
+    let appName = path.basename(vscode.workspace.rootPath);
+    return await findPodsByLabel(`run=${appName}-debug`);
+}
+
+interface FindPodsResult {
+    readonly succeeded: boolean;
+    readonly pods: any[];
 }
 
 function findNameAndImage() {
@@ -869,44 +884,50 @@ function findPod(callback) {
     );
 }
 
-function selectPodForApp(callback) {
-    findPodsForApp((podList) => {
-        if (podList.items.length === 0) {
-            vscode.window.showErrorMessage('Couldn\'t find any relevant pods.');
-            callback(null);
-            return;
+enum PodSelectionFallback {
+    None,
+    AnyPod,
+}
+
+enum PodSelectionScope {
+    App,
+    All,
+}
+
+async function selectPod(scope: PodSelectionScope, fallback: PodSelectionFallback) : Promise<any | null> {
+    const findPodsResult = scope === PodSelectionScope.App ? await findPodsForApp() : await findAllPods();
+    
+    if (!findPodsResult.succeeded) {
+        return null;
+    }
+
+    const podList = findPodsResult.pods;
+
+    if (podList.length === 0) {
+        if (fallback === PodSelectionFallback.AnyPod) {
+            return selectPod(PodSelectionScope.All, PodSelectionFallback.None);
         }
-        if (podList.items.length === 1) {
-            callback(podList.items[0]);
-            return;
-        }
-        let names = [];
+        const scopeMessage = scope === PodSelectionScope.App ? "associated with this app" : "in the cluster";
+        vscode.window.showErrorMessage(`Couldn't find any pods ${scopeMessage}.`);
+        return null;
+    }
+    if (podList.length === 1) {
+        return podList[0];
+    }
 
-        for (const element of podList) {
-            names.push(`${element.metadata.namespace}/${element.metadata.name}`);
-        }
+    const pickItems = podList.map((element) => { return {
+        label: `${element.metadata.namespace}/${element.metadata.name}`,
+        description: '',
+        pod: element
+    };});
 
-        vscode.window.showQuickPick(names).then((value) => {
-            if (!value) {
-                callback(null);
-                return;
-            }
+    const value = await vscode.window.showQuickPick(pickItems);
 
-            let ix = value.indexOf('/');
-            let name = value.substring(ix + 1);
+    if (!value) {
+        return null;
+    }
 
-            for (const element of podList) {
-                if (element.name !== name) {
-                    continue;
-                }
-
-                callback(element);
-                return;
-            }
-
-            callback(null);
-        });
-    });
+    return value.pod;
 }
 
 function logsKubernetes(explorerNode? : explorer.ResourceNode) {
@@ -978,32 +999,30 @@ function describeKubernetesCore(kindName : string) {
     kubectl.invokeWithProgress(' describe ' + kindName, `Describing ${kindName}...`, fn);
 }
 
-function selectContainerForPod(pod, callback) {
+async function selectContainerForPod(pod) : Promise<any | null> {
     if (!pod) {
-        callback(null);
-    }
-    if (pod.spec.containers.length === 1) {
-        callback(pod.spec.containers[0]);
-        return;
-    }
-    let names = [];
-
-    for (const element of pod.spec.containers) {
-        names.push(element.name);
+        return null;
     }
 
-    vscode.window.showQuickPick(names).then((value) => {
-        for (const element of pod.spec.containers) {
-            if (element.name !== value) {
-                continue;
-            }
+    const containers : any[] = pod.spec.containers;
+    
+    if (containers.length === 1) {
+        return pod.spec.containers[0];
+    }
+    
+    const pickItems = containers.map((element) => { return {
+        label: `${element.metadata.namespace}/${element.metadata.name}`,
+        description: '',
+        container: element
+    };});
 
-            callback(element);
-            return;
-        }
+    const value = await vscode.window.showQuickPick(pickItems);
 
-        callback(null);
-    });
+    if (!value) {
+        return null;
+    }
+
+    return value.container;
 }
 
 function execKubernetes() {
@@ -1020,35 +1039,33 @@ async function terminalKubernetes(explorerNode? : explorer.ResourceNode) {
     }
 }
 
-function execKubernetesCore(isTerminal) {
+async function execKubernetesCore(isTerminal) : Promise<void> {
     let opts: any = { prompt: 'Please provide a command to execute' };
 
     if (isTerminal) {
         opts.value = 'bash';
     }
 
-    vscode.window.showInputBox(
-        opts
-    ).then((cmd) => {
-        if (!cmd || cmd.length === 0) {
-            return;
-        }
+    const cmd = await vscode.window.showInputBox(opts);
+    
+    if (!cmd || cmd.length === 0) {
+        return;
+    }
 
-        selectPodForApp((pod) => {
-            if (!pod || !pod.metadata) {
-                return;
-            }
+    const pod = await selectPod(PodSelectionScope.App, PodSelectionFallback.AnyPod);
 
-            if (isTerminal) {
-                execTerminalOnPod(pod.metadata.name, cmd);
-                return;
-            }
+    if (!pod || !pod.metadata) {
+        return;
+    }
 
-            const execCmd = ' exec ' + pod.metadata.name + ' ' + cmd;
-            const fn = kubectlOutputTo(pod.metadata.name + '-exec');
-            kubectl.invoke(execCmd, fn);
-        });
-    });
+    if (isTerminal) {
+        execTerminalOnPod(pod.metadata.name, cmd);
+        return;
+    }
+
+    const execCmd = ' exec ' + pod.metadata.name + ' ' + cmd;
+    const fn = kubectlOutputTo(pod.metadata.name + '-exec');
+    kubectl.invoke(execCmd, fn);
 }
 
 function execTerminalOnPod(podName : string, terminalCmd : string) {
@@ -1062,31 +1079,32 @@ async function isBashOnPod(podName : string): Promise<boolean> {
     return !result.code;
 }
 
-function syncKubernetes() {
-    selectPodForApp((pod) => {
-        if (!pod) {
-            return;
+async function syncKubernetes() : Promise<void> {
+    const pod = await selectPod(PodSelectionScope.App, PodSelectionFallback.None);
+
+    if (!pod) {
+        return;
+    }
+
+    const container = await selectContainerForPod(pod);
+
+    if (!container) {
+        return;
+    }
+    let pieces = container.image.split(':');
+    if (pieces.length !== 2) {
+        vscode.window.showErrorMessage(`unexpected image name: ${container.image}`);
+        return;
+    }
+
+    const cmd = `git checkout ${pieces[1]}`;
+
+    //eslint-disable-next-line no-unused-vars
+    shell.execCore(cmd, shell.execOpts()).then(({code, stdout, stderr}) => {
+        if (code !== 0) {
+            vscode.window.showErrorMessage(`git checkout returned: ${code}`);
+            return 'error';
         }
-        selectContainerForPod(pod, (container) => {
-            if (!container) {
-                return;
-            }
-            let pieces = container.image.split(':');
-            if (pieces.length !== 2) {
-                vscode.window.showErrorMessage(`unexpected image name: ${container.image}`);
-                return;
-            }
-
-            const cmd = `git checkout ${pieces[1]}`;
-
-            //eslint-disable-next-line no-unused-vars
-            shell.execCore(cmd, shell.execOpts()).then(({code, stdout, stderr}) => {
-                if (code !== 0) {
-                    vscode.window.showErrorMessage(`git checkout returned: ${code}`);
-                    return 'error';
-                }
-            });
-        });
     });
 }
 
@@ -1265,66 +1283,72 @@ const _debugInternal = (name, image) => {
     });
 };
 
-const _doDebug = (name, image, cmd) => {
+const _doDebug = async (name, image, cmd) => {
     const deploymentName = `${name}-debug`;
     const runCmd = `run ${deploymentName} --image=${image} -i --attach=false -- ${cmd}`;
     console.log(runCmd);
 
-    kubectl.invoke(runCmd, (result, stdout, stderr) => {
-        if (result !== 0) {
-            vscode.window.showErrorMessage('Failed to start debug container: ' + stderr);
-            return;
-        }
+    const sr = await kubectl.invokeAsync(runCmd);
 
-        findDebugPodsForApp((podList) => {
-            if (podList.items.length === 0) {
-                vscode.window.showErrorMessage('Failed to find debug pod.');
-                return;
-            }
+    if (sr.code !== 0) {
+        vscode.window.showErrorMessage('Failed to start debug container: ' + sr.stderr);
+        return;
+    }
 
-            let podName = podList.items[0].metadata.name;
-            vscode.window.showInformationMessage('Debug pod running as: ' + podName);
+    const findPodsResult = await findDebugPodsForApp();
 
-            waitForRunningPod(podName, () => {
-                kubectl.invoke(` port-forward ${podName} 5858:5858 8000:8000`);
+    if (!findPodsResult.succeeded) {
+        return;
+    }
 
-                const debugConfiguration = {
-                    type: 'node',
-                    request: 'attach',
-                    name: 'Attach to Process',
-                    port: 5858,
-                    localRoot: vscode.workspace.rootPath,
-                    remoteRoot: '/'
-                };
+    const podList = findPodsResult.pods;
 
-                vscode.debug.startDebugging(
-                    undefined,
-                    debugConfiguration
-                ).then(() => {
-                    vscode.window.showInformationMessage('Debug session established', 'Expose Service').then((opt) => {
-                        if (opt !== 'Expose Service') {
+    if (podList.length === 0) {
+        vscode.window.showErrorMessage('Failed to find debug pod.');
+        return;
+    }
+
+    let podName = podList[0].metadata.name;
+    vscode.window.showInformationMessage('Debug pod running as: ' + podName);
+
+    waitForRunningPod(podName, () => {
+        kubectl.invoke(` port-forward ${podName} 5858:5858 8000:8000`);
+
+        const debugConfiguration = {
+            type: 'node',
+            request: 'attach',
+            name: 'Attach to Process',
+            port: 5858,
+            localRoot: vscode.workspace.rootPath,
+            remoteRoot: '/'
+        };
+
+        vscode.debug.startDebugging(
+            undefined,
+            debugConfiguration
+        ).then(() => {
+            vscode.window.showInformationMessage('Debug session established', 'Expose Service').then((opt) => {
+                if (opt !== 'Expose Service') {
+                    return;
+                }
+
+                vscode.window.showInputBox({ prompt: 'Expose on which port?', placeHolder: '80' }).then((port) => {
+                    if (!port) {
+                        return;
+                    }
+
+                    const exposeCmd = `expose deployment ${deploymentName} --type=LoadBalancer --port=${port}`;
+                    kubectl.invoke(exposeCmd, (result, stdout, stderr) => {
+                        if (result !== 0) {
+                            vscode.window.showErrorMessage('Failed to expose deployment: ' + stderr);
                             return;
                         }
-
-                        vscode.window.showInputBox({ prompt: 'Expose on which port?', placeHolder: '80' }).then((port) => {
-                            if (!port) {
-                                return;
-                            }
-
-                            const exposeCmd = `expose deployment ${deploymentName} --type=LoadBalancer --port=${port}`;
-                            kubectl.invoke(exposeCmd, (result, stdout, stderr) => {
-                                if (result !== 0) {
-                                    vscode.window.showErrorMessage('Failed to expose deployment: ' + stderr);
-                                    return;
-                                }
-                                vscode.window.showInformationMessage('Deployment exposed. Run Kubernetes Get > service ' + deploymentName + ' for IP address');
-                            });
-                        });
+                        vscode.window.showInformationMessage('Deployment exposed. Run Kubernetes Get > service ' + deploymentName + ' for IP address');
                     });
-                }, (err) => {
-                    vscode.window.showInformationMessage('Error: ' + err.message);
                 });
             });
+        }, (err) => {
+            vscode.window.showInformationMessage('Error: ' + err.message);
         });
     });
 };
