@@ -34,3 +34,11 @@ export const scaleableKinds = [
     allKinds.replicationController,
     allKinds.job,
 ];
+
+export const exposableKinds = [
+    allKinds.deployment,
+    allKinds.pod,
+    allKinds.replicationController,
+    allKinds.replicaSet,
+    allKinds.service,
+];
