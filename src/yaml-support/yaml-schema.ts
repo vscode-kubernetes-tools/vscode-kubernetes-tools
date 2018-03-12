@@ -98,7 +98,7 @@ export class KubernetesSchemaHolder {
 
         if (node.$ref) {
             const name = getNameInDefinitions(node.$ref);
-            const schema = this._definitions[name.toLowerCase()];
+            const schema = this.lookup(name);
             if (schema) {
                 // replacing $ref
                 node.$ref = util.makeKubernetesUri(schema.name);
