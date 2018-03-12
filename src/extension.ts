@@ -67,7 +67,7 @@ const deleteMessageItems: vscode.MessageItem[] = [
 ];
 
 // Filters for different Helm file types.
-// TODO: Consistently apply these to the provders registered.
+// TODO: Consistently apply these to the providers registered.
 export const HELM_MODE: vscode.DocumentFilter = { language: "helm", scheme: "file" };
 export const HELM_REQ_MODE: vscode.DocumentFilter = { language: "helm", scheme: "file", pattern: "**/requirements.yaml"};
 export const HELM_CHART_MODE: vscode.DocumentFilter = { language: "helm", scheme: "file", pattern: "**/Chart.yaml" };
@@ -84,7 +84,7 @@ export async function activate(context) : Promise<extensionapi.ExtensionAPI> {
     const completionProvider = new HelmTemplateCompletionProvider();
     const completionFilter = [
         "helm",
-        {language: "yaml", pattern: "**/templates/*.yaml"},
+        // templates/*.yaml should be helm templates, so we needn't select them
         {pattern: "**/templates/NOTES.txt"}
     ];
 
