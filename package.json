@@ -466,7 +466,6 @@
                 "filenamePatterns": [
                     "values.yaml",
                     "Chart.yaml",
-                    "values.yaml",
                     "requirements.yaml",
                     "**/templates/*.yaml"
                 ],
