@@ -581,9 +581,9 @@ function exposeKubernetes() {
 function getKubernetes(explorerNode? : any) {
     if (explorerNode) {
         const id = explorerNode.resourceId || explorerNode.id;
-        const fn = kubectlOutputTo(id + '-get');
-        kubectl.invoke(`get ${id} -o wide`, fn);
+        kubectl.invokeInTerminal(`get ${id} -o wide`);
     } else {
+        // TODO Show the result for get command in TERMINAL window.
         let kindName = findKindName();
         if (kindName) {
             maybeRunKubernetesCommandForActiveWindow('get --no-headers -o wide -f ');
@@ -953,8 +953,7 @@ function getLogsCore(podName : string, podNamespace? : string) {
     if (podNamespace && podNamespace.length > 0) {
         cmd += ' --namespace=' + podNamespace;
     }
-    const fn = kubectlOutputTo(podName + '-logs');
-    kubectl.invokeWithProgress(cmd, 'Loading logs...', fn);
+    kubectl.invokeInTerminal(cmd);
 }
 
 function kubectlOutputTo(name : string) {
@@ -986,17 +985,12 @@ function getPorts() {
 
 function describeKubernetes(explorerNode? : explorer.ResourceNode) {
     if (explorerNode) {
-        describeKubernetesCore(explorerNode.resourceId);
+        kubectl.invokeInTerminal(`describe ${explorerNode.resourceId}`);
     } else {
         findKindNameOrPrompt(kuberesources.commonKinds, 'describe', { nameOptional: true }, (value) => {
-            describeKubernetesCore(value);
+            kubectl.invokeInTerminal(`describe ${value}`);
         });
     }
-}
-
-function describeKubernetesCore(kindName : string) {
-    const fn = kubectlOutputTo(kindName + "-describe");
-    kubectl.invokeWithProgress(' describe ' + kindName, `Describing ${kindName}...`, fn);
 }
 
 async function selectContainerForPod(pod) : Promise<any | null> {
@@ -1064,8 +1058,7 @@ async function execKubernetesCore(isTerminal) : Promise<void> {
     }
 
     const execCmd = ' exec ' + pod.metadata.name + ' ' + cmd;
-    const fn = kubectlOutputTo(pod.metadata.name + '-exec');
-    kubectl.invoke(execCmd, fn);
+    kubectl.invokeInTerminal(execCmd);
 }
 
 function execTerminalOnPod(podName : string, terminalCmd : string) {
@@ -1437,12 +1430,7 @@ async function useContextKubernetes(explorerNode: explorer.KubernetesObject) {
 
 async function clusterInfoKubernetes(explorerNode: explorer.KubernetesObject) {
     const targetContext = explorerNode.metadata.context;
-    const shellResult = await kubectl.invokeAsync(`cluster-info`);
-    if (shellResult.code === 0) {
-        kubeChannel.showOutput(shellResult.stdout, `cluster-info for ${explorerNode.id}`);
-    } else {
-        vscode.window.showErrorMessage(`Failed to get cluster info: ${shellResult.stderr}`);
-    }
+    kubectl.invokeInTerminal("cluster-info");
 }
 
 async function deleteContextKubernetes(explorerNode: explorer.KubernetesObject) {
