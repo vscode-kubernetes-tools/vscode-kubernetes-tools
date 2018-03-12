@@ -504,7 +504,7 @@
         "js-yaml": "^3.8.2",
         "k8s": "^0.4.12",
         "lodash": ">3",
-        "node-yaml-parser": "^0.0.6",
+        "node-yaml-parser": "^0.0.7",
         "opn": "^5.2.0",
         "pluralize": "^4.0.0",
         "portfinder": "^1.0.13",
