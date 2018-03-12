@@ -71,6 +71,7 @@ export class JavaDebugProvider implements IDebugProvider {
             // According to the documents https://bugs.openjdk.java.net/browse/JDK-4971166 and
             // https://stackoverflow.com/questions/28327620/difference-between-java-options-java-tool-options-and-java-opts,
             // JAVA_TOOL_OPTIONS and _JAVA_OPTIONS are ways to specify JVM arguments as an environment variable instead of command line parameters.
+            // JAVA_TOOL_OPTIONS is included in standard JVMTI specification and is the recommended way.
             // _JAVA_OPTIONS trumps command-line arguments, which in turn trump JAVA_TOOL_OPTIONS.
             env["JAVA_TOOL_OPTIONS"] = defaultJavaDebugOpts;
             rawDebugPortInfo = defaultJavaDebugPort;
