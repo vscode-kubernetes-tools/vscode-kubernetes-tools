@@ -21,7 +21,6 @@ import * as explainer from './explainer';
 import { shell, ShellResult } from './shell';
 import * as configureFromCluster from './configurefromcluster';
 import * as createCluster from './createcluster';
-import { UIRequest as WizardUIRequest } from './wizard';
 import * as kuberesources from './kuberesources';
 import * as docker from './docker';
 import { kubeChannel } from './kubeChannel';
@@ -39,14 +38,23 @@ import { HelmTemplatePreviewDocumentProvider, HelmInspectDocumentProvider } from
 import { HelmTemplateCompletionProvider } from './helm.completionProvider';
 import { Reporter } from './telemetry';
 import * as telemetry from './telemetry-helper';
+import * as extensionapi from './extension.api';
+import {dashboardKubernetes} from './components/kubectl/proxy';
+import { DebugSession } from './debug/debugSession';
+import { getDebugProviderOfType, getSupportedDebuggerTypes } from './debug/providerRegistry';
+
+import { registerYamlSchemaSupport } from './yaml-support/yaml-schema';
+import * as clusterproviderregistry from './components/clusterprovider/clusterproviderregistry';
+import * as azureclusterprovider from './components/clusterprovider/azure/azureclusterprovider';
 
 let explainActive = false;
 let swaggerSpecPromise = null;
 
 const kubectl = kubectlCreate(host, fs, shell);
 const draft = draftCreate(host, fs, shell);
-const configureFromClusterUI = configureFromCluster.uiProvider(fs, shell);
-const createClusterUI = createCluster.uiProvider(fs, shell);
+const configureFromClusterUI = configureFromCluster.uiProvider();
+const createClusterUI = createCluster.uiProvider();
+const clusterProviderRegistry = clusterproviderregistry.get();
 
 const deleteMessageItems: vscode.MessageItem[] = [
     {
@@ -67,7 +75,7 @@ export const HELM_TPL_MODE: vscode.DocumentFilter = { language: "helm", scheme: 
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
-export function activate(context) {
+export async function activate(context) : Promise<extensionapi.ExtensionAPI> {
     kubectl.checkPresent('activation');
 
     const treeProvider = explorer.create(kubectl, host);
@@ -102,6 +110,7 @@ export function activate(context) {
         registerCommand('extension.vsKubernetesScale', scaleKubernetes),
         registerCommand('extension.vsKubernetesDebug', debugKubernetes),
         registerCommand('extension.vsKubernetesRemoveDebug', removeDebugKubernetes),
+        registerCommand('extension.vsKubernetesDebugAttach', debugAttachKubernetes),
         registerCommand('extension.vsKubernetesConfigureFromCluster', configureFromClusterKubernetes),
         registerCommand('extension.vsKubernetesCreateCluster', createClusterKubernetes),
         registerCommand('extension.vsKubernetesRefreshExplorer', () => treeProvider.refresh()),
@@ -109,6 +118,7 @@ export function activate(context) {
         registerCommand('extension.vsKubernetesClusterInfo', clusterInfoKubernetes),
         registerCommand('extension.vsKubernetesDeleteContext', deleteContextKubernetes),
         registerCommand('extension.vsKubernetesUseNamespace', useNamespaceKubernetes),
+        registerCommand('extension.vsKubernetesDashboard', dashboardKubernetes),
 
         // Commands - Helm
         registerCommand('extension.helmVersion', helmexec.helmVersion),
@@ -156,10 +166,14 @@ export function activate(context) {
         registerTelemetry(context)
     ];
 
+    await azureclusterprovider.init(clusterProviderRegistry, { shell: shell, fs: fs });
+
     // On save, refresh the Helm YAML preview.
     vscode.workspace.onDidSaveTextDocument((e: vscode.TextDocument) => {
         if (!editorIsActive()) {
-            logger.helm.log("WARNING: No active editor during save. Nothing saved.");
+            if (helm.hasPreviewBeenShown()) {
+                logger.helm.log("WARNING: No active editor during save. Helm preview was not updated.");
+            }
             return;
         }
         if (e === vscode.window.activeTextEditor.document) {
@@ -187,6 +201,13 @@ export function activate(context) {
     subscriptions.forEach((element) => {
         context.subscriptions.push(element);
     }, this);
+
+    await registerYamlSchemaSupport();
+    
+    return {
+        apiVersion: '0.1',
+        clusterProviderRegistry: clusterProviderRegistry
+    };
 }
 
 // this method is called when your extension is deactivated
@@ -421,14 +442,14 @@ function maybeRunKubernetesCommandForActiveWindow(command) {
                         vscode.window.showErrorMessage("Save failed.");
                         return;
                     }
-                    kubectl.invokeInTerminal(`${command} "${editor.document.fileName}"`);
+                    kubectl.invoke(`${command} "${editor.document.fileName}"`);
                 });
             }
         });
     } else {
         const fullCommand = `${command} "${editor.document.fileName}"`;
         console.log(fullCommand);
-        kubectl.invokeInTerminal(fullCommand);
+        kubectl.invoke(fullCommand);
     }
     return true;
 }
@@ -458,12 +479,10 @@ function getTextForActiveWindow(callback) {
     if (editor.selection) {
         text = editor.document.getText(editor.selection);
 
-        if (text.length === 0) {
+        if (text.length > 0) {
+            callback(text, null);
             return;
         }
-
-        callback(text, null);
-        return;
     }
 
     if (editor.document.isUntitled) {
@@ -556,7 +575,7 @@ function exposeKubernetes() {
         cmd += ' --port=' + ports[0];
     }
 
-    kubectl.invokeInTerminal(cmd);
+    kubectl.invoke(cmd);
 }
 
 function getKubernetes(explorerNode? : any) {
@@ -600,30 +619,45 @@ function findVersionInternal(fn) {
     });
 }
 
-function findPods(labelQuery, callback) {
-    kubectl.invoke(` get pods -o json -l ${labelQuery}`, (result, stdout, stderr) => {
-        if (result !== 0) {
-            vscode.window.showErrorMessage('Kubectl command failed: ' + stderr);
-            return;
-        }
-        try {
-            let podList = JSON.parse(stdout);
-            callback(podList);
-        } catch (ex) {
-            console.log(ex);
-            vscode.window.showErrorMessage('unexpected error: ' + ex);
-        }
-    });
+async function findAllPods() : Promise<FindPodsResult> {
+    return await findPodsCore('');
 }
 
-function findPodsForApp(callback) {
-    let appName = path.basename(vscode.workspace.rootPath);
-    findPods(`run=${appName}`, callback);
+async function findPodsByLabel(labelQuery: string) : Promise<FindPodsResult> {
+    return await findPodsCore(`-l ${labelQuery}`);
 }
 
-function findDebugPodsForApp(callback) {
+async function findPodsCore(findPodCmdOptions: string) : Promise<FindPodsResult> {
+    const sr = await kubectl.invokeAsync(` get pods -o json ${findPodCmdOptions}`);
+
+    if (sr.code !== 0) {
+        vscode.window.showErrorMessage('Kubectl command failed: ' + sr.stderr);
+        return { succeeded: false, pods: [] };
+    }
+
+    try {
+        const podList = JSON.parse(sr.stdout);
+        return { succeeded: true, pods: podList.items };
+    } catch (ex) {
+        console.log(ex);
+        vscode.window.showErrorMessage('unexpected error: ' + ex);
+        return { succeeded: false, pods: [] };
+    }
+}
+
+async function findPodsForApp() : Promise<FindPodsResult> {
     let appName = path.basename(vscode.workspace.rootPath);
-    findPods(`run=${appName}-debug`, callback);
+    return await findPodsByLabel(`run=${appName}`);
+}
+
+async function findDebugPodsForApp() : Promise<FindPodsResult> {
+    let appName = path.basename(vscode.workspace.rootPath);
+    return await findPodsByLabel(`run=${appName}-debug`);
+}
+
+interface FindPodsResult {
+    readonly succeeded: boolean;
+    readonly pods: any[];
 }
 
 function findNameAndImage() {
@@ -849,44 +883,50 @@ function findPod(callback) {
     );
 }
 
-function selectPodForApp(callback) {
-    findPodsForApp((podList) => {
-        if (podList.items.length === 0) {
-            vscode.window.showErrorMessage('Couldn\'t find any relevant pods.');
-            callback(null);
-            return;
+enum PodSelectionFallback {
+    None,
+    AnyPod,
+}
+
+enum PodSelectionScope {
+    App,
+    All,
+}
+
+async function selectPod(scope: PodSelectionScope, fallback: PodSelectionFallback) : Promise<any | null> {
+    const findPodsResult = scope === PodSelectionScope.App ? await findPodsForApp() : await findAllPods();
+    
+    if (!findPodsResult.succeeded) {
+        return null;
+    }
+
+    const podList = findPodsResult.pods;
+
+    if (podList.length === 0) {
+        if (fallback === PodSelectionFallback.AnyPod) {
+            return selectPod(PodSelectionScope.All, PodSelectionFallback.None);
         }
-        if (podList.items.length === 1) {
-            callback(podList.items[0]);
-            return;
-        }
-        let names = [];
+        const scopeMessage = scope === PodSelectionScope.App ? "associated with this app" : "in the cluster";
+        vscode.window.showErrorMessage(`Couldn't find any pods ${scopeMessage}.`);
+        return null;
+    }
+    if (podList.length === 1) {
+        return podList[0];
+    }
 
-        for (const element of podList) {
-            names.push(`${element.metadata.namespace}/${element.metadata.name}`);
-        }
+    const pickItems = podList.map((element) => { return {
+        label: `${element.metadata.namespace}/${element.metadata.name}`,
+        description: '',
+        pod: element
+    };});
 
-        vscode.window.showQuickPick(names).then((value) => {
-            if (!value) {
-                callback(null);
-                return;
-            }
+    const value = await vscode.window.showQuickPick(pickItems);
 
-            let ix = value.indexOf('/');
-            let name = value.substring(ix + 1);
+    if (!value) {
+        return null;
+    }
 
-            for (const element of podList) {
-                if (element.name !== name) {
-                    continue;
-                }
-
-                callback(element);
-                return;
-            }
-
-            callback(null);
-        });
-    });
+    return value.pod;
 }
 
 function logsKubernetes(explorerNode? : explorer.ResourceNode) {
@@ -952,32 +992,30 @@ function describeKubernetes(explorerNode? : explorer.ResourceNode) {
     }
 }
 
-function selectContainerForPod(pod, callback) {
+async function selectContainerForPod(pod) : Promise<any | null> {
     if (!pod) {
-        callback(null);
-    }
-    if (pod.spec.containers.length === 1) {
-        callback(pod.spec.containers[0]);
-        return;
-    }
-    let names = [];
-
-    for (const element of pod.spec.containers) {
-        names.push(element.name);
+        return null;
     }
 
-    vscode.window.showQuickPick(names).then((value) => {
-        for (const element of pod.spec.containers) {
-            if (element.name !== value) {
-                continue;
-            }
+    const containers : any[] = pod.spec.containers;
+    
+    if (containers.length === 1) {
+        return pod.spec.containers[0];
+    }
+    
+    const pickItems = containers.map((element) => { return {
+        label: `${element.metadata.namespace}/${element.metadata.name}`,
+        description: '',
+        container: element
+    };});
 
-            callback(element);
-            return;
-        }
+    const value = await vscode.window.showQuickPick(pickItems);
 
-        callback(null);
-    });
+    if (!value) {
+        return null;
+    }
+
+    return value.container;
 }
 
 function execKubernetes() {
@@ -994,34 +1032,32 @@ async function terminalKubernetes(explorerNode? : explorer.ResourceNode) {
     }
 }
 
-function execKubernetesCore(isTerminal) {
+async function execKubernetesCore(isTerminal) : Promise<void> {
     let opts: any = { prompt: 'Please provide a command to execute' };
 
     if (isTerminal) {
         opts.value = 'bash';
     }
 
-    vscode.window.showInputBox(
-        opts
-    ).then((cmd) => {
-        if (!cmd || cmd.length === 0) {
-            return;
-        }
+    const cmd = await vscode.window.showInputBox(opts);
+    
+    if (!cmd || cmd.length === 0) {
+        return;
+    }
 
-        selectPodForApp((pod) => {
-            if (!pod || !pod.metadata) {
-                return;
-            }
+    const pod = await selectPod(PodSelectionScope.App, PodSelectionFallback.AnyPod);
 
-            if (isTerminal) {
-                execTerminalOnPod(pod.metadata.name, cmd);
-                return;
-            }
+    if (!pod || !pod.metadata) {
+        return;
+    }
 
-            const execCmd = ' exec ' + pod.metadata.name + ' ' + cmd;
-            kubectl.invokeInTerminal(execCmd);
-        });
-    });
+    if (isTerminal) {
+        execTerminalOnPod(pod.metadata.name, cmd);
+        return;
+    }
+
+    const execCmd = ' exec ' + pod.metadata.name + ' ' + cmd;
+    kubectl.invokeInTerminal(execCmd);
 }
 
 function execTerminalOnPod(podName : string, terminalCmd : string) {
@@ -1035,31 +1071,32 @@ async function isBashOnPod(podName : string): Promise<boolean> {
     return !result.code;
 }
 
-function syncKubernetes() {
-    selectPodForApp((pod) => {
-        if (!pod) {
-            return;
+async function syncKubernetes() : Promise<void> {
+    const pod = await selectPod(PodSelectionScope.App, PodSelectionFallback.None);
+
+    if (!pod) {
+        return;
+    }
+
+    const container = await selectContainerForPod(pod);
+
+    if (!container) {
+        return;
+    }
+    let pieces = container.image.split(':');
+    if (pieces.length !== 2) {
+        vscode.window.showErrorMessage(`unexpected image name: ${container.image}`);
+        return;
+    }
+
+    const cmd = `git checkout ${pieces[1]}`;
+
+    //eslint-disable-next-line no-unused-vars
+    shell.execCore(cmd, shell.execOpts()).then(({code, stdout, stderr}) => {
+        if (code !== 0) {
+            vscode.window.showErrorMessage(`git checkout returned: ${code}`);
+            return 'error';
         }
-        selectContainerForPod(pod, (container) => {
-            if (!container) {
-                return;
-            }
-            let pieces = container.image.split(':');
-            if (pieces.length !== 2) {
-                vscode.window.showErrorMessage(`unexpected image name: ${container.image}`);
-                return;
-            }
-
-            const cmd = `git checkout ${pieces[1]}`;
-
-            //eslint-disable-next-line no-unused-vars
-            shell.execCore(cmd, shell.execOpts()).then(({code, stdout, stderr}) => {
-                if (code !== 0) {
-                    vscode.window.showErrorMessage(`git checkout returned: ${code}`);
-                    return 'error';
-                }
-            });
-        });
     });
 }
 
@@ -1125,13 +1162,22 @@ const diffKubernetes = (callback) => {
         let kindName = null;
         let fileName = null;
 
+        let fileFormat = "json";
+
         if (data) {
+            fileFormat = (data.trim().length > 0 && data.trim()[0] == '{') ? "json" : "yaml";
             kindName = findKindNameForText(data);
-            fileName = path.join(os.tmpdir(), 'local.json');
+            fileName = path.join(os.tmpdir(), `local.${fileFormat}`);
             fs.writeFile(fileName, data, handleError);
         } else if (file) {
             kindName = findKindName();
             fileName = file;
+            if (vscode.window.activeTextEditor && vscode.window.activeTextEditor.document) {
+                const langId = vscode.window.activeTextEditor.document.languageId.toLowerCase();
+                if (langId === "yaml" || langId === "helm") {
+                    fileFormat = "yaml";
+                }
+            }
         } else {
             vscode.window.showInformationMessage('Nothing to diff.');
             return;
@@ -1142,19 +1188,27 @@ const diffKubernetes = (callback) => {
             return;
         }
 
-        kubectl.invoke(` get -o json ${kindName}`, (result, stdout, stderr) => {
-            if (result !== 0) {
+        kubectl.invoke(` get -o ${fileFormat} ${kindName}`, (result, stdout, stderr) => {
+            if (result == 1 && stderr.indexOf('NotFound') >= 0) {
+                vscode.window.showWarningMessage(`Resource ${kindName} does not exist - this will create a new resource.`, 'Create').then((choice) => {
+                    if (choice === 'Create') {
+                        maybeRunKubernetesCommandForActiveWindow('create -f');
+                    }
+                });
+                return;
+            }
+            else if (result !== 0) {
                 vscode.window.showErrorMessage('Error running command: ' + stderr);
                 return;
             }
 
-            let otherFile = path.join(os.tmpdir(), 'server.json');
-            fs.writeFile(otherFile, stdout, handleError);
+            let serverFile = path.join(os.tmpdir(), `server.${fileFormat}`);
+            fs.writeFile(serverFile, stdout, handleError);
 
             vscode.commands.executeCommand(
                 'vscode.diff',
-                vscode.Uri.parse('file://' + otherFile),
-                vscode.Uri.parse('file://' + fileName)).then((result) => {
+                shell.fileUri(serverFile),
+                shell.fileUri(fileName)).then((result) => {
                     console.log(result);
                     if (!callback) {
                         return;
@@ -1166,8 +1220,44 @@ const diffKubernetes = (callback) => {
     });
 };
 
-const debugKubernetes = () => {
-    buildPushThenExec(_debugInternal);
+async function showWorkspaceFolderPick(): Promise<vscode.WorkspaceFolder> {
+    if (!vscode.workspace.workspaceFolders) {
+        vscode.window.showErrorMessage('This command requires an open folder.');
+        return undefined;
+    } else if (vscode.workspace.workspaceFolders.length === 1) {
+        return vscode.workspace.workspaceFolders[0];
+    }
+    return await vscode.window.showWorkspaceFolderPick();
+}
+
+const debugKubernetes = async () => {
+    const workspaceFolder = await showWorkspaceFolderPick();
+    if (workspaceFolder) {
+        const legacySupportedDebuggers = ["node"]; // legacy code support node debugging.
+        const providerSupportedDebuggers = getSupportedDebuggerTypes();
+        const supportedDebuggers = providerSupportedDebuggers.concat(legacySupportedDebuggers);
+        const debuggerType = await vscode.window.showQuickPick(supportedDebuggers, {
+            placeHolder: "Select the environment"
+        });
+
+        if (!debuggerType) {
+            return;
+        }
+
+        const debugProvider = getDebugProviderOfType(debuggerType);
+        if (debugProvider) {
+            new DebugSession(kubectl).launch(vscode.workspace.workspaceFolders[0], debugProvider);
+        } else {
+            buildPushThenExec(_debugInternal);
+        }
+    }
+};
+
+const debugAttachKubernetes = async (explorerNode: explorer.KubernetesObject) => {
+    const workspaceFolder = await showWorkspaceFolderPick();
+    if (workspaceFolder) {
+        new DebugSession(kubectl).attach(workspaceFolder, explorerNode ? explorerNode.id : null);
+    }
 };
 
 const _debugInternal = (name, image) => {
@@ -1185,66 +1275,72 @@ const _debugInternal = (name, image) => {
     });
 };
 
-const _doDebug = (name, image, cmd) => {
+const _doDebug = async (name, image, cmd) => {
     const deploymentName = `${name}-debug`;
     const runCmd = `run ${deploymentName} --image=${image} -i --attach=false -- ${cmd}`;
     console.log(runCmd);
 
-    kubectl.invoke(runCmd, (result, stdout, stderr) => {
-        if (result !== 0) {
-            vscode.window.showErrorMessage('Failed to start debug container: ' + stderr);
-            return;
-        }
+    const sr = await kubectl.invokeAsync(runCmd);
 
-        findDebugPodsForApp((podList) => {
-            if (podList.items.length === 0) {
-                vscode.window.showErrorMessage('Failed to find debug pod.');
-                return;
-            }
+    if (sr.code !== 0) {
+        vscode.window.showErrorMessage('Failed to start debug container: ' + sr.stderr);
+        return;
+    }
 
-            let podName = podList.items[0].metadata.name;
-            vscode.window.showInformationMessage('Debug pod running as: ' + podName);
+    const findPodsResult = await findDebugPodsForApp();
 
-            waitForRunningPod(podName, () => {
-                kubectl.invoke(` port-forward ${podName} 5858:5858 8000:8000`);
+    if (!findPodsResult.succeeded) {
+        return;
+    }
 
-                const debugConfiguration = {
-                    type: 'node',
-                    request: 'attach',
-                    name: 'Attach to Process',
-                    port: 5858,
-                    localRoot: vscode.workspace.rootPath,
-                    remoteRoot: '/'
-                };
-                
-                vscode.debug.startDebugging(
-                    undefined,
-                    debugConfiguration
-                ).then(() => {
-                    vscode.window.showInformationMessage('Debug session established', 'Expose Service').then((opt) => {
-                        if (opt !== 'Expose Service') {
+    const podList = findPodsResult.pods;
+
+    if (podList.length === 0) {
+        vscode.window.showErrorMessage('Failed to find debug pod.');
+        return;
+    }
+
+    let podName = podList[0].metadata.name;
+    vscode.window.showInformationMessage('Debug pod running as: ' + podName);
+
+    waitForRunningPod(podName, () => {
+        kubectl.invoke(` port-forward ${podName} 5858:5858 8000:8000`);
+
+        const debugConfiguration = {
+            type: 'node',
+            request: 'attach',
+            name: 'Attach to Process',
+            port: 5858,
+            localRoot: vscode.workspace.rootPath,
+            remoteRoot: '/'
+        };
+
+        vscode.debug.startDebugging(
+            undefined,
+            debugConfiguration
+        ).then(() => {
+            vscode.window.showInformationMessage('Debug session established', 'Expose Service').then((opt) => {
+                if (opt !== 'Expose Service') {
+                    return;
+                }
+
+                vscode.window.showInputBox({ prompt: 'Expose on which port?', placeHolder: '80' }).then((port) => {
+                    if (!port) {
+                        return;
+                    }
+
+                    const exposeCmd = `expose deployment ${deploymentName} --type=LoadBalancer --port=${port}`;
+                    kubectl.invoke(exposeCmd, (result, stdout, stderr) => {
+                        if (result !== 0) {
+                            vscode.window.showErrorMessage('Failed to expose deployment: ' + stderr);
                             return;
                         }
-
-                        vscode.window.showInputBox({ prompt: 'Expose on which port?', placeHolder: '80' }).then((port) => {
-                            if (!port) {
-                                return;
-                            }
-
-                            const exposeCmd = `expose deployment ${deploymentName} --type=LoadBalancer --port=${port}`;
-                            kubectl.invoke(exposeCmd, (result, stdout, stderr) => {
-                                if (result !== 0) {
-                                    vscode.window.showErrorMessage('Failed to expose deployment: ' + stderr);
-                                    return;
-                                }
-                                vscode.window.showInformationMessage('Deployment exposed. Run Kubernetes Get > service ' + deploymentName + ' for IP address');
-                            });
-                        });
+                        vscode.window.showInformationMessage('Deployment exposed. Run Kubernetes Get > service ' + deploymentName + ' for IP address');
                     });
-                }, (err) => {
-                    vscode.window.showInformationMessage('Error: ' + err.message);
                 });
             });
+        }, (err) => {
+            vscode.window.showInformationMessage('Error: ' + err.message);
         });
     });
 };
@@ -1311,26 +1407,14 @@ function removeDebugKubernetes() {
     });
 }
 
-async function configureFromClusterKubernetes(request? : WizardUIRequest) {
-    if (request) {
-        await configureFromClusterUI.next(request);
-    } else {
-        const newId : string = uuid.v4();
-        configureFromClusterUI.start(newId);
-        vscode.commands.executeCommand('vscode.previewHtml', configureFromCluster.operationUri(newId), 2, "Configure Kubernetes");
-        await configureFromClusterUI.next({ operationId: newId, requestData: undefined });
-    }
+async function configureFromClusterKubernetes() {
+    const newId : string = uuid.v4();
+    vscode.commands.executeCommand('vscode.previewHtml', configureFromCluster.operationUri(newId), 2, "Configure Kubernetes");
 }
 
-async function createClusterKubernetes(request? : WizardUIRequest) {
-    if (request) {
-        await createClusterUI.next(request);
-    } else {
-        const newId : string = uuid.v4();
-        createClusterUI.start(newId);
-        vscode.commands.executeCommand('vscode.previewHtml', createCluster.operationUri(newId), 2, "Create Kubernetes Cluster");
-        await createClusterUI.next({ operationId: newId, requestData: undefined });
-    }
+async function createClusterKubernetes() {
+    const newId : string = uuid.v4();
+    vscode.commands.executeCommand('vscode.previewHtml', createCluster.operationUri(newId), 2, "Create Kubernetes Cluster");
 }
 
 async function useContextKubernetes(explorerNode: explorer.KubernetesObject) {

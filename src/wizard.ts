@@ -1,7 +1,4 @@
-export interface Advanceable {
-    start(operationId: string) : void;
-    next(request: UIRequest): Promise<void>;
-}
+import { ShellResult } from "./shell";
 
 export interface Errorable<T> {
     readonly succeeded: boolean;
@@ -9,41 +6,9 @@ export interface Errorable<T> {
     readonly error: string[];
 }
 
-export interface UIRequest {
-    readonly operationId: string;
-    readonly requestData: string;
-}
-
-export interface StageData {
+export interface ActionResult<T> {
     readonly actionDescription: string;
-    readonly result: Errorable<any>;
-}
-
-export interface OperationState<TStage> {
-    readonly stage: TStage;
-    readonly last: StageData;
-}
-
-export class OperationMap<TStage> {
-    private operations: any = {};
-
-    set(operationId: string, operationState: OperationState<TStage>) {
-        this.operations[operationId] = operationState;
-    }
-
-    get(operationId: string) : OperationState<TStage> {
-        return this.operations[operationId];
-    }
-
-}
-
-export function advanceUri(commandName: string, operationId: string, requestData: string) : string {
-    const request : UIRequest = {
-        operationId: operationId,
-        requestData: requestData
-    };
-    const uri = encodeURI(`command:extension.${commandName}?` + JSON.stringify(request));
-    return uri;
+    readonly result: Errorable<T>;
 }
 
 export function selectionChangedScript(commandName: string, operationId: string) : string {
@@ -53,41 +18,6 @@ function selectionChanged() {
     var selection = selectCtrl.options[selectCtrl.selectedIndex].value;
     var request = '{"operationId":"${operationId}","requestData":"' + selection + '"}';
     document.getElementById('nextlink').href = encodeURI('command:extension.${commandName}?' + request);
-}
-`;
-
-    return script(js);
-}
-
-export interface ControlMapping {
-    readonly ctrlName : string;
-    readonly extractVal : string;
-    readonly jsonKey : string;
-}
-
-export function selectionChangedScriptMulti(commandName: string, operationId: string, mappings: ControlMapping[]) : string {
-    let gatherRequestJs = "";
-    for (const mapping of mappings) {
-        const ctrlName : string = mapping.ctrlName;
-        const extractVal : string = mapping.extractVal;
-        const jsonKey : string = mapping.jsonKey;
-        const mappingJs = `
-    var ${jsonKey}Ctrl = document.getElementById('${ctrlName}');
-    var ${jsonKey}Value = ${extractVal};
-    selection = selection + '\\\\"${jsonKey}\\\\":\\\\"' + ${jsonKey}Value + '\\\\",';
-`;
-        gatherRequestJs = gatherRequestJs + mappingJs;
-    }
-
-    const js = `
-function selectionChanged() {
-    var selection = "{";
-    ${gatherRequestJs}
-    selection = selection.slice(0, -1) + "}";
-    var request = '{"operationId":"${operationId}","requestData":"' + selection + '"}';
-    document.getElementById('nextlink').href = encodeURI('command:extension.${commandName}?' + request);
-    var u = document.getElementById('uri');
-    if (u) { u.innerText = document.getElementById('nextlink').href; }
 }
 `;
 
@@ -106,18 +36,10 @@ export function waitScript(title: string) : string {
     const js = `
 function promptWait() {
     document.getElementById('h').innerText = '${title}';
-    document.getElementById('content').innerText = '';
+    document.getElementById('content').style.visibility = 'hidden';
 }
 `;
     return script(js);
-}
-
-export function extend(source: Errorable<any>, transformer: (o: any) => any) : Errorable<any> {
-    return {
-        succeeded: source.succeeded, 
-        result: transformer(source.result),
-        error: source.error
-    };
 }
 
 export function styles() : string {
@@ -152,5 +74,49 @@ export function styles() : string {
 }
 </style>
 `;
+}
+
+export function formStyles() : string {
+    return `
+<style>
+.link-button {
+    background: none;
+    border: none;
+    color: blue;
+    text-decoration: underline;
+    cursor: pointer;
+    font-size: 1em;
+    font-family: sans-serif;
+}
+.vscode-light .link-button {
+    color: navy;
+}
+.vscode-dark .link-button {
+    color: azure;
+}
+.link-button:focus {
+    outline: none;
+}
+.link-button:active {
+    color:red;
+}
+</style>
+`;
+}
+
+export function fromShellExitCode(sr: ShellResult) : Errorable<void> {
+    if (sr.code === 0 && !sr.stderr) {
+        return { succeeded: true, result: null, error: [] };
+    }
+    return { succeeded: false, result: null, error: [ sr.stderr ] };
+}
+
+export function fromShellJson<T>(sr: ShellResult, processor?: (raw: any) => T) : Errorable<T> {
+    if (sr.code === 0 && !sr.stderr) {
+        const raw : any = JSON.parse(sr.stdout);
+        const result = processor ? processor(raw) : (raw as T);
+        return { succeeded: true, result: result, error: [] };
+    }
+    return { succeeded: false, result: undefined, error: [ sr.stderr ] };
 }
 

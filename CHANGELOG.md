@@ -1,5 +1,29 @@
 # Change Log
 
+## 0.1.5
+
+* Added support for Kubernetes dashboard
+* ConfigMaps and Secrets are now show in the tree view
+* Fixes to Explain command
+* UX fixes for Helm warning it's not updating the preview
+
+Thanks to contributors Jinbo Wang and Bhargav Nookala.
+
+## 0.1.4
+
+* Tree view improvements:
+  * Select active namespace
+  * Show cluster info
+  * Delete cluster from kubeconfig
+  * Additional get and delete support
+* Improved output display with highlighting and 'in progress' status
+* Create Cluster - added option to configure extension from new cluster
+* Added telemetry on command popularity (see read-me for how to opt out)
+* Fixed incorrect .yaml comments and block comments for Helm .tpl
+* Fixed 'No charts found' error when opening non-Helm-related folders
+
+Thanks to contributors Jinbo Wang and Bhargav Nookala.
+
 ## 0.1.3
 
 * Tree view improvements:

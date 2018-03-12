@@ -78,12 +78,18 @@ Where `<your-image-prefix-here>` is something like `docker.io/brendanburns`.
    * `Kubernetes: Run` - Run the current application as a Kubernetes Deployment
    * `Kubernetes: Terminal` - Open an interactive terminal session in a pod of the Kubernetes Deployment
    * `Kubernetes: Exec` - Run a command in a pod of the Kubernetes Deployment
-   * `Kubernetes: Debug` - Run the current application as a Kubernetes Deployment and attach a debugging session to it (currently works only for Node.js deployments)
-   * `Kubernetes: Remove Debug` - Remove the deployment and/or service created for a `Kubernetes Debug` session
+   * `Kubernetes: Debug (Launch)` - Run the current application as a Kubernetes Deployment and attach a debugging session to it (currently works only for Java/Node.js deployments)
+   * `Kubernetes: Debug (Attach)` - Attach a debugging session to an existing Kubernetes Deployment (currently works only for Java deployments)
+   * `Kubernetes: Remove Debug` - Remove the deployment and/or service created for a `Kubernetes Debug (Launch)` session
 
 ### Configuration commands
 
    * `Kubernetes Configure from Cluster` - Install and configure the Kubernetes command line tool (kubectl) from an Azure Container Service (ACS) or Azure Kubernetes Service (AKS) cluster
+
+
+### Miscellaneous commands
+
+   * `Kubernetes Open Dashboard` - Opens the Kubernetes Dashboard in your browser.
 
 ### Helm support
 

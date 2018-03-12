@@ -8,9 +8,16 @@ export function readSwagger() : Promise<any> {
     return kubeconfig.readKubectlConfig().then((kc) => readSwaggerCore(kc));
 }
 
+function fixUrl(kapi: any /* deliberately bypass type checks as .domain is internal */) : void {
+    if (kapi.domain.endsWith('//')) {
+        kapi.domain = kapi.domain.substr(0, kapi.domain.length - 1);
+    }
+}
+
 function readSwaggerCore(kc : kubeconfig.KubeConfig) : Promise<any> {
     return new Promise((resolve, reject) => {
         const kapi = k8s.api(apiCredentials(kc));
+        fixUrl(kapi);
         kapi.get('swagger.json', (err, data) => {
             if (err) {
                 reject(err);
@@ -30,6 +37,7 @@ export function readExplanation(swagger : any, fieldsPath : string) {
 }
 
 function findKindModel(swagger : any, kindName : string) : TypeModel {
+    // TODO: use apiVersion (e.g. v1, extensions/v1beta1) to help locate these
     const v1def = findProperty(swagger.definitions, 'v1.' + kindName);
     const v1beta1def = findProperty(swagger.definitions, 'v1beta1.' + kindName);
     const kindDef = v1def || v1beta1def;
@@ -209,8 +217,21 @@ function singularizeVersionedName(name : string) {
 function findProperty(obj : any, name : string) {
     const n = (name + "").toLowerCase();
     for (const p in obj) {
+        const pinfo = obj[p];
         if ((p + "").toLowerCase() == n) {
-            return obj[p];
+            return pinfo;
+        }
+        const gvks = pinfo["x-kubernetes-group-version-kind"];
+        if (gvks && gvks.length && gvks.length > 0 && gvks[0]) {
+            const gvk = gvks[0];
+            const ver = gvk.version;
+            const kind = gvk.kind;
+            if (ver && kind) {
+                const vk = `${ver}.${kind}`;
+                if (vk.toLowerCase() == n) {
+                    return pinfo;
+                }
+            }
         }
     }
     const singname = singularizeVersionedName(name);
