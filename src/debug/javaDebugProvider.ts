@@ -12,8 +12,8 @@ const defaultJavaDebuggerExtensionId = "vscjava.vscode-java-debug";
 const defaultJavaDebuggerExtension = "Debugger for Java";
 const defaultJavaDebuggerConfigType = "java";
 
-const defaultJavaDebugPort = "5005";
-const defaultJavaAppPort = "9000";
+const defaultJavaDebugPort = "50005";
+const defaultJavaAppPort = "8080";
 const defaultJavaDebugOpts = `-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=${defaultJavaDebugPort},quiet=y`;
 const javaDebugOptsRegExp = /(-agentlib|-Xrunjdwp):\S*(address=[^\s,]+)/i;
 const fullJavaDebugOptsRegExp = /^java\s+.*(-agentlib|-Xrunjdwp):\S*(address=[^\s,]+)\S*/i;
@@ -61,29 +61,27 @@ export class JavaDebugProvider implements IDebugProvider {
 
         // Resolve the debug port.
         const matches = dockerfile.searchLaunchArgs(javaDebugOptsRegExp);
-        if (extensionUtils.isNonEmptyArray(matches)) {
+        if (extensionUtils.isNonEmptyArray(matches)) { // Enable debug options in command lines directly.
             const addresses = matches[2].split("=")[1].split(":");
             rawDebugPortInfo = addresses[addresses.length - 1];
-        } else if (extensionUtils.isNonEmptyArray(dockerfile.searchLaunchArgs(/\$\{?JAVA_OPTS\}?/))) {
+        } else if (extensionUtils.isNonEmptyArray(dockerfile.searchLaunchArgs(/\$\{?JAVA_OPTS\}?/))) { // Use $JAVA_OPTS env var in command lines.
             env["JAVA_OPTS"] = defaultJavaDebugOpts;
+            rawDebugPortInfo = defaultJavaDebugPort;
+        } else { // Enable debug options by the global JVM environment variables.
+            // According to the documents https://bugs.openjdk.java.net/browse/JDK-4971166 and
+            // https://stackoverflow.com/questions/28327620/difference-between-java-options-java-tool-options-and-java-opts,
+            // JAVA_TOOL_OPTIONS and _JAVA_OPTIONS are ways to specify JVM arguments as an environment variable instead of command line parameters.
+            // _JAVA_OPTIONS trumps command-line arguments, which in turn trump JAVA_TOOL_OPTIONS.
+            env["_JAVA_OPTIONS"] = defaultJavaDebugOpts;
+            // For the JVMs that don't support _JAVA_OPTIONS, let them to fall back to JAVA_TOOL_OPTIONS.
+            env["JAVA_TOOL_OPTIONS"] = defaultJavaDebugOpts;
             rawDebugPortInfo = defaultJavaDebugPort;
         }
 
-        // Cannot resolve the debug port from Dockerfile, then ask user to specify it.
-        if (!rawDebugPortInfo) {
-            rawDebugPortInfo = await debugUtils.promptForDebugPort(defaultJavaDebugPort);
-        }
-
-        if (!rawDebugPortInfo) {
-            return;
-        }
-        
         // Resolve the app port.
         const exposedPorts = dockerfile.getExposedPorts();
-        if (exposedPorts.length) {
-            const possiblePorts = exposedPorts.filter((port) => port !== rawDebugPortInfo);
-            rawAppPortInfo = await debugUtils.promptForAppPort(possiblePorts, defaultJavaAppPort, env);
-        }
+        const possiblePorts = exposedPorts.length ? exposedPorts.filter((port) => port !== rawDebugPortInfo) : [];
+        rawAppPortInfo = await debugUtils.promptForAppPort(possiblePorts, defaultJavaAppPort, env);
 
         return {
             debugPort: Number(rawDebugPortInfo),
