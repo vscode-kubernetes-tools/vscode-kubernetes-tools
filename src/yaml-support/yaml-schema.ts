@@ -25,30 +25,102 @@ export interface KubernetesSchema {
 declare type YamlSchemaContributor = (schema: string,
                                        requestSchema: (resource: string) => string,
                                        requestSchemaContent: (uri: string) => string) => void;
-// the schema for kubernetes
-const _definitions: { [key: string]: KubernetesSchema; } = {};
+export class KubernetesSchemaHolder {
+    // the schema for kubernetes
+    private _definitions: { [key: string]: KubernetesSchema; } = {};
 
-// load the kubernetes schema and make some modifications to $ref node
-function loadSchema(schemaFile: string): void {
-    const schemaRaw = util.loadJson(schemaFile);
-    const definitions = schemaRaw.definitions;
-    for (const name of Object.keys(definitions)) {
-        saveSchemaWithManifestStyleKeys(name, definitions[name]);
+    // load the kubernetes schema and make some modifications to $ref node
+    public loadSchema(schemaFile: string): void {
+        const schemaRaw = util.loadJson(schemaFile);
+        const definitions = schemaRaw.definitions;
+        for (const name of Object.keys(definitions)) {
+            this.saveSchemaWithManifestStyleKeys(name, definitions[name]);
+        }
+
+        for (const schema of _.values(this._definitions) ) {
+            if (schema.properties) {
+                // fix on each node in properties for $ref since it will directly reference '#/definitions/...'
+                // we need to convert it into schema like 'kubernetes://schema/...'
+                // we need also an array to collect them since we need to get schema from _definitions, at this point, we have
+                // not finished the process of add schemas to _definitions, call patchOnRef will fail for some cases.
+                this.replaceDefinitionRefsWithYamlSchemaUris(schema.properties);
+            }
+        }
     }
 
-    for (const schema of _.values(_definitions) ) {
-        if (schema.properties) {
-            // fix on each node in properties for $ref since it will directly reference '#/definitions/...'
-            // we need to convert it into schema like 'kubernetes://schema/...'
-            // we need also an array to collect them since we need to get schema from _definitions, at this point, we have
-            // not finished the process of add schemas to _definitions, call patchOnRef will fail for some cases.
-            replaceDefinitionRefsWithYamlSchemaUris(schema.properties);
+    // get kubernetes schema by the key
+    public lookup(key: string): KubernetesSchema {
+        return key ? this._definitions[key.toLowerCase()] : undefined;
+    }
+
+    /**
+     * Save the schema object in swagger json to schema map.
+     *
+     * @param {string} name the property name in definition node of swagger json
+     * @param originalSchema the origin schema object in swagger json
+     */
+    private saveSchemaWithManifestStyleKeys(name: string, originalSchema: any): void {
+        if (isGroupVersionKindStyle(originalSchema)) {
+            // if the schema contains 'x-kubernetes-group-version-kind'. then it is a direct kubernetes manifest,
+            getManifestStyleSchemas(originalSchema).forEach((schema: KubernetesSchema) =>  {
+                this.saveSchema({
+                    name,
+                    ...schema
+                });
+            });
+
+        } else {
+            // if x-kubernetes-group-version-kind cannot be found, then it is an in-direct schema refereed by
+            // direct kubernetes manifest, eg: io.k8s.kubernetes.pkg.api.v1.PodSpec
+            this.saveSchema({
+                name,
+                ...originalSchema
+            });
+        }
+    }
+
+    // replace schema $ref with values like 'kubernetes://schema/...'
+    private replaceDefinitionRefsWithYamlSchemaUris(node: any): void {
+        if (!node) {
+            return;
+        }
+        if (_.isArray(node)) {
+            for (const subItem of <any[]>node) {
+                this.replaceDefinitionRefsWithYamlSchemaUris(subItem);
+            }
+        }
+        if (!_.isObject(node)) {
+            return;
+        }
+        for (const key of Object.keys(node)) {
+            this.replaceDefinitionRefsWithYamlSchemaUris(node[key]);
+        }
+
+        if (node.$ref) {
+            const name = getNameInDefinitions(node.$ref);
+            const schema = this._definitions[name.toLowerCase()];
+            if (schema) {
+                // replacing $ref
+                node.$ref = util.makeKubernetesUri(schema.name);
+            }
+        }
+    }
+
+    // save the schema to the _definitions
+    private saveSchema(schema: KubernetesSchema): void {
+        if (schema.name) {
+            this._definitions[schema.name.toLowerCase()] = schema;
+        }
+        if (schema.id) {
+            this._definitions[schema.id.toLowerCase()] = schema;
         }
     }
 }
 
+const kubeSchema: KubernetesSchemaHolder = new KubernetesSchemaHolder();
+
 export async function registerYamlSchemaSupport(): Promise<void> {
-    loadSchema(KUBERNETES_SCHEMA_FILE);
+    kubeSchema.loadSchema(KUBERNETES_SCHEMA_FILE);
     const yamlPlugin: any = await activateYamlExtension();
     if (!yamlPlugin || !yamlPlugin.registerContributor) {
         // activateYamlExtension has already alerted to users for errors.
@@ -100,7 +172,7 @@ function requestYamlSchemaContentCallback(uri: string): string {
         const manifestRefList = manifestType.split('+').map(util.makeRefOnKubernetes);
         return JSON.stringify({ oneOf: manifestRefList });
     }
-    const schema = _definitions[manifestType.toLowerCase()];
+    const schema = kubeSchema.lookup(manifestType);
 
     // convert it to string since vscode-yaml need the string format
     if (schema) {
@@ -119,32 +191,6 @@ function requestYamlSchemaContentCallback(uri: string): string {
  */
 function isGroupVersionKindStyle(originalSchema: any): boolean {
     return originalSchema[KUBERNETES_GROUP_VERSION_KIND] && originalSchema[KUBERNETES_GROUP_VERSION_KIND].length;
-}
-
-/**
- * Save the schema object in swagger json to schema map.
- *
- * @param {string} name the property name in definition node of swagger json
- * @param originalSchema the origin schema object in swagger json
- */
-function saveSchemaWithManifestStyleKeys(name: string, originalSchema: any): void {
-    if (isGroupVersionKindStyle(originalSchema)) {
-        // if the schema contains 'x-kubernetes-group-version-kind'. then it is a direct kubernetes manifest,
-        getManifestStyleSchemas(originalSchema).forEach((schema: KubernetesSchema) =>  {
-            saveSchema({
-                name,
-                ...schema
-            });
-        });
-
-    } else {
-        // if x-kubernetes-group-version-kind cannot be found, then it is an in-direct schema refereed by
-        // direct kubernetes manifest, eg: io.k8s.kubernetes.pkg.api.v1.PodSpec
-        saveSchema({
-            name,
-            ...originalSchema
-        });
-    }
 }
 
 /**
@@ -190,32 +236,6 @@ function getNameInDefinitions ($ref: string): string {
     }
 }
 
-// replace schema $ref with values like 'kubernetes://schema/...'
-function replaceDefinitionRefsWithYamlSchemaUris(node: any): void {
-    if (!node) {
-        return;
-    }
-    if (_.isArray(node)) {
-        for (const subItem of <any[]>node) {
-            replaceDefinitionRefsWithYamlSchemaUris(subItem);
-        }
-    }
-    if (!_.isObject(node)) {
-        return;
-    }
-    for (const key of Object.keys(node)) {
-        replaceDefinitionRefsWithYamlSchemaUris(node[key]);
-    }
-
-    if (node.$ref) {
-        const name = getNameInDefinitions(node.$ref);
-        const schema = _definitions[name.toLowerCase()];
-        if (schema) {
-            // replacing $ref
-            node.$ref = util.makeKubernetesUri(schema.name);
-        }
-    }
-}
 
 // find redhat.vscode-yaml extension and try to activate it to get the yaml contributor
 async function activateYamlExtension(): Promise<{registerContributor: YamlSchemaContributor}> {
@@ -233,12 +253,3 @@ async function activateYamlExtension(): Promise<{registerContributor: YamlSchema
     return yamlPlugin;
 }
 
-// save the schema to the _definitions
-function saveSchema(schema: KubernetesSchema): void {
-    if (schema.name) {
-        _definitions[schema.name.toLowerCase()] = schema;
-    }
-    if (schema.id) {
-        _definitions[schema.id.toLowerCase()] = schema;
-    }
-}
