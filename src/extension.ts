@@ -583,14 +583,8 @@ function getKubernetes(explorerNode? : any) {
         const id = explorerNode.resourceId || explorerNode.id;
         kubectl.invokeInTerminal(`get ${id} -o wide`);
     } else {
-        // TODO Show the result for get command in TERMINAL window.
-        let kindName = findKindName();
-        if (kindName) {
-            maybeRunKubernetesCommandForActiveWindow('get --no-headers -o wide -f ');
-            return;
-        }
         findKindNameOrPrompt(kuberesources.commonKinds, 'get', { nameOptional: true }, (value) => {
-            kubectl.invoke(" get " + value + " -o wide --no-headers");
+            kubectl.invokeInTerminal(` get ${value} -o wide`);
         });
     }
 }
