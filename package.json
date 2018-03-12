@@ -460,14 +460,12 @@
                     "helm-template",
                     "helm"
                 ],
-                "extensions": [
-                    ".tpl"
-                ],
                 "filenamePatterns": [
                     "values.yaml",
                     "Chart.yaml",
                     "requirements.yaml",
-                    "**/templates/*.yaml"
+                    "**/templates/*.yaml",
+                    "**/templates/*.tpl"
                 ],
                 "configuration": "./language-configuration.json"
             },
