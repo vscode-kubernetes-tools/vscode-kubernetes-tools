@@ -25,7 +25,8 @@ export interface KubernetesSchema {
 declare type YamlSchemaContributor = (schema: string,
                                        requestSchema: (resource: string) => string,
                                        requestSchemaContent: (uri: string) => string) => void;
-export class KubernetesSchemaHolder {
+
+class KubernetesSchemaHolder {
     // the schema for kubernetes
     private _definitions: { [key: string]: KubernetesSchema; } = {};
 
