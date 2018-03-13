@@ -2,21 +2,28 @@ import * as vscode from "vscode";
 
 import { Kubectl } from "../kubectl";
 
-export async function promptForDebugPort(defaultPort: string): Promise<string> {
+async function promptForPort(promptMessage: string, defaultPort: string): Promise<string> {
     const input = await vscode.window.showInputBox({
-        prompt: `Please specify debug port exposed for debugging (e.g. ${defaultPort})`,
-        placeHolder: defaultPort
+        prompt: promptMessage,
+        placeHolder: defaultPort,
+        value: defaultPort
     });
 
     return input && input.trim();
 }
 
+export async function promptForDebugPort(defaultPort: string): Promise<string> {
+    return await promptForPort("Please specify debug port exposed for debugging", defaultPort);
+}
+
 export async function promptForAppPort(ports: string[], defaultPort: string, env: {}): Promise<string> {
     let rawAppPortInfo: string;
-    if (ports.length === 1) {
+    if (ports.length === 0) {
+        return await promptForPort("What port does your application listen on?", defaultPort);
+    } if (ports.length === 1) {
         rawAppPortInfo = ports[0];
     } else if (ports.length > 1) {
-        rawAppPortInfo = await vscode.window.showQuickPick(ports, { placeHolder: "Choose the application port you want to expose for debugging." });
+        rawAppPortInfo = await vscode.window.showQuickPick(ports, { placeHolder: "Choose the port your app listens on." });
     }
 
     // If the choosed port is a variable, then need set it in environment variables.
@@ -24,8 +31,9 @@ export async function promptForAppPort(ports: string[], defaultPort: string, env
     if (portRegExp.test(rawAppPortInfo)) {
         const varName = rawAppPortInfo.match(portRegExp)[1];
         if (rawAppPortInfo.trim() === `$${varName}` || rawAppPortInfo.trim() === `\${${varName}}`) {
-            env[varName] = defaultPort;
-            rawAppPortInfo = defaultPort;
+            const defaultAppPort = "50006"; // Configure an unusual port number for the variable.
+            env[varName] = defaultAppPort;
+            rawAppPortInfo = defaultAppPort;
         } else {
             vscode.window.showErrorMessage(`Invalid port variable ${rawAppPortInfo} in the docker file.`);
             return;
