@@ -84,7 +84,6 @@ export async function activate(context) : Promise<extensionapi.ExtensionAPI> {
     const completionProvider = new HelmTemplateCompletionProvider();
     const completionFilter = [
         "helm",
-        // templates/*.yaml should be helm templates, so we needn't select them
         {pattern: "**/templates/NOTES.txt"}
     ];
 
