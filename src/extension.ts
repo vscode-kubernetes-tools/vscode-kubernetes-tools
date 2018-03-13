@@ -564,20 +564,21 @@ function loadKubernetesCore(value : string) {
 }
 
 function exposeKubernetes() {
-    let kindName = findKindName();
-    if (!kindName) {
-        vscode.window.showErrorMessage('couldn\'t find a relevant type to expose.');
-        return;
-    }
+    let kindName = findKindNameOrPrompt(kuberesources.exposableKinds, 'expose', { nameOptional: false}, (kindName: string) => {
+        if (!kindName) {
+            vscode.window.showErrorMessage('couldn\'t find a relevant type to expose.');
+            return;
+        }
 
-    let cmd = `expose ${kindName}`;
-    let ports = getPorts();
+        let cmd = `expose ${kindName}`;
+        let ports = getPorts();
 
-    if (ports && ports.length > 0) {
-        cmd += ' --port=' + ports[0];
-    }
+        if (ports && ports.length > 0) {
+            cmd += ' --port=' + ports[0];
+        }
 
-    kubectl.invoke(cmd);
+        kubectl.invoke(cmd);
+    });
 }
 
 function getKubernetes(explorerNode? : any) {
@@ -585,14 +586,8 @@ function getKubernetes(explorerNode? : any) {
         const id = explorerNode.resourceId || explorerNode.id;
         kubectl.invokeInTerminal(`get ${id} -o wide`);
     } else {
-        // TODO Show the result for get command in TERMINAL window.
-        let kindName = findKindName();
-        if (kindName) {
-            maybeRunKubernetesCommandForActiveWindow('get --no-headers -o wide -f ');
-            return;
-        }
         findKindNameOrPrompt(kuberesources.commonKinds, 'get', { nameOptional: true }, (value) => {
-            kubectl.invoke(" get " + value + " -o wide --no-headers");
+            kubectl.invokeInTerminal(` get ${value} -o wide`);
         });
     }
 }
@@ -740,13 +735,12 @@ function buildPushThenExec(fn) {
     });
 }
 
-function findKindName() {
-    let editor = vscode.window.activeTextEditor;
+function tryFindKindNameFromEditor() : string {
+    const editor = vscode.window.activeTextEditor;
     if (!editor) {
-        vscode.window.showErrorMessage('No active editor!');
         return null; // No open text editor
     }
-    let text = editor.document.getText();
+    const text = editor.document.getText();
     return findKindNameForText(text);
 }
 
@@ -767,7 +761,7 @@ function findKindNameForText(text) {
 }
 
 function findKindNameOrPrompt(resourceKinds : kuberesources.ResourceKind[], descriptionVerb, opts, handler) {
-    let kindName = findKindName();
+    let kindName = tryFindKindNameFromEditor();
     if (kindName === null) {
         promptKindName(resourceKinds, descriptionVerb, opts, handler);
     } else {
@@ -1178,7 +1172,11 @@ const diffKubernetes = (callback) => {
             fileName = path.join(os.tmpdir(), `local.${fileFormat}`);
             fs.writeFile(fileName, data, handleError);
         } else if (file) {
-            kindName = findKindName();
+            if (!vscode.window.activeTextEditor) {
+                vscode.window.showErrorMessage('No active editor!');
+                return; // No open text editor
+            }
+            kindName = tryFindKindNameFromEditor();
             fileName = file;
             if (vscode.window.activeTextEditor && vscode.window.activeTextEditor.document) {
                 const langId = vscode.window.activeTextEditor.document.languageId.toLowerCase();
