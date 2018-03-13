@@ -13,13 +13,13 @@ async function promptForPort(promptMessage: string, defaultPort: string): Promis
 }
 
 export async function promptForDebugPort(defaultPort: string): Promise<string> {
-    return await promptForPort("What debug port your app is enabled on?", defaultPort);
+    return await promptForPort("Please specify debug port exposed for debugging", defaultPort);
 }
 
 export async function promptForAppPort(ports: string[], defaultPort: string, env: {}): Promise<string> {
     let rawAppPortInfo: string;
     if (ports.length === 0) {
-        return await promptForPort("What port your app listens on?", defaultPort);
+        return await promptForPort("What port does your application listen on?", defaultPort);
     } if (ports.length === 1) {
         rawAppPortInfo = ports[0];
     } else if (ports.length > 1) {
