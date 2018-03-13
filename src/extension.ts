@@ -40,6 +40,7 @@ import { Reporter } from './telemetry';
 import * as telemetry from './telemetry-helper';
 import * as extensionapi from './extension.api';
 import {dashboardKubernetes} from './components/kubectl/proxy';
+import { Git } from './components/git/git';
 import { DebugSession } from './debug/debugSession';
 import { getDebugProviderOfType, getSupportedDebuggerTypes } from './debug/providerRegistry';
 
@@ -55,6 +56,7 @@ const draft = draftCreate(host, fs, shell);
 const configureFromClusterUI = configureFromCluster.uiProvider();
 const createClusterUI = createCluster.uiProvider();
 const clusterProviderRegistry = clusterproviderregistry.get();
+const git = new Git(shell);
 
 const deleteMessageItems: vscode.MessageItem[] = [
     {
@@ -562,20 +564,21 @@ function loadKubernetesCore(value : string) {
 }
 
 function exposeKubernetes() {
-    let kindName = findKindName();
-    if (!kindName) {
-        vscode.window.showErrorMessage('couldn\'t find a relevant type to expose.');
-        return;
-    }
+    let kindName = findKindNameOrPrompt(kuberesources.exposableKinds, 'expose', { nameOptional: false}, (kindName: string) => {
+        if (!kindName) {
+            vscode.window.showErrorMessage('couldn\'t find a relevant type to expose.');
+            return;
+        }
 
-    let cmd = `expose ${kindName}`;
-    let ports = getPorts();
+        let cmd = `expose ${kindName}`;
+        let ports = getPorts();
 
-    if (ports && ports.length > 0) {
-        cmd += ' --port=' + ports[0];
-    }
+        if (ports && ports.length > 0) {
+            cmd += ' --port=' + ports[0];
+        }
 
-    kubectl.invoke(cmd);
+        kubectl.invoke(cmd);
+    });
 }
 
 function getKubernetes(explorerNode? : any) {
@@ -583,14 +586,8 @@ function getKubernetes(explorerNode? : any) {
         const id = explorerNode.resourceId || explorerNode.id;
         kubectl.invokeInTerminal(`get ${id} -o wide`);
     } else {
-        // TODO Show the result for get command in TERMINAL window.
-        let kindName = findKindName();
-        if (kindName) {
-            maybeRunKubernetesCommandForActiveWindow('get --no-headers -o wide -f ');
-            return;
-        }
         findKindNameOrPrompt(kuberesources.commonKinds, 'get', { nameOptional: true }, (value) => {
-            kubectl.invoke(" get " + value + " -o wide --no-headers");
+            kubectl.invokeInTerminal(` get ${value} -o wide`);
         });
     }
 }
@@ -738,13 +735,12 @@ function buildPushThenExec(fn) {
     });
 }
 
-function findKindName() {
-    let editor = vscode.window.activeTextEditor;
+function tryFindKindNameFromEditor() : string {
+    const editor = vscode.window.activeTextEditor;
     if (!editor) {
-        vscode.window.showErrorMessage('No active editor!');
         return null; // No open text editor
     }
-    let text = editor.document.getText();
+    const text = editor.document.getText();
     return findKindNameForText(text);
 }
 
@@ -765,7 +761,7 @@ function findKindNameForText(text) {
 }
 
 function findKindNameOrPrompt(resourceKinds : kuberesources.ResourceKind[], descriptionVerb, opts, handler) {
-    let kindName = findKindName();
+    let kindName = tryFindKindNameFromEditor();
     if (kindName === null) {
         promptKindName(resourceKinds, descriptionVerb, opts, handler);
     } else {
@@ -1074,31 +1070,36 @@ async function isBashOnPod(podName : string): Promise<boolean> {
 
 async function syncKubernetes() : Promise<void> {
     const pod = await selectPod(PodSelectionScope.App, PodSelectionFallback.None);
-
     if (!pod) {
         return;
     }
 
     const container = await selectContainerForPod(pod);
-
     if (!container) {
         return;
     }
-    let pieces = container.image.split(':');
+    
+    const pieces = container.image.split(':');
     if (pieces.length !== 2) {
-        vscode.window.showErrorMessage(`unexpected image name: ${container.image}`);
+        vscode.window.showErrorMessage(`Sync requires image tag to have a version which is a Git commit ID. Actual image tag was ${container.image}`);
         return;
     }
 
-    const cmd = `git checkout ${pieces[1]}`;
+    const commitId = pieces[1];
+    const whenCreated = await git.whenCreated(commitId);
+    const versionMessage = whenCreated ?
+        `The Git commit deployed to the cluster is  ${commitId} (created ${whenCreated.trim()} ago). This will check out that commit.` :
+        `The image version deployed to the cluster is ${commitId}. This will look for a Git commit with that name/ID and check it out.`;
 
-    //eslint-disable-next-line no-unused-vars
-    shell.execCore(cmd, shell.execOpts()).then(({code, stdout, stderr}) => {
-        if (code !== 0) {
-            vscode.window.showErrorMessage(`git checkout returned: ${code}`);
-            return 'error';
+    const choice = await vscode.window.showInformationMessage(versionMessage, 'OK');
+
+    if (choice === 'OK') {
+        const checkoutResult = await git.checkout(commitId);
+
+        if (!checkoutResult.succeeded) {
+            vscode.window.showErrorMessage(`Error checking out commit ${commitId}: ${checkoutResult.error[0]}`);
         }
-    });
+    }
 }
 
 async function refreshExplorer() {
@@ -1171,7 +1172,11 @@ const diffKubernetes = (callback) => {
             fileName = path.join(os.tmpdir(), `local.${fileFormat}`);
             fs.writeFile(fileName, data, handleError);
         } else if (file) {
-            kindName = findKindName();
+            if (!vscode.window.activeTextEditor) {
+                vscode.window.showErrorMessage('No active editor!');
+                return; // No open text editor
+            }
+            kindName = tryFindKindNameFromEditor();
             fileName = file;
             if (vscode.window.activeTextEditor && vscode.window.activeTextEditor.document) {
                 const langId = vscode.window.activeTextEditor.document.languageId.toLowerCase();

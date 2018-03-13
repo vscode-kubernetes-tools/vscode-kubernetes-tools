@@ -297,7 +297,7 @@
             },
             {
                 "command": "extension.vsKubernetesSync",
-                "title": "Sync",
+                "title": "Sync Working Copy to Cluster",
                 "category": "Kubernetes"
             },
             {
