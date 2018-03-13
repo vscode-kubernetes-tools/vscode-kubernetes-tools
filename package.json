@@ -56,7 +56,8 @@
         "onCommand:extension.draftCreate",
         "onCommand:extension.draftUp",
         "onView:extension.vsKubernetesExplorer",
-        "onLanguage:helm"
+        "onLanguage:helm",
+        "onLanguage:yaml"
     ],
     "main": "./out/src/extension",
     "contributes": {
@@ -459,9 +460,12 @@
                     "helm-template",
                     "helm"
                 ],
-                "extensions": [
-                    ".yaml",
-                    ".tpl"
+                "filenamePatterns": [
+                    "values.yaml",
+                    "Chart.yaml",
+                    "requirements.yaml",
+                    "**/templates/*.yaml",
+                    "**/templates/*.tpl"
                 ],
                 "configuration": "./language-configuration.json"
             },
