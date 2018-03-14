@@ -1,5 +1,18 @@
 # Change Log
 
+## 0.1.6
+
+* Commands with significant output now run in the integrated terminal
+* Added an API for other extensions to participate in `Create Cluster` and `Configure from Cluster` commands
+* Added Java debugging support
+* Improved clarity of user experience and docs for Sync command
+* Fixed Helm hover provider
+* Fixed confusing failure in Exec and Terminal commands when the open editor didn't contain a manifest that could be mapped to a set of pods
+* Fixed a syntax bug in a Helm snippet
+* Fixed missing docs describing whether Azure CLI is required
+
+Thanks to contributors Jinbo Wang and Andy Xu.
+
 ## 0.1.5
 
 * Added support for Kubernetes dashboard
