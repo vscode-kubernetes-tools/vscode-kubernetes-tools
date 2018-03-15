@@ -2,6 +2,8 @@ import * as restify from 'restify';
 import * as portfinder from 'portfinder';
 import * as clusterproviderregistry from './clusterproviderregistry';
 import { styles, script, waitScript } from '../../wizard';
+import TelemetryReporter from 'vscode-extension-telemetry';
+import { reporter } from '../../telemetry';
 
 let cpServer : restify.Server;
 let cpPort : number;
@@ -18,12 +20,21 @@ export async function init() : Promise<void> {
 
         cpServer.use(restify.plugins.queryParser());
         cpServer.listen(cpPort, '127.0.0.1');
-        cpServer.get('/', handleGetProviderList);
+        cpServer.get('/', handleRequest);
     }
 }
 
 export function url(action: clusterproviderregistry.ClusterProviderAction) : string {
     return `http://localhost:${cpPort}/?action=${action}`;
+}
+
+function handleRequest(request: restify.Request, response: restify.Response, next: restify.Next) : void {
+    const clusterType = request.query['clusterType'];
+    if (clusterType) {
+        handleClusterTypeSelection(request, response, next);
+    } else {
+        handleGetProviderList(request, response, next);
+    }
 }
 
 function handleGetProviderList(request: restify.Request, response: restify.Response, next: restify.Next) : void {
@@ -34,6 +45,17 @@ function handleGetProviderList(request: restify.Request, response: restify.Respo
     response.contentType = 'text/html';
     response.send(html);
     next();
+}
+
+function handleClusterTypeSelection(request: restify.Request, response: restify.Response, next: restify.Next) : void {
+    const clusterType = request.query['clusterType'];
+    const action = request.query["action"];
+
+    reporter.sendTelemetryEvent("cloudselection", { action: action, clusterType: clusterType });
+
+    const clusterProvider = clusterproviderregistry.get().list().find((cp) => cp.id === clusterType);  // TODO: move into clusterproviderregistry
+    const url = `http://localhost:${clusterProvider.port}/${action}?clusterType=${clusterProvider.id}`;
+    response.redirect(307, url, next);
 }
 
 function handleGetProviderListHtml(action: clusterproviderregistry.ClusterProviderAction) : string {
@@ -51,8 +73,8 @@ function handleGetProviderListHtml(action: clusterproviderregistry.ClusterProvid
             </div></body></html>`;
     }
 
-    const initialUri = `http://localhost:${clusterTypes[0].port}/${action}?clusterType=${clusterTypes[0].id}`;
-    const options = clusterTypes.map((cp) => `<option value="http://localhost:${cp.port}/${action}?clusterType=${cp.id}">${cp.displayName}</option>`).join('\n');
+    const initialUri = `http://localhost:${cpPort}/?action=${action}&clusterType=${clusterTypes[0].id}`;
+    const options = clusterTypes.map((cp) => `<option value="http://localhost:${cpPort}/?action=${action}&clusterType=${cp.id}">${cp.displayName}</option>`).join('\n');
 
     const selectionChangedScript = script(`
     function selectionChanged() {
