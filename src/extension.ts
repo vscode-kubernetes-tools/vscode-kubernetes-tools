@@ -710,6 +710,18 @@ function runKubernetes() {
     });
 }
 
+function diagnosePushError(exitCode: number, error: string) : string {
+    if (error.includes("denied")) {
+        const user = vscode.workspace.getConfiguration().get("vsdocker.imageUser", null);
+        if (user) {
+            return "Failed to push to Docker Hub. Try running docker login.";
+        } else {
+            return "Failed to push to Docker Hub. Try setting vsdocker.imageUser.";
+        }
+    }
+    return 'Image push failed.';
+}
+
 function buildPushThenExec(fn) {
     findNameAndImage().then((name, image) => {
         shell.exec(`docker build -t ${image} .`).then(({code, stdout, stderr}) => {
@@ -720,9 +732,9 @@ function buildPushThenExec(fn) {
                         vscode.window.showInformationMessage(image + ' pushed.');
                         fn(name, image);
                     } else {
-                        vscode.window.showErrorMessage('Image push failed. See Output window for details.');
+                        const diagnostic = diagnosePushError(code, stderr);
+                        vscode.window.showErrorMessage(`${diagnostic} See Output window for docker push error message.`);
                         kubeChannel.showOutput(stderr, 'Docker');
-                        console.log(stderr);
                     }
                 });
             } else {
