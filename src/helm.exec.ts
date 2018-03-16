@@ -28,7 +28,7 @@ export function helmVersion() {
 // runs 'helm template' on it. If multiples are found, it prompts the user to select one.
 export function helmTemplate() {
     pickChart((path) => {
-        helmExec("template "+ path, (code, out, err) => {
+        helmExec(`template "${path}"`, (code, out, err) => {
             if (code != 0) {
                 vscode.window.showErrorMessage(err);
                 return;
@@ -65,7 +65,7 @@ export function helmTemplatePreview() {
 export function helmDepUp() {
     pickChart((path) => {
         logger.log("⎈⎈⎈ Updating dependencies for " + path);
-        helmExec("dep up " + path, (code, out, err) => {
+        helmExec(`dep up "${path}"`, (code, out, err) => {
             logger.log(out);
             logger.log(err);
             if (code != 0) {
@@ -81,7 +81,7 @@ export function helmCreate() {
         placeHolder: "mychart"
     }).then((name) => {
         let fullpath = filepath.join(vscode.workspace.rootPath, name);
-        helmExec("create " + fullpath, (code, out, err) => {
+        helmExec(`create "${fullpath}"`, (code, out, err) => {
             if (code != 0) {
                 vscode.window.showErrorMessage(err);
             }
@@ -93,7 +93,7 @@ export function helmCreate() {
 export function helmLint() {
     pickChart((path) => {
         logger.log("⎈⎈⎈ Linting " + path);
-        helmExec("lint "+ path, (code, out, err) => {
+        helmExec(`lint "${path}"`, (code, out, err) => {
             logger.log(out);
             logger.log(err);
             if (code != 0) {
@@ -121,7 +121,7 @@ export function helmInspectValues(u: vscode.Uri) {
 export function helmDryRun() {
     pickChart((path) => {
         logger.log("⎈⎈⎈ Installing (dry-run) " + path);
-        helmExec("install --dry-run --debug "+ path, (code, out, err) => {
+        helmExec(`install --dry-run --debug "${path}"`, (code, out, err) => {
             logger.log(out);
             logger.log(err);
             if (code != 0) {
@@ -239,11 +239,6 @@ export function helmExec(args: string, fn) {
     }
     let cmd = "helm " + args;
     shell.exec(cmd, fn);
-}
-
-// isHelmChart tests whether the given path has a Chart.yaml file
-export function isHelmChart(path: string): boolean {
-    return shell.test("-e", path + "/Chart.yaml");
 }
 
 export function ensureHelm() {

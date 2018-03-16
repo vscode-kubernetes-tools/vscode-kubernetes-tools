@@ -30,14 +30,14 @@ export class HelmInspectDocumentProvider implements vscode.TextDocumentContentPr
             const file = uri.fsPath || uri.authority;
             const fi = fs.statSync(file);
             if (!fi.isDirectory() && filepath.extname(file) == ".tgz") {
-                exec.helmExec("inspect values " + file, printer);
+                exec.helmExec(`inspect values "${file}"`, printer);
                 return;
             } else if (fi.isDirectory() && fs.existsSync(filepath.join(file, "Chart.yaml"))) {
-                exec.helmExec("inspect values " + file, printer);
+                exec.helmExec(`inspect values "${file}"`, printer);
                 return;
             }
             exec.pickChartForFile(file, { warnIfNoCharts: true }, (path) => {
-                exec.helmExec("inspect values "+ path, printer);
+                exec.helmExec(`inspect values "${path}"`, printer);
             });
         });
         
