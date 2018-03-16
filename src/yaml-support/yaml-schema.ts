@@ -97,7 +97,7 @@ class KubernetesSchemaHolder {
             this.replaceDefinitionRefsWithYamlSchemaUris(node[key]);
         }
 
-        if (node.$ref) {
+        if (_.isString(node.$ref)) {
             const name = getNameInDefinitions(node.$ref);
             const schema = this.lookup(name);
             if (schema) {
