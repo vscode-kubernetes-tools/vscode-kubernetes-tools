@@ -25,6 +25,8 @@ For setting up `kubectl` you have a couple of additional options:
    * If `kubectl` is not on your PATH then you can tell the extension its location using the `vs-kubernetes.kubectl-path` workspace setting. This should be the full file name and path of the kubectl binary.
    * If you are using the extension to work with Azure Container Services or Azure Kubernetes Services then you can install and configure `kubectl` using the `Kubernetes Configure from Cluster` command.
 
+If you plan to create managed clusters using Microsoft Azure (ACS or AKS), or to add clusters in those environments to your kubeconfig, then you will need Azure CLI 2.0.23 or above.  You do not need Azure CLI if you do not use Azure, or to interact with Azure clusters that are already in your kubeconfig.
+
 ### Setting up your environment for Helm and Draft
 
 `helm` support requires that you have Helm installed and configured.  From there you should also install `helm-template`:

@@ -69,7 +69,7 @@ const deleteMessageItems: vscode.MessageItem[] = [
 ];
 
 // Filters for different Helm file types.
-// TODO: Consistently apply these to the provders registered.
+// TODO: Consistently apply these to the providers registered.
 export const HELM_MODE: vscode.DocumentFilter = { language: "helm", scheme: "file" };
 export const HELM_REQ_MODE: vscode.DocumentFilter = { language: "helm", scheme: "file", pattern: "**/requirements.yaml"};
 export const HELM_CHART_MODE: vscode.DocumentFilter = { language: "helm", scheme: "file", pattern: "**/Chart.yaml" };
@@ -86,7 +86,6 @@ export async function activate(context) : Promise<extensionapi.ExtensionAPI> {
     const completionProvider = new HelmTemplateCompletionProvider();
     const completionFilter = [
         "helm",
-        {language: "yaml", pattern: "**/templates/*.yaml"},
         {pattern: "**/templates/NOTES.txt"}
     ];
 
@@ -711,6 +710,18 @@ function runKubernetes() {
     });
 }
 
+function diagnosePushError(exitCode: number, error: string) : string {
+    if (error.includes("denied")) {
+        const user = vscode.workspace.getConfiguration().get("vsdocker.imageUser", null);
+        if (user) {
+            return "Failed to push to Docker Hub. Try running docker login.";
+        } else {
+            return "Failed to push to Docker Hub. Try setting vsdocker.imageUser.";
+        }
+    }
+    return 'Image push failed.';
+}
+
 function buildPushThenExec(fn) {
     findNameAndImage().then((name, image) => {
         shell.exec(`docker build -t ${image} .`).then(({code, stdout, stderr}) => {
@@ -721,9 +732,9 @@ function buildPushThenExec(fn) {
                         vscode.window.showInformationMessage(image + ' pushed.');
                         fn(name, image);
                     } else {
-                        vscode.window.showErrorMessage('Image push failed. See Output window for details.');
+                        const diagnostic = diagnosePushError(code, stderr);
+                        vscode.window.showErrorMessage(`${diagnostic} See Output window for docker push error message.`);
                         kubeChannel.showOutput(stderr, 'Docker');
-                        console.log(stderr);
                     }
                 });
             } else {
