@@ -1,5 +1,7 @@
 # Debug support on Kubernetes cluster
 
+One of the key features of VS Code Kubernetes Extension is its one-click debugging support. This document shows you how to configure the feature and use it to debug your application.
+
 ## 1. Supported languages
    * `java` (Required: [Debugger for Java](https://marketplace.visualstudio.com/items?itemName=vscjava.vscode-java-debug) extension)
    * `node`
@@ -36,7 +38,7 @@ After that, the extension will try to resolve the debug port and application por
 
 When the prompts finish, the extension will start to build a Docker image from your current workspace, and run it as a deployment in Kubernetes and wait for the pod to be ready. After that, the extension creates port-forwarding for the ports (debug port and application port) to make them to be accessible at localhost. Finally, the extension starts a debug session to attach to the debug port.
 
-Here is a gif about the whole usage.
+Here is a GIF showing the full workflow:
 
 ![launch java debug on minikube](./images/launch-java-debug.gif)
 
@@ -54,6 +56,8 @@ After that, the extension will try to resolve the debug port from the container'
 
 When the prompts finish, the extension will create port-forwarding for the debug port and attach a debug session to it.
 
-Here is a gif about the whole usage.
+Here is a GIF showing the full workflow:
 
 ![attach java debug](./images/attach-java-debug.gif)
+
+To learn more about the features provided by the VS Code Kubernetes Extension, take a look at the [README](https://github.com/Azure/vscode-kubernetes-tools).
