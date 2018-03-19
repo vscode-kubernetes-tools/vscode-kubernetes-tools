@@ -1,4 +1,5 @@
 name: service
+label: Create Kubernetes Deployment
 description: Create Kubernetes Service
 body: |2
   kind: Service
