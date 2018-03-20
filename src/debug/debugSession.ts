@@ -16,7 +16,7 @@ import { shell } from "../shell";
 import { DockerfileParser } from "../docker/dockerfileParser";
 import * as dockerUtils from "../docker/dockerUtils";
 
-const debugWikiUrl = "https://github.com/Azure/vscode-kubernetes-tools/blob/master/debug-on-kubernetes.md";
+const debugCommandDocumentationUrl = "https://github.com/Azure/vscode-kubernetes-tools/blob/master/debug-on-kubernetes.md";
 
 interface ProxyResult {
     readonly proxyProcess: ChildProcess;
@@ -52,10 +52,7 @@ export class DebugSession implements IDebugSession {
         // TODO: Support docker-compose.yml
         const dockerfilePath = path.join(workspaceFolder.uri.fsPath, "Dockerfile");
         if (!fs.existsSync(dockerfilePath)) {
-            const answer = await vscode.window.showErrorMessage(`No Dockerfile found in the workspace ${workspaceFolder.name}, please refer to the wiki for the usage.`, "Open in Browser");
-            if (answer === "Open in Browser") {
-                opn(debugWikiUrl);
-            }
+            await this.openInBrowser(`No Dockerfile found in the workspace ${workspaceFolder.name}. See the documentation for how to use this command.`, debugCommandDocumentationUrl);
             return;
         }
         const dockerfile = new DockerfileParser().parse(dockerfilePath);
@@ -73,10 +70,7 @@ export class DebugSession implements IDebugSession {
         const containerEnv = {};
         const portInfo = await this.debugProvider.resolvePortsFromFile(dockerfile, containerEnv);
         if (!portInfo || !portInfo.debugPort || !portInfo.appPort) {
-            const answer = await vscode.window.showErrorMessage("Cannot resolve debug/application port from Dockerfile, please refer to the wiki for the usage.", "Open in Browser");
-            if (answer === "Open in Browser") {
-                opn(debugWikiUrl);
-            }
+            await this.openInBrowser("Cannot resolve debug/application port from Dockerfile. See the documentation for how to use this command.", debugCommandDocumentationUrl);
             return;
         }
 
@@ -113,7 +107,7 @@ export class DebugSession implements IDebugSession {
                 if (appName) {
                     await this.cleanupResource(`deployment/${appName}`);
                 }
-                kubeChannel.showOutput(`\nTo learn more about the usage of the debug feature, take a look at ${debugWikiUrl}`);
+                kubeChannel.showOutput(`\nTo learn more about the usage of the debug feature, take a look at ${debugCommandDocumentationUrl}`);
             }
         });
     }
@@ -184,10 +178,7 @@ export class DebugSession implements IDebugSession {
         // Find the debug port to attach.
         const portInfo = await this.debugProvider.resolvePortsFromContainer(this.kubectl, targetPod, targetContainer);
         if (!portInfo || !portInfo.debugPort) {
-            const answer = await vscode.window.showErrorMessage("Cannot resolve the debug port to attach, please refer to the wiki for the usage.", "Open in Browser");
-            if (answer === "Open in Browser") {
-                opn(debugWikiUrl);
-            }
+            await this.openInBrowser("Cannot resolve the debug port to attach. See the documentation for how to use this command.", debugCommandDocumentationUrl);
             return;
         }
 
@@ -203,7 +194,7 @@ export class DebugSession implements IDebugSession {
             } catch (error) {
                 vscode.window.showErrorMessage(error);
                 kubeChannel.showOutput(`Debug on Kubernetes failed. The errors were: ${error}.`);
-                kubeChannel.showOutput(`\nTo learn more about the usage of the debug feature, take a look at ${debugWikiUrl}`);
+                kubeChannel.showOutput(`\nTo learn more about the usage of the debug feature, take a look at ${debugCommandDocumentationUrl}`);
             }
         });
     }
@@ -373,5 +364,12 @@ export class DebugSession implements IDebugSession {
             await onTerminateCallback();
         }
         return success;
+    }
+
+    private async openInBrowser(errorMessage: string, link: string): Promise<void> {
+        const answer = await vscode.window.showErrorMessage(errorMessage, "Open in Browser");
+        if (answer === "Open in Browser") {
+            opn(link);
+        }
     }
 }
