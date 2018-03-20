@@ -1426,7 +1426,7 @@ function removeDebugKubernetes() {
 
 async function configureFromClusterKubernetes() {
     const newId : string = uuid.v4();
-    vscode.commands.executeCommand('vscode.previewHtml', configureFromCluster.operationUri(newId), 2, "Configure Kubernetes");
+    vscode.commands.executeCommand('vscode.previewHtml', configureFromCluster.operationUri(newId), 2, "Add Existing Kubernetes Cluster");
 }
 
 async function createClusterKubernetes() {
