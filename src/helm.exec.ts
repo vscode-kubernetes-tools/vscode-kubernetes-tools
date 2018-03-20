@@ -76,6 +76,10 @@ export function helmDepUp() {
 }
 
 export function helmCreate() {
+    if (!vscode.workspace.rootPath) {
+        vscode.window.showErrorMessage("You can create charts only when you have a folder open. Open your application folder and try again.");
+        return;
+    }
     vscode.window.showInputBox({
         prompt: "chart name",
         placeHolder: "mychart"
