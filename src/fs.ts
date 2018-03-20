@@ -3,7 +3,7 @@ import * as sysfs from 'fs';
 export interface FS {
     existsSync(path : string | Buffer) : boolean;
     readFile(filename : string, encoding : string, callback : (err : NodeJS.ErrnoException, data : string) => void) : void;
-    readFileSync(filename : string, encoding : string) : string;
+    readFileSync(filename : string, encoding?: string) : string| Buffer;
     writeFile(filename : string, data : any, callback? : (err : NodeJS.ErrnoException) => void) : void;
     writeFileSync(filename : string, data : any) : void;
     dirSync(path: string) : string[];

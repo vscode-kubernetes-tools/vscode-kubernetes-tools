@@ -31,6 +31,7 @@ export function readKubectlConfig() : Promise<KubeConfig> {
             const currentCluster = currentClusterDef['cluster'];
             const endpoint = currentCluster['server'];
             const cadata = currentCluster['certificate-authority-data'];
+            const cadataFile = currentCluster['certificate-authority'];
             const currentUserDef = kcconfig['users'].find((u) => u['name'] === currentContext['user']);
             if (!currentUserDef) {
                 reject({ kubectlError: 'noUser', message: 'Invalid user in current context in .kube/config' });
@@ -39,12 +40,13 @@ export function readKubectlConfig() : Promise<KubeConfig> {
             const currentUser = currentUserDef['user'];
             const clientCertData = currentUser['client-certificate-data'];
             const clientKeyData = currentUser['client-key-data'];
-
+            const clientCertDataFile = currentUser['client-certificate'];
+            const clientKeyFile = currentUser['client-key'];
             resolve({
                 endpoint: endpoint,
-                clientCertificateData: Buffer.from(clientCertData, 'base64'),
-                clientKeyData: Buffer.from(clientKeyData, 'base64'),
-                certificateAuthorityData: Buffer.from(cadata, 'base64')
+                clientCertificateData: clientCertDataFile ? <Buffer>fs.readFileSync(clientCertDataFile): Buffer.from(clientCertData, 'base64'),
+                clientKeyData: clientKeyFile ? <Buffer>fs.readFileSync(clientKeyFile): Buffer.from(clientKeyData, 'base64'),
+                certificateAuthorityData: cadataFile ? <Buffer>fs.readFileSync(cadataFile): Buffer.from(cadata, 'base64')
             });
         });
     });
