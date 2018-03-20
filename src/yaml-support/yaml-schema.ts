@@ -153,7 +153,7 @@ class KubernetesSchemaHolder {
             return explainComplex(currentPropertyName, currentProperty ? currentProperty.description : "",
                 targetSchema.description, properties);
         }
-        return currentProperty ? currentProperty.description : (targetSchema ? targetSchema.description : '');
+        return currentProperty ? currentProperty.description : (targetSchema ? targetSchema.description : "");
     }
 }
 
