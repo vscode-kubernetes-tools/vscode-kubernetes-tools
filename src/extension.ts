@@ -576,7 +576,7 @@ function exposeKubernetes() {
             cmd += ' --port=' + ports[0];
         }
 
-        kubectl.invoke(cmd);
+        kubectl.invokeWithProgress(cmd, "Kubernetes Exposing...");
     });
 }
 
@@ -701,12 +701,12 @@ function promptScaleKubernetes(kindName : string) {
 }
 
 function invokeScaleKubernetes(kindName : string, replicas : number) {
-    kubectl.invoke(`scale --replicas=${replicas} ${kindName}`);
+    kubectl.invokeWithProgress(`scale --replicas=${replicas} ${kindName}`, "Kubernetes Scaling...");
 }
 
 function runKubernetes() {
     buildPushThenExec((name, image) => {
-        kubectl.invoke(`run ${name} --image=${image}`);
+        kubectl.invokeWithProgress(`run ${name} --image=${image}`, "Creating a Deployment...");
     });
 }
 
@@ -724,23 +724,25 @@ function diagnosePushError(exitCode: number, error: string) : string {
 
 function buildPushThenExec(fn) {
     findNameAndImage().then((name, image) => {
-        shell.exec(`docker build -t ${image} .`).then(({code, stdout, stderr}) => {
-            if (code === 0) {
+        vscode.window.withProgress({ location: vscode.ProgressLocation.Window }, async (p) => {
+            p.report({ message: "Docker Building..." });
+            const buildResult = await shell.exec(`docker build -t ${image} .`);
+            if (buildResult.code === 0) {
                 vscode.window.showInformationMessage(image + ' built.');
-                shell.exec('docker push ' + image).then(({code, stdout, stderr}) => {
-                    if (code === 0) {
-                        vscode.window.showInformationMessage(image + ' pushed.');
-                        fn(name, image);
-                    } else {
-                        const diagnostic = diagnosePushError(code, stderr);
-                        vscode.window.showErrorMessage(`${diagnostic} See Output window for docker push error message.`);
-                        kubeChannel.showOutput(stderr, 'Docker');
-                    }
-                });
+                p.report({ message: "Docker Pushing..." });
+                const pushResult = await shell.exec('docker push ' + image);
+                if (pushResult.code === 0) {
+                    vscode.window.showInformationMessage(image + ' pushed.');
+                    fn(name, image);
+                } else {
+                    const diagnostic = diagnosePushError(pushResult.code, pushResult.stderr);
+                    vscode.window.showErrorMessage(`${diagnostic} See Output window for docker push error message.`);
+                    kubeChannel.showOutput(pushResult.stderr, 'Docker');
+                }
             } else {
                 vscode.window.showErrorMessage('Image build failed. See Output window for details.');
-                kubeChannel.showOutput(stderr, 'Docker');
-                console.log(stderr);
+                kubeChannel.showOutput(buildResult.stderr, 'Docker');
+                console.log(buildResult.stderr);
             }
         });
     });
