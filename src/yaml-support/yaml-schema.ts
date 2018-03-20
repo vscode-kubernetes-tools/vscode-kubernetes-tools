@@ -7,9 +7,11 @@ import {
     KUBERNETES_SCHEMA_FILE
 } from "./yaml-constant";
 import * as util from "./yaml-util";
+import { explainComplex, explainOne, typeDesc } from './yaml-util';
 
 export interface KubernetesSchema {
     readonly name: string;
+    readonly description?: string;
     readonly id?: string;
     readonly apiVersion?: string;
     readonly kind?: string;
@@ -40,6 +42,26 @@ class KubernetesSchemaHolder {
 
         for (const schema of _.values(this._definitions) ) {
             if (schema.properties) {
+                // the swagger schema has very short description on properties, we need to get the actual type of
+                // the property and provide more description/properties details, just like `kubernetes explain` do.
+                _.each(schema.properties, (propVal, propKey) => {
+                    if (schema.kind && propKey === 'kind') {
+                        propVal.markdownDescription = this.getMarkdownDescription(schema.kind, undefined, schema, true);
+                        return;
+                    }
+
+                    const currentPropertyTypeRef = propVal.$ref || (propVal.items ? propVal.items.$ref : undefined);
+                    if (_.isString(currentPropertyTypeRef)) {
+                        const id = getNameInDefinitions(currentPropertyTypeRef);
+                        const propSchema = this.lookup(id);
+                        if (propSchema) {
+                            propVal.markdownDescription = this.getMarkdownDescription(propKey, propVal, propSchema);
+                        }
+                    } else {
+                        propVal.markdownDescription = this.getMarkdownDescription(propKey, propVal, undefined);
+                    }
+                });
+
                 // fix on each node in properties for $ref since it will directly reference '#/definitions/...'
                 // we need to convert it into schema like 'kubernetes://schema/...'
                 // we need also an array to collect them since we need to get schema from _definitions, at this point, we have
@@ -115,6 +137,23 @@ class KubernetesSchemaHolder {
         if (schema.id) {
             this._definitions[schema.id.toLowerCase()] = schema;
         }
+    }
+
+    // get the markdown format of document for the current property and the type of current property
+    // see similar function chaseFieldPath in expaliner.ts
+    private getMarkdownDescription(currentPropertyName: string, currentProperty: any, targetSchema: any, isKind = false): string {
+        if (isKind) {
+            return explainComplex(currentPropertyName, targetSchema.description, undefined, targetSchema.properties);
+        }
+        if (!targetSchema) {
+            return explainOne(currentPropertyName, typeDesc(currentProperty), currentProperty.description);
+        }
+        const properties = targetSchema.properties;
+        if (properties) {
+            return explainComplex(currentPropertyName, currentProperty ? currentProperty.description : "",
+                targetSchema.description, properties);
+        }
+        return currentProperty ? currentProperty.description : (targetSchema ? targetSchema.description : '');
     }
 }
 
