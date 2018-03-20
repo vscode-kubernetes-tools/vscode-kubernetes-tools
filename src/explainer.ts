@@ -234,7 +234,7 @@ function findTypeDefinition(swagger : any, typeDefnPath : string[]) : TypeModel 
 }
 
 // TODO: this isn't really a type model - it can be a type model (description + properties) *or* a property model (description + [type|$ref])
-export interface TypeModel extends Typed {
+interface TypeModel extends Typed {
     readonly description? : string;
     readonly properties? : any;
 }
