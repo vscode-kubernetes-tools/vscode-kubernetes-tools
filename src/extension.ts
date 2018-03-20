@@ -94,7 +94,7 @@ export async function activate(context) : Promise<extensionapi.ExtensionAPI> {
 
         // Commands - Kubernetes
         registerCommand('extension.vsKubernetesCreate',
-            maybeRunKubernetesCommandForActiveWindow.bind(this, 'create -f')
+            maybeRunKubernetesCommandForActiveWindow.bind(this, 'create', "Kubernetes Creating...")
         ),
         registerCommand('extension.vsKubernetesDelete', deleteKubernetes),
         registerCommand('extension.vsKubernetesApply', applyKubernetes),
@@ -407,7 +407,7 @@ function initStatusBar() {
 // Expects that it can append a filename to 'command' to create a complete kubectl command.
 //
 // @parameter command string The command to run
-function maybeRunKubernetesCommandForActiveWindow(command) {
+function maybeRunKubernetesCommandForActiveWindow(command, progressMessage) {
     let text, proc;
 
     let editor = vscode.window.activeTextEditor;
@@ -417,19 +417,19 @@ function maybeRunKubernetesCommandForActiveWindow(command) {
     }
     let namespace = vscode.workspace.getConfiguration('vs-kubernetes')['vs-kubernetes.namespace'];
     if (namespace) {
-        command = command + '--namespace ' + namespace + ' ';
+        command = command + ' --namespace ' + namespace + ' ';
     }
     if (editor.selection) {
         text = editor.document.getText(editor.selection);
         if (text.length > 0) {
-            kubectlViaTempFile(command, text);
+            kubectlViaTempFile(command, text, progressMessage);
             return true;
         }
     }
     if (editor.document.isUntitled) {
         text = editor.document.getText();
         if (text.length > 0) {
-            kubectlViaTempFile(command, text);
+            kubectlViaTempFile(command, text, progressMessage);
             return true;
         }
         return false;
@@ -445,23 +445,23 @@ function maybeRunKubernetesCommandForActiveWindow(command) {
                         vscode.window.showErrorMessage("Save failed.");
                         return;
                     }
-                    kubectl.invoke(`${command} "${editor.document.fileName}"`);
+                    kubectl.invokeWithProgress(`${command} -f "${editor.document.fileName}"`, progressMessage);
                 });
             }
         });
     } else {
-        const fullCommand = `${command} "${editor.document.fileName}"`;
+        const fullCommand = `${command} -f "${editor.document.fileName}"`;
         console.log(fullCommand);
-        kubectl.invoke(fullCommand);
+        kubectl.invokeWithProgress(fullCommand, progressMessage);
     }
     return true;
 }
 
-function kubectlViaTempFile(command, fileContent) {
+function kubectlViaTempFile(command, fileContent, progressMessage) {
     const tmpobj = tmp.fileSync();
     fs.writeFileSync(tmpobj.name, fileContent);
     console.log(tmpobj.name);
-    kubectl.invoke(`${command} ${tmpobj.name}`);
+    kubectl.invokeWithProgress(`${command} -f ${tmpobj.name}`, progressMessage);
 }
 
 /**
@@ -1160,7 +1160,7 @@ const applyKubernetes = () => {
                 return;
             }
 
-            maybeRunKubernetesCommandForActiveWindow('apply -f');
+            maybeRunKubernetesCommandForActiveWindow('apply', "Kubernetes Applying...");
         });
     });
 };
@@ -1211,7 +1211,7 @@ const diffKubernetes = (callback) => {
             if (result == 1 && stderr.indexOf('NotFound') >= 0) {
                 vscode.window.showWarningMessage(`Resource ${kindName} does not exist - this will create a new resource.`, 'Create').then((choice) => {
                     if (choice === 'Create') {
-                        maybeRunKubernetesCommandForActiveWindow('create -f');
+                        maybeRunKubernetesCommandForActiveWindow('create', "Kubernetes Creating...");
                     }
                 });
                 return;
