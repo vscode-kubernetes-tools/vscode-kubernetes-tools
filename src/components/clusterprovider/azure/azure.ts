@@ -2,7 +2,7 @@
 
 import { Shell } from '../../../shell';
 import { FS } from '../../../fs';
-import { Errorable, ActionResult, fromShellJson, fromShellExitCode } from '../../../wizard';
+import { Errorable, ActionResult, fromShellJson, fromShellExitCodeAndStandardError, fromShellExitCodeOnly } from '../../../wizard';
 import * as compareVersions from 'compare-versions';
 import { sleep } from '../../../sleep';
 
@@ -109,7 +109,7 @@ async function listSubscriptionsAsync(context: Context) : Promise<Errorable<stri
 export async function setSubscriptionAsync(context: Context, subscription: string) : Promise<Errorable<void>> {
     const sr = await context.shell.exec(`az account set --subscription "${subscription}"`);
 
-    return fromShellExitCode(sr);
+    return fromShellExitCodeAndStandardError(sr);
 }
 
 export async function getClusterList(context: Context, subscription: string, clusterType: string) : Promise<ActionResult<ClusterInfo[]>> {
@@ -230,7 +230,7 @@ async function ensureResourceGroupAsync(context: Context, resourceGroupName: str
 
     const sr = await context.shell.exec(`az group create -n "${resourceGroupName}" -l "${location}"`);
 
-    return fromShellExitCode(sr);
+    return fromShellExitCodeAndStandardError(sr);
 }
 
 async function execCreateClusterCmd(context: Context, options: any) : Promise<Errorable<void>> {
@@ -244,7 +244,7 @@ async function execCreateClusterCmd(context: Context, options: any) : Promise<Er
     
     const sr = await context.shell.exec(createCmd);
 
-    return fromShellExitCode(sr);
+    return fromShellExitCodeOnly(sr);
 }
 
 export async function createCluster(context: Context, options: any) : Promise<ActionResult<void>> {
