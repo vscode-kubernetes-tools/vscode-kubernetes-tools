@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as yaml from 'js-yaml';
+import * as fuzzysearch from 'fuzzysearch'
 
 /// internal representation of a yaml code snippet corresponding to vscode.CompletionItemProvider
 export interface CodeSnippet {
@@ -41,7 +42,7 @@ export class KubernetesCompletionProvider implements vscode.CompletionItemProvid
     private _loadCodeSnippets(): void {
         const snippetRoot = path.join(__dirname, '../../../snippets');
         this._snippets  = fs.readdirSync(snippetRoot)
-            .filter((filename: string): boolean => filename.endsWith('-snippet.yaml'))
+            .filter((filename: string): boolean => filename.endsWith('.yaml'))
             .map((filename: string): CodeSnippet =>
                 <CodeSnippet>yaml.safeLoad(fs.readFileSync(path.join(snippetRoot, filename), 'utf-8')));
     }
@@ -49,7 +50,6 @@ export class KubernetesCompletionProvider implements vscode.CompletionItemProvid
     // filter all internal code snippets using the parameter word
     private _filterCodeSnippets(word: string): CodeSnippet[] {
         return this._snippets.filter((snippet: CodeSnippet): boolean =>
-            snippet.name.startsWith(word.toLowerCase()));
-
+            fuzzysearch(word.toLowerCase(), snippet.name.toLowerCase()));
     }
 }

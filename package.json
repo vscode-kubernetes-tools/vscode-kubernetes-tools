@@ -502,9 +502,11 @@
         "test": "node ./node_modules/vscode/bin/test"
     },
     "dependencies": {
+        "@types/restify": "^5.0.7",
         "compare-versions": "^3.1.0",
         "docker-file-parser": "^1.0.3",
         "dockerfile-parse": "^0.2.0",
+        "fuzzysearch": "^1.0.3",
         "js-yaml": "^3.8.2",
         "k8s": "^0.4.12",
         "lodash": ">3",
@@ -513,7 +515,6 @@
         "pluralize": "^4.0.0",
         "portfinder": "^1.0.13",
         "restify": "^6.3.4",
-        "@types/restify": "^5.0.7",
         "shelljs": "^0.7.7",
         "tmp": "^0.0.31",
         "uuid": "^3.1.0",

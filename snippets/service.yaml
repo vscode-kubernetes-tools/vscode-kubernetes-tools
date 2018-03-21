@@ -5,10 +5,10 @@ body: |2
   kind: Service
   apiVersion: v1
   metadata:
-    name: ${1:<my-service>}
+    name: ${1:myapp}
   spec:
     selector:
-      app: ${2:<MyApp>}
+      app: ${2:myapp}
     ports:
     - port: ${3:<Port>}
       targetPort: ${4:<Target Port>}
