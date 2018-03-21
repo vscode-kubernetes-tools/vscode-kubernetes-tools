@@ -6,6 +6,7 @@ import * as YAML from 'yamljs';
 import * as _ from 'lodash';
 import * as fs from "fs";
 import * as helm from './helm';
+import { showWorkspaceFolderPick } from './hostutils';
 
 export interface PickChartUIOptions {
     readonly warnIfNoCharts : boolean;
@@ -75,12 +76,16 @@ export function helmDepUp() {
     });
 }
 
-export function helmCreate() {
+export async function helmCreate() : Promise<void> {
+    const folder = await showWorkspaceFolderPick();
+    if (!folder) {
+        return;
+    }
     vscode.window.showInputBox({
         prompt: "chart name",
         placeHolder: "mychart"
     }).then((name) => {
-        let fullpath = filepath.join(vscode.workspace.rootPath, name);
+        const fullpath = filepath.join(folder.uri.fsPath, name);
         helmExec(`create "${fullpath}"`, (code, out, err) => {
             if (code != 0) {
                 vscode.window.showErrorMessage(err);
