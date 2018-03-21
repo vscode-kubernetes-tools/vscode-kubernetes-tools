@@ -210,7 +210,10 @@ function locationDisplayNamesEx(production: string[], preview: string[], locatio
 export async function listVMSizes(context: Context, location: string) : Promise<Errorable<string[]>> {
     const sr = await context.shell.exec(`az vm list-sizes -l "${location}" -ojson`);
     
-    return fromShellJson<string[]>(sr, (response) => response.map((r) => r.name as string));
+    return fromShellJson<string[]>(sr,
+        (response : any[]) => response.map((r) => r.name as string)
+                                      .filter((name) => !name.startsWith('Basic_'))
+    );
 }
 
 async function resourceGroupExists(context: Context, resourceGroupName: string) : Promise<boolean> {

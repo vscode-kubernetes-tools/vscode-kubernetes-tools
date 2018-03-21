@@ -201,7 +201,7 @@ async function promptForCluster(previousData: any, context: azure.Context) : Pro
         waitText: 'Configuring Kubernetes',
         action: 'configure',
         nextStep: 'configure',
-        submitText: 'Configure',
+        submitText: 'Add this cluster',
         previousData: previousData,
         formContent: `
             <p>
@@ -311,8 +311,8 @@ async function createCluster(previousData: any, context: azure.Context) : Promis
          <form id='form' action='create?step=wait' method='post' onsubmit='return promptWait();'>
          ${propagationFields(previousData)}
          <p class='success'>Azure is creating the cluster, but this may take some time. You can now close this window,
-         or wait for creation to complete so that we can configure the extension to use the cluster.</p>
-         <p><button type='submit' class='link-button'>Wait and configure the extension &gt;</button></p>
+         or wait for creation to complete so that we can add the new cluster to your Kubernetes configuration.</p>
+         <p><button type='submit' class='link-button'>Wait and add the new cluster &gt;</button></p>
          </form>
          </div>` :
         `<p class='error'>An error occurred while creating the cluster.</p>
@@ -361,7 +361,7 @@ async function waitForClusterAndReportConfigResult(previousData: any, context: a
 }
 
 function renderConfigurationResult(configureResult: ActionResult<azure.ConfigureResult>) : string {
-    const title = configureResult.result.succeeded ? 'Configuration completed' : `Error ${configureResult.actionDescription}`;
+    const title = configureResult.result.succeeded ? 'Cluster added' : `Error ${configureResult.actionDescription}`;
     const configResult = configureResult.result.result;
     const pathMessage = configResult.cliOnDefaultPath ? '' :
         '<p>This location is not on your system PATH. Add this directory to your path, or set the VS Code <b>vs-kubernetes.kubectl-path</b> config setting.</p>';

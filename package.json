@@ -338,7 +338,7 @@
             },
             {
                 "command": "extension.vsKubernetesConfigureFromCluster",
-                "title": "Configure from Cluster",
+                "title": "Add Existing Cluster",
                 "category": "Kubernetes"
             },
             {

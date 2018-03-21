@@ -48,6 +48,8 @@ import { registerYamlSchemaSupport } from './yaml-support/yaml-schema';
 import * as clusterproviderregistry from './components/clusterprovider/clusterproviderregistry';
 import * as azureclusterprovider from './components/clusterprovider/azure/azureclusterprovider';
 import { KubernetesCompletionProvider } from "./yaml-support/yaml-snippet";
+import { showWorkspaceFolderPick } from './hostutils';
+
 
 let explainActive = false;
 let swaggerSpecPromise = null;
@@ -578,7 +580,7 @@ function exposeKubernetes() {
             cmd += ' --port=' + ports[0];
         }
 
-        kubectl.invoke(cmd);
+        kubectl.invokeWithProgress(cmd, "Kubernetes Exposing...");
     });
 }
 
@@ -703,12 +705,12 @@ function promptScaleKubernetes(kindName : string) {
 }
 
 function invokeScaleKubernetes(kindName : string, replicas : number) {
-    kubectl.invoke(`scale --replicas=${replicas} ${kindName}`);
+    kubectl.invokeWithProgress(`scale --replicas=${replicas} ${kindName}`, "Kubernetes Scaling...");
 }
 
 function runKubernetes() {
     buildPushThenExec((name, image) => {
-        kubectl.invoke(`run ${name} --image=${image}`);
+        kubectl.invokeWithProgress(`run ${name} --image=${image}`, "Creating a Deployment...");
     });
 }
 
@@ -726,23 +728,25 @@ function diagnosePushError(exitCode: number, error: string) : string {
 
 function buildPushThenExec(fn) {
     findNameAndImage().then((name, image) => {
-        shell.exec(`docker build -t ${image} .`).then(({code, stdout, stderr}) => {
-            if (code === 0) {
+        vscode.window.withProgress({ location: vscode.ProgressLocation.Window }, async (p) => {
+            p.report({ message: "Docker Building..." });
+            const buildResult = await shell.exec(`docker build -t ${image} .`);
+            if (buildResult.code === 0) {
                 vscode.window.showInformationMessage(image + ' built.');
-                shell.exec('docker push ' + image).then(({code, stdout, stderr}) => {
-                    if (code === 0) {
-                        vscode.window.showInformationMessage(image + ' pushed.');
-                        fn(name, image);
-                    } else {
-                        const diagnostic = diagnosePushError(code, stderr);
-                        vscode.window.showErrorMessage(`${diagnostic} See Output window for docker push error message.`);
-                        kubeChannel.showOutput(stderr, 'Docker');
-                    }
-                });
+                p.report({ message: "Docker Pushing..." });
+                const pushResult = await shell.exec('docker push ' + image);
+                if (pushResult.code === 0) {
+                    vscode.window.showInformationMessage(image + ' pushed.');
+                    fn(name, image);
+                } else {
+                    const diagnostic = diagnosePushError(pushResult.code, pushResult.stderr);
+                    vscode.window.showErrorMessage(`${diagnostic} See Output window for docker push error message.`);
+                    kubeChannel.showOutput(pushResult.stderr, 'Docker');
+                }
             } else {
                 vscode.window.showErrorMessage('Image build failed. See Output window for details.');
-                kubeChannel.showOutput(stderr, 'Docker');
-                console.log(stderr);
+                kubeChannel.showOutput(buildResult.stderr, 'Docker');
+                console.log(buildResult.stderr);
             }
         });
     });
@@ -1239,16 +1243,6 @@ const diffKubernetes = (callback) => {
     });
 };
 
-async function showWorkspaceFolderPick(): Promise<vscode.WorkspaceFolder> {
-    if (!vscode.workspace.workspaceFolders) {
-        vscode.window.showErrorMessage('This command requires an open folder.');
-        return undefined;
-    } else if (vscode.workspace.workspaceFolders.length === 1) {
-        return vscode.workspace.workspaceFolders[0];
-    }
-    return await vscode.window.showWorkspaceFolderPick();
-}
-
 const debugKubernetes = async () => {
     const workspaceFolder = await showWorkspaceFolderPick();
     if (workspaceFolder) {
@@ -1265,7 +1259,7 @@ const debugKubernetes = async () => {
 
         const debugProvider = getDebugProviderOfType(debuggerType);
         if (debugProvider) {
-            new DebugSession(kubectl).launch(vscode.workspace.workspaceFolders[0], debugProvider);
+            new DebugSession(kubectl).launch(workspaceFolder, debugProvider);
         } else {
             buildPushThenExec(_debugInternal);
         }
@@ -1428,7 +1422,7 @@ function removeDebugKubernetes() {
 
 async function configureFromClusterKubernetes() {
     const newId : string = uuid.v4();
-    vscode.commands.executeCommand('vscode.previewHtml', configureFromCluster.operationUri(newId), 2, "Configure Kubernetes");
+    vscode.commands.executeCommand('vscode.previewHtml', configureFromCluster.operationUri(newId), 2, "Add Existing Kubernetes Cluster");
 }
 
 async function createClusterKubernetes() {
