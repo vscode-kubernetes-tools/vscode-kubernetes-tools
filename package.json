@@ -242,6 +242,10 @@
                 {
                     "command": "extension.vsKubernetesUseNamespace",
                     "when": "view == extension.vsKubernetesExplorer"
+                },
+                {
+                    "command": "extension.helmInspectValues",
+                    "when": "filesExplorerFocus"
                 }
             ]
         },
