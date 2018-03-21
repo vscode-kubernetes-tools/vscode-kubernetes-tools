@@ -1265,7 +1265,7 @@ const debugKubernetes = async () => {
 
         const debugProvider = getDebugProviderOfType(debuggerType);
         if (debugProvider) {
-            new DebugSession(kubectl).launch(vscode.workspace.workspaceFolders[0], debugProvider);
+            new DebugSession(kubectl).launch(workspaceFolder, debugProvider);
         } else {
             buildPushThenExec(_debugInternal);
         }
