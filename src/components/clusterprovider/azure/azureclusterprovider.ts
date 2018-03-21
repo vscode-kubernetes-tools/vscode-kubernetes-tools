@@ -1,3 +1,4 @@
+import * as vscode from 'vscode';
 import * as restify from 'restify';
 import * as portfinder from 'portfinder';
 import * as clusterproviderregistry from '../clusterproviderregistry';
@@ -216,6 +217,7 @@ async function promptForCluster(previousData: any, context: azure.Context) : Pro
 async function configureKubernetes(previousData: any, context: azure.Context) : Promise<string> {
     const selectedCluster = parseCluster(previousData.cluster);
     const configureResult = await azure.configureCluster(context, previousData.clusterType, selectedCluster.name, selectedCluster.resourceGroup);
+    await refreshExplorer();
     return renderConfigurationResult(configureResult);
 }
 
@@ -359,6 +361,8 @@ async function waitForClusterAndReportConfigResult(previousData: any, context: a
 
     const configureResult = await azure.configureCluster(context, previousData.clusterType, previousData.clustername, previousData.resourcegroupname);
 
+    await refreshExplorer();
+
     return renderConfigurationResult(configureResult);
 }
 
@@ -461,4 +465,8 @@ function parseCluster(encoded: string) : azure.ClusterInfo {
         resourceGroup: encoded.substr(0, delimiterPos),
         name: encoded.substr(delimiterPos + 1)
     };
+}
+
+async function refreshExplorer() : Promise<void> {
+    await vscode.commands.executeCommand('extension.vsKubernetesRefreshExplorer');
 }
