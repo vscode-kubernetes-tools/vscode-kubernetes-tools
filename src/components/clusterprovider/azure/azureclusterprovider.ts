@@ -201,7 +201,7 @@ async function promptForCluster(previousData: any, context: azure.Context) : Pro
         waitText: 'Configuring Kubernetes',
         action: 'configure',
         nextStep: 'configure',
-        submitText: 'Configure',
+        submitText: 'Add this cluster',
         previousData: previousData,
         formContent: `
             <p>
@@ -303,6 +303,7 @@ async function createCluster(previousData: any, context: azure.Context) : Promis
 
     const title = createResult.result.succeeded ? 'Cluster creation has started' : `Error ${createResult.actionDescription}`;
     const additionalDiagnostic = diagnoseCreationError(createResult.result);
+    const successCliErrorInfo = diagnoseCreationSuccess(createResult.result);
     const message = createResult.result.succeeded ?
         `<div id='content'>
          ${formStyles()}
@@ -311,9 +312,10 @@ async function createCluster(previousData: any, context: azure.Context) : Promis
          <form id='form' action='create?step=wait' method='post' onsubmit='return promptWait();'>
          ${propagationFields(previousData)}
          <p class='success'>Azure is creating the cluster, but this may take some time. You can now close this window,
-         or wait for creation to complete so that we can configure the extension to use the cluster.</p>
-         <p><button type='submit' class='link-button'>Wait and configure the extension &gt;</button></p>
+         or wait for creation to complete so that we can add the new cluster to your Kubernetes configuration.</p>
+         <p><button type='submit' class='link-button'>Wait and add the new cluster &gt;</button></p>
          </form>
+         ${successCliErrorInfo}
          </div>` :
         `<p class='error'>An error occurred while creating the cluster.</p>
          ${additionalDiagnostic}
@@ -361,7 +363,7 @@ async function waitForClusterAndReportConfigResult(previousData: any, context: a
 }
 
 function renderConfigurationResult(configureResult: ActionResult<azure.ConfigureResult>) : string {
-    const title = configureResult.result.succeeded ? 'Configuration completed' : `Error ${configureResult.actionDescription}`;
+    const title = configureResult.result.succeeded ? 'Cluster added' : `Error ${configureResult.actionDescription}`;
     const configResult = configureResult.result.result;
     const pathMessage = configResult.cliOnDefaultPath ? '' :
         '<p>This location is not on your system PATH. Add this directory to your path, or set the VS Code <b>vs-kubernetes.kubectl-path</b> config setting.</p>';
@@ -392,6 +394,20 @@ function diagnoseCreationError(e: Errorable<any>) : string {
         return '<p>You may be using an older version of the Azure CLI. Check Azure CLI version is 2.0.23 or above.<p>';
     }
     return '';
+}
+
+function diagnoseCreationSuccess(e: Errorable<any>) : string {
+    if (!e.succeeded || !e.error || e.error.length === 0 || !e.error[0]) {
+        return '';
+    }
+    const error = e.error[0];
+    // Discard things printed to stderr that are known spew
+    if (/Finished service principal(.+)100[.0-9%]*/.test(error)) {
+        return '';
+    }
+    // CLI claimed it succeeded but left something on stderr, so warn the user
+    return `<p><b>Note:<b> although Azure accepted the creation request, the Azure CLI reported the following message. This may indicate a problem, or may be ignorable progress messages:<p>
+        <p>${error}</p>`;
 }
 
 function renderCliError<T>(stageId: string, last: ActionResult<T>) : string {

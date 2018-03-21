@@ -30,14 +30,14 @@ export class HelmInspectDocumentProvider implements vscode.TextDocumentContentPr
             const file = uri.fsPath || uri.authority;
             const fi = fs.statSync(file);
             if (!fi.isDirectory() && filepath.extname(file) == ".tgz") {
-                exec.helmExec("inspect values " + file, printer);
+                exec.helmExec(`inspect values "${file}"`, printer);
                 return;
             } else if (fi.isDirectory() && fs.existsSync(filepath.join(file, "Chart.yaml"))) {
-                exec.helmExec("inspect values " + file, printer);
+                exec.helmExec(`inspect values "${file}"`, printer);
                 return;
             }
             exec.pickChartForFile(file, { warnIfNoCharts: true }, (path) => {
-                exec.helmExec("inspect values "+ path, printer);
+                exec.helmExec(`inspect values "${path}"`, printer);
             });
         });
         
@@ -69,8 +69,11 @@ export class HelmTemplatePreviewDocumentProvider implements vscode.TextDocumentC
             // First, we need to get the top-most chart:
             exec.pickChartForFile(tpl, { warnIfNoCharts: true }, (chartPath) => {
                 // We need the relative path for 'helm template'
-                let reltpl = filepath.relative(filepath.dirname(chartPath), tpl);
-                exec.helmExec("template " + chartPath + " --execute " + reltpl, (code, out, err) => {
+                if (!fs.statSync(chartPath).isDirectory) {
+                    chartPath = filepath.dirname(chartPath);
+                }
+                const reltpl = filepath.relative(chartPath, tpl);
+                exec.helmExec(`template "${chartPath}" --execute "${reltpl}"`, (code, out, err) => {
                     if (code != 0) {
                         resolve(previewBody("Chart Preview", "Failed template call." + err, true));
                         return;
