@@ -44,9 +44,9 @@ export function readKubectlConfig() : Promise<KubeConfig> {
             const clientKeyFile = currentUser['client-key'];
             resolve({
                 endpoint: endpoint,
-                clientCertificateData: clientCertDataFile ? <Buffer>fs.readFileSync(clientCertDataFile): Buffer.from(clientCertData, 'base64'),
-                clientKeyData: clientKeyFile ? <Buffer>fs.readFileSync(clientKeyFile): Buffer.from(clientKeyData, 'base64'),
-                certificateAuthorityData: cadataFile ? <Buffer>fs.readFileSync(cadataFile): Buffer.from(cadata, 'base64')
+                clientCertificateData: clientCertDataFile ? fs.readFileToBufferSync(clientCertDataFile): Buffer.from(clientCertData, 'base64'),
+                clientKeyData: clientKeyFile ? fs.readFileToBufferSync(clientKeyFile): Buffer.from(clientKeyData, 'base64'),
+                certificateAuthorityData: cadataFile ? fs.readFileToBufferSync(cadataFile): Buffer.from(cadata, 'base64')
             });
         });
     });
