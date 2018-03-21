@@ -206,7 +206,6 @@ export async function activate(context) : Promise<extensionapi.ExtensionAPI> {
     subscriptions.forEach((element) => {
         context.subscriptions.push(element);
     }, this);
- 
     await registerYamlSchemaSupport();
     
     return {

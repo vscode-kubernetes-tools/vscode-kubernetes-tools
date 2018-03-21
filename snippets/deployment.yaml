@@ -1,6 +1,6 @@
 name: deployment
-label: Create Kubernetes Deployment
-description: Create Kubernetes Deployment
+label: Kubernetes Deployment
+description: Kubernetes Deployment
 body: |2
   apiVersion: apps/v1
   kind: Deployment

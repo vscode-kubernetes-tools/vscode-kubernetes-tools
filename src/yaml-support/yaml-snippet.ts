@@ -22,7 +22,7 @@ export class KubernetesCompletionProvider implements vscode.CompletionItemProvid
 
     // default constructor
     public constructor() {
-        this._loadCodeSnippets();
+        this.loadCodeSnippets();
     }
 
     // provide code snippets for vscode
@@ -30,7 +30,7 @@ export class KubernetesCompletionProvider implements vscode.CompletionItemProvid
         const wordPos = doc.getWordRangeAtPosition(pos);
         const word = doc.getText(wordPos);
 
-        return this._filterCodeSnippets(word).map((snippet: CodeSnippet): vscode.CompletionItem =>  {
+        return this.filterCodeSnippets(word).map((snippet: CodeSnippet): vscode.CompletionItem =>  {
             const item = new vscode.CompletionItem(snippet.label, vscode.CompletionItemKind.Snippet);
             item.insertText = new vscode.SnippetString(snippet.body);
             item.documentation = snippet.description;
@@ -39,17 +39,21 @@ export class KubernetesCompletionProvider implements vscode.CompletionItemProvid
     }
 
     // load yaml code snippets from ../../snippets folder
-    private _loadCodeSnippets(): void {
+    private loadCodeSnippets(): void {
         const snippetRoot = path.join(__dirname, '../../../snippets');
         this._snippets  = fs.readdirSync(snippetRoot)
             .filter((filename: string): boolean => filename.endsWith('.yaml'))
-            .map((filename: string): CodeSnippet =>
-                <CodeSnippet>yaml.safeLoad(fs.readFileSync(path.join(snippetRoot, filename), 'utf-8')));
+            .map((filename: string): CodeSnippet => this.readYamlCodeSnippet(path.join(snippetRoot, filename)));
     }
 
     // filter all internal code snippets using the parameter word
-    private _filterCodeSnippets(word: string): CodeSnippet[] {
+    private filterCodeSnippets(word: string): CodeSnippet[] {
         return this._snippets.filter((snippet: CodeSnippet): boolean =>
             fuzzysearch(word.toLowerCase(), snippet.name.toLowerCase()));
+    }
+
+    // parse a yaml snippet file into a CodeSnippet
+    private readYamlCodeSnippet(filename: string): CodeSnippet {
+        return <CodeSnippet>yaml.safeLoad(fs.readFileSync(filename, 'utf-8'));
     }
 }

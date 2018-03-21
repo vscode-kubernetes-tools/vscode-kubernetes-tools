@@ -1,6 +1,6 @@
 name: service
-label: Create Kubernetes Service
-description: Create Kubernetes Service
+label: Kubernetes Service
+description: Kubernetes Service
 body: |2
   kind: Service
   apiVersion: v1
