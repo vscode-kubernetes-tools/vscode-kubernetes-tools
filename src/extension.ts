@@ -1135,7 +1135,7 @@ const deleteKubernetes = async (explorerNode? : explorer.ResourceNode) => {
         const shellResult = await kubectl.invokeAsyncWithProgress(`delete ${explorerNode.resourceId}`, `Deleting ${explorerNode.resourceId}...`);
         await reportDeleteResult(explorerNode.resourceId, shellResult);
     } else {
-        findKindNameOrPrompt(kuberesources.commonKinds, 'delete', { nameOptional: true }, async (kindName) => {
+        promptKindName(kuberesources.commonKinds, 'delete', { nameOptional: true }, async (kindName) => {
             if (kindName) {
                 let commandArgs = kindName;
                 if (!containsName(kindName)) {
