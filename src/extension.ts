@@ -47,6 +47,7 @@ import { getDebugProviderOfType, getSupportedDebuggerTypes } from './debug/provi
 import { registerYamlSchemaSupport } from './yaml-support/yaml-schema';
 import * as clusterproviderregistry from './components/clusterprovider/clusterproviderregistry';
 import * as azureclusterprovider from './components/clusterprovider/azure/azureclusterprovider';
+import { showWorkspaceFolderPick } from './hostutils';
 
 let explainActive = false;
 let swaggerSpecPromise = null;
@@ -1236,16 +1237,6 @@ const diffKubernetes = (callback) => {
         });
     });
 };
-
-async function showWorkspaceFolderPick(): Promise<vscode.WorkspaceFolder> {
-    if (!vscode.workspace.workspaceFolders) {
-        vscode.window.showErrorMessage('This command requires an open folder.');
-        return undefined;
-    } else if (vscode.workspace.workspaceFolders.length === 1) {
-        return vscode.workspace.workspaceFolders[0];
-    }
-    return await vscode.window.showWorkspaceFolderPick();
-}
 
 const debugKubernetes = async () => {
     const workspaceFolder = await showWorkspaceFolderPick();
