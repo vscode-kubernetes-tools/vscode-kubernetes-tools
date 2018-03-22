@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 
 export class ResourceKind implements vscode.QuickPickItem {
-    constructor (readonly displayName : string, readonly pluralDisplayName : string, readonly abbreviation : string) {
+    constructor(readonly displayName: string, readonly pluralDisplayName: string, readonly abbreviation: string) {
     }
 
     get label() { return this.displayName; }
@@ -19,6 +19,7 @@ export const allKinds = {
     service: new ResourceKind("Service", "Services", "service"),
     configMap: new ResourceKind("ConfigMap", "ConfigMaps", "configmap"),
     secret: new ResourceKind("Secret", "Secrets", "secret"),
+    ingress: new ResourceKind("Ingress", "Ingress", "ingress"),
 };
 
 export const commonKinds = [
