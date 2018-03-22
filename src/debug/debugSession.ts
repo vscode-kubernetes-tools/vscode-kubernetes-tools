@@ -105,7 +105,7 @@ export class DebugSession implements IDebugSession {
                 vscode.window.showErrorMessage(error);
                 kubeChannel.showOutput(`Debug on Kubernetes failed. The errors were: ${error}.`);
                 if (appName) {
-                    await this.cleanupResource(`deployment/${appName}`);
+                    await this.promptForCleanup(`deployment/${appName}`);
                 }
                 kubeChannel.showOutput(`\nTo learn more about the usage of the debug feature, take a look at ${debugCommandDocumentationUrl}`);
             }
@@ -271,25 +271,41 @@ export class DebugSession implements IDebugSession {
             proxyResult.proxyProcess.kill();
             if (appName) {
                 kubeChannel.showOutput("The debug session exited.");
-                await this.cleanupResource(`deployment/${appName}`);
+                await this.promptForCleanup(`deployment/${appName}`);
             }
         });
     }
 
-    private async cleanupResource(resourceId: string): Promise<void> {
+    private async promptForCleanup(resourceId: string): Promise<void> {
         const autoCleanupFlag = vscode.workspace.getConfiguration("vs-kubernetes")["vs-kubernetes.autoCleanupOnDebugTerminate"];
         if (autoCleanupFlag) {
-            kubeChannel.showOutput(`Starting to clean up debug resource...`, "Cleanup debug resource");
-            const deleteResult = await this.kubectl.invokeAsync(`delete ${resourceId}`);
-            if (deleteResult.code !== 0) {
-                kubeChannel.showOutput(`Kubectl command failed: ${deleteResult.stderr}`);
-                return;
-            } else {
-                kubeChannel.showOutput(`Resource ${resourceId} is removed successfully.`);
-                vscode.commands.executeCommand("extension.vsKubernetesRefreshExplorer");
+            return await this.cleanupResource(resourceId);
+        }
+        const answer = await vscode.window.showWarningMessage(`Resource ${resourceId} will continue running on the cluster.`, "Clean Up", "Always Clean Up");
+        if (answer === "Clean Up") {
+            return await this.cleanupResource(resourceId);
+        } else if (answer === "Always Clean Up") {
+            // The object returned by VS Code API is readonly, clone it first.
+            const oldConfig = vscode.workspace.getConfiguration("vs-kubernetes");
+            const newConfig = {};
+            for (const key of Object.keys(oldConfig)) {
+                newConfig[key] = oldConfig[key];
             }
+            newConfig["vs-kubernetes.autoCleanupOnDebugTerminate"] = true;
+            await vscode.workspace.getConfiguration().update("vs-kubernetes", newConfig);
+            return await this.cleanupResource(resourceId);
+        }
+    }
+
+    private async cleanupResource(resourceId: string): Promise<void> {
+        kubeChannel.showOutput(`Starting to clean up debug resource...`, "Cleanup debug resource");
+        const deleteResult = await this.kubectl.invokeAsync(`delete ${resourceId}`);
+        if (deleteResult.code !== 0) {
+            kubeChannel.showOutput(`Kubectl command failed: ${deleteResult.stderr}`);
+            return;
         } else {
-            kubeChannel.showOutput(`"vs-kubernetes.autoCleanupOnDebugTerminate" flag is disabled, won't clean up the resource "${resourceId}" automatically. Please do that manually.`);
+            kubeChannel.showOutput(`Resource ${resourceId} is removed successfully.`);
+            vscode.commands.executeCommand("extension.vsKubernetesRefreshExplorer");
         }
     }
 

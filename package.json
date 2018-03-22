@@ -94,7 +94,7 @@
                         "vs-kubernetes.namespace": "",
                         "vs-kubernetes.kubectl-path": "",
                         "vs-kubernetes.draft-path": "",
-                        "vs-kubernetes.autoCleanupOnDebugTerminate": true
+                        "vs-kubernetes.autoCleanupOnDebugTerminate": false
                     }
                 },
                 "vsdocker.imageUser": {
