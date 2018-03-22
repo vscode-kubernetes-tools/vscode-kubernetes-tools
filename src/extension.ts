@@ -14,6 +14,7 @@ import * as yaml from 'js-yaml';
 import * as dockerfileParse from 'dockerfile-parse';
 import * as tmp from 'tmp';
 import * as uuid from 'uuid';
+import * as clipboard from 'clipboardy';
 
 // Internal dependencies
 import { host } from './host';
@@ -121,6 +122,7 @@ export async function activate(context) : Promise<extensionapi.ExtensionAPI> {
         registerCommand('extension.vsKubernetesDeleteContext', deleteContextKubernetes),
         registerCommand('extension.vsKubernetesUseNamespace', useNamespaceKubernetes),
         registerCommand('extension.vsKubernetesDashboard', dashboardKubernetes),
+        registerCommand('extension.vsKubernetesCopy', copyKubernetes),
 
         // Commands - Helm
         registerCommand('extension.helmVersion', helmexec.helmVersion),
@@ -1456,6 +1458,10 @@ async function useNamespaceKubernetes(explorerNode: explorer.KubernetesObject) {
     if (await kubectlUtils.switchNamespace(kubectl, explorerNode.id)) {
         refreshExplorer();
     }
+}
+
+function copyKubernetes(explorerNode: explorer.KubernetesObject) {
+    clipboard.writeSync(explorerNode.id);
 }
 
 async function execDraftVersion() {
