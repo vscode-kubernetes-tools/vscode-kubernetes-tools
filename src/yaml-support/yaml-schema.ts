@@ -242,13 +242,13 @@ function getNameInDefinitions ($ref: string): string {
 async function activateYamlExtension(): Promise<{registerContributor: YamlSchemaContributor}> {
     const ext: vscode.Extension<any> = vscode.extensions.getExtension(VSCODE_YAML_EXTENSION_ID);
     if (!ext) {
-        console.log('Please install \'YAML Support by Red Hat\' via the Extensions pane.');
+        vscode.window.showWarningMessage('Please install \'YAML Support by Red Hat\' via the Extensions pane.');
         return;
     }
     const yamlPlugin = await ext.activate();
 
     if (!yamlPlugin || !yamlPlugin.registerContributor) {
-        console.log('The installed Red Hat YAML extension doesn\'t support Kubernetes Intellisense. Please upgrade \'YAML Support by Red Hat\' via the Extensions pane.');
+        vscode.window.showWarningMessage('The installed Red Hat YAML extension doesn\'t support Kubernetes Intellisense. Please upgrade \'YAML Support by Red Hat\' via the Extensions pane.');
         return;
     }
     return yamlPlugin;
