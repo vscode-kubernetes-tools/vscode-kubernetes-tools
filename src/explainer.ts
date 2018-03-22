@@ -3,6 +3,7 @@
 import * as k8s from 'k8s';
 import * as pluralize from 'pluralize';
 import * as kubeconfig from './kubeconfig';
+import { explainComplex, explainOne, Typed, typeDesc } from "./yaml-support/yaml-util";
 
 export function readSwagger() : Promise<any> {
     return kubeconfig.readKubectlConfig().then((kc) => readSwaggerCore(kc));
@@ -166,33 +167,12 @@ function chaseFieldPath(swagger : any, currentProperty : TypeModel, currentPrope
     }
 }
 
-function explainOne(name : string, type : string, description : string) {
-    return `**${name}** (${type})\n\n${description}`;
-}
-
-function explainComplex(name : string, description : string, typeDescription : string | undefined, children : any) {
-    let ph = '';
-    for (const p in children) {
-        ph = ph + `**${p}** (${typeDesc(children[p])})\n\n${children[p].description}\n\n`;
-    }
-    let typeDescriptionPara = '';
-    if (typeDescription) {
-        typeDescriptionPara = `\n\n${typeDescription}`;
-    }
-    return `${name}: ${description}${typeDescriptionPara}\n\n${ph}`;
-}
 
 function explainError(header : string, error : string) {
     return `**${header}:** ${error}`;
 }
 
-function typeDesc(p : Typed) {
-    const baseType = p.type || 'object';
-    if (baseType == 'array') {
-        return typeDesc(p.items) + '[]';
-    }
-    return baseType;
-}
+
 
 function apiCredentials(kc : kubeconfig.KubeConfig) {
     return {
@@ -251,20 +231,6 @@ function findTypeDefinition(swagger : any, typeDefnPath : string[]) : TypeModel 
         }
     }
     return m;
-}
-
-function underlyingFieldType(fieldDefn) {
-    if (fieldDefn.type == 'array') {
-        return fieldDefn['items']['$ref'];
-    } else {
-        return fieldDefn['$ref'];
-    }
-}
-
-interface Typed {
-    readonly type? : string;
-    readonly items? : Typed;
-    readonly $ref : string;
 }
 
 // TODO: this isn't really a type model - it can be a type model (description + properties) *or* a property model (description + [type|$ref])

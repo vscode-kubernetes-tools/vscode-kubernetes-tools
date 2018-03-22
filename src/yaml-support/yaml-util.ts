@@ -123,3 +123,38 @@ function getStringValue(node, key: string, ignoreCase: StringComparison = String
         }
     }
 }
+
+// copied from explainer.ts, used by explainer.ts, yaml-schema.ts
+export interface Typed {
+    readonly type? : string;
+    readonly items? : Typed;
+    readonly $ref : string;
+}
+
+// copied from explainer.ts, used by explainer.ts, yaml-schema.ts
+export function typeDesc(p : Typed): string {
+    const baseType = p.type || 'object';
+    if (baseType == 'array') {
+        return typeDesc(p.items) + '[]';
+    }
+    return baseType;
+}
+
+// copied from explainer.ts, used by explainer.ts, yaml-schema.ts
+export function explainOne(name : string, type : string, description : string): string {
+    return `**${name}** (${type})\n\n${description}`;
+}
+
+// copied from explainer.ts, used by explainer.ts, yaml-schema.ts
+export function explainComplex(name : string, description : string, typeDescription : string | undefined, children : any): string {
+    let ph = '';
+    // we need to sort on keys when generating documents
+    for (const p of Object.keys(children).sort()) {
+        ph = ph + `**${p}** (${typeDesc(children[p])})\n\n${children[p].description}\n\n`;
+    }
+    let typeDescriptionPara = '';
+    if (typeDescription) {
+        typeDescriptionPara = `\n\n${typeDescription}`;
+    }
+    return `${name}: ${description}${typeDescriptionPara}\n\n${ph}`;
+}
