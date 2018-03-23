@@ -411,7 +411,7 @@
             },
             {
                 "command": "extension.vsKubernetesCopy",
-                "title": "Copy",
+                "title": "Copy Name",
                 "category": "Kubernetes"
             },
             {
