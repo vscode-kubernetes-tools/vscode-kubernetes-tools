@@ -71,19 +71,26 @@
                     "properties": {
                         "vs-kubernetes.namespace": {
                             "type": "string",
-                            "default": "default",
                             "description": "The namespace to use for all commands"
                         },
                         "vs-kubernetes.kubectl-path": {
                             "type": "string",
-                            "default": null,
                             "description": "File path to a kubectl binary."
                         },
                         "vs-kubernetes.draft-path": {
                             "type": "string",
-                            "default": null,
                             "description": "File path to a draft binary."
+                        },
+                        "vs-kubernetes.autoCleanupOnDebugTerminate": {
+                            "type": "boolean",
+                            "description": "Once the debug session is terminated, automatically clean up the created Deployment and associated Pod by the command \"Kubernetes: Debug (Launch)\"."
                         }
+                    },
+                    "default": {
+                        "vs-kubernetes.namespace": "",
+                        "vs-kubernetes.kubectl-path": "",
+                        "vs-kubernetes.draft-path": "",
+                        "vs-kubernetes.autoCleanupOnDebugTerminate": false
                     }
                 },
                 "vsdocker.imageUser": {

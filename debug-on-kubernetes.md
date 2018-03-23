@@ -10,8 +10,13 @@ One of the key features of VS Code Kubernetes Extension is its one-click debuggi
    * `Kubernetes: Debug (Launch)` - Run the current application as a Kubernetes Deployment and attach a debugging session to it (currently works only for Java/Node.js deployments)
    * `Kubernetes: Debug (Attach)` - Attach a debugging session to an existing Kubernetes Deployment (currently works only for Java deployments)
 
-## 3. How to use it for Java debugging
-### 3.1 Launch a Spring Boot application on Kubernetes and debug it
+## 3. Extension Settings for debugging
+   * `vs-kubernetes` - Parent for Kubernetes-related extension settings
+      * `vs-kubernetes.autoCleanupOnDebugTerminate` - The flag to control whether to auto cleanup the created Deployment and associated Pod by the command "Kubernetes: Debug (Launch)". The cleanup action occurs when it failed to start debug session or debug session terminated. If not specified, the extension will prompt for whether to clean up or not. You might choose not to clean up if you wanted to view pod logs, etc.
+   * `vsdocker.imageUser` - Image prefix for docker images e.g. 'docker.io/brendanburns'.
+
+## 4. How to use it for Java debugging
+### 4.1 Launch a Spring Boot application on Kubernetes and debug it
    * Launch VS Code.
    * Open a Spring Boot application.
    * If your application doesn't already have a Dockerfile, create one for it.
@@ -42,7 +47,7 @@ Here is a GIF showing the full workflow:
 
 ![launch java debug on minikube](https://raw.githubusercontent.com/Azure/vscode-kubernetes-tools/master/images/screenshots/launch-java-debug.gif)
 
-### 3.2 Attach debugger to a running Kubernetes Java Deployment
+### 4.2 Attach debugger to a running Kubernetes Java Deployment
    * Launch VS Code.
    * Open a Spring Boot application.
    * Install [Debugger for Java](https://marketplace.visualstudio.com/items?itemName=vscjava.vscode-java-debug) extension (if not already installed).
