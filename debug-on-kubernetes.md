@@ -12,7 +12,7 @@ One of the key features of VS Code Kubernetes Extension is its one-click debuggi
 
 ## 3. Extension Settings for debugging
    * `vs-kubernetes` - Parent for Kubernetes-related extension settings
-      * `vs-kubernetes.autoCleanupOnDebugTerminate` - The flag to control whether to auto cleanup the created Deployment and associated Pod by the command "Kubernetes: Debug (Launch)". The cleanup action occurs when it failed to start debug session or debug session terminated. If not specified, the extension will prompt for `"Clean Up"` or not.
+      * `vs-kubernetes.autoCleanupOnDebugTerminate` - The flag to control whether to auto cleanup the created Deployment and associated Pod by the command "Kubernetes: Debug (Launch)". The cleanup action occurs when it failed to start debug session or debug session terminated. If not specified, the extension will prompt for whether to clean up or not. You might choose not to clean up if you wanted to view pod logs, etc.
    * `vsdocker.imageUser` - Image prefix for docker images e.g. 'docker.io/brendanburns'.
 
 ## 4. How to use it for Java debugging
