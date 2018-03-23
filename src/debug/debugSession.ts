@@ -287,10 +287,7 @@ export class DebugSession implements IDebugSession {
         } else if (answer === "Always Clean Up") {
             // The object returned by VS Code API is readonly, clone it first.
             const oldConfig = vscode.workspace.getConfiguration("vs-kubernetes");
-            const newConfig = {};
-            for (const key of Object.keys(oldConfig)) {
-                newConfig[key] = oldConfig[key];
-            }
+            const newConfig = <any> Object.assign({}, oldConfig);
             newConfig["vs-kubernetes.autoCleanupOnDebugTerminate"] = true;
             await vscode.workspace.getConfiguration().update("vs-kubernetes", newConfig);
             return await this.cleanupResource(resourceId);
