@@ -286,10 +286,21 @@ export class DebugSession implements IDebugSession {
             return await this.cleanupResource(resourceId);
         } else if (answer === "Always Clean Up") {
             // The object returned by VS Code API is readonly, clone it first.
-            const oldConfig = vscode.workspace.getConfiguration("vs-kubernetes");
-            const newConfig = <any> Object.assign({}, oldConfig);
-            newConfig["vs-kubernetes.autoCleanupOnDebugTerminate"] = true;
-            await vscode.workspace.getConfiguration().update("vs-kubernetes", newConfig);
+            const oldConfig = vscode.workspace.getConfiguration().inspect("vs-kubernetes");
+            // Always update global config.
+            const globalConfig = <any> Object.assign({}, oldConfig.globalValue);
+            globalConfig["vs-kubernetes.autoCleanupOnDebugTerminate"] = true;
+            await vscode.workspace.getConfiguration().update("vs-kubernetes", globalConfig, vscode.ConfigurationTarget.Global);
+            // If workspace folder value exists, update it.
+            if (oldConfig.workspaceFolderValue && oldConfig.workspaceFolderValue["vs-kubernetes.autoCleanupOnDebugTerminate"] === false) {
+                const workspaceFolderConfig = <any> Object.assign({}, oldConfig.workspaceFolderValue);
+                workspaceFolderConfig["vs-kubernetes.autoCleanupOnDebugTerminate"] = true;
+                await vscode.workspace.getConfiguration().update("vs-kubernetes", workspaceFolderConfig, vscode.ConfigurationTarget.WorkspaceFolder);
+            } else if (oldConfig.workspaceValue && oldConfig.workspaceValue["vs-kubernetes.autoCleanupOnDebugTerminate"] === false) { // if workspace value exists, update it.
+                const workspaceConfig = <any> Object.assign({}, oldConfig.workspaceValue);
+                workspaceConfig["vs-kubernetes.autoCleanupOnDebugTerminate"] = true;
+                await vscode.workspace.getConfiguration().update("vs-kubernetes", workspaceConfig, vscode.ConfigurationTarget.Workspace);
+            }
             return await this.cleanupResource(resourceId);
         }
     }
