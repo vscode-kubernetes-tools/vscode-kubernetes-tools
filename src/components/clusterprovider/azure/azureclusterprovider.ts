@@ -1,3 +1,4 @@
+import * as vscode from 'vscode';
 import * as restify from 'restify';
 import * as portfinder from 'portfinder';
 import * as clusterproviderregistry from '../clusterproviderregistry';
@@ -216,6 +217,7 @@ async function promptForCluster(previousData: any, context: azure.Context) : Pro
 async function configureKubernetes(previousData: any, context: azure.Context) : Promise<string> {
     const selectedCluster = parseCluster(previousData.cluster);
     const configureResult = await azure.configureCluster(context, previousData.clusterType, selectedCluster.name, selectedCluster.resourceGroup);
+    await refreshExplorer();
     return renderConfigurationResult(configureResult);
 }
 
@@ -303,6 +305,7 @@ async function createCluster(previousData: any, context: azure.Context) : Promis
 
     const title = createResult.result.succeeded ? 'Cluster creation has started' : `Error ${createResult.actionDescription}`;
     const additionalDiagnostic = diagnoseCreationError(createResult.result);
+    const successCliErrorInfo = diagnoseCreationSuccess(createResult.result);
     const message = createResult.result.succeeded ?
         `<div id='content'>
          ${formStyles()}
@@ -314,6 +317,7 @@ async function createCluster(previousData: any, context: azure.Context) : Promis
          or wait for creation to complete so that we can add the new cluster to your Kubernetes configuration.</p>
          <p><button type='submit' class='link-button'>Wait and add the new cluster &gt;</button></p>
          </form>
+         ${successCliErrorInfo}
          </div>` :
         `<p class='error'>An error occurred while creating the cluster.</p>
          ${additionalDiagnostic}
@@ -357,6 +361,8 @@ async function waitForClusterAndReportConfigResult(previousData: any, context: a
 
     const configureResult = await azure.configureCluster(context, previousData.clusterType, previousData.clustername, previousData.resourcegroupname);
 
+    await refreshExplorer();
+
     return renderConfigurationResult(configureResult);
 }
 
@@ -392,6 +398,20 @@ function diagnoseCreationError(e: Errorable<any>) : string {
         return '<p>You may be using an older version of the Azure CLI. Check Azure CLI version is 2.0.23 or above.<p>';
     }
     return '';
+}
+
+function diagnoseCreationSuccess(e: Errorable<any>) : string {
+    if (!e.succeeded || !e.error || e.error.length === 0 || !e.error[0]) {
+        return '';
+    }
+    const error = e.error[0];
+    // Discard things printed to stderr that are known spew
+    if (/Finished service principal(.+)100[.0-9%]*/.test(error)) {
+        return '';
+    }
+    // CLI claimed it succeeded but left something on stderr, so warn the user
+    return `<p><b>Note:<b> although Azure accepted the creation request, the Azure CLI reported the following message. This may indicate a problem, or may be ignorable progress messages:<p>
+        <p>${error}</p>`;
 }
 
 function renderCliError<T>(stageId: string, last: ActionResult<T>) : string {
@@ -445,4 +465,8 @@ function parseCluster(encoded: string) : azure.ClusterInfo {
         resourceGroup: encoded.substr(0, delimiterPos),
         name: encoded.substr(delimiterPos + 1)
     };
+}
+
+async function refreshExplorer() : Promise<void> {
+    await vscode.commands.executeCommand('extension.vsKubernetesRefreshExplorer');
 }

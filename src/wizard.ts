@@ -104,11 +104,15 @@ export function formStyles() : string {
 `;
 }
 
-export function fromShellExitCode(sr: ShellResult) : Errorable<void> {
+export function fromShellExitCodeAndStandardError(sr: ShellResult) : Errorable<void> {
     if (sr.code === 0 && !sr.stderr) {
         return { succeeded: true, result: null, error: [] };
     }
     return { succeeded: false, result: null, error: [ sr.stderr ] };
+}
+
+export function fromShellExitCodeOnly(sr: ShellResult) : Errorable<void> {
+    return { succeeded: sr.code === 0, result: null, error: [ sr.stderr ] };
 }
 
 export function fromShellJson<T>(sr: ShellResult, processor?: (raw: any) => T) : Errorable<T> {

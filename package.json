@@ -71,19 +71,26 @@
                     "properties": {
                         "vs-kubernetes.namespace": {
                             "type": "string",
-                            "default": "default",
                             "description": "The namespace to use for all commands"
                         },
                         "vs-kubernetes.kubectl-path": {
                             "type": "string",
-                            "default": null,
                             "description": "File path to a kubectl binary."
                         },
                         "vs-kubernetes.draft-path": {
                             "type": "string",
-                            "default": null,
                             "description": "File path to a draft binary."
+                        },
+                        "vs-kubernetes.autoCleanupOnDebugTerminate": {
+                            "type": "boolean",
+                            "description": "Once the debug session is terminated, automatically clean up the created Deployment and associated Pod by the command \"Kubernetes: Debug (Launch)\"."
                         }
+                    },
+                    "default": {
+                        "vs-kubernetes.namespace": "",
+                        "vs-kubernetes.kubectl-path": "",
+                        "vs-kubernetes.draft-path": "",
+                        "vs-kubernetes.autoCleanupOnDebugTerminate": false
                     }
                 },
                 "vsdocker.imageUser": {
@@ -142,6 +149,11 @@
                     "group": "0@2"
                 },
                 {
+                    "command": "extension.vsKubernetesCopy",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.cluster.inactive",
+                    "group": "1"
+                },
+                {
                     "command": "extension.vsKubernetesClusterInfo",
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.cluster",
                     "group": "0@1"
@@ -157,9 +169,24 @@
                     "group": "0@2"
                 },
                 {
+                    "command": "extension.vsKubernetesCopy",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.cluster",
+                    "group": "1"
+                },
+                {
                     "command": "extension.vsKubernetesUseNamespace",
                     "group": "0",
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.namespace.inactive"
+                },
+                {
+                    "command": "extension.vsKubernetesCopy",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.namespace.inactive",
+                    "group": "1"
+                },
+                {
+                    "command": "extension.vsKubernetesCopy",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.namespace",
+                    "group": "1"
                 },
                 {
                     "command": "extension.vsKubernetesGet",
@@ -172,18 +199,23 @@
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource"
                 },
                 {
+                    "command": "extension.vsKubernetesCopy",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource",
+                    "group": "1"
+                },
+                {
                     "command": "extension.vsKubernetesGet",
-                    "group": "1@1",
+                    "group": "2@1",
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource"
                 },
                 {
                     "command": "extension.vsKubernetesDelete",
-                    "group": "1@2",
+                    "group": "2@2",
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource"
                 },
                 {
                     "command": "extension.vsKubernetesDescribe",
-                    "group": "2",
+                    "group": "3",
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource"
                 },
                 {
@@ -192,33 +224,38 @@
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
                 },
                 {
+                    "command": "extension.vsKubernetesCopy",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod",
+                    "group": "1"
+                },
+                {
                     "command": "extension.vsKubernetesGet",
-                    "group": "1@1",
+                    "group": "2@1",
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
                 },
                 {
                     "command": "extension.vsKubernetesDelete",
-                    "group": "1@2",
+                    "group": "2@2",
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
                 },
                 {
                     "command": "extension.vsKubernetesTerminal",
-                    "group": "1@3",
+                    "group": "2@3",
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
                 },
                 {
                     "command": "extension.vsKubernetesDebugAttach",
-                    "group": "1@4",
+                    "group": "2@4",
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
                 },
                 {
                     "command": "extension.vsKubernetesDescribe",
-                    "group": "2",
+                    "group": "3",
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
                 },
                 {
                     "command": "extension.vsKubernetesLogs",
-                    "group": "2",
+                    "group": "3",
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
                 }
             ],
@@ -242,6 +279,14 @@
                 {
                     "command": "extension.vsKubernetesUseNamespace",
                     "when": "view == extension.vsKubernetesExplorer"
+                },
+                {
+                    "command": "extension.vsKubernetesCopy",
+                    "when": "view == extension.vsKubernetesExplorer"
+                },
+                {
+                    "command": "extension.helmInspectValues",
+                    "when": "filesExplorerFocus"
                 }
             ]
         },
@@ -369,6 +414,11 @@
             {
                 "command": "extension.vsKubernetesDashboard",
                 "title": "Open Dashboard",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesCopy",
+                "title": "Copy Name",
                 "category": "Kubernetes"
             },
             {
@@ -501,8 +551,12 @@
         "postinstall": "node ./node_modules/vscode/bin/install",
         "test": "node ./node_modules/vscode/bin/test"
     },
+    "extensionDependencies": [
+        "redhat.vscode-yaml"
+    ],
     "dependencies": {
         "@types/restify": "^5.0.7",
+        "clipboardy": "^1.2.3",
         "compare-versions": "^3.1.0",
         "docker-file-parser": "^1.0.3",
         "dockerfile-parse": "^0.2.0",

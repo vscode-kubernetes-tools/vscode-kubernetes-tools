@@ -105,7 +105,7 @@ export class DebugSession implements IDebugSession {
                 vscode.window.showErrorMessage(error);
                 kubeChannel.showOutput(`Debug on Kubernetes failed. The errors were: ${error}.`);
                 if (appName) {
-                    await this.cleanupResource(`deployment/${appName}`);
+                    await this.promptForCleanup(`deployment/${appName}`);
                 }
                 kubeChannel.showOutput(`\nTo learn more about the usage of the debug feature, take a look at ${debugCommandDocumentationUrl}`);
             }
@@ -270,9 +270,39 @@ export class DebugSession implements IDebugSession {
         await this.startDebugging(cwd, sessionName, proxyResult.proxyDebugPort, proxyResult.proxyAppPort, async () => {
             proxyResult.proxyProcess.kill();
             if (appName) {
-                await this.cleanupResource(`deployment/${appName}`);
+                kubeChannel.showOutput("The debug session exited.");
+                await this.promptForCleanup(`deployment/${appName}`);
             }
         });
+    }
+
+    private async promptForCleanup(resourceId: string): Promise<void> {
+        const autoCleanupFlag = vscode.workspace.getConfiguration("vs-kubernetes")["vs-kubernetes.autoCleanupOnDebugTerminate"];
+        if (autoCleanupFlag) {
+            return await this.cleanupResource(resourceId);
+        }
+        const answer = await vscode.window.showWarningMessage(`Resource ${resourceId} will continue running on the cluster.`, "Clean Up", "Always Clean Up");
+        if (answer === "Clean Up") {
+            return await this.cleanupResource(resourceId);
+        } else if (answer === "Always Clean Up") {
+            // The object returned by VS Code API is readonly, clone it first.
+            const oldConfig = vscode.workspace.getConfiguration().inspect("vs-kubernetes");
+            // Always update global config.
+            const globalConfig = <any> Object.assign({}, oldConfig.globalValue);
+            globalConfig["vs-kubernetes.autoCleanupOnDebugTerminate"] = true;
+            await vscode.workspace.getConfiguration().update("vs-kubernetes", globalConfig, vscode.ConfigurationTarget.Global);
+            // If workspace folder value exists, update it.
+            if (oldConfig.workspaceFolderValue && oldConfig.workspaceFolderValue["vs-kubernetes.autoCleanupOnDebugTerminate"] === false) {
+                const workspaceFolderConfig = <any> Object.assign({}, oldConfig.workspaceFolderValue);
+                workspaceFolderConfig["vs-kubernetes.autoCleanupOnDebugTerminate"] = true;
+                await vscode.workspace.getConfiguration().update("vs-kubernetes", workspaceFolderConfig, vscode.ConfigurationTarget.WorkspaceFolder);
+            } else if (oldConfig.workspaceValue && oldConfig.workspaceValue["vs-kubernetes.autoCleanupOnDebugTerminate"] === false) { // if workspace value exists, update it.
+                const workspaceConfig = <any> Object.assign({}, oldConfig.workspaceValue);
+                workspaceConfig["vs-kubernetes.autoCleanupOnDebugTerminate"] = true;
+                await vscode.workspace.getConfiguration().update("vs-kubernetes", workspaceConfig, vscode.ConfigurationTarget.Workspace);
+            }
+            return await this.cleanupResource(resourceId);
+        }
     }
 
     private async cleanupResource(resourceId: string): Promise<void> {
