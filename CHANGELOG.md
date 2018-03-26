@@ -1,5 +1,28 @@
 # Change Log
 
+## 0.1.7
+
+* Improvements to Kubernetes YAML intellisense.  These improvements depend on the 'YAML Support by Red Hat' extension; please install version 0.0.10 or above of this extension if you are working with Kubernetes YAML files.
+* You can now copy a resource name from the tree view.
+* The 'choose resource' prompt now supports ingresses.
+* The Java debugger now allows you to leave the debug deployment in the cluster for post-mortem diagnostics.
+* We've added documentation for the Java debugger.
+* After adding a cluster, the tree view now shows it without the need for a refresh.
+* The Delete command no longer attempts to delete the resource described by the active document.
+* Progress indicators are shown for more commands.
+* Added telemetry for which cluster types users select in `Create Cluster`.
+* Fixed spurious cluster creation error messages.
+* Fixed poor error messages if `docker push` failed because user not set or not logged in.
+* Fixed not respecting certificate file references in kubeconfig.
+* Fixed an issue where the `Helm: Inspect Values` command was shown in the palette where it wasn't useful.
+* Fixed directory error in `Helm: Preview`.
+* Fixed an issue with debugging multi-root workspaces.
+* Fixed Basic node sizes being incorrectly shown in `Create Cluster` on Azure.
+* Fixed the error if you tried to run `Helm: Create` with no folder open.
+* `Configure from Cluster` is renamed to `Add Existing Cluster`.
+
+Thanks to contributors Jinbo Wang, Andy Xu and Abdul Rehman (@arehmandev).
+
 ## 0.1.6
 
 * Commands with significant output now run in the integrated terminal
