@@ -3,7 +3,7 @@
 import * as k8s from 'k8s';
 import * as pluralize from 'pluralize';
 import * as kubeconfig from './kubeconfig';
-import { formatComplex, formatOne, Typed, formatType } from "./yaml-support/schema-formatting";
+import { formatComplex, formatOne, Typed, formatType } from "./schema-formatting";
 
 export function readSwagger() : Promise<any> {
     return kubeconfig.readKubectlConfig().then((kc) => readSwaggerCore(kc));

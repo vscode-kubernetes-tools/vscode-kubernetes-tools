@@ -7,7 +7,7 @@ import {
     KUBERNETES_SCHEMA_FILE
 } from "./yaml-constant";
 import * as util from "./yaml-util";
-import { formatComplex, formatOne, formatType } from './schema-formatting';
+import { formatComplex, formatOne, formatType } from '../schema-formatting';
 
 export interface KubernetesSchema {
     readonly name: string;
