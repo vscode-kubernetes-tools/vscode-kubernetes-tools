@@ -48,7 +48,9 @@ import { getDebugProviderOfType, getSupportedDebuggerTypes } from './debug/provi
 import { registerYamlSchemaSupport } from './yaml-support/yaml-schema';
 import * as clusterproviderregistry from './components/clusterprovider/clusterproviderregistry';
 import * as azureclusterprovider from './components/clusterprovider/azure/azureclusterprovider';
+import { KubernetesCompletionProvider } from "./yaml-support/yaml-snippet";
 import { showWorkspaceFolderPick } from './hostutils';
+
 
 let explainActive = false;
 let swaggerSpecPromise = null;
@@ -148,6 +150,7 @@ export async function activate(context) : Promise<extensionapi.ExtensionAPI> {
 
         // Completion providers
         vscode.languages.registerCompletionItemProvider(completionFilter, completionProvider),
+        vscode.languages.registerCompletionItemProvider('yaml', new KubernetesCompletionProvider()),
 
         // Hover providers
         vscode.languages.registerHoverProvider(
@@ -205,7 +208,6 @@ export async function activate(context) : Promise<extensionapi.ExtensionAPI> {
     subscriptions.forEach((element) => {
         context.subscriptions.push(element);
     }, this);
-
     await registerYamlSchemaSupport();
     
     return {

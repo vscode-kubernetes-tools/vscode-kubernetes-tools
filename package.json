@@ -560,6 +560,7 @@
         "compare-versions": "^3.1.0",
         "docker-file-parser": "^1.0.3",
         "dockerfile-parse": "^0.2.0",
+        "fuzzysearch": "^1.0.3",
         "js-yaml": "^3.8.2",
         "k8s": "^0.4.12",
         "lodash": ">3",
