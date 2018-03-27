@@ -415,24 +415,35 @@ function maybeRunKubernetesCommandForActiveWindow(command, progressMessage) {
 
     let editor = vscode.window.activeTextEditor;
     if (!editor) {
-        vscode.window.showErrorMessage('No active editor!');
+        vscode.window.showErrorMessage('This command operates on the open document. Open your Kubernetes resource file, and try again.');
         return false; // No open text editor
     }
     let namespace = vscode.workspace.getConfiguration('vs-kubernetes')['vs-kubernetes.namespace'];
     if (namespace) {
         command = command + ' --namespace ' + namespace + ' ';
     }
+
+    const isKubernetesSyntax = (editor.document.languageId === 'json' || editor.document.languageId === 'yaml');
+    const resultHandler = isKubernetesSyntax ? undefined /* default handling */ :
+        (code, stdout, stderr) => {
+            if (code === 0 ) {
+                vscode.window.showInformationMessage(stdout);
+            } else {
+                vscode.window.showErrorMessage(`Kubectl command failed. The open document might not be a valid Kubernetes resource.  Details: ${stderr}`);
+            }
+        };
+
     if (editor.selection) {
         text = editor.document.getText(editor.selection);
         if (text.length > 0) {
-            kubectlViaTempFile(command, text, progressMessage);
+            kubectlViaTempFile(command, text, progressMessage, resultHandler);
             return true;
         }
     }
     if (editor.document.isUntitled) {
         text = editor.document.getText();
         if (text.length > 0) {
-            kubectlViaTempFile(command, text, progressMessage);
+            kubectlViaTempFile(command, text, progressMessage, resultHandler);
             return true;
         }
         return false;
@@ -448,23 +459,23 @@ function maybeRunKubernetesCommandForActiveWindow(command, progressMessage) {
                         vscode.window.showErrorMessage("Save failed.");
                         return;
                     }
-                    kubectl.invokeWithProgress(`${command} -f "${editor.document.fileName}"`, progressMessage);
+                    kubectl.invokeWithProgress(`${command} -f "${editor.document.fileName}"`, progressMessage, resultHandler);
                 });
             }
         });
     } else {
         const fullCommand = `${command} -f "${editor.document.fileName}"`;
         console.log(fullCommand);
-        kubectl.invokeWithProgress(fullCommand, progressMessage);
+        kubectl.invokeWithProgress(fullCommand, progressMessage, resultHandler);
     }
     return true;
 }
 
-function kubectlViaTempFile(command, fileContent, progressMessage) {
+function kubectlViaTempFile(command, fileContent, progressMessage, handler?) {
     const tmpobj = tmp.fileSync();
     fs.writeFileSync(tmpobj.name, fileContent);
     console.log(tmpobj.name);
-    kubectl.invokeWithProgress(`${command} -f ${tmpobj.name}`, progressMessage);
+    kubectl.invokeWithProgress(`${command} -f ${tmpobj.name}`, progressMessage, handler);
 }
 
 /**
