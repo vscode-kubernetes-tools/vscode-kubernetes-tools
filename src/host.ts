@@ -4,6 +4,7 @@ export interface Host {
     showErrorMessage(message : string, ...items : string[]) : Thenable<string>;
     showWarningMessage(message : string, ...items : string[]) : Thenable<string>;
     showInformationMessage(message : string, ...items : string[]) : Thenable<string>;
+    showInputBox(options: vscode.InputBoxOptions, token?: vscode.CancellationToken) : Thenable<string>;
     showQuickPick(items : string[], options : vscode.QuickPickOptions) : Thenable<string>;
     showQuickPick<T extends vscode.QuickPickItem>(items : T[], options : vscode.QuickPickOptions) : Thenable<T>;
     withProgress<R>(task: (progress: vscode.Progress<{ message?: string; }>) => Thenable<R>): Thenable<R>;
@@ -20,8 +21,13 @@ export const host : Host = {
     withProgress: withProgress,
     getConfiguration : getConfiguration,
     createTerminal : createTerminal,
-    onDidCloseTerminal : onDidCloseTerminal
+    onDidCloseTerminal : onDidCloseTerminal,
+    showInputBox : showInputBox
 };
+
+function showInputBox(options: vscode.InputBoxOptions, token?: vscode.CancellationToken) : Thenable<string> {
+    return vscode.window.showInputBox(options, token);
+}
 
 function showErrorMessage(message : string, ...items : string[]) : Thenable<string> {
     return vscode.window.showErrorMessage(message, ...items);
