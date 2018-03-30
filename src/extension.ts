@@ -1489,8 +1489,8 @@ async function execDraftCreateDebug() {
 
 async function execDraftUpDebug() {
     const draftPath = await draft.path();
-    const term = vscode.window.createTerminal('draft logs', `bash`, ['-c', `${draftPath} logs ; bash`]);
-    term.show(true);
+    // const term = vscode.window.createTerminal('draft logs', `bash`, ['-c', `${draftPath} logs ; bash`]);
+    // term.show(true);
 
     vscode.window.showInformationMessage("Starting draft up")
     await draft.invokeAsync('up').then((result) => {
@@ -1506,12 +1506,12 @@ async function execDraftDebug() {
     // replicaCount is set to 1 in the debug pack, because with rolling updates, 
     // it will find a running pod soon to be terminated, connect to it and then it gets killed
     // TODO - fix this once helm install --wait is functional
-    await draft.invokeAsync('connect --wait')
+    await draft.invokeAsync('connect --dry-run')
 
     const draftPath = await draft.path();
 
     // TODO - make ports parameters
-    const term = vscode.window.createTerminal('draft connect', `bash`, ['-c', `${draftPath} connect -p 8080:8080 -p 9229:9229 ; bash`]);
+    const term = vscode.window.createTerminal('draft connect', `bash`, ['-c', `${draftPath} connect ; bash`]);
     term.show(true);
     
     vscode.window.showInformationMessage("Attaching debugger...")

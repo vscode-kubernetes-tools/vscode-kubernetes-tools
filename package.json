@@ -389,7 +389,7 @@
             },
             {
                 "command": "extension.draftUpDebug",
-                "title": "up --debug",
+                "title": "Up and Debug",
                 "description": "Debug the Draft application",
                 "category": "Draft"
             },
