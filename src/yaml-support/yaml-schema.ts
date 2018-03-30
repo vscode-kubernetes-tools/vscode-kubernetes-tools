@@ -4,7 +4,7 @@ import * as vscode from 'vscode';
 import { yamlLocator, YamlMap } from "./yaml-locator";
 import {
     VSCODE_YAML_EXTENSION_ID, KUBERNETES_SCHEMA, KUBERNETES_GROUP_VERSION_KIND, GROUP_VERSION_KIND_SEPARATOR,
-    KUBERNETES_SCHEMA_FILE
+    KUBERNETES_SCHEMA_FILE, KUBERNETES_SCHEMA_ENUM_FILE
 } from "./yaml-constant";
 import * as util from "./yaml-util";
 import { formatComplex, formatOne, formatType } from '../schema-formatting';
@@ -32,9 +32,12 @@ class KubernetesSchemaHolder {
     // the schema for kubernetes
     private _definitions: { [key: string]: KubernetesSchema; } = {};
 
+    private _schemaEnums: { [key: string]: { [key: string]: [string[]] }; };
+
     // load the kubernetes schema and make some modifications to $ref node
-    public loadSchema(schemaFile: string): void {
+    public loadSchema(schemaFile: string, schemaEnumFile?: string): void {
         const schemaRaw = util.loadJson(schemaFile);
+        this._schemaEnums = schemaEnumFile ? util.loadJson(schemaEnumFile) : {};
         const definitions = schemaRaw.definitions;
         for (const name of Object.keys(definitions)) {
             this.saveSchemaWithManifestStyleKeys(name, definitions[name]);
@@ -67,6 +70,7 @@ class KubernetesSchemaHolder {
                 // we need also an array to collect them since we need to get schema from _definitions, at this point, we have
                 // not finished the process of add schemas to _definitions, call patchOnRef will fail for some cases.
                 this.replaceDefinitionRefsWithYamlSchemaUris(schema.properties);
+                this.loadEnumsForKubernetesSchema(schema);
             }
         }
     }
@@ -129,6 +133,17 @@ class KubernetesSchemaHolder {
         }
     }
 
+    // add enum field for pre-defined enums in schema-enums json file
+    private loadEnumsForKubernetesSchema(node: KubernetesSchema) {
+        if (node.properties && this._schemaEnums[node.name]) {
+            _.each(node.properties, (propSchema, propKey) => {
+                if (this._schemaEnums[node.name][propKey]) {
+                    propSchema.enum = this._schemaEnums[node.name][propKey];
+                }
+            });
+        }
+    }
+
     // save the schema to the _definitions
     private saveSchema(schema: KubernetesSchema): void {
         if (schema.name) {
@@ -159,7 +174,7 @@ class KubernetesSchemaHolder {
 const kubeSchema: KubernetesSchemaHolder = new KubernetesSchemaHolder();
 
 export async function registerYamlSchemaSupport(): Promise<void> {
-    kubeSchema.loadSchema(KUBERNETES_SCHEMA_FILE);
+    kubeSchema.loadSchema(KUBERNETES_SCHEMA_FILE, KUBERNETES_SCHEMA_ENUM_FILE);
     const yamlPlugin: any = await activateYamlExtension();
     if (!yamlPlugin || !yamlPlugin.registerContributor) {
         // activateYamlExtension has already alerted to users for errors.
