@@ -10,11 +10,12 @@ import { QuickPickOptions } from 'vscode';
 import * as portFinder from 'portfinder';
 
 const kubectl = kubectlCreate(host, fs, shell);
+const PORT_FORWARD_TERMINAL = 'kubectl port-forward';
 const MAX_PORT_COUNT = 65535;
 
 export interface PortMapping {
-    localPort?: Number;
-    targetPort: Number;
+    localPort?: number;
+    targetPort: number;
 }
 
 interface PortForwardFindPodsResult extends FindPodsResult  {
@@ -141,7 +142,7 @@ function validatePortMapping (portMapping: string): string {
  * @param portString The port string provided by the user.
  * @returns PortMapping object
  */
-function buildPortMapping (portString: string): PortMapping {
+export function buildPortMapping (portString: string): PortMapping {
     // Only target port supplied.
     if (!portString.includes(':')) {
         return <PortMapping> {
@@ -195,8 +196,10 @@ async function findPortForwardablePods () : Promise<PortForwardFindPodsResult> {
  * Invokes kubectl port-forward.
  * @param podName The pod name.
  * @param portMapping The PortMapping object. Provides the local and target ports.
+ * @param namespace  The namespace to use to find the pod in.
+ * @returns The locally bound port that was used.
  */
-export async function portForwardToPod (podName: string, portMapping: PortMapping) {
+export async function portForwardToPod (podName: string, portMapping: PortMapping, namespace?: string) : Promise<number> {
     const localPort = portMapping.localPort;
     const targetPort = portMapping.targetPort;
     let usedPort = localPort;
@@ -210,6 +213,10 @@ export async function portForwardToPod (podName: string, portMapping: PortMappin
         } as portFinder.PortFinderOptions);
     }
 
-    kubectl.invokeInTerminal(`port-forward ${podName} ${usedPort}:${targetPort}`);
+    let usedNamespace = namespace === undefined ? 'default' : namespace;
+
+    kubectl.invokeInTerminal(`port-forward ${podName} ${usedPort}:${targetPort} -n ${usedNamespace}`, PORT_FORWARD_TERMINAL);
     host.showInformationMessage(`Forwarding from 127.0.0.1:${usedPort} -> ${podName}:${targetPort}`);
+
+    return usedPort;
 }
