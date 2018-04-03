@@ -1,8 +1,8 @@
-import { Host } from './host';
-import { Shell, ShellResult } from './shell';
-import { FS } from './fs';
+import { Host } from '../host';
+import { Shell, ShellResult } from '../shell';
+import { FS } from '../fs';
 import * as syspath from 'path';
-import * as binutil from './binutil';
+import * as binutil from '../binutil';
 
 export interface Draft {
     checkPresent() : Promise<boolean>;

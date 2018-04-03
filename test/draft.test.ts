@@ -7,7 +7,7 @@ import * as fakes from './fakes';
 import { Host } from '../src/host';
 import { Shell, ShellResult } from '../src/shell';
 import { FS } from '../src/fs';
-import { create as draftCreate } from '../src/draft';
+import { create as draftCreate } from '../src/draft/draft';
 import * as kuberesources from '../src/kuberesources';
 
 interface FakeContext {

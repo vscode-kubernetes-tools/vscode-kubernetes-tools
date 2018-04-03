@@ -30,7 +30,7 @@ import * as kubeconfig from './kubeconfig';
 import { create as kubectlCreate, Kubectl } from './kubectl';
 import * as kubectlUtils from './kubectlUtils';
 import * as explorer from './explorer';
-import { create as draftCreate, Draft } from './draft';
+import { create as draftCreate, Draft } from './draft/draft';
 import * as logger from './logger';
 import * as helm from './helm';
 import * as helmexec from './helm.exec';
@@ -53,6 +53,7 @@ import * as azureclusterprovider from './components/clusterprovider/azure/azurec
 import { KubernetesCompletionProvider } from "./yaml-support/yaml-snippet";
 import { showWorkspaceFolderPick } from './hostutils';
 import { KubernetesDocumentProvider } from "./kube.documentProvider";
+import { DraftConfigurationProvider } from './draft/draftConfigurationProvider';
 
 
 let explainActive = false;
@@ -95,6 +96,9 @@ export async function activate(context) : Promise<extensionapi.ExtensionAPI> {
         "helm",
         {pattern: "**/templates/NOTES.txt"}
     ];
+
+    const draftDebugProvider = new DraftConfigurationProvider();
+    let draftDebugSession: vscode.DebugSession;    
 
     const subscriptions = [
 
@@ -146,6 +150,9 @@ export async function activate(context) : Promise<extensionapi.ExtensionAPI> {
         registerCommand('extension.draftCreate', execDraftCreate),
         registerCommand('extension.draftUp', execDraftUp),
 
+        // Draft debug configuration provider
+        vscode.debug.registerDebugConfigurationProvider('draft', draftDebugProvider),
+
         // HTML renderers
         vscode.workspace.registerTextDocumentContentProvider(configureFromCluster.uriScheme, configureFromClusterUI),
         vscode.workspace.registerTextDocumentContentProvider(createCluster.uriScheme, createClusterUI),
@@ -195,6 +202,18 @@ export async function activate(context) : Promise<extensionapi.ExtensionAPI> {
             let u = vscode.Uri.parse(helm.PREVIEW_URI);
             previewProvider.update(u);
         }
+
+        // if there is an active Draft debugging session, restart the cycle
+        if (draftDebugSession != undefined) {
+            const session = vscode.debug.activeDebugSession;
+
+            // TODO - how do we make sure this doesn't affect all other debugging sessions?
+            // TODO - maybe check to see if `draft.toml` is present in the workspace
+            // TODO - check to make sure we enable this only when Draft is installed
+            if (session != undefined) {
+                draftDebugSession.customRequest('evaluate', {draftUp: ''});
+            }
+        }
 	});
     // On editor change, refresh the Helm YAML preview
     vscode.window.onDidChangeActiveTextEditor((e: vscode.TextEditor) => {
@@ -207,6 +226,16 @@ export async function activate(context) : Promise<extensionapi.ExtensionAPI> {
         }
         let u = vscode.Uri.parse(helm.PREVIEW_URI);
         previewProvider.update(u);
+    });
+
+
+    vscode.debug.onDidChangeActiveDebugSession((e: vscode.DebugSession)=> {
+        if (e != undefined) {
+            // keep a copy of the initial Draft debug session
+            if (e.name.indexOf('Draft') >= 0) {
+                draftDebugSession = e;
+            }
+        }
     });
 
     subscriptions.forEach((element) => {
