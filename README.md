@@ -29,9 +29,7 @@ If you plan to create managed clusters using Microsoft Azure (ACS or AKS), or to
 
 ### Setting up your environment for Helm and Draft
 
-`helm` support requires that you have Helm installed and configured.  From there you should also install `helm-template`:
-
-`$ helm plugin install https://github.com/technosophos/helm-template`
+`helm` support requires that you have Helm installed and configured. 
 
 To use the `Helm: DryRun` command, your Kubernetes cluster must be running Tiller.
 

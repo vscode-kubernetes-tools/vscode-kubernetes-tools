@@ -475,7 +475,7 @@
             {
                 "command": "extension.helmTemplate",
                 "title": "Template",
-                "description": "Run 'helm template' on this chart. Requires the helm-template plugin.",
+                "description": "Run 'helm template' on this chart.",
                 "category": "Helm"
             },
             {
@@ -487,7 +487,7 @@
             {
                 "command": "extension.helmTemplatePreview",
                 "title": "Preview Template",
-                "description": "Run 'helm template' on this chart and show only this file. Requires the helm-template plugin.",
+                "description": "Run 'helm template' on this chart and show only this file.",
                 "category": "Helm"
             },
             {
