@@ -1,0 +1,16 @@
+name: pod
+label: Kubernetes Pod
+description: Kubernetes Pod
+body: |2
+  kind: Pod
+  apiVersion: v1
+  metadata:
+    name: ${1:myapp}
+    labels:
+      name: ${1:myapp}
+  spec:
+    containers:
+    - name: ${1:myapp}
+      image: ${2:<Image>}
+      ports:
+        - containerPort: ${3:<Port>}
