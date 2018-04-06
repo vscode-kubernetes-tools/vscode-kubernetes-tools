@@ -43,6 +43,7 @@
         "onCommand:extension.vsKubernetesConfigureFromCluster",
         "onCommand:extension.vsKubernetesCreateCluster",
         "onCommand:extension.vsKubernetesDashboard",
+        "onCommand:extension.vsKubernetesPortForward",
         "onCommand:extension.helmTemplate",
         "onCommand:extension.helmTemplatePreview",
         "onCommand:extension.helmLint",
@@ -249,6 +250,11 @@
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
                 },
                 {
+                    "command": "extension.vsKubernetesPortForward",
+                    "group": "2@5",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
+                },
+                {
                     "command": "extension.vsKubernetesDescribe",
                     "group": "3",
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
@@ -414,6 +420,11 @@
             {
                 "command": "extension.vsKubernetesDashboard",
                 "title": "Open Dashboard",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesPortForward",
+                "title": "Port Forward",
                 "category": "Kubernetes"
             },
             {

@@ -41,6 +41,7 @@ import { Reporter } from './telemetry';
 import * as telemetry from './telemetry-helper';
 import * as extensionapi from './extension.api';
 import {dashboardKubernetes} from './components/kubectl/proxy';
+import {portForwardKubernetes} from './components/kubectl/port-forward';
 import { Git } from './components/git/git';
 import { DebugSession } from './debug/debugSession';
 import { getDebugProviderOfType, getSupportedDebuggerTypes } from './debug/providerRegistry';
@@ -125,6 +126,7 @@ export async function activate(context) : Promise<extensionapi.ExtensionAPI> {
         registerCommand('extension.vsKubernetesUseNamespace', useNamespaceKubernetes),
         registerCommand('extension.vsKubernetesDashboard', dashboardKubernetes),
         registerCommand('extension.vsKubernetesCopy', copyKubernetes),
+        registerCommand('extension.vsKubernetesPortForward', portForwardKubernetes),
 
         // Commands - Helm
         registerCommand('extension.helmVersion', helmexec.helmVersion),
@@ -209,7 +211,7 @@ export async function activate(context) : Promise<extensionapi.ExtensionAPI> {
         context.subscriptions.push(element);
     }, this);
     await registerYamlSchemaSupport();
-    
+
     return {
         apiVersion: '0.1',
         clusterProviderRegistry: clusterProviderRegistry
@@ -632,7 +634,7 @@ function findVersionInternal(fn) {
     });
 }
 
-async function findAllPods() : Promise<FindPodsResult> {
+export async function findAllPods() : Promise<FindPodsResult> {
     return await findPodsCore('');
 }
 
@@ -668,7 +670,7 @@ async function findDebugPodsForApp() : Promise<FindPodsResult> {
     return await findPodsByLabel(`run=${appName}-debug`);
 }
 
-interface FindPodsResult {
+export interface FindPodsResult {
     readonly succeeded: boolean;
     readonly pods: any[];
 }
@@ -764,7 +766,7 @@ function buildPushThenExec(fn) {
     });
 }
 
-function tryFindKindNameFromEditor() : string {
+export function tryFindKindNameFromEditor() : string {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
         return null; // No open text editor
@@ -789,7 +791,7 @@ function findKindNameForText(text) {
     }
 }
 
-function findKindNameOrPrompt(resourceKinds : kuberesources.ResourceKind[], descriptionVerb, opts, handler) {
+export function findKindNameOrPrompt(resourceKinds : kuberesources.ResourceKind[], descriptionVerb, opts, handler) {
     let kindName = tryFindKindNameFromEditor();
     if (kindName === null) {
         promptKindName(resourceKinds, descriptionVerb, opts, handler);
@@ -921,7 +923,7 @@ enum PodSelectionScope {
 
 async function selectPod(scope: PodSelectionScope, fallback: PodSelectionFallback) : Promise<any | null> {
     const findPodsResult = scope === PodSelectionScope.App ? await findPodsForApp() : await findAllPods();
-    
+
     if (!findPodsResult.succeeded) {
         return null;
     }
@@ -1024,11 +1026,11 @@ async function selectContainerForPod(pod) : Promise<any | null> {
     }
 
     const containers : any[] = pod.spec.containers;
-    
+
     if (containers.length === 1) {
         return pod.spec.containers[0];
     }
-    
+
     const pickItems = containers.map((element) => { return {
         label: `${element.metadata.namespace}/${element.metadata.name}`,
         description: '',
@@ -1066,7 +1068,7 @@ async function execKubernetesCore(isTerminal) : Promise<void> {
     }
 
     const cmd = await vscode.window.showInputBox(opts);
-    
+
     if (!cmd || cmd.length === 0) {
         return;
     }
@@ -1107,7 +1109,7 @@ async function syncKubernetes() : Promise<void> {
     if (!container) {
         return;
     }
-    
+
     const pieces = container.image.split(':');
     if (pieces.length !== 2) {
         vscode.window.showErrorMessage(`Sync requires image tag to have a version which is a Git commit ID. Actual image tag was ${container.image}`);
