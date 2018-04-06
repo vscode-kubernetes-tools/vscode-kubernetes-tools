@@ -122,7 +122,7 @@ class KubernetesWorkloadFolder extends KubernetesFolder {
 
     getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<KubernetesObject[]> {
         return [
-            new KubernetesResourceFolder(kuberesources.allKinds.deployment),
+            new KubernetesDeploymentFolder(),
             new KubernetesResourceFolder(kuberesources.allKinds.job),
             new KubernetesResourceFolder(kuberesources.allKinds.pod)
         ];
@@ -211,5 +211,33 @@ class KubernetesNamespaceResource extends KubernetesResource {
             treeItem.contextValue += ".inactive";
         }
         return treeItem;
+    }
+}
+
+class KubernetesDeploymentFolder extends KubernetesResourceFolder {
+    constructor() {
+        super(kuberesources.allKinds.deployment);
+    }
+
+    async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
+        const deployments = await kubectlUtils.getDeployments(kubectl);
+        return deployments.map((dp) => new KubernetesDeploymentResource(this.kind, dp.name, dp));
+    }
+}
+
+class KubernetesDeploymentResource extends KubernetesResource {
+    constructor(readonly kind: kuberesources.ResourceKind, readonly id: string, readonly metadata?: any) {
+        super(kind, id, metadata);
+    }
+
+    getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
+        const treeItem = new vscode.TreeItem(this.id, vscode.TreeItemCollapsibleState.Collapsed);
+        treeItem.contextValue = `vsKubernetes.resource.${this.kind.abbreviation}`;
+        return treeItem;
+    }
+
+    async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
+        const pods = await kubectlUtils.getPods(kubectl, this.metadata.selector);
+        return pods.map((p) => new KubernetesResource(kuberesources.allKinds.pod, p.name, p));
     }
 }
