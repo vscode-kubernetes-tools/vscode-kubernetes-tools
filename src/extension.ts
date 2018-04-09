@@ -40,7 +40,7 @@ import { HelmTemplateCompletionProvider } from './helm.completionProvider';
 import { Reporter } from './telemetry';
 import * as telemetry from './telemetry-helper';
 import * as extensionapi from './extension.api';
-import {dashboardKubernetes} from './components/kubectl/proxy';
+import {dashboardKubernetes} from './components/kubectl/dashboard';
 import {portForwardKubernetes} from './components/kubectl/port-forward';
 import { Git } from './components/git/git';
 import { DebugSession } from './debug/debugSession';
