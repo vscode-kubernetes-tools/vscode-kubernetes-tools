@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 // Standard node imports
 import * as os from 'os';
 import * as path from 'path';
+import * as querystring from 'querystring';
 import { fs } from './fs';
 
 // External dependencies
@@ -211,6 +212,34 @@ export async function activate(context) : Promise<extensionapi.ExtensionAPI> {
         context.subscriptions.push(element);
     }, this);
     await registerYamlSchemaSupport();
+
+
+      const provider: vscode.TextDocumentContentProvider = <vscode.TextDocumentContentProvider>{
+        onDidChange: null,
+        provideTextDocumentContent: (uri: vscode.Uri, token: vscode.CancellationToken): Thenable<string | undefined> => {
+            if (uri.authority === 'loadkubernetescore') {
+                const value = querystring.parse(uri.query).value;
+                if (!value) {
+                    vscode.window.showErrorMessage(`Missing requirede value in uri: ${uri}`);
+                    return undefined;
+                }
+                return new Promise((resolve, reject) => {
+
+                    kubectl.invokeWithProgress(" -o json get " + value, `Loading ${value}...`, (result, stdout, stderr) => {
+                        if (result !== 0) {
+                            vscode.window.showErrorMessage('Get command failed: ' + stderr);
+                            reject(stderr);
+                            return;
+                        }
+                        resolve(stdout);
+                    });
+                });
+            }
+            vscode.window.showErrorMessage('Unrecognized operation: ' + uri.authority);
+
+        }
+    };
+    vscode.workspace.registerTextDocumentContentProvider('k8s', provider);
 
     return {
         apiVersion: '0.1',
@@ -557,26 +586,11 @@ function loadKubernetes(explorerNode? : explorer.ResourceNode) {
 }
 
 function loadKubernetesCore(value : string) {
-    kubectl.invokeWithProgress(" -o json get " + value, `Loading ${value}...`, (result, stdout, stderr) => {
-        if (result !== 0) {
-            vscode.window.showErrorMessage('Get command failed: ' + stderr);
-            return;
-        }
-
-        const filename = value.replace('/', '-');
-        const filepath = path.join(vscode.workspace.rootPath || "", filename + '.json');
-
-        vscode.workspace.openTextDocument(vscode.Uri.parse('untitled:' + filepath)).then((doc) => {
-            const start = new vscode.Position(0, 0),
-                end = new vscode.Position(0, 0),
-                range = new vscode.Range(start, end),
-                edit = new vscode.TextEdit(range, stdout),
-                wsEdit = new vscode.WorkspaceEdit();
-
-            wsEdit.set(doc.uri, [edit]);
-            vscode.workspace.applyEdit(wsEdit);
-            vscode.window.showTextDocument(doc);
-        });
+    // add timestamp to avoid showing the previous json always
+    vscode.workspace.openTextDocument(
+        vscode.Uri.parse('k8s://loadkubernetescore/' + value.replace('/', '-') + '.json?value=' + value
+            + '&_=' + new Date().getTime())).then((doc) => {
+        vscode.window.showTextDocument(doc);
     });
 }
 
