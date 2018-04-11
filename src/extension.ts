@@ -220,7 +220,7 @@ export async function activate(context) : Promise<extensionapi.ExtensionAPI> {
             if (uri.authority === 'loadkubernetescore') {
                 const value = querystring.parse(uri.query).value;
                 if (!value) {
-                    vscode.window.showErrorMessage(`Missing requirede value in uri: ${uri}`);
+                    vscode.window.showErrorMessage(`Missing required value in uri: ${uri}`);
                     return undefined;
                 }
                 return new Promise((resolve, reject) => {
