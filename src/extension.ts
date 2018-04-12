@@ -52,6 +52,7 @@ import * as clusterproviderregistry from './components/clusterprovider/clusterpr
 import * as azureclusterprovider from './components/clusterprovider/azure/azureclusterprovider';
 import { KubernetesCompletionProvider } from "./yaml-support/yaml-snippet";
 import { showWorkspaceFolderPick } from './hostutils';
+import { KubernetesDocumentProvider } from "./kube.documentProvider";
 
 
 let explainActive = false;
@@ -212,34 +213,7 @@ export async function activate(context) : Promise<extensionapi.ExtensionAPI> {
         context.subscriptions.push(element);
     }, this);
     await registerYamlSchemaSupport();
-
-
-      const provider: vscode.TextDocumentContentProvider = <vscode.TextDocumentContentProvider>{
-        onDidChange: null,
-        provideTextDocumentContent: (uri: vscode.Uri, token: vscode.CancellationToken): Thenable<string | undefined> => {
-            if (uri.authority === 'loadkubernetescore') {
-                const value = querystring.parse(uri.query).value;
-                if (!value) {
-                    vscode.window.showErrorMessage(`Missing required value in uri: ${uri}`);
-                    return undefined;
-                }
-                return new Promise((resolve, reject) => {
-
-                    kubectl.invokeWithProgress(" -o json get " + value, `Loading ${value}...`, (result, stdout, stderr) => {
-                        if (result !== 0) {
-                            vscode.window.showErrorMessage('Get command failed: ' + stderr);
-                            reject(stderr);
-                            return;
-                        }
-                        resolve(stdout);
-                    });
-                });
-            }
-            vscode.window.showErrorMessage('Unrecognized operation: ' + uri.authority);
-
-        }
-    };
-    vscode.workspace.registerTextDocumentContentProvider('k8s', provider);
+    vscode.workspace.registerTextDocumentContentProvider('k8s', new KubernetesDocumentProvider(kubectl));
 
     return {
         apiVersion: '0.1',
