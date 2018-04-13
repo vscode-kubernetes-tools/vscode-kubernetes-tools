@@ -28,6 +28,7 @@ import { kubeChannel } from './kubeChannel';
 import * as kubeconfig from './kubeconfig';
 import { create as kubectlCreate, Kubectl } from './kubectl';
 import * as kubectlUtils from './kubectlUtils';
+import { createKubernetesExplorerRegistry, KubernetesExplorerDataProviderRegistry} from './explorer.api';
 import * as explorer from './explorer';
 import { create as draftCreate, Draft } from './draft';
 import * as logger from './logger';
@@ -62,6 +63,7 @@ const configureFromClusterUI = configureFromCluster.uiProvider();
 const createClusterUI = createCluster.uiProvider();
 const clusterProviderRegistry = clusterproviderregistry.get();
 const git = new Git(shell);
+const explorerDataProviderRegistry = createKubernetesExplorerRegistry();
 
 const deleteMessageItems: vscode.MessageItem[] = [
     {
@@ -85,7 +87,7 @@ export const HELM_TPL_MODE: vscode.DocumentFilter = { language: "helm", scheme: 
 export async function activate(context) : Promise<extensionapi.ExtensionAPI> {
     kubectl.checkPresent('activation');
 
-    const treeProvider = explorer.create(kubectl, host);
+    const treeProvider = explorer.create(kubectl, host, explorerDataProviderRegistry);
     const previewProvider = new HelmTemplatePreviewDocumentProvider();
     const inspectProvider = new HelmInspectDocumentProvider();
     const completionProvider = new HelmTemplateCompletionProvider();
@@ -214,7 +216,8 @@ export async function activate(context) : Promise<extensionapi.ExtensionAPI> {
 
     return {
         apiVersion: '0.1',
-        clusterProviderRegistry: clusterProviderRegistry
+        clusterProviderRegistry: clusterProviderRegistry,
+        explorerDataProviderRegistry: explorerDataProviderRegistry
     };
 }
 

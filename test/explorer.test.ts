@@ -8,6 +8,7 @@ import * as fakes from './fakes';
 
 import { Host } from '../src/host';
 import { Shell, ShellResult } from '../src/shell';
+import { createKubernetesExplorerRegistry } from '../src/explorer.api';
 import * as kubeExplorer from '../src/explorer';
 import * as kuberesources from '../src/kuberesources';
 
@@ -19,7 +20,8 @@ interface FakeContext {
 function explorerCreateWithFakes(ctx : FakeContext) {
     return kubeExplorer.create(
         ctx.kubectl || fakes.kubectl(),
-        ctx.host || fakes.host()
+        ctx.host || fakes.host(),
+        createKubernetesExplorerRegistry()
     );
 }
 

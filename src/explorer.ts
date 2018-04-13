@@ -1,14 +1,15 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 
+import { KubernetesExplorerDataProviderRegistry } from './explorer.api';
 import * as shell from './shell';
 import { Kubectl } from './kubectl';
 import * as kubectlUtils from './kubectlUtils';
 import { Host } from './host';
 import * as kuberesources from './kuberesources';
 
-export function create(kubectl: Kubectl, host: Host): KubernetesExplorer {
-    return new KubernetesExplorer(kubectl, host);
+export function create(kubectl: Kubectl, host: Host, explorerRegistry: KubernetesExplorerDataProviderRegistry): KubernetesExplorer {
+    return new KubernetesExplorer(kubectl, host, explorerRegistry);
 }
 
 export function createKubernetesResourceFolder(kind: kuberesources.ResourceKind): KubernetesObject {
@@ -35,17 +36,27 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObj
     private _onDidChangeTreeData: vscode.EventEmitter<KubernetesObject | undefined> = new vscode.EventEmitter<KubernetesObject | undefined>();
     readonly onDidChangeTreeData: vscode.Event<KubernetesObject | undefined> = this._onDidChangeTreeData.event;
 
-    constructor(private readonly kubectl: Kubectl, private readonly host: Host) { }
+    constructor(private readonly kubectl: Kubectl, private readonly host: Host, private readonly explorerRegistry: KubernetesExplorerDataProviderRegistry) { }
 
     getTreeItem(element: KubernetesObject): vscode.TreeItem | Thenable<vscode.TreeItem> {
         return element.getTreeItem();
     }
 
-    getChildren(parent?: KubernetesObject): vscode.ProviderResult<KubernetesObject[]> {
+    async getChildren(parent?: KubernetesObject): Promise<KubernetesObject[]> {
+        let children = [];
         if (parent) {
-            return parent.getChildren(this.kubectl, this.host);
+            children = await parent.getChildren(this.kubectl, this.host);
+        } else {
+            children = await this.getClusters();
         }
-        return this.getClusters();
+        // Load the tree nodes mounted by the third-party extensions.
+        for (const provider of this.explorerRegistry.list()) {
+            const mounted = await provider.getChildren(parent);
+            if (mounted && mounted.length) {
+                children = children.concat(mounted);
+            }
+        }
+        return children;
     }
 
     refresh(): void {
