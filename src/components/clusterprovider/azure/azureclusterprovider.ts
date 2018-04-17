@@ -28,7 +28,7 @@ export async function init(registry: clusterproviderregistry.ClusterProviderRegi
         wizardPort = await portfinder.getPortPromise({ port: 44000 });
 
         const htmlServer = new HtmlServer(context);
-        
+
         wizardServer.use(restify.plugins.queryParser(), restify.plugins.bodyParser());
         wizardServer.listen(wizardPort, '127.0.0.1');
 
@@ -38,7 +38,7 @@ export async function init(registry: clusterproviderregistry.ClusterProviderRegi
         wizardServer.post('/create', (req, resp, n) => htmlServer.handlePostCreate(req, resp, n));
         wizardServer.get('/configure', (req, resp, n) => htmlServer.handleGetConfigure(req, resp, n));
         wizardServer.post('/configure', (req, resp, n) => htmlServer.handlePostConfigure(req, resp, n));
-    
+
         registry.register({id: 'acs', displayName: "Azure Container Service", port: wizardPort, supportedActions: ['create','configure']});
         registry.register({id: 'aks', displayName: "Azure Kubernetes Service", port: wizardPort, supportedActions: ['create','configure']});
     }
@@ -50,33 +50,33 @@ class HtmlServer {
     async handleGetCreate(request: restify.Request, response: restify.Response, next: restify.Next) {
         await this.handleCreate(request, { clusterType: request.query["clusterType"] }, response, next);
     }
-    
+
     async handlePostCreate(request: restify.Request, response: restify.Response, next: restify.Next) {
         await this.handleCreate(request, request.body, response, next);
     }
-    
+
     async handleGetConfigure(request: restify.Request, response: restify.Response, next: restify.Next) {
         await this.handleConfigure(request, { clusterType: request.query["clusterType"] }, response, next);
     }
-    
+
     async handlePostConfigure(request: restify.Request, response: restify.Response, next: restify.Next) {
         await this.handleConfigure(request, request.body, response, next);
     }
-    
+
     async handleCreate(request: restify.Request, requestData: any, response: restify.Response, next: restify.Next) : Promise<void> {
         await this.handleRequest(getHandleCreateHtml, request, requestData, response, next);
     }
-    
+
     async handleConfigure(request: restify.Request, requestData: any, response: restify.Response, next: restify.Next) : Promise<void> {
         await this.handleRequest(getHandleConfigureHtml, request, requestData, response, next);
     }
 
     async handleRequest(handler: HtmlRequestHandler, request: restify.Request, requestData: any, response: restify.Response, next: restify.Next) {
         const html = await handler(request.query["step"], this.context, requestData);
-    
+
         response.contentType = 'text/html';
         response.send("<html><body><style id='styleholder'></style>" + html + "</body></html>");
-        
+
         next();
     }
 }
@@ -299,7 +299,7 @@ async function createCluster(previousData: any, context: azure.Context) : Promis
         agentSettings: {
             count: previousData.agentcount,
             vmSize: previousData.agentvmsize
-            
+
         } };
     const createResult = await azure.createCluster(context, options);
 
@@ -369,6 +369,8 @@ async function waitForClusterAndReportConfigResult(previousData: any, context: a
 function renderConfigurationResult(configureResult: ActionResult<azure.ConfigureResult>) : string {
     const title = configureResult.result.succeeded ? 'Cluster added' : `Error ${configureResult.actionDescription}`;
     const configResult = configureResult.result.result;
+    const clusterServiceString = configureResult.result.result.clusterType === "aks" ? "Azure Kubernetes Service" : "Azure Container Service";
+
     const pathMessage = configResult.cliOnDefaultPath ? '' :
         '<p>This location is not on your system PATH. Add this directory to your path, or set the VS Code <b>vs-kubernetes.kubectl-path</b> config setting.</p>';
     const getCliOutput = configResult.gotCli ?
@@ -377,8 +379,8 @@ function renderConfigurationResult(configureResult: ActionResult<azure.Configure
          <p><b>Details</b></p>
          <p>${configResult.cliError}</p>`;
     const getCredsOutput = configResult.gotCredentials ?
-        `<p class='success'>Successfully configured kubectl with Azure Container Service cluster credentials.</p>` :
-        `<p class='error'>An error occurred while getting Azure Container Service cluster credentials.</p>
+        `<p class='success'>Successfully configured kubectl with ${clusterServiceString} cluster credentials.</p>` :
+        `<p class='error'>An error occurred while getting ${clusterServiceString} cluster credentials.</p>
          <p><b>Details</b></p>
          <p>${configResult.credentialsError}</p>`;
     return `<!-- Complete -->
