@@ -15,9 +15,9 @@ export interface Namespace {
     readonly active: boolean;
 }
 
-export interface Deployment {
+export interface PodSelector {
     readonly name: string;
-    readonly labels: object;
+    readonly selector: object;
 }
 
 export interface Pod {
@@ -110,10 +110,18 @@ export async function getNamespaces(kubectl: Kubectl): Promise<Namespace[]> {
     });
 }
 
-export async function getDeployments(kubectl: Kubectl): Promise<Deployment[]> {
+export async function getServices(kubectl: Kubectl): Promise<PodSelector[]> {
+    return getPodSelector('services', kubectl);
+}
+
+export async function getDeployments(kubectl: Kubectl): Promise<PodSelector[]> {
+    return getPodSelector('deployments', kubectl);
+}
+
+export async function getPodSelector(resource: string, kubectl: Kubectl): Promise<PodSelector[]> {
     const currentNS = await currentNamespace(kubectl);
 
-    const shellResult = await kubectl.invokeAsync(`get deployments -o json --namespace=${currentNS}`);
+    const shellResult = await kubectl.invokeAsync(`get ${resource} -o json --namespace=${currentNS}`);
     if (shellResult.code !== 0) {
         vscode.window.showErrorMessage(shellResult.stderr);
         return [];
@@ -131,9 +139,13 @@ export async function getPods(kubectl: Kubectl, selector: any): Promise<Pod[]> {
     const currentNS = await currentNamespace(kubectl);
 
     const labels = [];
+    let matchLabelObj = selector;
     if (selector.matchLabels) {
-        Object.keys(selector.matchLabels).forEach((key) => {
-            labels.push(key + "=" + selector.matchLabels[key]);
+        matchLabelObj = selector.matchLabels;
+    }
+    if (matchLabelObj) {
+        Object.keys(matchLabelObj).forEach((key) => {
+            labels.push(key + "=" + matchLabelObj[key]);
         });
     }
     let labelStr = "";
