@@ -136,8 +136,8 @@ class KubernetesConfigFolder extends KubernetesFolder {
 
     getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<KubernetesObject[]> {
         return [
-            new KubernetesResourceFolder(kuberesources.allKinds.configMap),
-            new KubernetesResourceFolder(kuberesources.allKinds.secret)
+            new KubernetesDataHolderFolder('configmaps', kuberesources.allKinds.configMap),
+            new KubernetesDataHolderFolder('secrets', kuberesources.allKinds.secret)
         ];
     }
 }
@@ -252,5 +252,64 @@ class KubernetesSelectorResource extends KubernetesResource {
     async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
         const pods = await kubectlUtils.getPods(kubectl, this.selector);
         return pods.map((p) => new KubernetesResource(kuberesources.allKinds.pod, p.name, p));
+    }
+}
+
+class KubernetesDataHolderFolder extends KubernetesResourceFolder {
+    readonly resource: string;
+    constructor(resource: string, kind: kuberesources.ResourceKind) {
+        super(kind);
+        this.resource = resource;
+    }
+
+    async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
+        const namespaces = await kubectlUtils.getDataHolders(this.resource, kubectl);
+        return namespaces.map((cm) => new KubernetesDataHolderResource(this.kind, cm.metadata.name, cm, cm.data));
+    }
+}
+
+class KubernetesDataHolderResource extends KubernetesResource {
+    readonly configData: any;
+
+    constructor(readonly kind: kuberesources.ResourceKind, readonly id: string, readonly metadata?: any, readonly data?: any) {
+        super(kind, id, metadata);
+        this.configData = data;
+    }
+
+    async getTreeItem(): Promise<vscode.TreeItem> {
+        const treeItem = await super.getTreeItem();
+        treeItem.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
+        return treeItem;
+    }
+
+    async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
+        let files = Object.keys(this.configData);
+        let resource = "";
+        if (this.kind == kuberesources.allKinds.secret) {
+            resource = "secrets";
+        } else {
+            resource = "configmaps";
+        }
+        return files.map((f) => new KubernetesFileObject(this.configData, f, resource, this.id));
+    }
+}
+
+export class KubernetesFileObject implements KubernetesObject {
+    constructor(readonly configData: any, readonly id: string, readonly resource: string, readonly parentName: string) {
+    }
+
+    getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
+        let treeItem = new vscode.TreeItem(this.id, vscode.TreeItemCollapsibleState.None);
+        treeItem.command = {
+            command: "extension.vsKubernetesLoadConfigMapData",
+            title: "Load",
+            arguments: [this]
+        };
+        treeItem.contextValue = `vsKubernetes.file`;
+        return treeItem;
+    }
+
+    getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<KubernetesObject[]> {
+        return [];
     }
 }
