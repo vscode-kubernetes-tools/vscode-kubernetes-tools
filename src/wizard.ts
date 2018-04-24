@@ -15,6 +15,9 @@ export function selectionChangedScript(commandName: string, operationId: string)
     const js = `
 function selectionChanged() {
     var selectCtrl = document.getElementById('selector');
+    if (!selectCtrl.options[selectCtrl.selectedIndex]) {
+        return;
+    }
     var selection = selectCtrl.options[selectCtrl.selectedIndex].value;
     var request = '{"operationId":"${operationId}","requestData":"' + selection + '"}';
     document.getElementById('nextlink').href = encodeURI('command:extension.${commandName}?' + request);

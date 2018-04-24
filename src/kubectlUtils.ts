@@ -15,6 +15,15 @@ export interface Namespace {
     readonly active: boolean;
 }
 
+export interface Deployment {
+    readonly name: string;
+    readonly labels: object;
+}
+
+export interface Pod {
+    readonly name: string;
+}
+
 export interface ClusterConfig {
     readonly server: string;
     readonly certificateAuthority: string;
@@ -97,6 +106,50 @@ export async function getNamespaces(kubectl: Kubectl): Promise<Namespace[]> {
         return {
             name: item.metadata.name,
             active: item.metadata.name === currentNS
+        };
+    });
+}
+
+export async function getDeployments(kubectl: Kubectl): Promise<Deployment[]> {
+    const currentNS = await currentNamespace(kubectl);
+
+    const shellResult = await kubectl.invokeAsync(`get deployments -o json --namespace=${currentNS}`);
+    if (shellResult.code !== 0) {
+        vscode.window.showErrorMessage(shellResult.stderr);
+        return [];
+    }
+    const depList = JSON.parse(shellResult.stdout);
+    return depList.items.map((item) => {
+        return {
+            name: item.metadata.name,
+            selector: item.spec.selector
+        };
+    });
+}
+
+export async function getPods(kubectl: Kubectl, selector: any): Promise<Pod[]> {
+    const currentNS = await currentNamespace(kubectl);
+
+    const labels = [];
+    if (selector.matchLabels) {
+        Object.keys(selector.matchLabels).forEach((key) => {
+            labels.push(key + "=" + selector.matchLabels[key]);
+        });
+    }
+    let labelStr = "";
+    if (labels.length > 0) {
+        labelStr = "--selector=" + labels.join(",");
+    }
+
+    const shellResult = await kubectl.invokeAsync(`get pods -o json --namespace=${currentNS} ${labelStr}`);
+    if (shellResult.code !== 0) {
+        vscode.window.showErrorMessage(shellResult.stderr);
+        return [];
+    }
+    const pods = JSON.parse(shellResult.stdout);
+    return pods.items.map((item) => {
+        return {
+            name: item.metadata.name
         };
     });
 }
