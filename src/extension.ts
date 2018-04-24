@@ -211,10 +211,26 @@ export async function activate(context) : Promise<extensionapi.ExtensionAPI> {
             // TODO - maybe check to see if `draft.toml` is present in the workspace
             // TODO - check to make sure we enable this only when Draft is installed
             if (session != undefined) {
-                draftDebugSession.customRequest('evaluate', {draftUp: ''});
+                draftDebugSession.customRequest('evaluate', { restart: true });
             }
         }
-	});
+    });
+    
+    vscode.debug.onDidTerminateDebugSession((e) => {
+
+        // if there is an active Draft debugging session, restart the cycle
+        if (draftDebugSession != undefined) {
+            const session = vscode.debug.activeDebugSession;
+
+            // TODO - how do we make sure this doesn't affect all other debugging sessions?
+            // TODO - maybe check to see if `draft.toml` is present in the workspace
+            // TODO - check to make sure we enable this only when Draft is installed
+            if (session != undefined) {
+                draftDebugSession.customRequest('evaluate', { stop: true });
+            }
+        }
+    });
+
     // On editor change, refresh the Helm YAML preview
     vscode.window.onDidChangeActiveTextEditor((e: vscode.TextEditor) => {
         if (!editorIsActive()) {

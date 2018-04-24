@@ -39,16 +39,23 @@ export class DraftDebugSession extends LoggingDebugSession {
 
         //start a `draft up` and `draft connect` session and attach debugger
         this._runtime.draftUpDebug(this.config);
-        
+
         this.sendResponse(response);
     }
 
     protected evaluateRequest(response: DebugProtocol.EvaluateResponse, args: DebugProtocol.EvaluateArguments): void {
-        // TODO - check for request type
-        //
-        // when a request is received (such as a file was saved), restart the Draft cycle
-        this._runtime.killConnect();
-        this._runtime.draftUpDebug(this.config);
+        if (args['restart'] == true) {
+            // TODO - check for request type
+            //
+            // when a request is received (such as a file was saved), restart the Draft cycle
+            this._runtime.killConnect();
+            this._runtime.draftUpDebug(this.config);
+        }
+
+        if (args['stop'] == true) {
+            this._runtime.killConnect();
+            this.stop();
+        }
 
         this.sendResponse(response);
     }
