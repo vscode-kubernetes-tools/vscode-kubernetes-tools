@@ -964,7 +964,7 @@ function getLogs(pod) {
 
 function getLogsCore(podName : string, podNamespace? : string) {
     // TODO: Support multiple containers here!
-    let cmd = ' logs ' + podName;
+    let cmd = 'logs ' + podName;
     if (podNamespace && podNamespace.length > 0) {
         cmd += ' --namespace=' + podNamespace;
     }
