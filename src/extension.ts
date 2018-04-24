@@ -18,6 +18,7 @@ import * as clipboard from 'clipboardy';
 
 // Internal dependencies
 import { host } from './host';
+import { loadConfigMapData } from './configMap'
 import * as explainer from './explainer';
 import { shell, Shell, ShellResult } from './shell';
 import * as configmaps from './configMap';
