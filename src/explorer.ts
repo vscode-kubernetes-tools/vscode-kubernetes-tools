@@ -84,7 +84,7 @@ class KubernetesCluster implements KubernetesObject {
             new KubernetesNamespaceFolder(),
             new KubernetesResourceFolder(kuberesources.allKinds.node),
             new KubernetesWorkloadFolder(),
-            new KubernetesResourceFolder(kuberesources.allKinds.service),
+            new KubernetesServiceFolder(),
             new KubernetesResourceFolder(kuberesources.allKinds.ingress),
             new KubernetesConfigFolder()
         ];
@@ -214,6 +214,17 @@ class KubernetesNamespaceResource extends KubernetesResource {
     }
 }
 
+class KubernetesServiceFolder extends KubernetesResourceFolder {
+    constructor() {
+        super(kuberesources.allKinds.service);
+    }
+
+    async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
+        const services = await kubectlUtils.getServices(kubectl);
+        return services.map((svc) => new KubernetesSelectorResource(this.kind, svc.name, svc, svc.selector));
+    }
+}
+
 class KubernetesDeploymentFolder extends KubernetesResourceFolder {
     constructor() {
         super(kuberesources.allKinds.deployment);
@@ -221,23 +232,25 @@ class KubernetesDeploymentFolder extends KubernetesResourceFolder {
 
     async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
         const deployments = await kubectlUtils.getDeployments(kubectl);
-        return deployments.map((dp) => new KubernetesDeploymentResource(this.kind, dp.name, dp));
+        return deployments.map((dp) => new KubernetesSelectorResource(this.kind, dp.name, dp, dp.selector));
     }
 }
 
-class KubernetesDeploymentResource extends KubernetesResource {
-    constructor(readonly kind: kuberesources.ResourceKind, readonly id: string, readonly metadata?: any) {
+class KubernetesSelectorResource extends KubernetesResource {
+    readonly selector?: any;
+    constructor(readonly kind: kuberesources.ResourceKind, readonly id: string, readonly metadata?: any, readonly labelSelector?: any) {
         super(kind, id, metadata);
+        this.selector = labelSelector;
     }
 
-    getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
-        const treeItem = new vscode.TreeItem(this.id, vscode.TreeItemCollapsibleState.Collapsed);
-        treeItem.contextValue = `vsKubernetes.resource.${this.kind.abbreviation}`;
+    async getTreeItem(): Promise<vscode.TreeItem> {
+        const treeItem = await super.getTreeItem();
+        treeItem.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
         return treeItem;
     }
 
     async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
-        const pods = await kubectlUtils.getPods(kubectl, this.metadata.selector);
+        const pods = await kubectlUtils.getPods(kubectl, this.selector);
         return pods.map((p) => new KubernetesResource(kuberesources.allKinds.pod, p.name, p));
     }
 }
