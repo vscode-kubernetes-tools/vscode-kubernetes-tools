@@ -18,7 +18,7 @@ import * as clipboard from 'clipboardy';
 
 // Internal dependencies
 import { host } from './host';
-import { loadConfigMapData } from './configMap'
+import { loadConfigMapData, deleteKubernetesConfigFile } from './configMap';
 import * as explainer from './explainer';
 import { shell, Shell, ShellResult } from './shell';
 import * as configmaps from './configMap';
@@ -137,6 +137,7 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
         registerCommand('extension.vsKubernetesCopy', copyKubernetes),
         registerCommand('extension.vsKubernetesPortForward', portForwardKubernetes),
         registerCommand('extension.vsKubernetesLoadConfigMapData', configmaps.loadConfigMapData),
+        registerCommand('extension.vsKubernetesDeleteFile', (obj) => { deleteKubernetesConfigFile(kubectl, obj, treeProvider); }),
 
         // Commands - Helm
         registerCommand('extension.helmVersion', helmexec.helmVersion),

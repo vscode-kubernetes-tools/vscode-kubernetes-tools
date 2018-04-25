@@ -18,8 +18,8 @@ export interface Shell {
     combinePath(basePath: string, relativePath: string);
     fileUri(filePath): vscode.Uri;
     execOpts(): any;
-    exec(cmd: string): Promise<ShellResult>;
-    execCore(cmd: string, opts: any): Promise<ShellResult>;
+    exec(cmd: string, stdin?: string): Promise<ShellResult>;
+    execCore(cmd: string, opts: any, stdin?: string): Promise<ShellResult>;
 }
 
 export const shell: Shell = {
@@ -31,7 +31,7 @@ export const shell: Shell = {
     fileUri : fileUri,
     execOpts : execOpts,
     exec : exec,
-    execCore : execCore
+    execCore : execCore,
 };
 
 const WINDOWS: string = 'win32';
@@ -95,17 +95,20 @@ function execOpts(): any {
     return opts;
 }
 
-async function exec(cmd: string): Promise<ShellResult> {
+async function exec(cmd: string, stdin?: string): Promise<ShellResult> {
     try {
-        return await execCore(cmd, execOpts());
+        return await execCore(cmd, execOpts(), stdin);
     } catch (ex) {
         vscode.window.showErrorMessage(ex);
     }
 }
 
-function execCore(cmd: string, opts: any): Promise<ShellResult> {
+function execCore(cmd: string, opts: any, stdin?: string): Promise<ShellResult> {
     return new Promise<ShellResult>((resolve, reject) => {
-        shelljs.exec(cmd, opts, (code, stdout, stderr) => resolve({code : code, stdout : stdout, stderr : stderr}));
+        let proc = shelljs.exec(cmd, opts, (code, stdout, stderr) => resolve({code : code, stdout : stdout, stderr : stderr}));
+        if (stdin) {
+            proc.stdin.end(stdin);
+        }
     });
 }
 

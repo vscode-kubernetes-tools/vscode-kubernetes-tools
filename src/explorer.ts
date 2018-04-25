@@ -256,10 +256,8 @@ class KubernetesSelectorResource extends KubernetesResource {
 }
 
 class KubernetesDataHolderFolder extends KubernetesResourceFolder {
-    readonly resource: string;
-    constructor(resource: string, kind: kuberesources.ResourceKind) {
+    constructor(readonly resource: string, kind: kuberesources.ResourceKind) {
         super(kind);
-        this.resource = resource;
     }
 
     async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
@@ -288,7 +286,7 @@ class KubernetesDataHolderResource extends KubernetesResource {
         }
         let files = Object.keys(this.configData);
         let resource = "";
-        if (this.kind == kuberesources.allKinds.secret) {
+        if (this.kind === kuberesources.allKinds.secret) {
             resource = "secrets";
         } else {
             resource = "configmaps";
