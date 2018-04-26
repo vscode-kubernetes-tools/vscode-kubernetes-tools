@@ -38,10 +38,10 @@ export class DraftRuntime extends EventEmitter {
 		}
 
 		// //wait for `draft up` to finish
-		await waitForProcessToExit(createProcess('draft', ['up'], output));
+		await waitForProcessToExit(await this.createDraftProcess(['up'], output));
 
 		// wait for `draft connect` to be ready
-		this._connectProccess = createProcess('draft', ['connect'], output);
+		this._connectProccess = await this.createDraftProcess(['connect'], output);
 		await waitConnectionReady(this._connectProccess, config);
 
 		host.showInformationMessage(`attaching debugger`);
@@ -51,6 +51,11 @@ export class DraftRuntime extends EventEmitter {
 			this.killConnect();
 			output.dispose();
 		});
+	}
+
+	private async createDraftProcess(args: string[], output: OutputChannel): Promise<ChildProcess> {
+		const cmd = await this._draft.path();
+		return createProcess(cmd, args, output);
 	}
 }
 
