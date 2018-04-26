@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 // Standard node imports
 import * as os from 'os';
 import * as path from 'path';
+import * as querystring from 'querystring';
 import { fs } from './fs';
 
 // External dependencies
@@ -52,6 +53,7 @@ import * as clusterproviderregistry from './components/clusterprovider/clusterpr
 import * as azureclusterprovider from './components/clusterprovider/azure/azureclusterprovider';
 import { KubernetesCompletionProvider } from "./yaml-support/yaml-snippet";
 import { showWorkspaceFolderPick } from './hostutils';
+import { KubernetesDocumentProvider } from "./kube.documentProvider";
 
 
 let explainActive = false;
@@ -213,6 +215,7 @@ export async function activate(context) : Promise<extensionapi.ExtensionAPI> {
         context.subscriptions.push(element);
     }, this);
     await registerYamlSchemaSupport();
+    vscode.workspace.registerTextDocumentContentProvider('k8s', new KubernetesDocumentProvider(kubectl));
 
     return {
         apiVersion: '0.1',
@@ -560,26 +563,11 @@ function loadKubernetes(explorerNode? : explorer.ResourceNode) {
 }
 
 function loadKubernetesCore(value : string) {
-    kubectl.invokeWithProgress(" -o json get " + value, `Loading ${value}...`, (result, stdout, stderr) => {
-        if (result !== 0) {
-            vscode.window.showErrorMessage('Get command failed: ' + stderr);
-            return;
-        }
-
-        const filename = value.replace('/', '-');
-        const filepath = path.join(vscode.workspace.rootPath || "", filename + '.json');
-
-        vscode.workspace.openTextDocument(vscode.Uri.parse('untitled:' + filepath)).then((doc) => {
-            const start = new vscode.Position(0, 0),
-                end = new vscode.Position(0, 0),
-                range = new vscode.Range(start, end),
-                edit = new vscode.TextEdit(range, stdout),
-                wsEdit = new vscode.WorkspaceEdit();
-
-            wsEdit.set(doc.uri, [edit]);
-            vscode.workspace.applyEdit(wsEdit);
-            vscode.window.showTextDocument(doc);
-        });
+    // add timestamp to avoid showing the previous json always
+    vscode.workspace.openTextDocument(
+        vscode.Uri.parse('k8s://loadkubernetescore/' + value.replace('/', '-') + '.json?value=' + value
+            + '&_=' + new Date().getTime())).then((doc) => {
+        vscode.window.showTextDocument(doc);
     });
 }
 
@@ -979,7 +967,7 @@ function getLogs(pod) {
 
 function getLogsCore(podName : string, podNamespace? : string) {
     // TODO: Support multiple containers here!
-    let cmd = ' logs ' + podName;
+    let cmd = 'logs ' + podName;
     if (podNamespace && podNamespace.length > 0) {
         cmd += ' --namespace=' + podNamespace;
     }

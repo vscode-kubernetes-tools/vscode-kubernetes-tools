@@ -15,6 +15,15 @@ export interface Namespace {
     readonly active: boolean;
 }
 
+export interface PodSelector {
+    readonly name: string;
+    readonly selector: object;
+}
+
+export interface Pod {
+    readonly name: string;
+}
+
 export interface ClusterConfig {
     readonly server: string;
     readonly certificateAuthority: string;
@@ -97,6 +106,62 @@ export async function getNamespaces(kubectl: Kubectl): Promise<Namespace[]> {
         return {
             name: item.metadata.name,
             active: item.metadata.name === currentNS
+        };
+    });
+}
+
+export async function getServices(kubectl: Kubectl): Promise<PodSelector[]> {
+    return getPodSelector('services', kubectl);
+}
+
+export async function getDeployments(kubectl: Kubectl): Promise<PodSelector[]> {
+    return getPodSelector('deployments', kubectl);
+}
+
+export async function getPodSelector(resource: string, kubectl: Kubectl): Promise<PodSelector[]> {
+    const currentNS = await currentNamespace(kubectl);
+
+    const shellResult = await kubectl.invokeAsync(`get ${resource} -o json --namespace=${currentNS}`);
+    if (shellResult.code !== 0) {
+        vscode.window.showErrorMessage(shellResult.stderr);
+        return [];
+    }
+    const depList = JSON.parse(shellResult.stdout);
+    return depList.items.map((item) => {
+        return {
+            name: item.metadata.name,
+            selector: item.spec.selector
+        };
+    });
+}
+
+export async function getPods(kubectl: Kubectl, selector: any): Promise<Pod[]> {
+    const currentNS = await currentNamespace(kubectl);
+
+    const labels = [];
+    let matchLabelObj = selector;
+    if (selector.matchLabels) {
+        matchLabelObj = selector.matchLabels;
+    }
+    if (matchLabelObj) {
+        Object.keys(matchLabelObj).forEach((key) => {
+            labels.push(key + "=" + matchLabelObj[key]);
+        });
+    }
+    let labelStr = "";
+    if (labels.length > 0) {
+        labelStr = "--selector=" + labels.join(",");
+    }
+
+    const shellResult = await kubectl.invokeAsync(`get pods -o json --namespace=${currentNS} ${labelStr}`);
+    if (shellResult.code !== 0) {
+        vscode.window.showErrorMessage(shellResult.stderr);
+        return [];
+    }
+    const pods = JSON.parse(shellResult.stdout);
+    return pods.items.map((item) => {
+        return {
+            name: item.metadata.name
         };
     });
 }

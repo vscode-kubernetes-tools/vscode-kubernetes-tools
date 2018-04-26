@@ -31,6 +31,7 @@ export interface ClusterInfo {
 }
 
 export interface ConfigureResult {
+    readonly clusterType: string;
     readonly gotCli: boolean;
     readonly cliInstallFile: string;
     readonly cliOnDefaultPath: boolean;
@@ -65,7 +66,7 @@ export async function getSubscriptionList(context: Context, forCommand: string) 
 
 async function verifyPrerequisitesAsync(context: Context, forCommand: string) : Promise<string[]> {
     const errors = new Array<string>();
-    
+
     const azVersion = await azureCliVersion(context);
     if (azVersion === null) {
         errors.push('Azure CLI 2.0 not found - install Azure CLI 2.0 and log in');
@@ -178,7 +179,7 @@ export async function listAcsLocations(context: Context) : Promise<Errorable<Ser
     const locations = locationInfo.result;
 
     const sr = await context.shell.exec(`az acs list-locations -ojson`);
-    
+
     return fromShellJson<ServiceLocation[]>(sr, (response) =>
         locationDisplayNamesEx(response.productionRegions, response.previewRegions, locations));
 }
@@ -209,7 +210,7 @@ function locationDisplayNamesEx(production: string[], preview: string[], locatio
 
 export async function listVMSizes(context: Context, location: string) : Promise<Errorable<string[]>> {
     const sr = await context.shell.exec(`az vm list-sizes -l "${location}" -ojson`);
-    
+
     return fromShellJson<string[]>(sr,
         (response : any[]) => response.map((r) => r.name as string)
                                       .filter((name) => !name.startsWith('Basic_'))
@@ -218,7 +219,7 @@ export async function listVMSizes(context: Context, location: string) : Promise<
 
 async function resourceGroupExists(context: Context, resourceGroupName: string) : Promise<boolean> {
     const sr = await context.shell.exec(`az group show -n "${resourceGroupName}" -ojson`);
-    
+
     if (sr.code === 0 && !sr.stderr) {
         return sr.stdout !== null && sr.stdout.length > 0;
     } else {
@@ -244,7 +245,7 @@ async function execCreateClusterCmd(context: Context, options: any) : Promise<Er
     } else {
         createCmd = createCmd + `--node-count ${options.agentSettings.count} --node-vm-size "${options.agentSettings.vmSize}"`;
     }
-    
+
     const sr = await context.shell.exec(createCmd);
 
     return fromShellExitCodeOnly(sr);
@@ -298,6 +299,7 @@ export async function configureCluster(context: Context, clusterType: string, cl
     const [cliResult, credsResult] = await Promise.all([downloadKubectlCliPromise, getCredentialsPromise]);
 
     const result = {
+        clusterType: clusterType,
         gotCli: cliResult.succeeded,
         cliInstallFile: cliResult.installFile,
         cliOnDefaultPath: cliResult.onDefaultPath,
@@ -305,7 +307,7 @@ export async function configureCluster(context: Context, clusterType: string, cl
         gotCredentials: credsResult.succeeded,
         credentialsError: credsResult.error
     };
-    
+
     return {
         actionDescription: 'configuring Kubernetes',
         result: { succeeded: cliResult.succeeded && credsResult.succeeded, result: result, error: [] }  // TODO: this ends up not fitting our structure very well - fix?
