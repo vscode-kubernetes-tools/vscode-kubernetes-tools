@@ -261,7 +261,6 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
         context.subscriptions.push(element);
     }, this);
     await registerYamlSchemaSupport();
-    vscode.workspace.registerTextDocumentContentProvider('k8s', new KubernetesDocumentProvider(kubectl));
     vscode.workspace.registerTextDocumentContentProvider(configmaps.uriScheme, configMapProvider);
     return {
         apiVersion: '0.1',

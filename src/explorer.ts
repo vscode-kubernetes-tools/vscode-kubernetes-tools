@@ -283,6 +283,9 @@ class KubernetesDataHolderResource extends KubernetesResource {
     }
 
     async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
+        if (!this.configData || this.configData.length == 0) {
+            return [];
+        }
         let files = Object.keys(this.configData);
         let resource = "";
         if (this.kind == kuberesources.allKinds.secret) {
