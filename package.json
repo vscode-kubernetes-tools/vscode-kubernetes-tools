@@ -58,7 +58,8 @@
         "onCommand:extension.draftUp",
         "onView:extension.vsKubernetesExplorer",
         "onLanguage:helm",
-        "onLanguage:yaml"
+        "onLanguage:yaml",
+        "onDebug"
     ],
     "main": "./out/src/extension",
     "contributes": {
@@ -554,6 +555,96 @@
                 "language": "helm",
                 "path": "./snippets/helm.json"
             }
+        ],
+        "debuggers": [
+            {
+                "type": "draft",
+                "label": "Draft Debug",
+                "program": "./out/src/draft/debugAdapter.js",
+                "runtime": "node",
+                "configurationAttributes": {
+                    "launch": {
+                        "required": [
+                            "type",
+                            "name",
+                            "original-debug"
+                        ],
+                        "properties": {
+                            "type": {
+                                "type": "string",
+                                "description": "The type of launch configuration",
+                                "default": "draft"
+                            },
+                            "name": {
+                                "type": "string",
+                                "description": "The name of the debug configuration",
+                                "default": "Draft debug"
+                            },
+                            "original-debug": {
+                                "type": "object",
+                                "description": "Actual debug configuration VS Code will launch after app is deployed.",
+                                "default": {
+                                    "type": "node",
+                                    "request": "attach",
+                                    "name": "Attach to remote",
+                                    "address": "localhost",
+                                    "port": 9229,
+                                    "remoteRoot": "/usr/src/app/"
+                                }
+                            }
+                        }
+                    }
+                },
+                "initialConfigurations": [
+                    {
+                        "type": "draft",
+                        "request": "launch",
+                        "name": "Draft Debug",
+                        "original-debug": {}
+                    }
+                ],
+                "configurationSnippets": [
+                    {
+                        "label": "Draft Debug: NodeJS",
+                        "description": "Configuration for debugging NodeJS apps on Kubernetes using Draft",
+                        "body": {
+                            "type": "draft",
+                            "request": "launch",
+                            "name": "Draft Debug",
+                            "original-debug": {
+                                "type": "node",
+                                "request": "attach",
+                                "name": "Attach to remote",
+                                "address": "localhost",
+                                "port": 9229,
+                                "remoteRoot": "/usr/src/app/"
+                            }
+                        }
+                    },
+                    {
+                        "label": "Draft Debug: Golang",
+                        "description": "Configuration for debugging Golang apps on Kubernetes, using Draft",
+                        "body": {
+                            "type": "draft",
+                            "request": "launch",
+                            "name": "Draft Debug",
+                            "original-debug": {
+                                "name": "Kubernetes remote debugging",
+                                "type": "go",
+                                "request": "launch",
+                                "mode": "remote",
+                                "remotePath": "/go/src/app",
+                                "port": 2345,
+                                "host": "127.0.0.1",
+                                "program": "${workspaceRoot}",
+                                "env": {},
+                                "args": []
+                            }
+                        }
+                    }
+                ],
+                "extensions": []
+            }
         ]
     },
     "scripts": {
@@ -568,6 +659,8 @@
     ],
     "dependencies": {
         "@types/restify": "^5.0.7",
+        "@types/shelljs": "^0.7.8",
+        "await-notify": "^1.0.1",
         "clipboardy": "^1.2.3",
         "compare-versions": "^3.1.0",
         "docker-file-parser": "^1.0.3",
@@ -584,6 +677,8 @@
         "shelljs": "^0.7.7",
         "tmp": "^0.0.31",
         "uuid": "^3.1.0",
+        "vscode-debugadapter": "1.27.0",
+        "vscode-debugprotocol": "1.27.0",
         "vscode-extension-telemetry": "^0.0.6",
         "vscode-uri": "^1.0.1",
         "yamljs": "0.2.10"
