@@ -5,11 +5,17 @@ import { helm as logger } from './logger';
 import * as YAML from 'yamljs';
 import * as _ from 'lodash';
 import * as fs from "fs";
+import * as extension from './extension';
 import * as helm from './helm';
 import { showWorkspaceFolderPick } from './hostutils';
 
 export interface PickChartUIOptions {
     readonly warnIfNoCharts : boolean;
+}
+
+export enum EnsureMode {
+    Alert,
+    Silent,
 }
 
 // This file contains utilities for executing command line tools, notably Helm.
@@ -53,7 +59,7 @@ export function helmTemplatePreview() {
         return;
     }
 
-    if (!ensureHelm()) {
+    if (!ensureHelm(EnsureMode.Alert)) {
         return;
     }
 
@@ -115,7 +121,7 @@ export function helmInspectValues(u: vscode.Uri) {
         vscode.window.showErrorMessage("Helm Inspect Values is primarily for inspecting packaged charts and directories. Launch the command from a file or directory in the Explorer pane.");
         return;
     }
-    if (!ensureHelm()) {
+    if (!ensureHelm(EnsureMode.Alert)) {
         return;
     }
     let uri = vscode.Uri.parse("helm-inspect-values://" + u.fsPath);
@@ -238,20 +244,45 @@ export function pickChartForFile(file: string, options: PickChartUIOptions, fn) 
 // fn should take the signature function(code, stdout, stderr)
 //
 // This will abort and send an error message if Helm is not installed.
+
 export function helmExec(args: string, fn) {
-    if (!ensureHelm()) {
+    if (!ensureHelm(EnsureMode.Alert)) {
         return;
     }
-    let cmd = "helm " + args;
+    const configuredBin : string | undefined = vscode.workspace.getConfiguration('vs-kubernetes')['vs-kubernetes.helm-path'];
+    const bin = configuredBin ? `"${configuredBin}"` : "helm";
+    const cmd = bin + " " + args;
     shell.exec(cmd, fn);
 }
 
-export function ensureHelm() {
-    if (!shell.which("helm")) {
-        vscode.window.showErrorMessage("You must install Helm on your executable path");
+export function ensureHelm(mode: EnsureMode) {
+    const configuredBin : string | undefined = vscode.workspace.getConfiguration('vs-kubernetes')['vs-kubernetes.helm-path'];
+    if (configuredBin) {
+        if (fs.existsSync(configuredBin)) {
+            return true;
+        }
+        if (mode === EnsureMode.Alert) {
+            vscode.window.showErrorMessage(`${configuredBin} does not exist!`, "Install dependencies").then((str) =>
+            {
+                if (str === "Install dependencies") {
+                    extension.installDependencies();
+                }
+            });
+        }
         return false;
     }
-    return true;
+    if (shell.which("helm")) {
+        return true;
+    }
+    if (mode === EnsureMode.Alert) {
+        vscode.window.showErrorMessage(`Could not find Helm binary.`, "Install dependencies").then((str) =>
+        {
+            if (str === "Install dependencies") {
+                extension.installDependencies();
+            }
+        });
+    }
+    return false;
 }
 
 export class Requirement {

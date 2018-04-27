@@ -11,19 +11,18 @@ This extension assumes that you have a `Dockerfile` in the root directory of
 your project.
 
 It also assumes that you have the following binaries on your `PATH`:
+
    * `kubectl`
    * `docker`
    * `git`
    * `helm` (optional)
    * `draft` (optional)
 
-If you don't have those on your PATH then the extension will fail in
-unexpected ways.
+For `kubectl`, `helm` and `draft` the binaries need not be on the system PATH, provided you tell the extension their locations using the appropriate `vs-kubernetes -> vs-kubernetes.${tool}-path` configuration setting.  See "Extension Settings" below.
 
-For setting up `kubectl` you have a couple of additional options:
+The extension can install `kubectl`, `helm` and `draft` for you if they are missing - choose **Install dependencies** when you see an error notification for the missing tool.  This will set `kubectl-path`, `helm-path` and `draft-path` entries in your configuration - the programs will *not* be installed on the system PATH, but this will be sufficient for them to work with the extension.
 
-   * If `kubectl` is not on your PATH then you can tell the extension its location using the `vs-kubernetes.kubectl-path` workspace setting. This should be the full file name and path of the kubectl binary.
-   * If you are using the extension to work with Azure Container Services or Azure Kubernetes Services then you can install and configure `kubectl` using the `Kubernetes: Add Existing Cluster` command.
+If you are working with Azure Container Services or Azure Kubernetes Services, then you can install and configure `kubectl` using the `Kubernetes: Add Existing Cluster` command.
 
 If you plan to create managed clusters using Microsoft Azure (ACS or AKS), or to add clusters in those environments to your kubeconfig, then you will need Azure CLI 2.0.23 or above.  You do not need Azure CLI if you do not use Azure, or to interact with Azure clusters that are already in your kubeconfig.
 
@@ -126,13 +125,14 @@ Where `<your-image-prefix-here>` is something like `docker.io/brendanburns`.
    * `vs-kubernetes` - Parent for Kubernetes-related extension settings
        * `vs-kubernetes.namespace` - The namespace to use for all commands
        * `vs-kubernetes.kubectl-path` - File path to the kubectl binary. Note this is the binary file itself, not just the directory containing the file. On Windows, this must contain the `.exe` extension.
-       * `vs-kubernetes.draft-path` - File path to the draft binary. Note this is the binary file itself, not just the directory containing the file. On Windows, this must contain the `.exe` extension.
+       * `vs-kubernetes.helm-path` - File path to the helm binary. Note this is the binary file itself, not just the directory containing the file. On Windows, this must contain the `.exe` extension.
+       * `vs-kubernetes.draft-path` - File path to the draft binary. Note this is the binary file itself, not just the directory containing the file. On Windows, this must contain the `.exe` extension (note current versions of Draft are not supported on Windows).
        * `vs-kubernetes.autoCleanupOnDebugTerminate` - The flag to control whether to auto cleanup the created deployment and associated pod by the command "Kubernetes: Debug (Launch)". The cleanup action occurs when it failed to start debug session or debug session terminated. If not specified, the extension will prompt for whether to clean up or not. You might choose not to clean up if you wanted to view pod logs, etc.
    * `vsdocker.imageUser` - Image prefix for docker images e.g. 'docker.io/brendanburns'
 
 ## Known Issues
 
-  * `Kubernetes: Debug` command currently works only with Node.js applications
+  * `Kubernetes: Debug` command currently works only with Node.js and Java applications
   * For deeply nested Helm charts, template previews are generated against highest (umbrella) chart values (though for `Helm: Template` calls you can pick your chart)
 
 ## Release Notes
