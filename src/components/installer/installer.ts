@@ -57,8 +57,8 @@ export async function installHelm(shell: Shell) : Promise<Errorable<void>> {
 
 export async function installDraft(shell: Shell) : Promise<Errorable<void>> {
     const tool = 'draft';
-    const urlTemplate = 'https://azuredraft.blob.core.windows.net/draft/draft-v0.13.0-{os_placeholder}-amd64.tar.gz';
-    return await installToolFromTar(tool, urlTemplate, shell, [Platform.MacOS, Platform.Linux]);
+    const urlTemplate = 'https://azuredraft.blob.core.windows.net/draft/draft-v0.14.0-{os_placeholder}-amd64.tar.gz';
+    return await installToolFromTar(tool, urlTemplate, shell);
 }
 
 async function installToolFromTar(tool: string, urlTemplate: string, shell: Shell, supported?: Platform[]) : Promise<Errorable<void>> {

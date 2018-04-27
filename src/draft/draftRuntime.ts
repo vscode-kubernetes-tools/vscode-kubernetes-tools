@@ -7,10 +7,11 @@ import { Readable } from 'stream';
 import { host } from '../host';
 import { shell } from '../shell';
 import { fs } from '../fs';
-import { create as draftCreate } from './draft';
+import { create as draftCreate, CheckPresentMode } from './draft';
+import { installDependencies } from '../extension';
 
 export class DraftRuntime extends EventEmitter {
-	private _draft = draftCreate(host, fs, shell);
+	private _draft = draftCreate(host, fs, shell, installDependencies);
 	private _connectProccess: ChildProcess;
 
 	constructor() {
@@ -26,7 +27,7 @@ export class DraftRuntime extends EventEmitter {
 		let output = vscode.window.createOutputChannel("draft");
 		output.show();
 
-		let isPresent = await this._draft.checkPresent();
+		let isPresent = await this._draft.checkPresent(CheckPresentMode.Alert);
 		if (!isPresent) {
 			host.showInformationMessage("Draft is not installed!");
 			return;
