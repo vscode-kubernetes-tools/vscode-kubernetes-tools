@@ -6,6 +6,7 @@ export interface BinCheckContext {
     readonly host : Host;
     readonly fs : FS;
     readonly shell : Shell;
+    readonly installDependenciesCallback: () => void;
     binFound : boolean;
     binPath : string;
 }
@@ -48,31 +49,43 @@ export function execPath(shell : Shell, basePath : string) : string {
 
 type CheckPresentFailureReason = 'inferFailed' | 'configuredFileMissing';
 
-function alertNoBin(host : Host, binName : string, failureReason : CheckPresentFailureReason, message : string) : void {
+function alertNoBin(host : Host, binName : string, failureReason : CheckPresentFailureReason, message : string, installDependencies : () => void) : void {
     switch (failureReason) {
         case 'inferFailed':
-            host.showErrorMessage(message, 'Learn more').then(
+            host.showErrorMessage(message, 'Install dependencies', 'Learn more').then(
                 (str) => {
-                    if (str !== 'Learn more') {
-                        return;
+                    switch (str) {
+                        case 'Learn more':
+                            host.showInformationMessage(`Add ${binName} directory to path, or set "vs-kubernetes.${binName}-path" config to ${binName} binary.`);
+                            break;
+                        case 'Install dependencies':
+                            installDependencies();
+                            break;
                     }
 
-                    host.showInformationMessage(`Add ${binName} directory to path, or set "vs-kubernetes.${binName}-path" config to ${binName} binary.`);
                 }
             );
             break;
         case 'configuredFileMissing':
-            host.showErrorMessage(message);
+            host.showErrorMessage(message, 'Install dependencies').then(
+                (str) => {
+                    if (str === 'Install dependencies') {
+                        installDependencies();
+                    }
+                }
+            );
             break;
     }
 }
 
-export async function checkForBinary(context : BinCheckContext, bin : string, binName : string, inferFailedMessage : string, configuredFileMissingMessage : string) : Promise<boolean> {
+export async function checkForBinary(context : BinCheckContext, bin : string, binName : string, inferFailedMessage : string, configuredFileMissingMessage : string, alertOnFail : boolean) : Promise<boolean> {
     if (!bin) {
         const fb = await findBinary(context.shell, binName);
 
         if (fb.err || fb.output.length === 0) {
-            alertNoBin(context.host, binName, 'inferFailed', inferFailedMessage);
+            if (alertOnFail) {
+                alertNoBin(context.host, binName, 'inferFailed', inferFailedMessage, context.installDependenciesCallback);
+            }
             return false;
         }
 
@@ -86,7 +99,9 @@ export async function checkForBinary(context : BinCheckContext, bin : string, bi
     if (context.binFound) {
         context.binPath = bin;
     } else {
-        alertNoBin(context.host, binName, 'configuredFileMissing', configuredFileMissingMessage);
+        if (alertOnFail) {
+            alertNoBin(context.host, binName, 'configuredFileMissing', configuredFileMissingMessage, context.installDependenciesCallback);
+        }
     }
 
     return context.binFound;

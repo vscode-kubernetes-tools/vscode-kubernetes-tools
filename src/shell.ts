@@ -3,9 +3,17 @@
 import * as vscode from 'vscode';
 import * as shelljs from 'shelljs';
 
+export enum Platform {
+    Windows,
+    MacOS,
+    Linux,
+    Unsupported,  // shouldn't happen!
+}
+
 export interface Shell {
     isWindows() : boolean;
     isUnix() : boolean;
+    platform() : Platform;
     home() : string;
     combinePath(basePath : string, relativePath : string);
     fileUri(filePath) : vscode.Uri;
@@ -17,6 +25,7 @@ export interface Shell {
 export const shell : Shell = {
     isWindows : isWindows,
     isUnix : isUnix,
+    platform : platform,
     home : home,
     combinePath : combinePath,
     fileUri : fileUri,
@@ -41,6 +50,15 @@ function isWindows() : boolean {
 
 function isUnix() : boolean {
     return !isWindows();
+}
+
+function platform() : Platform {
+    switch (process.platform) {
+        case 'win32': return Platform.Windows;
+        case 'darwin': return Platform.MacOS;
+        case 'linux': return Platform.Linux;
+        default: return Platform.Unsupported;
+    }
 }
 
 function home() : string {

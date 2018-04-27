@@ -7,7 +7,7 @@ import * as fakes from './fakes';
 import { Host } from '../src/host';
 import { Shell, ShellResult } from '../src/shell';
 import { FS } from '../src/fs';
-import { create as draftCreate } from '../src/draft';
+import { create as draftCreate, CheckPresentMode as DraftCheckPresentMode } from '../src/draft/draft';
 import * as kuberesources from '../src/kuberesources';
 
 interface FakeContext {
@@ -20,7 +20,8 @@ function draftCreateWithFakes(ctx : FakeContext) {
     return draftCreate(
         ctx.host || fakes.host(),
         ctx.fs || fakes.fs(),
-        ctx.shell || fakes.shell()
+        ctx.shell || fakes.shell(),
+        () => {}
     );
 }
 
@@ -41,7 +42,7 @@ suite("draft tests", () => {
                 const draft = draftCreateWithFakes({
                     host: fakes.host({errors: errors})
                 });
-                const present = await draft.checkPresent();
+                const present = await draft.checkPresent(DraftCheckPresentMode.Alert);
                 assert.equal(false, present);
                 assert.equal(errors.length, 1);
                 textassert.startsWith('Could not find "draft" binary.', errors[0]);
@@ -52,10 +53,20 @@ suite("draft tests", () => {
                 const draft = draftCreateWithFakes({
                     host: fakes.host({errors: errors, configuration: draftFakePathConfig()})
                 });
-                const present = await draft.checkPresent();
+                const present = await draft.checkPresent(DraftCheckPresentMode.Alert);
                 assert.equal(false, present);
                 assert.equal(errors.length, 1);
                 textassert.startsWith('c:\\fake\\draft\\draft.exe does not exist!', errors[0]);
+            });
+
+            test("...and in silent mode, then no errors are reported", async () => {
+                let errors : string[] = [];
+                const draft = draftCreateWithFakes({
+                    host: fakes.host({errors: errors})
+                });
+                const present = await draft.checkPresent(DraftCheckPresentMode.Silent);
+                assert.equal(false, present);
+                assert.equal(errors.length, 0);
             });
 
             test("...and configuration is present and file exists, then checkPresent does not report any messages", async () => {
@@ -66,7 +77,7 @@ suite("draft tests", () => {
                     host: fakes.host({errors: errors, warnings: warnings, infos: infos, configuration: draftFakePathConfig()}),
                     fs: fakes.fs({existentPaths: [draftFakePath]})
                 });
-                await draft.checkPresent();
+                await draft.checkPresent(DraftCheckPresentMode.Alert);
                 assert.equal(errors.length, 0);
                 assert.equal(warnings.length, 0);
                 assert.equal(infos.length, 0);
@@ -77,7 +88,7 @@ suite("draft tests", () => {
                     host: fakes.host({configuration: draftFakePathConfig()}),
                     fs: fakes.fs({existentPaths: [draftFakePath]})
                 });
-                const present = await draft.checkPresent();
+                const present = await draft.checkPresent(DraftCheckPresentMode.Alert);
                 assert.equal(true, present);
             });
 
@@ -93,7 +104,7 @@ suite("draft tests", () => {
                     host: fakes.host({errors: errors, warnings: warnings, infos: infos}),
                     shell: fakes.shell({recognisedCommands: [{command: 'where.exe draft.exe', code: 0, stdout: 'c:\\draft.exe'}]})
                 });
-                await draft.checkPresent();
+                await draft.checkPresent(DraftCheckPresentMode.Alert);
                 assert.equal(errors.length, 0);
                 assert.equal(warnings.length, 0);
                 assert.equal(infos.length, 0);
@@ -107,7 +118,7 @@ suite("draft tests", () => {
                     host: fakes.host({errors: errors, warnings: warnings, infos: infos}),
                     shell: fakes.shell({isWindows: false, isUnix: true, recognisedCommands: [{command: 'which draft', code: 0, stdout: '/usr/bin/draft'}]})
                 });
-                await draft.checkPresent();
+                await draft.checkPresent(DraftCheckPresentMode.Alert);
                 assert.equal(errors.length, 0);
                 assert.equal(warnings.length, 0);
                 assert.equal(infos.length, 0);
@@ -117,7 +128,7 @@ suite("draft tests", () => {
                 const draft = draftCreateWithFakes({
                     shell: fakes.shell({recognisedCommands: [{command: 'where.exe draft.exe', code: 0, stdout: 'c:\\draft.exe'}]})
                 });
-                const present = await draft.checkPresent();
+                const present = await draft.checkPresent(DraftCheckPresentMode.Alert);
                 assert.equal(true, present);
             });
 

@@ -1,38 +1,44 @@
-import { Host } from './host';
-import { Shell, ShellResult } from './shell';
-import { FS } from './fs';
+import { Host } from '../host';
+import { Shell, ShellResult } from '../shell';
+import { FS } from '../fs';
 import * as syspath from 'path';
-import * as binutil from './binutil';
+import * as binutil from '../binutil';
 
 export interface Draft {
-    checkPresent() : Promise<boolean>;
+    checkPresent(mode: CheckPresentMode) : Promise<boolean>;
     isFolderMapped(path: string) : boolean;
     packs() : Promise<string[] | undefined>;
     invoke(args: string) : Promise<ShellResult>;
     path() : Promise<string | undefined>;
 }
 
-export function create(host : Host, fs : FS, shell : Shell) : Draft {
-    return new DraftImpl(host, fs, shell, false);
+export function create(host : Host, fs : FS, shell : Shell, installDependenciesCallback: () => void) : Draft {
+    return new DraftImpl(host, fs, shell, installDependenciesCallback, false);
+}
+
+export enum CheckPresentMode {
+    Alert,
+    Silent,
 }
 
 interface Context {
     readonly host : Host;
     readonly fs : FS;
     readonly shell : Shell;
+    readonly installDependenciesCallback : () => void;
     binFound : boolean;
     binPath : string;
 }
 
 class DraftImpl implements Draft {
-    constructor(host : Host, fs : FS, shell : Shell, draftFound : boolean) {
-        this.context = { host : host, fs : fs, shell : shell, binFound : draftFound, binPath : 'draft' };
+    constructor(host : Host, fs : FS, shell : Shell, installDependenciesCallback : () => void, draftFound : boolean) {
+        this.context = { host : host, fs : fs, shell : shell, installDependenciesCallback : installDependenciesCallback, binFound : draftFound, binPath : 'draft' };
     }
 
     private readonly context : Context;
 
-    checkPresent() : Promise<boolean> {
-        return checkPresent(this.context);
+    checkPresent(mode: CheckPresentMode) : Promise<boolean> {
+        return checkPresent(this.context, mode);
     }
 
     isFolderMapped(path: string) : boolean {
@@ -52,17 +58,17 @@ class DraftImpl implements Draft {
     }
 }
 
-async function checkPresent(context : Context) : Promise<boolean> {
+async function checkPresent(context : Context, mode: CheckPresentMode) : Promise<boolean> {
     if (context.binFound) {
         return true;
     }
 
-    return await checkForDraftInternal(context);
+    return await checkForDraftInternal(context, mode);
 }
 
 async function packs(context : Context) : Promise<string[] | undefined> {
-    if (await checkPresent(context)) {
-        const dhResult = await context.shell.exec("draft home");
+    if (await checkPresent(context, CheckPresentMode.Alert)) {
+        const dhResult = await context.shell.exec(context.binPath + " home");
         if (dhResult.code === 0) {
             const draftHome = dhResult.stdout.trim();
             const draftPacksDir = syspath.join(draftHome, 'packs');
@@ -75,7 +81,7 @@ async function packs(context : Context) : Promise<string[] | undefined> {
 }
 
 async function invoke(context : Context, args : string) : Promise<ShellResult> {
-    if (await checkPresent(context)) {
+    if (await checkPresent(context, CheckPresentMode.Alert)) {
         const result = context.shell.exec(context.binPath + ' ' + args);
         return result;
     }
@@ -87,20 +93,19 @@ async function path(context : Context) : Promise<string | undefined> {
 }
 
 async function pathCore(context : Context) : Promise<string | undefined> {
-    if (await checkPresent(context)) {
+    if (await checkPresent(context, CheckPresentMode.Alert)) {
         return context.binPath;
     }
     return undefined;
 }
 
-async function checkForDraftInternal(context : Context) : Promise<boolean> {
+async function checkForDraftInternal(context : Context, mode: CheckPresentMode) : Promise<boolean> {
     const binName = 'draft';
     const bin = context.host.getConfiguration('vs-kubernetes')[`vs-kubernetes.${binName}-path`];
 
     const inferFailedMessage = 'Could not find "draft" binary.';
     const configuredFileMissingMessage = bin + ' does not exist!';
-
-    return binutil.checkForBinary(context, bin, binName, inferFailedMessage, configuredFileMissingMessage);
+    return binutil.checkForBinary(context, bin, binName, inferFailedMessage, configuredFileMissingMessage, mode === CheckPresentMode.Alert);
 }
 
 function isFolderMapped(context: Context, path: string) : boolean {

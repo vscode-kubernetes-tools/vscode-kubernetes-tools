@@ -20,7 +20,7 @@ import * as clipboard from 'clipboardy';
 // Internal dependencies
 import { host } from './host';
 import * as explainer from './explainer';
-import { shell, ShellResult } from './shell';
+import { shell, Shell, ShellResult } from './shell';
 import * as configureFromCluster from './configurefromcluster';
 import * as createCluster from './createcluster';
 import * as kuberesources from './kuberesources';
@@ -31,7 +31,7 @@ import { create as kubectlCreate, Kubectl } from './kubectl';
 import * as kubectlUtils from './kubectlUtils';
 import { createKubernetesExplorerRegistry, KubernetesExplorerDataProviderRegistry} from './explorer.api';
 import * as explorer from './explorer';
-import { create as draftCreate, Draft } from './draft';
+import { create as draftCreate, Draft, CheckPresentMode as DraftCheckPresentMode } from './draft/draft';
 import * as logger from './logger';
 import * as helm from './helm';
 import * as helmexec from './helm.exec';
@@ -44,6 +44,7 @@ import * as telemetry from './telemetry-helper';
 import * as extensionapi from './extension.api';
 import {dashboardKubernetes} from './components/kubectl/dashboard';
 import {portForwardKubernetes} from './components/kubectl/port-forward';
+import { Errorable } from './wizard';
 import { Git } from './components/git/git';
 import { DebugSession } from './debug/debugSession';
 import { getDebugProviderOfType, getSupportedDebuggerTypes } from './debug/providerRegistry';
@@ -54,13 +55,15 @@ import * as azureclusterprovider from './components/clusterprovider/azure/azurec
 import { KubernetesCompletionProvider } from "./yaml-support/yaml-snippet";
 import { showWorkspaceFolderPick } from './hostutils';
 import { KubernetesDocumentProvider } from "./kube.documentProvider";
+import { DraftConfigurationProvider } from './draft/draftConfigurationProvider';
+import { installHelm, installDraft, installKubectl } from './components/installer/installer';
 
 
 let explainActive = false;
 let swaggerSpecPromise = null;
 
-const kubectl = kubectlCreate(host, fs, shell);
-const draft = draftCreate(host, fs, shell);
+const kubectl = kubectlCreate(host, fs, shell, installDependencies);
+const draft = draftCreate(host, fs, shell, installDependencies);
 const configureFromClusterUI = configureFromCluster.uiProvider();
 const createClusterUI = createCluster.uiProvider();
 const clusterProviderRegistry = clusterproviderregistry.get();
@@ -97,6 +100,9 @@ export async function activate(context) : Promise<extensionapi.ExtensionAPI> {
         "helm",
         {pattern: "**/templates/NOTES.txt"}
     ];
+
+    const draftDebugProvider = new DraftConfigurationProvider();
+    let draftDebugSession: vscode.DebugSession;    
 
     const subscriptions = [
 
@@ -148,6 +154,9 @@ export async function activate(context) : Promise<extensionapi.ExtensionAPI> {
         registerCommand('extension.draftCreate', execDraftCreate),
         registerCommand('extension.draftUp', execDraftUp),
 
+        // Draft debug configuration provider
+        vscode.debug.registerDebugConfigurationProvider('draft', draftDebugProvider),
+
         // HTML renderers
         vscode.workspace.registerTextDocumentContentProvider(configureFromCluster.uriScheme, configureFromClusterUI),
         vscode.workspace.registerTextDocumentContentProvider(createCluster.uriScheme, createClusterUI),
@@ -197,7 +206,35 @@ export async function activate(context) : Promise<extensionapi.ExtensionAPI> {
             let u = vscode.Uri.parse(helm.PREVIEW_URI);
             previewProvider.update(u);
         }
-	});
+
+        // if there is an active Draft debugging session, restart the cycle
+        if (draftDebugSession != undefined) {
+            const session = vscode.debug.activeDebugSession;
+
+            // TODO - how do we make sure this doesn't affect all other debugging sessions?
+            // TODO - maybe check to see if `draft.toml` is present in the workspace
+            // TODO - check to make sure we enable this only when Draft is installed
+            if (session != undefined) {
+                draftDebugSession.customRequest('evaluate', { restart: true });
+            }
+        }
+    });
+    
+    vscode.debug.onDidTerminateDebugSession((e) => {
+
+        // if there is an active Draft debugging session, restart the cycle
+        if (draftDebugSession != undefined) {
+            const session = vscode.debug.activeDebugSession;
+
+            // TODO - how do we make sure this doesn't affect all other debugging sessions?
+            // TODO - maybe check to see if `draft.toml` is present in the workspace
+            // TODO - check to make sure we enable this only when Draft is installed
+            if (session != undefined) {
+                draftDebugSession.customRequest('evaluate', { stop: true });
+            }
+        }
+    });
+
     // On editor change, refresh the Helm YAML preview
     vscode.window.onDidChangeActiveTextEditor((e: vscode.TextEditor) => {
         if (!editorIsActive()) {
@@ -209,6 +246,16 @@ export async function activate(context) : Promise<extensionapi.ExtensionAPI> {
         }
         let u = vscode.Uri.parse(helm.PREVIEW_URI);
         previewProvider.update(u);
+    });
+
+
+    vscode.debug.onDidChangeActiveDebugSession((e: vscode.DebugSession)=> {
+        if (e != undefined) {
+            // keep a copy of the initial Draft debug session
+            if (e.name.indexOf('Draft') >= 0) {
+                draftDebugSession = e;
+            }
+        }
     });
 
     subscriptions.forEach((element) => {
@@ -1470,8 +1517,35 @@ function copyKubernetes(explorerNode: explorer.KubernetesObject) {
     clipboard.writeSync(explorerNode.id);
 }
 
+// TODO: having to export this is untidy - unpick dependencies and move
+export async function installDependencies() {
+    // TODO: gosh our binchecking is untidy
+    const gotKubectl = await kubectl.checkPresent('silent');
+    const gotHelm = helmexec.ensureHelm(helmexec.EnsureMode.Silent);
+    const gotDraft = await draft.checkPresent(DraftCheckPresentMode.Silent);
+
+    // TODO: parallelise
+    await installDependency("kubectl", gotKubectl, installKubectl);
+    await installDependency("Helm", gotHelm, installHelm);
+    await installDependency("Draft", gotDraft, installDraft);
+
+    kubeChannel.showOutput("Done");
+}
+
+async function installDependency(name: string, alreadyGot: boolean, installFunc: (shell: Shell) => Promise<Errorable<void>>) : Promise<void> {
+    if (alreadyGot) {
+        kubeChannel.showOutput(`Already got ${name}...`);
+    } else {
+        kubeChannel.showOutput(`Installing ${name}...`);
+        const result = await installFunc(shell);
+        if (!result.succeeded) {
+            kubeChannel.showOutput(`Unable to install ${name}: ${result.error[0]}`);
+        }
+    }
+}
+
 async function execDraftVersion() {
-    if (!(await draft.checkPresent())) {
+    if (!(await draft.checkPresent(DraftCheckPresentMode.Alert))) {
         return;
     }
 
@@ -1493,7 +1567,7 @@ async function execDraftCreate() {
         vscode.window.showInformationMessage('This folder is already configured for draft. Run draft up to deploy.');
         return;
     }
-    if (!(await draft.checkPresent())) {
+    if (!(await draft.checkPresent(DraftCheckPresentMode.Alert))) {
         return;
     }
     const proposedAppName = path.basename(vscode.workspace.rootPath);
@@ -1553,7 +1627,7 @@ async function execDraftUp() {
         vscode.window.showInformationMessage('This folder is not configured for draft. Run draft create to configure it.');
         return;
     }
-    if (!(await draft.checkPresent())) {
+    if (!(await draft.checkPresent(DraftCheckPresentMode.Alert))) {
         return;
     }
 
