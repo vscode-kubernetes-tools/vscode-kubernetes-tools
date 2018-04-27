@@ -17,7 +17,8 @@ function kubectlCreateWithFakes(ctx : FakeContext) {
     return kubectlCreate(
         ctx.host || fakes.host(),
         ctx.fs || fakes.fs(),
-        ctx.shell || fakes.shell()
+        ctx.shell || fakes.shell(),
+        () => {}
     );
 }
 

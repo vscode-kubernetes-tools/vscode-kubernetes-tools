@@ -15,7 +15,7 @@ export interface Kubectl {
      * @param command the subcommand to run.
      * @param terminalName if empty, run the command in the shared Terminal; otherwise run it in a new Terminal.
      */
-    invokeInTerminal(command : string, terminalName? : string) : void;
+    invokeInTerminal(command : string, terminalName? : string) : Promise<void>;
     asLines(command : string): Promise<string[] | ShellResult>;
     path() : string;
 }
@@ -24,13 +24,14 @@ interface Context {
     readonly host : Host;
     readonly fs : FS;
     readonly shell : Shell;
+    readonly installDependenciesCallback : () => void;
     binFound : boolean;
     binPath : string;
 }
 
 class KubectlImpl implements Kubectl {
-    constructor(host : Host, fs : FS, shell : Shell, kubectlFound : boolean) {
-        this.context = { host : host, fs : fs, shell : shell, binFound : kubectlFound, binPath : 'kubectl' };
+    constructor(host : Host, fs : FS, shell : Shell, installDependenciesCallback : () => void, kubectlFound : boolean) {
+        this.context = { host : host, fs : fs, shell : shell, installDependenciesCallback : installDependenciesCallback, binFound : kubectlFound, binPath : 'kubectl' };
     }
 
     private readonly context : Context;
@@ -51,7 +52,7 @@ class KubectlImpl implements Kubectl {
     invokeAsyncWithProgress(command : string, progressMessage : string) : Promise<ShellResult> {
         return invokeAsyncWithProgress(this.context, command, progressMessage);
     }
-    invokeInTerminal(command : string, terminalName? : string) : void {
+    invokeInTerminal(command : string, terminalName? : string) : Promise<void> {
         const terminal = terminalName ? this.context.host.createTerminal(terminalName) : this.getSharedTerminal();
         return invokeInTerminal(this.context, command, terminal);
     }
@@ -75,11 +76,11 @@ class KubectlImpl implements Kubectl {
     }
 }
 
-export function create(host : Host, fs : FS, shell : Shell) : Kubectl {
-    return new KubectlImpl(host, fs, shell, false);
+export function create(host : Host, fs : FS, shell : Shell, installDependenciesCallback : () => void) : Kubectl {
+    return new KubectlImpl(host, fs, shell, installDependenciesCallback, false);
 }
 
-type CheckPresentMessageMode = 'command' | 'activation';
+type CheckPresentMessageMode = 'command' | 'activation' | 'silent';
 
 async function checkPresent(context : Context, errorMessageMode : CheckPresentMessageMode) : Promise<boolean> {
     if (context.binFound) {
@@ -97,7 +98,7 @@ async function checkForKubectlInternal(context : Context, errorMessageMode : Che
     const inferFailedMessage = 'Could not find "kubectl" binary.' + contextMessage;
     const configuredFileMissingMessage = bin + ' does not exist!' + contextMessage;
 
-    return await binutil.checkForBinary(context, bin, binName, inferFailedMessage, configuredFileMissingMessage);
+    return await binutil.checkForBinary(context, bin, binName, inferFailedMessage, configuredFileMissingMessage, errorMessageMode !== 'silent');
 }
 
 function getCheckKubectlContextMessage(errorMessageMode : CheckPresentMessageMode) : string {
@@ -126,9 +127,13 @@ async function invokeWithProgress(context : Context, command : string, progressM
 }
 
 async function invokeAsync(context : Context, command : string) : Promise<ShellResult> {
-    const bin = baseKubectlPath(context);
-    let cmd = bin + ' ' + command;
-    return await context.shell.exec(cmd);
+    if (await checkPresent(context, 'command')) {
+        const bin = baseKubectlPath(context);
+        let cmd = bin + ' ' + command;
+        return await context.shell.exec(cmd);
+    } else {
+        return { code: -1, stdout: '', stderr: '' };
+    }
 }
 
 async function invokeAsyncWithProgress(context : Context, command : string, progressMessage : string): Promise<ShellResult> {
@@ -138,13 +143,15 @@ async function invokeAsyncWithProgress(context : Context, command : string, prog
     });
 }
 
-function invokeInTerminal(context : Context, command : string, terminal : Terminal) : void {
-    let bin = baseKubectlPath(context).trim();
-    if (bin.indexOf(" ") > -1 && !/^['"]/.test(bin)) {
-        bin = `"${bin}"`;
+async function invokeInTerminal(context : Context, command : string, terminal : Terminal) : Promise<void> {
+    if (await checkPresent(context, 'command')) {
+        let bin = baseKubectlPath(context).trim();
+        if (bin.indexOf(" ") > -1 && !/^['"]/.test(bin)) {
+            bin = `"${bin}"`;
+        }
+        terminal.sendText(`${bin} ${command}`);
+        terminal.show();
     }
-    terminal.sendText(`${bin} ${command}`);
-    terminal.show();
 }
 
 async function kubectlInternal(context : Context, command : string, handler : ShellHandler) : Promise<void> {

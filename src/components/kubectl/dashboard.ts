@@ -10,13 +10,14 @@ import { portForwardToPod, PortMapping, buildPortMapping } from './port-forward'
 import { host } from '../../host';
 import { shell } from '../../shell';
 import { create as kubectlCreate, Kubectl } from '../../kubectl';
+import { installDependencies } from '../../extension';
 
 
 const KUBE_DASHBOARD_URL = "http://localhost:8001/ui/";
 const TERMINAL_NAME = "Kubernetes Dashboard";
 const PROXY_OUTPUT_FILE = resolve(__dirname, 'proxy.out');
 
-const kubectl = kubectlCreate(host, fs, shell);
+const kubectl = kubectlCreate(host, fs, shell, installDependencies);
 
 // The instance of the terminal running Kubectl Dashboard
 let terminal:vscode.Terminal;

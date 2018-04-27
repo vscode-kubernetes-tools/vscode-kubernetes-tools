@@ -20,7 +20,7 @@ import * as clipboard from 'clipboardy';
 // Internal dependencies
 import { host } from './host';
 import * as explainer from './explainer';
-import { shell, ShellResult } from './shell';
+import { shell, Shell, ShellResult } from './shell';
 import * as configureFromCluster from './configurefromcluster';
 import * as createCluster from './createcluster';
 import * as kuberesources from './kuberesources';
@@ -30,7 +30,7 @@ import * as kubeconfig from './kubeconfig';
 import { create as kubectlCreate, Kubectl } from './kubectl';
 import * as kubectlUtils from './kubectlUtils';
 import * as explorer from './explorer';
-import { create as draftCreate, Draft } from './draft/draft';
+import { create as draftCreate, Draft, CheckPresentMode as DraftCheckPresentMode } from './draft/draft';
 import * as logger from './logger';
 import * as helm from './helm';
 import * as helmexec from './helm.exec';
@@ -43,6 +43,7 @@ import * as telemetry from './telemetry-helper';
 import * as extensionapi from './extension.api';
 import {dashboardKubernetes} from './components/kubectl/dashboard';
 import {portForwardKubernetes} from './components/kubectl/port-forward';
+import { Errorable } from './wizard';
 import { Git } from './components/git/git';
 import { DebugSession } from './debug/debugSession';
 import { getDebugProviderOfType, getSupportedDebuggerTypes } from './debug/providerRegistry';
@@ -54,13 +55,14 @@ import { KubernetesCompletionProvider } from "./yaml-support/yaml-snippet";
 import { showWorkspaceFolderPick } from './hostutils';
 import { KubernetesDocumentProvider } from "./kube.documentProvider";
 import { DraftConfigurationProvider } from './draft/draftConfigurationProvider';
+import { installHelm, installDraft, installKubectl } from './components/installer/installer';
 
 
 let explainActive = false;
 let swaggerSpecPromise = null;
 
-const kubectl = kubectlCreate(host, fs, shell);
-const draft = draftCreate(host, fs, shell);
+const kubectl = kubectlCreate(host, fs, shell, installDependencies);
+const draft = draftCreate(host, fs, shell, installDependencies);
 const configureFromClusterUI = configureFromCluster.uiProvider();
 const createClusterUI = createCluster.uiProvider();
 const clusterProviderRegistry = clusterproviderregistry.get();
@@ -1512,8 +1514,35 @@ function copyKubernetes(explorerNode: explorer.KubernetesObject) {
     clipboard.writeSync(explorerNode.id);
 }
 
+// TODO: having to export this is untidy - unpick dependencies and move
+export async function installDependencies() {
+    // TODO: gosh our binchecking is untidy
+    const gotKubectl = await kubectl.checkPresent('silent');
+    const gotHelm = helmexec.ensureHelm(helmexec.EnsureMode.Silent);
+    const gotDraft = await draft.checkPresent(DraftCheckPresentMode.Silent);
+
+    // TODO: parallelise
+    await installDependency("kubectl", gotKubectl, installKubectl);
+    await installDependency("Helm", gotHelm, installHelm);
+    await installDependency("Draft", gotDraft, installDraft);
+
+    kubeChannel.showOutput("Done");
+}
+
+async function installDependency(name: string, alreadyGot: boolean, installFunc: (shell: Shell) => Promise<Errorable<void>>) : Promise<void> {
+    if (alreadyGot) {
+        kubeChannel.showOutput(`Already got ${name}...`);
+    } else {
+        kubeChannel.showOutput(`Installing ${name}...`);
+        const result = await installFunc(shell);
+        if (!result.succeeded) {
+            kubeChannel.showOutput(`Unable to install ${name}: ${result.error[0]}`);
+        }
+    }
+}
+
 async function execDraftVersion() {
-    if (!(await draft.checkPresent())) {
+    if (!(await draft.checkPresent(DraftCheckPresentMode.Alert))) {
         return;
     }
 
@@ -1535,7 +1564,7 @@ async function execDraftCreate() {
         vscode.window.showInformationMessage('This folder is already configured for draft. Run draft up to deploy.');
         return;
     }
-    if (!(await draft.checkPresent())) {
+    if (!(await draft.checkPresent(DraftCheckPresentMode.Alert))) {
         return;
     }
     const proposedAppName = path.basename(vscode.workspace.rootPath);
@@ -1595,7 +1624,7 @@ async function execDraftUp() {
         vscode.window.showInformationMessage('This folder is not configured for draft. Run draft create to configure it.');
         return;
     }
-    if (!(await draft.checkPresent())) {
+    if (!(await draft.checkPresent(DraftCheckPresentMode.Alert))) {
         return;
     }
 
