@@ -29,7 +29,7 @@ import { kubeChannel } from './kubeChannel';
 import * as kubeconfig from './kubeconfig';
 import { create as kubectlCreate, Kubectl } from './kubectl';
 import * as kubectlUtils from './kubectlUtils';
-import { createKubernetesExplorerRegistry, KubernetesExplorerDataProviderRegistry} from './explorer.api';
+import { createKubernetesExplorerRegistry, KubernetesExplorerDataProviderRegistry, KubernetesObject} from './explorer.api';
 import * as explorer from './explorer';
 import { create as draftCreate, Draft, CheckPresentMode as DraftCheckPresentMode } from './draft/draft';
 import * as logger from './logger';
@@ -1318,7 +1318,7 @@ const debugKubernetes = async () => {
     }
 };
 
-const debugAttachKubernetes = async (explorerNode: explorer.KubernetesObject) => {
+const debugAttachKubernetes = async (explorerNode: KubernetesObject) => {
     const workspaceFolder = await showWorkspaceFolderPick();
     if (workspaceFolder) {
         new DebugSession(kubectl).attach(workspaceFolder, explorerNode ? explorerNode.id : null);
@@ -1482,7 +1482,7 @@ async function createClusterKubernetes() {
     vscode.commands.executeCommand('vscode.previewHtml', createCluster.operationUri(newId), 2, "Create Kubernetes Cluster");
 }
 
-async function useContextKubernetes(explorerNode: explorer.KubernetesObject) {
+async function useContextKubernetes(explorerNode: KubernetesObject) {
     const targetContext = explorerNode.metadata.context;
     const shellResult = await kubectl.invokeAsync(`config use-context ${targetContext}`);
     if (shellResult.code === 0) {
@@ -1492,12 +1492,12 @@ async function useContextKubernetes(explorerNode: explorer.KubernetesObject) {
     }
 }
 
-async function clusterInfoKubernetes(explorerNode: explorer.KubernetesObject) {
+async function clusterInfoKubernetes(explorerNode: KubernetesObject) {
     const targetContext = explorerNode.metadata.context;
     kubectl.invokeInTerminal("cluster-info");
 }
 
-async function deleteContextKubernetes(explorerNode: explorer.KubernetesObject) {
+async function deleteContextKubernetes(explorerNode: KubernetesObject) {
     const answer = await vscode.window.showWarningMessage(`Do you want to delete the cluster '${explorerNode.id}' from the kubeconfig?`, ...deleteMessageItems);
     if (answer.isCloseAffordance) {
         return;
@@ -1507,13 +1507,13 @@ async function deleteContextKubernetes(explorerNode: explorer.KubernetesObject) 
     }
 }
 
-async function useNamespaceKubernetes(explorerNode: explorer.KubernetesObject) {
+async function useNamespaceKubernetes(explorerNode: KubernetesObject) {
     if (await kubectlUtils.switchNamespace(kubectl, explorerNode.id)) {
         refreshExplorer();
     }
 }
 
-function copyKubernetes(explorerNode: explorer.KubernetesObject) {
+function copyKubernetes(explorerNode: KubernetesObject) {
     clipboard.writeSync(explorerNode.id);
 }
 

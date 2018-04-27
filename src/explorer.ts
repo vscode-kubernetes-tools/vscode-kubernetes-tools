@@ -1,7 +1,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 
-import { KubernetesExplorerDataProviderRegistry } from './explorer.api';
+import { KubernetesExplorerDataProviderRegistry, KubernetesObject } from './explorer.api';
 import * as shell from './shell';
 import { Kubectl } from './kubectl';
 import * as kubectlUtils from './kubectlUtils';
@@ -18,13 +18,6 @@ export function createKubernetesResourceFolder(kind: kuberesources.ResourceKind)
 
 export function createKubernetesResource(kind: kuberesources.ResourceKind, id: string, metadata?: any): KubernetesObject {
     return new KubernetesResource(kind, id, metadata);
-}
-
-export interface KubernetesObject {
-    readonly id: string;
-    readonly metadata?: any;
-    getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<KubernetesObject[]>;
-    getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem>;
 }
 
 export interface ResourceNode {
