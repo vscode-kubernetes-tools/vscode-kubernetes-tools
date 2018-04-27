@@ -27,3 +27,48 @@ To implement a provider for the 'Create Cluster' and/or 'Add Existing Cluster' c
 * Your HTTP server must respond to this request with a suitable first page.  From this point on it is all in your hands, though typically your first page will gather some information, and have a link either to further information-gathering pages or to perform the action immediately.
 
 For an example of this, see the `components/clusterprovider/azure` directory.  If you have any questions or run into any problems, please post an issue - we'll be very happy to help.
+
+## Contribute a new ExplorerDataProvider to Kubernetes Explorer View
+
+To allow the third-party extensions to contribute more data nodes to the Kubernetes Explorer View, we have made the Kubernetes Explorer View to be extensible. The Kubernetes Explorer View will render the tree based on the registered ExplorerDataProviders. The current tree data is from a Built-in Data Provider implementation.
+
+To implement a new ExplorerDataProvider, your extension needs to do the following:
+
+* Add the activationEvent `onView:extension.vsKubernetesExplorer` to the `package.json`.
+* Copy the Explorer API interface definition file `src/explorer.api.ts` to your repository.
+* Get the VS Code Kubernetes extension's API object via the vscode.extensions.getExtension<T> and Extension<T>.activate() functions.
+```
+    const extension = vscode.extensions.getExtension("ms-kubernetes-tools.vscode-kubernetes-tools");
+    if (extension) {
+        try {
+            const extensionApi = await extension.activate();
+        } catch (error) {
+            vscode.window.showErrorMessage(`Failed to activate VSCode Kubernetes Tools Extension: ${error}`);
+        }
+    }
+```
+* The API object has a field named `explorerDataProviderRegistry`. This is an object you can use to register new DataProvider. Call the registry's register method, passing an implementation of `ExplorerDataProvider` interface.
+```
+// An implementation of ExplorerDataProvider interface.
+export class ServiceCatalogProvider implements ExplorerDataProvider {
+    async getChildren(parent: KubernetesObject): Promise<KubernetesObject[]> {
+        if (parent) {
+          // To add new children nodes to some parent node, you could use the type name to determine the node type. The code "parent.constructor.name" will reflect the parent node type.
+          switch (parent.constructor.name) {
+              // The new nodes will be mounted as children of Kubernetes Cluster node.
+              case "KubernetesCluster":
+                  return [
+                      new ServiceCatalogFolder("svcat", "External Services")
+                  ];
+          }
+        }
+        return [];
+    }
+}
+
+// Register new Data Provider to the Kubernetes Explorer.
+extensionApi.explorerDataProviderRegistry.register(new ServiceCatalogProvider());
+await vscode.commands.executeCommand("extension.vsKubernetesRefreshExplorer");
+```
+
+Above is the guidance about how to contribute new tree data to Kubernetes Explorer View. Feel free to open new issue in the github if you got problems at trying the API.
