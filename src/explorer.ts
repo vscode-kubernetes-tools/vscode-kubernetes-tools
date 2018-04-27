@@ -1,7 +1,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 
-import { KubernetesExplorerDataProviderRegistry, KubernetesObject } from './explorer.api';
+import { ExplorerDataProvider, KubernetesExplorerDataProviderRegistry, KubernetesObject } from './explorer.api';
 import * as shell from './shell';
 import { Kubectl } from './kubectl';
 import * as kubectlUtils from './kubectlUtils';
@@ -29,7 +29,10 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObj
     private _onDidChangeTreeData: vscode.EventEmitter<KubernetesObject | undefined> = new vscode.EventEmitter<KubernetesObject | undefined>();
     readonly onDidChangeTreeData: vscode.Event<KubernetesObject | undefined> = this._onDidChangeTreeData.event;
 
-    constructor(private readonly kubectl: Kubectl, private readonly host: Host, private readonly explorerRegistry: KubernetesExplorerDataProviderRegistry) { }
+    constructor(private readonly kubectl: Kubectl, private readonly host: Host, private readonly explorerRegistry: KubernetesExplorerDataProviderRegistry) {
+        // Register the built-in Data Provider into the Registry.
+        explorerRegistry.register(new BuiltinDataProvider(kubectl, host));
+    }
 
     getTreeItem(element: KubernetesObject): vscode.TreeItem | Thenable<vscode.TreeItem> {
         return element.getTreeItem();
@@ -37,12 +40,7 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObj
 
     async getChildren(parent?: KubernetesObject): Promise<KubernetesObject[]> {
         let children = [];
-        if (parent) {
-            children = await parent.getChildren(this.kubectl, this.host);
-        } else {
-            children = await this.getClusters();
-        }
-        // Load the tree nodes mounted by the third-party extensions.
+        // Merge the data from all registered Data Providers.
         for (const provider of this.explorerRegistry.list()) {
             const mounted = await provider.getChildren(parent);
             if (mounted && mounted.length) {
@@ -54,6 +52,20 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObj
 
     refresh(): void {
         this._onDidChangeTreeData.fire();
+    }
+}
+
+class BuiltinDataProvider implements ExplorerDataProvider {
+    constructor(private readonly kubectl: Kubectl, private readonly host: Host) {}
+
+    async getChildren(parent?: KubernetesObject): Promise<KubernetesObject[]> {
+        let children = [];
+        if (parent) {
+            children = await parent.getChildren(this.kubectl, this.host);
+        } else {
+            children = await this.getClusters();
+        }
+        return children;
     }
 
     private async getClusters(): Promise<KubernetesObject[]> {
