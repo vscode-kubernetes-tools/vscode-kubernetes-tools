@@ -1,5 +1,20 @@
 # Change Log
 
+## 0.1.8
+
+* Added support for debugging using Draft.
+* Added support for port forwarding.
+* If the extension detects that a binary (kubectl, Helm, Draft) it needs is missing, it offers to install it for you.
+* We now open Kubernetes resources without creating new files, avoiding a save prompt.
+* Added a drill-down in the tree view for pods under a service.
+* Added a drill-down in the tree view for pods created by a deployment.
+* Fixed reference to Azure Container Service when adding an AKS cluster.
+* Fixed Open Dashboard command on AKS.
+* Improved error messages when no document open, or open document is not JSON or YAML.
+* Removed obsolete reference to helm-template plugin.
+
+Thanks to contributors Brendan Burns, Dong Liu, Evan Louie, Radu Matei, Bhargav Nookala and Andy Xu.
+
 ## 0.1.7
 
 * Improvements to Kubernetes YAML intellisense.  These improvements depend on the 'YAML Support by Red Hat' extension; please install version 0.0.10 or above of this extension if you are working with Kubernetes YAML files.
