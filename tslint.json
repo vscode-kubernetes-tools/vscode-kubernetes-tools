@@ -27,6 +27,7 @@
                 "variable-declaration": "onespace"
             }
         ],
-        "no-trailing-whitespace": true
+        "no-trailing-whitespace": true,
+        "no-debugger": true
     }
 }
