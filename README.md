@@ -54,6 +54,10 @@ And then add:
 
 Where `<your-image-prefix-here>` is something like `docker.io/brendanburns`.
 
+### Running from source
+
+If you are building and running the extension from source, see [CONTRIBUTING.md](CONTRIBUTING.md) for prerequisites for the development environment.
+
 ## Features
 
 `vs-kubernetes` supports a number of commands for interacting with Kubernetes; these are accessible via the command menu (`Ctrl+Shift+P`) and may be bound to keys in the normal way.

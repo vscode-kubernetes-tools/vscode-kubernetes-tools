@@ -8,6 +8,17 @@ This project has adopted the [Microsoft Open Source Code of Conduct](https://ope
 For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
 contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
 
+## Prerequisites
+
+When running from source (that is, debugging in the Extension Development Host), you must install dependencies first.  There are two sets of dependencies: node module dependencies and extension dependencies.
+
+1. **Install node modules:** In the integrated terminal, run `npm install`.
+2. **Install extension dependencies:** In the VS Code Extensions tab, search for RedHat YAML and install that extension.
+
+(Note that end users do *not* need to do these steps.  VS Code extension packaging and installation takes care of them.  But running from source bypasses this process so we have to do them by hand.)
+
+If you get the error `Extension 'ms-kubernetes-tools.vscode-kubernetes-tools' failed to activate` (usually followed by `command 'extension.some-command-id' not found`) then it probably means you're missing an extension dependency.
+
 ## The 'Create Cluster' and 'Add Existing Cluster' Commands
 
 The 'Create Cluster' and 'Add Existing Cluster' commands rely on provider-specific tools or APIs for interacting with the cloud or cluster.  We have a basic extension point for implementing new cloud providers.  **This is currently experimental and we welcome feedback.**
