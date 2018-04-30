@@ -1,4 +1,4 @@
-export function sanitiseTag(name : string) {
+export function sanitiseTag(name: string) {
     // Name components may contain lowercase letters, digits and separators.
     // A separator is defined as a period, one or two underscores, or one or
     // more dashes. A name component may not start or end with a separator.

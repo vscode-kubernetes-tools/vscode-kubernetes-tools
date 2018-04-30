@@ -185,7 +185,7 @@ export async function registerYamlSchemaSupport(): Promise<void> {
 }
 
 // see docs from YamlSchemaContributor
-function requestYamlSchemaUriCallback(resource:string): string {
+function requestYamlSchemaUriCallback(resource: string): string {
     const textEditor = vscode.window.visibleTextEditors.find((editor) => editor.document.uri.toString() === resource);
     if (textEditor) {
         const yamlDocs = yamlLocator.getYamlDocuments(textEditor.document);

@@ -106,7 +106,7 @@ export class FuncMap {
         ]
     }
 
-    public sprigFuncs():vscode.CompletionItem[] {
+    public sprigFuncs(): vscode.CompletionItem[] {
         return [
             // 2.12.0
             this.f("snakecase", "snakecase $str", "Convert $str to snake_case"),

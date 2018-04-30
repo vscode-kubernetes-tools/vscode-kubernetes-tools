@@ -6,10 +6,10 @@ import * as fuzzysearch from 'fuzzysearch';
 
 /// internal representation of a yaml code snippet corresponding to vscode.CompletionItemProvider
 export interface CodeSnippet {
-    readonly name : string;
-    readonly label : string;
-    readonly description : string;
-    readonly body : string;
+    readonly name: string;
+    readonly label: string;
+    readonly description: string;
+    readonly body: string;
 }
 
 

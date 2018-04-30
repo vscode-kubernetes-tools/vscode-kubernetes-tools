@@ -11,12 +11,12 @@ import { create as draftCreate, CheckPresentMode as DraftCheckPresentMode } from
 import * as kuberesources from '../src/kuberesources';
 
 interface FakeContext {
-    host? : any;
-    fs? : any;
-    shell? : any;
+    host?: any;
+    fs?: any;
+    shell?: any;
 }
 
-function draftCreateWithFakes(ctx : FakeContext) {
+function draftCreateWithFakes(ctx: FakeContext) {
     return draftCreate(
         ctx.host || fakes.host(),
         ctx.fs || fakes.fs(),
@@ -27,7 +27,7 @@ function draftCreateWithFakes(ctx : FakeContext) {
 
 const draftFakePath = "c:\\fake\\draft\\draft.exe";
 
-function draftFakePathConfig() : any {
+function draftFakePathConfig(): any {
     return { 'vs-kubernetes.draft-path': draftFakePath };
 }
 
@@ -38,7 +38,7 @@ suite("draft tests", () => {
         suite("If draft is not on the path", () => {
 
             test("...and configuration is not present, then checkPresent reports an error", async () => {
-                let errors : string[] = [];
+                let errors: string[] = [];
                 const draft = draftCreateWithFakes({
                     host: fakes.host({errors: errors})
                 });
@@ -49,7 +49,7 @@ suite("draft tests", () => {
             });
 
             test("...and configuration is present but file doesn't exist, then checkPresent reports an error", async () => {
-                let errors : string[] = [];
+                let errors: string[] = [];
                 const draft = draftCreateWithFakes({
                     host: fakes.host({errors: errors, configuration: draftFakePathConfig()})
                 });
@@ -60,7 +60,7 @@ suite("draft tests", () => {
             });
 
             test("...and in silent mode, then no errors are reported", async () => {
-                let errors : string[] = [];
+                let errors: string[] = [];
                 const draft = draftCreateWithFakes({
                     host: fakes.host({errors: errors})
                 });
@@ -71,8 +71,8 @@ suite("draft tests", () => {
 
             test("...and configuration is present and file exists, then checkPresent does not report any messages", async () => {
                 let errors = [];
-                let warnings : string[] = [];
-                let infos : string[] = [];
+                let warnings: string[] = [];
+                let infos: string[] = [];
                 const draft = draftCreateWithFakes({
                     host: fakes.host({errors: errors, warnings: warnings, infos: infos, configuration: draftFakePathConfig()}),
                     fs: fakes.fs({existentPaths: [draftFakePath]})
@@ -97,9 +97,9 @@ suite("draft tests", () => {
         suite("If draft is on the path", () => {
 
             test("...no messages are reported on Windows", async () => {
-                let errors : string[] = [];
-                let warnings : string[] = [];
-                let infos : string[] = [];
+                let errors: string[] = [];
+                let warnings: string[] = [];
+                let infos: string[] = [];
                 const draft = draftCreateWithFakes({
                     host: fakes.host({errors: errors, warnings: warnings, infos: infos}),
                     shell: fakes.shell({recognisedCommands: [{command: 'where.exe draft.exe', code: 0, stdout: 'c:\\draft.exe'}]})
@@ -111,9 +111,9 @@ suite("draft tests", () => {
             });
 
             test("...no messages are reported on Unix", async () => {
-                let errors : string[] = [];
-                let warnings : string[] = [];
-                let infos : string[] = [];
+                let errors: string[] = [];
+                let warnings: string[] = [];
+                let infos: string[] = [];
                 const draft = draftCreateWithFakes({
                     host: fakes.host({errors: errors, warnings: warnings, infos: infos}),
                     shell: fakes.shell({isWindows: false, isUnix: true, recognisedCommands: [{command: 'which draft', code: 0, stdout: '/usr/bin/draft'}]})

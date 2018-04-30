@@ -10,7 +10,7 @@ import * as helm from './helm';
 import { showWorkspaceFolderPick } from './hostutils';
 
 export interface PickChartUIOptions {
-    readonly warnIfNoCharts : boolean;
+    readonly warnIfNoCharts: boolean;
 }
 
 export enum EnsureMode {
@@ -82,7 +82,7 @@ export function helmDepUp() {
     });
 }
 
-export async function helmCreate() : Promise<void> {
+export async function helmCreate(): Promise<void> {
     const folder = await showWorkspaceFolderPick();
     if (!folder) {
         return;
@@ -253,14 +253,14 @@ export function helmExec(args: string, fn) {
     if (!ensureHelm(EnsureMode.Alert)) {
         return;
     }
-    const configuredBin : string | undefined = vscode.workspace.getConfiguration('vs-kubernetes')['vs-kubernetes.helm-path'];
+    const configuredBin: string | undefined = vscode.workspace.getConfiguration('vs-kubernetes')['vs-kubernetes.helm-path'];
     const bin = configuredBin ? `"${configuredBin}"` : "helm";
     const cmd = bin + " " + args;
     shell.exec(cmd, fn);
 }
 
 export function ensureHelm(mode: EnsureMode) {
-    const configuredBin : string | undefined = vscode.workspace.getConfiguration('vs-kubernetes')['vs-kubernetes.helm-path'];
+    const configuredBin: string | undefined = vscode.workspace.getConfiguration('vs-kubernetes')['vs-kubernetes.helm-path'];
     if (configuredBin) {
         if (fs.existsSync(configuredBin)) {
             return true;

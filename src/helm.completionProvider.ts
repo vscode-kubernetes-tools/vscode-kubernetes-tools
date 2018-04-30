@@ -169,5 +169,5 @@ export class HelmTemplateCompletionProvider implements vscode.CompletionItemProv
 }
 
 interface UIOptions {
-    readonly warnIfNoCharts? : boolean;
+    readonly warnIfNoCharts?: boolean;
 }
