@@ -136,6 +136,10 @@ export async function getPodSelector(resource: string, kubectl: Kubectl): Promis
 }
 
 export async function getPods(kubectl: Kubectl, selector: any): Promise<Pod[]> {
+    if (!selector) {
+        return [];
+    }
+
     const currentNS = await currentNamespace(kubectl);
 
     const labels = [];
