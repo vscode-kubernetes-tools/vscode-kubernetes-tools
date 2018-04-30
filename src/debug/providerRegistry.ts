@@ -15,7 +15,7 @@ async function showProviderPick(): Promise<IDebugProvider> {
             provider
         };
     });
-    
+
     const pickedProvider = await vscode.window.showQuickPick(<vscode.QuickPickItem[]> providerItems, { placeHolder: "Select the environment" });
     if (!pickedProvider) {
         return null;

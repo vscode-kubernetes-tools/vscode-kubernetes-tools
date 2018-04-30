@@ -5,7 +5,7 @@ import { shell, ShellResult } from "./shell";
 
 /**
  * Install a vscode extension programmatically.
- * 
+ *
  * @param extensionId the extension id.
  */
 export async function installVscodeExtension(extensionId: string): Promise<boolean> {

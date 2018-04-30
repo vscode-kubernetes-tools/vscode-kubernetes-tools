@@ -100,7 +100,7 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
     ];
 
     const draftDebugProvider = new DraftConfigurationProvider();
-    let draftDebugSession: vscode.DebugSession;    
+    let draftDebugSession: vscode.DebugSession;
 
     const subscriptions = [
 
@@ -217,7 +217,7 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
             }
         }
     });
-    
+
     vscode.debug.onDidTerminateDebugSession((e) => {
 
         // if there is an active Draft debugging session, restart the cycle

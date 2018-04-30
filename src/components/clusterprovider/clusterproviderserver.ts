@@ -83,7 +83,7 @@ function handleGetProviderListHtml(action: clusterproviderregistry.ClusterProvid
         document.getElementById('nextlink').href = selection;
     }
     `);
-    
+
     const html = `<html><body><h1 id='h'>Choose cluster type</h1>
             <style id='styleholder'>
             </style>

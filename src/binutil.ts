@@ -95,7 +95,7 @@ export async function checkForBinary(context: BinCheckContext, bin: string, binN
     }
 
     context.binFound = context.fs.existsSync(bin);
-    
+
     if (context.binFound) {
         context.binPath = bin;
     } else {

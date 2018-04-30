@@ -26,6 +26,7 @@
                 "property-declaration": "onespace",
                 "variable-declaration": "onespace"
             }
-        ]
+        ],
+        "no-trailing-whitespace": true
     }
 }

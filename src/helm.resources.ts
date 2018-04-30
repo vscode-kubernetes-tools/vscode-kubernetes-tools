@@ -84,7 +84,7 @@ export class Resources {
             });
         });
         return res;
-    }    
+    }
 }
 
 function d(name: string, use: string, doc: string): vscode.CompletionItem {

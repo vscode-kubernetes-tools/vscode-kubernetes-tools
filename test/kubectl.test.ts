@@ -177,7 +177,7 @@ suite("kubectl tests", () => {
             test("...we do not attempt to call kubectl", async () => {
                 let kubectlInvoked = false;
                 const kubectl = kubectlCreateWithFakes({
-                    shell: fakes.shell({execCallback: (cmd) => { 
+                    shell: fakes.shell({execCallback: (cmd) => {
                         if (cmd.startsWith('kubectl')) { kubectlInvoked = true; }
                         return { code: 98765, stdout: '', stderr: '' };
                     } })
@@ -195,7 +195,7 @@ suite("kubectl tests", () => {
                 const kubectl = kubectlCreateWithFakes({
                     shell: fakes.shell({
                         recognisedCommands: [{command: 'where.exe kubectl.exe', code: 0, stdout: 'c:\\kubectl.exe'}],
-                        execCallback: (cmd) => { 
+                        execCallback: (cmd) => {
                             if (cmd.startsWith('kubectl')) { kubectlInvoked = true; }
                             return { code: 98765, stdout: '', stderr: '' };
                         }
@@ -210,7 +210,7 @@ suite("kubectl tests", () => {
                 const kubectl = kubectlCreateWithFakes({
                     host: fakes.host({configuration: kcFakePathConfig()}),
                     shell: fakes.shell({
-                        execCallback: (cmd) => { 
+                        execCallback: (cmd) => {
                             invoked.push(cmd);
                             return { code: 98765, stdout: '', stderr: '' };
                         }
@@ -232,7 +232,7 @@ suite("kubectl tests", () => {
                 const kubectl = kubectlCreateWithFakes({
                     shell: fakes.shell({
                         recognisedCommands: [{command: 'where.exe kubectl.exe', code: 0, stdout: 'c:\\kubectl.exe'}],
-                        execCallback: (cmd) => { 
+                        execCallback: (cmd) => {
                             if (cmd.startsWith('kubectl')) { kubectlCommandLine = cmd; }
                             return { code: 98765, stdout: '', stderr: '' };
                         }
@@ -248,7 +248,7 @@ suite("kubectl tests", () => {
                 const kubectl = kubectlCreateWithFakes({
                     shell: fakes.shell({
                         recognisedCommands: [{command: 'where.exe kubectl.exe', code: 0, stdout: 'c:\\kubectl.exe'}],
-                        execCallback: (cmd) => { 
+                        execCallback: (cmd) => {
                             if (cmd.startsWith('kubectl')) { return fakeKubectlResult; }
                             return { code: 98765, stdout: '', stderr: '' };
                         }
@@ -269,7 +269,7 @@ suite("kubectl tests", () => {
                     host: fakes.host({errors: errors, warnings: warnings, infos: infos}),
                     shell: fakes.shell({
                         recognisedCommands: [{command: 'where.exe kubectl.exe', code: 0, stdout: 'c:\\kubectl.exe'}],
-                        execCallback: (cmd) => { 
+                        execCallback: (cmd) => {
                             if (cmd.startsWith('kubectl')) { return fakeKubectlResult; }
                             return { code: 98765, stdout: '', stderr: '' };
                         }
@@ -291,7 +291,7 @@ suite("kubectl tests", () => {
                     host: fakes.host({errors: errors, warnings: warnings, infos: infos}),
                     shell: fakes.shell({
                         recognisedCommands: [{command: 'where.exe kubectl.exe', code: 0, stdout: 'c:\\kubectl.exe'}],
-                        execCallback: (cmd) => { 
+                        execCallback: (cmd) => {
                             if (cmd.startsWith('kubectl')) { return fakeKubectlResult; }
                             return { code: 98765, stdout: '', stderr: '' };
                         }

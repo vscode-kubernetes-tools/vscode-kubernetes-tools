@@ -23,7 +23,7 @@ export async function installKubectl(shell: Shell): Promise<Errorable<void>> {
 
     const installFolder = getInstallFolder(shell, tool);
     mkdirp.sync(installFolder);
-    
+
     const kubectlUrl = `https://storage.googleapis.com/kubernetes-release/release/${version.result.trim()}/bin/${os}/amd64/${binFile}`;
     const downloadFile = path.join(installFolder, binFile);
     const downloadResult = await downloadTo(kubectlUrl, downloadFile);
