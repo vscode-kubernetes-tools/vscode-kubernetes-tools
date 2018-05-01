@@ -46,7 +46,7 @@ export interface WaitResult {
 
 const MIN_AZ_CLI_VERSION = '2.0.23';
 
-export async function getSubscriptionList(context: Context, forCommand: string) : Promise<ActionResult<string[]>> {
+export async function getSubscriptionList(context: Context, forCommand: string): Promise<ActionResult<string[]>> {
     // check for prerequisites
     const prerequisiteErrors = await verifyPrerequisitesAsync(context, forCommand);
     if (prerequisiteErrors.length > 0) {
@@ -64,7 +64,7 @@ export async function getSubscriptionList(context: Context, forCommand: string) 
     };
 }
 
-async function verifyPrerequisitesAsync(context: Context, forCommand: string) : Promise<string[]> {
+async function verifyPrerequisitesAsync(context: Context, forCommand: string): Promise<string[]> {
     const errors = new Array<string>();
 
     const azVersion = await azureCliVersion(context);
@@ -81,7 +81,7 @@ async function verifyPrerequisitesAsync(context: Context, forCommand: string) : 
     return errors;
 }
 
-async function azureCliVersion(context: Context) : Promise<string> {
+async function azureCliVersion(context: Context): Promise<string> {
     const sr = await context.shell.exec('az --version');
     if (sr.code !== 0 || sr.stderr) {
         return null;
@@ -101,19 +101,19 @@ function prereqCheckSSHKeys(context: Context, errors: Array<String>) {
     }
 }
 
-async function listSubscriptionsAsync(context: Context) : Promise<Errorable<string[]>> {
+async function listSubscriptionsAsync(context: Context): Promise<Errorable<string[]>> {
     const sr = await context.shell.exec("az account list --all --query [*].name -ojson");
 
     return fromShellJson<string[]>(sr);
 }
 
-export async function setSubscriptionAsync(context: Context, subscription: string) : Promise<Errorable<void>> {
+export async function setSubscriptionAsync(context: Context, subscription: string): Promise<Errorable<void>> {
     const sr = await context.shell.exec(`az account set --subscription "${subscription}"`);
 
     return fromShellExitCodeAndStandardError(sr);
 }
 
-export async function getClusterList(context: Context, subscription: string, clusterType: string) : Promise<ActionResult<ClusterInfo[]>> {
+export async function getClusterList(context: Context, subscription: string, clusterType: string): Promise<ActionResult<ClusterInfo[]>> {
     // log in
     const login = await setSubscriptionAsync(context, subscription);
     if (!login.succeeded) {
@@ -131,7 +131,7 @@ export async function getClusterList(context: Context, subscription: string, clu
     };
 }
 
-async function listClustersAsync(context: Context, clusterType: string) : Promise<Errorable<ClusterInfo[]>> {
+async function listClustersAsync(context: Context, clusterType: string): Promise<Errorable<ClusterInfo[]>> {
     let cmd = getListClustersCommand(context, clusterType);
     const sr = await context.shell.exec(cmd);
 
@@ -145,7 +145,7 @@ function listClustersFilter(clusterType: string): string {
     return '';
 }
 
-function getListClustersCommand(context: Context, clusterType: string) : string {
+function getListClustersCommand(context: Context, clusterType: string): string {
     let filter = listClustersFilter(clusterType);
     let query = `[${filter}].{name:name,resourceGroup:resourceGroup}`;
     if (context.shell.isUnix()) {
@@ -154,7 +154,7 @@ function getListClustersCommand(context: Context, clusterType: string) : string 
     return `az ${getClusterCommand(clusterType)} list --query ${query} -ojson`;
 }
 
-async function listLocations(context: Context) : Promise<Errorable<Locations>> {
+async function listLocations(context: Context): Promise<Errorable<Locations>> {
     let query = "[].{name:name,displayName:displayName}";
     if (context.shell.isUnix()) {
         query = `'${query}'`;
@@ -163,7 +163,7 @@ async function listLocations(context: Context) : Promise<Errorable<Locations>> {
     const sr = await context.shell.exec(`az account list-locations --query ${query} -ojson`);
 
     return fromShellJson<Locations>(sr, (response) => {
-        let locations : any = {};
+        let locations: any = {};
         for (const r of response) {
             locations[r.name] = r.displayName;
         }
@@ -171,7 +171,7 @@ async function listLocations(context: Context) : Promise<Errorable<Locations>> {
     });
 }
 
-export async function listAcsLocations(context: Context) : Promise<Errorable<ServiceLocation[]>> {
+export async function listAcsLocations(context: Context): Promise<Errorable<ServiceLocation[]>> {
     const locationInfo = await listLocations(context);
     if (!locationInfo.succeeded) {
         return { succeeded: false, result: [], error: locationInfo.error };
@@ -184,7 +184,7 @@ export async function listAcsLocations(context: Context) : Promise<Errorable<Ser
         locationDisplayNamesEx(response.productionRegions, response.previewRegions, locations));
 }
 
-export async function listAksLocations(context: Context) : Promise<Errorable<ServiceLocation[]>> {
+export async function listAksLocations(context: Context): Promise<Errorable<ServiceLocation[]>> {
     const locationInfo = await listLocations(context);
     if (!locationInfo.succeeded) {
         return { succeeded: false, result: [], error: locationInfo.error };
@@ -198,26 +198,26 @@ export async function listAksLocations(context: Context) : Promise<Errorable<Ser
     return { succeeded: true, result: result, error: [] };
 }
 
-function locationDisplayNames(names: string[], preview: boolean, locationInfo: Locations) : ServiceLocation[] {
+function locationDisplayNames(names: string[], preview: boolean, locationInfo: Locations): ServiceLocation[] {
     return names.map((n) => { return { displayName: locationInfo.locations[n], isPreview: preview }; });
 }
 
-function locationDisplayNamesEx(production: string[], preview: string[], locationInfo: Locations) : ServiceLocation[] {
+function locationDisplayNamesEx(production: string[], preview: string[], locationInfo: Locations): ServiceLocation[] {
     let result = locationDisplayNames(production, false, locationInfo) ;
     result = result.concat(locationDisplayNames(preview, true, locationInfo));
     return result;
 }
 
-export async function listVMSizes(context: Context, location: string) : Promise<Errorable<string[]>> {
+export async function listVMSizes(context: Context, location: string): Promise<Errorable<string[]>> {
     const sr = await context.shell.exec(`az vm list-sizes -l "${location}" -ojson`);
 
     return fromShellJson<string[]>(sr,
-        (response : any[]) => response.map((r) => r.name as string)
+        (response: any[]) => response.map((r) => r.name as string)
                                       .filter((name) => !name.startsWith('Basic_'))
     );
 }
 
-async function resourceGroupExists(context: Context, resourceGroupName: string) : Promise<boolean> {
+async function resourceGroupExists(context: Context, resourceGroupName: string): Promise<boolean> {
     const sr = await context.shell.exec(`az group show -n "${resourceGroupName}" -ojson`);
 
     if (sr.code === 0 && !sr.stderr) {
@@ -227,7 +227,7 @@ async function resourceGroupExists(context: Context, resourceGroupName: string) 
     }
 }
 
-async function ensureResourceGroupAsync(context: Context, resourceGroupName: string, location: string) : Promise<Errorable<void>> {
+async function ensureResourceGroupAsync(context: Context, resourceGroupName: string, location: string): Promise<Errorable<void>> {
     if (await resourceGroupExists(context, resourceGroupName)) {
         return { succeeded: true, result: null, error: [] };
     }
@@ -237,7 +237,7 @@ async function ensureResourceGroupAsync(context: Context, resourceGroupName: str
     return fromShellExitCodeAndStandardError(sr);
 }
 
-async function execCreateClusterCmd(context: Context, options: any) : Promise<Errorable<void>> {
+async function execCreateClusterCmd(context: Context, options: any): Promise<Errorable<void>> {
     const clusterCmd = getClusterCommand(options.clusterType);
     let createCmd = `az ${clusterCmd} create -n "${options.metadata.clusterName}" -g "${options.metadata.resourceGroupName}" -l "${options.metadata.location}" --no-wait `;
     if (clusterCmd == 'acs') {
@@ -251,7 +251,7 @@ async function execCreateClusterCmd(context: Context, options: any) : Promise<Er
     return fromShellExitCodeOnly(sr);
 }
 
-export async function createCluster(context: Context, options: any) : Promise<ActionResult<void>> {
+export async function createCluster(context: Context, options: any): Promise<ActionResult<void>> {
     const description = `
     Created ${options.clusterType} cluster ${options.metadata.clusterName} in ${options.metadata.resourceGroupName} with ${options.agentSettings.count} agents.
     `;
@@ -292,7 +292,7 @@ export async function waitForCluster(context: Context, clusterType: string, clus
     }
 }
 
-export async function configureCluster(context: Context, clusterType: string, clusterName: string, clusterGroup: string) : Promise<ActionResult<ConfigureResult>> {
+export async function configureCluster(context: Context, clusterType: string, clusterName: string, clusterGroup: string): Promise<ActionResult<ConfigureResult>> {
     const downloadKubectlCliPromise = downloadKubectlCli(context, clusterType);
     const getCredentialsPromise = getCredentials(context, clusterType, clusterName, clusterGroup, 5);
 
@@ -314,7 +314,7 @@ export async function configureCluster(context: Context, clusterType: string, cl
     };
 }
 
-async function downloadKubectlCli(context: Context, clusterType: string) : Promise<any> {
+async function downloadKubectlCli(context: Context, clusterType: string): Promise<any> {
     const cliInfo = installKubectlCliInfo(context, clusterType);
 
     const sr = await context.shell.exec(cliInfo.commandLine);
@@ -332,7 +332,7 @@ async function downloadKubectlCli(context: Context, clusterType: string) : Promi
     }
 }
 
-async function getCredentials(context: Context, clusterType: string, clusterName: string, clusterGroup: string, maxAttempts: number) : Promise<any> {
+async function getCredentials(context: Context, clusterType: string, clusterName: string, clusterGroup: string, maxAttempts: number): Promise<any> {
     let attempts = 0;
     while (true) {
         attempts++;
@@ -378,14 +378,14 @@ function installKubectlCliInfo(context: Context, clusterType: string) {
     }
 }
 
-function getClusterCommand(clusterType: string) : string {
+function getClusterCommand(clusterType: string): string {
     if (clusterType === 'Azure Container Service' || clusterType === 'acs') {
         return 'acs';
     }
     return 'aks';
 }
 
-function getClusterCommandAndSubcommand(clusterType: string) : string {
+function getClusterCommandAndSubcommand(clusterType: string): string {
     if (clusterType === 'Azure Container Service' || clusterType === 'acs') {
         return 'acs kubernetes';
     }

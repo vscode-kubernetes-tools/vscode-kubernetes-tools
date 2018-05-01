@@ -16,7 +16,7 @@ export enum DockerClient {
 
 /**
  * Build the docker image first. If imagePrefix is not empty, push the image to remote docker hub, too.
- * 
+ *
  * @param dockerClient the possible dockerClient： docker or docker-compose.
  * @param shellOpts any option available to Node.js's child_process.exec().
  * @param imagePrefix the image prefix for docker images (e.g. 'docker.io/brendanburns').
@@ -32,7 +32,7 @@ export async function buildAndPushDockerImage(dockerClient: DockerClient, shellO
     return image;
 }
 
-function sanitiseTag(name : string) {
+function sanitiseTag(name: string) {
     // Name components may contain lowercase letters, digits and separators.
     // A separator is defined as a period, one or two underscores, or one or
     // more dashes. A name component may not start or end with a separator.
@@ -86,7 +86,7 @@ export async function resolveKubernetesDockerEnv(kubectl: Kubectl): Promise<{}> 
     if (!currentCluster || !currentCluster.server || !currentCluster.certificateAuthority) {
         return {};
     }
-    
+
     if (/^https/.test(currentCluster.server)) {
         dockerEnv["DOCKER_TLS_VERIFY"] = 1;
     }

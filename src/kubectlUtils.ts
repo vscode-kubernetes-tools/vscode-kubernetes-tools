@@ -202,7 +202,7 @@ export async function switchNamespace(kubectl: Kubectl, namespace: string): Prom
 
 /**
  * Run the specified image in the kubernetes cluster.
- * 
+ *
  * @param kubectl the kubectl client.
  * @param deploymentName the deployment name.
  * @param image the docker image.
@@ -234,7 +234,7 @@ export async function runAsDeployment(kubectl: Kubectl, deploymentName: string, 
 
 /**
  * Query the pod list for the specified label.
- * 
+ *
  * @param kubectl the kubectl client.
  * @param labelQuery the query label.
  * @return the pod list.
@@ -253,7 +253,7 @@ export async function findPodsByLabel(kubectl: Kubectl, labelQuery: string): Pro
 
 /**
  * Wait and block until the specified pod's status becomes running.
- * 
+ *
  * @param kubectl the kubectl client.
  * @param podName the pod name.
  */
@@ -273,7 +273,7 @@ export async function waitForRunningPod(kubectl: Kubectl, podName: string): Prom
                 Pod logs:\n${logsResult.code === 0 ? logsResult.stdout : logsResult.stderr}`);
             throw new Error(`Failed to start the pod "${podName}". Its status is "${status}".`);
         }
-    
+
         await sleep(1000);
     }
 }

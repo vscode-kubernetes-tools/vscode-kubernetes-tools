@@ -22,7 +22,7 @@ export interface IDebugProvider {
 
     /**
      * Launch the debugger extension and attach to the target debug port.
-     * 
+     *
      * @param workspaceFolder the workspace folder path.
      * @param sessionName the debug session name.
      * @param port the debugging port exposed by the target program.
@@ -32,7 +32,7 @@ export interface IDebugProvider {
 
     /**
      * The docker image is supported by the provider or not.
-     * 
+     *
      * @param baseImage the inherited image name.
      * @return true if the provider can infer the application type from the image name, otherwise, false.
      */
@@ -40,7 +40,7 @@ export interface IDebugProvider {
 
     /**
      * Resolve the debug port info from the dockerfile.
-     * 
+     *
      * @param dockerfile the docker file.
      * @param env the environment variables defined by the docker file.
      * @return the resolved debug port info.

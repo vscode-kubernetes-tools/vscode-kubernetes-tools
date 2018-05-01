@@ -1,19 +1,19 @@
 import * as sysfs from 'fs';
 
 export interface FS {
-    existsSync(path : string | Buffer) : boolean;
-    readFile(filename : string, encoding : string, callback : (err : NodeJS.ErrnoException, data : string) => void) : void;
-    readFileSync(filename : string, encoding: string) : string;
-    readFileToBufferSync(filename : string): Buffer;
-    writeFile(filename : string, data : any, callback? : (err : NodeJS.ErrnoException) => void) : void;
-    writeFileSync(filename : string, data : any) : void;
-    dirSync(path: string) : string[];
-    unlinkAsync(path: string) : Promise<void>;
-    existsAsync(path:string) : Promise<boolean>;
-    openAsync(path:string, flags:string) : Promise<void>;
+    existsSync(path: string | Buffer): boolean;
+    readFile(filename: string, encoding: string, callback: (err: NodeJS.ErrnoException, data: string) => void): void;
+    readFileSync(filename: string, encoding: string): string;
+    readFileToBufferSync(filename: string): Buffer;
+    writeFile(filename: string, data: any, callback?: (err: NodeJS.ErrnoException) => void): void;
+    writeFileSync(filename: string, data: any): void;
+    dirSync(path: string): string[];
+    unlinkAsync(path: string): Promise<void>;
+    existsAsync(path: string): Promise<boolean>;
+    openAsync(path: string, flags: string): Promise<void>;
 }
 
-export const fs : FS = {
+export const fs: FS = {
     existsSync: (path) => sysfs.existsSync(path),
     readFile: (filename, encoding, callback) => sysfs.readFile(filename, encoding, callback),
     readFileSync: (filename, encoding) => sysfs.readFileSync(filename, encoding),

@@ -8,8 +8,8 @@ import { Errorable, script, styles, formStyles, waitScript, ActionResult } from 
 // HTTP request dispatch
 
 // TODO: de-globalise
-let wizardServer : restify.Server;
-let wizardPort : number;
+let wizardServer: restify.Server;
+let wizardPort: number;
 
 type HtmlRequestHandler = (
     step: string | undefined,
@@ -17,7 +17,7 @@ type HtmlRequestHandler = (
     requestData: any,
 ) => Promise<string>;
 
-export async function init(registry: clusterproviderregistry.ClusterProviderRegistry, context: azure.Context) : Promise<void> {
+export async function init(registry: clusterproviderregistry.ClusterProviderRegistry, context: azure.Context): Promise<void> {
     if (!wizardServer) {
         wizardServer = restify.createServer({
             formatters: {
@@ -63,11 +63,11 @@ class HtmlServer {
         await this.handleConfigure(request, request.body, response, next);
     }
 
-    async handleCreate(request: restify.Request, requestData: any, response: restify.Response, next: restify.Next) : Promise<void> {
+    async handleCreate(request: restify.Request, requestData: any, response: restify.Response, next: restify.Next): Promise<void> {
         await this.handleRequest(getHandleCreateHtml, request, requestData, response, next);
     }
 
-    async handleConfigure(request: restify.Request, requestData: any, response: restify.Response, next: restify.Next) : Promise<void> {
+    async handleConfigure(request: restify.Request, requestData: any, response: restify.Response, next: restify.Next): Promise<void> {
         await this.handleRequest(getHandleConfigureHtml, request, requestData, response, next);
     }
 
@@ -111,7 +111,7 @@ async function getHandleConfigureHtml(step: string | undefined, context: azure.C
 
 // HTML rendering boilerplate
 
-function propagationFields(previousData: any) : string {
+function propagationFields(previousData: any): string {
     let formFields = "";
     for (const k in previousData) {
         formFields = formFields + `<input type='hidden' name='${k}' value='${previousData[k]}' />\n`;
@@ -130,7 +130,7 @@ interface FormData {
     formContent: string;
 }
 
-function formPage(fd: FormData) : string {
+function formPage(fd: FormData): string {
     return `<!-- ${fd.stepId} -->
             <h1 id='h'>${fd.title}</h1>
             ${formStyles()}
@@ -149,13 +149,13 @@ function formPage(fd: FormData) : string {
 
 // Pages for the various wizard steps
 
-async function promptForSubscription(previousData: any, context: azure.Context, action: clusterproviderregistry.ClusterProviderAction, nextStep: string) : Promise<string> {
+async function promptForSubscription(previousData: any, context: azure.Context, action: clusterproviderregistry.ClusterProviderAction, nextStep: string): Promise<string> {
     const subscriptionList = await azure.getSubscriptionList(context, previousData.id);
     if (!subscriptionList.result.succeeded) {
         return renderCliError('PromptForSubscription', subscriptionList);
     }
 
-    const subscriptions : string[] = subscriptionList.result.result;
+    const subscriptions: string[] = subscriptionList.result.result;
 
     if (!subscriptions || !subscriptions.length) {
         return renderNoOptions('PromptForSubscription', 'No Azure subscriptions', 'You have no Azure subscriptions.');
@@ -182,7 +182,7 @@ async function promptForSubscription(previousData: any, context: azure.Context, 
     });
 }
 
-async function promptForCluster(previousData: any, context: azure.Context) : Promise<string> {
+async function promptForCluster(previousData: any, context: azure.Context): Promise<string> {
     const clusterList = await azure.getClusterList(context, previousData.subscription, previousData.clusterType);
 
     if (!clusterList.result.succeeded) {
@@ -214,14 +214,14 @@ async function promptForCluster(previousData: any, context: azure.Context) : Pro
     });
 }
 
-async function configureKubernetes(previousData: any, context: azure.Context) : Promise<string> {
+async function configureKubernetes(previousData: any, context: azure.Context): Promise<string> {
     const selectedCluster = parseCluster(previousData.cluster);
     const configureResult = await azure.configureCluster(context, previousData.clusterType, selectedCluster.name, selectedCluster.resourceGroup);
     await refreshExplorer();
     return renderConfigurationResult(configureResult);
 }
 
-async function promptForMetadata(previousData: any, context: azure.Context) : Promise<string> {
+async function promptForMetadata(previousData: any, context: azure.Context): Promise<string> {
     const serviceLocations = previousData.clusterType === 'acs' ?
         await azure.listAcsLocations(context) :
         await azure.listAksLocations(context);
@@ -255,7 +255,7 @@ async function promptForMetadata(previousData: any, context: azure.Context) : Pr
     });
 }
 
-async function promptForAgentSettings(previousData: any, context: azure.Context) : Promise<string> {
+async function promptForAgentSettings(previousData: any, context: azure.Context): Promise<string> {
     const vmSizes = await azure.listVMSizes(context, previousData.location);
     if (!vmSizes.succeeded) {
         return renderCliError('PromptForAgentSettings', {
@@ -286,7 +286,7 @@ async function promptForAgentSettings(previousData: any, context: azure.Context)
     });
 }
 
-async function createCluster(previousData: any, context: azure.Context) : Promise<string> {
+async function createCluster(previousData: any, context: azure.Context): Promise<string> {
 
     const options = {
         clusterType: previousData.clusterType,
@@ -333,11 +333,11 @@ async function createCluster(previousData: any, context: azure.Context) : Promis
 
 let refreshCount = 0;  // TODO: ugh
 
-function refreshCountIndicator() : string {
+function refreshCountIndicator(): string {
     return ".".repeat(refreshCount % 4);
 }
 
-async function waitForClusterAndReportConfigResult(previousData: any, context: azure.Context) : Promise<string> {
+async function waitForClusterAndReportConfigResult(previousData: any, context: azure.Context): Promise<string> {
 
     ++refreshCount;
 
@@ -366,7 +366,7 @@ async function waitForClusterAndReportConfigResult(previousData: any, context: a
     return renderConfigurationResult(configureResult);
 }
 
-function renderConfigurationResult(configureResult: ActionResult<azure.ConfigureResult>) : string {
+function renderConfigurationResult(configureResult: ActionResult<azure.ConfigureResult>): string {
     const title = configureResult.result.succeeded ? 'Cluster added' : `Error ${configureResult.actionDescription}`;
     const configResult = configureResult.result.result;
     const clusterServiceString = configureResult.result.result.clusterType === "aks" ? "Azure Kubernetes Service" : "Azure Container Service";
@@ -392,7 +392,7 @@ function renderConfigurationResult(configureResult: ActionResult<azure.Configure
 
 // Error rendering helpers
 
-function diagnoseCreationError(e: Errorable<any>) : string {
+function diagnoseCreationError(e: Errorable<any>): string {
     if (e.succeeded) {
         return '';
     }
@@ -402,7 +402,7 @@ function diagnoseCreationError(e: Errorable<any>) : string {
     return '';
 }
 
-function diagnoseCreationSuccess(e: Errorable<any>) : string {
+function diagnoseCreationSuccess(e: Errorable<any>): string {
     if (!e.succeeded || !e.error || e.error.length === 0 || !e.error[0]) {
         return '';
     }
@@ -416,7 +416,7 @@ function diagnoseCreationSuccess(e: Errorable<any>) : string {
         <p>${error}</p>`;
 }
 
-function renderCliError<T>(stageId: string, last: ActionResult<T>) : string {
+function renderCliError<T>(stageId: string, last: ActionResult<T>): string {
     return `<!-- ${stageId} -->
         <h1>Error ${last.actionDescription}</h1>
         <p><span class='error'>The Azure command line failed.</span>  See below for the error message.  You may need to:</p>
@@ -429,7 +429,7 @@ function renderCliError<T>(stageId: string, last: ActionResult<T>) : string {
         <p>${last.result.error}</p>`;
 }
 
-function renderNoOptions(stageId: string, title: string, message: string) : string {
+function renderNoOptions(stageId: string, title: string, message: string): string {
     return `
 <h1>${title}</h1>
 ${styles()}
@@ -437,7 +437,7 @@ ${styles()}
 `;
 }
 
-function renderInternalError(error: string) : string {
+function renderInternalError(error: string): string {
     return `
 <h1>Internal extension error</h1>
 ${styles()}
@@ -446,7 +446,7 @@ ${styles()}
 `;
 }
 
-function renderExternalError<T>(last: ActionResult<T>) : string {
+function renderExternalError<T>(last: ActionResult<T>): string {
     return `
     <h1>Error ${last.actionDescription}</h1>
     ${styles()}
@@ -457,11 +457,11 @@ function renderExternalError<T>(last: ActionResult<T>) : string {
 
 // Utility helpers
 
-function formatCluster(cluster: any) : string {
+function formatCluster(cluster: any): string {
     return cluster.resourceGroup + '/' + cluster.name;
 }
 
-function parseCluster(encoded: string) : azure.ClusterInfo {
+function parseCluster(encoded: string): azure.ClusterInfo {
     const delimiterPos = encoded.indexOf('/');
     return {
         resourceGroup: encoded.substr(0, delimiterPos),
@@ -469,6 +469,6 @@ function parseCluster(encoded: string) : azure.ClusterInfo {
     };
 }
 
-async function refreshExplorer() : Promise<void> {
+async function refreshExplorer(): Promise<void> {
     await vscode.commands.executeCommand('extension.vsKubernetesRefreshExplorer');
 }

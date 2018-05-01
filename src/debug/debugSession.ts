@@ -37,11 +37,11 @@ export class DebugSession implements IDebugSession {
 
     /**
      * In launch mode, build the docker image from docker file first and then run it on kubernetes cluster,
-     * after that smartly resolve the debugging info from the docker image and create port-forward, 
+     * after that smartly resolve the debugging info from the docker image and create port-forward,
      * finally start a debugger to attach to the debugging process.
-     * 
+     *
      * Besides, when the debug session is terminated, kill the port-forward and cleanup the created kubernetes resources (deployment/pod) automatically.
-     * 
+     *
      * @param workspaceFolder the active workspace folder.
      * @param debugProvider the debug provider. If not specified, prompt user to pick up a debug provider from the supported list.
      */
@@ -89,15 +89,15 @@ export class DebugSession implements IDebugSession {
                 // Find the running debug pod.
                 p.report({ message: "Finding the debug pod..."});
                 const podName = await this.findDebugPod(appName);
-                
+
                 // Wait for the debug pod status to be running.
                 p.report({ message: "Waiting for the pod to be ready..."});
                 await this.waitForPod(podName);
-    
+
                 // Setup port-forward.
                 p.report({ message: "Setting up port forwarding..."});
                 const proxyResult = await this.setupPortForward(podName, portInfo.debugPort, portInfo.appPort);
-                
+
                 // Start debug session.
                 p.report({ message: `Starting ${this.debugProvider.getDebuggerType()} debug session...`});
                 await this.startDebugSession(appName, cwd, proxyResult);
@@ -255,7 +255,7 @@ export class DebugSession implements IDebugSession {
         kubeChannel.showOutput(`Setting up port forwarding on pod ${podName}...`, "Set up port forwarding");
         const proxyResult = await this.createPortForward(this.kubectl, podName, debugPort, appPort);
         kubeChannel.showOutput(`Created port-forward ${proxyResult.proxyDebugPort}:${debugPort} ${appPort ? proxyResult.proxyAppPort + ":" + appPort : ""}`);
-        
+
         // Wait for the port-forward proxy to be ready.
         kubeChannel.showOutput("Waiting for port forwarding to be ready...");
         await this.waitForProxyReady(proxyResult.proxyProcess);

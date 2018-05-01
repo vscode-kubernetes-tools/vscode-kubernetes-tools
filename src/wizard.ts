@@ -11,7 +11,7 @@ export interface ActionResult<T> {
     readonly result: Errorable<T>;
 }
 
-export function selectionChangedScript(commandName: string, operationId: string) : string {
+export function selectionChangedScript(commandName: string, operationId: string): string {
     const js = `
 function selectionChanged() {
     var selectCtrl = document.getElementById('selector');
@@ -27,7 +27,7 @@ function selectionChanged() {
     return script(js);
 }
 
-export function script(text: string) : string {
+export function script(text: string): string {
     return `
 <script>
 ${text}
@@ -35,7 +35,7 @@ ${text}
 `;
 }
 
-export function waitScript(title: string) : string {
+export function waitScript(title: string): string {
     const js = `
 function promptWait() {
     document.getElementById('h').innerText = '${title}';
@@ -45,7 +45,7 @@ function promptWait() {
     return script(js);
 }
 
-export function styles() : string {
+export function styles(): string {
     return `
 <style>
 .vscode-light a {
@@ -79,7 +79,7 @@ export function styles() : string {
 `;
 }
 
-export function formStyles() : string {
+export function formStyles(): string {
     return `
 <style>
 .link-button {
@@ -107,20 +107,20 @@ export function formStyles() : string {
 `;
 }
 
-export function fromShellExitCodeAndStandardError(sr: ShellResult) : Errorable<void> {
+export function fromShellExitCodeAndStandardError(sr: ShellResult): Errorable<void> {
     if (sr.code === 0 && !sr.stderr) {
         return { succeeded: true, result: null, error: [] };
     }
     return { succeeded: false, result: null, error: [ sr.stderr ] };
 }
 
-export function fromShellExitCodeOnly(sr: ShellResult) : Errorable<void> {
+export function fromShellExitCodeOnly(sr: ShellResult): Errorable<void> {
     return { succeeded: sr.code === 0, result: null, error: [ sr.stderr ] };
 }
 
-export function fromShellJson<T>(sr: ShellResult, processor?: (raw: any) => T) : Errorable<T> {
+export function fromShellJson<T>(sr: ShellResult, processor?: (raw: any) => T): Errorable<T> {
     if (sr.code === 0 && !sr.stderr) {
-        const raw : any = JSON.parse(sr.stdout);
+        const raw: any = JSON.parse(sr.stdout);
         const result = processor ? processor(raw) : (raw as T);
         return { succeeded: true, result: result, error: [] };
     }

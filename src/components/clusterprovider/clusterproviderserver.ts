@@ -5,10 +5,10 @@ import { styles, script, waitScript } from '../../wizard';
 import TelemetryReporter from 'vscode-extension-telemetry';
 import { reporter } from '../../telemetry';
 
-let cpServer : restify.Server;
-let cpPort : number;
+let cpServer: restify.Server;
+let cpPort: number;
 
-export async function init() : Promise<void> {
+export async function init(): Promise<void> {
     if (!cpServer) {
         cpServer = restify.createServer({
             formatters: {
@@ -24,11 +24,11 @@ export async function init() : Promise<void> {
     }
 }
 
-export function url(action: clusterproviderregistry.ClusterProviderAction) : string {
+export function url(action: clusterproviderregistry.ClusterProviderAction): string {
     return `http://localhost:${cpPort}/?action=${action}`;
 }
 
-function handleRequest(request: restify.Request, response: restify.Response, next: restify.Next) : void {
+function handleRequest(request: restify.Request, response: restify.Response, next: restify.Next): void {
     const clusterType = request.query['clusterType'];
     if (clusterType) {
         handleClusterTypeSelection(request, response, next);
@@ -37,7 +37,7 @@ function handleRequest(request: restify.Request, response: restify.Response, nex
     }
 }
 
-function handleGetProviderList(request: restify.Request, response: restify.Response, next: restify.Next) : void {
+function handleGetProviderList(request: restify.Request, response: restify.Response, next: restify.Next): void {
     const action = request.query["action"];
 
     const html = handleGetProviderListHtml(action);
@@ -47,7 +47,7 @@ function handleGetProviderList(request: restify.Request, response: restify.Respo
     next();
 }
 
-function handleClusterTypeSelection(request: restify.Request, response: restify.Response, next: restify.Next) : void {
+function handleClusterTypeSelection(request: restify.Request, response: restify.Response, next: restify.Next): void {
     const clusterType = request.query['clusterType'];
     const action = request.query["action"];
 
@@ -58,7 +58,7 @@ function handleClusterTypeSelection(request: restify.Request, response: restify.
     response.redirect(307, url, next);
 }
 
-function handleGetProviderListHtml(action: clusterproviderregistry.ClusterProviderAction) : string {
+function handleGetProviderListHtml(action: clusterproviderregistry.ClusterProviderAction): string {
     const clusterTypes = clusterproviderregistry.get().list().filter((cp) => cp.supportedActions.indexOf(action) >= 0);
 
     if (clusterTypes.length === 0) {
@@ -83,7 +83,7 @@ function handleGetProviderListHtml(action: clusterproviderregistry.ClusterProvid
         document.getElementById('nextlink').href = selection;
     }
     `);
-    
+
     const html = `<html><body><h1 id='h'>Choose cluster type</h1>
             <style id='styleholder'>
             </style>

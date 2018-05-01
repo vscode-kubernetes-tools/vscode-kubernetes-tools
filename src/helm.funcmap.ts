@@ -27,7 +27,7 @@ export class FuncMap {
         ]
     }
     public releaseVals(): vscode.CompletionItem[] {
-        return [ 
+        return [
             this.v("Name", ".Release.Name", "Name of the release"),
             this.v("Time", ".Release.Time", "Time of the release"),
             this.v("Namespace", ".Release.Namespace", "Default namespace of the release"),
@@ -106,7 +106,7 @@ export class FuncMap {
         ]
     }
 
-    public sprigFuncs():vscode.CompletionItem[] {
+    public sprigFuncs(): vscode.CompletionItem[] {
         return [
             // 2.12.0
             this.f("snakecase", "snakecase $str", "Convert $str to snake_case"),
@@ -144,7 +144,7 @@ export class FuncMap {
             this.f("cat", "cat $str1 $str2 ...", "concatenate all given strings into one, separated by spaces"),
             this.f("indent", "indent $count $str", "indent $str with $count space chars on the left"),
             this.f("replace", "replace $find $replace $str", "find $find and replace with $replace"),
-            
+
             // String list
             this.f("plural", "plural $singular $plural $count", "if $count is 1, return $singular, else return $plural"),
             this.f("join", "join $sep $str1 $str2 ...", "concatenate all given strings into one, separated by $sep"),

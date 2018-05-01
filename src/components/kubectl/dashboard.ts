@@ -20,7 +20,7 @@ const PROXY_OUTPUT_FILE = resolve(__dirname, 'proxy.out');
 const kubectl = kubectlCreate(host, fs, shell, installDependencies);
 
 // The instance of the terminal running Kubectl Dashboard
-let terminal:vscode.Terminal;
+let terminal: vscode.Terminal;
 
 /**
  * Determines if the selected cluster is AKS or not by examining
@@ -46,7 +46,7 @@ async function isAKSCluster (): Promise<boolean> {
     return true;
 }
 
-function _isNodeAKS (node) : boolean {
+function _isNodeAKS(node): boolean {
     const name: string = node.metadata.name;
     const roleLabel: string = node.metadata.labels["kubernetes.io/role"];
 

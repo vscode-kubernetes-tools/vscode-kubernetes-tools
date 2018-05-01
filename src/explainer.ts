@@ -5,17 +5,17 @@ import * as pluralize from 'pluralize';
 import * as kubeconfig from './kubeconfig';
 import { formatComplex, formatOne, Typed, formatType } from "./schema-formatting";
 
-export function readSwagger() : Promise<any> {
+export function readSwagger(): Promise<any> {
     return kubeconfig.readKubectlConfig().then((kc) => readSwaggerCore(kc));
 }
 
-function fixUrl(kapi: any /* deliberately bypass type checks as .domain is internal */) : void {
+function fixUrl(kapi: any /* deliberately bypass type checks as .domain is internal */): void {
     if (kapi.domain.endsWith('//')) {
         kapi.domain = kapi.domain.substr(0, kapi.domain.length - 1);
     }
 }
 
-function readSwaggerCore(kc : kubeconfig.KubeConfig) : Promise<any> {
+function readSwaggerCore(kc: kubeconfig.KubeConfig): Promise<any> {
     return new Promise((resolve, reject) => {
         const kapi = k8s.api(apiCredentials(kc));
         fixUrl(kapi);
@@ -29,7 +29,7 @@ function readSwaggerCore(kc : kubeconfig.KubeConfig) : Promise<any> {
     });
 }
 
-export function readExplanation(swagger : any, fieldsPath : string) {
+export function readExplanation(swagger: any, fieldsPath: string) {
     const fields = fieldsPath.split('.');
     const kindName = fields.shift();
     const kindDef = findKindModel(swagger, kindName);
@@ -37,7 +37,7 @@ export function readExplanation(swagger : any, fieldsPath : string) {
     return text;
 }
 
-function findKindModel(swagger : any, kindName : string) : TypeModel {
+function findKindModel(swagger: any, kindName: string): TypeModel {
     // TODO: use apiVersion (e.g. v1, extensions/v1beta1) to help locate these
     const v1def = findProperty(swagger.definitions, 'v1.' + kindName);
     const v1beta1def = findProperty(swagger.definitions, 'v1beta1.' + kindName);
@@ -45,7 +45,7 @@ function findKindModel(swagger : any, kindName : string) : TypeModel {
     return kindDef;
 }
 
-function chaseFieldPath(swagger : any, currentProperty : TypeModel, currentPropertyName : string, fields : string[]) {
+function chaseFieldPath(swagger: any, currentProperty: TypeModel, currentPropertyName: string, fields: string[]) {
 
     // What are our scenarios?
     // 1. (ex: Deployment.[metadata]): We are at the end of the chain and
@@ -123,7 +123,7 @@ function chaseFieldPath(swagger : any, currentProperty : TypeModel, currentPrope
     const currentPropertyTypeRef = currentProperty.$ref || (currentProperty.items ? currentProperty.items.$ref : undefined);
 
     if (currentPropertyTypeRef) {
-        let typeDefnPath : string[] = currentPropertyTypeRef.split('/');
+        let typeDefnPath: string[] = currentPropertyTypeRef.split('/');
         typeDefnPath.shift();
         const currentPropertyTypeInfo = findTypeDefinition(swagger, typeDefnPath);
         if (currentPropertyTypeInfo) {
@@ -168,12 +168,12 @@ function chaseFieldPath(swagger : any, currentProperty : TypeModel, currentPrope
 }
 
 
-function explainError(header : string, error : string) {
+function explainError(header: string, error: string) {
     return `**${header}:** ${error}`;
 }
 
 
-function apiCredentials(kc : kubeconfig.KubeConfig) {
+function apiCredentials(kc: kubeconfig.KubeConfig) {
     return {
         endpoint: kc.endpoint,
         auth: {
@@ -185,7 +185,7 @@ function apiCredentials(kc : kubeconfig.KubeConfig) {
     };
 }
 
-function singularizeVersionedName(name : string) {
+function singularizeVersionedName(name: string) {
     const bits = name.split('.');
     let lastBit = bits.pop();
     lastBit = pluralize.singular(lastBit);
@@ -193,7 +193,7 @@ function singularizeVersionedName(name : string) {
     return bits.join('.');
 }
 
-function findProperty(obj : any, name : string) {
+function findProperty(obj: any, name: string) {
     const n = (name + "").toLowerCase();
     for (const p in obj) {
         const pinfo = obj[p];
@@ -221,7 +221,7 @@ function findProperty(obj : any, name : string) {
     }
 }
 
-function findTypeDefinition(swagger : any, typeDefnPath : string[]) : TypeModel | undefined {
+function findTypeDefinition(swagger: any, typeDefnPath: string[]): TypeModel | undefined {
     let m = swagger;
     for (const p of typeDefnPath) {
         m = findProperty(m, p);
@@ -234,6 +234,6 @@ function findTypeDefinition(swagger : any, typeDefnPath : string[]) : TypeModel 
 
 // TODO: this isn't really a type model - it can be a type model (description + properties) *or* a property model (description + [type|$ref])
 interface TypeModel extends Typed {
-    readonly description? : string;
-    readonly properties? : any;
+    readonly description?: string;
+    readonly properties?: any;
 }

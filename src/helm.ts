@@ -4,10 +4,10 @@ export const INSPECT_SCHEME = 'helm-inspect-values';
 
 let previewShown = false;
 
-export function hasPreviewBeenShown() : boolean {
+export function hasPreviewBeenShown(): boolean {
     return previewShown;
 }
 
-export function recordPreviewHasBeenShown() : void {
+export function recordPreviewHasBeenShown(): void {
     previewShown = true;
 }

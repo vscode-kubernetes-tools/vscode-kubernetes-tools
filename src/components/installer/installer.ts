@@ -11,7 +11,7 @@ import { Shell, Platform } from '../../shell';
 import { Errorable } from '../../wizard';
 import { exec } from 'child_process';
 
-export async function installKubectl(shell: Shell) : Promise<Errorable<void>> {
+export async function installKubectl(shell: Shell): Promise<Errorable<void>> {
     const tool = 'kubectl';
     const binFile = (shell.isUnix()) ? 'kubectl' : 'kubectl.exe';
     const os = platformUrlString(shell.platform());
@@ -23,7 +23,7 @@ export async function installKubectl(shell: Shell) : Promise<Errorable<void>> {
 
     const installFolder = getInstallFolder(shell, tool);
     mkdirp.sync(installFolder);
-    
+
     const kubectlUrl = `https://storage.googleapis.com/kubernetes-release/release/${version.result.trim()}/bin/${os}/amd64/${binFile}`;
     const downloadFile = path.join(installFolder, binFile);
     const downloadResult = await downloadTo(kubectlUrl, downloadFile);
@@ -39,7 +39,7 @@ export async function installKubectl(shell: Shell) : Promise<Errorable<void>> {
     return { succeeded: true, result: null, error: [] };
 }
 
-async function getStableKubectlVersion() : Promise<Errorable<string>> {
+async function getStableKubectlVersion(): Promise<Errorable<string>> {
     const downloadResult = await downloadToTempFile('https://storage.googleapis.com/kubernetes-release/release/stable.txt');
     if (!downloadResult.succeeded) {
         return { succeeded: false, result: '', error: [`Failed to establish kubectl stable version: ${downloadResult.error[0]}`] };
@@ -49,19 +49,19 @@ async function getStableKubectlVersion() : Promise<Errorable<string>> {
     return { succeeded: true, result: version, error: [] };
 }
 
-export async function installHelm(shell: Shell) : Promise<Errorable<void>> {
+export async function installHelm(shell: Shell): Promise<Errorable<void>> {
     const tool = 'helm';
     const urlTemplate = 'https://storage.googleapis.com/kubernetes-helm/helm-v2.8.2-{os_placeholder}-amd64.tar.gz';
     return await installToolFromTar(tool, urlTemplate, shell);
 }
 
-export async function installDraft(shell: Shell) : Promise<Errorable<void>> {
+export async function installDraft(shell: Shell): Promise<Errorable<void>> {
     const tool = 'draft';
     const urlTemplate = 'https://azuredraft.blob.core.windows.net/draft/draft-v0.14.0-{os_placeholder}-amd64.tar.gz';
     return await installToolFromTar(tool, urlTemplate, shell);
 }
 
-async function installToolFromTar(tool: string, urlTemplate: string, shell: Shell, supported?: Platform[]) : Promise<Errorable<void>> {
+async function installToolFromTar(tool: string, urlTemplate: string, shell: Shell, supported?: Platform[]): Promise<Errorable<void>> {
     const os = platformUrlString(shell.platform(), supported);
     if (!os) {
         return { succeeded: false, result: null, error: ['Not supported on this OS'] };
@@ -73,11 +73,11 @@ async function installToolFromTar(tool: string, urlTemplate: string, shell: Shel
     return installFromTar(url, installFolder, executable, configKey);
 }
 
-function getInstallFolder(shell: Shell, tool: string) : string {
+function getInstallFolder(shell: Shell, tool: string): string {
     return path.join(shell.home(), `.vs-kubernetes/tools/${tool}`);
 }
 
-function platformUrlString(platform: Platform, supported?: Platform[]) : string | null {
+function platformUrlString(platform: Platform, supported?: Platform[]): string | null {
     if (supported && supported.indexOf(platform) < 0) {
         return null;
     }
@@ -89,7 +89,7 @@ function platformUrlString(platform: Platform, supported?: Platform[]) : string 
     }
 }
 
-function formatBin(tool: string, platform: Platform) : string | null {
+function formatBin(tool: string, platform: Platform): string | null {
     const platformString = platformUrlString(platform);
     if (!platformString) {
         return null;
@@ -101,7 +101,7 @@ function formatBin(tool: string, platform: Platform) : string | null {
     return toolPath;
 }
 
-async function installFromTar(sourceUrl: string, destinationFolder: string, executablePath: string, configKey: string) : Promise<Errorable<void>> {
+async function installFromTar(sourceUrl: string, destinationFolder: string, executablePath: string, configKey: string): Promise<Errorable<void>> {
     // download it
     const downloadResult = await downloadToTempFile(sourceUrl);
     if (!downloadResult.succeeded) {
@@ -124,13 +124,13 @@ async function installFromTar(sourceUrl: string, destinationFolder: string, exec
     return { succeeded: true, result: null, error: [] };
 }
 
-async function downloadToTempFile(sourceUrl: string) : Promise<Errorable<string>> {
+async function downloadToTempFile(sourceUrl: string): Promise<Errorable<string>> {
     const tempFileObj = tmp.fileSync({ prefix: "vsk-autoinstall-" });
     const downloadResult = await downloadTo(sourceUrl, tempFileObj.name);
     return { succeeded: downloadResult.succeeded, result: tempFileObj.name, error: downloadResult.error };
 }
 
-async function downloadTo(sourceUrl: string, destinationFile: string) : Promise<Errorable<void>> {
+async function downloadTo(sourceUrl: string, destinationFile: string): Promise<Errorable<void>> {
     try {
         const buffer = await download(sourceUrl, path.dirname(destinationFile), { filename: path.basename(destinationFile) });
         return { succeeded: true, result: null, error: [] };
@@ -139,7 +139,7 @@ async function downloadTo(sourceUrl: string, destinationFile: string) : Promise<
     }
 }
 
-async function untar(sourceFile: string, destinationFolder: string) : Promise<Errorable<void>> {
+async function untar(sourceFile: string, destinationFolder: string): Promise<Errorable<void>> {
     try {
         if (!fs.existsSync(destinationFolder)) {
             mkdirp.sync(destinationFolder);
@@ -154,21 +154,21 @@ async function untar(sourceFile: string, destinationFolder: string) : Promise<Er
     }
 }
 
-async function addPathToConfig(configKey: string, executableFullPath: string) : Promise<void> {
+async function addPathToConfig(configKey: string, executableFullPath: string): Promise<void> {
     const config = vscode.workspace.getConfiguration().inspect("vs-kubernetes");
     await addPathToConfigAtScope(configKey, executableFullPath, vscode.ConfigurationTarget.Global, config.globalValue, true);
     await addPathToConfigAtScope(configKey, executableFullPath, vscode.ConfigurationTarget.Workspace, config.workspaceValue, false);
     await addPathToConfigAtScope(configKey, executableFullPath, vscode.ConfigurationTarget.WorkspaceFolder, config.workspaceFolderValue, false);
 }
 
-async function addPathToConfigAtScope(configKey: string, value: string, scope: vscode.ConfigurationTarget, valueAtScope: any, createIfNotExist: boolean) : Promise<void> {
+async function addPathToConfigAtScope(configKey: string, value: string, scope: vscode.ConfigurationTarget, valueAtScope: any, createIfNotExist: boolean): Promise<void> {
     if (!createIfNotExist) {
         if (!valueAtScope || !(valueAtScope[configKey])) {
             return;
         }
     }
 
-    let newValue : any = {};
+    let newValue: any = {};
     if (valueAtScope) {
         newValue = Object.assign({}, valueAtScope);
     }

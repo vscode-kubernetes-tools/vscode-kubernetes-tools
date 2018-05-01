@@ -87,7 +87,7 @@ export const HELM_TPL_MODE: vscode.DocumentFilter = { language: "helm", scheme: 
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
-export async function activate(context) : Promise<extensionapi.ExtensionAPI> {
+export async function activate(context): Promise<extensionapi.ExtensionAPI> {
     kubectl.checkPresent('activation');
 
     const treeProvider = explorer.create(kubectl, host);
@@ -100,7 +100,7 @@ export async function activate(context) : Promise<extensionapi.ExtensionAPI> {
     ];
 
     const draftDebugProvider = new DraftConfigurationProvider();
-    let draftDebugSession: vscode.DebugSession;    
+    let draftDebugSession: vscode.DebugSession;
 
     const subscriptions = [
 
@@ -217,7 +217,7 @@ export async function activate(context) : Promise<extensionapi.ExtensionAPI> {
             }
         }
     });
-    
+
     vscode.debug.onDidTerminateDebugSession((e) => {
 
         // if there is an active Draft debugging session, restart the cycle
@@ -276,11 +276,11 @@ function registerCommand(command: string, callback: (...args: any[]) => any): vs
     return vscode.commands.registerCommand(command, wrappedCallback);
 }
 
-function registerTelemetry(context: vscode.ExtensionContext) : vscode.Disposable {
+function registerTelemetry(context: vscode.ExtensionContext): vscode.Disposable {
     return new Reporter(context);
 }
 
-function provideHover(document, position, token, syntax) : Promise<vscode.Hover> {
+function provideHover(document, position, token, syntax): Promise<vscode.Hover> {
     return new Promise(async (resolve) => {
         if (!explainActive) {
             resolve(null);
@@ -319,7 +319,7 @@ function provideHover(document, position, token, syntax) : Promise<vscode.Hover>
         }
 
         explain(obj, field).then(
-            (msg : string) => resolve(new vscode.Hover(msg))
+            (msg: string) => resolve(new vscode.Hover(msg))
         );
     });
 
@@ -596,7 +596,7 @@ function getTextForActiveWindow(callback) {
     return;
 }
 
-function loadKubernetes(explorerNode? : explorer.ResourceNode) {
+function loadKubernetes(explorerNode?: explorer.ResourceNode) {
     if (explorerNode) {
         loadKubernetesCore(explorerNode.resourceId);
     } else {
@@ -606,7 +606,7 @@ function loadKubernetes(explorerNode? : explorer.ResourceNode) {
     }
 }
 
-function loadKubernetesCore(value : string) {
+function loadKubernetesCore(value: string) {
     // add timestamp to avoid showing the previous json always
     vscode.workspace.openTextDocument(
         vscode.Uri.parse('k8s://loadkubernetescore/' + value.replace('/', '-') + '.json?value=' + value
@@ -633,7 +633,7 @@ function exposeKubernetes() {
     });
 }
 
-function getKubernetes(explorerNode? : any) {
+function getKubernetes(explorerNode?: any) {
     if (explorerNode) {
         const id = explorerNode.resourceId || explorerNode.id;
         kubectl.invokeInTerminal(`get ${id} -o wide`);
@@ -669,15 +669,15 @@ function findVersionInternal(fn) {
     });
 }
 
-export async function findAllPods() : Promise<FindPodsResult> {
+export async function findAllPods(): Promise<FindPodsResult> {
     return await findPodsCore('');
 }
 
-async function findPodsByLabel(labelQuery: string) : Promise<FindPodsResult> {
+async function findPodsByLabel(labelQuery: string): Promise<FindPodsResult> {
     return await findPodsCore(`-l ${labelQuery}`);
 }
 
-async function findPodsCore(findPodCmdOptions: string) : Promise<FindPodsResult> {
+async function findPodsCore(findPodCmdOptions: string): Promise<FindPodsResult> {
     const sr = await kubectl.invokeAsync(` get pods -o json ${findPodCmdOptions}`);
 
     if (sr.code !== 0) {
@@ -695,7 +695,7 @@ async function findPodsCore(findPodCmdOptions: string) : Promise<FindPodsResult>
     }
 }
 
-async function findPodsForApp() : Promise<FindPodsResult> {
+async function findPodsForApp(): Promise<FindPodsResult> {
     if (!vscode.workspace.rootPath) {
         return { succeeded: true, pods: [] };
     }
@@ -703,7 +703,7 @@ async function findPodsForApp() : Promise<FindPodsResult> {
     return await findPodsByLabel(`run=${appName}`);
 }
 
-async function findDebugPodsForApp() : Promise<FindPodsResult> {
+async function findDebugPodsForApp(): Promise<FindPodsResult> {
     if (!vscode.workspace.rootPath) {
         return { succeeded: true, pods: [] };
     }
@@ -746,7 +746,7 @@ function scaleKubernetes() {
     });
 }
 
-function promptScaleKubernetes(kindName : string) {
+function promptScaleKubernetes(kindName: string) {
     vscode.window.showInputBox({ prompt: `How many replicas would you like to scale ${kindName} to?` }).then((value) => {
         if (value) {
             let replicas = parseFloat(value);
@@ -759,7 +759,7 @@ function promptScaleKubernetes(kindName : string) {
     });
 }
 
-function invokeScaleKubernetes(kindName : string, replicas : number) {
+function invokeScaleKubernetes(kindName: string, replicas: number) {
     kubectl.invokeWithProgress(`scale --replicas=${replicas} ${kindName}`, "Kubernetes Scaling...");
 }
 
@@ -769,7 +769,7 @@ function runKubernetes() {
     });
 }
 
-function diagnosePushError(exitCode: number, error: string) : string {
+function diagnosePushError(exitCode: number, error: string): string {
     if (error.includes("denied")) {
         const user = vscode.workspace.getConfiguration().get("vsdocker.imageUser", null);
         if (user) {
@@ -807,7 +807,7 @@ function buildPushThenExec(fn) {
     });
 }
 
-export function tryFindKindNameFromEditor() : string {
+export function tryFindKindNameFromEditor(): string {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
         return null; // No open text editor
@@ -832,7 +832,7 @@ function findKindNameForText(text) {
     }
 }
 
-export function findKindNameOrPrompt(resourceKinds : kuberesources.ResourceKind[], descriptionVerb, opts, handler) {
+export function findKindNameOrPrompt(resourceKinds: kuberesources.ResourceKind[], descriptionVerb, opts, handler) {
     let kindName = tryFindKindNameFromEditor();
     if (kindName === null) {
         promptKindName(resourceKinds, descriptionVerb, opts, handler);
@@ -841,7 +841,7 @@ export function findKindNameOrPrompt(resourceKinds : kuberesources.ResourceKind[
     }
 }
 
-function promptKindName(resourceKinds : kuberesources.ResourceKind[], descriptionVerb, opts, handler) {
+function promptKindName(resourceKinds: kuberesources.ResourceKind[], descriptionVerb, opts, handler) {
     vscode.window.showInputBox({ prompt: "What resource do you want to " + descriptionVerb + "?", placeHolder: 'Empty string to be prompted' }).then((resource) => {
         if (resource === '') {
             quickPickKindName(resourceKinds, opts, handler);
@@ -853,7 +853,7 @@ function promptKindName(resourceKinds : kuberesources.ResourceKind[], descriptio
     });
 }
 
-function quickPickKindName(resourceKinds : kuberesources.ResourceKind[], opts, handler) {
+function quickPickKindName(resourceKinds: kuberesources.ResourceKind[], opts, handler) {
     vscode.window.showQuickPick(resourceKinds).then((resourceKind) => {
         if (resourceKind) {
             let kind = resourceKind.abbreviation;
@@ -962,7 +962,7 @@ enum PodSelectionScope {
     All,
 }
 
-async function selectPod(scope: PodSelectionScope, fallback: PodSelectionFallback) : Promise<any | null> {
+async function selectPod(scope: PodSelectionScope, fallback: PodSelectionFallback): Promise<any | null> {
     const findPodsResult = scope === PodSelectionScope.App ? await findPodsForApp() : await findAllPods();
 
     if (!findPodsResult.succeeded) {
@@ -998,7 +998,7 @@ async function selectPod(scope: PodSelectionScope, fallback: PodSelectionFallbac
     return value.pod;
 }
 
-function logsKubernetes(explorerNode? : explorer.ResourceNode) {
+function logsKubernetes(explorerNode?: explorer.ResourceNode) {
     if (explorerNode) {
         getLogsCore(explorerNode.id);  // TODO: we don't know if there is a namespace in this case - is that a problem?
     } else {
@@ -1015,7 +1015,7 @@ function getLogs(pod) {
 
 }
 
-function getLogsCore(podName : string, podNamespace? : string) {
+function getLogsCore(podName: string, podNamespace?: string) {
     // TODO: Support multiple containers here!
     let cmd = 'logs ' + podName;
     if (podNamespace && podNamespace.length > 0) {
@@ -1024,7 +1024,7 @@ function getLogsCore(podName : string, podNamespace? : string) {
     kubectl.invokeInTerminal(cmd);
 }
 
-function kubectlOutputTo(name : string) {
+function kubectlOutputTo(name: string) {
     return (code, stdout, stderr) => kubectlOutput(code, stdout, stderr, name);
 }
 
@@ -1051,7 +1051,7 @@ function getPorts() {
     }
 }
 
-function describeKubernetes(explorerNode? : explorer.ResourceNode) {
+function describeKubernetes(explorerNode?: explorer.ResourceNode) {
     if (explorerNode) {
         kubectl.invokeInTerminal(`describe ${explorerNode.resourceId}`);
     } else {
@@ -1061,12 +1061,12 @@ function describeKubernetes(explorerNode? : explorer.ResourceNode) {
     }
 }
 
-async function selectContainerForPod(pod) : Promise<any | null> {
+async function selectContainerForPod(pod): Promise<any | null> {
     if (!pod) {
         return null;
     }
 
-    const containers : any[] = pod.spec.containers;
+    const containers: any[] = pod.spec.containers;
 
     if (containers.length === 1) {
         return pod.spec.containers[0];
@@ -1091,7 +1091,7 @@ function execKubernetes() {
     execKubernetesCore(false);
 }
 
-async function terminalKubernetes(explorerNode? : explorer.ResourceNode) {
+async function terminalKubernetes(explorerNode?: explorer.ResourceNode) {
     if (explorerNode) {
         // For those images (e.g. built from Busybox) where bash may not be installed by default, use sh instead.
         const isBash = await isBashOnPod(explorerNode.id);
@@ -1101,7 +1101,7 @@ async function terminalKubernetes(explorerNode? : explorer.ResourceNode) {
     }
 }
 
-async function execKubernetesCore(isTerminal) : Promise<void> {
+async function execKubernetesCore(isTerminal): Promise<void> {
     let opts: any = { prompt: 'Please provide a command to execute' };
 
     if (isTerminal) {
@@ -1129,18 +1129,18 @@ async function execKubernetesCore(isTerminal) : Promise<void> {
     kubectl.invokeInTerminal(execCmd);
 }
 
-function execTerminalOnPod(podName : string, terminalCmd : string) {
-    const terminalExecCmd : string[] = ['exec', '-it', podName, '--', terminalCmd];
+function execTerminalOnPod(podName: string, terminalCmd: string) {
+    const terminalExecCmd: string[] = ['exec', '-it', podName, '--', terminalCmd];
     const term = vscode.window.createTerminal(`${terminalCmd} on ${podName}`, kubectl.path(), terminalExecCmd);
     term.show();
 }
 
-async function isBashOnPod(podName : string): Promise<boolean> {
+async function isBashOnPod(podName: string): Promise<boolean> {
     const result = await kubectl.invokeAsync(`exec ${podName} -- ls -la /bin/bash`);
     return !result.code;
 }
 
-async function syncKubernetes() : Promise<void> {
+async function syncKubernetes(): Promise<void> {
     const pod = await selectPod(PodSelectionScope.App, PodSelectionFallback.None);
     if (!pod) {
         return;
@@ -1187,7 +1187,7 @@ async function reportDeleteResult(resourceId: string, shellResult: ShellResult) 
     refreshExplorer();
 }
 
-const deleteKubernetes = async (explorerNode? : explorer.ResourceNode) => {
+const deleteKubernetes = async (explorerNode?: explorer.ResourceNode) => {
     if (explorerNode) {
         const answer = await vscode.window.showWarningMessage(`Do you want to delete the resource '${explorerNode.resourceId}'?`, ...deleteMessageItems);
         if (answer.isCloseAffordance) {
@@ -1476,12 +1476,12 @@ function removeDebugKubernetes() {
 }
 
 async function configureFromClusterKubernetes() {
-    const newId : string = uuid.v4();
+    const newId: string = uuid.v4();
     vscode.commands.executeCommand('vscode.previewHtml', configureFromCluster.operationUri(newId), 2, "Add Existing Kubernetes Cluster");
 }
 
 async function createClusterKubernetes() {
-    const newId : string = uuid.v4();
+    const newId: string = uuid.v4();
     vscode.commands.executeCommand('vscode.previewHtml', createCluster.operationUri(newId), 2, "Create Kubernetes Cluster");
 }
 
@@ -1535,7 +1535,7 @@ export async function installDependencies() {
     kubeChannel.showOutput("Done");
 }
 
-async function installDependency(name: string, alreadyGot: boolean, installFunc: (shell: Shell) => Promise<Errorable<void>>) : Promise<void> {
+async function installDependency(name: string, alreadyGot: boolean, installFunc: (shell: Shell) => Promise<Errorable<void>>): Promise<void> {
     if (alreadyGot) {
         kubeChannel.showOutput(`Already got ${name}...`);
     } else {
@@ -1586,7 +1586,7 @@ enum DraftCreateResult {
     NeedsPack,
 }
 
-async function execDraftCreateApp(appName : string, pack? : string) : Promise<void> {
+async function execDraftCreateApp(appName: string, pack?: string): Promise<void> {
     const packOpt = pack ? ` -p ${pack}` : '';
     const dcResult = await draft.invoke(`create -a ${appName} ${packOpt} "${vscode.workspace.rootPath}"`);
 
@@ -1611,7 +1611,7 @@ async function execDraftCreateApp(appName : string, pack? : string) : Promise<vo
     }
 }
 
-function draftCreateResult(sr : ShellResult, hadPack : boolean) {
+function draftCreateResult(sr: ShellResult, hadPack: boolean) {
     if (sr.code === 0) {
         return DraftCreateResult.Succeeded;
     }

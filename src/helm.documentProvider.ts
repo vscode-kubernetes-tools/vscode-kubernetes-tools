@@ -40,7 +40,7 @@ export class HelmInspectDocumentProvider implements vscode.TextDocumentContentPr
                 exec.helmExec(`inspect values "${path}"`, printer);
             });
         });
-        
+
     }
 }
 
@@ -89,11 +89,11 @@ export class HelmTemplatePreviewDocumentProvider implements vscode.TextDocumentC
                             vscode.window.showErrorMessage(`YAML failed to parse: ${ e.message }`);
                         }
                     }
-                    
+
                     resolve(previewBody(reltpl, out));
                 });
             });
         });
-        
+
     }
 }

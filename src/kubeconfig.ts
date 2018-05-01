@@ -5,7 +5,7 @@ import { shell } from './shell';
 import { fs } from './fs';
 import * as yaml from 'js-yaml';
 
-export function readKubectlConfig() : Promise<KubeConfig> {
+export function readKubectlConfig(): Promise<KubeConfig> {
     return new Promise((resolve, reject) => {
         const kubeConfig = shell.combinePath(shell.home(), ".kube/config");
         fs.readFile(kubeConfig, 'utf8', (err, data) => {
@@ -53,8 +53,8 @@ export function readKubectlConfig() : Promise<KubeConfig> {
 }
 
 export interface KubeConfig {
-    readonly endpoint : string;
-    readonly clientCertificateData : Buffer;
-    readonly clientKeyData : Buffer;
-    readonly certificateAuthorityData : Buffer;
+    readonly endpoint: string;
+    readonly clientCertificateData: Buffer;
+    readonly clientKeyData: Buffer;
+    readonly certificateAuthorityData: Buffer;
 }

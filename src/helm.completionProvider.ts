@@ -8,7 +8,7 @@ import * as _ from 'lodash';
 import {existsSync} from 'fs';
 
 export class HelmTemplateCompletionProvider implements vscode.CompletionItemProvider {
-    
+
     private valuesMatcher = new RegExp('\\s+\\.Values\\.([a-zA-Z0-9\\._-]+)?$');
     private funcmap = new FuncMap();
 
@@ -96,7 +96,7 @@ export class HelmTemplateCompletionProvider implements vscode.CompletionItemProv
                 logger.helm.log(err.message);
                 return [];
             }
-            
+
             // If this does not match the valuesMatcher (Not a .Values.SOMETHING...) then
             // we return right away.
             if (!res || res.length == 0) {
@@ -169,5 +169,5 @@ export class HelmTemplateCompletionProvider implements vscode.CompletionItemProv
 }
 
 interface UIOptions {
-    readonly warnIfNoCharts? : boolean;
+    readonly warnIfNoCharts?: boolean;
 }
