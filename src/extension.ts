@@ -696,11 +696,17 @@ async function findPodsCore(findPodCmdOptions: string) : Promise<FindPodsResult>
 }
 
 async function findPodsForApp() : Promise<FindPodsResult> {
+    if (!vscode.workspace.rootPath) {
+        return { succeeded: true, pods: [] };
+    }
     let appName = path.basename(vscode.workspace.rootPath);
     return await findPodsByLabel(`run=${appName}`);
 }
 
 async function findDebugPodsForApp() : Promise<FindPodsResult> {
+    if (!vscode.workspace.rootPath) {
+        return { succeeded: true, pods: [] };
+    }
     let appName = path.basename(vscode.workspace.rootPath);
     return await findPodsByLabel(`run=${appName}-debug`);
 }

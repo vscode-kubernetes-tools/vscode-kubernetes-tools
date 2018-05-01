@@ -148,6 +148,10 @@ export function helmDryRun() {
 //
 // callback is fn(path)
 export function pickChart(fn) {
+    if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0) {
+        vscode.window.showErrorMessage("This command requires an open folder.");
+        return;
+    }
     vscode.workspace.findFiles("**/Chart.yaml", "", 1024).then((matches) => {
         switch(matches.length) {
             case 0:
