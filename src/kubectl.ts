@@ -1,4 +1,5 @@
-import { Terminal } from 'vscode';
+import { Terminal, Disposable } from 'vscode';
+import { ChildProcess, spawn as spawnChildProcess } from "child_process";
 import { Host } from './host';
 import { FS } from './fs';
 import { Shell, ShellHandler, ShellResult } from './shell';
@@ -10,14 +11,16 @@ export interface Kubectl {
     invokeWithProgress(command: string, progressMessage: string, handler?: ShellHandler): Promise<void>;
     invokeAsync(command: string): Promise<ShellResult>;
     invokeAsyncWithProgress(command: string, progressMessage: string): Promise<ShellResult>;
+    spawnAsChild(command: string[]): Promise<ChildProcess>;
     /**
      * Invoke a kubectl command in Terminal.
      * @param command the subcommand to run.
      * @param terminalName if empty, run the command in the shared Terminal; otherwise run it in a new Terminal.
      */
-    invokeInTerminal(command: string, terminalName?: string): Promise<void>;
+    invokeInNewTerminal(command: string, terminalName: string, onClose?: (e: Terminal) => any, pipeTo?: string): Promise<Disposable>;
+    invokeInSharedTerminal(command: string): Promise<void>;
+    runAsTerminal(command: string[], terminalName: string): Promise<void>;
     asLines(command: string): Promise<string[] | ShellResult>;
-    path(): string;
 }
 
 interface Context {
@@ -52,15 +55,24 @@ class KubectlImpl implements Kubectl {
     invokeAsyncWithProgress(command: string, progressMessage: string): Promise<ShellResult> {
         return invokeAsyncWithProgress(this.context, command, progressMessage);
     }
-    invokeInTerminal(command: string, terminalName?: string): Promise<void> {
-        const terminal = terminalName ? this.context.host.createTerminal(terminalName) : this.getSharedTerminal();
-        return invokeInTerminal(this.context, command, terminal);
+    spawnAsChild(command: string[]): Promise<ChildProcess> {
+        return spawnAsChild(this.context, command);
+    }
+    async invokeInNewTerminal(command: string, terminalName: string, onClose?: (e: Terminal) => any, pipeTo?: string): Promise<Disposable> {
+        const terminal = this.context.host.createTerminal(terminalName);
+        const disposable = onClose ? this.context.host.onDidCloseTerminal(onClose) : null;
+        await invokeInTerminal(this.context, command, pipeTo, terminal);
+        return disposable;
+    }
+    invokeInSharedTerminal(command: string, terminalName?: string): Promise<void> {
+        const terminal = this.getSharedTerminal();
+        return invokeInTerminal(this.context, command, undefined, terminal);
+    }
+    runAsTerminal(command: string[], terminalName: string): Promise<void> {
+        return runAsTerminal(this.context, command, terminalName);
     }
     asLines(command: string): Promise<string[] | ShellResult> {
         return asLines(this.context, command);
-    }
-    path(): string {
-        return path(this.context);
     }
     private getSharedTerminal(): Terminal {
         if (!this.sharedTerminal) {
@@ -143,14 +155,29 @@ async function invokeAsyncWithProgress(context: Context, command: string, progre
     });
 }
 
-async function invokeInTerminal(context: Context, command: string, terminal: Terminal): Promise<void> {
+async function spawnAsChild(context: Context, command: string[]): Promise<ChildProcess> {
+    if (await checkPresent(context, 'command')) {
+        return spawnChildProcess(path(context), command);
+    }
+}
+
+async function invokeInTerminal(context: Context, command: string, pipeTo: string | undefined, terminal: Terminal): Promise<void> {
     if (await checkPresent(context, 'command')) {
         let bin = baseKubectlPath(context).trim();
         if (bin.indexOf(" ") > -1 && !/^['"]/.test(bin)) {
             bin = `"${bin}"`;
         }
-        terminal.sendText(`${bin} ${command}`);
+        const kubectlCommand = `${bin} ${command}`;
+        const fullCommand = pipeTo ? `${kubectlCommand} | ${pipeTo}` : kubectlCommand;
+        terminal.sendText(fullCommand);
         terminal.show();
+    }
+}
+
+async function runAsTerminal(context: Context, command: string[], terminalName: string): Promise<void> {
+    if (await checkPresent(context, 'command')) {
+        const term = context.host.createTerminal(terminalName, path(context), command);
+        term.show();
     }
 }
 

@@ -334,7 +334,7 @@ export class DebugSession implements IDebugSession {
         portMapping.push(proxyDebugPort + ":" + debugPort);
 
         return {
-            proxyProcess: spawnChildProcess(kubectl.path(), ["port-forward", podName, ...portMapping]),
+            proxyProcess: await kubectl.spawnAsChild(["port-forward", podName, ...portMapping]),
             proxyDebugPort,
             proxyAppPort
         };

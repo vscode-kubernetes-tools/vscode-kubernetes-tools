@@ -215,7 +215,7 @@ export async function portForwardToPod (podName: string, portMapping: PortMappin
 
     let usedNamespace = namespace === undefined ? 'default' : namespace;
 
-    kubectl.invokeInTerminal(`port-forward ${podName} ${usedPort}:${targetPort} -n ${usedNamespace}`, PORT_FORWARD_TERMINAL);
+    kubectl.invokeInNewTerminal(`port-forward ${podName} ${usedPort}:${targetPort} -n ${usedNamespace}`, PORT_FORWARD_TERMINAL);
     host.showInformationMessage(`Forwarding from 127.0.0.1:${usedPort} -> ${podName}:${targetPort}`);
 
     return usedPort;
