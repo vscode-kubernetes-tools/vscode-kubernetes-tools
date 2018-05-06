@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 
 export interface Host {
     showErrorMessage(message: string, ...items: string[]): Thenable<string>;
@@ -24,6 +25,9 @@ export const host: Host = {
     onDidCloseTerminal : onDidCloseTerminal,
     showInputBox : showInputBox
 };
+
+const isWindows = (process.platform === 'win32');
+const pathEntrySeparator = isWindows ? ';' : ':';
 
 function showInputBox(options: vscode.InputBoxOptions, token?: vscode.CancellationToken): Thenable<string> {
     return vscode.window.showInputBox(options, token);
@@ -75,9 +79,40 @@ function getConfiguration(key: string): any {
 }
 
 function createTerminal(name?: string, shellPath?: string, shellArgs?: string[]): vscode.Terminal {
-    return vscode.window.createTerminal(name, shellPath, shellArgs);
+    const terminalOptions = {
+        name: name,
+        shellPath: shellPath,
+        shellArgs: shellArgs,
+        env: shellEnvironment(process.env)
+    };
+    return vscode.window.createTerminal(terminalOptions);
 }
 
 function onDidCloseTerminal(listener: (e: vscode.Terminal) => any): vscode.Disposable {
     return vscode.window.onDidCloseTerminal(listener);
+}
+
+function shellEnvironment(baseEnvironment: any): any {
+    let env = Object.assign({}, baseEnvironment);
+    let pathVariable = pathVariableName(env);
+    for (const tool of ['kubectl', 'helm', 'draft']) {
+        const toolPath = vscode.workspace.getConfiguration('vs-kubernetes')[`vs-kubernetes.${tool}-path`];
+        if (toolPath) {
+            const toolDirectory = path.dirname(toolPath);
+            const currentPath = env[pathVariable];
+            env[pathVariable] = (currentPath ? `${currentPath}${pathEntrySeparator}` : '') + toolDirectory;
+        }
+    }
+    return env;
+}
+
+function pathVariableName(env: any): string {
+    if (isWindows) {
+        for (const v of Object.keys(env)) {
+            if (v.toLowerCase() === "path") {
+                return v;
+            }
+        }
+    }
+    return "PATH";
 }

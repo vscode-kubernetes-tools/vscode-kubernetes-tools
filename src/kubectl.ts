@@ -163,11 +163,7 @@ async function spawnAsChild(context: Context, command: string[]): Promise<ChildP
 
 async function invokeInTerminal(context: Context, command: string, pipeTo: string | undefined, terminal: Terminal): Promise<void> {
     if (await checkPresent(context, 'command')) {
-        let bin = baseKubectlPath(context).trim();
-        if (bin.indexOf(" ") > -1 && !/^['"]/.test(bin)) {
-            bin = `"${bin}"`;
-        }
-        const kubectlCommand = `${bin} ${command}`;
+        const kubectlCommand = `kubectl ${command}`;
         const fullCommand = pipeTo ? `${kubectlCommand} | ${pipeTo}` : kubectlCommand;
         terminal.sendText(fullCommand);
         terminal.show();

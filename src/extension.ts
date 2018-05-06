@@ -1677,19 +1677,8 @@ async function execDraftUp() {
         vscode.window.showInformationMessage('This folder is not configured for draft. Run draft create to configure it.');
         return;
     }
-    if (!(await draft.checkPresent(DraftCheckPresentMode.Alert))) {
-        return;
-    }
 
-    // if it's already running... how can we tell?
-    const draftPath = await draft.path();
-    if (shell.isUnix()) {
-        const term = vscode.window.createTerminal('draft up', `bash`, [ '-c', `${draftPath} up ; bash` ]);
-        term.show(true);
-    } else {
-        const term = vscode.window.createTerminal('draft up', 'powershell.exe', [ '-NoExit', `${draftPath}`, `up` ]);
-        term.show(true);
-    }
+    await draft.up();
 }
 
 function editorIsActive(): boolean {

@@ -9,7 +9,7 @@ export interface Draft {
     isFolderMapped(path: string): boolean;
     packs(): Promise<string[] | undefined>;
     invoke(args: string): Promise<ShellResult>;
-    path(): Promise<string | undefined>;
+    up(): Promise<void>;
 }
 
 export function create(host: Host, fs: FS, shell: Shell, installDependenciesCallback: () => void): Draft {
@@ -53,8 +53,8 @@ class DraftImpl implements Draft {
         return invoke(this.context, args);
     }
 
-    path(): Promise<string | undefined> {
-        return path(this.context);
+    up(): Promise<void> {
+        return up(this.context);
     }
 }
 
@@ -84,6 +84,18 @@ async function invoke(context: Context, args: string): Promise<ShellResult> {
     if (await checkPresent(context, CheckPresentMode.Alert)) {
         const result = context.shell.exec(context.binPath + ' ' + args);
         return result;
+    }
+}
+
+async function up(context: Context): Promise<void> {
+    if (await checkPresent(context, CheckPresentMode.Alert)) {
+        if (context.shell.isUnix()) {
+            const term = context.host.createTerminal('draft up', `bash`, [ '-c', `draft up ; bash` ]);
+            term.show(true);
+        } else {
+            const term = context.host.createTerminal('draft up', 'powershell.exe', [ '-NoExit', `draft`, `up` ]);
+            term.show(true);
+        }
     }
 }
 
