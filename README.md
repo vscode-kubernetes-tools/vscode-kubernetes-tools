@@ -54,6 +54,14 @@ And then add:
 
 Where `<your-image-prefix-here>` is something like `docker.io/brendanburns`.
 
+### Selecting a kubeconfig file
+
+By default, the extension uses the active kubeconfig file -- that is, the file
+to which the KUBECONFIG environment variable points, or the default kubeconfig
+if no KUBECONFIG environment variable exists.  If you want to swap kubeconfig
+files, you can specify the file path in the `vs-kubernetes.kubeconfig` setting in
+your user or workspace settings.
+
 ### Running from source
 
 If you are building and running the extension from source, see [CONTRIBUTING.md](CONTRIBUTING.md) for prerequisites for the development environment.
@@ -131,6 +139,7 @@ If you are building and running the extension from source, see [CONTRIBUTING.md]
        * `vs-kubernetes.kubectl-path` - File path to the kubectl binary. Note this is the binary file itself, not just the directory containing the file. On Windows, this must contain the `.exe` extension.
        * `vs-kubernetes.helm-path` - File path to the helm binary. Note this is the binary file itself, not just the directory containing the file. On Windows, this must contain the `.exe` extension.
        * `vs-kubernetes.draft-path` - File path to the draft binary. Note this is the binary file itself, not just the directory containing the file. On Windows, this must contain the `.exe` extension (note current versions of Draft are not supported on Windows).
+       * `vs-kubernetes.kubeconfig` - File path to the kubeconfig file you want to use. This overrides both the default kubeconfig and the KUBECONFIG environment variable.
        * `vs-kubernetes.autoCleanupOnDebugTerminate` - The flag to control whether to auto cleanup the created deployment and associated pod by the command "Kubernetes: Debug (Launch)". The cleanup action occurs when it failed to start debug session or debug session terminated. If not specified, the extension will prompt for whether to clean up or not. You might choose not to clean up if you wanted to view pod logs, etc.
    * `vsdocker.imageUser` - Image prefix for docker images e.g. 'docker.io/brendanburns'
 
