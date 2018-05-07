@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import * as path from 'path';
+import { shellEnvironment } from './shell';
 
 export interface Host {
     showErrorMessage(message: string, ...items: string[]): Thenable<string>;
@@ -27,9 +27,6 @@ export const host: Host = {
     onDidChangeConfiguration : onDidChangeConfiguration,
     showInputBox : showInputBox
 };
-
-const isWindows = (process.platform === 'win32');
-const pathEntrySeparator = isWindows ? ';' : ':';
 
 function showInputBox(options: vscode.InputBoxOptions, token?: vscode.CancellationToken): Thenable<string> {
     return vscode.window.showInputBox(options, token);
@@ -96,35 +93,4 @@ function onDidCloseTerminal(listener: (e: vscode.Terminal) => any): vscode.Dispo
 
 function onDidChangeConfiguration(listener: (e: vscode.ConfigurationChangeEvent) => any): vscode.Disposable {
     return vscode.workspace.onDidChangeConfiguration(listener);
-}
-
-function shellEnvironment(baseEnvironment: any): any {
-    let env = Object.assign({}, baseEnvironment);
-    let pathVariable = pathVariableName(env);
-    for (const tool of ['kubectl', 'helm', 'draft']) {
-        const toolPath = vscode.workspace.getConfiguration('vs-kubernetes')[`vs-kubernetes.${tool}-path`];
-        if (toolPath) {
-            const toolDirectory = path.dirname(toolPath);
-            const currentPath = env[pathVariable];
-            env[pathVariable] = (currentPath ? `${currentPath}${pathEntrySeparator}` : '') + toolDirectory;
-        }
-    }
-
-    const kubeconfig: string = vscode.workspace.getConfiguration('vs-kubernetes')['vs-kubernetes.kubeconfig'];
-    if (kubeconfig) {
-        env['KUBECONFIG'] = kubeconfig;
-    }
-
-    return env;
-}
-
-function pathVariableName(env: any): string {
-    if (isWindows) {
-        for (const v of Object.keys(env)) {
-            if (v.toLowerCase() === "path") {
-                return v;
-            }
-        }
-    }
-    return "PATH";
 }

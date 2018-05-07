@@ -2,6 +2,7 @@
 
 import * as vscode from 'vscode';
 import * as shelljs from 'shelljs';
+import * as path from 'path';
 
 export enum Platform {
     Windows,
@@ -31,7 +32,7 @@ export const shell: Shell = {
     fileUri : fileUri,
     execOpts : execOpts,
     exec : exec,
-    execCore : execCore
+    execCore : execCore,
 };
 
 const WINDOWS: string = 'win32';
@@ -87,10 +88,7 @@ function execOpts(): any {
     if (isWindows()) {
         env = Object.assign({ }, env, { HOME: home() });
     }
-    const kubeconfig: string = vscode.workspace.getConfiguration('vs-kubernetes')['vs-kubernetes.kubeconfig'];
-    if (kubeconfig) {
-        env['KUBECONFIG'] = kubeconfig;
-    }
+    env = shellEnvironment(env);
     const opts = {
         cwd: vscode.workspace.rootPath,
         env: env,
@@ -112,6 +110,42 @@ function execCore(cmd: string, opts: any): Promise<ShellResult> {
         shelljs.exec(cmd, opts, (code, stdout, stderr) => resolve({code : code, stdout : stdout, stderr : stderr}));
     });
 }
+
+export function shellEnvironment(baseEnvironment: any): any {
+    let env = Object.assign({}, baseEnvironment);
+    let pathVariable = pathVariableName(env);
+    for (const tool of ['kubectl', 'helm', 'draft']) {
+        const toolPath = vscode.workspace.getConfiguration('vs-kubernetes')[`vs-kubernetes.${tool}-path`];
+        if (toolPath) {
+            const toolDirectory = path.dirname(toolPath);
+            const currentPath = env[pathVariable];
+            env[pathVariable] = (currentPath ? `${currentPath}${pathEntrySeparator()}` : '') + toolDirectory;
+        }
+    }
+
+    const kubeconfig: string = vscode.workspace.getConfiguration('vs-kubernetes')['vs-kubernetes.kubeconfig'];
+    if (kubeconfig) {
+        env['KUBECONFIG'] = kubeconfig;
+    }
+
+    return env;
+}
+
+function pathVariableName(env: any): string {
+    if (isWindows) {
+        for (const v of Object.keys(env)) {
+            if (v.toLowerCase() === "path") {
+                return v;
+            }
+        }
+    }
+    return "PATH";
+}
+
+function pathEntrySeparator() {
+    return isWindows() ? ';' : ':';
+}
+
 
 export function isShellResult<T>(obj: T | ShellResult): obj is ShellResult {
     const sr = <ShellResult>obj;

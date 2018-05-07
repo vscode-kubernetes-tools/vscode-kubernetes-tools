@@ -60,7 +60,7 @@ function createProcess(cmd: string, args: string[], output: OutputChannel): Chil
 	console.log(`started ${cmd} ${args.toString()}`);
 	host.showInformationMessage(`starting ${cmd} ${args.toString()}`);
 
-	let proc = spawn(cmd, args, { cwd: vscode.workspace.rootPath });
+	let proc = spawn(cmd, args, shell.execOpts());
 	console.log(process.env.PATH);
 	// output data on the tab
 	subscribeToDataEvent(proc.stdout, output);
