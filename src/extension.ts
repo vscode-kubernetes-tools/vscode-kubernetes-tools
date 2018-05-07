@@ -20,7 +20,7 @@ import * as clipboard from 'clipboardy';
 import { host } from './host';
 import { loadConfigMapData, deleteKubernetesConfigFile } from './configMap';
 import * as explainer from './explainer';
-import { shell, Shell, ShellResult } from './shell';
+import { shell, Shell, ShellResult, isShellResult } from './shell';
 import * as configmaps from './configMap';
 import * as configureFromCluster from './configurefromcluster';
 import * as createCluster from './createcluster';
@@ -906,41 +906,50 @@ function promptKindName(resourceKinds: kuberesources.ResourceKind[], description
 }
 
 function quickPickKindName(resourceKinds: kuberesources.ResourceKind[], opts, handler) {
+    if (resourceKinds.length === 1) {
+        quickPickKindNameFromKind(resourceKinds[0], opts, handler);
+        return;
+    }
+
     vscode.window.showQuickPick(resourceKinds).then((resourceKind) => {
         if (resourceKind) {
-            let kind = resourceKind.abbreviation;
-            kubectl.invoke("get " + kind, (code, stdout, stderr) => {
-                if (code === 0) {
-                    let names = parseNamesFromKubectlLines(stdout);
-                    if (names.length > 0) {
-                        if (opts && opts.nameOptional) {
-                            names.push('(all)');
-                            vscode.window.showQuickPick(names).then((name) => {
-                                if (name) {
-                                    let kindName;
-                                    if (name === '(all)') {
-                                        kindName = kind;
-                                    } else {
-                                        kindName = kind + '/' + name;
-                                    }
-                                    handler(kindName);
-                                }
-                            });
-                        } else {
-                            vscode.window.showQuickPick(names).then((name) => {
-                                if (name) {
-                                    let kindName = kind + '/' + name;
-                                    handler(kindName);
-                                }
-                            });
+            quickPickKindNameFromKind(resourceKind, opts, handler);
+        }
+    });
+}
+
+function quickPickKindNameFromKind(resourceKind: kuberesources.ResourceKind, opts, handler) {
+    let kind = resourceKind.abbreviation;
+    kubectl.invoke("get " + kind, (code, stdout, stderr) => {
+        if (code === 0) {
+            let names = parseNamesFromKubectlLines(stdout);
+            if (names.length > 0) {
+                if (opts && opts.nameOptional) {
+                    names.push('(all)');
+                    vscode.window.showQuickPick(names).then((name) => {
+                        if (name) {
+                            let kindName;
+                            if (name === '(all)') {
+                                kindName = kind;
+                            } else {
+                                kindName = kind + '/' + name;
+                            }
+                            handler(kindName);
                         }
-                    } else {
-                        vscode.window.showInformationMessage("No resources of type " + resourceKind.displayName + " in cluster");
-                    }
+                    });
                 } else {
-                    vscode.window.showErrorMessage(stderr);
+                    vscode.window.showQuickPick(names).then((name) => {
+                        if (name) {
+                            let kindName = kind + '/' + name;
+                            handler(kindName);
+                        }
+                    });
                 }
-            });
+            } else {
+                vscode.window.showInformationMessage("No resources of type " + resourceKind.displayName + " in cluster");
+            }
+        } else {
+            vscode.window.showErrorMessage(stderr);
         }
     });
 }
@@ -979,15 +988,13 @@ function findPod(callback) {
     let text = editor.document.getText();
     try {
         let obj = yaml.safeLoad(text);
-        if (obj.kind !== 'Pod') {
+        if (obj.kind && obj.kind === 'Pod' && obj.metadata) {
+            callback({
+                name: obj.metadata.name,
+                namespace: obj.metadata.namespace
+            });
             return;
         }
-
-        callback({
-            name: obj.metadata.name,
-            namespace: obj.metadata.namespace
-        });
-        return;
     } catch (ex) {
         // pass
     }
@@ -1002,6 +1009,23 @@ function findPod(callback) {
             });
         }
     );
+}
+
+async function findContainer(podName: string, podNamespace: string | undefined, fn: (podName: string, podNamespace: string | undefined, containerName: string | undefined) => void) {
+    let cmd = `get pod/${podName} -o jsonpath="{'NAME\\n'}{range .spec.containers[*]}{.name}{'\\n'}{end}"`;
+    if (podNamespace && podNamespace.length > 0) {
+        cmd += ' --namespace=' + podNamespace;
+    }
+    const containers = await kubectl.asLines(cmd);
+    if (isShellResult(containers)) {
+        vscode.window.showErrorMessage("Failed to get containers in pod: " + containers.stderr);
+        return;
+    }
+    let containerName: string | undefined = undefined;
+    if (containers.length > 1) {
+        containerName = await vscode.window.showQuickPick(containers, { placeHolder: "Select container to view logs for" });
+    }
+    fn(podName, podNamespace, containerName);
 }
 
 enum PodSelectionFallback {
@@ -1052,26 +1076,27 @@ async function selectPod(scope: PodSelectionScope, fallback: PodSelectionFallbac
 
 function logsKubernetes(explorerNode?: explorer.ResourceNode) {
     if (explorerNode) {
-        getLogsCore(explorerNode.id);  // TODO: we don't know if there is a namespace in this case - is that a problem?
+        findContainer(explorerNode.id, undefined, getLogsForContainer);  // TODO: we don't know if there is a namespace in this case - is that a problem?
     } else {
-        findPod(getLogs);
+        findPod(getLogsForPod);
     }
 }
 
-function getLogs(pod) {
+function getLogsForPod(pod) {
     if (!pod) {
         vscode.window.showErrorMessage('Can\'t find a pod!');
         return;
     }
-    getLogsCore(pod.name, pod.namespace);
-
+    findContainer(pod.name, pod.namespace, getLogsForContainer);
 }
 
-function getLogsCore(podName: string, podNamespace?: string) {
-    // TODO: Support multiple containers here!
+function getLogsForContainer(podName: string, podNamespace: string | undefined, containerName: string | undefined) {
     let cmd = 'logs ' + podName;
     if (podNamespace && podNamespace.length > 0) {
         cmd += ' --namespace=' + podNamespace;
+    }
+    if (containerName) {
+        cmd += ' --container=' + containerName;
     }
     kubectl.invokeInSharedTerminal(cmd);
 }
