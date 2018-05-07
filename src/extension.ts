@@ -1011,6 +1011,8 @@ function findPod(callback) {
     );
 }
 
+// TODO: This means we have two methods and two UIs for selecting containers
+// (this and selectContainerForPod) - rationalise them!
 async function findContainer(podName: string, podNamespace: string | undefined, fn: (podName: string, podNamespace: string | undefined, containerName: string | undefined) => void) {
     let cmd = `get pod/${podName} -o jsonpath="{'NAME\\n'}{range .spec.containers[*]}{.name}{'\\n'}{end}"`;
     if (podNamespace && podNamespace.length > 0) {
@@ -1150,8 +1152,9 @@ async function selectContainerForPod(pod): Promise<any | null> {
     }
 
     const pickItems = containers.map((element) => { return {
-        label: `${element.metadata.namespace}/${element.metadata.name}`,
+        label: element.name,
         description: '',
+        detail: element.image,
         container: element
     };});
 
@@ -1170,9 +1173,11 @@ function execKubernetes() {
 
 async function terminalKubernetes(explorerNode?: explorer.ResourceNode) {
     if (explorerNode) {
-        // For those images (e.g. built from Busybox) where bash may not be installed by default, use sh instead.
-        const isBash = await isBashOnPod(explorerNode.id);
-        execTerminalOnPod(explorerNode.id, isBash ? 'bash' : 'sh');
+        findContainer(explorerNode.id, undefined /* TODO: namespaces */, async (podName, podNamespace, containerName) => {
+            // For those images (e.g. built from Busybox) where bash may not be installed by default, use sh instead.
+            const isBash = await isBashOnContainer(podName, podNamespace, containerName);
+            execTerminalOnContainer(podName, podNamespace, containerName, isBash ? 'bash' : 'sh');
+        });
     } else {
         execKubernetesCore(true);
     }
@@ -1197,22 +1202,36 @@ async function execKubernetesCore(isTerminal): Promise<void> {
         return;
     }
 
-    if (isTerminal) {
-        execTerminalOnPod(pod.metadata.name, cmd);
+    const container = await selectContainerForPod(pod);
+
+    if (!container) {
         return;
     }
 
-    const execCmd = ' exec ' + pod.metadata.name + ' ' + cmd;
+    if (isTerminal) {
+        execTerminalOnContainer(pod.metadata.name, pod.metadata.namespace, container.name, cmd);
+        return;
+    }
+
+    const execCmd = `exec ${pod.metadata.name} -c ${container.name} -- ${cmd}`;
     kubectl.invokeInSharedTerminal(execCmd);
 }
 
-function execTerminalOnPod(podName: string, terminalCmd: string) {
-    const terminalExecCmd: string[] = ['exec', '-it', podName, '--', terminalCmd];
-    kubectl.runAsTerminal(terminalExecCmd, `${terminalCmd} on ${podName}`);
+function execTerminalOnContainer(podName: string, podNamespace: string | undefined, containerName: string | undefined, terminalCmd: string) {
+    const terminalExecCmd: string[] = ['exec', '-it', podName];
+    if (podNamespace) {
+        terminalExecCmd.push('--namespace', podNamespace);
+    }
+    if (containerName) {
+        terminalExecCmd.push('--container', containerName);
+    }
+    terminalExecCmd.push('--', terminalCmd);
+    const terminalName = `${terminalCmd} on ${podName}` + (containerName ? `/${containerName}`: '');
+    kubectl.runAsTerminal(terminalExecCmd, terminalName);
 }
 
-async function isBashOnPod(podName: string): Promise<boolean> {
-    const result = await kubectl.invokeAsync(`exec ${podName} -- ls -la /bin/bash`);
+async function isBashOnContainer(podName: string, podNamespace: string | undefined, containerName: string | undefined): Promise<boolean> {
+    const result = await kubectl.invokeAsync(`exec ${podName} -c ${containerName} -- ls -la /bin/bash`);
     return !result.code;
 }
 
