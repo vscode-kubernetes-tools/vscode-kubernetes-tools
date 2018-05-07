@@ -12,6 +12,7 @@ export interface Host {
     getConfiguration(key: string): any;
     createTerminal(name?: string, shellPath?: string, shellArgs?: string[]): vscode.Terminal;
     onDidCloseTerminal(listener: (e: vscode.Terminal) => any): vscode.Disposable;
+    onDidChangeConfiguration(listener: (ch: vscode.ConfigurationChangeEvent) => any): vscode.Disposable;
 }
 
 export const host: Host = {
@@ -23,6 +24,7 @@ export const host: Host = {
     getConfiguration : getConfiguration,
     createTerminal : createTerminal,
     onDidCloseTerminal : onDidCloseTerminal,
+    onDidChangeConfiguration : onDidChangeConfiguration,
     showInputBox : showInputBox
 };
 
@@ -90,6 +92,10 @@ function createTerminal(name?: string, shellPath?: string, shellArgs?: string[])
 
 function onDidCloseTerminal(listener: (e: vscode.Terminal) => any): vscode.Disposable {
     return vscode.window.onDidCloseTerminal(listener);
+}
+
+function onDidChangeConfiguration(listener: (e: vscode.ConfigurationChangeEvent) => any): vscode.Disposable {
+    return vscode.workspace.onDidChangeConfiguration(listener);
 }
 
 function shellEnvironment(baseEnvironment: any): any {
