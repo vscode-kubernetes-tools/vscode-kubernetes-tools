@@ -87,6 +87,10 @@ function execOpts(): any {
     if (isWindows()) {
         env = Object.assign({ }, env, { HOME: home() });
     }
+    const kubeconfig: string = vscode.workspace.getConfiguration('vs-kubernetes')['vs-kubernetes.kubeconfig'];
+    if (kubeconfig) {
+        env['KUBECONFIG'] = kubeconfig;
+    }
     const opts = {
         cwd: vscode.workspace.rootPath,
         env: env,

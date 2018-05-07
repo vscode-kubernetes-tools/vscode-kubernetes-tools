@@ -157,7 +157,7 @@ async function invokeAsyncWithProgress(context: Context, command: string, progre
 
 async function spawnAsChild(context: Context, command: string[]): Promise<ChildProcess> {
     if (await checkPresent(context, 'command')) {
-        return spawnChildProcess(path(context), command);
+        return spawnChildProcess(path(context), command, context.shell.execOpts());
     }
 }
 

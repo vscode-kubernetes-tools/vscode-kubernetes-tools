@@ -103,6 +103,12 @@ function shellEnvironment(baseEnvironment: any): any {
             env[pathVariable] = (currentPath ? `${currentPath}${pathEntrySeparator}` : '') + toolDirectory;
         }
     }
+
+    const kubeconfig: string = vscode.workspace.getConfiguration('vs-kubernetes')['vs-kubernetes.kubeconfig'];
+    if (kubeconfig) {
+        env['KUBECONFIG'] = kubeconfig;
+    }
+
     return env;
 }
 
