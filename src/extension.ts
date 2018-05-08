@@ -20,6 +20,7 @@ import * as clipboard from 'clipboardy';
 import { host } from './host';
 import * as explainer from './explainer';
 import { shell, Shell, ShellResult } from './shell';
+import * as configmaps from './configMap';
 import * as configureFromCluster from './configurefromcluster';
 import * as createCluster from './createcluster';
 import * as kuberesources from './kuberesources';
@@ -64,6 +65,7 @@ const draft = draftCreate(host, fs, shell, installDependencies);
 const configureFromClusterUI = configureFromCluster.uiProvider();
 const createClusterUI = createCluster.uiProvider();
 const clusterProviderRegistry = clusterproviderregistry.get();
+const configMapProvider = new configmaps.ConfigMapTextProvider(kubectl);
 const git = new Git(shell);
 
 const deleteMessageItems: vscode.MessageItem[] = [
@@ -133,6 +135,7 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
         registerCommand('extension.vsKubernetesDashboard', dashboardKubernetes),
         registerCommand('extension.vsKubernetesCopy', copyKubernetes),
         registerCommand('extension.vsKubernetesPortForward', portForwardKubernetes),
+        registerCommand('extension.vsKubernetesLoadConfigMapData', configmaps.loadConfigMapData),
 
         // Commands - Helm
         registerCommand('extension.helmVersion', helmexec.helmVersion),
@@ -258,6 +261,7 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
         context.subscriptions.push(element);
     }, this);
     await registerYamlSchemaSupport();
+    vscode.workspace.registerTextDocumentContentProvider(configmaps.uriScheme, configMapProvider);
     return {
         apiVersion: '0.1',
         clusterProviderRegistry: clusterProviderRegistry

@@ -29,6 +29,15 @@ export interface ClusterConfig {
     readonly certificateAuthority: string;
 }
 
+export interface ObjectMeta {
+    readonly name: string;
+}
+
+export interface DataHolder {
+    readonly metadata: ObjectMeta;
+    readonly data: any;
+}
+
 async function getKubeconfig(kubectl: Kubectl): Promise<any> {
     const shellResult = await kubectl.invokeAsync("config view -o json");
     if (shellResult.code !== 0) {
@@ -92,6 +101,18 @@ export async function deleteCluster(kubectl: Kubectl, cluster: Cluster): Promise
 
     vscode.window.showInformationMessage(`Deleted cluster '${cluster.name}' and associated data from the kubeconfig.`);
     return true;
+}
+
+export async function getDataHolders(resource: string, kubectl: Kubectl): Promise<DataHolder[]> {
+    const currentNS = await currentNamespace(kubectl);
+
+    const shellResult = await kubectl.invokeAsync(`get ${resource} -o json --namespace=${currentNS}`);
+    if (shellResult.code !== 0) {
+        vscode.window.showErrorMessage(shellResult.stderr);
+        return [];
+    }
+    const depList = JSON.parse(shellResult.stdout);
+    return depList.items;
 }
 
 export async function getNamespaces(kubectl: Kubectl): Promise<Namespace[]> {
@@ -170,7 +191,7 @@ export async function getPods(kubectl: Kubectl, selector: any): Promise<Pod[]> {
     });
 }
 
-async function currentNamespace(kubectl: Kubectl): Promise<string> {
+export async function currentNamespace(kubectl: Kubectl): Promise<string> {
     const kubectlConfig = await getKubeconfig(kubectl);
     if (!kubectlConfig) {
         return "";
