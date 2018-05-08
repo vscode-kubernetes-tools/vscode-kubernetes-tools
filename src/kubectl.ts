@@ -84,10 +84,8 @@ class KubectlImpl implements Kubectl {
                 }
             });
             this.context.host.onDidChangeConfiguration((change) => {
-                if (change.affectsConfiguration('vs-kubernetes')) {
-                    if (this.sharedTerminal) {
-                        this.sharedTerminal.dispose();
-                    }
+                if (change.affectsConfiguration('vs-kubernetes') && this.sharedTerminal) {
+                    this.sharedTerminal.dispose();
                 }
             });
         }
