@@ -1,5 +1,17 @@
 # Change Log
 
+## 0.1.9
+
+* Added configmaps and secrets to the tree view.
+* If you auto-install Draft you now get 0.14.1.
+* Added new regions to create AKS cluster wizard.
+* Fixed an issue where you could not edit or save resource manifests loaded via command or tree view. (The downside of the fix: we've brought back an issue where you get spurious save prompts if you just want to look at a resource without modifying or saving it. We're trying to work out a better solution!)
+* Fixed some commands complaining unnecessarily if there was no editor open.
+* Fixed error if you clicked on a service without a selector in the tree view.
+* Improved documentation of building and running from source.
+
+Thanks to contributors Brendan Burns and Andy Xu.
+
 ## 0.1.8
 
 * Added support for debugging using Draft.
