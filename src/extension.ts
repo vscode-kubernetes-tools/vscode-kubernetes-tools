@@ -978,25 +978,22 @@ function parseName(line) {
     return line.split(' ')[0];
 }
 
-function findPod(callback) {
+function findPod(callback: (pod: PodMetadata) => void) {
     let editor = vscode.window.activeTextEditor;
-    if (!editor) {
-        vscode.window.showErrorMessage('No active editor!');
-        return null; // No open text editor
-    }
-
-    let text = editor.document.getText();
-    try {
-        let obj = yaml.safeLoad(text);
-        if (obj.kind && obj.kind === 'Pod' && obj.metadata) {
-            callback({
-                name: obj.metadata.name,
-                namespace: obj.metadata.namespace
-            });
-            return;
+    if (editor) {
+        let text = editor.document.getText();
+        try {
+            let obj = yaml.safeLoad(text);
+            if (obj.kind && obj.kind === 'Pod' && obj.metadata) {
+                callback({
+                    name: obj.metadata.name,
+                    namespace: obj.metadata.namespace
+                });
+                return;
+            }
+        } catch (ex) {
+            // pass
         }
-    } catch (ex) {
-        // pass
     }
 
     quickPickKindName(
@@ -1011,23 +1008,23 @@ function findPod(callback) {
     );
 }
 
-// TODO: This means we have two methods and two UIs for selecting containers
-// (this and selectContainerForPod) - rationalise them!
-async function findContainer(podName: string, podNamespace: string | undefined, fn: (podName: string, podNamespace: string | undefined, containerName: string | undefined) => void) {
-    let cmd = `get pod/${podName} -o jsonpath="{'NAME\\n'}{range .spec.containers[*]}{.name}{'\\n'}{end}"`;
-    if (podNamespace && podNamespace.length > 0) {
-        cmd += ' --namespace=' + podNamespace;
+async function getContainers(pod: PodMetadata): Promise<Container[] | undefined> {
+    let cmd = `get pod/${pod.name} -o jsonpath="{'NAME\\tIMAGE\\n'}{range .spec.containers[*]}{.name}{'\\t'}{.image}{'\\n'}{end}"`;
+    if (pod.namespace && pod.namespace.length > 0) {
+        cmd += ' --namespace=' + pod.namespace;
     }
     const containers = await kubectl.asLines(cmd);
     if (isShellResult(containers)) {
         vscode.window.showErrorMessage("Failed to get containers in pod: " + containers.stderr);
-        return;
+        return undefined;
     }
-    let containerName: string | undefined = undefined;
-    if (containers.length > 1) {
-        containerName = await vscode.window.showQuickPick(containers, { placeHolder: "Select container to view logs for" });
-    }
-    fn(podName, podNamespace, containerName);
+
+    const containersEx = containers.map((s) => {
+        const bits = s.split('\t');
+        return { name: bits[0], image: bits[1] };
+    });
+
+    return containersEx;
 }
 
 enum PodSelectionFallback {
@@ -1076,20 +1073,27 @@ async function selectPod(scope: PodSelectionScope, fallback: PodSelectionFallbac
     return value.pod;
 }
 
-function logsKubernetes(explorerNode?: explorer.ResourceNode) {
+async function logsKubernetes(explorerNode?: explorer.ResourceNode) {
     if (explorerNode) {
-        findContainer(explorerNode.id, undefined, getLogsForContainer);  // TODO: we don't know if there is a namespace in this case - is that a problem?
+        const podMetadata = { name: explorerNode.id, namespace: undefined };  // TODO: namespaces
+        const container = await selectContainerForPod(podMetadata);
+        if (container) {
+            getLogsForContainer(podMetadata.name, podMetadata.namespace, container.name);
+        }
     } else {
         findPod(getLogsForPod);
     }
 }
 
-function getLogsForPod(pod) {
+async function getLogsForPod(pod: PodMetadata) {
     if (!pod) {
         vscode.window.showErrorMessage('Can\'t find a pod!');
         return;
     }
-    findContainer(pod.name, pod.namespace, getLogsForContainer);
+    const container = await selectContainerForPod(pod);
+    if (container) {
+        getLogsForContainer(pod.name, pod.namespace, container.name);
+    }
 }
 
 function getLogsForContainer(podName: string, podNamespace: string | undefined, containerName: string | undefined) {
@@ -1140,15 +1144,32 @@ function describeKubernetes(explorerNode?: explorer.ResourceNode) {
     }
 }
 
-async function selectContainerForPod(pod): Promise<any | null> {
+interface Container {
+    readonly name: string;
+    readonly image: string;
+}
+
+interface PodMetadata {
+    readonly name: string;
+    readonly namespace: string | undefined;
+    readonly spec?: {
+        containers?: Container[]
+    };
+}
+
+async function selectContainerForPod(pod: PodMetadata): Promise<Container | null> {
     if (!pod) {
         return null;
     }
 
-    const containers: any[] = pod.spec.containers;
+    const containers = (pod.spec && pod.spec.containers) ? pod.spec.containers : await getContainers(pod);
+
+    if (!containers) {
+        return null;
+    }
 
     if (containers.length === 1) {
-        return pod.spec.containers[0];
+        return containers[0];
     }
 
     const pickItems = containers.map((element) => { return {
@@ -1158,7 +1179,7 @@ async function selectContainerForPod(pod): Promise<any | null> {
         container: element
     };});
 
-    const value = await vscode.window.showQuickPick(pickItems);
+    const value = await vscode.window.showQuickPick(pickItems, { placeHolder: "Select container" });
 
     if (!value) {
         return null;
@@ -1173,11 +1194,13 @@ function execKubernetes() {
 
 async function terminalKubernetes(explorerNode?: explorer.ResourceNode) {
     if (explorerNode) {
-        findContainer(explorerNode.id, undefined /* TODO: namespaces */, async (podName, podNamespace, containerName) => {
+        const podMetadata = { name: explorerNode.id, namespace: undefined };  // TODO: namespaces
+        const container = await selectContainerForPod(podMetadata);
+        if (container) {
             // For those images (e.g. built from Busybox) where bash may not be installed by default, use sh instead.
-            const isBash = await isBashOnContainer(podName, podNamespace, containerName);
-            execTerminalOnContainer(podName, podNamespace, containerName, isBash ? 'bash' : 'sh');
-        });
+            const isBash = await isBashOnContainer(podMetadata.name, podMetadata.namespace, container.name);
+            execTerminalOnContainer(podMetadata.name, podMetadata.namespace, container.name, isBash ? 'bash' : 'sh');
+        }
     } else {
         execKubernetesCore(true);
     }
@@ -1202,7 +1225,7 @@ async function execKubernetesCore(isTerminal): Promise<void> {
         return;
     }
 
-    const container = await selectContainerForPod(pod);
+    const container = await selectContainerForPod(pod.metadata);
 
     if (!container) {
         return;
