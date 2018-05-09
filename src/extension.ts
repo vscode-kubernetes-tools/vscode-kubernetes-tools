@@ -620,12 +620,9 @@ function loadKubernetesCore(value: string) {
             doc.uri.fsPath === path.join(vscode.workspace.rootPath || "", `${filename}.${extension}`)
         );
 
-        if (existingDocument) {
-            const existingDocContent = existingDocument.getText();
-            if (equalIgnoringWhitespace(existingDocContent, stdout)) {
-                vscode.window.showTextDocument(existingDocument);
-                return;
-            }
+        if (existingDocument && equalIgnoringWhitespace(existingDocument.getText(), stdout)) {
+            vscode.window.showTextDocument(existingDocument);
+            return;
         }
 
         const filepath = findUniqueName(filename, extension);
