@@ -614,7 +614,21 @@ function loadKubernetesCore(value: string) {
         }
 
         const filename = value.replace('/', '-');
-        const filepath = findUniqueName(filename, "json");
+        const extension = "json";
+
+        const existingDocument = vscode.workspace.textDocuments.find((doc) =>
+            doc.uri.fsPath === path.join(vscode.workspace.rootPath || "", `${filename}.${extension}`)
+        );
+
+        if (existingDocument) {
+            const existingDocContent = existingDocument.getText();
+            if (equalIgnoringWhitespace(existingDocContent, stdout)) {
+                vscode.window.showTextDocument(existingDocument);
+                return;
+            }
+        }
+
+        const filepath = findUniqueName(filename, extension);
 
         vscode.workspace.openTextDocument(vscode.Uri.parse('untitled:' + filepath)).then((doc) => {
             const start = new vscode.Position(0, 0),
@@ -646,6 +660,10 @@ function findUniqueName(basename: string, extension: string): string {
             return proposedName;
         }
     }
+}
+
+function equalIgnoringWhitespace(s1: string, s2: string): boolean {
+    return s1.replace(/[\r\n\t ]/g, '') === s2.replace(/[\r\n\t ]/g, '');
 }
 
 function exposeKubernetes() {
