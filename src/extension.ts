@@ -614,7 +614,18 @@ function loadKubernetesCore(value: string) {
         }
 
         const filename = value.replace('/', '-');
-        const filepath = path.join(vscode.workspace.rootPath || "", filename + '.json');
+        const extension = "json";
+
+        const existingDocument = vscode.workspace.textDocuments.find((doc) =>
+            doc.uri.fsPath === path.join(vscode.workspace.rootPath || "", `${filename}.${extension}`)
+        );
+
+        if (existingDocument && equalIgnoringWhitespace(existingDocument.getText(), stdout)) {
+            vscode.window.showTextDocument(existingDocument);
+            return;
+        }
+
+        const filepath = findUniqueName(filename, extension);
 
         vscode.workspace.openTextDocument(vscode.Uri.parse('untitled:' + filepath)).then((doc) => {
             const start = new vscode.Position(0, 0),
@@ -628,6 +639,28 @@ function loadKubernetesCore(value: string) {
             vscode.window.showTextDocument(doc);
         });
     });
+}
+
+function findUniqueName(basename: string, extension: string): string {
+    const exists: (f: string) => boolean = (f) =>
+        fs.existsSync(f) ||
+            vscode.workspace.textDocuments.some((doc) => doc.uri.fsPath === f);
+
+    const basedir = vscode.workspace.rootPath || "";
+    const simpleName = path.join(basedir, `${basename}.${extension}`);
+    if (!exists(simpleName)) {
+        return simpleName;
+    }
+    for (let i = 1; ; i++) {
+        const proposedName = path.join(basedir, `${basename}.${i}.${extension}`);
+        if (!exists(proposedName)) {
+            return proposedName;
+        }
+    }
+}
+
+function equalIgnoringWhitespace(s1: string, s2: string): boolean {
+    return s1.replace(/[\r\n\t ]/g, '') === s2.replace(/[\r\n\t ]/g, '');
 }
 
 function exposeKubernetes() {
