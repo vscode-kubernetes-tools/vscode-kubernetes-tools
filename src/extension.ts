@@ -56,7 +56,7 @@ import { KubernetesCompletionProvider } from "./yaml-support/yaml-snippet";
 import { showWorkspaceFolderPick } from './hostutils';
 import { DraftConfigurationProvider } from './draft/draftConfigurationProvider';
 import { installHelm, installDraft, installKubectl } from './components/installer/installer';
-
+import { KubernetesResourceVirtualFileSystemProvider, K8S_RESOURCE_SCHEME } from './kuberesources.virtualfs';
 
 let explainActive = false;
 let swaggerSpecPromise = null;
@@ -92,6 +92,7 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
     kubectl.checkPresent('activation');
 
     const treeProvider = explorer.create(kubectl, host);
+    const resourceDocProvider = new KubernetesResourceVirtualFileSystemProvider();
     const previewProvider = new HelmTemplatePreviewDocumentProvider();
     const inspectProvider = new HelmInspectDocumentProvider();
     const completionProvider = new HelmTemplateCompletionProvider();
@@ -181,6 +182,9 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
 
         // Tree data providers
         vscode.window.registerTreeDataProvider('extension.vsKubernetesExplorer', treeProvider),
+
+        // Temporarily loaded resource providers
+        vscode.workspace.registerFileSystemProvider(K8S_RESOURCE_SCHEME, resourceDocProvider, { /* TODO: case sensitive? */ }),
 
         // Code lenses
         vscode.languages.registerCodeLensProvider(HELM_REQ_MODE, new HelmRequirementsCodeLensProvider()),
