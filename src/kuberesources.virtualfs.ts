@@ -1,23 +1,30 @@
-import * as vscode from 'vscode';
-import { Uri, FileType } from 'vscode';
+import { Uri, FileSystemProvider, FileType, FileStat, FileChangeEvent, Event, EventEmitter, Disposable } from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as querystring from 'querystring';
+
+import { Kubectl } from './kubectl';
+import { Host } from './host';
 
 export const K8S_RESOURCE_SCHEME = "k8smsx";
 
-export class KubernetesResourceVirtualFileSystemProvider implements vscode.FileSystemProvider {
+export class KubernetesResourceVirtualFileSystemProvider implements FileSystemProvider {
+    constructor(private readonly kubectl: Kubectl, private readonly host: Host, private readonly rootPath: string) { }
 
-    private readonly _onDidChangeFile: vscode.EventEmitter<vscode.FileChangeEvent[]> = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
+    private readonly _onDidChangeFile: EventEmitter<FileChangeEvent[]> = new EventEmitter<FileChangeEvent[]>();
 
-    onDidChangeFile: vscode.Event<vscode.FileChangeEvent[]> = this._onDidChangeFile.event;
+    onDidChangeFile: Event<FileChangeEvent[]> = this._onDidChangeFile.event;
 
-    watch(uri, options): vscode.Disposable {
-        return new vscode.Disposable(() => {});
+    watch(uri: Uri, options: { recursive: boolean; excludes: string[] }): Disposable {
+        // It would be quite neat to implement this to watch for changes
+        // in the cluster and update the doc accordingly.  But that is very
+        // definitely a future enhancement thing!
+        return new Disposable(() => {});
     }
 
-    stat(uri): vscode.FileStat {
+    stat(uri: Uri): FileStat {
         return {
-            type: vscode.FileType.File,
+            type: FileType.File,
             ctime: 0,
             mtime: 0,
             size: 65536  // TODO: determine if these fields matter
@@ -33,12 +40,30 @@ export class KubernetesResourceVirtualFileSystemProvider implements vscode.FileS
     }
 
     readFile(uri: Uri): Uint8Array | Thenable<Uint8Array> {
-        return new Buffer(`TODO: work out what goes here`, 'utf8');
+        return this.readFileAsync(uri);
+    }
+
+    async readFileAsync(uri: Uri): Promise<Uint8Array> {
+        const content = await this.loadResource(uri);
+        return new Buffer(content, 'utf8');
+    }
+
+    async loadResource(uri: Uri): Promise<string> {
+        const value = querystring.parse(uri.query).value;
+        const sr = await this.kubectl.invokeAsyncWithProgress(`-o json get ${value}`, `Loading ${value}...`);
+
+        if (sr.code !== 0) {
+            this.host.showErrorMessage('Get command failed: ' + sr.stderr);
+            throw sr.stderr;
+        }
+
+        return sr.stdout;
     }
 
     writeFile(uri: Uri, content: Uint8Array, options: { create: boolean, overwrite: boolean }): void | Thenable<void> {
-        // TODO: create directories if necessary (also need to figure out Save As strategy)
-        const fspath = path.join(vscode.workspace.rootPath, uri.fsPath);
+        // This assumes no pathing in the URI - if this changes, we'll need to
+        // create subdirectories.
+        const fspath = path.join(this.rootPath, uri.fsPath);
         fs.writeFileSync(fspath, content);
     }
 

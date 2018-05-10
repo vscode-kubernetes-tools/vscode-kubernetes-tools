@@ -92,7 +92,7 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
     kubectl.checkPresent('activation');
 
     const treeProvider = explorer.create(kubectl, host);
-    const resourceDocProvider = new KubernetesResourceVirtualFileSystemProvider();
+    const resourceDocProvider = new KubernetesResourceVirtualFileSystemProvider(kubectl, host, vscode.workspace.rootPath);
     const previewProvider = new HelmTemplatePreviewDocumentProvider();
     const inspectProvider = new HelmInspectDocumentProvider();
     const completionProvider = new HelmTemplateCompletionProvider();
@@ -615,60 +615,14 @@ function loadKubernetes(explorerNode?: explorer.ResourceNode) {
 function loadKubernetesCore(value: string) {
     const outputFormat = vscode.workspace.getConfiguration('vs-kubernetes')['vs-kubernetes.outputFormat'];
     const loadCommand = `-o ${outputFormat} get ${value}`;
-
-    kubectl.invokeWithProgress(loadCommand, `Loading ${value}...`, (result, stdout, stderr) => {
-        if (result !== 0) {
-            vscode.window.showErrorMessage('Get command failed: ' + stderr);
-            return;
-        }
-
-        const filename = value.replace('/', '-');
-
-        const existingDocument = vscode.workspace.textDocuments.find((doc) =>
-            doc.uri.fsPath === path.join(vscode.workspace.rootPath || "", `${filename}.${outputFormat}`)
-        );
-
-        if (existingDocument && equalIgnoringWhitespace(existingDocument.getText(), stdout)) {
-            vscode.window.showTextDocument(existingDocument);
-            return;
-        }
-
-        const filepath = findUniqueName(filename, outputFormat);
-
-        vscode.workspace.openTextDocument(vscode.Uri.parse('untitled:' + filepath)).then((doc) => {
-            const start = new vscode.Position(0, 0),
-                end = new vscode.Position(0, 0),
-                range = new vscode.Range(start, end),
-                edit = new vscode.TextEdit(range, stdout),
-                wsEdit = new vscode.WorkspaceEdit();
-
-            wsEdit.set(doc.uri, [edit]);
-            vscode.workspace.applyEdit(wsEdit);
+    const docname = `${value.replace('/', '-')}.${outputFormat}`;
+    const nonce = new Date().getTime();
+    const uri = `${K8S_RESOURCE_SCHEME}://loadkubernetescore/${docname}?value=${value}&_=${nonce}`;
+    vscode.workspace.openTextDocument(vscode.Uri.parse(uri)).then((doc) => {
+        if (doc) {
             vscode.window.showTextDocument(doc);
-        });
-    });
-}
-
-function findUniqueName(basename: string, extension: string): string {
-    const exists: (f: string) => boolean = (f) =>
-        fs.existsSync(f) ||
-            vscode.workspace.textDocuments.some((doc) => doc.uri.fsPath === f);
-
-    const basedir = vscode.workspace.rootPath || "";
-    const simpleName = path.join(basedir, `${basename}.${extension}`);
-    if (!exists(simpleName)) {
-        return simpleName;
-    }
-    for (let i = 1; ; i++) {
-        const proposedName = path.join(basedir, `${basename}.${i}.${extension}`);
-        if (!exists(proposedName)) {
-            return proposedName;
         }
-    }
-}
-
-function equalIgnoringWhitespace(s1: string, s2: string): boolean {
-    return s1.replace(/[\r\n\t ]/g, '') === s2.replace(/[\r\n\t ]/g, '');
+    });
 }
 
 function exposeKubernetes() {
