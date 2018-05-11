@@ -4,6 +4,7 @@ import { shell } from './shell';
 import { host } from './host';
 import { create as kubectlCreate, Kubectl } from './kubectl';
 import { currentNamespace } from './kubectlUtils';
+import { deleteMessageItems } from './extension';
 import { KubernetesFileObject, KubernetesExplorer } from './explorer';
 
 export const uriScheme: string = "k8sviewfiledata";
@@ -34,29 +35,31 @@ export function loadConfigMapData(obj: KubernetesFileObject) {
         });
 }
 
+function removeKey(dictionary: any, keyToDelete: string) {
+    let newData = {};
+    Object.keys(dictionary).forEach((key) => {
+        if (key !== keyToDelete) {
+            newData[key] = dictionary[key];
+        }
+    });
+    return newData;
+}
+
 export async function deleteKubernetesConfigFile(kubectl: Kubectl, obj: KubernetesFileObject, explorer: KubernetesExplorer) {
-    const confirm = 'Delete';
-    let result = await vscode.window.showWarningMessage(`Are you sure you want to delete ${obj.id} this can not be undone`, confirm, 'Cancel');
-    console.log(confirm);
-    if (result !== confirm) {
+    const result = await vscode.window.showWarningMessage(`Are you sure you want to delete ${obj.id}? This can not be undone`, ...deleteMessageItems);
+    if (result.title !== deleteMessageItems[0].title) {
         return;
     }
     const currentNS = await currentNamespace(kubectl);
     const json = await kubectl.invokeAsync(`get ${obj.resource} ${obj.parentName} --namespace=${currentNS} -o json`);
     const dataHolder = JSON.parse(json.stdout);
-    let newData = {};
-    Object.keys(dataHolder.data).forEach((key) => {
-        if (key !== obj.id) {
-            newData[key] = dataHolder.data[key];
-        }
-    });
-    dataHolder.data = newData;
+    dataHolder.data = removeKey(dataHolder.data, obj.id);
     const out = JSON.stringify(dataHolder);
     const shellRes = await kubectl.invokeAsync(`replace -f - --namespace=${currentNS}`, out);
     if (shellRes.code !== 0) {
         vscode.window.showErrorMessage('Failed to delete file: ' + shellRes.stderr);
+        return;
     }
     explorer.refresh();
     vscode.window.showInformationMessage(`Data '${obj.id}' deleted from resource.`);
-}
 }

@@ -69,7 +69,7 @@ const clusterProviderRegistry = clusterproviderregistry.get();
 const configMapProvider = new configmaps.ConfigMapTextProvider(kubectl);
 const git = new Git(shell);
 
-const deleteMessageItems: vscode.MessageItem[] = [
+export const deleteMessageItems: vscode.MessageItem[] = [
     {
         title: "Delete"
     },

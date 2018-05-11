@@ -46,7 +46,7 @@ class KubectlImpl implements Kubectl {
     invokeWithProgress(command: string, progressMessage: string, handler?: ShellHandler): Promise<void> {
         return invokeWithProgress(this.context, command, progressMessage, handler);
     }
-    invokeAsync(command: string, stdin: string = null): Promise<ShellResult> {
+    invokeAsync(command: string, stdin?: string): Promise<ShellResult> {
         return invokeAsync(this.context, command, stdin);
     }
     invokeAsyncWithProgress(command: string, progressMessage: string): Promise<ShellResult> {
@@ -126,7 +126,7 @@ async function invokeWithProgress(context: Context, command: string, progressMes
     });
 }
 
-async function invokeAsync(context: Context, command: string, stdin: string): Promise<ShellResult> {
+async function invokeAsync(context: Context, command: string, stdin?: string): Promise<ShellResult> {
     if (await checkPresent(context, 'command')) {
         const bin = baseKubectlPath(context);
         let cmd = bin + ' ' + command;
@@ -139,7 +139,7 @@ async function invokeAsync(context: Context, command: string, stdin: string): Pr
 async function invokeAsyncWithProgress(context: Context, command: string, progressMessage: string): Promise<ShellResult> {
     return context.host.withProgress(async (p) => {
         p.report({ message: progressMessage });
-        return await invokeAsync(context, command, null);
+        return await invokeAsync(context, command);
     });
 }
 
@@ -183,7 +183,7 @@ function baseKubectlPath(context: Context): string {
 }
 
 async function asLines(context: Context, command: string): Promise<string[] | ShellResult> {
-    const shellResult = await invokeAsync(context, command, null);
+    const shellResult = await invokeAsync(context, command);
     if (shellResult.code === 0) {
         let lines = shellResult.stdout.split('\n');
         lines.shift();
