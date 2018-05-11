@@ -21,9 +21,9 @@ export class Git {
     public async checkout(commitId: string): Promise<Errorable<void>> {
         const sr = await this.git(`checkout ${commitId}`);
         if (sr.code === 0) {
-            return { succeeded: true, result: null, error: [] };
+            return { succeeded: true, result: null };
         }
-        return { succeeded: false, result: null, error: [ sr.stderr ] };
+        return { succeeded: false, error: [ sr.stderr ] };
     }
 }
 

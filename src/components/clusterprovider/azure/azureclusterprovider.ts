@@ -3,7 +3,7 @@ import * as restify from 'restify';
 import * as portfinder from 'portfinder';
 import * as clusterproviderregistry from '../clusterproviderregistry';
 import * as azure from './azure';
-import { Errorable, script, styles, formStyles, waitScript, ActionResult } from '../../../wizard';
+import { Errorable, script, styles, formStyles, waitScript, ActionResult, succeeded, failed, Failed, Succeeded, Diagnostic } from '../../../wizard';
 
 // HTTP request dispatch
 
@@ -306,7 +306,7 @@ async function createCluster(previousData: any, context: azure.Context): Promise
     const title = createResult.result.succeeded ? 'Cluster creation has started' : `Error ${createResult.actionDescription}`;
     const additionalDiagnostic = diagnoseCreationError(createResult.result);
     const successCliErrorInfo = diagnoseCreationSuccess(createResult.result);
-    const message = createResult.result.succeeded ?
+    const message = succeeded(createResult.result) ?
         `<div id='content'>
          ${formStyles()}
          ${styles()}
@@ -342,7 +342,7 @@ async function waitForClusterAndReportConfigResult(previousData: any, context: a
     ++refreshCount;
 
     const waitResult = await azure.waitForCluster(context, previousData.clusterType, previousData.clustername, previousData.resourcegroupname);
-    if (!waitResult.succeeded) {
+    if (failed(waitResult)) {
         return `<h1>Error creating cluster</h1><p>Error details: ${waitResult.error[0]}</p>`;
     }
 
@@ -368,8 +368,10 @@ async function waitForClusterAndReportConfigResult(previousData: any, context: a
 
 function renderConfigurationResult(configureResult: ActionResult<azure.ConfigureResult>): string {
     const title = configureResult.result.succeeded ? 'Cluster added' : `Error ${configureResult.actionDescription}`;
-    const configResult = configureResult.result.result;
-    const clusterServiceString = configureResult.result.result.clusterType === "aks" ? "Azure Kubernetes Service" : "Azure Container Service";
+
+    const result = configureResult.result as Succeeded<azure.ConfigureResult>;  // currently always reports success and puts failure in the body
+    const configResult = result.result;
+    const clusterServiceString = result.result.clusterType === "aks" ? "Azure Kubernetes Service" : "Azure Container Service";
 
     const pathMessage = configResult.cliOnDefaultPath ? '' :
         '<p>This location is not on your system PATH. Add this directory to your path, or set the VS Code <b>vs-kubernetes.kubectl-path</b> config setting.</p>';
@@ -392,8 +394,8 @@ function renderConfigurationResult(configureResult: ActionResult<azure.Configure
 
 // Error rendering helpers
 
-function diagnoseCreationError(e: Errorable<any>): string {
-    if (e.succeeded) {
+function diagnoseCreationError(e: Errorable<Diagnostic>): string {
+    if (succeeded(e)) {
         return '';
     }
     if (e.error[0].indexOf('unrecognized arguments') >= 0) {
@@ -402,11 +404,11 @@ function diagnoseCreationError(e: Errorable<any>): string {
     return '';
 }
 
-function diagnoseCreationSuccess(e: Errorable<any>): string {
-    if (!e.succeeded || !e.error || e.error.length === 0 || !e.error[0]) {
+function diagnoseCreationSuccess(e: Errorable<Diagnostic>): string {
+    if (failed(e) || !e.result || !e.result.value) {
         return '';
     }
-    const error = e.error[0];
+    const error = e.result.value;
     // Discard things printed to stderr that are known spew
     if (/Finished service principal(.+)100[.0-9%]*/.test(error)) {
         return '';
@@ -417,6 +419,7 @@ function diagnoseCreationSuccess(e: Errorable<any>): string {
 }
 
 function renderCliError<T>(stageId: string, last: ActionResult<T>): string {
+    const errorInfo = last.result as Failed;
     return `<!-- ${stageId} -->
         <h1>Error ${last.actionDescription}</h1>
         <p><span class='error'>The Azure command line failed.</span>  See below for the error message.  You may need to:</p>
@@ -426,7 +429,7 @@ function renderCliError<T>(stageId: string, last: ActionResult<T>): string {
         <li>Configure Kubernetes from the command line using the az acs or az aks command</li>
         </ul>
         <p><b>Details</b></p>
-        <p>${last.result.error}</p>`;
+        <p>${errorInfo.error}</p>`;
 }
 
 function renderNoOptions(stageId: string, title: string, message: string): string {
@@ -447,12 +450,13 @@ ${styles()}
 }
 
 function renderExternalError<T>(last: ActionResult<T>): string {
+    const errorInfo = last.result as Failed;
     return `
     <h1>Error ${last.actionDescription}</h1>
     ${styles()}
     <p class='error'>An error occurred while ${last.actionDescription}.</p>
     <p><b>Details</b></p>
-    <p>${last.result.error}</p>`;
+    <p>${errorInfo.error}</p>`;
 }
 
 // Utility helpers
