@@ -1,13 +1,15 @@
 import * as vscode from 'vscode';
+import { basename } from 'path';
 import { fs } from './fs';
 import { shell } from './shell';
 import { host } from './host';
 import { create as kubectlCreate, Kubectl } from './kubectl';
 import { currentNamespace } from './kubectlUtils';
 import { deleteMessageItems } from './extension';
-import { KubernetesFileObject, KubernetesExplorer } from './explorer';
+import { KubernetesFileObject, KubernetesDataHolderResource, KubernetesExplorer } from './explorer';
+import { allKinds } from './kuberesources';
 
-export const uriScheme: string = "k8sviewfiledata";
+export const uriScheme: string = 'k8sviewfiledata';
 
 export class ConfigMapTextProvider implements vscode.TextDocumentContentProvider {
     constructor(readonly kubectl: Kubectl) { }
@@ -21,7 +23,7 @@ export class ConfigMapTextProvider implements vscode.TextDocumentContentProvider
 
 export function loadConfigMapData(obj: KubernetesFileObject) {
     let encoded_data = obj.configData[obj.id];
-    if (obj.resource == 'configmaps') {
+    if (obj.resource == allKinds.configMap.abbreviation) {
         encoded_data = Buffer.from(obj.configData[obj.id]).toString('base64');
     }
     const uri_str = `${uriScheme}://${obj.resource}/${encoded_data}/${obj.id}`;
@@ -62,4 +64,35 @@ export async function deleteKubernetesConfigFile(kubectl: Kubectl, obj: Kubernet
     }
     explorer.refresh();
     vscode.window.showInformationMessage(`Data '${obj.id}' deleted from resource.`);
+}
+
+export async function addKubernetesConfigFile(kubectl: Kubectl, obj: KubernetesDataHolderResource, explorer: KubernetesExplorer) {
+    const fileUris = await vscode.window.showOpenDialog({
+        canSelectFolders: false,
+        openLabel: "Add file(s)"
+    } as vscode.OpenDialogOptions);
+    if (fileUris) {
+        console.log(fileUris);
+        const currentNS = await currentNamespace(kubectl);
+        const json = await kubectl.invokeAsync(`get ${obj.resource} ${obj.id} --namespace=${currentNS} -o json`);
+        const dataHolder = JSON.parse(json.stdout);
+        fileUris.map((uri) => {
+            const filePath = uri.fsPath;
+            const fileName = basename(filePath);
+            // TODO: I really don't like sync calls here...
+            const buff = fs.readFileToBufferSync(filePath);
+            if (obj.resource == 'configmap') {
+                dataHolder.data[fileName] = buff.toString();
+            } else {
+                dataHolder.data[fileName] = buff.toString('base64');
+            }
+        });
+        const out = JSON.stringify(dataHolder);
+        const shellRes = await kubectl.invokeAsync(`replace -f - --namespace=${currentNS}`, out);
+        if (shellRes.code != 0) {
+            vscode.window.showErrorMessage('Failed to delete file: ' + shellRes.stderr);
+        }
+        explorer.refresh();
+        vscode.window.showInformationMessage(`New data added to resource ${obj.id}.`);
+    }
 }

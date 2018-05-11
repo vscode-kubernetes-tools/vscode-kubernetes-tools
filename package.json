@@ -45,6 +45,7 @@
         "onCommand:extension.vsKubernetesDashboard",
         "onCommand:extension.vsKubernetesPortForward",
         "onCommand:extension.vsKubernetesDeleteFile",
+        "onCommand:extension.vsKubernetesAddFile",
         "onCommand:extension.helmTemplate",
         "onCommand:extension.helmTemplatePreview",
         "onCommand:extension.helmLint",
@@ -277,6 +278,66 @@
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
                 },
                 {
+                    "command": "extension.vsKubernetesLoad",
+                    "group": "0",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.configmap"
+                },
+                {
+                    "command": "extension.vsKubernetesCopy",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.configmap",
+                    "group": "1"
+                },
+                {
+                    "command": "extension.vsKubernetesGet",
+                    "group": "2@1",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.configmap"
+                },
+                {
+                    "command": "extension.vsKubernetesDelete",
+                    "group": "2@2",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.configmap"
+                },
+                {
+                    "command": "extension.vsKubernetesDescribe",
+                    "group": "3",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.configmap"
+                },
+                {
+                    "command": "extension.vsKubernetesAddFile",
+                    "group": "3",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.configmap"
+                },
+                {
+                    "command": "extension.vsKubernetesLoad",
+                    "group": "0",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.secret"
+                },
+                {
+                    "command": "extension.vsKubernetesCopy",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.secret",
+                    "group": "1"
+                },
+                {
+                    "command": "extension.vsKubernetesGet",
+                    "group": "2@1",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.secret"
+                },
+                {
+                    "command": "extension.vsKubernetesDelete",
+                    "group": "2@2",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.secret"
+                },
+                {
+                    "command": "extension.vsKubernetesDescribe",
+                    "group": "3",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.secret"
+                },
+                {
+                    "command": "extension.vsKubernetesAddFile",
+                    "group": "3",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.secret"
+                },
+                {
                     "command": "extension.vsKubernetesDeleteFile",
                     "group": "3",
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.file"
@@ -447,6 +508,11 @@
             {
                 "command": "extension.vsKubernetesCopy",
                 "title": "Copy Name",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesAddFile",
+                "title": "Add File(s)",
                 "category": "Kubernetes"
             },
             {
