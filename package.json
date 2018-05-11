@@ -44,6 +44,7 @@
         "onCommand:extension.vsKubernetesCreateCluster",
         "onCommand:extension.vsKubernetesDashboard",
         "onCommand:extension.vsKubernetesPortForward",
+        "onCommand:extension.vsKubernetesDeleteFile",
         "onCommand:extension.helmTemplate",
         "onCommand:extension.helmTemplatePreview",
         "onCommand:extension.helmLint",
@@ -274,6 +275,11 @@
                     "command": "extension.vsKubernetesLogs",
                     "group": "3",
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
+                },
+                {
+                    "command": "extension.vsKubernetesDeleteFile",
+                    "group": "3",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.file"
                 }
             ],
             "commandPalette": [
@@ -441,6 +447,11 @@
             {
                 "command": "extension.vsKubernetesCopy",
                 "title": "Copy Name",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesDeleteFile",
+                "title": "Delete File",
                 "category": "Kubernetes"
             },
             {

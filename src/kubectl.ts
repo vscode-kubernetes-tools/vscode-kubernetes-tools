@@ -9,7 +9,7 @@ export interface Kubectl {
     checkPresent(errorMessageMode: CheckPresentMessageMode): Promise<boolean>;
     invoke(command: string, handler?: ShellHandler): Promise<void>;
     invokeWithProgress(command: string, progressMessage: string, handler?: ShellHandler): Promise<void>;
-    invokeAsync(command: string): Promise<ShellResult>;
+    invokeAsync(command: string, stdin?: string): Promise<ShellResult>;
     invokeAsyncWithProgress(command: string, progressMessage: string): Promise<ShellResult>;
     spawnAsChild(command: string[]): Promise<ChildProcess>;
     /**
@@ -49,8 +49,8 @@ class KubectlImpl implements Kubectl {
     invokeWithProgress(command: string, progressMessage: string, handler?: ShellHandler): Promise<void> {
         return invokeWithProgress(this.context, command, progressMessage, handler);
     }
-    invokeAsync(command: string): Promise<ShellResult> {
-        return invokeAsync(this.context, command);
+    invokeAsync(command: string, stdin?: string): Promise<ShellResult> {
+        return invokeAsync(this.context, command, stdin);
     }
     invokeAsyncWithProgress(command: string, progressMessage: string): Promise<ShellResult> {
         return invokeAsyncWithProgress(this.context, command, progressMessage);
@@ -143,11 +143,11 @@ async function invokeWithProgress(context: Context, command: string, progressMes
     });
 }
 
-async function invokeAsync(context: Context, command: string): Promise<ShellResult> {
+async function invokeAsync(context: Context, command: string, stdin?: string): Promise<ShellResult> {
     if (await checkPresent(context, 'command')) {
         const bin = baseKubectlPath(context);
         let cmd = bin + ' ' + command;
-        return await context.shell.exec(cmd);
+        return await context.shell.exec(cmd, stdin);
     } else {
         return { code: -1, stdout: '', stderr: '' };
     }
@@ -186,7 +186,7 @@ async function kubectlInternal(context: Context, command: string, handler: Shell
     if (await checkPresent(context, 'command')) {
         const bin = baseKubectlPath(context);
         let cmd = bin + ' ' + command;
-        context.shell.exec(cmd).then(({code, stdout, stderr}) => handler(code, stdout, stderr));
+        context.shell.exec(cmd, null).then(({code, stdout, stderr}) => handler(code, stdout, stderr));
     }
 }
 
