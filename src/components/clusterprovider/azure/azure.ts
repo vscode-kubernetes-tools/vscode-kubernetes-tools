@@ -1,5 +1,6 @@
 'use strict';
 
+import * as vscode from 'vscode';
 import { Shell } from '../../../shell';
 import { FS } from '../../../fs';
 import { Errorable, ActionResult, fromShellJson, fromShellExitCodeAndStandardError, fromShellExitCodeOnly } from '../../../wizard';
@@ -333,10 +334,12 @@ async function downloadKubectlCli(context: Context, clusterType: string): Promis
 }
 
 async function getCredentials(context: Context, clusterType: string, clusterName: string, clusterGroup: string, maxAttempts: number): Promise<any> {
+    const kubeconfig: string = vscode.workspace.getConfiguration('vs-kubernetes')['vs-kubernetes.kubeconfig'];
+    const kubeconfigFileOption = kubeconfig ? `-f "${kubeconfig}"` : '';
     let attempts = 0;
     while (true) {
         attempts++;
-        const cmd = `az ${getClusterCommandAndSubcommand(clusterType)} get-credentials -n ${clusterName} -g ${clusterGroup}`;
+        const cmd = `az ${getClusterCommandAndSubcommand(clusterType)} get-credentials -n ${clusterName} -g ${clusterGroup} ${kubeconfigFileOption}`;
         const sr = await context.shell.exec(cmd);
 
         if (sr.code === 0 && !sr.stderr) {

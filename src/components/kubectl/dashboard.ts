@@ -128,13 +128,9 @@ export async function dashboardKubernetes (): Promise<void> {
         {encoding: 'utf8'}
     ).on('data', onStreamData);
 
-    terminal = vscode.window.createTerminal(TERMINAL_NAME);
-    vscode.window.onDidCloseTerminal(onClosedTerminal);
-
     // stdout is also written to a file via `tee`. We read this file as a stream
     // to listen for when the server is ready.
-    terminal.sendText(`kubectl proxy | tee ${PROXY_OUTPUT_FILE}`);
-    terminal.show(true);
+    await kubectl.invokeInNewTerminal('proxy', TERMINAL_NAME, onClosedTerminal, `tee ${PROXY_OUTPUT_FILE}`);
 }
 
 /**

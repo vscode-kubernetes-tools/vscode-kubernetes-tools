@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { shellEnvironment } from './shell';
 
 export interface Host {
     showErrorMessage(message: string, ...items: string[]): Thenable<string>;
@@ -11,6 +12,7 @@ export interface Host {
     getConfiguration(key: string): any;
     createTerminal(name?: string, shellPath?: string, shellArgs?: string[]): vscode.Terminal;
     onDidCloseTerminal(listener: (e: vscode.Terminal) => any): vscode.Disposable;
+    onDidChangeConfiguration(listener: (ch: vscode.ConfigurationChangeEvent) => any): vscode.Disposable;
 }
 
 export const host: Host = {
@@ -22,6 +24,7 @@ export const host: Host = {
     getConfiguration : getConfiguration,
     createTerminal : createTerminal,
     onDidCloseTerminal : onDidCloseTerminal,
+    onDidChangeConfiguration : onDidChangeConfiguration,
     showInputBox : showInputBox
 };
 
@@ -75,9 +78,19 @@ function getConfiguration(key: string): any {
 }
 
 function createTerminal(name?: string, shellPath?: string, shellArgs?: string[]): vscode.Terminal {
-    return vscode.window.createTerminal(name, shellPath, shellArgs);
+    const terminalOptions = {
+        name: name,
+        shellPath: shellPath,
+        shellArgs: shellArgs,
+        env: shellEnvironment(process.env)
+    };
+    return vscode.window.createTerminal(terminalOptions);
 }
 
 function onDidCloseTerminal(listener: (e: vscode.Terminal) => any): vscode.Disposable {
     return vscode.window.onDidCloseTerminal(listener);
+}
+
+function onDidChangeConfiguration(listener: (e: vscode.ConfigurationChangeEvent) => any): vscode.Disposable {
+    return vscode.workspace.onDidChangeConfiguration(listener);
 }

@@ -35,7 +35,13 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObj
     private _onDidChangeTreeData: vscode.EventEmitter<KubernetesObject | undefined> = new vscode.EventEmitter<KubernetesObject | undefined>();
     readonly onDidChangeTreeData: vscode.Event<KubernetesObject | undefined> = this._onDidChangeTreeData.event;
 
-    constructor(private readonly kubectl: Kubectl, private readonly host: Host) { }
+    constructor(private readonly kubectl: Kubectl, private readonly host: Host) {
+        host.onDidChangeConfiguration((change) => {
+            if (change.affectsConfiguration('vs-kubernetes')) {
+                this.refresh();
+            }
+        });
+    }
 
     getTreeItem(element: KubernetesObject): vscode.TreeItem | Thenable<vscode.TreeItem> {
         return element.getTreeItem();

@@ -684,10 +684,10 @@ function exposeKubernetes() {
 function getKubernetes(explorerNode?: any) {
     if (explorerNode) {
         const id = explorerNode.resourceId || explorerNode.id;
-        kubectl.invokeInTerminal(`get ${id} -o wide`);
+        kubectl.invokeInSharedTerminal(`get ${id} -o wide`);
     } else {
         findKindNameOrPrompt(kuberesources.commonKinds, 'get', { nameOptional: true }, (value) => {
-            kubectl.invokeInTerminal(` get ${value} -o wide`);
+            kubectl.invokeInSharedTerminal(` get ${value} -o wide`);
         });
     }
 }
@@ -1069,7 +1069,7 @@ function getLogsCore(podName: string, podNamespace?: string) {
     if (podNamespace && podNamespace.length > 0) {
         cmd += ' --namespace=' + podNamespace;
     }
-    kubectl.invokeInTerminal(cmd);
+    kubectl.invokeInSharedTerminal(cmd);
 }
 
 function kubectlOutputTo(name: string) {
@@ -1101,10 +1101,10 @@ function getPorts() {
 
 function describeKubernetes(explorerNode?: explorer.ResourceNode) {
     if (explorerNode) {
-        kubectl.invokeInTerminal(`describe ${explorerNode.resourceId}`);
+        kubectl.invokeInSharedTerminal(`describe ${explorerNode.resourceId}`);
     } else {
         findKindNameOrPrompt(kuberesources.commonKinds, 'describe', { nameOptional: true }, (value) => {
-            kubectl.invokeInTerminal(`describe ${value}`);
+            kubectl.invokeInSharedTerminal(`describe ${value}`);
         });
     }
 }
@@ -1174,13 +1174,12 @@ async function execKubernetesCore(isTerminal): Promise<void> {
     }
 
     const execCmd = ' exec ' + pod.metadata.name + ' ' + cmd;
-    kubectl.invokeInTerminal(execCmd);
+    kubectl.invokeInSharedTerminal(execCmd);
 }
 
 function execTerminalOnPod(podName: string, terminalCmd: string) {
     const terminalExecCmd: string[] = ['exec', '-it', podName, '--', terminalCmd];
-    const term = vscode.window.createTerminal(`${terminalCmd} on ${podName}`, kubectl.path(), terminalExecCmd);
-    term.show();
+    kubectl.runAsTerminal(terminalExecCmd, `${terminalCmd} on ${podName}`);
 }
 
 async function isBashOnPod(podName: string): Promise<boolean> {
@@ -1545,7 +1544,7 @@ async function useContextKubernetes(explorerNode: explorer.KubernetesObject) {
 
 async function clusterInfoKubernetes(explorerNode: explorer.KubernetesObject) {
     const targetContext = explorerNode.metadata.context;
-    kubectl.invokeInTerminal("cluster-info");
+    kubectl.invokeInSharedTerminal("cluster-info");
 }
 
 async function deleteContextKubernetes(explorerNode: explorer.KubernetesObject) {
@@ -1678,19 +1677,8 @@ async function execDraftUp() {
         vscode.window.showInformationMessage('This folder is not configured for draft. Run draft create to configure it.');
         return;
     }
-    if (!(await draft.checkPresent(DraftCheckPresentMode.Alert))) {
-        return;
-    }
 
-    // if it's already running... how can we tell?
-    const draftPath = await draft.path();
-    if (shell.isUnix()) {
-        const term = vscode.window.createTerminal('draft up', `bash`, [ '-c', `${draftPath} up ; bash` ]);
-        term.show(true);
-    } else {
-        const term = vscode.window.createTerminal('draft up', 'powershell.exe', [ '-NoExit', `${draftPath}`, `up` ]);
-        term.show(true);
-    }
+    await draft.up();
 }
 
 function editorIsActive(): boolean {
