@@ -921,35 +921,35 @@ function quickPickKindName(resourceKinds: kuberesources.ResourceKind[], opts, ha
 function quickPickKindNameFromKind(resourceKind: kuberesources.ResourceKind, opts, handler) {
     let kind = resourceKind.abbreviation;
     kubectl.invoke("get " + kind, (code, stdout, stderr) => {
-        if (code === 0) {
-            let names = parseNamesFromKubectlLines(stdout);
-            if (names.length > 0) {
-                if (opts && opts.nameOptional) {
-                    names.push('(all)');
-                    vscode.window.showQuickPick(names).then((name) => {
-                        if (name) {
-                            let kindName;
-                            if (name === '(all)') {
-                                kindName = kind;
-                            } else {
-                                kindName = kind + '/' + name;
-                            }
-                            handler(kindName);
-                        }
-                    });
-                } else {
-                    vscode.window.showQuickPick(names).then((name) => {
-                        if (name) {
-                            let kindName = kind + '/' + name;
-                            handler(kindName);
-                        }
-                    });
-                }
-            } else {
-                vscode.window.showInformationMessage("No resources of type " + resourceKind.displayName + " in cluster");
-            }
-        } else {
+        if (code !== 0) {
             vscode.window.showErrorMessage(stderr);
+            return;
+        }
+        let names = parseNamesFromKubectlLines(stdout);
+        if (names.length === 0) {
+            vscode.window.showInformationMessage("No resources of type " + resourceKind.displayName + " in cluster");
+            return;
+        }
+        if (opts && opts.nameOptional) {
+            names.push('(all)');
+            vscode.window.showQuickPick(names).then((name) => {
+                if (name) {
+                    let kindName;
+                    if (name === '(all)') {
+                        kindName = kind;
+                    } else {
+                        kindName = kind + '/' + name;
+                    }
+                    handler(kindName);
+                }
+            });
+        } else {
+            vscode.window.showQuickPick(names).then((name) => {
+                if (name) {
+                    let kindName = kind + '/' + name;
+                    handler(kindName);
+                }
+            });
         }
     });
 }
@@ -978,13 +978,17 @@ function parseName(line) {
     return line.split(' ')[0];
 }
 
+function isPod(obj: any): boolean {
+    return obj.kind && obj.kind === 'Pod' && obj.metadata;
+}
+
 function findPod(callback: (pod: PodMetadata) => void) {
     let editor = vscode.window.activeTextEditor;
     if (editor) {
         let text = editor.document.getText();
         try {
             let obj = yaml.safeLoad(text);
-            if (obj.kind && obj.kind === 'Pod' && obj.metadata) {
+            if (isPod(obj)) {
                 callback({
                     name: obj.metadata.name,
                     namespace: obj.metadata.namespace
