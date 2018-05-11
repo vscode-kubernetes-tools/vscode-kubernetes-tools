@@ -95,6 +95,14 @@
                         "vs-kubernetes.autoCleanupOnDebugTerminate": {
                             "type": "boolean",
                             "description": "Once the debug session is terminated, automatically clean up the created Deployment and associated Pod by the command \"Kubernetes: Debug (Launch)\"."
+                        },
+                        "vs-kubernetes.outputFormat": {
+                            "enum": [
+                                "json",
+                                "yaml"
+                            ],
+                            "type": "string",
+                            "description": "Output format for Kubernetes Specs. One of 'json' or 'yaml (default)'"
                         }
                     },
                     "default": {
@@ -102,6 +110,7 @@
                         "vs-kubernetes.kubectl-path": "",
                         "vs-kubernetes.helm-path": "",
                         "vs-kubernetes.draft-path": "",
+                        "vs-kubernetes.outputFormat": "yaml",
                         "vs-kubernetes.kubeconfig": "",
                         "vs-kubernetes.autoCleanupOnDebugTerminate": false
                     }

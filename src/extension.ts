@@ -609,17 +609,19 @@ function loadKubernetes(explorerNode?: explorer.ResourceNode) {
 }
 
 function loadKubernetesCore(value: string) {
-    kubectl.invokeWithProgress(" -o json get " + value, `Loading ${value}...`, (result, stdout, stderr) => {
+    const outputFormat = vscode.workspace.getConfiguration('vs-kubernetes')['vs-kubernetes.outputFormat'];
+    const loadCommand = `-o ${outputFormat} get ${value}`;
+
+    kubectl.invokeWithProgress(loadCommand, `Loading ${value}...`, (result, stdout, stderr) => {
         if (result !== 0) {
             vscode.window.showErrorMessage('Get command failed: ' + stderr);
             return;
         }
 
         const filename = value.replace('/', '-');
-        const extension = "json";
 
         const existingDocument = vscode.workspace.textDocuments.find((doc) =>
-            doc.uri.fsPath === path.join(vscode.workspace.rootPath || "", `${filename}.${extension}`)
+            doc.uri.fsPath === path.join(vscode.workspace.rootPath || "", `${filename}.${outputFormat}`)
         );
 
         if (existingDocument && equalIgnoringWhitespace(existingDocument.getText(), stdout)) {
@@ -627,7 +629,7 @@ function loadKubernetesCore(value: string) {
             return;
         }
 
-        const filepath = findUniqueName(filename, extension);
+        const filepath = findUniqueName(filename, outputFormat);
 
         vscode.workspace.openTextDocument(vscode.Uri.parse('untitled:' + filepath)).then((doc) => {
             const start = new vscode.Position(0, 0),
