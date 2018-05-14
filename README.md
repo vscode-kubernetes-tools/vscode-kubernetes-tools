@@ -28,7 +28,7 @@ If you plan to create managed clusters using Microsoft Azure (ACS or AKS), or to
 
 ### Setting up your environment for Helm and Draft
 
-`helm` support requires that you have Helm installed and configured. 
+`helm` support requires that you have Helm installed and configured.
 
 To use the `Helm: DryRun` command, your Kubernetes cluster must be running Tiller.
 
@@ -141,6 +141,7 @@ If you are building and running the extension from source, see [CONTRIBUTING.md]
        * `vs-kubernetes.draft-path` - File path to the draft binary. Note this is the binary file itself, not just the directory containing the file. On Windows, this must contain the `.exe` extension (note current versions of Draft are not supported on Windows).
        * `vs-kubernetes.kubeconfig` - File path to the kubeconfig file you want to use. This overrides both the default kubeconfig and the KUBECONFIG environment variable.
        * `vs-kubernetes.autoCleanupOnDebugTerminate` - The flag to control whether to auto cleanup the created deployment and associated pod by the command "Kubernetes: Debug (Launch)". The cleanup action occurs when it failed to start debug session or debug session terminated. If not specified, the extension will prompt for whether to clean up or not. You might choose not to clean up if you wanted to view pod logs, etc.
+       * `vs-kubernetes.outputFormat` - The output format that you prefer to view Kubernetes manifests in. One of "yaml" or "json". Defaults to "yaml".
    * `vsdocker.imageUser` - Image prefix for docker images e.g. 'docker.io/brendanburns'
 
 ## Known Issues
@@ -157,7 +158,7 @@ This extension collects telemetry data to help us build a better experience for 
 
 * Which commands are executed
 * For the `Create Cluster` and `Configure from Cluster` commands, the cluster type selected.
- 
+
 We do not collect any information about image names, paths, etc. The extension respects the `telemetry.enableTelemetry` setting which you can learn more about in our [FAQ](https://code.visualstudio.com/docs/supporting/faq#_how-to-disable-telemetry-reporting).
 
 # Contributing
