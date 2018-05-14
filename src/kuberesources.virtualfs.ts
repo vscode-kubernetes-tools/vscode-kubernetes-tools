@@ -27,7 +27,7 @@ export class KubernetesResourceVirtualFileSystemProvider implements FileSystemPr
             type: FileType.File,
             ctime: 0,
             mtime: 0,
-            size: 65536  // TODO: determine if these fields matter
+            size: 65536  // These files don't seem to matter for us
         };
     }
 
@@ -68,7 +68,7 @@ export class KubernetesResourceVirtualFileSystemProvider implements FileSystemPr
     }
 
     delete(uri: Uri, options: { recursive: boolean }): void | Thenable<void> {
-        // no-op for now
+        // no-op
     }
 
     rename(oldUri: Uri, newUri: Uri, options: { overwrite: boolean }): void | Thenable<void> {
