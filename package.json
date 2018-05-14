@@ -102,7 +102,7 @@
                                 "yaml"
                             ],
                             "type": "string",
-                            "description": "Output format for Kubernetes Specs. One of 'json' or 'yaml (default)'"
+                            "description": "Output format for Kubernetes specs. One of 'json' or 'yaml' (default)."
                         }
                     },
                     "default": {
