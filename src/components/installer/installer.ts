@@ -154,7 +154,7 @@ async function untar(sourceFile: string, destinationFolder: string): Promise<Err
             file: sourceFile
         });
         return { succeeded: true, result: null };
-    } catch /*(e)*/ {
+    } catch (e) {
         return { succeeded: false, error: [ "tar extract failed" ] /* TODO: extract error from exception */ };
     }
 }
