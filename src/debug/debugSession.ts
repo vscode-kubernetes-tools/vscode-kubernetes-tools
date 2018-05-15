@@ -158,11 +158,13 @@ export class DebugSession implements IDebugSession {
         }
 
         // Select the target container to attach.
+        // TODO: consolidate with container selection in extension.ts.
         if (containers.length > 1) {
             const containerPickItems: vscode.QuickPickItem[] = containers.map((container) => {
                 return {
-                    label: `${container.name} (${container.image})`,
-                    description: "container",
+                    label: container.name,
+                    description: '',
+                    detail: container.image,
                     name: container.name
                 };
             });
