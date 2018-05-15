@@ -8,7 +8,7 @@ import * as tar from 'tar';
 import * as tmp from 'tmp';
 import * as vscode from 'vscode';
 import { Shell, Platform } from '../../shell';
-import { Errorable } from '../../wizard';
+import { Errorable, failed, succeeded } from '../../wizard';
 import { exec } from 'child_process';
 
 export async function installKubectl(shell: Shell): Promise<Errorable<void>> {
@@ -17,8 +17,8 @@ export async function installKubectl(shell: Shell): Promise<Errorable<void>> {
     const os = platformUrlString(shell.platform());
 
     const version = await getStableKubectlVersion();
-    if (!version.succeeded) {
-        return { succeeded: false, result: null, error: version.error };
+    if (failed(version)) {
+        return { succeeded: false, error: version.error };
     }
 
     const installFolder = getInstallFolder(shell, tool);
@@ -27,8 +27,8 @@ export async function installKubectl(shell: Shell): Promise<Errorable<void>> {
     const kubectlUrl = `https://storage.googleapis.com/kubernetes-release/release/${version.result.trim()}/bin/${os}/amd64/${binFile}`;
     const downloadFile = path.join(installFolder, binFile);
     const downloadResult = await downloadTo(kubectlUrl, downloadFile);
-    if (!downloadResult.succeeded) {
-        return { succeeded: false, result: null, error: [`Failed to download kubectl: ${downloadResult.error[0]}`] };
+    if (failed(downloadResult)) {
+        return { succeeded: false, error: [`Failed to download kubectl: ${downloadResult.error[0]}`] };
     }
 
     if (shell.isUnix()) {
@@ -36,17 +36,17 @@ export async function installKubectl(shell: Shell): Promise<Errorable<void>> {
     }
 
     await addPathToConfig(`vs-kubernetes.${tool}-path`, downloadFile);
-    return { succeeded: true, result: null, error: [] };
+    return { succeeded: true, result: null };
 }
 
 async function getStableKubectlVersion(): Promise<Errorable<string>> {
     const downloadResult = await downloadToTempFile('https://storage.googleapis.com/kubernetes-release/release/stable.txt');
-    if (!downloadResult.succeeded) {
-        return { succeeded: false, result: '', error: [`Failed to establish kubectl stable version: ${downloadResult.error[0]}`] };
+    if (failed(downloadResult)) {
+        return { succeeded: false, error: [`Failed to establish kubectl stable version: ${downloadResult.error[0]}`] };
     }
     const version = fs.readFileSync(downloadResult.result, 'utf-8');
     fs.unlinkSync(downloadResult.result);
-    return { succeeded: true, result: version, error: [] };
+    return { succeeded: true, result: version };
 }
 
 export async function installHelm(shell: Shell): Promise<Errorable<void>> {
@@ -64,7 +64,7 @@ export async function installDraft(shell: Shell): Promise<Errorable<void>> {
 async function installToolFromTar(tool: string, urlTemplate: string, shell: Shell, supported?: Platform[]): Promise<Errorable<void>> {
     const os = platformUrlString(shell.platform(), supported);
     if (!os) {
-        return { succeeded: false, result: null, error: ['Not supported on this OS'] };
+        return { succeeded: false, error: ['Not supported on this OS'] };
     }
     const installFolder = getInstallFolder(shell, tool);
     const executable = formatBin(tool, shell.platform());
@@ -104,15 +104,17 @@ function formatBin(tool: string, platform: Platform): string | null {
 async function installFromTar(sourceUrl: string, destinationFolder: string, executablePath: string, configKey: string): Promise<Errorable<void>> {
     // download it
     const downloadResult = await downloadToTempFile(sourceUrl);
-    if (!downloadResult.succeeded) {
-        return { succeeded: false, result: null, error: ['Failed to download Helm: error was ' + downloadResult.error[0]] };
+
+    if (failed(downloadResult)) {
+        return { succeeded: false, error: ['Failed to download Helm: error was ' + downloadResult.error[0]] };
     }
+
     const tarfile = downloadResult.result;
 
     // untar it
     const untarResult = await untar(tarfile, destinationFolder);
-    if (!untarResult.succeeded) {
-        return { succeeded: false, result: null, error: ['Failed to unpack Helm: error was ' + downloadResult.error[0]] };
+    if (failed(untarResult)) {
+        return { succeeded: false, error: ['Failed to unpack Helm: error was ' + untarResult.error[0]] };
     }
 
     // add path to config
@@ -121,21 +123,24 @@ async function installFromTar(sourceUrl: string, destinationFolder: string, exec
 
     await fs.unlink(tarfile);
 
-    return { succeeded: true, result: null, error: [] };
+    return { succeeded: true, result: null };
 }
 
 async function downloadToTempFile(sourceUrl: string): Promise<Errorable<string>> {
     const tempFileObj = tmp.fileSync({ prefix: "vsk-autoinstall-" });
     const downloadResult = await downloadTo(sourceUrl, tempFileObj.name);
-    return { succeeded: downloadResult.succeeded, result: tempFileObj.name, error: downloadResult.error };
+    if (succeeded(downloadResult)) {
+        return { succeeded: true, result: tempFileObj.name };
+    }
+    return { succeeded: false, error: downloadResult.error };
 }
 
 async function downloadTo(sourceUrl: string, destinationFile: string): Promise<Errorable<void>> {
     try {
         const buffer = await download(sourceUrl, path.dirname(destinationFile), { filename: path.basename(destinationFile) });
-        return { succeeded: true, result: null, error: [] };
+        return { succeeded: true, result: null };
     } catch (e) {
-        return { succeeded: false, result: null, error: [e.message] };
+        return { succeeded: false, error: [e.message] };
     }
 }
 
@@ -148,9 +153,9 @@ async function untar(sourceFile: string, destinationFolder: string): Promise<Err
             cwd: destinationFolder,
             file: sourceFile
         });
-        return { succeeded: true, result: null, error: [] };
-    } catch (e) {
-        return { succeeded: false, result: null, error: [ e.somethingtba ] };
+        return { succeeded: true, result: null };
+    } catch /*(e)*/ {
+        return { succeeded: false, error: [ "tar extract failed" ] /* TODO: extract error from exception */ };
     }
 }
 

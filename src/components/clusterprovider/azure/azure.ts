@@ -3,7 +3,7 @@
 import * as vscode from 'vscode';
 import { Shell } from '../../../shell';
 import { FS } from '../../../fs';
-import { Errorable, ActionResult, fromShellJson, fromShellExitCodeAndStandardError, fromShellExitCodeOnly } from '../../../wizard';
+import { Errorable, ActionResult, fromShellJson, fromShellExitCodeAndStandardError, fromShellExitCodeOnly, succeeded, failed, Diagnostic } from '../../../wizard';
 import * as compareVersions from 'compare-versions';
 import { sleep } from '../../../sleep';
 
@@ -53,7 +53,7 @@ export async function getSubscriptionList(context: Context, forCommand: string):
     if (prerequisiteErrors.length > 0) {
         return {
             actionDescription: 'checking prerequisites',
-            result: { succeeded: false, result: [], error: prerequisiteErrors }
+            result: { succeeded: false, error: prerequisiteErrors }
         };
     }
 
@@ -108,7 +108,7 @@ async function listSubscriptionsAsync(context: Context): Promise<Errorable<strin
     return fromShellJson<string[]>(sr);
 }
 
-export async function setSubscriptionAsync(context: Context, subscription: string): Promise<Errorable<void>> {
+export async function setSubscriptionAsync(context: Context, subscription: string): Promise<Errorable<Diagnostic>> {
     const sr = await context.shell.exec(`az account set --subscription "${subscription}"`);
 
     return fromShellExitCodeAndStandardError(sr);
@@ -117,10 +117,10 @@ export async function setSubscriptionAsync(context: Context, subscription: strin
 export async function getClusterList(context: Context, subscription: string, clusterType: string): Promise<ActionResult<ClusterInfo[]>> {
     // log in
     const login = await setSubscriptionAsync(context, subscription);
-    if (!login.succeeded) {
+    if (failed(login)) {
         return {
             actionDescription: 'logging into subscription',
-            result: { succeeded: false, result: [], error: login.error }
+            result: { succeeded: false, error: login.error }
         };
     }
 
@@ -174,8 +174,8 @@ async function listLocations(context: Context): Promise<Errorable<Locations>> {
 
 export async function listAcsLocations(context: Context): Promise<Errorable<ServiceLocation[]>> {
     const locationInfo = await listLocations(context);
-    if (!locationInfo.succeeded) {
-        return { succeeded: false, result: [], error: locationInfo.error };
+    if (failed(locationInfo)) {
+        return { succeeded: false, error: locationInfo.error };
     }
     const locations = locationInfo.result;
 
@@ -187,8 +187,8 @@ export async function listAcsLocations(context: Context): Promise<Errorable<Serv
 
 export async function listAksLocations(context: Context): Promise<Errorable<ServiceLocation[]>> {
     const locationInfo = await listLocations(context);
-    if (!locationInfo.succeeded) {
-        return { succeeded: false, result: [], error: locationInfo.error };
+    if (failed(locationInfo)) {
+        return { succeeded: false, error: locationInfo.error };
     }
     const locations = locationInfo.result;
 
@@ -196,7 +196,7 @@ export async function listAksLocations(context: Context): Promise<Errorable<Serv
     const productionRegions = [];
     const previewRegions = ["centralus", "eastus", "westeurope", "canadacentral", "canadaeast"];
     const result = locationDisplayNamesEx(productionRegions, previewRegions, locations);
-    return { succeeded: true, result: result, error: [] };
+    return { succeeded: true, result: result };
 }
 
 function locationDisplayNames(names: string[], preview: boolean, locationInfo: Locations): ServiceLocation[] {
@@ -228,9 +228,9 @@ async function resourceGroupExists(context: Context, resourceGroupName: string):
     }
 }
 
-async function ensureResourceGroupAsync(context: Context, resourceGroupName: string, location: string): Promise<Errorable<void>> {
+async function ensureResourceGroupAsync(context: Context, resourceGroupName: string, location: string): Promise<Errorable<Diagnostic>> {
     if (await resourceGroupExists(context, resourceGroupName)) {
-        return { succeeded: true, result: null, error: [] };
+        return { succeeded: true, result: null };
     }
 
     const sr = await context.shell.exec(`az group create -n "${resourceGroupName}" -l "${location}"`);
@@ -238,7 +238,7 @@ async function ensureResourceGroupAsync(context: Context, resourceGroupName: str
     return fromShellExitCodeAndStandardError(sr);
 }
 
-async function execCreateClusterCmd(context: Context, options: any): Promise<Errorable<void>> {
+async function execCreateClusterCmd(context: Context, options: any): Promise<Errorable<Diagnostic>> {
     const clusterCmd = getClusterCommand(options.clusterType);
     let createCmd = `az ${clusterCmd} create -n "${options.metadata.clusterName}" -g "${options.metadata.resourceGroupName}" -l "${options.metadata.location}" --no-wait `;
     if (clusterCmd == 'acs') {
@@ -252,7 +252,7 @@ async function execCreateClusterCmd(context: Context, options: any): Promise<Err
     return fromShellExitCodeOnly(sr);
 }
 
-export async function createCluster(context: Context, options: any): Promise<ActionResult<void>> {
+export async function createCluster(context: Context, options: any): Promise<ActionResult<Diagnostic>> {
     const description = `
     Created ${options.clusterType} cluster ${options.metadata.clusterName} in ${options.metadata.resourceGroupName} with ${options.agentSettings.count} agents.
     `;
@@ -287,9 +287,9 @@ export async function waitForCluster(context: Context, clusterType: string, clus
     const sr = await context.shell.exec(waitCmd);
 
     if (sr.code === 0) {
-        return { succeeded: true, result: { stillWaiting: sr.stdout !== "" }, error: [] };
+        return { succeeded: true, result: { stillWaiting: sr.stdout !== "" } };
     } else {
-        return { succeeded: false, result: { }, error: [sr.stderr] };
+        return { succeeded: false, error: [sr.stderr] };
     }
 }
 

@@ -44,7 +44,7 @@ import * as telemetry from './telemetry-helper';
 import * as extensionapi from './extension.api';
 import {dashboardKubernetes} from './components/kubectl/dashboard';
 import {portForwardKubernetes} from './components/kubectl/port-forward';
-import { Errorable } from './wizard';
+import { Errorable, failed } from './wizard';
 import { Git } from './components/git/git';
 import { DebugSession } from './debug/debugSession';
 import { getDebugProviderOfType, getSupportedDebuggerTypes } from './debug/providerRegistry';
@@ -1219,7 +1219,7 @@ async function syncKubernetes(): Promise<void> {
     if (choice === 'OK') {
         const checkoutResult = await git.checkout(commitId);
 
-        if (!checkoutResult.succeeded) {
+        if (failed(checkoutResult)) {
             vscode.window.showErrorMessage(`Error checking out commit ${commitId}: ${checkoutResult.error[0]}`);
         }
     }
@@ -1592,7 +1592,7 @@ async function installDependency(name: string, alreadyGot: boolean, installFunc:
     } else {
         kubeChannel.showOutput(`Installing ${name}...`);
         const result = await installFunc(shell);
-        if (!result.succeeded) {
+        if (failed(result)) {
             kubeChannel.showOutput(`Unable to install ${name}: ${result.error[0]}`);
         }
     }

@@ -1,14 +1,32 @@
 import { ShellResult } from "./shell";
 
-export interface Errorable<T> {
-    readonly succeeded: boolean;
+export interface Succeeded<T> {
+    readonly succeeded: true;
     readonly result: T;
+}
+
+export interface Failed {
+    readonly succeeded: false;
     readonly error: string[];
+}
+
+export type Errorable<T> = Succeeded<T> | Failed;
+
+export function succeeded<T>(e: Errorable<T>): e is Succeeded<T> {
+    return e.succeeded;
+}
+
+export function failed<T>(e: Errorable<T>): e is Failed {
+    return !e.succeeded;
 }
 
 export interface ActionResult<T> {
     readonly actionDescription: string;
     readonly result: Errorable<T>;
+}
+
+export interface Diagnostic {
+    readonly value: string;
 }
 
 export function selectionChangedScript(commandName: string, operationId: string): string {
@@ -107,23 +125,26 @@ export function formStyles(): string {
 `;
 }
 
-export function fromShellExitCodeAndStandardError(sr: ShellResult): Errorable<void> {
+export function fromShellExitCodeAndStandardError(sr: ShellResult): Errorable<Diagnostic> {
     if (sr.code === 0 && !sr.stderr) {
-        return { succeeded: true, result: null, error: [] };
+        return { succeeded: true, result: { value: sr.stderr } };
     }
-    return { succeeded: false, result: null, error: [ sr.stderr ] };
+    return { succeeded: false, error: [ sr.stderr ] };
 }
 
-export function fromShellExitCodeOnly(sr: ShellResult): Errorable<void> {
-    return { succeeded: sr.code === 0, result: null, error: [ sr.stderr ] };
+export function fromShellExitCodeOnly(sr: ShellResult): Errorable<Diagnostic> {
+    if (sr.code === 0) {
+        return { succeeded: true, result: { value: sr.stderr } };
+    }
+    return { succeeded: false, error: [ sr.stderr ] };
 }
 
 export function fromShellJson<T>(sr: ShellResult, processor?: (raw: any) => T): Errorable<T> {
     if (sr.code === 0 && !sr.stderr) {
         const raw: any = JSON.parse(sr.stdout);
         const result = processor ? processor(raw) : (raw as T);
-        return { succeeded: true, result: result, error: [] };
+        return { succeeded: true, result: result };
     }
-    return { succeeded: false, result: undefined, error: [ sr.stderr ] };
+    return { succeeded: false, error: [ sr.stderr ] };
 }
 
