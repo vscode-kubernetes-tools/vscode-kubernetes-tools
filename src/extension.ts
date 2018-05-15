@@ -1202,8 +1202,8 @@ async function terminalKubernetes(explorerNode?: explorer.ResourceNode) {
         const container = await selectContainerForPod(podMetadata);
         if (container) {
             // For those images (e.g. built from Busybox) where bash may not be installed by default, use sh instead.
-            const isBash = await isBashOnContainer(podMetadata.name, podMetadata.namespace, container.name);
-            execTerminalOnContainer(podMetadata.name, podMetadata.namespace, container.name, isBash ? 'bash' : 'sh');
+            const suggestedShell = await suggestedShellForContainer(podMetadata.name, podMetadata.namespace, container.name);
+            execTerminalOnContainer(podMetadata.name, podMetadata.namespace, container.name, suggestedShell);
         }
     } else {
         execKubernetesCore(true);
@@ -1260,6 +1260,13 @@ function execTerminalOnContainer(podName: string, podNamespace: string | undefin
 async function isBashOnContainer(podName: string, podNamespace: string | undefined, containerName: string | undefined): Promise<boolean> {
     const result = await kubectl.invokeAsync(`exec ${podName} -c ${containerName} -- ls -la /bin/bash`);
     return !result.code;
+}
+
+async function suggestedShellForContainer(podName: string, podNamespace: string | undefined, containerName: string | undefined): Promise<string> {
+    if (await isBashOnContainer(podName, podNamespace, containerName)) {
+        return 'bash';
+    }
+    return 'sh';
 }
 
 async function syncKubernetes(): Promise<void> {
