@@ -614,7 +614,6 @@ function loadKubernetes(explorerNode?: explorer.ResourceNode) {
 
 function loadKubernetesCore(value: string) {
     const outputFormat = vscode.workspace.getConfiguration('vs-kubernetes')['vs-kubernetes.outputFormat'];
-    const loadCommand = `-o ${outputFormat} get ${value}`;
     const docname = `${value.replace('/', '-')}.${outputFormat}`;
     const nonce = new Date().getTime();
     const uri = `${K8S_RESOURCE_SCHEME}://loadkubernetescore/${docname}?value=${value}&_=${nonce}`;

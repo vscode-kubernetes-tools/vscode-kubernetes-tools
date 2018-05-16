@@ -1,4 +1,4 @@
-import { Uri, FileSystemProvider, FileType, FileStat, FileChangeEvent, Event, EventEmitter, Disposable } from 'vscode';
+import { Uri, FileSystemProvider, FileType, FileStat, FileChangeEvent, Event, EventEmitter, Disposable, workspace } from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as querystring from 'querystring';
@@ -49,8 +49,9 @@ export class KubernetesResourceVirtualFileSystemProvider implements FileSystemPr
     }
 
     async loadResource(uri: Uri): Promise<string> {
+        const outputFormat = workspace.getConfiguration('vs-kubernetes')['vs-kubernetes.outputFormat'];
         const value = querystring.parse(uri.query).value;
-        const sr = await this.kubectl.invokeAsyncWithProgress(`-o json get ${value}`, `Loading ${value}...`);
+        const sr = await this.kubectl.invokeAsyncWithProgress(`-o ${outputFormat} get ${value}`, `Loading ${value}...`);
 
         if (sr.code !== 0) {
             this.host.showErrorMessage('Get command failed: ' + sr.stderr);
