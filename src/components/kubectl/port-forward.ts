@@ -8,6 +8,8 @@ import { host } from '../../host';
 import { findAllPods, tryFindKindNameFromEditor, FindPodsResult, installDependencies } from '../../extension';
 import { QuickPickOptions } from 'vscode';
 import * as portFinder from 'portfinder';
+import { Pod } from '../../kuberesources.objectmodel';
+import { succeeded } from '../../wizard';
 
 const kubectl = kubectlCreate(host, fs, shell, installDependencies);
 const PORT_FORWARD_TERMINAL = 'kubectl port-forward';
@@ -18,8 +20,16 @@ export interface PortMapping {
     targetPort: number;
 }
 
-interface PortForwardFindPodsResult extends FindPodsResult  {
-    readonly fromOpenDocument?: boolean;
+interface PodFromDocument {
+    readonly succeeded: true;
+    readonly pod: string;
+    readonly fromOpenDocument: true;
+}
+
+type PortForwardFindPodsResult = PodFromDocument | FindPodsResult;
+
+function isFindResultFromDocument(obj: PortForwardFindPodsResult): obj is PodFromDocument {
+    return (obj as PodFromDocument).fromOpenDocument;
 }
 
 /**
@@ -48,17 +58,16 @@ export async function portForwardKubernetes (explorerNode?: any): Promise<void> 
             host.showInformationMessage("Error while fetching pods for port-forward");
         }
 
-        let pods = portForwardablePods.pods;
-
-        if (portForwardablePods.fromOpenDocument && pods.length === 1) {
+        if (isFindResultFromDocument(portForwardablePods)) {
             // The pod is described by the open document. Skip asking which pod to use and go straight to port-forward.
-            const podSelection = portForwardablePods[0];
+            const podSelection = portForwardablePods.pod;
             const portMapping = await promptForPort(podSelection);
             portForwardToPod(podSelection, portMapping);
             return;
         }
 
-        let podSelection;
+        let podSelection: string | undefined;
+        const pods = portForwardablePods.pods;
 
         try {
             const podNames: string[] = pods.map((podObj) => podObj.metadata.name);
@@ -71,7 +80,7 @@ export async function portForwardKubernetes (explorerNode?: any): Promise<void> 
             throw e;
         }
 
-        if (podSelection === undefined) {
+        if (!podSelection) {
             host.showErrorMessage("Error while selecting pod for port-forward");
             return;
         }
@@ -168,7 +177,7 @@ export function buildPortMapping (portString: string): PortMapping {
  */
 async function findPortForwardablePods (): Promise<PortForwardFindPodsResult> {
     let kindFromEditor = tryFindKindNameFromEditor();
-    let kind, podName;
+    let kind: string | undefined, podName: string | undefined;
 
     // Find the pod type from the open editor.
     if (kindFromEditor !== null) {
@@ -178,13 +187,13 @@ async function findPortForwardablePods (): Promise<PortForwardFindPodsResult> {
 
         // Not a pod type, so not port-forwardable, fallback to looking
         // up all pods.
-        if (kind !== 'pods') {
+        if (kind !== 'pods' && kind !== 'pod') {
             return await findAllPods();
         }
 
-        return <PortForwardFindPodsResult>{
+        return {
             succeeded: true,
-            pods: [podName],
+            pod: podName,
             fromOpenDocument: true
         };
     }

@@ -57,6 +57,7 @@ import { showWorkspaceFolderPick } from './hostutils';
 import { DraftConfigurationProvider } from './draft/draftConfigurationProvider';
 import { installHelm, installDraft, installKubectl } from './components/installer/installer';
 import { KubernetesResourceVirtualFileSystemProvider, K8S_RESOURCE_SCHEME } from './kuberesources.virtualfs';
+import { Container, isPod, isKubernetesResource, KubernetesCollection, Pod } from './kuberesources.objectmodel';
 
 let explainActive = false;
 let swaggerSpecPromise = null;
@@ -706,7 +707,7 @@ async function findPodsCore(findPodCmdOptions: string): Promise<FindPodsResult> 
     }
 
     try {
-        const podList = JSON.parse(sr.stdout);
+        const podList: KubernetesCollection<Pod> = JSON.parse(sr.stdout);
         return { succeeded: true, pods: podList.items };
     } catch (ex) {
         console.log(ex);
@@ -733,7 +734,7 @@ async function findDebugPodsForApp(): Promise<FindPodsResult> {
 
 export interface FindPodsResult {
     readonly succeeded: boolean;
-    readonly pods: any[];
+    readonly pods: Pod[];
 }
 
 function findNameAndImage() {
@@ -836,13 +837,10 @@ export function tryFindKindNameFromEditor(): string {
     return findKindNameForText(text);
 }
 
-function findKindNameForText(text) {
+function findKindNameForText(text): string | null {
     try {
-        let obj = yaml.safeLoad(text);
-        if (!obj || !obj.kind) {
-            return null;
-        }
-        if (!obj.metadata || !obj.metadata.name) {
+        let obj: {} = yaml.safeLoad(text);
+        if (!isKubernetesResource(obj)) {
             return null;
         }
         return obj.kind.toLowerCase() + '/' + obj.metadata.name;
@@ -946,16 +944,12 @@ function parseName(line) {
     return line.split(' ')[0];
 }
 
-function isPod(obj: any): boolean {
-    return obj.kind && obj.kind === 'Pod' && obj.metadata;
-}
-
-function findPod(callback: (pod: PodMetadata) => void) {
+function findPod(callback: (pod: PodSummary) => void) {
     let editor = vscode.window.activeTextEditor;
     if (editor) {
         let text = editor.document.getText();
         try {
-            let obj = yaml.safeLoad(text);
+            let obj: {} = yaml.safeLoad(text);
             if (isPod(obj)) {
                 callback({
                     name: obj.metadata.name,
@@ -980,7 +974,7 @@ function findPod(callback: (pod: PodMetadata) => void) {
     );
 }
 
-async function getContainers(pod: PodMetadata): Promise<Container[] | undefined> {
+async function getContainers(pod: PodSummary): Promise<Container[] | undefined> {
     let cmd = `get pod/${pod.name} -o jsonpath="{'NAME\\tIMAGE\\n'}{range .spec.containers[*]}{.name}{'\\t'}{.image}{'\\n'}{end}"`;
     if (pod.namespace && pod.namespace.length > 0) {
         cmd += ' --namespace=' + pod.namespace;
@@ -1047,17 +1041,17 @@ async function selectPod(scope: PodSelectionScope, fallback: PodSelectionFallbac
 
 async function logsKubernetes(explorerNode?: explorer.ResourceNode) {
     if (explorerNode) {
-        const podMetadata = { name: explorerNode.id, namespace: undefined };  // TODO: namespaces
-        const container = await selectContainerForPod(podMetadata);
+        const podSummary = { name: explorerNode.id, namespace: undefined };  // TODO: namespaces
+        const container = await selectContainerForPod(podSummary);
         if (container) {
-            getLogsForContainer(podMetadata.name, podMetadata.namespace, container.name);
+            getLogsForContainer(podSummary.name, podSummary.namespace, container.name);
         }
     } else {
         findPod(getLogsForPod);
     }
 }
 
-async function getLogsForPod(pod: PodMetadata) {
+async function getLogsForPod(pod: PodSummary) {
     if (!pod) {
         vscode.window.showErrorMessage('Can\'t find a pod!');
         return;
@@ -1116,12 +1110,7 @@ function describeKubernetes(explorerNode?: explorer.ResourceNode) {
     }
 }
 
-interface Container {
-    readonly name: string;
-    readonly image: string;
-}
-
-interface PodMetadata {
+interface PodSummary {
     readonly name: string;
     readonly namespace: string | undefined;
     readonly spec?: {
@@ -1129,7 +1118,7 @@ interface PodMetadata {
     };
 }
 
-async function selectContainerForPod(pod: PodMetadata): Promise<Container | null> {
+async function selectContainerForPod(pod: PodSummary): Promise<Container | null> {
     if (!pod) {
         return null;
     }
@@ -1166,12 +1155,12 @@ function execKubernetes() {
 
 async function terminalKubernetes(explorerNode?: explorer.ResourceNode) {
     if (explorerNode) {
-        const podMetadata = { name: explorerNode.id, namespace: undefined };  // TODO: namespaces
-        const container = await selectContainerForPod(podMetadata);
+        const podSummary = { name: explorerNode.id, namespace: undefined };  // TODO: namespaces
+        const container = await selectContainerForPod(podSummary);
         if (container) {
             // For those images (e.g. built from Busybox) where bash may not be installed by default, use sh instead.
-            const suggestedShell = await suggestedShellForContainer(podMetadata.name, podMetadata.namespace, container.name);
-            execTerminalOnContainer(podMetadata.name, podMetadata.namespace, container.name, suggestedShell);
+            const suggestedShell = await suggestedShellForContainer(podSummary.name, podSummary.namespace, container.name);
+            execTerminalOnContainer(podSummary.name, podSummary.namespace, container.name, suggestedShell);
         }
     } else {
         execKubernetesCore(true);

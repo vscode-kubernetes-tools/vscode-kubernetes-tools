@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { Kubectl } from "./kubectl";
 import { kubeChannel } from "./kubeChannel";
 import { sleep } from "./sleep";
+import { ObjectMeta, KubernetesCollection, DataResource, Namespace, Pod, KubernetesResource } from './kuberesources.objectmodel';
 
 export interface Cluster {
     readonly name: string;
@@ -10,7 +11,7 @@ export interface Cluster {
     readonly active: boolean;
 }
 
-export interface Namespace {
+export interface NamespaceInfo {
     readonly name: string;
     readonly active: boolean;
 }
@@ -20,17 +21,13 @@ export interface PodSelector {
     readonly selector: object;
 }
 
-export interface Pod {
+export interface PodInfo {
     readonly name: string;
 }
 
 export interface ClusterConfig {
     readonly server: string;
     readonly certificateAuthority: string;
-}
-
-export interface ObjectMeta {
-    readonly name: string;
 }
 
 export interface DataHolder {
@@ -111,17 +108,17 @@ export async function getDataHolders(resource: string, kubectl: Kubectl): Promis
         vscode.window.showErrorMessage(shellResult.stderr);
         return [];
     }
-    const depList = JSON.parse(shellResult.stdout);
+    const depList: KubernetesCollection<DataResource> = JSON.parse(shellResult.stdout);
     return depList.items;
 }
 
-export async function getNamespaces(kubectl: Kubectl): Promise<Namespace[]> {
+export async function getNamespaces(kubectl: Kubectl): Promise<NamespaceInfo[]> {
     const shellResult = await kubectl.invokeAsync("get namespaces -o json");
     if (shellResult.code !== 0) {
         vscode.window.showErrorMessage(shellResult.stderr);
         return [];
     }
-    const ns = JSON.parse(shellResult.stdout);
+    const ns: KubernetesCollection<Namespace> = JSON.parse(shellResult.stdout);
     const currentNS = await currentNamespace(kubectl);
     return ns.items.map((item) => {
         return {
@@ -156,7 +153,7 @@ export async function getPodSelector(resource: string, kubectl: Kubectl): Promis
     });
 }
 
-export async function getPods(kubectl: Kubectl, selector: any): Promise<Pod[]> {
+export async function getPods(kubectl: Kubectl, selector: any): Promise<PodInfo[]> {
     if (!selector) {
         return [];
     }
@@ -183,7 +180,7 @@ export async function getPods(kubectl: Kubectl, selector: any): Promise<Pod[]> {
         vscode.window.showErrorMessage(shellResult.stderr);
         return [];
     }
-    const pods = JSON.parse(shellResult.stdout);
+    const pods: KubernetesCollection<Pod> = JSON.parse(shellResult.stdout);
     return pods.items.map((item) => {
         return {
             name: item.metadata.name
@@ -260,7 +257,7 @@ export async function runAsDeployment(kubectl: Kubectl, deploymentName: string, 
  * @param labelQuery the query label.
  * @return the pod list.
  */
-export async function findPodsByLabel(kubectl: Kubectl, labelQuery: string): Promise<any> {
+export async function findPodsByLabel(kubectl: Kubectl, labelQuery: string): Promise<KubernetesCollection<Pod>> {
     const getResult = await kubectl.invokeAsync(`get pods -o json -l ${labelQuery}`);
     if (getResult.code !== 0) {
         throw new Error('Kubectl command failed: ' + getResult.stderr);
