@@ -726,7 +726,7 @@
         "mocha": "^2.3.3",
         "tslint": "^5.9.1",
         "typescript": "^2.2.32",
-        "vscode": "^1.0.0"
+        "vscode": "^1.0.17"
     },
     "repository": {
         "type": "git",
