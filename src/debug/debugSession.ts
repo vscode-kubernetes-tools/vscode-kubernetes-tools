@@ -15,6 +15,7 @@ import { shell } from "../shell";
 
 import { DockerfileParser } from "../docker/dockerfileParser";
 import * as dockerUtils from "../docker/dockerUtils";
+import { isPod, Pod, KubernetesCollection, Container } from "../kuberesources.objectmodel";
 
 const debugCommandDocumentationUrl = "https://github.com/Azure/vscode-kubernetes-tools/blob/master/debug-on-kubernetes.md";
 
@@ -130,16 +131,21 @@ export class DebugSession implements IDebugSession {
         }
 
         // Select the target pod to attach.
-        let targetPod = pod, targetContainer, containers = [];
-        const resource = await kubectlUtils.getResourceAsJson(this.kubectl, pod ? `pod/${pod}` : "pods");
+        let targetPod = pod,
+            targetContainer: string | undefined = undefined,
+            containers: Container[] = [];
+
+        const resource = pod ?
+                            await kubectlUtils.getResourceAsJson<Pod>(this.kubectl, `pod/${pod}`) :
+                            await kubectlUtils.getResourceAsJson<KubernetesCollection<Pod>>(this.kubectl, "pods");
         if (!resource) {
             return;
         }
 
-        if (pod) {
+        if (isPod(resource)) {
             containers = resource.spec.containers;
         } else {
-            const podPickItems: vscode.QuickPickItem[] = resource.items.map((pod) => {
+            const podPickItems = resource.items.map((pod) => {
                 return {
                     label: `${pod.metadata.name} (${pod.spec.nodeName})`,
                     description: "pod",
@@ -153,14 +159,14 @@ export class DebugSession implements IDebugSession {
                 return;
             }
 
-            targetPod = (<any> selectedPod).name;
-            containers = (<any> selectedPod).containers;
+            targetPod = selectedPod.name;
+            containers = selectedPod.containers;
         }
 
         // Select the target container to attach.
         // TODO: consolidate with container selection in extension.ts.
         if (containers.length > 1) {
-            const containerPickItems: vscode.QuickPickItem[] = containers.map((container) => {
+            const containerPickItems = containers.map((container) => {
                 return {
                     label: container.name,
                     description: '',
@@ -174,7 +180,7 @@ export class DebugSession implements IDebugSession {
                 return;
             }
 
-            targetContainer = (<any> selectedContainer).name;
+            targetContainer = selectedContainer.name;
         }
 
         // Find the debug port to attach.

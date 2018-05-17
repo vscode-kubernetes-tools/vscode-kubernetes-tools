@@ -38,6 +38,7 @@ export interface Node extends KubernetesResource {
 
 export interface PodSpec {
     readonly containers: Container[];
+    readonly nodeName: string;
 }
 
 function isObjectMeta(obj: any): obj is ObjectMeta {
