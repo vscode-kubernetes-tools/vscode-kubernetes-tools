@@ -18,7 +18,7 @@ import * as clipboard from 'clipboardy';
 
 // Internal dependencies
 import { host } from './host';
-import { loadConfigMapData, deleteKubernetesConfigFile } from './configMap';
+import { loadConfigMapData, addKubernetesConfigFile, deleteKubernetesConfigFile } from './configMap';
 import * as explainer from './explainer';
 import { shell, Shell, ShellResult, isShellResult } from './shell';
 import * as configmaps from './configMap';
@@ -68,6 +68,16 @@ const createClusterUI = createCluster.uiProvider();
 const clusterProviderRegistry = clusterproviderregistry.get();
 const configMapProvider = new configmaps.ConfigMapTextProvider(kubectl);
 const git = new Git(shell);
+
+export const overwriteMessageItems: vscode.MessageItem[] = [
+    {
+        title: "Overwrite"
+    },
+    {
+        title: "Cancel",
+        isCloseAffordance: true
+    }
+];
 
 export const deleteMessageItems: vscode.MessageItem[] = [
     {
@@ -139,6 +149,7 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
         registerCommand('extension.vsKubernetesPortForward', portForwardKubernetes),
         registerCommand('extension.vsKubernetesLoadConfigMapData', configmaps.loadConfigMapData),
         registerCommand('extension.vsKubernetesDeleteFile', (obj) => { deleteKubernetesConfigFile(kubectl, obj, treeProvider); }),
+        registerCommand('extension.vsKubernetesAddFile', (obj) => { addKubernetesConfigFile(kubectl, obj, treeProvider); }),
 
         // Commands - Helm
         registerCommand('extension.helmVersion', helmexec.helmVersion),
