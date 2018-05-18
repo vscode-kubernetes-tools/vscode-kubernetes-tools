@@ -80,7 +80,7 @@ export async function addKubernetesConfigFile(kubectl: Kubectl, obj: KubernetesD
             const filePath = uri.fsPath;
             const fileName = basename(filePath);
             if (dataHolder.data[fileName]) {
-                let response = await vscode.window.showWarningMessage(`Are you sure you want to overwrite '${fileName}'? This can not be undone`, ...overwriteMessageItems)
+                let response = await vscode.window.showWarningMessage(`Are you sure you want to overwrite '${fileName}'? This can not be undone`, ...overwriteMessageItems);
                 if (response.title !== overwriteMessageItems[0].title) {
                     return;
                 }
