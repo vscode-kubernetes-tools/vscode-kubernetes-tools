@@ -69,6 +69,16 @@ const clusterProviderRegistry = clusterproviderregistry.get();
 const configMapProvider = new configmaps.ConfigMapTextProvider(kubectl);
 const git = new Git(shell);
 
+export const overwriteMessageItems: vscode.MessageItem[] = [
+    {
+        title: "Overwrite"
+    },
+    {
+        title: "Cancel",
+        isCloseAffordance: true
+    }
+];
+
 export const deleteMessageItems: vscode.MessageItem[] = [
     {
         title: "Delete"

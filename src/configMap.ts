@@ -5,7 +5,7 @@ import { shell } from './shell';
 import { host } from './host';
 import { create as kubectlCreate, Kubectl } from './kubectl';
 import { currentNamespace } from './kubectlUtils';
-import { deleteMessageItems } from './extension';
+import { deleteMessageItems, overwriteMessageItems } from './extension';
 import { KubernetesFileObject, KubernetesDataHolderResource, KubernetesExplorer } from './explorer';
 import { allKinds } from './kuberesources';
 
@@ -76,9 +76,15 @@ export async function addKubernetesConfigFile(kubectl: Kubectl, obj: KubernetesD
         const currentNS = await currentNamespace(kubectl);
         const json = await kubectl.invokeAsync(`get ${obj.resource} ${obj.id} --namespace=${currentNS} -o json`);
         const dataHolder = JSON.parse(json.stdout);
-        fileUris.map((uri) => {
+        fileUris.map(async (uri) => {
             const filePath = uri.fsPath;
             const fileName = basename(filePath);
+            if (dataHolder.data[fileName]) {
+                let response = await vscode.window.showWarningMessage(`Are you sure you want to overwrite '${fileName}'? This can not be undone`, ...overwriteMessageItems)
+                if (response.title !== overwriteMessageItems[0].title) {
+                    return;
+                }
+            }
             // TODO: I really don't like sync calls here...
             const buff = fs.readFileToBufferSync(filePath);
             if (obj.resource == 'configmap') {
@@ -90,7 +96,8 @@ export async function addKubernetesConfigFile(kubectl: Kubectl, obj: KubernetesD
         const out = JSON.stringify(dataHolder);
         const shellRes = await kubectl.invokeAsync(`replace -f - --namespace=${currentNS}`, out);
         if (shellRes.code != 0) {
-            vscode.window.showErrorMessage('Failed to delete file: ' + shellRes.stderr);
+            vscode.window.showErrorMessage('Failed to add file(s) to resource ${obj.id}: ' + shellRes.stderr);
+            return;
         }
         explorer.refresh();
         vscode.window.showInformationMessage(`New data added to resource ${obj.id}.`);
