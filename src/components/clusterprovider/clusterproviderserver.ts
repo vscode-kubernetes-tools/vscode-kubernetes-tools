@@ -84,6 +84,24 @@ function handleGetProviderListHtml(action: clusterproviderregistry.ClusterProvid
     }
     `);
 
+    const otherClustersInfo = action === 'configure' ? `
+    <p>
+    If your type of cluster isn't listed here, don't worry. Just add it to your
+    kubeconfig file normally (see your cloud or cluster documentation), and it will show
+    up in Visual Studio Code automatically. If you're using multiple kubeconfig files,
+    you may need to change the <b>vs-kubernetes &gt; vs-kubernetes.kubeconfig</b> setting
+    to refer to the right file.
+    </p>
+    ` : `
+    <p>
+    If your type of cluster isn't listed here, don't worry. Just create it normally
+    (see your cloud or cluster documentation) and add it to your kubeconfig file, and it will show
+    up in Visual Studio Code automatically. If you're using multiple kubeconfig files,
+    you may need to change the <b>vs-kubernetes &gt; vs-kubernetes.kubeconfig</b> setting
+    to refer to the right file.
+    </p>
+    `;
+
     const html = `<html><body><h1 id='h'>Choose cluster type</h1>
             <style id='styleholder'>
             </style>
@@ -100,6 +118,9 @@ function handleGetProviderListHtml(action: clusterproviderregistry.ClusterProvid
             <p>
             <a id='nextlink' href='${initialUri}' onclick='promptWait()'>Next &gt;</a>
             </p>
+
+            ${otherClustersInfo}
+
             </div></body></html>`;
 
     return html;
