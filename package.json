@@ -124,10 +124,19 @@
             }
         },
         "views": {
-            "explorer": [
+            "kubernetesView": [
                 {
                     "id": "extension.vsKubernetesExplorer",
                     "name": "Kubernetes"
+                }
+            ]
+        },
+        "viewsContainers": {
+            "activitybar": [
+                {
+                    "icon": "images/logo.svg",
+                    "id": "kubernetesView",
+                    "title": "Kubernetes"
                 }
             ]
         },
