@@ -148,9 +148,3 @@ function pathVariableName(env: any): string {
 function pathEntrySeparator() {
     return isWindows() ? ';' : ':';
 }
-
-
-export function isShellResult<T>(obj: T | ShellResult): obj is ShellResult {
-    const sr = <ShellResult>obj;
-    return sr.code !== undefined || sr.stdout !== undefined || sr.stderr !== undefined;
-}

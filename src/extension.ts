@@ -20,7 +20,7 @@ import * as clipboard from 'clipboardy';
 import { host } from './host';
 import { loadConfigMapData, addKubernetesConfigFile, deleteKubernetesConfigFile } from './configMap';
 import * as explainer from './explainer';
-import { shell, Shell, ShellResult, isShellResult } from './shell';
+import { shell, Shell, ShellResult } from './shell';
 import * as configmaps from './configMap';
 import * as configureFromCluster from './configurefromcluster';
 import * as createCluster from './createcluster';
@@ -699,16 +699,15 @@ async function findPodsByLabel(labelQuery: string): Promise<FindPodsResult> {
 }
 
 async function findPodsCore(findPodCmdOptions: string): Promise<FindPodsResult> {
-    const sr = await kubectl.invokeAsync(` get pods -o json ${findPodCmdOptions}`);
+    const podList = await kubectl.asJson<KubernetesCollection<Pod>>(` get pods -o json ${findPodCmdOptions}`);
 
-    if (sr.code !== 0) {
-        vscode.window.showErrorMessage('Kubectl command failed: ' + sr.stderr);
+    if (failed(podList)) {
+        vscode.window.showErrorMessage('Kubectl command failed: ' + podList.error[0]);
         return { succeeded: false, pods: [] };
     }
 
     try {
-        const podList: KubernetesCollection<Pod> = JSON.parse(sr.stdout);
-        return { succeeded: true, pods: podList.items };
+        return { succeeded: true, pods: podList.result.items };
     } catch (ex) {
         console.log(ex);
         vscode.window.showErrorMessage('unexpected error: ' + ex);
@@ -980,12 +979,12 @@ async function getContainers(pod: PodSummary): Promise<Container[] | undefined> 
         cmd += ' --namespace=' + pod.namespace;
     }
     const containers = await kubectl.asLines(cmd);
-    if (isShellResult(containers)) {
-        vscode.window.showErrorMessage("Failed to get containers in pod: " + containers.stderr);
+    if (failed(containers)) {
+        vscode.window.showErrorMessage("Failed to get containers in pod: " + containers.error[0]);
         return undefined;
     }
 
-    const containersEx = containers.map((s) => {
+    const containersEx = containers.result.map((s) => {
         const bits = s.split('\t');
         return { name: bits[0], image: bits[1] };
     });

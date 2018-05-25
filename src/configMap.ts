@@ -8,6 +8,7 @@ import { currentNamespace } from './kubectlUtils';
 import { deleteMessageItems, overwriteMessageItems } from './extension';
 import { KubernetesFileObject, KubernetesDataHolderResource, KubernetesExplorer } from './explorer';
 import { allKinds } from './kuberesources';
+import { failed } from './wizard';
 
 export const uriScheme: string = 'k8sviewfiledata';
 
@@ -53,8 +54,11 @@ export async function deleteKubernetesConfigFile(kubectl: Kubectl, obj: Kubernet
         return;
     }
     const currentNS = await currentNamespace(kubectl);
-    const json = await kubectl.invokeAsync(`get ${obj.resource} ${obj.parentName} --namespace=${currentNS} -o json`);
-    const dataHolder = JSON.parse(json.stdout);
+    const json = await kubectl.asJson<any>(`get ${obj.resource} ${obj.parentName} --namespace=${currentNS} -o json`);
+    if (failed(json)) {
+        return;
+    }
+    const dataHolder = json.result;
     dataHolder.data = removeKey(dataHolder.data, obj.id);
     const out = JSON.stringify(dataHolder);
     const shellRes = await kubectl.invokeAsync(`replace -f - --namespace=${currentNS}`, out);
