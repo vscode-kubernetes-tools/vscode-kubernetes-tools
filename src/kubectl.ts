@@ -4,7 +4,7 @@ import { Host } from './host';
 import { FS } from './fs';
 import { Shell, ShellHandler, ShellResult } from './shell';
 import * as binutil from './binutil';
-import { Errorable } from './wizard';
+import { Errorable } from './errorable';
 
 export interface Kubectl {
     checkPresent(errorMessageMode: CheckPresentMessageMode): Promise<boolean>;

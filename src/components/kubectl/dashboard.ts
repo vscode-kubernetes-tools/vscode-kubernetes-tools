@@ -12,7 +12,7 @@ import { shell } from '../../shell';
 import { create as kubectlCreate, Kubectl } from '../../kubectl';
 import { installDependencies } from '../../extension';
 import { Node, KubernetesCollection, Pod } from '../../kuberesources.objectmodel';
-import { failed } from '../../wizard';
+import { failed } from '../../errorable';
 
 
 const KUBE_DASHBOARD_URL = "http://localhost:8001/ui/";

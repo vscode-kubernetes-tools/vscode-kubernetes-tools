@@ -3,7 +3,7 @@ import { Kubectl } from "./kubectl";
 import { kubeChannel } from "./kubeChannel";
 import { sleep } from "./sleep";
 import { ObjectMeta, KubernetesCollection, DataResource, Namespace, Pod, KubernetesResource } from './kuberesources.objectmodel';
-import { failed } from "./wizard";
+import { failed } from "./errorable";
 
 export interface Cluster {
     readonly name: string;

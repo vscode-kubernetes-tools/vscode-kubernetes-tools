@@ -3,7 +3,8 @@
 import * as vscode from 'vscode';
 import { Shell } from '../../../shell';
 import { FS } from '../../../fs';
-import { Errorable, ActionResult, fromShellJson, fromShellExitCodeAndStandardError, fromShellExitCodeOnly, succeeded, failed, Diagnostic } from '../../../wizard';
+import { ActionResult, fromShellJson, fromShellExitCodeAndStandardError, fromShellExitCodeOnly, Diagnostic } from '../../../wizard';
+import { Errorable, succeeded, failed } from '../../../errorable';
 import * as compareVersions from 'compare-versions';
 import { sleep } from '../../../sleep';
 

@@ -8,7 +8,7 @@ import * as tar from 'tar';
 import * as tmp from 'tmp';
 import * as vscode from 'vscode';
 import { Shell, Platform } from '../../shell';
-import { Errorable, failed, succeeded } from '../../wizard';
+import { Errorable, failed, succeeded } from '../../errorable';
 import { exec } from 'child_process';
 
 export async function installKubectl(shell: Shell): Promise<Errorable<void>> {

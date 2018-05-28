@@ -9,7 +9,7 @@ import { findAllPods, tryFindKindNameFromEditor, FindPodsResult, installDependen
 import { QuickPickOptions } from 'vscode';
 import * as portFinder from 'portfinder';
 import { Pod } from '../../kuberesources.objectmodel';
-import { succeeded } from '../../wizard';
+import { succeeded } from '../../errorable';
 
 const kubectl = kubectlCreate(host, fs, shell, installDependencies);
 const PORT_FORWARD_TERMINAL = 'kubectl port-forward';

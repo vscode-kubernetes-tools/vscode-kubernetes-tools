@@ -44,7 +44,7 @@ import * as telemetry from './telemetry-helper';
 import * as extensionapi from './extension.api';
 import {dashboardKubernetes} from './components/kubectl/dashboard';
 import {portForwardKubernetes} from './components/kubectl/port-forward';
-import { Errorable, failed } from './wizard';
+import { Errorable, failed } from './errorable';
 import { Git } from './components/git/git';
 import { DebugSession } from './debug/debugSession';
 import { getDebugProviderOfType, getSupportedDebuggerTypes } from './debug/providerRegistry';

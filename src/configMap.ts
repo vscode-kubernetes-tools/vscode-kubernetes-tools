@@ -8,7 +8,7 @@ import { currentNamespace, DataHolder } from './kubectlUtils';
 import { deleteMessageItems, overwriteMessageItems } from './extension';
 import { KubernetesFileObject, KubernetesDataHolderResource, KubernetesExplorer } from './explorer';
 import { allKinds } from './kuberesources';
-import { failed } from './wizard';
+import { failed } from './errorable';
 
 export const uriScheme: string = 'k8sviewfiledata';
 

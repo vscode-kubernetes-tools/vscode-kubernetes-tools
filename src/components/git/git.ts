@@ -1,5 +1,5 @@
 import { Shell, ShellResult } from '../../shell';
-import { Errorable } from '../../wizard';
+import { Errorable } from '../../errorable';
 
 export class Git {
     constructor(private readonly shell: Shell) {}

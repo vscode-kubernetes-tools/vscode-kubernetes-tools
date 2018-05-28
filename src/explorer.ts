@@ -6,7 +6,7 @@ import { Kubectl } from './kubectl';
 import * as kubectlUtils from './kubectlUtils';
 import { Host } from './host';
 import * as kuberesources from './kuberesources';
-import { failed } from './wizard';
+import { failed } from './errorable';
 
 export function create(kubectl: Kubectl, host: Host): KubernetesExplorer {
     return new KubernetesExplorer(kubectl, host);
