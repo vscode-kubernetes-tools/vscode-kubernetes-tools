@@ -4,7 +4,6 @@ import { Host } from './host';
 import { FS } from './fs';
 import { Shell, ShellHandler, ShellResult } from './shell';
 import * as binutil from './binutil';
-import { shell } from '../test/fakes';
 import { Errorable } from './wizard';
 
 export interface Kubectl {
