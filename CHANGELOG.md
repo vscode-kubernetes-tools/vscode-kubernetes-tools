@@ -1,5 +1,16 @@
 # Change Log
 
+## 0.1.10
+
+* The Load command now defaults to YAML format instead of JSON.  You can override this using the `vs-kubernetes.outputFormat` configuration setting.
+* Added support for specifying an alternate kubeconfig file, using the `vs-kubernetes.kubeconfig` configuration setting.  (If you set this, it overrides the KUBECONFIG environment variable or default kubeconfig path.)
+* Manage individual entries within a config map or secret resource
+* Fixed an issue where you got spurious save prompts when you loaded a resource from the cluster and then closed it without making any changes.
+* Fixed an issue where if you loaded a resource, then loaded it again while the window was still open, the JSON/YAML would get appended to the existing JSON/YAML.
+* Clarified that the extension works with any Kubernetes cluster, not just Azure!
+
+Thanks to contributors Brendan Burns and Bhargav Nookala.
+
 ## 0.1.9
 
 * Added configmaps and secrets to the tree view.
