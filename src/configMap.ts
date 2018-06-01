@@ -4,10 +4,11 @@ import { fs } from './fs';
 import { shell } from './shell';
 import { host } from './host';
 import { create as kubectlCreate, Kubectl } from './kubectl';
-import { currentNamespace } from './kubectlUtils';
+import { currentNamespace, DataHolder } from './kubectlUtils';
 import { deleteMessageItems, overwriteMessageItems } from './extension';
 import { KubernetesFileObject, KubernetesDataHolderResource, KubernetesExplorer } from './explorer';
 import { allKinds } from './kuberesources';
+import { failed } from './errorable';
 
 export const uriScheme: string = 'k8sviewfiledata';
 
@@ -53,8 +54,11 @@ export async function deleteKubernetesConfigFile(kubectl: Kubectl, obj: Kubernet
         return;
     }
     const currentNS = await currentNamespace(kubectl);
-    const json = await kubectl.invokeAsync(`get ${obj.resource} ${obj.parentName} --namespace=${currentNS} -o json`);
-    const dataHolder = JSON.parse(json.stdout);
+    const json = await kubectl.asJson<any>(`get ${obj.resource} ${obj.parentName} --namespace=${currentNS} -o json`);
+    if (failed(json)) {
+        return;
+    }
+    const dataHolder = json.result;
     dataHolder.data = removeKey(dataHolder.data, obj.id);
     const out = JSON.stringify(dataHolder);
     const shellRes = await kubectl.invokeAsync(`replace -f - --namespace=${currentNS}`, out);
@@ -74,8 +78,11 @@ export async function addKubernetesConfigFile(kubectl: Kubectl, obj: KubernetesD
     if (fileUris) {
         console.log(fileUris);
         const currentNS = await currentNamespace(kubectl);
-        const json = await kubectl.invokeAsync(`get ${obj.resource} ${obj.id} --namespace=${currentNS} -o json`);
-        const dataHolder = JSON.parse(json.stdout);
+        const dataHolderJson = await kubectl.asJson<DataHolder>(`get ${obj.resource} ${obj.id} --namespace=${currentNS} -o json`);
+        if (failed(dataHolderJson)) {
+            return;
+        }
+        const dataHolder = dataHolderJson.result;
         fileUris.map(async (uri) => {
             const filePath = uri.fsPath;
             const fileName = basename(filePath);

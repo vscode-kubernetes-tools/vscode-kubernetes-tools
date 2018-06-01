@@ -11,6 +11,8 @@ import { host } from '../../host';
 import { shell } from '../../shell';
 import { create as kubectlCreate, Kubectl } from '../../kubectl';
 import { installDependencies } from '../../extension';
+import { Node, KubernetesCollection, Pod } from '../../kuberesources.objectmodel';
+import { failed } from '../../errorable';
 
 
 const KUBE_DASHBOARD_URL = "http://localhost:8001/ui/";
@@ -30,9 +32,11 @@ let terminal: vscode.Terminal;
  * @returns Boolean identifying if we think this is an AKS cluster.
  */
 async function isAKSCluster (): Promise<boolean> {
-    const nodes =  await kubectl.invokeAsync('get nodes -o json');
-    const nodesJson = JSON.parse(nodes.stdout);
-    const nodeItems = nodesJson.items;
+    const nodes = await kubectl.asJson<KubernetesCollection<Node>>('get nodes -o json');
+    if (failed(nodes)) {
+        return false;
+    }
+    const nodeItems = nodes.result.items;
     const nodeCount = nodeItems.length;
 
     for (let nodeItem of nodeItems) {
@@ -46,7 +50,7 @@ async function isAKSCluster (): Promise<boolean> {
     return true;
 }
 
-function _isNodeAKS(node): boolean {
+function _isNodeAKS(node: Node): boolean {
     const name: string = node.metadata.name;
     const roleLabel: string = node.metadata.labels["kubernetes.io/role"];
 
@@ -64,11 +68,13 @@ function _isNodeAKS(node): boolean {
  * @returns The name of the dashboard pod.
  */
 async function findDashboardPod (): Promise<string> {
-    const dashboardResults = await kubectl.invokeAsync(
+    const dashboardPod = await kubectl.asJson<KubernetesCollection<Pod>>(
         "get pod -n kube-system -l k8s-app=kubernetes-dashboard -o json"
     );
-    const resultsJson = JSON.parse(dashboardResults.stdout);
-    return resultsJson.items[0].metadata.name;
+    if (failed(dashboardPod)) {
+        return undefined;
+    }
+    return dashboardPod.result.items[0].metadata.name;
 }
 
 /**

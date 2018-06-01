@@ -4,6 +4,7 @@ import { Host } from './host';
 import { FS } from './fs';
 import { Shell, ShellHandler, ShellResult } from './shell';
 import * as binutil from './binutil';
+import { Errorable } from './errorable';
 
 export interface Kubectl {
     checkPresent(errorMessageMode: CheckPresentMessageMode): Promise<boolean>;
@@ -20,7 +21,8 @@ export interface Kubectl {
     invokeInNewTerminal(command: string, terminalName: string, onClose?: (e: Terminal) => any, pipeTo?: string): Promise<Disposable>;
     invokeInSharedTerminal(command: string): Promise<void>;
     runAsTerminal(command: string[], terminalName: string): Promise<void>;
-    asLines(command: string): Promise<string[] | ShellResult>;
+    asLines(command: string): Promise<Errorable<string[]>>;
+    asJson<T>(command: string): Promise<Errorable<T>>;
 }
 
 interface Context {
@@ -71,8 +73,11 @@ class KubectlImpl implements Kubectl {
     runAsTerminal(command: string[], terminalName: string): Promise<void> {
         return runAsTerminal(this.context, command, terminalName);
     }
-    asLines(command: string): Promise<string[] | ShellResult> {
+    asLines(command: string): Promise<Errorable<string[]>> {
         return asLines(this.context, command);
+    }
+    asJson<T>(command: string): Promise<Errorable<T>> {
+        return asJson(this.context, command);
     }
     private getSharedTerminal(): Terminal {
         if (!this.sharedTerminal) {
@@ -210,16 +215,25 @@ function baseKubectlPath(context: Context): string {
     return bin;
 }
 
-async function asLines(context: Context, command: string): Promise<string[] | ShellResult> {
+async function asLines(context: Context, command: string): Promise<Errorable<string[]>> {
     const shellResult = await invokeAsync(context, command);
     if (shellResult.code === 0) {
         let lines = shellResult.stdout.split('\n');
         lines.shift();
         lines = lines.filter((l) => l.length > 0);
-        return lines;
+        return { succeeded: true, result: lines };
 
     }
-    return shellResult;
+    return { succeeded: false, error: [ shellResult.stderr ] };
+}
+
+async function asJson<T>(context: Context, command: string): Promise<Errorable<T>> {
+    const shellResult = await invokeAsync(context, command);
+    if (shellResult.code === 0) {
+        return { succeeded: true, result: JSON.parse(shellResult.stdout.trim()) as T };
+
+    }
+    return { succeeded: false, error: [ shellResult.stderr ] };
 }
 
 function path(context: Context): string {

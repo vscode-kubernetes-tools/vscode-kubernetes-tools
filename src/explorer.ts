@@ -6,6 +6,7 @@ import { Kubectl } from './kubectl';
 import * as kubectlUtils from './kubectlUtils';
 import { Host } from './host';
 import * as kuberesources from './kuberesources';
+import { failed } from './errorable';
 
 export function create(kubectl: Kubectl, host: Host): KubernetesExplorer {
     return new KubernetesExplorer(kubectl, host);
@@ -155,11 +156,11 @@ class KubernetesResourceFolder extends KubernetesFolder {
 
     async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
         const childrenLines = await kubectl.asLines("get " + this.kind.abbreviation);
-        if (shell.isShellResult(childrenLines)) {
-            host.showErrorMessage(childrenLines.stderr);
+        if (failed(childrenLines)) {
+            host.showErrorMessage(childrenLines.error[0]);
             return [new DummyObject("Error")];
         }
-        return childrenLines.map((line) => {
+        return childrenLines.result.map((line) => {
             const bits = line.split(' ');
             return new KubernetesResource(this.kind, bits[0]);
         });

@@ -3,7 +3,8 @@ import * as restify from 'restify';
 import * as portfinder from 'portfinder';
 import * as clusterproviderregistry from '../clusterproviderregistry';
 import * as azure from './azure';
-import { Errorable, script, styles, formStyles, waitScript, ActionResult, succeeded, failed, Failed, Succeeded, Diagnostic } from '../../../wizard';
+import { script, styles, formStyles, waitScript, ActionResult, Diagnostic } from '../../../wizard';
+import { Errorable, succeeded, failed, Failed, Succeeded } from '../../../errorable';
 
 // HTTP request dispatch
 

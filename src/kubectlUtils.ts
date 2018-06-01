@@ -2,6 +2,8 @@ import * as vscode from "vscode";
 import { Kubectl } from "./kubectl";
 import { kubeChannel } from "./kubeChannel";
 import { sleep } from "./sleep";
+import { ObjectMeta, KubernetesCollection, DataResource, Namespace, Pod, KubernetesResource } from './kuberesources.objectmodel';
+import { failed } from "./errorable";
 
 export interface Cluster {
     readonly name: string;
@@ -10,7 +12,7 @@ export interface Cluster {
     readonly active: boolean;
 }
 
-export interface Namespace {
+export interface NamespaceInfo {
     readonly name: string;
     readonly active: boolean;
 }
@@ -20,7 +22,7 @@ export interface PodSelector {
     readonly selector: object;
 }
 
-export interface Pod {
+export interface PodInfo {
     readonly name: string;
 }
 
@@ -29,22 +31,18 @@ export interface ClusterConfig {
     readonly certificateAuthority: string;
 }
 
-export interface ObjectMeta {
-    readonly name: string;
-}
-
 export interface DataHolder {
     readonly metadata: ObjectMeta;
     readonly data: any;
 }
 
 async function getKubeconfig(kubectl: Kubectl): Promise<any> {
-    const shellResult = await kubectl.invokeAsync("config view -o json");
-    if (shellResult.code !== 0) {
-        vscode.window.showErrorMessage(shellResult.stderr);
+    const shellResult = await kubectl.asJson<any>("config view -o json");
+    if (failed(shellResult)) {
+        vscode.window.showErrorMessage(shellResult.error[0]);
         return null;
     }
-    return JSON.parse(shellResult.stdout);
+    return shellResult.result;
 }
 
 export async function getCurrentClusterConfig(kubectl: Kubectl): Promise<ClusterConfig | undefined> {
@@ -106,24 +104,22 @@ export async function deleteCluster(kubectl: Kubectl, cluster: Cluster): Promise
 export async function getDataHolders(resource: string, kubectl: Kubectl): Promise<DataHolder[]> {
     const currentNS = await currentNamespace(kubectl);
 
-    const shellResult = await kubectl.invokeAsync(`get ${resource} -o json --namespace=${currentNS}`);
-    if (shellResult.code !== 0) {
-        vscode.window.showErrorMessage(shellResult.stderr);
+    const depList = await kubectl.asJson<KubernetesCollection<DataResource>>(`get ${resource} -o json --namespace=${currentNS}`);
+    if (failed(depList)) {
+        vscode.window.showErrorMessage(depList.error[0]);
         return [];
     }
-    const depList = JSON.parse(shellResult.stdout);
-    return depList.items;
+    return depList.result.items;
 }
 
-export async function getNamespaces(kubectl: Kubectl): Promise<Namespace[]> {
-    const shellResult = await kubectl.invokeAsync("get namespaces -o json");
-    if (shellResult.code !== 0) {
-        vscode.window.showErrorMessage(shellResult.stderr);
+export async function getNamespaces(kubectl: Kubectl): Promise<NamespaceInfo[]> {
+    const ns = await kubectl.asJson<KubernetesCollection<Namespace>>("get namespaces -o json");
+    if (failed(ns)) {
+        vscode.window.showErrorMessage(ns.error[0]);
         return [];
     }
-    const ns = JSON.parse(shellResult.stdout);
     const currentNS = await currentNamespace(kubectl);
-    return ns.items.map((item) => {
+    return ns.result.items.map((item) => {
         return {
             name: item.metadata.name,
             active: item.metadata.name === currentNS
@@ -142,13 +138,12 @@ export async function getDeployments(kubectl: Kubectl): Promise<PodSelector[]> {
 export async function getPodSelector(resource: string, kubectl: Kubectl): Promise<PodSelector[]> {
     const currentNS = await currentNamespace(kubectl);
 
-    const shellResult = await kubectl.invokeAsync(`get ${resource} -o json --namespace=${currentNS}`);
-    if (shellResult.code !== 0) {
-        vscode.window.showErrorMessage(shellResult.stderr);
+    const shellResult = await kubectl.asJson<KubernetesCollection<any>>(`get ${resource} -o json --namespace=${currentNS}`);
+    if (failed(shellResult)) {
+        vscode.window.showErrorMessage(shellResult.error[0]);
         return [];
     }
-    const depList = JSON.parse(shellResult.stdout);
-    return depList.items.map((item) => {
+    return shellResult.result.items.map((item) => {
         return {
             name: item.metadata.name,
             selector: item.spec.selector
@@ -156,7 +151,7 @@ export async function getPodSelector(resource: string, kubectl: Kubectl): Promis
     });
 }
 
-export async function getPods(kubectl: Kubectl, selector: any): Promise<Pod[]> {
+export async function getPods(kubectl: Kubectl, selector: any): Promise<PodInfo[]> {
     if (!selector) {
         return [];
     }
@@ -178,13 +173,12 @@ export async function getPods(kubectl: Kubectl, selector: any): Promise<Pod[]> {
         labelStr = "--selector=" + labels.join(",");
     }
 
-    const shellResult = await kubectl.invokeAsync(`get pods -o json --namespace=${currentNS} ${labelStr}`);
-    if (shellResult.code !== 0) {
-        vscode.window.showErrorMessage(shellResult.stderr);
+    const pods = await kubectl.asJson<KubernetesCollection<Pod>>(`get pods -o json --namespace=${currentNS} ${labelStr}`);
+    if (failed(pods)) {
+        vscode.window.showErrorMessage(pods.error[0]);
         return [];
     }
-    const pods = JSON.parse(shellResult.stdout);
-    return pods.items.map((item) => {
+    return pods.result.items.map((item) => {
         return {
             name: item.metadata.name
         };
@@ -260,16 +254,12 @@ export async function runAsDeployment(kubectl: Kubectl, deploymentName: string, 
  * @param labelQuery the query label.
  * @return the pod list.
  */
-export async function findPodsByLabel(kubectl: Kubectl, labelQuery: string): Promise<any> {
-    const getResult = await kubectl.invokeAsync(`get pods -o json -l ${labelQuery}`);
-    if (getResult.code !== 0) {
-        throw new Error('Kubectl command failed: ' + getResult.stderr);
+export async function findPodsByLabel(kubectl: Kubectl, labelQuery: string): Promise<KubernetesCollection<Pod>> {
+    const getResult = await kubectl.asJson<KubernetesCollection<Pod>>(`get pods -o json -l ${labelQuery}`);
+    if (failed(getResult)) {
+        throw new Error('Kubectl command failed: ' + getResult.error[0]);
     }
-    try {
-        return JSON.parse(getResult.stdout);
-    } catch (ex) {
-        throw new Error('unexpected error: ' + ex);
-    }
+    return getResult.result;
 }
 
 /**
@@ -310,11 +300,11 @@ function isTransientPodState(status: string): boolean {
  * @param resourceId the resource id.
  * @return the result as a json object, or undefined if errors happen.
  */
-export async function getResourceAsJson(kubectl: Kubectl, resourceId: string): Promise<any> {
-    const shellResult = await kubectl.invokeAsync(`get ${resourceId} -o json`);
-    if (shellResult.code !== 0) {
-        vscode.window.showErrorMessage(shellResult.stderr);
-        return;
+export async function getResourceAsJson<T extends KubernetesResource | KubernetesCollection<KubernetesResource>>(kubectl: Kubectl, resourceId: string): Promise<T | undefined> {
+    const shellResult = await kubectl.asJson<T>(`get ${resourceId} -o json`);
+    if (failed(shellResult)) {
+        vscode.window.showErrorMessage(shellResult.error[0]);
+        return undefined;
     }
-    return JSON.parse(shellResult.stdout.trim());
+    return shellResult.result;
 }
