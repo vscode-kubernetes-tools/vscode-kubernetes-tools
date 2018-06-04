@@ -48,9 +48,9 @@ export interface WaitResult {
 
 const MIN_AZ_CLI_VERSION = '2.0.23';
 
-export async function getSubscriptionList(context: Context, forCommand: string): Promise<ActionResult<string[]>> {
+export async function getSubscriptionList(context: Context): Promise<ActionResult<string[]>> {
     // check for prerequisites
-    const prerequisiteErrors = await verifyPrerequisitesAsync(context, forCommand);
+    const prerequisiteErrors = await verifyPrerequisitesAsync(context);
     if (prerequisiteErrors.length > 0) {
         return {
             actionDescription: 'checking prerequisites',
@@ -66,7 +66,7 @@ export async function getSubscriptionList(context: Context, forCommand: string):
     };
 }
 
-async function verifyPrerequisitesAsync(context: Context, forCommand: string): Promise<string[]> {
+async function verifyPrerequisitesAsync(context: Context): Promise<string[]> {
     const errors = new Array<string>();
 
     const azVersion = await azureCliVersion(context);
@@ -74,10 +74,6 @@ async function verifyPrerequisitesAsync(context: Context, forCommand: string): P
         errors.push('Azure CLI 2.0 not found - install Azure CLI 2.0 and log in');
     } else if (compareVersions(azVersion, MIN_AZ_CLI_VERSION) < 0) {
         errors.push(`Azure CLI required version is ${MIN_AZ_CLI_VERSION} (you have ${azVersion}) - you need to upgrade Azure CLI 2.0`);
-    }
-
-    if (forCommand == 'acs') {
-        prereqCheckSSHKeys(context, errors);
     }
 
     return errors;
@@ -93,13 +89,6 @@ async function azureCliVersion(context: Context): Promise<string> {
             return null;
         }
         return versionMatches[1];
-    }
-}
-
-function prereqCheckSSHKeys(context: Context, errors: Array<String>) {
-    const sshKeyFile = context.shell.combinePath(context.shell.home(), '.ssh/id_rsa');
-    if (!context.fs.existsSync(sshKeyFile)) {
-        errors.push('SSH keys not found - expected key file at ' + sshKeyFile);
     }
 }
 
@@ -241,7 +230,7 @@ async function ensureResourceGroupAsync(context: Context, resourceGroupName: str
 
 async function execCreateClusterCmd(context: Context, options: any): Promise<Errorable<Diagnostic>> {
     const clusterCmd = getClusterCommand(options.clusterType);
-    let createCmd = `az ${clusterCmd} create -n "${options.metadata.clusterName}" -g "${options.metadata.resourceGroupName}" -l "${options.metadata.location}" --no-wait `;
+    let createCmd = `az ${clusterCmd} create -n "${options.metadata.clusterName}" -g "${options.metadata.resourceGroupName}" -l "${options.metadata.location}" --generate-ssh-keys --no-wait `;
     if (clusterCmd == 'acs') {
         createCmd = createCmd + `--agent-count ${options.agentSettings.count} --agent-vm-size "${options.agentSettings.vmSize}" -t Kubernetes`;
     } else {
