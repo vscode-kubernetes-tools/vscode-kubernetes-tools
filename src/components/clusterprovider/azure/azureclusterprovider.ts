@@ -151,7 +151,7 @@ function formPage(fd: FormData): string {
 // Pages for the various wizard steps
 
 async function promptForSubscription(previousData: any, context: azure.Context, action: clusterproviderregistry.ClusterProviderAction, nextStep: string): Promise<string> {
-    const subscriptionList = await azure.getSubscriptionList(context, previousData.id);
+    const subscriptionList = await azure.getSubscriptionList(context);
     if (!subscriptionList.result.succeeded) {
         return renderCliError('PromptForSubscription', subscriptionList);
     }
