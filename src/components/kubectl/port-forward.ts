@@ -10,6 +10,7 @@ import { QuickPickOptions } from 'vscode';
 import * as portFinder from 'portfinder';
 import { Pod } from '../../kuberesources.objectmodel';
 import { succeeded } from '../../errorable';
+import * as kubectlUtils from '../../kubectlUtils';
 
 const kubectl = kubectlCreate(host, fs, shell, installDependencies);
 const PORT_FORWARD_TERMINAL = 'kubectl port-forward';
@@ -42,7 +43,8 @@ export async function portForwardKubernetes (explorerNode?: any): Promise<void> 
         // The port forward option only appears on pod level workloads in the tree view.
         const podName = explorerNode.id;
         const portMapping = await promptForPort(podName);
-        portForwardToPod(podName, portMapping);
+        const namespace = await kubectlUtils.currentNamespace(kubectl);
+        portForwardToPod(podName, portMapping, namespace);
         return;
     } else {
         let portForwardablePods: PortForwardFindPodsResult;
