@@ -65,8 +65,7 @@ export async function portForwardKubernetes (explorerNode?: any): Promise<void> 
             // The pod is described by the open document. Skip asking which pod to use and go straight to port-forward.
             const podSelection = portForwardablePods.pod;
             const portMapping = await promptForPort(podSelection);
-            const namespace = portForwardablePods.namespace;
-            portForwardToPod(podSelection, portMapping, namespace);
+            portForwardToPod(podSelection, portMapping, portForwardablePods.namespace);
             return;
         }
 

@@ -864,7 +864,7 @@ export function findKindNameOrPrompt(resourceKinds: kuberesources.ResourceKind[]
     if (kindObject === null) {
         promptKindName(resourceKinds, descriptionVerb, opts, handler);
     } else {
-        handler(kindObject.resourceType + '/' + kindObject.resourceName);
+        handler(`${kindObject.resourceType}/${kindObject.resourceName}`);
     }
 }
 
@@ -1337,7 +1337,7 @@ const diffKubernetes = (callback) => {
         if (data) {
             fileFormat = (data.trim().length > 0 && data.trim()[0] == '{') ? "json" : "yaml";
             kindObject = findKindNameForText(data);
-            kindName = kindObject.resourceType + '/' + kindObject.resourceName;
+            kindName = `${kindObject.resourceType}/${kindObject.resourceName}`;
             fileName = path.join(os.tmpdir(), `local.${fileFormat}`);
             fs.writeFile(fileName, data, handleError);
         } else if (file) {
@@ -1346,7 +1346,7 @@ const diffKubernetes = (callback) => {
                 return; // No open text editor
             }
             kindObject = tryFindKindNameFromEditor();
-            kindName = kindObject.resourceType + '/' + kindObject.resourceName;
+            kindName = `${kindObject.resourceType}/${kindObject.resourceName}`;
             fileName = file;
             if (vscode.window.activeTextEditor && vscode.window.activeTextEditor.document) {
                 const langId = vscode.window.activeTextEditor.document.languageId.toLowerCase();
