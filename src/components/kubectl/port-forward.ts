@@ -89,6 +89,7 @@ export async function portForwardKubernetes (explorerNode?: any): Promise<void> 
         }
 
         const portMapping = await promptForPort(podSelection);
+        const namespace = await kubectlUtils.currentNamespace(kubectl);
         portForwardToPod(podSelection, portMapping);
     }
 }
