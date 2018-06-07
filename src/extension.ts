@@ -827,7 +827,7 @@ function buildPushThenExec(fn) {
     });
 }
 
-export function tryFindKindNameFromEditor(): string {
+export function tryFindKindNameFromEditor(): FindKindNameForTextResult {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
         return null; // No open text editor
@@ -836,13 +836,23 @@ export function tryFindKindNameFromEditor(): string {
     return findKindNameForText(text);
 }
 
-function findKindNameForText(text): string | null {
+interface FindKindNameForTextResult {
+    readonly namespace: string;
+    readonly resourceType: string;
+    readonly resourceName: string;
+}
+
+function findKindNameForText(text): FindKindNameForTextResult | null {
     try {
         let obj: {} = yaml.safeLoad(text);
         if (!isKubernetesResource(obj)) {
             return null;
         }
-        return obj.kind.toLowerCase() + '/' + obj.metadata.name;
+        return {
+            resourceType: obj.kind.toLowerCase(),
+            resourceName: obj.metadata.name,
+            namespace: obj.metadata.namespace
+        };
     } catch (ex) {
         console.log(ex);
         return null;
@@ -850,11 +860,11 @@ function findKindNameForText(text): string | null {
 }
 
 export function findKindNameOrPrompt(resourceKinds: kuberesources.ResourceKind[], descriptionVerb, opts, handler) {
-    let kindName = tryFindKindNameFromEditor();
-    if (kindName === null) {
+    let kindObject = tryFindKindNameFromEditor();
+    if (kindObject === null) {
         promptKindName(resourceKinds, descriptionVerb, opts, handler);
     } else {
-        handler(kindName);
+        handler(kindObject.resourceType + '/' + kindObject.resourceName);
     }
 }
 
@@ -1319,13 +1329,15 @@ const diffKubernetes = (callback) => {
     getTextForActiveWindow((data, file) => {
         console.log(data, file);
         let kindName = null;
+        let kindObject = null;
         let fileName = null;
 
         let fileFormat = "json";
 
         if (data) {
             fileFormat = (data.trim().length > 0 && data.trim()[0] == '{') ? "json" : "yaml";
-            kindName = findKindNameForText(data);
+            kindObject = findKindNameForText(data);
+            kindName = kindObject.resourceType + '/' + kindObject.resourceName;
             fileName = path.join(os.tmpdir(), `local.${fileFormat}`);
             fs.writeFile(fileName, data, handleError);
         } else if (file) {
@@ -1333,7 +1345,8 @@ const diffKubernetes = (callback) => {
                 vscode.window.showErrorMessage('No active editor!');
                 return; // No open text editor
             }
-            kindName = tryFindKindNameFromEditor();
+            kindObject = tryFindKindNameFromEditor();
+            kindName = kindObject.resourceType + '/' + kindObject.resourceName;
             fileName = file;
             if (vscode.window.activeTextEditor && vscode.window.activeTextEditor.document) {
                 const langId = vscode.window.activeTextEditor.document.languageId.toLowerCase();

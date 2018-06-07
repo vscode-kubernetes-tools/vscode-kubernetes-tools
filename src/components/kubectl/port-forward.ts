@@ -25,6 +25,7 @@ interface PodFromDocument {
     readonly succeeded: true;
     readonly pod: string;
     readonly fromOpenDocument: true;
+    readonly namespace: string;
 }
 
 type PortForwardFindPodsResult = PodFromDocument | FindPodsResult;
@@ -64,7 +65,8 @@ export async function portForwardKubernetes (explorerNode?: any): Promise<void> 
             // The pod is described by the open document. Skip asking which pod to use and go straight to port-forward.
             const podSelection = portForwardablePods.pod;
             const portMapping = await promptForPort(podSelection);
-            portForwardToPod(podSelection, portMapping);
+            const namespace = portForwardablePods.namespace;
+            portForwardToPod(podSelection, portMapping, namespace);
             return;
         }
 
@@ -179,23 +181,20 @@ export function buildPortMapping (portString: string): PortMapping {
  */
 async function findPortForwardablePods (): Promise<PortForwardFindPodsResult> {
     let kindFromEditor = tryFindKindNameFromEditor();
-    let kind: string | undefined, podName: string | undefined;
 
     // Find the pod type from the open editor.
     if (kindFromEditor !== null) {
-        let parts = kindFromEditor.split('/');
-        kind = parts[0];
-        podName = parts[1];
 
         // Not a pod type, so not port-forwardable, fallback to looking
         // up all pods.
-        if (kind !== 'pods' && kind !== 'pod') {
+        if (kindFromEditor.resourceType !== 'pods' && kindFromEditor.resourceType !== 'pod') {
             return await findAllPods();
         }
 
         return {
             succeeded: true,
-            pod: podName,
+            pod: kindFromEditor.resourceName,
+            namespace: kindFromEditor.namespace,
             fromOpenDocument: true
         };
     }
