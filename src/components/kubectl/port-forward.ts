@@ -187,7 +187,7 @@ async function findPortForwardablePods (): Promise<PortForwardFindPodsResult> {
 
         // Not a pod type, so not port-forwardable, fallback to looking
         // up all pods.
-        if (kindFromEditor.resourceType !== 'pods' && kindFromEditor.resourceType !== 'pod') {
+        if (kindFromEditor.kind !== 'pods' && kindFromEditor.kind !== 'pod') {
             return await findAllPods();
         }
 

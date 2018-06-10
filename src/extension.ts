@@ -827,7 +827,7 @@ function buildPushThenExec(fn) {
     });
 }
 
-export function tryFindKindNameFromEditor(): FindKindNameForTextResult {
+export function tryFindKindNameFromEditor(): ResourceKindName {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
         return null; // No open text editor
@@ -836,20 +836,20 @@ export function tryFindKindNameFromEditor(): FindKindNameForTextResult {
     return findKindNameForText(text);
 }
 
-interface FindKindNameForTextResult {
+interface ResourceKindName {
     readonly namespace: string;
-    readonly resourceType: string;
+    readonly kind: string;
     readonly resourceName: string;
 }
 
-function findKindNameForText(text): FindKindNameForTextResult | null {
+function findKindNameForText(text): ResourceKindName | null {
     try {
         let obj: {} = yaml.safeLoad(text);
         if (!isKubernetesResource(obj)) {
             return null;
         }
         return {
-            resourceType: obj.kind.toLowerCase(),
+            kind: obj.kind.toLowerCase(),
             resourceName: obj.metadata.name,
             namespace: obj.metadata.namespace
         };
@@ -864,7 +864,7 @@ export function findKindNameOrPrompt(resourceKinds: kuberesources.ResourceKind[]
     if (kindObject === null) {
         promptKindName(resourceKinds, descriptionVerb, opts, handler);
     } else {
-        handler(`${kindObject.resourceType}/${kindObject.resourceName}`);
+        handler(`${kindObject.kind}/${kindObject.resourceName}`);
     }
 }
 
