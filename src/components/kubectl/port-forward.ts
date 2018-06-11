@@ -10,6 +10,7 @@ import { QuickPickOptions } from 'vscode';
 import * as portFinder from 'portfinder';
 import { Pod } from '../../kuberesources.objectmodel';
 import { succeeded } from '../../errorable';
+import * as kubectlUtils from '../../kubectlUtils';
 
 const kubectl = kubectlCreate(host, fs, shell, installDependencies);
 const PORT_FORWARD_TERMINAL = 'kubectl port-forward';
@@ -24,6 +25,7 @@ interface PodFromDocument {
     readonly succeeded: true;
     readonly pod: string;
     readonly fromOpenDocument: true;
+    readonly namespace: string;
 }
 
 type PortForwardFindPodsResult = PodFromDocument | FindPodsResult;
@@ -42,7 +44,8 @@ export async function portForwardKubernetes (explorerNode?: any): Promise<void> 
         // The port forward option only appears on pod level workloads in the tree view.
         const podName = explorerNode.id;
         const portMapping = await promptForPort(podName);
-        portForwardToPod(podName, portMapping);
+        const namespace = await kubectlUtils.currentNamespace(kubectl);
+        portForwardToPod(podName, portMapping, namespace);
         return;
     } else {
         let portForwardablePods: PortForwardFindPodsResult;
@@ -62,7 +65,7 @@ export async function portForwardKubernetes (explorerNode?: any): Promise<void> 
             // The pod is described by the open document. Skip asking which pod to use and go straight to port-forward.
             const podSelection = portForwardablePods.pod;
             const portMapping = await promptForPort(podSelection);
-            portForwardToPod(podSelection, portMapping);
+            portForwardToPod(podSelection, portMapping, portForwardablePods.namespace);
             return;
         }
 
@@ -86,7 +89,8 @@ export async function portForwardKubernetes (explorerNode?: any): Promise<void> 
         }
 
         const portMapping = await promptForPort(podSelection);
-        portForwardToPod(podSelection, portMapping);
+        const namespace = await kubectlUtils.currentNamespace(kubectl);
+        portForwardToPod(podSelection, portMapping, namespace);
     }
 }
 
@@ -177,23 +181,20 @@ export function buildPortMapping (portString: string): PortMapping {
  */
 async function findPortForwardablePods (): Promise<PortForwardFindPodsResult> {
     let kindFromEditor = tryFindKindNameFromEditor();
-    let kind: string | undefined, podName: string | undefined;
 
     // Find the pod type from the open editor.
     if (kindFromEditor !== null) {
-        let parts = kindFromEditor.split('/');
-        kind = parts[0];
-        podName = parts[1];
 
         // Not a pod type, so not port-forwardable, fallback to looking
         // up all pods.
-        if (kind !== 'pods' && kind !== 'pod') {
+        if (kindFromEditor.kind !== 'pods' && kindFromEditor.kind !== 'pod') {
             return await findAllPods();
         }
 
         return {
             succeeded: true,
-            pod: podName,
+            pod: kindFromEditor.resourceName,
+            namespace: kindFromEditor.namespace,
             fromOpenDocument: true
         };
     }
