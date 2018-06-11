@@ -1337,8 +1337,8 @@ const diffKubernetes = (callback) => {
         if (data) {
             fileFormat = (data.trim().length > 0 && data.trim()[0] == '{') ? "json" : "yaml";
             kindObject = findKindNameForText(data);
-            if (kindObject === null){
-                vscode.window.showErrorMessage('Cannot Parse Kubernetes Object');
+            if (kindObject === null) {
+                vscode.window.showErrorMessage("Can't diff - the open document is not a Kubernetes resource");
                 return;
             }
             kindName = `${kindObject.kind}/${kindObject.resourceName}`;
@@ -1350,8 +1350,8 @@ const diffKubernetes = (callback) => {
                 return; // No open text editor
             }
             kindObject = tryFindKindNameFromEditor();
-            if (kindObject === null){
-                vscode.window.showErrorMessage('Cannot Parse Kubernetes Object');
+            if (kindObject === null) {
+                vscode.window.showErrorMessage("Can't diff - the open document is not a Kubernetes resource");
                 return;
             }
             kindName = `${kindObject.kind}/${kindObject.resourceName}`;
