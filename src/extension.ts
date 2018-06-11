@@ -1329,7 +1329,7 @@ const diffKubernetes = (callback) => {
     getTextForActiveWindow((data, file) => {
         console.log(data, file);
         let kindName = null;
-        let kindObject = null;
+        let kindObject: ResourceKindName | null = null;
         let fileName = null;
 
         let fileFormat = "json";
@@ -1341,7 +1341,7 @@ const diffKubernetes = (callback) => {
                 vscode.window.showErrorMessage('Cannot Parse Kubernetes Object');
                 return;
             }
-            kindName = `${kindObject.resourceType}/${kindObject.resourceName}`;
+            kindName = `${kindObject.kind}/${kindObject.resourceName}`;
             fileName = path.join(os.tmpdir(), `local.${fileFormat}`);
             fs.writeFile(fileName, data, handleError);
         } else if (file) {
@@ -1354,7 +1354,7 @@ const diffKubernetes = (callback) => {
                 vscode.window.showErrorMessage('Cannot Parse Kubernetes Object');
                 return;
             }
-            kindName = `${kindObject.resourceType}/${kindObject.resourceName}`;
+            kindName = `${kindObject.kind}/${kindObject.resourceName}`;
             fileName = file;
             if (vscode.window.activeTextEditor && vscode.window.activeTextEditor.document) {
                 const langId = vscode.window.activeTextEditor.document.languageId.toLowerCase();
