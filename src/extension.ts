@@ -1337,6 +1337,10 @@ const diffKubernetes = (callback) => {
         if (data) {
             fileFormat = (data.trim().length > 0 && data.trim()[0] == '{') ? "json" : "yaml";
             kindObject = findKindNameForText(data);
+            if (kindObject === null){
+                vscode.window.showErrorMessage('Cannot Parse Kubernetes Object');
+                return;
+            }
             kindName = `${kindObject.resourceType}/${kindObject.resourceName}`;
             fileName = path.join(os.tmpdir(), `local.${fileFormat}`);
             fs.writeFile(fileName, data, handleError);
@@ -1346,6 +1350,10 @@ const diffKubernetes = (callback) => {
                 return; // No open text editor
             }
             kindObject = tryFindKindNameFromEditor();
+            if (kindObject === null){
+                vscode.window.showErrorMessage('Cannot Parse Kubernetes Object');
+                return;
+            }
             kindName = `${kindObject.resourceType}/${kindObject.resourceName}`;
             fileName = file;
             if (vscode.window.activeTextEditor && vscode.window.activeTextEditor.document) {
