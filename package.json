@@ -800,7 +800,7 @@
         "@types/node": "^6.0.40",
         "gulp": "^3.9.1",
         "gulp-tslint": "^8.1.2",
-        "mocha": "^2.3.3",
+        "mocha": "^4.1.0",
         "tslint": "^5.9.1",
         "typescript": "^2.2.32",
         "vscode": "^1.0.17"
