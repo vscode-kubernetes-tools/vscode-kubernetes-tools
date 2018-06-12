@@ -1337,57 +1337,52 @@ interface DiffResult {
     readonly reason?: string;
 }
 
+function confirmOperation(prompt: (msg: string, ...opts: string[]) => Thenable<string>, message: string, confirmVerb: string, operation: () => void) {
+    prompt(message, confirmVerb)
+    .then((result) => {
+        if (result === confirmVerb) {
+            operation();
+        }
+    });
+}
+
 const applyKubernetes = () => {
     diffKubernetesCore((r) => {
         switch (r.result) {
             case DiffResultKind.Succeeded:
-                vscode.window.showInformationMessage(
+                confirmOperation(
+                    vscode.window.showInformationMessage,
                     'Do you wish to apply this change?',
-                    'Apply'
-                ).then((result) => {
-                    if (result !== 'Apply') {
-                        return;
-                    }
-
-                    maybeRunKubernetesCommandForActiveWindow('apply', "Kubernetes Applying...");
-                });
+                    'Apply',
+                    () => maybeRunKubernetesCommandForActiveWindow('apply', "Kubernetes Applying...")
+                );
                 return;
             case DiffResultKind.NoEditor:
                 vscode.window.showErrorMessage("No active editor - the Apply command requires an open document");
                 return;
             case DiffResultKind.NoKindName:
-                vscode.window.showWarningMessage(
+                confirmOperation(
+                    vscode.window.showWarningMessage,
                     `Can't show what changes will be applied (${r.reason}). Apply anyway?`,
-                    'Apply'
-                ).then((result) => {
-                    if (result !== 'Apply') {
-                        return;
-                    }
-
-                    maybeRunKubernetesCommandForActiveWindow('apply', "Kubernetes Applying...");
-                });
+                    'Apply',
+                    () => maybeRunKubernetesCommandForActiveWindow('apply', "Kubernetes Applying...")
+                );
                 return;
             case DiffResultKind.NoClusterResource:
-                vscode.window.showWarningMessage(
+                confirmOperation(
+                    vscode.window.showWarningMessage,
                     `Resource ${r.resourceName} does not exist - this will create a new resource.`,
-                    'Create'
-                ).then((choice) => {
-                    if (choice === 'Create') {
-                        maybeRunKubernetesCommandForActiveWindow('create', "Kubernetes Creating...");
-                    }
-                });
+                    'Create',
+                    () => maybeRunKubernetesCommandForActiveWindow('create', "Kubernetes Creating...")
+                );
                 return;
             case DiffResultKind.GetFailed:
-                vscode.window.showWarningMessage(
+                confirmOperation(
+                    vscode.window.showWarningMessage,
                     `Can't show what changes will be applied - error getting existing resource (${r.stderr}). Apply anyway?`,
-                    'Apply'
-                ).then((result) => {
-                    if (result !== 'Apply') {
-                        return;
-                    }
-
-                    maybeRunKubernetesCommandForActiveWindow('apply', "Kubernetes Applying...");
-                });
+                    'Apply',
+                    () => maybeRunKubernetesCommandForActiveWindow('apply', "Kubernetes Applying...")
+                );
                 return;
             case DiffResultKind.NothingToDiff:
                 vscode.window.showInformationMessage("Nothing to apply");
