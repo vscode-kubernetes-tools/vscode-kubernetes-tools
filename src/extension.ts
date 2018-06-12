@@ -1321,18 +1321,78 @@ const deleteKubernetes = async (explorerNode?: explorer.ResourceNode) => {
     }
 };
 
-const applyKubernetes = () => {
-    diffKubernetes(() => {
-        vscode.window.showInformationMessage(
-            'Do you wish to apply this change?',
-            'Apply'
-        ).then((result) => {
-            if (result !== 'Apply') {
-                return;
-            }
+enum DiffResultKind {
+    Succeeded,
+    NoEditor,
+    NoKindName,
+    NoClusterResource,
+    GetFailed,
+    NothingToDiff,
+}
 
-            maybeRunKubernetesCommandForActiveWindow('apply', "Kubernetes Applying...");
-        });
+interface DiffResult {
+    readonly result: DiffResultKind;
+    readonly resourceName?: string;
+    readonly stderr?: string;
+    readonly reason?: string;
+}
+
+const applyKubernetes = () => {
+    diffKubernetesCore((r) => {
+        switch (r.result) {
+            case DiffResultKind.Succeeded:
+                vscode.window.showInformationMessage(
+                    'Do you wish to apply this change?',
+                    'Apply'
+                ).then((result) => {
+                    if (result !== 'Apply') {
+                        return;
+                    }
+
+                    maybeRunKubernetesCommandForActiveWindow('apply', "Kubernetes Applying...");
+                });
+                return;
+            case DiffResultKind.NoEditor:
+                vscode.window.showErrorMessage("No active editor - the Apply command requires an open document");
+                return;
+            case DiffResultKind.NoKindName:
+                vscode.window.showWarningMessage(
+                    `Can't show what changes will be applied (${r.reason}). Apply anyway?`,
+                    'Apply'
+                ).then((result) => {
+                    if (result !== 'Apply') {
+                        return;
+                    }
+
+                    maybeRunKubernetesCommandForActiveWindow('apply', "Kubernetes Applying...");
+                });
+                return;
+            case DiffResultKind.NoClusterResource:
+                vscode.window.showWarningMessage(
+                    `Resource ${r.resourceName} does not exist - this will create a new resource.`,
+                    'Create'
+                ).then((choice) => {
+                    if (choice === 'Create') {
+                        maybeRunKubernetesCommandForActiveWindow('create', "Kubernetes Creating...");
+                    }
+                });
+                return;
+            case DiffResultKind.GetFailed:
+                vscode.window.showWarningMessage(
+                    `Can't show what changes will be applied - error getting existing resource (${r.stderr}). Apply anyway?`,
+                    'Apply'
+                ).then((result) => {
+                    if (result !== 'Apply') {
+                        return;
+                    }
+
+                    maybeRunKubernetesCommandForActiveWindow('apply', "Kubernetes Applying...");
+                });
+                return;
+            case DiffResultKind.NothingToDiff:
+                vscode.window.showInformationMessage("Nothing to apply");
+                return;
+        }
     });
 };
 
@@ -1342,12 +1402,37 @@ const handleError = (err) => {
     }
 };
 
-const diffKubernetes = (callback) => {
+function diffKubernetes(): void {
+    diffKubernetesCore((r) => {
+        switch (r.result) {
+            case DiffResultKind.Succeeded:
+                return;
+            case DiffResultKind.NoEditor:
+                vscode.window.showErrorMessage("No active editor - the Diff command requires an open document");
+                return;
+            case DiffResultKind.NoKindName:
+                vscode.window.showErrorMessage(`Can't diff - ${r.reason}`);
+                return;
+            case DiffResultKind.NoClusterResource:
+                vscode.window.showInformationMessage(`Can't diff - ${r.resourceName} doesn't exist in the cluster`);
+                return;
+            case DiffResultKind.GetFailed:
+                vscode.window.showErrorMessage(`Can't diff - error getting existing resource: ${r.stderr}`);
+                return;
+            case DiffResultKind.NothingToDiff:
+                vscode.window.showInformationMessage("Nothing to diff");
+                return;
+        }
+
+    });
+}
+
+function diffKubernetesCore(callback: (r: DiffResult) => void): void {
     getTextForActiveWindow((data, file) => {
         console.log(data, file);
-        let kindName = null;
+        let kindName: string | null = null;
         let kindObject: Errorable<ResourceKindName> | undefined = undefined;
-        let fileName = null;
+        let fileName: string | null = null;
 
         let fileFormat = "json";
 
@@ -1355,7 +1440,7 @@ const diffKubernetes = (callback) => {
             fileFormat = (data.trim().length > 0 && data.trim()[0] == '{') ? "json" : "yaml";
             kindObject = findKindNameForText(data);
             if (failed(kindObject)) {
-                vscode.window.showErrorMessage(`Can't diff - ${kindObject.error[0]}`);
+                callback({ result: DiffResultKind.NoKindName, reason: kindObject.error[0] });
                 return;
             }
             kindName = `${kindObject.result.kind}/${kindObject.result.resourceName}`;
@@ -1363,12 +1448,12 @@ const diffKubernetes = (callback) => {
             fs.writeFile(fileName, data, handleError);
         } else if (file) {
             if (!vscode.window.activeTextEditor) {
-                vscode.window.showErrorMessage('No active editor!');
+                callback({ result: DiffResultKind.NoEditor });
                 return; // No open text editor
             }
             kindObject = tryFindKindNameFromEditor();
             if (failed(kindObject)) {
-                vscode.window.showErrorMessage(`Can't diff - ${kindObject.error[0]}`);
+                callback({ result: DiffResultKind.NoKindName, reason: kindObject.error[0] });
                 return;
             }
             kindName = `${kindObject.result.kind}/${kindObject.result.resourceName}`;
@@ -1380,26 +1465,22 @@ const diffKubernetes = (callback) => {
                 }
             }
         } else {
-            vscode.window.showInformationMessage('Nothing to diff.');
+            callback({ result: DiffResultKind.NothingToDiff });
             return;
         }
 
         if (!kindName) {
-            vscode.window.showWarningMessage('Could not find a valid API object');
+            callback({ result: DiffResultKind.NoKindName, reason: 'Could not find a valid API object' });
             return;
         }
 
         kubectl.invoke(` get -o ${fileFormat} ${kindName}`, (result, stdout, stderr) => {
             if (result == 1 && stderr.indexOf('NotFound') >= 0) {
-                vscode.window.showWarningMessage(`Resource ${kindName} does not exist - this will create a new resource.`, 'Create').then((choice) => {
-                    if (choice === 'Create') {
-                        maybeRunKubernetesCommandForActiveWindow('create', "Kubernetes Creating...");
-                    }
-                });
+                callback({ result: DiffResultKind.NoClusterResource, resourceName: kindName });
                 return;
             }
             else if (result !== 0) {
-                vscode.window.showErrorMessage('Error running command: ' + stderr);
+                callback({ result: DiffResultKind.GetFailed, stderr: stderr });
                 return;
             }
 
@@ -1411,15 +1492,11 @@ const diffKubernetes = (callback) => {
                 shell.fileUri(serverFile),
                 shell.fileUri(fileName)).then((result) => {
                     console.log(result);
-                    if (!callback) {
-                        return;
-                    }
-
-                    callback();
+                    callback({ result: DiffResultKind.Succeeded });
                 });
         });
     });
-};
+}
 
 const debugKubernetes = async () => {
     const workspaceFolder = await showWorkspaceFolderPick();
