@@ -44,7 +44,7 @@ import * as telemetry from './telemetry-helper';
 import * as extensionapi from './extension.api';
 import {dashboardKubernetes} from './components/kubectl/dashboard';
 import {portForwardKubernetes} from './components/kubectl/port-forward';
-import { Errorable, failed } from './errorable';
+import { Errorable, failed, succeeded } from './errorable';
 import { Git } from './components/git/git';
 import { DebugSession } from './debug/debugSession';
 import { getDebugProviderOfType, getSupportedDebuggerTypes } from './debug/providerRegistry';
@@ -57,7 +57,7 @@ import { showWorkspaceFolderPick } from './hostutils';
 import { DraftConfigurationProvider } from './draft/draftConfigurationProvider';
 import { installHelm, installDraft, installKubectl } from './components/installer/installer';
 import { KubernetesResourceVirtualFileSystemProvider, K8S_RESOURCE_SCHEME } from './kuberesources.virtualfs';
-import { Container, isPod, isKubernetesResource, KubernetesCollection, Pod } from './kuberesources.objectmodel';
+import { Container, isPod, isKubernetesResource, KubernetesCollection, Pod, KubernetesResource } from './kuberesources.objectmodel';
 
 let explainActive = false;
 let swaggerSpecPromise = null;
@@ -827,10 +827,10 @@ function buildPushThenExec(fn) {
     });
 }
 
-export function tryFindKindNameFromEditor(): ResourceKindName {
+export function tryFindKindNameFromEditor(): Errorable<ResourceKindName> {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
-        return null; // No open text editor
+        return { succeeded: false, error: ['No open editor']}; // No open text editor
     }
     const text = editor.document.getText();
     return findKindNameForText(text);
@@ -842,29 +842,46 @@ interface ResourceKindName {
     readonly resourceName: string;
 }
 
-function findKindNameForText(text): ResourceKindName | null {
+function findKindNameForText(text): Errorable<ResourceKindName> {
+    const kindNames = findKindNamesForText(text);
+    if (!succeeded(kindNames)) {
+        return { succeeded: false, error: kindNames.error };
+    }
+    if (kindNames.result.length > 1) {
+        return { succeeded: false, error: ['the open document contains multiple Kubernetes resources'] };
+    }
+    return { succeeded: true, result: kindNames.result[0] };
+}
+
+function findKindNamesForText(text): Errorable<ResourceKindName[]> {
     try {
-        let obj: {} = yaml.safeLoad(text);
-        if (!isKubernetesResource(obj)) {
-            return null;
+        const objs: {}[] = yaml.safeLoadAll(text);
+        if (objs.some((o) => !isKubernetesResource(o))) {
+            if (objs.length === 1) {
+                return { succeeded: false, error: ['the open document is not a Kubernetes resource'] };
+            }
+            return { succeeded: false, error: ['the open document contains an item which is not a Kubernetes resource'] };
         }
-        return {
-            kind: obj.kind.toLowerCase(),
-            resourceName: obj.metadata.name,
-            namespace: obj.metadata.namespace
-        };
+        const kindNames = objs
+            .map((o) => o as KubernetesResource)
+            .map((obj) => ({
+                kind: obj.kind.toLowerCase(),
+                resourceName: obj.metadata.name,
+                namespace: obj.metadata.namespace
+            }));
+        return { succeeded: true, result: kindNames };
     } catch (ex) {
         console.log(ex);
-        return null;
+        return { succeeded: false, error: [ ex ] };
     }
 }
 
 export function findKindNameOrPrompt(resourceKinds: kuberesources.ResourceKind[], descriptionVerb, opts, handler) {
     let kindObject = tryFindKindNameFromEditor();
-    if (kindObject === null) {
+    if (failed(kindObject)) {
         promptKindName(resourceKinds, descriptionVerb, opts, handler);
     } else {
-        handler(`${kindObject.kind}/${kindObject.resourceName}`);
+        handler(`${kindObject.result.kind}/${kindObject.result.resourceName}`);
     }
 }
 
@@ -1329,7 +1346,7 @@ const diffKubernetes = (callback) => {
     getTextForActiveWindow((data, file) => {
         console.log(data, file);
         let kindName = null;
-        let kindObject: ResourceKindName | null = null;
+        let kindObject: Errorable<ResourceKindName> | undefined = undefined;
         let fileName = null;
 
         let fileFormat = "json";
@@ -1337,11 +1354,11 @@ const diffKubernetes = (callback) => {
         if (data) {
             fileFormat = (data.trim().length > 0 && data.trim()[0] == '{') ? "json" : "yaml";
             kindObject = findKindNameForText(data);
-            if (kindObject === null) {
-                vscode.window.showErrorMessage("Can't diff - the open document is not a Kubernetes resource");
+            if (failed(kindObject)) {
+                vscode.window.showErrorMessage(`Can't diff - ${kindObject.error[0]}`);
                 return;
             }
-            kindName = `${kindObject.kind}/${kindObject.resourceName}`;
+            kindName = `${kindObject.result.kind}/${kindObject.result.resourceName}`;
             fileName = path.join(os.tmpdir(), `local.${fileFormat}`);
             fs.writeFile(fileName, data, handleError);
         } else if (file) {
@@ -1350,11 +1367,11 @@ const diffKubernetes = (callback) => {
                 return; // No open text editor
             }
             kindObject = tryFindKindNameFromEditor();
-            if (kindObject === null) {
-                vscode.window.showErrorMessage("Can't diff - the open document is not a Kubernetes resource");
+            if (failed(kindObject)) {
+                vscode.window.showErrorMessage(`Can't diff - ${kindObject.error[0]}`);
                 return;
             }
-            kindName = `${kindObject.kind}/${kindObject.resourceName}`;
+            kindName = `${kindObject.result.kind}/${kindObject.result.resourceName}`;
             fileName = file;
             if (vscode.window.activeTextEditor && vscode.window.activeTextEditor.document) {
                 const langId = vscode.window.activeTextEditor.document.languageId.toLowerCase();
