@@ -30,7 +30,8 @@
         "onCommand:extension.vsKubernetesLoad",
         "onCommand:extension.vsKubernetesGet",
         "onCommand:extension.vsKubernetesRun",
-        "onCommand:extension.vsKubernetesLogs",
+        "onCommand:extension.vsKubernetesShowLogs",
+        "onCommand:extension.vsKubernetesFollowLogs",
         "onCommand:extension.vsKubernetesExpose",
         "onCommand:extension.vsKubernetesDescribe",
         "onCommand:extension.vsKubernetesSync",
@@ -296,9 +297,14 @@
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
                 },
                 {
-                    "command": "extension.vsKubernetesLoad",
-                    "group": "0",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.configmap"
+                    "command": "extension.vsKubernetesShowLogs",
+                    "group": "3",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
+                },
+                {
+                    "command": "extension.vsKubernetesFollowLogs",
+                    "group": "3",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
                 },
                 {
                     "command": "extension.vsKubernetesCopy",
