@@ -127,7 +127,8 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
         registerCommand('extension.vsKubernetesLoad', loadKubernetes),
         registerCommand('extension.vsKubernetesGet', getKubernetes),
         registerCommand('extension.vsKubernetesRun', runKubernetes),
-        registerCommand('extension.vsKubernetesLogs', logsKubernetes),
+        registerCommand('extension.vsKubernetesShowLogs', logsKubernetes),
+        registerCommand('extension.vsKubernetesFollowLogs', (obj) => {logsKubernetes(obj, true);}),
         registerCommand('extension.vsKubernetesExpose', exposeKubernetes),
         registerCommand('extension.vsKubernetesDescribe', describeKubernetes),
         registerCommand('extension.vsKubernetesSync', syncKubernetes),
@@ -1048,36 +1049,39 @@ async function selectPod(scope: PodSelectionScope, fallback: PodSelectionFallbac
     return value.pod;
 }
 
-async function logsKubernetes(explorerNode?: explorer.ResourceNode) {
+async function logsKubernetes(explorerNode?: explorer.ResourceNode, follow?: boolean) {
     if (explorerNode) {
         const podSummary = { name: explorerNode.id, namespace: undefined };  // TODO: namespaces
         const container = await selectContainerForPod(podSummary);
         if (container) {
-            getLogsForContainer(podSummary.name, podSummary.namespace, container.name);
+            getLogsForContainer(podSummary.name, podSummary.namespace, container.name, follow);
         }
     } else {
-        findPod(getLogsForPod);
+        findPod((obj) => {getLogsForPod(obj, follow);});
     }
 }
 
-async function getLogsForPod(pod: PodSummary) {
+async function getLogsForPod(pod: PodSummary, follow?: boolean) {
     if (!pod) {
         vscode.window.showErrorMessage('Can\'t find a pod!');
         return;
     }
     const container = await selectContainerForPod(pod);
     if (container) {
-        getLogsForContainer(pod.name, pod.namespace, container.name);
+        getLogsForContainer(pod.name, pod.namespace, container.name, follow);
     }
 }
 
-function getLogsForContainer(podName: string, podNamespace: string | undefined, containerName: string | undefined) {
+function getLogsForContainer(podName: string, podNamespace: string | undefined, containerName: string | undefined, follow?: boolean) {
     let cmd = 'logs ' + podName;
     if (podNamespace && podNamespace.length > 0) {
         cmd += ' --namespace=' + podNamespace;
     }
     if (containerName) {
         cmd += ' --container=' + containerName;
+    }
+    if (follow){
+        cmd += ' -f';
     }
     kubectl.invokeInSharedTerminal(cmd);
 }
