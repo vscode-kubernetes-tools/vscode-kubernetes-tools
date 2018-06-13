@@ -183,8 +183,19 @@ export async function listAksLocations(context: Context): Promise<Errorable<Serv
     const locations = locationInfo.result;
 
     // There's no CLI for this, so we have to hardwire it for now
-    const productionRegions = [];
-    const previewRegions = ["centralus", "eastus", "westeurope", "canadacentral", "canadaeast"];
+    const productionRegions = [
+        "australiaeast",
+        "canadacentral",
+        "canadaeast",
+        "centralus",
+        "eastus",
+        "uksouth",
+        "westus",
+        "westus2",
+        "northeurope",
+        "westeurope"
+    ];
+    const previewRegions = [];
     const result = locationDisplayNamesEx(productionRegions, previewRegions, locations);
     return { succeeded: true, result: result };
 }
