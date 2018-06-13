@@ -518,6 +518,7 @@ function maybeRunKubernetesCommandForActiveWindow(command, progressMessage) {
         }
         return false;
     }
+    // TODO: unify these paths now we handle non-file URIs
     if (editor.document.isDirty) {
         // TODO: I18n this?
         const confirm = "Save";
@@ -529,14 +530,22 @@ function maybeRunKubernetesCommandForActiveWindow(command, progressMessage) {
                         vscode.window.showErrorMessage("Save failed.");
                         return;
                     }
-                    kubectl.invokeWithProgress(`${command} -f "${editor.document.fileName}"`, progressMessage, resultHandler);
+                    if (editor.document.uri.scheme === 'file') {
+                        kubectl.invokeWithProgress(`${command} -f "${editor.document.fileName}"`, progressMessage, resultHandler);
+                    } else {
+                        kubectlViaTempFile(command, editor.document.getText(), progressMessage, resultHandler);
+                    }
                 });
             }
         });
     } else {
-        const fullCommand = `${command} -f "${editor.document.fileName}"`;
-        console.log(fullCommand);
-        kubectl.invokeWithProgress(fullCommand, progressMessage, resultHandler);
+        if (editor.document.uri.scheme === 'file') {
+            const fullCommand = `${command} -f "${editor.document.fileName}"`;
+            console.log(fullCommand);
+            kubectl.invokeWithProgress(fullCommand, progressMessage, resultHandler);
+        } else {
+            kubectlViaTempFile(command, editor.document.getText(), progressMessage, resultHandler);
+        }
     }
     return true;
 }
@@ -553,7 +562,7 @@ function kubectlViaTempFile(command, fileContent, progressMessage, handler?) {
  *
  * @param callback function(text, filename)
  */
-function getTextForActiveWindow(callback) {
+function getTextForActiveWindow(callback: (data: string | null, file: vscode.Uri | null) => void) {
     let text;
     const editor = vscode.window.activeTextEditor;
 
@@ -603,14 +612,14 @@ function getTextForActiveWindow(callback) {
                     return;
                 }
 
-                callback(null, editor.document.fileName);
+                callback(null, editor.document.uri);
             });
 
             return;
         });
     }
 
-    callback(null, editor.document.fileName);
+    callback(null, editor.document.uri);
     return;
 }
 
@@ -1427,7 +1436,7 @@ function diffKubernetesCore(callback: (r: DiffResult) => void): void {
         console.log(data, file);
         let kindName: string | null = null;
         let kindObject: Errorable<ResourceKindName> | undefined = undefined;
-        let fileName: string | null = null;
+        let fileUri: vscode.Uri | null = null;
 
         let fileFormat = "json";
 
@@ -1439,8 +1448,9 @@ function diffKubernetesCore(callback: (r: DiffResult) => void): void {
                 return;
             }
             kindName = `${kindObject.result.kind}/${kindObject.result.resourceName}`;
-            fileName = path.join(os.tmpdir(), `local.${fileFormat}`);
-            fs.writeFile(fileName, data, handleError);
+            const filePath = path.join(os.tmpdir(), `local.${fileFormat}`);
+            fs.writeFile(filePath, data, handleError);
+            fileUri = shell.fileUri(filePath);
         } else if (file) {
             if (!vscode.window.activeTextEditor) {
                 callback({ result: DiffResultKind.NoEditor });
@@ -1452,7 +1462,7 @@ function diffKubernetesCore(callback: (r: DiffResult) => void): void {
                 return;
             }
             kindName = `${kindObject.result.kind}/${kindObject.result.resourceName}`;
-            fileName = file;
+            fileUri = file;
             if (vscode.window.activeTextEditor && vscode.window.activeTextEditor.document) {
                 const langId = vscode.window.activeTextEditor.document.languageId.toLowerCase();
                 if (langId === "yaml" || langId === "helm") {
@@ -1485,7 +1495,7 @@ function diffKubernetesCore(callback: (r: DiffResult) => void): void {
             vscode.commands.executeCommand(
                 'vscode.diff',
                 shell.fileUri(serverFile),
-                shell.fileUri(fileName)).then((result) => {
+                fileUri).then((result) => {
                     console.log(result);
                     callback({ result: DiffResultKind.Succeeded });
                 });
