@@ -20,7 +20,7 @@ import * as clipboard from 'clipboardy';
 import { host } from './host';
 import { loadConfigMapData, addKubernetesConfigFile, deleteKubernetesConfigFile } from './configMap';
 import * as explainer from './explainer';
-import { shell, Shell, ShellResult } from './shell';
+import { shell, Shell, ShellResult, ShellHandler } from './shell';
 import * as configmaps from './configMap';
 import * as configureFromCluster from './configurefromcluster';
 import * as createCluster from './createcluster';
@@ -530,24 +530,23 @@ function maybeRunKubernetesCommandForActiveWindow(command, progressMessage) {
                         vscode.window.showErrorMessage("Save failed.");
                         return;
                     }
-                    if (editor.document.uri.scheme === 'file') {
-                        kubectl.invokeWithProgress(`${command} -f "${editor.document.fileName}"`, progressMessage, resultHandler);
-                    } else {
-                        kubectlViaTempFile(command, editor.document.getText(), progressMessage, resultHandler);
-                    }
+                    kubectlTextDocument(command, editor.document, progressMessage, resultHandler);
                 });
             }
         });
     } else {
-        if (editor.document.uri.scheme === 'file') {
-            const fullCommand = `${command} -f "${editor.document.fileName}"`;
-            console.log(fullCommand);
-            kubectl.invokeWithProgress(fullCommand, progressMessage, resultHandler);
-        } else {
-            kubectlViaTempFile(command, editor.document.getText(), progressMessage, resultHandler);
-        }
+        kubectlTextDocument(command, editor.document, progressMessage, resultHandler);
     }
     return true;
+}
+
+function kubectlTextDocument(command: string, document: vscode.TextDocument, progressMessage: string, resultHandler: ShellHandler | undefined): void {
+    if (document.uri.scheme === 'file') {
+        const fullCommand = `${command} -f "${document.fileName}"`;
+        kubectl.invokeWithProgress(fullCommand, progressMessage, resultHandler);
+    } else {
+        kubectlViaTempFile(command, document.getText(), progressMessage, resultHandler);
+    }
 }
 
 function kubectlViaTempFile(command, fileContent, progressMessage, handler?) {
@@ -1346,13 +1345,11 @@ interface DiffResult {
     readonly reason?: string;
 }
 
-function confirmOperation(prompt: (msg: string, ...opts: string[]) => Thenable<string>, message: string, confirmVerb: string, operation: () => void) {
-    prompt(message, confirmVerb)
-    .then((result) => {
-        if (result === confirmVerb) {
-            operation();
-        }
-    });
+async function confirmOperation(prompt: (msg: string, ...opts: string[]) => Thenable<string>, message: string, confirmVerb: string, operation: () => void): Promise<void> {
+    const result = await prompt(message, confirmVerb);
+    if (result === confirmVerb) {
+        operation();
+    }
 }
 
 const applyKubernetes = () => {
