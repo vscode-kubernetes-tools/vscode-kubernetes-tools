@@ -74,7 +74,8 @@ If you are building and running the extension from source, see [CONTRIBUTING.md]
 
    * `Kubernetes: Load` - Load a resource from the Kubernetes API and create a new editor window.
    * `Kubernetes: Get` - Get the status for a specific resource.
-   * `Kubernetes: Logs` - Get logs for a pod in an output window.
+   * `Kubernetes: Follow Logs` - Get logs for a pod in an output window.
+   * `Kubernetes: Show Logs` - Follow logs for a pod in an output window.
 
 ### Commands while viewing a Kubernetes file
 
