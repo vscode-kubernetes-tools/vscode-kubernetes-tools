@@ -128,7 +128,7 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
         registerCommand('extension.vsKubernetesGet', getKubernetes),
         registerCommand('extension.vsKubernetesRun', runKubernetes),
         registerCommand('extension.vsKubernetesShowLogs', logsKubernetes),
-        registerCommand('extension.vsKubernetesFollowLogs', (obj) => {logsKubernetes(obj, true);}),
+        registerCommand('extension.vsKubernetesFollowLogs', (explorerNode: explorer.ResourceNode) => {logsKubernetes(explorerNode, true);}),
         registerCommand('extension.vsKubernetesExpose', exposeKubernetes),
         registerCommand('extension.vsKubernetesDescribe', describeKubernetes),
         registerCommand('extension.vsKubernetesSync', syncKubernetes),
@@ -1057,7 +1057,7 @@ async function logsKubernetes(explorerNode?: explorer.ResourceNode, follow?: boo
             getLogsForContainer(podSummary.name, podSummary.namespace, container.name, follow);
         }
     } else {
-        findPod((obj) => {getLogsForPod(obj, follow);});
+        findPod((pod: PodSummary) => {getLogsForPod(pod, follow);});
     }
 }
 
