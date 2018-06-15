@@ -1080,7 +1080,7 @@ function getLogsForContainer(podName: string, podNamespace: string | undefined, 
     if (containerName) {
         cmd += ' --container=' + containerName;
     }
-    if (follow){
+    if (follow) {
         cmd += ' -f';
     }
     kubectl.invokeInSharedTerminal(cmd);
