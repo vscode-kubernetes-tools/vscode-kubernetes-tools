@@ -126,7 +126,6 @@ class KubernetesWorkloadFolder extends KubernetesFolder {
     constructor() {
         super("workload", "Workloads");
     }
-
     getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<KubernetesObject[]> {
         return [
             new KubernetesDeploymentFolder(),
@@ -161,6 +160,10 @@ class KubernetesResourceFolder extends KubernetesFolder {
             return [new DummyObject("Error")];
         }
         return childrenLines.result.map((line) => {
+            if (this.kind.abbreviation==="pod"){
+            const bits = line.replace(/\s+/g,'|').split('|');
+            return new KubernetesResource(this.kind, bits[0], {status: bits[2].toLowerCase()});
+            }
             const bits = line.split(' ');
             return new KubernetesResource(this.kind, bits[0]);
         });
@@ -172,6 +175,7 @@ class KubernetesResource implements KubernetesObject, ResourceNode {
 
     constructor(readonly kind: kuberesources.ResourceKind, readonly id: string, readonly metadata?: any) {
         this.resourceId = kind.abbreviation + '/' + id;
+        this.metadata = metadata;
     }
 
     getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<KubernetesObject[]> {
@@ -191,6 +195,14 @@ class KubernetesResource implements KubernetesObject, ResourceNode {
             this.kind == kuberesources.allKinds.configMap) {
             treeItem.contextValue = `vsKubernetes.resource.${this.kind.abbreviation}`;
         }
+        if (this.kind === kuberesources.allKinds.pod){
+            if(this.metadata.status==="running"){
+            treeItem.iconPath = vscode.Uri.file(path.join(__dirname, "../../images/dark/runningPod.svg"));
+        }
+        else{
+            treeItem.iconPath = vscode.Uri.file(path.join(__dirname, "../../images/dark/errorPod.svg"));
+        }
+    }
         return treeItem;
     }
 }
