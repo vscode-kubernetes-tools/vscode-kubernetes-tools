@@ -195,7 +195,7 @@ class KubernetesResource implements KubernetesObject, ResourceNode {
             this.kind == kuberesources.allKinds.configMap) {
 			treeItem.contextValue = `vsKubernetes.resource.${this.kind.abbreviation}`;
             if (this.kind === kuberesources.allKinds.pod && this.metadata.status != null) {
-				if (this.metadata.status === "running") {
+                if (this.metadata.status === "running" || this.metadata.status === "completed") {
 					treeItem.iconPath = vscode.Uri.file(path.join(__dirname, "../../images/dark/runningPod.svg"));
 				} else {
 					treeItem.iconPath = vscode.Uri.file(path.join(__dirname, "../../images/dark/errorPod.svg"));
