@@ -8,6 +8,7 @@ import * as fs from "fs";
 import * as extension from './extension';
 import * as helm from './helm';
 import { showWorkspaceFolderPick } from './hostutils';
+import { shell as sh, ShellResult } from './shell';
 
 export interface PickChartUIOptions {
     readonly warnIfNoCharts: boolean;
@@ -258,6 +259,17 @@ export function helmExec(args: string, fn) {
     const bin = configuredBin ? `"${configuredBin}"` : "helm";
     const cmd = `${bin} ${args}`;
     shell.exec(cmd, fn);
+}
+
+export async function helmExecAsync(args: string): Promise<ShellResult> {
+    // TODO: deduplicate with helmExec
+    if (!ensureHelm(EnsureMode.Alert)) {
+        return { code: -1, stdout: "", stderr: "" };
+    }
+    const configuredBin: string | undefined = vscode.workspace.getConfiguration('vs-kubernetes')['vs-kubernetes.helm-path'];
+    const bin = configuredBin ? `"${configuredBin}"` : "helm";
+    const cmd = bin + " " + args;
+    return await sh.exec(cmd);
 }
 
 export function ensureHelm(mode: EnsureMode) {

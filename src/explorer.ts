@@ -6,6 +6,7 @@ import * as kubectlUtils from './kubectlUtils';
 import { Host } from './host';
 import * as kuberesources from './kuberesources';
 import { failed } from './errorable';
+import * as helmexec from './helm.exec';
 
 export function create(kubectl: Kubectl, host: Host): KubernetesExplorer {
     return new KubernetesExplorer(kubectl, host);
@@ -107,7 +108,8 @@ class KubernetesContext implements KubernetesObject {
             new KubernetesWorkloadFolder(),
             new KubernetesServiceFolder(),
             new KubernetesResourceFolder(kuberesources.allKinds.ingress),
-            new KubernetesConfigFolder()
+            new KubernetesConfigFolder(),
+            new HelmReleasesFolder(),
         ];
     }
 
@@ -386,5 +388,43 @@ export class KubernetesFileObject implements KubernetesObject {
 
     getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<KubernetesObject[]> {
         return [];
+    }
+}
+
+class HelmReleaseNode implements KubernetesObject {
+    readonly id: string;
+
+    constructor(readonly name: string) {
+        this.id = "helmrelease:" + name;
+    }
+
+    getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<KubernetesObject[]> {
+        return [];
+    }
+    getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
+        return new vscode.TreeItem(this.name, vscode.TreeItemCollapsibleState.None);
+    }
+}
+
+class HelmReleasesFolder extends KubernetesResourceFolder {
+    constructor() {
+        // TODO: this is not a true Kubernetes resource kind - need to refactor
+        super(new kuberesources.ResourceKind("Helm Release", "Helm Releases", "helmrelease"));
+    }
+
+    async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
+        if (!helmexec.ensureHelm(helmexec.EnsureMode.Silent)) {
+            return [new DummyObject("Helm client is not installed")];
+        }
+        const sr = await helmexec.helmExecAsync("list"); // TODO: --all?
+        if (sr.code !== 0) {
+            return [new DummyObject("Helm list error")];
+        }
+
+        const lines = sr.stdout.split('\n').map((s) => s.trim());
+        const releaseLines = lines.slice(1).filter((l) => l.length > 0);
+        const names = releaseLines.map((l) => l.split(' ')).map((a) => a[0]);
+        const nodes = names.map((n) => new HelmReleaseNode(n));
+        return nodes;
     }
 }
