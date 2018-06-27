@@ -393,6 +393,14 @@
                     "when": "view == extension.vsKubernetesExplorer"
                 },
                 {
+                    "command": "extension.vsKubernetesAddFile",
+                    "when": "view == extension.vsKubernetesExplorer"
+                },
+                {
+                    "command": "extension.vsKubernetesDeleteFile",
+                    "when": "view == extension.vsKubernetesExplorer"
+                },
+                {
                     "command": "extension.helmInspectValues",
                     "when": "filesExplorerFocus"
                 }
