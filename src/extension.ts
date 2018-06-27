@@ -169,6 +169,7 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
         registerCommand('extension.helmDepUp', helmexec.helmDepUp),
         registerCommand('extension.helmInsertReq', helmexec.insertRequirement),
         registerCommand('extension.helmCreate', helmexec.helmCreate),
+        registerCommand('extension.helmGet', helmexec.helmGet),
 
         // Commands - Draft
         registerCommand('extension.draftVersion', execDraftVersion),

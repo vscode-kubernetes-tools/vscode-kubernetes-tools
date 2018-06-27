@@ -6,6 +6,7 @@ import * as YAML from 'yamljs';
 import * as _ from 'lodash';
 import * as fs from "fs";
 import * as extension from './extension';
+import * as explorer from './explorer';
 import * as helm from './helm';
 import { showWorkspaceFolderPick } from './hostutils';
 import { shell as sh, ShellResult } from './shell';
@@ -140,6 +141,20 @@ export function helmDryRun() {
                 logger.log("⎈⎈⎈ INSTALL FAILED");
             }
         });
+    });
+}
+
+export function helmGet(resourceNode: explorer.ResourceNode) {
+    if (!resourceNode) {
+        return;
+    }
+    const releaseName = resourceNode.id.split(':')[1];
+    helmExec(`get ${releaseName}`, (code, stdout, stderr) => {
+        if (code !== 0) {
+            vscode.window.showErrorMessage(`Helm get failed: ${stderr}`);
+            return;
+        }
+        console.log(stdout);
     });
 }
 

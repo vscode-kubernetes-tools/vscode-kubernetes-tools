@@ -391,7 +391,7 @@ export class KubernetesFileObject implements KubernetesObject {
     }
 }
 
-class HelmReleaseNode implements KubernetesObject {
+class HelmReleaseResource implements KubernetesObject {
     readonly id: string;
 
     constructor(readonly name: string) {
@@ -401,8 +401,16 @@ class HelmReleaseNode implements KubernetesObject {
     getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<KubernetesObject[]> {
         return [];
     }
+
     getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
-        return new vscode.TreeItem(this.name, vscode.TreeItemCollapsibleState.None);
+        let treeItem = new vscode.TreeItem(this.name, vscode.TreeItemCollapsibleState.None);
+        treeItem.command = {
+            command: "extension.helmGet",
+            title: "Get",
+            arguments: [this]
+        };
+        treeItem.contextValue = "vsKubernetes.helmRelease";
+        return treeItem;
     }
 }
 
@@ -423,8 +431,8 @@ class HelmReleasesFolder extends KubernetesResourceFolder {
 
         const lines = sr.stdout.split('\n').map((s) => s.trim());
         const releaseLines = lines.slice(1).filter((l) => l.length > 0);
-        const names = releaseLines.map((l) => l.split(' ')).map((a) => a[0]);
-        const nodes = names.map((n) => new HelmReleaseNode(n));
+        const names = releaseLines.map((l) => l.split('\t')).map((a) => a[0].trim());
+        const nodes = names.map((n) => new HelmReleaseResource(n));
         return nodes;
     }
 }
