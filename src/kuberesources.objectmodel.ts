@@ -9,7 +9,7 @@ export interface KubernetesCollection<T extends KubernetesResource> {
 
 export interface ObjectMeta {
     readonly name: string;
-    readonly namespace: string;
+    readonly namespace?: string;
     readonly labels?: KeyValuePairs;
 }
 
@@ -42,7 +42,7 @@ export interface PodSpec {
 }
 
 function isObjectMeta(obj: any): obj is ObjectMeta {
-    return obj && obj.name && obj.namespace;
+    return obj && obj.name;
 }
 
 export function isKubernetesResource(obj: any): obj is KubernetesResource {
