@@ -49,6 +49,9 @@ function removeKey(dictionary: any, keyToDelete: string) {
 }
 
 export async function deleteKubernetesConfigFile(kubectl: Kubectl, obj: KubernetesFileObject, explorer: KubernetesExplorer) {
+    if (!obj) {
+        return;
+    }
     const result = await vscode.window.showWarningMessage(`Are you sure you want to delete ${obj.id}? This can not be undone`, ...deleteMessageItems);
     if (result.title !== deleteMessageItems[0].title) {
         return;
@@ -71,6 +74,9 @@ export async function deleteKubernetesConfigFile(kubectl: Kubectl, obj: Kubernet
 }
 
 export async function addKubernetesConfigFile(kubectl: Kubectl, obj: KubernetesDataHolderResource, explorer: KubernetesExplorer) {
+    if (!obj) {
+        return;
+    }
     const fileUris = await vscode.window.showOpenDialog({
         canSelectFolders: false,
         openLabel: "Add file(s)"
