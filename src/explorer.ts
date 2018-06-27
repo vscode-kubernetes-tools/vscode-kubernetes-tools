@@ -20,6 +20,14 @@ export function createKubernetesResource(kind: kuberesources.ResourceKind, id: s
     return new KubernetesResource(kind, id, metadata);
 }
 
+function getIconForPodStatus(status: string): vscode.Uri {
+    if (status === "running" || status === "completed") {
+        return vscode.Uri.file(path.join(__dirname, "../../images/runningPod.svg"));
+    } else {
+        return vscode.Uri.file(path.join(__dirname, "../../images/errorPod.svg"));
+    }
+}
+
 export interface KubernetesObject {
     readonly id: string;
     readonly metadata?: any;
@@ -160,9 +168,9 @@ class KubernetesResourceFolder extends KubernetesFolder {
             return [new DummyObject("Error")];
         }
         return childrenLines.result.map((line) => {
-            if (this.kind.abbreviation==="pod"){
-            const bits = line.replace(/\s+/g,'|').split('|');
-            return new KubernetesResource(this.kind, bits[0], {status: bits[2].toLowerCase()});
+            if (this.kind.abbreviation === "pod") {
+                const bits = line.replace(/\s+/g, '|').split('|');
+                return new KubernetesResource(this.kind, bits[0], { status: bits[2].toLowerCase() });
             }
             const bits = line.split(' ');
             return new KubernetesResource(this.kind, bits[0]);
@@ -175,7 +183,6 @@ class KubernetesResource implements KubernetesObject, ResourceNode {
 
     constructor(readonly kind: kuberesources.ResourceKind, readonly id: string, readonly metadata?: any) {
         this.resourceId = kind.abbreviation + '/' + id;
-        this.metadata = metadata;
     }
 
     getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<KubernetesObject[]> {
@@ -193,14 +200,10 @@ class KubernetesResource implements KubernetesObject, ResourceNode {
         if (this.kind === kuberesources.allKinds.pod ||
             this.kind == kuberesources.allKinds.secret ||
             this.kind == kuberesources.allKinds.configMap) {
-			treeItem.contextValue = `vsKubernetes.resource.${this.kind.abbreviation}`;
+            treeItem.contextValue = `vsKubernetes.resource.${this.kind.abbreviation}`;
             if (this.kind === kuberesources.allKinds.pod && this.metadata.status != null) {
-                if (this.metadata.status === "running" || this.metadata.status === "completed") {
-					treeItem.iconPath = vscode.Uri.file(path.join(__dirname, "../../images/runningPod.svg"));
-				} else {
-					treeItem.iconPath = vscode.Uri.file(path.join(__dirname, "../../images/errorPod.svg"));
-				}
-			}
+                treeItem.iconPath = getIconForPodStatus(this.metadata.status);
+            }
         }
         return treeItem;
     }
