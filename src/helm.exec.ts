@@ -10,6 +10,7 @@ import * as explorer from './explorer';
 import * as helm from './helm';
 import { showWorkspaceFolderPick } from './hostutils';
 import { shell as sh, ShellResult } from './shell';
+import { K8S_RESOURCE_SCHEME } from './kuberesources.virtualfs';
 
 export interface PickChartUIOptions {
     readonly warnIfNoCharts: boolean;
@@ -149,12 +150,13 @@ export function helmGet(resourceNode: explorer.ResourceNode) {
         return;
     }
     const releaseName = resourceNode.id.split(':')[1];
-    helmExec(`get ${releaseName}`, (code, stdout, stderr) => {
-        if (code !== 0) {
-            vscode.window.showErrorMessage(`Helm get failed: ${stderr}`);
-            return;
+    const docname = `helmrelease-${releaseName}.txt`;
+    const nonce = new Date().getTime();
+    const uri = `${K8S_RESOURCE_SCHEME}://helmget/${docname}?value=${releaseName}&_=${nonce}`;
+    vscode.workspace.openTextDocument(vscode.Uri.parse(uri)).then((doc) => {
+        if (doc) {
+            vscode.window.showTextDocument(doc);
         }
-        console.log(stdout);
     });
 }
 

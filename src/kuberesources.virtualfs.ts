@@ -5,6 +5,8 @@ import * as querystring from 'querystring';
 
 import { Kubectl } from './kubectl';
 import { Host } from './host';
+import { ShellResult } from './shell';
+import { helmExecAsync } from './helm.exec';
 
 export const K8S_RESOURCE_SCHEME = "k8smsx";
 
@@ -54,8 +56,9 @@ export class KubernetesResourceVirtualFileSystemProvider implements FileSystemPr
         const outputFormat = workspace.getConfiguration('vs-kubernetes')['vs-kubernetes.outputFormat'];
         const value = query.value;
         const ns = query.ns;
-        const nsarg = ns ? `--namespace ${ns}` : '';
-        const sr = await this.kubectl.invokeAsyncWithProgress(`-o ${outputFormat} ${nsarg} get ${value}`, `Loading ${value}...`);
+        const loadMode = uri.authority;
+
+        const sr = await this.execLoadResource(loadMode, ns, value, outputFormat);
 
         if (sr.code !== 0) {
             this.host.showErrorMessage('Get command failed: ' + sr.stderr);
@@ -63,6 +66,15 @@ export class KubernetesResourceVirtualFileSystemProvider implements FileSystemPr
         }
 
         return sr.stdout;
+    }
+
+    async execLoadResource(loadMode: string, ns: string | undefined, value: string, outputFormat: string): Promise<ShellResult> {
+        if (loadMode === 'helmget') {
+            return await helmExecAsync(`get ${value}`);
+        } else {
+            const nsarg = ns ? `--namespace ${ns}` : '';
+            return await this.kubectl.invokeAsyncWithProgress(`-o ${outputFormat} ${nsarg} get ${value}`, `Loading ${value}...`);
+        }
     }
 
     writeFile(uri: Uri, content: Uint8Array, options: { create: boolean, overwrite: boolean }): void | Thenable<void> {
