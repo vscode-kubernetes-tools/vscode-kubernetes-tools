@@ -25,7 +25,7 @@ interface PodFromDocument {
     readonly succeeded: true;
     readonly pod: string;
     readonly fromOpenDocument: true;
-    readonly namespace: string;
+    readonly namespace?: string;
 }
 
 type PortForwardFindPodsResult = PodFromDocument | FindPodsResult;

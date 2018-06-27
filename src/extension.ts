@@ -838,7 +838,7 @@ export function tryFindKindNameFromEditor(): ResourceKindName {
 }
 
 interface ResourceKindName {
-    readonly namespace: string;
+    readonly namespace?: string;
     readonly kind: string;
     readonly resourceName: string;
 }
@@ -1013,7 +1013,7 @@ enum PodSelectionScope {
     All,
 }
 
-async function selectPod(scope: PodSelectionScope, fallback: PodSelectionFallback): Promise<any | null> {
+async function selectPod(scope: PodSelectionScope, fallback: PodSelectionFallback): Promise<Pod | null> {
     const findPodsResult = scope === PodSelectionScope.App ? await findPodsForApp() : await findAllPods();
 
     if (!findPodsResult.succeeded) {
@@ -1035,7 +1035,7 @@ async function selectPod(scope: PodSelectionScope, fallback: PodSelectionFallbac
     }
 
     const pickItems = podList.map((element) => { return {
-        label: `${element.metadata.namespace}/${element.metadata.name}`,
+        label: `${element.metadata.namespace || "default"}/${element.metadata.name}`,
         description: '',
         pod: element
     };});
@@ -1131,6 +1131,14 @@ interface PodSummary {
     };
 }
 
+function summary(pod: Pod): PodSummary {
+    return {
+        name: pod.metadata.name,
+        namespace: pod.metadata.namespace,
+        spec: pod.spec
+    };
+}
+
 async function selectContainerForPod(pod: PodSummary): Promise<Container | null> {
     if (!pod) {
         return null;
@@ -1199,7 +1207,7 @@ async function execKubernetesCore(isTerminal): Promise<void> {
         return;
     }
 
-    const container = await selectContainerForPod(pod.metadata);
+    const container = await selectContainerForPod(summary(pod));
 
     if (!container) {
         return;
@@ -1245,7 +1253,7 @@ async function syncKubernetes(): Promise<void> {
         return;
     }
 
-    const container = await selectContainerForPod(pod);
+    const container = await selectContainerForPod(summary(pod));
     if (!container) {
         return;
     }
