@@ -230,7 +230,9 @@ export function pickChartForFile(file: string, options: PickChartUIOptions, fn) 
                 });
 
                 if (paths.length == 0) {
-                    vscode.window.showErrorMessage("Chart not found for " + file);
+                    if (options.warnIfNoCharts) {
+                        vscode.window.showErrorMessage("Chart not found for " + file);
+                    }
                     return;
                 }
 
