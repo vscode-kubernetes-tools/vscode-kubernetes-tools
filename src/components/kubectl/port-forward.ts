@@ -183,18 +183,18 @@ async function findPortForwardablePods (): Promise<PortForwardFindPodsResult> {
     let kindFromEditor = tryFindKindNameFromEditor();
 
     // Find the pod type from the open editor.
-    if (kindFromEditor !== null) {
+    if (succeeded(kindFromEditor)) {
 
         // Not a pod type, so not port-forwardable, fallback to looking
         // up all pods.
-        if (kindFromEditor.kind !== 'pods' && kindFromEditor.kind !== 'pod') {
+        if (kindFromEditor.result.kind !== 'pods' && kindFromEditor.result.kind !== 'pod') {
             return await findAllPods();
         }
 
         return {
             succeeded: true,
-            pod: kindFromEditor.resourceName,
-            namespace: kindFromEditor.namespace,
+            pod: kindFromEditor.result.resourceName,
+            namespace: kindFromEditor.result.namespace,
             fromOpenDocument: true
         };
     }
