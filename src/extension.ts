@@ -60,7 +60,7 @@ import { KubernetesCompletionProvider } from "./yaml-support/yaml-snippet";
 import { showWorkspaceFolderPick } from './hostutils';
 import { DraftConfigurationProvider } from './draft/draftConfigurationProvider';
 import { installHelm, installDraft, installKubectl } from './components/installer/installer';
-import { KubernetesResourceVirtualFileSystemProvider, K8S_RESOURCE_SCHEME } from './kuberesources.virtualfs';
+import { KubernetesResourceVirtualFileSystemProvider, K8S_RESOURCE_SCHEME, KUBECTL_RESOURCE_AUTHORITY } from './kuberesources.virtualfs';
 import { Container, isPod, isKubernetesResource, KubernetesCollection, Pod, KubernetesResource } from './kuberesources.objectmodel';
 
 let explainActive = false;
@@ -644,7 +644,7 @@ function loadKubernetesCore(namespace: string | null, value: string) {
     const docname = `${value.replace('/', '-')}.${outputFormat}`;
     const nonce = new Date().getTime();
     const nsquery = namespace ? `ns=${namespace}&` : '';
-    const uri = `${K8S_RESOURCE_SCHEME}://loadkubernetescore/${docname}?${nsquery}value=${value}&_=${nonce}`;
+    const uri = `${K8S_RESOURCE_SCHEME}://${KUBECTL_RESOURCE_AUTHORITY}/${docname}?${nsquery}value=${value}&_=${nonce}`;
     vscode.workspace.openTextDocument(vscode.Uri.parse(uri)).then((doc) => {
         if (doc) {
             vscode.window.showTextDocument(doc);
