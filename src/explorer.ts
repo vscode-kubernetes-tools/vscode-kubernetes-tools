@@ -424,14 +424,15 @@ class HelmReleasesFolder extends KubernetesResourceFolder {
         if (!helmexec.ensureHelm(helmexec.EnsureMode.Silent)) {
             return [new DummyObject("Helm client is not installed")];
         }
-        const sr = await helmexec.helmExecAsync("list"); // TODO: --all?
+        const sr = await helmexec.helmExecAsync("list --short --max 0");
         if (sr.code !== 0) {
             return [new DummyObject("Helm list error")];
         }
 
-        const lines = sr.stdout.split('\n').map((s) => s.trim());
-        const releaseLines = lines.slice(1).filter((l) => l.length > 0);
-        const names = releaseLines.map((l) => l.split('\t')).map((a) => a[0].trim());
+        const names = sr.stdout
+                        .split('\n')
+                        .map((s) => s.trim())
+                        .filter((l) => l.length > 0);
         const nodes = names.map((n) => new HelmReleaseResource(n));
         return nodes;
     }
