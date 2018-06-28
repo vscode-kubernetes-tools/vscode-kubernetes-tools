@@ -1,20 +1,28 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import { shell } from '../../../shell';
+import { shell, ShellResult } from '../../../shell';
 
-export async function startKubernetes() {
-    shell.exec('minikube start').then(() => {
-        vscode.window.showInformationMessage('Cluster started.');
+export async function startMinikube() {
+    shell.exec('minikube start').then((result: ShellResult) => {
+        if (result.code === 0) {
+            vscode.window.showInformationMessage('Cluster started.');
+        } else {
+            vscode.window.showErrorMessage(`Failed to start cluster ${result.stderr}`);
+        }
     }).catch((err) => {
         vscode.window.showErrorMessage(`Failed to start cluster: ${err}`);
     });
 }
 
-export async function stopKubernetes() {
-    shell.exec('minikube stop').then(() => {
-        vscode.window.showInformationMessage('Cluster stopped.');
+export async function stopMinikube() {
+    shell.exec('minikube stop').then((result: ShellResult) => {
+        if (result.code === 0) {
+            vscode.window.showInformationMessage('Cluster stopped.');
+        } else {
+            vscode.window.showErrorMessage(`Error stopping cluster ${result.stderr}`);
+        }
     }).catch((err) => {
-        vscode.window.showErrorMessage(`Failed to stop cluster: ${err}`);
+        vscode.window.showErrorMessage(`Error stopping cluster: ${err}`);
     });
 }

@@ -1,5 +1,6 @@
 import * as restify from 'restify';
 import * as portfinder from 'portfinder';
+import * as vscode from 'vscode';
 import * as clusterproviderregistry from '../clusterproviderregistry';
 import { styles, formStyles, waitScript, ActionResult, Diagnostic, fromShellExitCodeOnly } from '../../../wizard';
 import { propagationFields, formPage } from '../common/form';
@@ -9,7 +10,6 @@ import { Shell } from '../../../shell';
 
 export interface Context {
     readonly shell: Shell;
-    createExec: Promise<any>;
 }
 
 type HtmlRequestHandler = (
@@ -108,7 +108,7 @@ async function promptForConfiguration(previousData: any, context: Context, actio
         waitText: 'Configuring Minikube',
         action: action,
         nextStep: nextStep,
-        submitText: 'Create',
+        submitText: 'Start Minikube',
         previousData: previousData,
         formContent: `
         <p>No configuration options (yet)</p>
@@ -117,9 +117,8 @@ async function promptForConfiguration(previousData: any, context: Context, actio
 }
 
 async function configureKubernetes(previousData: any): Promise<string> {
-    const selectedCluster = previousData.cluster;
     await refreshExplorer();
-    return renderConfigurationResult(); // TODO
+    return renderConfigurationResult();
 }
 
 async function runMinikubeCommand(context: Context, cmd: string): Promise<ActionResult<Diagnostic>> {
@@ -135,11 +134,15 @@ async function runMinikubeCommand(context: Context, cmd: string): Promise<Action
 async function createCluster(previousData: any, context: Context): Promise<string> {
     const createResult = await runMinikubeCommand(context, 'minikube help');
 
-    context.createExec = context.shell.exec('minikube start');
+    context.shell.exec('minikube start').then((sr) => {
+        if (sr.code === 0) {
+            vscode.window.showInformationMessage('Minikube cluster created.');
+        } else {
+            vscode.window.showErrorMessage(`Minikube cluster creation failed ${sr.stderr}`);
+        }
+    });
 
     const title = createResult.result.succeeded ? 'Cluster creation has started' : `Error ${createResult.actionDescription}`;
-    const additionalDiagnostic = diagnoseCreationError(createResult.result);
-    const successCliErrorInfo = diagnoseCreationSuccess(createResult.result);
     const message = succeeded(createResult.result) ?
         `<div id='content'>
          ${formStyles()}
@@ -151,10 +154,8 @@ async function createCluster(previousData: any, context: Context): Promise<strin
          or wait for creation to complete so that we can add the new cluster to your Kubernetes configuration.</p>
          <p><button type='submit' class='link-button'>Wait and add the new cluster &gt;</button></p>
          </form>
-         ${successCliErrorInfo}
          </div>` :
         `<p class='error'>An error occurred while creating the cluster. Is 'minikube' installed and in your PATH?</p>
-         ${additionalDiagnostic}
          <p><b>Details</b></p>
          <p>${createResult.result.error[0]}</p>`;
     return `<!-- Complete -->
@@ -190,28 +191,9 @@ async function waitForClusterAndReportConfigResult(context: Context, previousDat
 
 function renderConfigurationResult(): string {
     const title = 'Cluster added';
-    const getCliOutput = '';
-    const getCredsOutput = '';
     return `<!-- Complete -->
             <h1>${title}</h1>
-            ${styles()}
-            ${getCliOutput}
-            ${getCredsOutput}`;
-}
-
-// Error rendering helpers
-function diagnoseCreationError(e: Errorable<Diagnostic>): string {
-    if (succeeded(e)) {
-        return '';
-    }
-    return '';
-}
-
-function diagnoseCreationSuccess(e: Errorable<Diagnostic>): string {
-    if (failed(e) || !e.result || !e.result.value) {
-        return '';
-    }
-    return '';
+            ${styles()}`;
 }
 
 function renderInternalError(error: string): string {

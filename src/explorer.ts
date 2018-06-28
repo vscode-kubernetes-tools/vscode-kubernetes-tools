@@ -72,7 +72,7 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObj
         const contexts = await kubectlUtils.getContexts(this.kubectl);
         return contexts.map((context): KubernetesContext => {
             // TODO: this is slightly hacky...
-            if (context.name == 'minikube') {
+            if (context.contextName == 'minikube') {
                 return new MinikubeContext(context.contextName, context);
             }
             return new KubernetesContext(context.contextName, context);
