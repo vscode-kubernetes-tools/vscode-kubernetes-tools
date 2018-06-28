@@ -203,7 +203,7 @@ class KubernetesNodeFolder extends KubernetesResourceFolder {
 
     async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
         const nodes = await kubectlUtils.getGlobalResources(kubectl, 'nodes');
-        return nodes.map((node) => new KubernetesNodeResource(node.name, node));
+        return nodes.map((node) => new KubernetesNodeResource(node.metadata.name, node));
     }
 }
 
@@ -220,12 +220,7 @@ class KubernetesNodeResource extends KubernetesResource {
 
     async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
         const pods = await kubectlUtils.getPods(kubectl, null, 'all');
-        const filteredPods = [];
-        pods.map((p) => {
-            if ('node/' + p.nodeName === this.resourceId) {
-                filteredPods.push(p);
-            }
-        });
+        const filteredPods = pods.filter((p) => `node/${p.nodeName}` === this.resourceId);
         return filteredPods.map((p) => new KubernetesResource(kuberesources.allKinds.pod, p.name, p));
     }
 }

@@ -115,15 +115,16 @@ export async function getDataHolders(resource: string, kubectl: Kubectl): Promis
     return depList.result.items;
 }
 
-export async function getGlobalResources(kubectl: Kubectl, resource: string): Promise<KubernetesObject[]> {
-    const rsrcs = await kubectl.asJson<KubernetesCollection<Namespace>>(`get ${resource} -o json`);
+export async function getGlobalResources(kubectl: Kubectl, resource: string): Promise<KubernetesResource[]> {
+    const rsrcs = await kubectl.asJson<KubernetesCollection<KubernetesResource>>(`get ${resource} -o json`);
     if (failed(rsrcs)) {
         vscode.window.showErrorMessage(rsrcs.error[0]);
         return [];
     }
     return rsrcs.result.items.map((item) => {
         return {
-            name: item.metadata.name,
+            metadata: item.metadata,
+            kind: resource
         };
     });
 }
@@ -168,13 +169,10 @@ export async function getPodSelector(resource: string, kubectl: Kubectl): Promis
 }
 
 export async function getPods(kubectl: Kubectl, selector: any, namespace: string = null): Promise<PodInfo[]> {
-    let ns = namespace;
-    if (!ns) {
-        ns = await currentNamespace(kubectl);
-    }
-    let nsFlag = `--namespace=${ns}`
+    let ns = namespace || await currentNamespace(kubectl);
+    let nsFlag = `--namespace=${ns}`;
     if (ns === 'all') {
-        nsFlag = '--all-namespaces'
+        nsFlag = '--all-namespaces';
     }
     const labels = [];
     let matchLabelObj = selector;
