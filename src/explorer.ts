@@ -134,6 +134,7 @@ class KubernetesWorkloadFolder extends KubernetesFolder {
     constructor() {
         super("workload", "Workloads");
     }
+
     getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<KubernetesObject[]> {
         return [
             new KubernetesDeploymentFolder(),
@@ -201,7 +202,7 @@ class KubernetesResource implements KubernetesObject, ResourceNode {
             this.kind == kuberesources.allKinds.secret ||
             this.kind == kuberesources.allKinds.configMap) {
             treeItem.contextValue = `vsKubernetes.resource.${this.kind.abbreviation}`;
-            if (this.kind === kuberesources.allKinds.pod && this.metadata.status != null) {
+            if (this.kind === kuberesources.allKinds.pod && this.metadata.status !== null) {
                 treeItem.iconPath = getIconForPodStatus(this.metadata.status);
             }
         }
