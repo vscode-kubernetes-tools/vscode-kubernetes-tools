@@ -1700,7 +1700,8 @@ async function createClusterKubernetes() {
 }
 
 async function useContextKubernetes(explorerNode: explorer.KubernetesObject) {
-    const targetContext = explorerNode.metadata.context;
+    const contextObj = explorerNode.metadata as kubectlUtils.KubectlContext;
+    const targetContext = contextObj.contextName;
     const shellResult = await kubectl.invokeAsync(`config use-context ${targetContext}`);
     if (shellResult.code === 0) {
         refreshExplorer();
@@ -1710,7 +1711,8 @@ async function useContextKubernetes(explorerNode: explorer.KubernetesObject) {
 }
 
 async function clusterInfoKubernetes(explorerNode: explorer.KubernetesObject) {
-    const targetContext = explorerNode.metadata.context;
+    const contextObj = explorerNode.metadata as kubectlUtils.KubectlContext;
+    const targetContext = contextObj.contextName;
     kubectl.invokeInSharedTerminal("cluster-info");
 }
 
