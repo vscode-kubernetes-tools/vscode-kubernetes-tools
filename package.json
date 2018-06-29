@@ -128,7 +128,7 @@
             "kubernetesView": [
                 {
                     "id": "extension.vsKubernetesExplorer",
-                    "name": "Kubernetes"
+                    "name": "Clusters"
                 }
             ]
         },

@@ -69,8 +69,8 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObj
     }
 
     private async getClusters(): Promise<KubernetesObject[]> {
-        const clusters = await kubectlUtils.getClusters(this.kubectl);
-        return clusters.map((cluster) => new KubernetesCluster(cluster.name, cluster));
+        const contexts = await kubectlUtils.getContexts(this.kubectl);
+        return contexts.map((context) => new KubernetesContext(context.contextName, context));
     }
 }
 
@@ -91,8 +91,8 @@ class DummyObject implements KubernetesObject {
     }
 }
 
-class KubernetesCluster implements KubernetesObject {
-    constructor(readonly id: string, readonly metadata?: any) {
+class KubernetesContext implements KubernetesObject {
+    constructor(readonly id: string, readonly metadata?: kubectlUtils.KubectlContext) {
     }
 
     getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<KubernetesObject[]> {
@@ -114,6 +114,7 @@ class KubernetesCluster implements KubernetesObject {
             treeItem.collapsibleState = vscode.TreeItemCollapsibleState.None;
             treeItem.contextValue += ".inactive";
         }
+        treeItem.tooltip = `${this.metadata.contextName}\nCluster: ${this.metadata.clusterName}`;
         return treeItem;
     }
 }

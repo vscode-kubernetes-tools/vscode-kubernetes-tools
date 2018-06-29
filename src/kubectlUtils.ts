@@ -5,10 +5,10 @@ import { sleep } from "./sleep";
 import { ObjectMeta, KubernetesCollection, DataResource, Namespace, Pod, KubernetesResource } from './kuberesources.objectmodel';
 import { failed } from "./errorable";
 
-export interface Cluster {
-    readonly name: string;
-    readonly context: string;
-    readonly user: string;
+export interface KubectlContext {
+    readonly clusterName: string;
+    readonly contextName: string;
+    readonly userName: string;
     readonly active: boolean;
 }
 
@@ -61,7 +61,7 @@ export async function getCurrentClusterConfig(kubectl: Kubectl): Promise<Cluster
     };
 }
 
-export async function getClusters(kubectl: Kubectl): Promise<Cluster[]> {
+export async function getContexts(kubectl: Kubectl): Promise<KubectlContext[]> {
     const kubectlConfig = await getKubeconfig(kubectl);
     if (!kubectlConfig) {
         return [];
@@ -70,37 +70,37 @@ export async function getClusters(kubectl: Kubectl): Promise<Cluster[]> {
     const contexts = kubectlConfig.contexts;
     return contexts.map((c) => {
         return {
-            name: c.context.cluster,
-            context: c.name,
-            user: c.context.user,
+            clusterName: c.context.cluster,
+            contextName: c.name,
+            userName: c.context.user,
             active: c.name === currentContext
         };
     });
 }
 
-export async function deleteCluster(kubectl: Kubectl, cluster: Cluster): Promise<boolean> {
-    const deleteClusterResult = await kubectl.invokeAsyncWithProgress(`config delete-cluster ${cluster.name}`, "Deleting cluster...");
+export async function deleteCluster(kubectl: Kubectl, cluster: KubectlContext): Promise<boolean> {
+    const deleteClusterResult = await kubectl.invokeAsyncWithProgress(`config delete-cluster ${cluster.clusterName}`, "Deleting cluster...");
     if (deleteClusterResult.code !== 0) {
-        kubeChannel.showOutput(`Failed to delete the specified cluster ${cluster.name} from the kubeconfig: ${deleteClusterResult.stderr}`, `Delete-${cluster.name}`);
-        vscode.window.showErrorMessage(`Delete ${cluster.name} failed. See Output window for more details.`);
+        kubeChannel.showOutput(`Failed to delete the specified cluster ${cluster.clusterName} from the kubeconfig: ${deleteClusterResult.stderr}`, `Delete ${cluster.contextName}`);
+        vscode.window.showErrorMessage(`Delete ${cluster.contextName} failed. See Output window for more details.`);
         return false;
     }
 
-    const deleteUserResult = await kubectl.invokeAsyncWithProgress(`config unset users.${cluster.user}`, "Deleting user...");
+    const deleteUserResult = await kubectl.invokeAsyncWithProgress(`config unset users.${cluster.userName}`, "Deleting user...");
     if (deleteUserResult.code !== 0) {
-        kubeChannel.showOutput(`Failed to delete user info for cluster ${cluster.name} from the kubeconfig: ${deleteUserResult.stderr}`);
-        vscode.window.showErrorMessage(`Delete ${cluster.name} Failed. See Output window for more details.`);
+        kubeChannel.showOutput(`Failed to delete user info for context ${cluster.contextName} from the kubeconfig: ${deleteUserResult.stderr}`);
+        vscode.window.showErrorMessage(`Delete ${cluster.contextName} Failed. See Output window for more details.`);
         return false;
     }
 
-    const deleteContextResult = await kubectl.invokeAsyncWithProgress(`config delete-context ${cluster.context}`, "Deleting context...");
+    const deleteContextResult = await kubectl.invokeAsyncWithProgress(`config delete-context ${cluster.contextName}`, "Deleting context...");
     if (deleteContextResult.code !== 0) {
-        kubeChannel.showOutput(`Failed to delete the specified cluster's context ${cluster.context} from the kubeconfig: ${deleteContextResult.stderr}`);
-        vscode.window.showErrorMessage(`Delete ${cluster.name} Failed. See Output window for more details.`);
+        kubeChannel.showOutput(`Failed to delete the specified cluster's context ${cluster.contextName} from the kubeconfig: ${deleteContextResult.stderr}`);
+        vscode.window.showErrorMessage(`Delete ${cluster.contextName} Failed. See Output window for more details.`);
         return false;
     }
 
-    vscode.window.showInformationMessage(`Deleted cluster '${cluster.name}' and associated data from the kubeconfig.`);
+    vscode.window.showInformationMessage(`Deleted context '${cluster.contextName}' and associated data from the kubeconfig.`);
     return true;
 }
 

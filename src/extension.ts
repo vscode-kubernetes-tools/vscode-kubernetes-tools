@@ -1700,7 +1700,11 @@ async function createClusterKubernetes() {
 }
 
 async function useContextKubernetes(explorerNode: explorer.KubernetesObject) {
-    const targetContext = explorerNode.metadata.context;
+    if (!explorerNode || !explorerNode.metadata) {
+        return;
+    }
+    const contextObj = explorerNode.metadata as kubectlUtils.KubectlContext;
+    const targetContext = contextObj.contextName;
     const shellResult = await kubectl.invokeAsync(`config use-context ${targetContext}`);
     if (shellResult.code === 0) {
         refreshExplorer();
@@ -1710,16 +1714,19 @@ async function useContextKubernetes(explorerNode: explorer.KubernetesObject) {
 }
 
 async function clusterInfoKubernetes(explorerNode: explorer.KubernetesObject) {
-    const targetContext = explorerNode.metadata.context;
     kubectl.invokeInSharedTerminal("cluster-info");
 }
 
 async function deleteContextKubernetes(explorerNode: explorer.KubernetesObject) {
-    const answer = await vscode.window.showWarningMessage(`Do you want to delete the cluster '${explorerNode.id}' from the kubeconfig?`, ...deleteMessageItems);
+    if (!explorerNode || !explorerNode.metadata) {
+        return;
+    }
+    const contextObj = explorerNode.metadata as kubectlUtils.KubectlContext;
+    const answer = await vscode.window.showWarningMessage(`Do you want to delete the cluster '${contextObj.contextName}' from the kubeconfig?`, ...deleteMessageItems);
     if (answer.isCloseAffordance) {
         return;
     }
-    if (await kubectlUtils.deleteCluster(kubectl, explorerNode.metadata)) {
+    if (await kubectlUtils.deleteCluster(kubectl, contextObj)) {
         refreshExplorer();
     }
 }
