@@ -12,18 +12,21 @@ export interface Cluster {
     readonly active: boolean;
 }
 
-export interface NamespaceInfo {
+export interface KubernetesObject {
     readonly name: string;
+}
+
+export interface NamespaceInfo extends KubernetesObject {
     readonly active: boolean;
 }
 
-export interface PodSelector {
-    readonly name: string;
+export interface PodSelector extends KubernetesObject {
     readonly selector: object;
 }
 
-export interface PodInfo {
-    readonly name: string;
+export interface PodInfo extends KubernetesObject {
+    readonly namespace: string;
+    readonly nodeName: string;
 }
 
 export interface ClusterConfig {
@@ -112,6 +115,20 @@ export async function getDataHolders(resource: string, kubectl: Kubectl): Promis
     return depList.result.items;
 }
 
+export async function getGlobalResources(kubectl: Kubectl, resource: string): Promise<KubernetesResource[]> {
+    const rsrcs = await kubectl.asJson<KubernetesCollection<KubernetesResource>>(`get ${resource} -o json`);
+    if (failed(rsrcs)) {
+        vscode.window.showErrorMessage(rsrcs.error[0]);
+        return [];
+    }
+    return rsrcs.result.items.map((item) => {
+        return {
+            metadata: item.metadata,
+            kind: resource
+        };
+    });
+}
+
 export async function getNamespaces(kubectl: Kubectl): Promise<NamespaceInfo[]> {
     const ns = await kubectl.asJson<KubernetesCollection<Namespace>>("get namespaces -o json");
     if (failed(ns)) {
@@ -151,16 +168,15 @@ export async function getPodSelector(resource: string, kubectl: Kubectl): Promis
     });
 }
 
-export async function getPods(kubectl: Kubectl, selector: any): Promise<PodInfo[]> {
-    if (!selector) {
-        return [];
+export async function getPods(kubectl: Kubectl, selector: any, namespace: string = null): Promise<PodInfo[]> {
+    let ns = namespace || await currentNamespace(kubectl);
+    let nsFlag = `--namespace=${ns}`;
+    if (ns === 'all') {
+        nsFlag = '--all-namespaces';
     }
-
-    const currentNS = await currentNamespace(kubectl);
-
     const labels = [];
     let matchLabelObj = selector;
-    if (selector.matchLabels) {
+    if (selector && selector.matchLabels) {
         matchLabelObj = selector.matchLabels;
     }
     if (matchLabelObj) {
@@ -173,14 +189,16 @@ export async function getPods(kubectl: Kubectl, selector: any): Promise<PodInfo[
         labelStr = "--selector=" + labels.join(",");
     }
 
-    const pods = await kubectl.asJson<KubernetesCollection<Pod>>(`get pods -o json --namespace=${currentNS} ${labelStr}`);
+    const pods = await kubectl.asJson<KubernetesCollection<Pod>>(`get pods -o json ${nsFlag} ${labelStr}`);
     if (failed(pods)) {
         vscode.window.showErrorMessage(pods.error[0]);
         return [];
     }
     return pods.result.items.map((item) => {
         return {
-            name: item.metadata.name
+            name: item.metadata.name,
+            namespace: item.metadata.namespace,
+            nodeName: item.spec.nodeName
         };
     });
 }
