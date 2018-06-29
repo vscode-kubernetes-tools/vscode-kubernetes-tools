@@ -1,10 +1,11 @@
-import * as vscode from 'vscode';
 import * as restify from 'restify';
 import * as portfinder from 'portfinder';
 import * as clusterproviderregistry from '../clusterproviderregistry';
 import * as azure from './azure';
-import { script, styles, formStyles, waitScript, ActionResult, Diagnostic } from '../../../wizard';
+import { styles, formStyles, waitScript, ActionResult, Diagnostic } from '../../../wizard';
 import { Errorable, succeeded, failed, Failed, Succeeded } from '../../../errorable';
+import { formPage, propagationFields } from '../common/form';
+import { refreshExplorer } from '../common/explorer';
 
 // HTTP request dispatch
 
@@ -108,44 +109,6 @@ async function getHandleConfigureHtml(step: string | undefined, context: azure.C
     } else {
         return renderInternalError(`AzureStepError (${step})`);
     }
-}
-
-// HTML rendering boilerplate
-
-function propagationFields(previousData: any): string {
-    let formFields = "";
-    for (const k in previousData) {
-        formFields = formFields + `<input type='hidden' name='${k}' value='${previousData[k]}' />\n`;
-    }
-    return formFields;
-}
-
-interface FormData {
-    stepId: string;
-    title: string;
-    waitText: string;
-    action: string;
-    nextStep: string;
-    submitText: string;
-    previousData: any;
-    formContent: string;
-}
-
-function formPage(fd: FormData): string {
-    return `<!-- ${fd.stepId} -->
-            <h1 id='h'>${fd.title}</h1>
-            ${formStyles()}
-            ${styles()}
-            ${waitScript(fd.waitText)}
-            <div id='content'>
-            <form id='form' action='${fd.action}?step=${fd.nextStep}' method='post' onsubmit='return promptWait();'>
-            ${propagationFields(fd.previousData)}
-            ${fd.formContent}
-            <p>
-            <button type='submit' class='link-button'>${fd.submitText} &gt;</button>
-            </p>
-            </form>
-            </div>`;
 }
 
 // Pages for the various wizard steps
@@ -450,16 +413,6 @@ ${styles()}
 `;
 }
 
-function renderExternalError<T>(last: ActionResult<T>): string {
-    const errorInfo = last.result as Failed;
-    return `
-    <h1>Error ${last.actionDescription}</h1>
-    ${styles()}
-    <p class='error'>An error occurred while ${last.actionDescription}.</p>
-    <p><b>Details</b></p>
-    <p>${errorInfo.error}</p>`;
-}
-
 // Utility helpers
 
 function formatCluster(cluster: any): string {
@@ -472,8 +425,4 @@ function parseCluster(encoded: string): azure.ClusterInfo {
         resourceGroup: encoded.substr(0, delimiterPos),
         name: encoded.substr(delimiterPos + 1)
     };
-}
-
-async function refreshExplorer(): Promise<void> {
-    await vscode.commands.executeCommand('extension.vsKubernetesRefreshExplorer');
 }
