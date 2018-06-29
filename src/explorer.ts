@@ -424,7 +424,11 @@ class HelmReleasesFolder extends KubernetesResourceFolder {
         if (!helmexec.ensureHelm(helmexec.EnsureMode.Silent)) {
             return [new DummyObject("Helm client is not installed")];
         }
-        const sr = await helmexec.helmExecAsync("list --short --max 0");
+
+        const currentNS = await kubectlUtils.currentNamespace(kubectl);
+        const nsarg = currentNS ? `--namespace ${currentNS}` : "";
+
+        const sr = await helmexec.helmExecAsync(`list --short --max 0 ${nsarg}`);
         if (sr.code !== 0) {
             return [new DummyObject("Helm list error")];
         }
