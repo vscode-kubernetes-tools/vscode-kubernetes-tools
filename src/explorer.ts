@@ -7,13 +7,6 @@ import { Host } from './host';
 import * as kuberesources from './kuberesources';
 import { failed } from './errorable';
 
-// enum that will be used to handle events which will be of pattern show or follow
-// e.g. show kubernetes events which could have a flag '-w' which helps in following
-export enum ExplorerNode{
-  Show,
-  Follow
-}
-
 export function create(kubectl: Kubectl, host: Host): KubernetesExplorer {
     return new KubernetesExplorer(kubectl, host);
 }
