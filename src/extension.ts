@@ -625,7 +625,7 @@ function getTextForActiveWindow(callback: (data: string | null, file: vscode.Uri
 
 function loadKubernetes(explorerNode?: explorer.ResourceNode) {
     if (explorerNode) {
-        loadKubernetesCore(explorerNode.namespace(), explorerNode.resourceId);
+        loadKubernetesCore(explorerNode.namespace, explorerNode.resourceId);
     } else {
         promptKindName(kuberesources.commonKinds, "load", { nameOptional: true }, (value) => {
             loadKubernetesCore(null, value);
