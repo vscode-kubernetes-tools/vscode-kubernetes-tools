@@ -42,9 +42,9 @@ import { HelmTemplateCompletionProvider } from './helm.completionProvider';
 import { Reporter } from './telemetry';
 import * as telemetry from './telemetry-helper';
 import * as extensionapi from './extension.api';
-import {dashboardKubernetes} from './components/kubectl/dashboard';
-import {startMinikube, stopMinikube} from './components/clusterprovider/minikube/minikube';
-import {portForwardKubernetes} from './components/kubectl/port-forward';
+import { dashboardKubernetes } from './components/kubectl/dashboard';
+import { portForwardKubernetes } from './components/kubectl/port-forward';
+import { startMinikube, stopMinikube } from './components/clusterprovider/minikube/minikube';
 import { Errorable, failed, succeeded } from './errorable';
 import { Git } from './components/git/git';
 import { DebugSession } from './debug/debugSession';
@@ -148,11 +148,11 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
         registerCommand('extension.vsKubernetesClusterInfo', clusterInfoKubernetes),
         registerCommand('extension.vsKubernetesDeleteContext', deleteContextKubernetes),
         registerCommand('extension.vsKubernetesUseNamespace', useNamespaceKubernetes),
-        registerCommand('extension.vsKubernetesDashboard', dashboardKubernetes),
+        registerCommand('extension.vsKubernetesDashboard', () => { dashboardKubernetes(kubectl); }),
         registerCommand('extension.vsMinikubeStop', stopMinikube),
         registerCommand('extension.vsMinikubeStart', startMinikube),
         registerCommand('extension.vsKubernetesCopy', copyKubernetes),
-        registerCommand('extension.vsKubernetesPortForward', portForwardKubernetes),
+        registerCommand('extension.vsKubernetesPortForward', (obj) => { portForwardKubernetes(kubectl, obj); }),
         registerCommand('extension.vsKubernetesLoadConfigMapData', configmaps.loadConfigMapData),
         registerCommand('extension.vsKubernetesDeleteFile', (obj) => { deleteKubernetesConfigFile(kubectl, obj, treeProvider); }),
         registerCommand('extension.vsKubernetesAddFile', (obj) => { addKubernetesConfigFile(kubectl, obj, treeProvider); }),
@@ -629,19 +629,20 @@ function getTextForActiveWindow(callback: (data: string | null, file: vscode.Uri
 
 function loadKubernetes(explorerNode?: explorer.ResourceNode) {
     if (explorerNode) {
-        loadKubernetesCore(explorerNode.resourceId);
+        loadKubernetesCore(explorerNode.namespace, explorerNode.resourceId);
     } else {
         promptKindName(kuberesources.commonKinds, "load", { nameOptional: true }, (value) => {
-            loadKubernetesCore(value);
+            loadKubernetesCore(null, value);
         });
     }
 }
 
-function loadKubernetesCore(value: string) {
+function loadKubernetesCore(namespace: string | null, value: string) {
     const outputFormat = vscode.workspace.getConfiguration('vs-kubernetes')['vs-kubernetes.outputFormat'];
     const docname = `${value.replace('/', '-')}.${outputFormat}`;
     const nonce = new Date().getTime();
-    const uri = `${K8S_RESOURCE_SCHEME}://loadkubernetescore/${docname}?value=${value}&_=${nonce}`;
+    const nsquery = namespace ? `ns=${namespace}&` : '';
+    const uri = `${K8S_RESOURCE_SCHEME}://loadkubernetescore/${docname}?${nsquery}value=${value}&_=${nonce}`;
     vscode.workspace.openTextDocument(vscode.Uri.parse(uri)).then((doc) => {
         if (doc) {
             vscode.window.showTextDocument(doc);

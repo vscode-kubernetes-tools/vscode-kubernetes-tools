@@ -39,6 +39,7 @@ export interface KubernetesObject {
 export interface ResourceNode {
     readonly id: string;
     readonly resourceId: string;
+    namespace: string | null;
 }
 
 export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObject> {
@@ -203,6 +204,10 @@ class KubernetesResource implements KubernetesObject, ResourceNode {
         this.resourceId = kind.abbreviation + '/' + id;
     }
 
+    get namespace(): string | null {
+        return (this.metadata && this.metadata.namespace) ? this.metadata.namespace : null;
+    }
+
     getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<KubernetesObject[]> {
         return [];
     }
@@ -222,6 +227,9 @@ class KubernetesResource implements KubernetesObject, ResourceNode {
             if (this.kind === kuberesources.allKinds.pod && this.metadata.status !== null) {
                 treeItem.iconPath = getIconForPodStatus(this.metadata.status);
             }
+        }
+        if (this.namespace) {
+            treeItem.tooltip = `Namespace: ${this.namespace}`;  // TODO: show only if in non-current namespace?
         }
         return treeItem;
     }

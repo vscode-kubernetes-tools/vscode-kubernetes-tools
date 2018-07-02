@@ -1,24 +1,25 @@
 'use strict';
 
-import { create as kubectlCreate, Kubectl } from '../../kubectl';
+import { Kubectl } from '../../kubectl';
 
-import { fs } from '../../fs';
-import { shell } from '../../shell';
 import { host } from '../../host';
-import { findAllPods, tryFindKindNameFromEditor, FindPodsResult, installDependencies } from '../../extension';
+import { findAllPods, tryFindKindNameFromEditor, FindPodsResult } from '../../extension';
 import { QuickPickOptions } from 'vscode';
 import * as portFinder from 'portfinder';
-import { Pod } from '../../kuberesources.objectmodel';
 import { succeeded } from '../../errorable';
 import * as kubectlUtils from '../../kubectlUtils';
 
-const kubectl = kubectlCreate(host, fs, shell, installDependencies);
 const PORT_FORWARD_TERMINAL = 'kubectl port-forward';
 const MAX_PORT_COUNT = 65535;
 
 export interface PortMapping {
-    localPort?: number;
-    targetPort: number;
+    readonly localPort?: number;
+    readonly targetPort: number;
+}
+
+interface ValidationResult {
+    readonly valid: boolean;
+    readonly error?: string;
 }
 
 interface PodFromDocument {
@@ -28,6 +29,7 @@ interface PodFromDocument {
     readonly namespace?: string;
 }
 
+
 type PortForwardFindPodsResult = PodFromDocument | FindPodsResult;
 
 function isFindResultFromDocument(obj: PortForwardFindPodsResult): obj is PodFromDocument {
@@ -35,17 +37,17 @@ function isFindResultFromDocument(obj: PortForwardFindPodsResult): obj is PodFro
 }
 
 /**
- * Implements port-forwarding to a target pod in the `default` namespace.
+ * Implements port-forwarding to a target pod in the current namespace
  * @param explorerNode The treeview explorer node, if invoked from
  * tree view.
  */
-export async function portForwardKubernetes (explorerNode?: any): Promise<void> {
+export async function portForwardKubernetes (kubectl: Kubectl, explorerNode?: any): Promise<void> {
     if (explorerNode) {
         // The port forward option only appears on pod level workloads in the tree view.
         const podName = explorerNode.id;
-        const portMapping = await promptForPort(podName);
+        const portMapping = await promptForPort();
         const namespace = await kubectlUtils.currentNamespace(kubectl);
-        portForwardToPod(podName, portMapping, namespace);
+        portForwardToPod(kubectl, podName, portMapping, namespace);
         return;
     } else {
         let portForwardablePods: PortForwardFindPodsResult;
@@ -64,8 +66,8 @@ export async function portForwardKubernetes (explorerNode?: any): Promise<void> 
         if (isFindResultFromDocument(portForwardablePods)) {
             // The pod is described by the open document. Skip asking which pod to use and go straight to port-forward.
             const podSelection = portForwardablePods.pod;
-            const portMapping = await promptForPort(podSelection);
-            portForwardToPod(podSelection, portMapping, portForwardablePods.namespace);
+            const portMapping = await promptForPort();
+            portForwardToPod(kubectl, podSelection, portMapping, portForwardablePods.namespace);
             return;
         }
 
@@ -88,25 +90,31 @@ export async function portForwardKubernetes (explorerNode?: any): Promise<void> 
             return;
         }
 
-        const portMapping = await promptForPort(podSelection);
+        const portMapping = await promptForPort();
         const namespace = await kubectlUtils.currentNamespace(kubectl);
-        portForwardToPod(podSelection, portMapping, namespace);
+        portForwardToPod(kubectl, podSelection, portMapping, namespace);
     }
 }
 
 /**
- * Given a pod name, prompts the user on what port to port-forward to, and validates numeric input.
- * @param podSelection The pod to port-forward to.
+ * Prompts the user on what port to port-forward to, and validates numeric input.
+ * @returns An array of PortMapping objects.
  */
-async function promptForPort (podSelection: string): Promise<PortMapping> {
+async function promptForPort (): Promise<PortMapping[]> {
     let portString: string;
 
     try {
         portString = await host.showInputBox(<QuickPickOptions>{
-            placeHolder: "ex: 8888:5000, for a specific port mapping or 5000 to pick a random local port",
-            prompt: `Enter the colon (':') seperated local port to remote port mapping you'd like to port forward.`,
+            placeHolder: "ex: 8888:5000 8889:5001",
+            prompt: `Port mappings in the format LOCAL:REMOTE. Separate multiple port mappings with spaces.`,
             validateInput: (portMapping: string) => {
-                return validatePortMapping(portMapping);
+                const validatedPortMapping = validatePortMapping(portMapping);
+
+                if (validatedPortMapping && validatedPortMapping.error) {
+                    return validatedPortMapping.error;
+                }
+
+                return undefined;
             }
         });
     } catch (e) {
@@ -117,22 +125,39 @@ async function promptForPort (podSelection: string): Promise<PortMapping> {
 }
 
 /**
- * Validates the user supplied port mapping.
- * @param portMapping The portMapping string captured from an input field.
- * @returns An error string to be displayed, or undefined.
+ * Validates the user supplied port mapping(s)
+ * @param portMapping The portMapping string captured from an input field
+ * @returns A ValidationResult object describing the first error found.
  */
-function validatePortMapping (portMapping: string): string {
+function validatePortMapping (portMapping: string): ValidationResult {
+    let portPairs = portMapping.split(' ');
+    const validationResults: ValidationResult[] = portPairs.map(validatePortPair);
+
+    return validationResults.find((result) => result.valid === false );
+}
+
+/**
+ * Validates a single port mapping
+ * @param portPair The port pair to validate
+ * @returns An error to be displayed, or undefined
+ */
+function validatePortPair (portPair: string): ValidationResult {
     let localPort, targetPort;
-    let splitMapping = portMapping.split(':');
+    let splitMapping = portPair.split(':');
 
     // User provided only the target port
-    if (!portMapping.includes(':') && Number(portMapping)) {
-        return undefined;
+    if (!portPair.includes(':') && Number(portPair)) {
+        return {
+            valid: true
+        };
     }
 
     // User provided local:target port mapping
     if (splitMapping.length > 2) {
-        return 'Invalid port mapping.';
+        return {
+            valid: false,
+            error: `Invalid port mapping: ${portPair}`
+        };
     }
 
     localPort = splitMapping[0];
@@ -144,40 +169,55 @@ function validatePortMapping (portMapping: string): string {
         Number(targetPort) &&
         Number(targetPort) <= MAX_PORT_COUNT
     ) {
-        return undefined;
+        return {
+            valid: true
+        };
     }
 
-    return `Invalid ports. Please enter a valid port mapping ie: 8888:5000 or 5000. Valid port range:  1 – ${MAX_PORT_COUNT}`;
+    return {
+        valid: false,
+        error: `Invalid ports. Please enter a valid port mapping ie: 8888:5000 or 5000. Valid port range:  1 – ${MAX_PORT_COUNT}`
+    };
 }
 
 /**
- * Builds a PortMapping object from the captured user input.
- * @param portString The port string provided by the user.
+ * Builds and returns multiple PortMapping objects
+ * @param portString A validated, user provided string containing the port mappings
+ * @returns An array containing the requested PortMappings
+ */
+export function buildPortMapping (portString: string): PortMapping[] {
+    const portPairs = portString.split(' ');
+    return portPairs.map(buildPortPair);
+}
+
+/**
+ * Builds a single PortMapping object from the captured user input
+ * @param portString The port string provided by the user
  * @returns PortMapping object
  */
-export function buildPortMapping (portString: string): PortMapping {
+function buildPortPair(portPair: string): PortMapping {
     // Only target port supplied.
-    if (!portString.includes(':')) {
-        return <PortMapping> {
-            targetPort: Number(portString),
+    if (!portPair.includes(':')) {
+        return {
+            targetPort: Number(portPair),
             localPort: undefined
         };
     }
 
     // Both local and target ports supplied.
-    const splitString = portString.split(':');
+    const splitString = portPair.split(':');
     const localPort = splitString[0];
     const targetPort = splitString[1];
 
-    return <PortMapping> {
+    return {
         localPort: Number(localPort),
         targetPort: Number(targetPort)
     };
 }
 
 /**
- * Returns one or all available port-forwardable pods.
- * Checks the open document and returns a pod name, if it can find one.
+ * Returns one or all available port-forwardable pods
+ * Checks the open document and returns an object describing the Pod, if it can find one
  */
 async function findPortForwardablePods (): Promise<PortForwardFindPodsResult> {
     let kindFromEditor = tryFindKindNameFromEditor();
@@ -203,18 +243,38 @@ async function findPortForwardablePods (): Promise<PortForwardFindPodsResult> {
 }
 
 /**
- * Invokes kubectl port-forward.
- * @param podName The pod name.
- * @param portMapping The PortMapping object. Provides the local and target ports.
- * @param namespace  The namespace to use to find the pod in.
- * @returns The locally bound port that was used.
+ * Invokes kubectl port-forward
+ * @param podName The pod name
+ * @param portMapping The PortMapping objects. Each object contains the a requested local port and an optional target port.
+ * @param namespace  The namespace to use to find the pod in
+ * @returns The locally bound ports that were bound
  */
-export async function portForwardToPod (podName: string, portMapping: PortMapping, namespace?: string): Promise<number> {
-    const localPort = portMapping.localPort;
-    const targetPort = portMapping.targetPort;
-    let usedPort = localPort;
+export async function portForwardToPod (kubectl: Kubectl, podName: string, portMapping: PortMapping[], namespace?: string): Promise<number[]> {
+    const usedPortMappings: PortMapping[] = await Promise.all(portMapping.map(buildUsablePortPair));
 
-    console.log(`port forwarding to pod ${podName} at port ${targetPort}`);
+    usedPortMappings.forEach((usedPortPair) => {
+        host.showInformationMessage(`Forwarding from 127.0.0.1:${usedPortPair.localPort} -> ${podName}:${usedPortPair.targetPort}`);
+    });
+
+    const usedNamespace = namespace || 'default';
+    const portPairStrings = usedPortMappings.map(
+        (usedPortPair) => `${usedPortPair.localPort}:${usedPortPair.targetPort}`
+    );
+
+    kubectl.invokeInNewTerminal(`port-forward ${podName} ${portPairStrings.join(' ')} -n ${usedNamespace}`, PORT_FORWARD_TERMINAL);
+    return usedPortMappings.map((usedPortPair) => usedPortPair.localPort );
+}
+
+/**
+ * Builds a 'usable' port pair, containing a local port and a target port
+ * Selects a local port if only the target port is provided
+ * @param portPair PortMapping object
+ * @returns PortMapping object containing all requisite ports
+ */
+async function buildUsablePortPair (portPair: PortMapping): Promise<PortMapping> {
+    const localPort = portPair.localPort;
+    const targetPort = portPair.targetPort;
+    let usedPort = localPort;
 
     if (!localPort) {
         // the port key/value is the `minimum` port to assign.
@@ -223,10 +283,8 @@ export async function portForwardToPod (podName: string, portMapping: PortMappin
         } as portFinder.PortFinderOptions);
     }
 
-    let usedNamespace = namespace === undefined ? 'default' : namespace;
-
-    kubectl.invokeInNewTerminal(`port-forward ${podName} ${usedPort}:${targetPort} -n ${usedNamespace}`, PORT_FORWARD_TERMINAL);
-    host.showInformationMessage(`Forwarding from 127.0.0.1:${usedPort} -> ${podName}:${targetPort}`);
-
-    return usedPort;
+    return {
+        targetPort: targetPort,
+        localPort: usedPort
+    };
 }
