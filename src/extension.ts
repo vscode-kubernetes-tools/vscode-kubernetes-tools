@@ -625,19 +625,20 @@ function getTextForActiveWindow(callback: (data: string | null, file: vscode.Uri
 
 function loadKubernetes(explorerNode?: explorer.ResourceNode) {
     if (explorerNode) {
-        loadKubernetesCore(explorerNode.resourceId);
+        loadKubernetesCore(explorerNode.namespace(), explorerNode.resourceId);
     } else {
         promptKindName(kuberesources.commonKinds, "load", { nameOptional: true }, (value) => {
-            loadKubernetesCore(value);
+            loadKubernetesCore(null, value);
         });
     }
 }
 
-function loadKubernetesCore(value: string) {
+function loadKubernetesCore(namespace: string | null, value: string) {
     const outputFormat = vscode.workspace.getConfiguration('vs-kubernetes')['vs-kubernetes.outputFormat'];
     const docname = `${value.replace('/', '-')}.${outputFormat}`;
     const nonce = new Date().getTime();
-    const uri = `${K8S_RESOURCE_SCHEME}://loadkubernetescore/${docname}?value=${value}&_=${nonce}`;
+    const nsquery = namespace ? `ns=${namespace}&` : '';
+    const uri = `${K8S_RESOURCE_SCHEME}://loadkubernetescore/${docname}?${nsquery}value=${value}&_=${nonce}`;
     vscode.workspace.openTextDocument(vscode.Uri.parse(uri)).then((doc) => {
         if (doc) {
             vscode.window.showTextDocument(doc);
