@@ -49,9 +49,13 @@ export class KubernetesResourceVirtualFileSystemProvider implements FileSystemPr
     }
 
     async loadResource(uri: Uri): Promise<string> {
+        const query = querystring.parse(uri.query);
+
         const outputFormat = workspace.getConfiguration('vs-kubernetes')['vs-kubernetes.outputFormat'];
-        const value = querystring.parse(uri.query).value;
-        const sr = await this.kubectl.invokeAsyncWithProgress(`-o ${outputFormat} get ${value}`, `Loading ${value}...`);
+        const value = query.value;
+        const ns = query.ns;
+        const nsarg = ns ? `--namespace ${ns}` : '';
+        const sr = await this.kubectl.invokeAsyncWithProgress(`-o ${outputFormat} ${nsarg} get ${value}`, `Loading ${value}...`);
 
         if (sr.code !== 0) {
             this.host.showErrorMessage('Get command failed: ' + sr.stderr);
