@@ -71,7 +71,13 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObj
 
     private async getClusters(): Promise<KubernetesObject[]> {
         const contexts = await kubectlUtils.getContexts(this.kubectl);
-        return contexts.map((context) => new KubernetesContext(context.contextName, context));
+        return contexts.map((context): KubernetesContext => {
+            // TODO: this is slightly hacky...
+            if (context.contextName == 'minikube') {
+                return new MinikubeContext(context.contextName, context);
+            }
+            return new KubernetesContext(context.contextName, context);
+        });
     }
 }
 
@@ -119,6 +125,15 @@ class KubernetesContext implements KubernetesObject {
         return treeItem;
     }
 }
+
+class MinikubeContext extends KubernetesContext {
+    async getTreeItem(): Promise<vscode.TreeItem> {
+        const treeItem = await super.getTreeItem();
+        treeItem.contextValue = 'vsKubernetes.minikubeCluster';
+        return treeItem;
+    }
+}
+
 
 abstract class KubernetesFolder implements KubernetesObject {
     constructor(readonly id: string, readonly displayName: string, readonly contextValue?: string) {

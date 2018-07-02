@@ -44,6 +44,7 @@ import * as telemetry from './telemetry-helper';
 import * as extensionapi from './extension.api';
 import { dashboardKubernetes } from './components/kubectl/dashboard';
 import { portForwardKubernetes } from './components/kubectl/port-forward';
+import { startMinikube, stopMinikube } from './components/clusterprovider/minikube/minikube';
 import { Errorable, failed, succeeded } from './errorable';
 import { Git } from './components/git/git';
 import { DebugSession } from './debug/debugSession';
@@ -52,6 +53,7 @@ import { getDebugProviderOfType, getSupportedDebuggerTypes } from './debug/provi
 import { registerYamlSchemaSupport } from './yaml-support/yaml-schema';
 import * as clusterproviderregistry from './components/clusterprovider/clusterproviderregistry';
 import * as azureclusterprovider from './components/clusterprovider/azure/azureclusterprovider';
+import * as minikubeclusterprovider from './components/clusterprovider/minikube/minikubeclusterprovider';
 import { KubernetesCompletionProvider } from "./yaml-support/yaml-snippet";
 import { showWorkspaceFolderPick } from './hostutils';
 import { DraftConfigurationProvider } from './draft/draftConfigurationProvider';
@@ -147,6 +149,8 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
         registerCommand('extension.vsKubernetesDeleteContext', deleteContextKubernetes),
         registerCommand('extension.vsKubernetesUseNamespace', useNamespaceKubernetes),
         registerCommand('extension.vsKubernetesDashboard', () => { dashboardKubernetes(kubectl); }),
+        registerCommand('extension.vsMinikubeStop', stopMinikube),
+        registerCommand('extension.vsMinikubeStart', startMinikube),
         registerCommand('extension.vsKubernetesCopy', copyKubernetes),
         registerCommand('extension.vsKubernetesPortForward', (obj) => { portForwardKubernetes(kubectl, obj); }),
         registerCommand('extension.vsKubernetesLoadConfigMapData', configmaps.loadConfigMapData),
@@ -207,7 +211,7 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
     ];
 
     await azureclusterprovider.init(clusterProviderRegistry, { shell: shell, fs: fs });
-
+    await minikubeclusterprovider.init(clusterProviderRegistry, { shell: shell });
     // On save, refresh the Helm YAML preview.
     vscode.workspace.onDidSaveTextDocument((e: vscode.TextDocument) => {
         if (!editorIsActive()) {

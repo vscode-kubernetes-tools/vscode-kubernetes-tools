@@ -44,6 +44,8 @@
         "onCommand:extension.vsKubernetesConfigureFromCluster",
         "onCommand:extension.vsKubernetesCreateCluster",
         "onCommand:extension.vsKubernetesDashboard",
+        "onCommand:extension.vsMinikubeStop",
+        "onCommand:extension.vsMinikubeStart",
         "onCommand:extension.vsKubernetesPortForward",
         "onCommand:extension.vsKubernetesDeleteFile",
         "onCommand:extension.vsKubernetesAddFile",
@@ -204,6 +206,36 @@
                 {
                     "command": "extension.vsKubernetesCopy",
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.cluster",
+                    "group": "1"
+                },
+                {
+                    "command": "extension.vsKubernetesClusterInfo",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.minikubeCluster",
+                    "group": "0@1"
+                },
+                {
+                    "command": "extension.vsKubernetesDashboard",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.minikubeCluster",
+                    "group": "0@3"
+                },
+                {
+                    "command": "extension.vsKubernetesDeleteContext",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.minikubeCluster",
+                    "group": "0@2"
+                },
+                {
+                    "command": "extension.vsMinikubeStop",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.minikubeCluster",
+                    "group": "2@1"
+                },
+                {
+                    "command": "extension.vsMinikubeStart",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.minikubeCluster",
+                    "group": "2@0"
+                },
+                {
+                    "command": "extension.vsKubernetesCopy",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.minikubeCluster",
                     "group": "1"
                 },
                 {
@@ -535,6 +567,16 @@
             {
                 "command": "extension.vsKubernetesDashboard",
                 "title": "Open Dashboard",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsMinikubeStop",
+                "title": "Stop minikube",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsMinikubeStart",
+                "title": "Start minikube",
                 "category": "Kubernetes"
             },
             {
