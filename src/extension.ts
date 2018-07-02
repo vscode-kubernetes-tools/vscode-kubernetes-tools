@@ -900,7 +900,19 @@ export function findKindNameOrPrompt(resourceKinds: kuberesources.ResourceKind[]
 }
 
 function promptKindName(resourceKinds: kuberesources.ResourceKind[], descriptionVerb, opts, handler) {
-    vscode.window.showInputBox({ prompt: "What resource do you want to " + descriptionVerb + "?", placeHolder: 'Empty string to be prompted' }).then((resource) => {
+    let placeHolder: string = 'Empty string to be prompted';
+    let prompt: string = "What resource do you want to " + descriptionVerb + "?";
+    if (opts) {
+        // see if the options has 'placeHolder' string, if so use it instead of default one
+        if (opts.placeHolder) {
+            placeHolder = opts.placeHolder;
+        }
+        // see if the options has custom 'prompt', if so use it instead of default one
+        if (opts.prompt) {
+            prompt = opts.prompt;
+        }
+    }
+    vscode.window.showInputBox({ prompt, placeHolder}).then((resource) => {
         if (resource === '') {
             quickPickKindName(resourceKinds, opts, handler);
         } else if (resource === undefined) {
@@ -1737,8 +1749,40 @@ async function deleteContextKubernetes(explorerNode: explorer.KubernetesObject) 
 }
 
 async function useNamespaceKubernetes(explorerNode: explorer.KubernetesObject) {
-    if (await kubectlUtils.switchNamespace(kubectl, explorerNode.id)) {
-        refreshExplorer();
+    if (explorerNode) {
+        if (await kubectlUtils.switchNamespace(kubectl, explorerNode.id)) {
+            refreshExplorer();
+        }
+    } else {
+        promptKindName([kuberesources.allKinds.namespace], undefined,
+            {
+                prompt: 'What namespace do you want to use?',
+                placeHolder: 'Enter the namespace to switch to or press enter to select from available list'
+            },
+            (resource) => {
+                if (resource) {
+                    const currentNS = kubectlUtils.currentNamespace(kubectl);
+                    currentNS.then((ns) => {
+                        let toSwitchNamespace = resource;
+                        // resource will be of format <kind>/<name>, when picked up from the quickpick
+                        if (toSwitchNamespace.lastIndexOf('/') != -1) {
+                            toSwitchNamespace = toSwitchNamespace.substring(toSwitchNamespace.lastIndexOf('/') + 1);
+                        }
+                        // Switch if an only if the currentNS and toSwitchNamespace are different
+                        if (toSwitchNamespace && ns !== toSwitchNamespace) {
+                            const promiseSwitchNS = kubectlUtils.switchNamespace(kubectl, toSwitchNamespace);
+                            promiseSwitchNS.then((data) => {
+                                if (data) {
+                                    refreshExplorer();
+                                }
+                            });
+                        }
+                    }).catch((err) => {
+                        host.showErrorMessage(err);
+                    });
+
+                }
+            });
     }
 }
 

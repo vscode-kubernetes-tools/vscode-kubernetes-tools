@@ -49,6 +49,7 @@
         "onCommand:extension.vsKubernetesPortForward",
         "onCommand:extension.vsKubernetesDeleteFile",
         "onCommand:extension.vsKubernetesAddFile",
+        "onCommand:extension.vsKubernetesUseNamespace",
         "onCommand:extension.helmTemplate",
         "onCommand:extension.helmTemplatePreview",
         "onCommand:extension.helmLint",
@@ -418,7 +419,7 @@
                 },
                 {
                     "command": "extension.vsKubernetesUseNamespace",
-                    "when": "view == extension.vsKubernetesExplorer"
+                    "when": ""
                 },
                 {
                     "command": "extension.vsKubernetesCopy",
