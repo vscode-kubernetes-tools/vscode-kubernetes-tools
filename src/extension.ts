@@ -158,7 +158,8 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
         registerCommand('extension.vsKubernetesLoadConfigMapData', configmaps.loadConfigMapData),
         registerCommand('extension.vsKubernetesDeleteFile', (obj) => { deleteKubernetesConfigFile(kubectl, obj, treeProvider); }),
         registerCommand('extension.vsKubernetesAddFile', (obj) => { addKubernetesConfigFile(kubectl, obj, treeProvider); }),
-
+        registerCommand('extension.vsKubernetesShowEvents', (explorerNode: explorer.ResourceNode) => { getEvents(explorer.ExplorerNode.Show,explorerNode); }),
+        registerCommand('extension.vsKubernetesFollowEvents', (explorerNode: explorer.ResourceNode) => { getEvents(explorer.ExplorerNode.Follow,explorerNode); }),
         // Commands - Helm
         registerCommand('extension.helmVersion', helmexec.helmVersion),
         registerCommand('extension.helmTemplate', helmexec.helmTemplate),
@@ -1116,6 +1117,24 @@ async function getLogsForPod(pod: PodSummary, follow?: boolean) {
     if (container) {
         getLogsForContainer(pod.name, pod.namespace, container.name, follow);
     }
+}
+
+async function getEvents(follow: explorer.ExplorerNode, explorerNode?: explorer.ResourceNode) {
+    let currentNS;
+
+    if (explorerNode) {
+        currentNS = explorerNode.id;
+    } else {
+        // defaulting to current namespace in kube config
+        currentNS = await kubectlUtils.currentNamespace(kubectl);
+    }
+
+    let cmd = ` get events --namespace ${currentNS}`;
+    if (explorer.ExplorerNode.Follow === follow) {
+        cmd += ' -w';
+    }
+
+    kubectl.invokeInSharedTerminal(cmd);
 }
 
 function getLogsForContainer(podName: string, podNamespace: string | undefined, containerName: string | undefined, follow?: boolean) {
