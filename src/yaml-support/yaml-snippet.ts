@@ -12,7 +12,6 @@ export interface CodeSnippet {
     readonly body: string;
 }
 
-
 /**
  * A kubernetes completion provider provides yaml code snippets for kubernetes, eg: service, deployment.
  */

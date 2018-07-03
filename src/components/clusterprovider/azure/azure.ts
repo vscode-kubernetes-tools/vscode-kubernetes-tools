@@ -4,7 +4,7 @@ import * as vscode from 'vscode';
 import { Shell } from '../../../shell';
 import { FS } from '../../../fs';
 import { ActionResult, fromShellJson, fromShellExitCodeAndStandardError, fromShellExitCodeOnly, Diagnostic } from '../../../wizard';
-import { Errorable, succeeded, failed } from '../../../errorable';
+import { Errorable, failed } from '../../../errorable';
 import * as compareVersions from 'compare-versions';
 import { sleep } from '../../../sleep';
 
@@ -123,7 +123,7 @@ export async function getClusterList(context: Context, subscription: string, clu
 }
 
 async function listClustersAsync(context: Context, clusterType: string): Promise<Errorable<ClusterInfo[]>> {
-    let cmd = getListClustersCommand(context, clusterType);
+    const cmd = getListClustersCommand(context, clusterType);
     const sr = await context.shell.exec(cmd);
 
     return fromShellJson<ClusterInfo[]>(sr);
@@ -137,7 +137,7 @@ function listClustersFilter(clusterType: string): string {
 }
 
 function getListClustersCommand(context: Context, clusterType: string): string {
-    let filter = listClustersFilter(clusterType);
+    const filter = listClustersFilter(clusterType);
     let query = `[${filter}].{name:name,resourceGroup:resourceGroup}`;
     if (context.shell.isUnix()) {
         query = `'${query}'`;
@@ -154,7 +154,7 @@ async function listLocations(context: Context): Promise<Errorable<Locations>> {
     const sr = await context.shell.exec(`az account list-locations --query ${query} -ojson`);
 
     return fromShellJson<Locations>(sr, (response) => {
-        let locations: any = {};
+        const locations: any = {};
         for (const r of response) {
             locations[r.name] = r.displayName;
         }

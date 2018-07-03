@@ -1,9 +1,7 @@
 import * as vscode from 'vscode';
 import { basename } from 'path';
 import { fs } from './fs';
-import { shell } from './shell';
-import { host } from './host';
-import { create as kubectlCreate, Kubectl } from './kubectl';
+import { Kubectl } from './kubectl';
 import { currentNamespace, DataHolder } from './kubectlUtils';
 import { deleteMessageItems, overwriteMessageItems } from './extension';
 import { KubernetesFileObject, KubernetesDataHolderResource, KubernetesExplorer } from './explorer';
@@ -39,7 +37,7 @@ export function loadConfigMapData(obj: KubernetesFileObject) {
 }
 
 function removeKey(dictionary: any, keyToDelete: string) {
-    let newData = {};
+    const newData = {};
     Object.keys(dictionary).forEach((key) => {
         if (key !== keyToDelete) {
             newData[key] = dictionary[key];
@@ -93,7 +91,7 @@ export async function addKubernetesConfigFile(kubectl: Kubectl, obj: KubernetesD
             const filePath = uri.fsPath;
             const fileName = basename(filePath);
             if (dataHolder.data[fileName]) {
-                let response = await vscode.window.showWarningMessage(`Are you sure you want to overwrite '${fileName}'? This can not be undone`, ...overwriteMessageItems);
+                const response = await vscode.window.showWarningMessage(`Are you sure you want to overwrite '${fileName}'? This can not be undone`, ...overwriteMessageItems);
                 if (response.title !== overwriteMessageItems[0].title) {
                     return;
                 }

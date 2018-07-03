@@ -169,7 +169,7 @@ export async function getPodSelector(resource: string, kubectl: Kubectl): Promis
 }
 
 export async function getPods(kubectl: Kubectl, selector: any, namespace: string = null): Promise<PodInfo[]> {
-    let ns = namespace || await currentNamespace(kubectl);
+    const ns = namespace || await currentNamespace(kubectl);
     let nsFlag = `--namespace=${ns}`;
     if (ns === 'all') {
         nsFlag = '--all-namespaces';
@@ -244,13 +244,13 @@ export async function switchNamespace(kubectl: Kubectl, namespace: string): Prom
  * @return the deployment name.
  */
 export async function runAsDeployment(kubectl: Kubectl, deploymentName: string, image: string, exposedPorts: number[], env: any): Promise<string> {
-    let imageName = image.split(":")[0];
-    let imagePrefix = imageName.substring(0, imageName.lastIndexOf("/")+1);
+    const imageName = image.split(":")[0];
+    const imagePrefix = imageName.substring(0, imageName.lastIndexOf("/")+1);
     if (!deploymentName) {
-        let baseName = imageName.substring(imageName.lastIndexOf("/")+1);
+        const baseName = imageName.substring(imageName.lastIndexOf("/")+1);
         const deploymentName = `${baseName}-${Date.now()}`;
     }
-    let runCmd = [
+    const runCmd = [
         "run",
         deploymentName,
         `--image=${image}`,

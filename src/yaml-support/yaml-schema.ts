@@ -278,7 +278,6 @@ function getManifestStyleSchemas(originalSchema: any): KubernetesSchema[] {
     return schemas;
 }
 
-
 // convert '#/definitions/com.github.openshift.origin.pkg.build.apis.build.v1.ImageLabel' to
 // 'com.github.openshift.origin.pkg.build.apis.build.v1.ImageLabel'
 function getNameInDefinitions ($ref: string): string {
@@ -289,7 +288,6 @@ function getNameInDefinitions ($ref: string): string {
         return prefix;
     }
 }
-
 
 // find redhat.vscode-yaml extension and try to activate it to get the yaml contributor
 async function activateYamlExtension(): Promise<{registerContributor: YamlSchemaContributor}> {
@@ -306,4 +304,3 @@ async function activateYamlExtension(): Promise<{registerContributor: YamlSchema
     }
     return yamlPlugin;
 }
-

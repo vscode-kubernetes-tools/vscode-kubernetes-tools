@@ -7,18 +7,18 @@ export class HelmRequirementsCodeLensProvider implements vscode.CodeLensProvider
         }
 
         // Find the dependencies section
-        let i = doc.getText().indexOf("dependencies:");
-        let start = doc.positionAt(i);
-        let range = doc.getWordRangeAtPosition(start);
+        const i = doc.getText().indexOf("dependencies:");
+        const start = doc.positionAt(i);
+        const range = doc.getWordRangeAtPosition(start);
         if (range.isEmpty) {
             return;
         }
 
-        let update = new vscode.CodeLens(range, {
+        const update = new vscode.CodeLens(range, {
             title: "update dependencies",
             command: "extension.helmDepUp"
         });
-        let insert = new vscode.CodeLens(range, {
+        const insert = new vscode.CodeLens(range, {
             title: "insert dependency",
             command: "extension.helmInsertReq",
         });

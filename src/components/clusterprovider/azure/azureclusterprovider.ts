@@ -41,8 +41,8 @@ export async function init(registry: clusterproviderregistry.ClusterProviderRegi
         wizardServer.get('/configure', (req, resp, n) => htmlServer.handleGetConfigure(req, resp, n));
         wizardServer.post('/configure', (req, resp, n) => htmlServer.handlePostConfigure(req, resp, n));
 
-        registry.register({id: 'aks', displayName: "Azure Kubernetes Service", port: wizardPort, supportedActions: ['create','configure']});
-        registry.register({id: 'acs', displayName: "Azure Container Service", port: wizardPort, supportedActions: ['create','configure']});
+        registry.register({id: 'aks', displayName: "Azure Kubernetes Service", port: wizardPort, supportedActions: ['create', 'configure']});
+        registry.register({id: 'acs', displayName: "Azure Container Service", port: wizardPort, supportedActions: ['create', 'configure']});
     }
 }
 

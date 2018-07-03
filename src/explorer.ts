@@ -1,13 +1,11 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 
-import * as shell from './shell';
 import { Kubectl } from './kubectl';
 import * as kubectlUtils from './kubectlUtils';
 import { Host } from './host';
 import * as kuberesources from './kuberesources';
 import { failed } from './errorable';
-import { filter } from 'minimatch';
 
 export function create(kubectl: Kubectl, host: Host): KubernetesExplorer {
     return new KubernetesExplorer(kubectl, host);
@@ -134,7 +132,6 @@ class MinikubeContext extends KubernetesContext {
     }
 }
 
-
 abstract class KubernetesFolder implements KubernetesObject {
     constructor(readonly id: string, readonly displayName: string, readonly contextValue?: string) {
     }
@@ -213,7 +210,7 @@ class KubernetesResource implements KubernetesObject, ResourceNode {
     }
 
     getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
-        let treeItem = new vscode.TreeItem(this.id, vscode.TreeItemCollapsibleState.None);
+        const treeItem = new vscode.TreeItem(this.id, vscode.TreeItemCollapsibleState.None);
         treeItem.command = {
             command: "extension.vsKubernetesLoad",
             title: "Load",
@@ -367,7 +364,7 @@ export class KubernetesDataHolderResource extends KubernetesResource {
         if (!this.configData || this.configData.length == 0) {
             return [];
         }
-        let files = Object.keys(this.configData);
+        const files = Object.keys(this.configData);
         return files.map((f) => new KubernetesFileObject(this.configData, f, this.resource, this.id));
     }
 }
@@ -377,7 +374,7 @@ export class KubernetesFileObject implements KubernetesObject {
     }
 
     getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
-        let treeItem = new vscode.TreeItem(this.id, vscode.TreeItemCollapsibleState.None);
+        const treeItem = new vscode.TreeItem(this.id, vscode.TreeItemCollapsibleState.None);
         treeItem.command = {
             command: "extension.vsKubernetesLoadConfigMapData",
             title: "Load",

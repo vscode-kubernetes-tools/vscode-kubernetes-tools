@@ -128,4 +128,3 @@ export function fromShellJson<T>(sr: ShellResult, processor?: (raw: any) => T): 
     }
     return { succeeded: false, error: [ sr.stderr ] };
 }
-

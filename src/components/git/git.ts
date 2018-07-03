@@ -26,4 +26,3 @@ export class Git {
         return { succeeded: false, error: [ sr.stderr ] };
     }
 }
-

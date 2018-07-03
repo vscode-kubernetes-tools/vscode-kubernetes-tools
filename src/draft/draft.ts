@@ -100,7 +100,7 @@ async function up(context: Context): Promise<void> {
 }
 
 async function path(context: Context): Promise<string | undefined> {
-    let bin = await pathCore(context);
+    const bin = await pathCore(context);
     return binutil.execPath(context.shell, bin);
 }
 

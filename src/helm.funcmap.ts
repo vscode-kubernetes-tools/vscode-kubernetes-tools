@@ -12,9 +12,9 @@ export class FuncMap {
     public helmVals(): vscode.CompletionItem[] {
         return [
             this.v("Values", ".Values", `The values made available through values.yaml, --set and -f.`),
-            this.v("Chart",".Chart","Chart metadata"),
-            this.v("Files",".Files.Get $str","access non-template files within the chart"),
-            this.v("Capabilities",".Capabilities.KubeVersion ","access capabilities of Kubernetes"),
+            this.v("Chart", ".Chart", "Chart metadata"),
+            this.v("Files", ".Files.Get $str", "access non-template files within the chart"),
+            this.v("Capabilities", ".Capabilities.KubeVersion ", "access capabilities of Kubernetes"),
             this.v("Release", ".Release", `Built-in release values. Attributes include:
 - .Release.Name: Name of the release
 - .Release.Time: Time release was executed
@@ -221,29 +221,29 @@ export class FuncMap {
             this.f("expandenv", "expandenv $str", "(UNSUPPORTED IN HELM) expand env vars in string"),
             // SemVer
             this.f("semver", "semver $version", "parse a SemVer string (1.2.3-alpha.4+1234). [Reference](http://masterminds.github.io/sprig/semver.html)"),
-            this.f("semverCompare","semverCompare $ver1 $ver2","Compare $ver1 and $ver2. $ver1 can be a [SemVer range]((http://masterminds.github.io/sprig/semver.html)."),
+            this.f("semverCompare", "semverCompare $ver1 $ver2", "Compare $ver1 and $ver2. $ver1 can be a [SemVer range]((http://masterminds.github.io/sprig/semver.html)."),
             // Reflection
-            this.f("kindOf","kindOf $val","return the Go kind (primitive type) of a value"),
-            this.f("kindIs","kindIs $kind $val","returns true if $val is of kind $kind"),
-            this.f("typeOf","typeOf $val","returns a string indicate the type of $val"),
-            this.f("typeIs","typeIs $type $val","returns true if $val is of type $type"),
-            this.f("typeIsLike","typeIsLike $substr $val","returns true if $substr is found in $val's type"),
+            this.f("kindOf", "kindOf $val", "return the Go kind (primitive type) of a value"),
+            this.f("kindIs", "kindIs $kind $val", "returns true if $val is of kind $kind"),
+            this.f("typeOf", "typeOf $val", "returns a string indicate the type of $val"),
+            this.f("typeIs", "typeIs $type $val", "returns true if $val is of type $type"),
+            this.f("typeIsLike", "typeIsLike $substr $val", "returns true if $substr is found in $val's type"),
             // Crypto
-            this.f("sha256sum","sha256sum $str","generate a SHA-256 sum of $str"),
-            this.f("derivePassword","derivePassword $counter $long $pass $user $domain","generate a password from [Master Password](http://masterpasswordapp.com/algorithm.html) spec"),
-            this.f("generatePrivateKey","generatePrivateKey 'ecdsa'","generate private PEM key (takes dsa, rsa, or ecdsa)"),
+            this.f("sha256sum", "sha256sum $str", "generate a SHA-256 sum of $str"),
+            this.f("derivePassword", "derivePassword $counter $long $pass $user $domain", "generate a password from [Master Password](http://masterpasswordapp.com/algorithm.html) spec"),
+            this.f("generatePrivateKey", "generatePrivateKey 'ecdsa'", "generate private PEM key (takes dsa, rsa, or ecdsa)"),
         ]
     }
 
     public f(name: string, args: string, doc: string): vscode.CompletionItem {
-        let i = new vscode.CompletionItem(name, vscode.CompletionItemKind.Function)
+        const i = new vscode.CompletionItem(name, vscode.CompletionItemKind.Function)
         i.detail = args
         i.documentation = doc
         return i
     }
 
     public v(name: string, use: string, doc: string): vscode.CompletionItem {
-        let i = new vscode.CompletionItem(name, vscode.CompletionItemKind.Constant)
+        const i = new vscode.CompletionItem(name, vscode.CompletionItemKind.Constant)
         i.detail = use
         i.documentation = doc
         return i

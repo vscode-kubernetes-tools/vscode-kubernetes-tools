@@ -5,7 +5,7 @@ import * as YAML from 'yamljs';
 import * as exec from './helm.exec';
 import * as path from 'path';
 import * as _ from 'lodash';
-import {existsSync} from 'fs';
+import { existsSync } from 'fs';
 
 export class HelmTemplateCompletionProvider implements vscode.CompletionItemProvider {
 
@@ -25,14 +25,14 @@ export class HelmTemplateCompletionProvider implements vscode.CompletionItemProv
     }
 
     public refreshValues(options: exec.PickChartUIOptions) {
-        let ed = vscode.window.activeTextEditor;
+        const ed = vscode.window.activeTextEditor;
         if (!ed) {
             return;
         }
 
-        let self = this;
+        const self = this;
         exec.pickChartForFile(ed.document.fileName, options, (f) => {
-            let valsYaml = path.join(f, "values.yaml");
+            const valsYaml = path.join(f, "values.yaml");
             if (!existsSync(valsYaml)) {
                 return;
             }
@@ -78,8 +78,8 @@ export class HelmTemplateCompletionProvider implements vscode.CompletionItemProv
             if (!_.isPlainObject(this.valuesCache)) {
                 return;
             }
-            let keys = _.keys(this.valuesCache);
-            let res = [];
+            const keys = _.keys(this.valuesCache);
+            const res = [];
             keys.forEach((key) => {
                 res.push(this.funcmap.v(key, ".Values."+key, "In values.yaml: " + this.valuesCache[key]));
             });
@@ -113,7 +113,7 @@ export class HelmTemplateCompletionProvider implements vscode.CompletionItemProv
             // tree to see what suggestions we can give based on the contents of the
             // current values.yaml file.
             const parts = res[1].split(".");
-            let words = [];
+            const words = [];
             let cache = this.valuesCache;
             for (const cur of parts) {
                 if (cur.length == 0) {
@@ -130,7 +130,7 @@ export class HelmTemplateCompletionProvider implements vscode.CompletionItemProv
                 //logger.log("Found no matches for " + res[1])
                 return [];
             }
-            let k = [];
+            const k = [];
             _.keys(cache).forEach((item) => {
                 // Build help text for each suggestion we found.
                 k.push(this.v(item, res[0] + item, "In values.yaml: " + cache[item]));
@@ -139,7 +139,7 @@ export class HelmTemplateCompletionProvider implements vscode.CompletionItemProv
         }
     }
     v(name: string, use: string, doc: string): vscode.CompletionItem {
-        let i = new vscode.CompletionItem(name, vscode.CompletionItemKind.Constant);
+        const i = new vscode.CompletionItem(name, vscode.CompletionItemKind.Constant);
         i.detail = use;
         i.documentation = doc;
         return i;

@@ -1,6 +1,5 @@
 'use strict';
 
-import { host } from './host';
 import { shell } from './shell';
 import { fs } from './fs';
 import * as yaml from 'js-yaml';

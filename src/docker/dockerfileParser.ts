@@ -2,7 +2,6 @@ import * as fs from 'fs';
 import { CommandEntry, parse } from 'docker-file-parser';
 
 import { IDockerfile, IDockerParser } from "./parser";
-import { shell, ShellResult } from "../shell";
 
 class RawDockerfile {
     private readonly commandEntries: CommandEntry[];

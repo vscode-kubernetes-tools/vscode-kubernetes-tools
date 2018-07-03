@@ -18,7 +18,7 @@ export class HelmInspectDocumentProvider implements vscode.TextDocumentContentPr
         return new Promise<string>((resolve, reject) => {
             console.log("provideTextDocumentContent called with uri " + uri.toString());
 
-            let printer = (code, out, err) => {
+            const printer = (code, out, err) => {
                 if (code == 0) {
                     const p = (filepath.extname(uri.fsPath) == ".tgz") ? filepath.basename(uri.fsPath) : "Chart";
                     const title = "Inspect " + p;
@@ -64,7 +64,7 @@ export class HelmTemplatePreviewDocumentProvider implements vscode.TextDocumentC
                 logger.helm.log("FIXME: no editor selected");
                 return;
             }
-            let tpl = vscode.window.activeTextEditor.document.fileName;
+            const tpl = vscode.window.activeTextEditor.document.fileName;
 
             // First, we need to get the top-most chart:
             exec.pickChartForFile(tpl, { warnIfNoCharts: true }, (chartPath) => {

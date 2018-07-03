@@ -11,7 +11,7 @@ interface Logger extends vscode.Disposable {
 // A console is disposable, since it allocates a channel.
 class LoggingConsole implements Logger {
     channel: vscode.OutputChannel;
-    constructor(channelName: string){
+    constructor(channelName: string) {
         this.channel = vscode.window.createOutputChannel(channelName);
     }
     log(msg: string) {

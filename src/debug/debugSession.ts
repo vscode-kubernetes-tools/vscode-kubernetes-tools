@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as opn from 'opn';
 import * as path from "path";
 import * as portfinder from "portfinder";
-import { ChildProcess, spawn as spawnChildProcess } from "child_process";
+import { ChildProcess } from "child_process";
 
 import { IDebugProvider } from "./debugProvider";
 import * as providerRegistry from "./providerRegistry";
@@ -208,7 +208,7 @@ export class DebugSession implements IDebugSession {
     }
 
     private async pickupAndInstallDebugProvider(baseImage?: string): Promise<IDebugProvider | undefined> {
-        let debugProvider: IDebugProvider = await providerRegistry.getDebugProvider();
+        const debugProvider: IDebugProvider = await providerRegistry.getDebugProvider();
         if (!debugProvider) {
             return;
         } else if (!await debugProvider.isDebuggerInstalled()) {
@@ -326,7 +326,7 @@ export class DebugSession implements IDebugSession {
     }
 
     private async createPortForward(kubectl: Kubectl, podName: string, debugPort: number, appPort?: number): Promise<ProxyResult> {
-        let portMapping = [];
+        const portMapping = [];
         // Find a free local port for forwarding data to remote app port.
         let proxyAppPort = 0;
         if (appPort) {

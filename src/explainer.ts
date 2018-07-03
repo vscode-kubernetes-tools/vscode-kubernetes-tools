@@ -123,7 +123,7 @@ function chaseFieldPath(swagger: any, currentProperty: TypeModel, currentPropert
     const currentPropertyTypeRef = currentProperty.$ref || (currentProperty.items ? currentProperty.items.$ref : undefined);
 
     if (currentPropertyTypeRef) {
-        let typeDefnPath: string[] = currentPropertyTypeRef.split('/');
+        const typeDefnPath: string[] = currentPropertyTypeRef.split('/');
         typeDefnPath.shift();
         const currentPropertyTypeInfo = findTypeDefinition(swagger, typeDefnPath);
         if (currentPropertyTypeInfo) {
@@ -167,11 +167,9 @@ function chaseFieldPath(swagger: any, currentProperty: TypeModel, currentPropert
     }
 }
 
-
 function explainError(header: string, error: string) {
     return `**${header}:** ${error}`;
 }
-
 
 function apiCredentials(kc: kubeconfig.KubeConfig) {
     return {

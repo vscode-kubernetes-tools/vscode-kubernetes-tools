@@ -1,13 +1,8 @@
 import * as vscode from 'vscode';
 import { LoggingDebugSession, InitializedEvent, TerminatedEvent } from 'vscode-debugadapter';
-import { EventEmitter } from 'events';
-import { ChildProcess, exec } from 'child_process';
-import { OutputChannel } from 'vscode';
-import { Readable } from 'stream';
 import { DraftRuntime } from './draftRuntime';
 import { DebugProtocol } from 'vscode-debugprotocol/lib/debugProtocol';
 const { Subject } = require('await-notify');
-
 
 export class DraftDebugSession extends LoggingDebugSession {
     private _runtime: DraftRuntime;

@@ -3,11 +3,9 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 
 import * as assert from 'assert';
-import * as textassert from './textassert';
 import * as fakes from './fakes';
 
-import { Host } from '../src/host';
-import { Shell, ShellResult } from '../src/shell';
+import { ShellResult } from '../src/shell';
 import * as kubeExplorer from '../src/explorer';
 import * as kuberesources from '../src/kuberesources';
 
@@ -96,7 +94,7 @@ suite("Explorer tests", () => {
             });
 
             test("...and kubectl fails, the error is displayed", async () => {
-                let errors: string[] = [];
+                const errors: string[] = [];
                 const explorer = explorerCreateWithFakes({
                     kubectl: fakes.kubectl({ asLines: (_) => { return { code: 1, stdout: "", stderr: "Oh no!"}; } }),
                     host: fakes.host({errors: errors})
