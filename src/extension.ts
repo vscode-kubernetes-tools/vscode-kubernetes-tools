@@ -15,6 +15,7 @@ import * as dockerfileParse from 'dockerfile-parse';
 import * as tmp from 'tmp';
 import * as uuid from 'uuid';
 import * as clipboard from 'clipboardy';
+import {pullAll} from 'lodash';
 
 // Internal dependencies
 import { host } from './host';
@@ -903,14 +904,8 @@ function promptKindName(resourceKinds: kuberesources.ResourceKind[], description
     let placeHolder: string = 'Empty string to be prompted';
     let prompt: string = "What resource do you want to " + descriptionVerb + "?";
     if (opts) {
-        // see if the options has 'placeHolder' string, if so use it instead of default one
-        if (opts.placeHolder) {
-            placeHolder = opts.placeHolder;
-        }
-        // see if the options has custom 'prompt', if so use it instead of default one
-        if (opts.prompt) {
-            prompt = opts.prompt;
-        }
+        placeHolder = opts.placeHolder || placeHolder;
+        prompt = opts.prompt || prompt;
     }
     vscode.window.showInputBox({ prompt, placeHolder}).then((resource) => {
         if (resource === '') {
@@ -947,6 +942,9 @@ function quickPickKindNameFromKind(resourceKind: kuberesources.ResourceKind, opt
         if (names.length === 0) {
             vscode.window.showInformationMessage("No resources of type " + resourceKind.displayName + " in cluster");
             return;
+        }
+        if(opts){
+            names = pullAll(names,opts.filterNames) || names;
         }
         if (opts && opts.nameOptional) {
             names.push('(all)');
@@ -1754,33 +1752,27 @@ async function useNamespaceKubernetes(explorerNode: explorer.KubernetesObject) {
             refreshExplorer();
         }
     } else {
+        const currentNS = await kubectlUtils.currentNamespace(kubectl);
         promptKindName([kuberesources.allKinds.namespace], undefined,
             {
                 prompt: 'What namespace do you want to use?',
-                placeHolder: 'Enter the namespace to switch to or press enter to select from available list'
+                placeHolder: 'Enter the namespace to switch to or press enter to select from available list',
+                filterNames: [currentNS]
             },
-            (resource) => {
+            async (resource) => {
                 if (resource) {
-                    const currentNS = kubectlUtils.currentNamespace(kubectl);
-                    currentNS.then((ns) => {
-                        let toSwitchNamespace = resource;
-                        // resource will be of format <kind>/<name>, when picked up from the quickpick
-                        if (toSwitchNamespace.lastIndexOf('/') != -1) {
-                            toSwitchNamespace = toSwitchNamespace.substring(toSwitchNamespace.lastIndexOf('/') + 1);
+                    let toSwitchNamespace = resource;
+                    // resource will be of format <kind>/<name>, when picked up from the quickpick
+                    if (toSwitchNamespace.lastIndexOf('/') != -1) {
+                        toSwitchNamespace = toSwitchNamespace.substring(toSwitchNamespace.lastIndexOf('/') + 1);
+                    }
+                    // Switch if an only if the currentNS and toSwitchNamespace are different
+                    if (toSwitchNamespace && currentNS !== toSwitchNamespace) {
+                        const promiseSwitchNS = await kubectlUtils.switchNamespace(kubectl, toSwitchNamespace);
+                        if (promiseSwitchNS) {
+                            refreshExplorer();
                         }
-                        // Switch if an only if the currentNS and toSwitchNamespace are different
-                        if (toSwitchNamespace && ns !== toSwitchNamespace) {
-                            const promiseSwitchNS = kubectlUtils.switchNamespace(kubectl, toSwitchNamespace);
-                            promiseSwitchNS.then((data) => {
-                                if (data) {
-                                    refreshExplorer();
-                                }
-                            });
-                        }
-                    }).catch((err) => {
-                        host.showErrorMessage(err);
-                    });
-
+                    }
                 }
             });
     }
