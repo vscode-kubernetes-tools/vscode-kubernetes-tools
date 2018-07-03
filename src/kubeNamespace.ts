@@ -1,9 +1,10 @@
-import { refreshExplorer, promptKindName, kubectl } from './extension';
+import { refreshExplorer, promptKindName } from './extension';
 import * as kubectlUtils from './kubectlUtils';
 import * as kuberesources from './kuberesources';
 import * as explorer from './explorer';
+import { Kubectl } from './kubectl';
 
-export async function useNamespaceKubernetes(explorerNode: explorer.KubernetesObject) {
+export async function useNamespaceKubernetes(explorerNode: explorer.KubernetesObject, kubectl: Kubectl) {
     if (explorerNode) {
         if (await kubectlUtils.switchNamespace(kubectl, explorerNode.id)) {
             refreshExplorer();

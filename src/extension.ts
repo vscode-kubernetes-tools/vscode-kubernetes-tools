@@ -66,7 +66,7 @@ import { Container, isPod, isKubernetesResource, KubernetesCollection, Pod, Kube
 let explainActive = false;
 let swaggerSpecPromise = null;
 
-export const kubectl = kubectlCreate(host, fs, shell, installDependencies);
+const kubectl = kubectlCreate(host, fs, shell, installDependencies);
 const draft = draftCreate(host, fs, shell, installDependencies);
 const configureFromClusterUI = configureFromCluster.uiProvider();
 const createClusterUI = createCluster.uiProvider();
@@ -149,7 +149,7 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
         registerCommand('extension.vsKubernetesUseContext', useContextKubernetes),
         registerCommand('extension.vsKubernetesClusterInfo', clusterInfoKubernetes),
         registerCommand('extension.vsKubernetesDeleteContext', deleteContextKubernetes),
-        registerCommand('extension.vsKubernetesUseNamespace', useNamespaceKubernetes),
+        registerCommand('extension.vsKubernetesUseNamespace', () => { useNamespaceKubernetes(this, kubectl); } ),
         registerCommand('extension.vsKubernetesDashboard', () => { dashboardKubernetes(kubectl); }),
         registerCommand('extension.vsMinikubeStop', stopMinikube),
         registerCommand('extension.vsMinikubeStart', startMinikube),
