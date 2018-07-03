@@ -15,7 +15,7 @@ import * as dockerfileParse from 'dockerfile-parse';
 import * as tmp from 'tmp';
 import * as uuid from 'uuid';
 import * as clipboard from 'clipboardy';
-import {pullAll} from 'lodash';
+import { pullAll } from 'lodash';
 
 // Internal dependencies
 import { host } from './host';
@@ -938,14 +938,17 @@ function quickPickKindNameFromKind(resourceKind: kuberesources.ResourceKind, opt
             vscode.window.showErrorMessage(stderr);
             return;
         }
+
         let names = parseNamesFromKubectlLines(stdout);
         if (names.length === 0) {
             vscode.window.showInformationMessage("No resources of type " + resourceKind.displayName + " in cluster");
             return;
         }
-        if(opts){
-            names = pullAll(names,opts.filterNames) || names;
+
+        if (opts) {
+            names = pullAll(names, opts.filterNames) || names;
         }
+
         if (opts && opts.nameOptional) {
             names.push('(all)');
             vscode.window.showQuickPick(names).then((name) => {
