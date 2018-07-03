@@ -26,6 +26,7 @@ import * as configmaps from './configMap';
 import * as configureFromCluster from './configurefromcluster';
 import * as createCluster from './createcluster';
 import * as kuberesources from './kuberesources';
+import { useNamespaceKubernetes } from './kubeNamespace';
 import * as docker from './docker';
 import { kubeChannel } from './kubeChannel';
 import * as kubeconfig from './kubeconfig';
@@ -65,7 +66,7 @@ import { Container, isPod, isKubernetesResource, KubernetesCollection, Pod, Kube
 let explainActive = false;
 let swaggerSpecPromise = null;
 
-const kubectl = kubectlCreate(host, fs, shell, installDependencies);
+export const kubectl = kubectlCreate(host, fs, shell, installDependencies);
 const draft = draftCreate(host, fs, shell, installDependencies);
 const configureFromClusterUI = configureFromCluster.uiProvider();
 const createClusterUI = createCluster.uiProvider();
@@ -900,7 +901,7 @@ export function findKindNameOrPrompt(resourceKinds: kuberesources.ResourceKind[]
     }
 }
 
-function promptKindName(resourceKinds: kuberesources.ResourceKind[], descriptionVerb, opts, handler) {
+export function promptKindName(resourceKinds: kuberesources.ResourceKind[], descriptionVerb, opts, handler) {
     let placeHolder: string = 'Empty string to be prompted';
     let prompt: string = "What resource do you want to " + descriptionVerb + "?";
     if (opts) {
@@ -1324,7 +1325,7 @@ async function syncKubernetes(): Promise<void> {
     }
 }
 
-async function refreshExplorer() {
+export async function refreshExplorer() {
     await vscode.commands.executeCommand("extension.vsKubernetesRefreshExplorer");
 }
 
@@ -1746,38 +1747,6 @@ async function deleteContextKubernetes(explorerNode: explorer.KubernetesObject) 
     }
     if (await kubectlUtils.deleteCluster(kubectl, contextObj)) {
         refreshExplorer();
-    }
-}
-
-async function useNamespaceKubernetes(explorerNode: explorer.KubernetesObject) {
-    if (explorerNode) {
-        if (await kubectlUtils.switchNamespace(kubectl, explorerNode.id)) {
-            refreshExplorer();
-        }
-    } else {
-        const currentNS = await kubectlUtils.currentNamespace(kubectl);
-        promptKindName([kuberesources.allKinds.namespace], undefined,
-            {
-                prompt: 'What namespace do you want to use?',
-                placeHolder: 'Enter the namespace to switch to or press enter to select from available list',
-                filterNames: [currentNS]
-            },
-            async (resource) => {
-                if (resource) {
-                    let toSwitchNamespace = resource;
-                    // resource will be of format <kind>/<name>, when picked up from the quickpick
-                    if (toSwitchNamespace.lastIndexOf('/') != -1) {
-                        toSwitchNamespace = toSwitchNamespace.substring(toSwitchNamespace.lastIndexOf('/') + 1);
-                    }
-                    // Switch if an only if the currentNS and toSwitchNamespace are different
-                    if (toSwitchNamespace && currentNS !== toSwitchNamespace) {
-                        const promiseSwitchNS = await kubectlUtils.switchNamespace(kubectl, toSwitchNamespace);
-                        if (promiseSwitchNS) {
-                            refreshExplorer();
-                        }
-                    }
-                }
-            });
     }
 }
 
