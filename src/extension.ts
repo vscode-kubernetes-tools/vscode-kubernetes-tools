@@ -15,6 +15,7 @@ import * as dockerfileParse from 'dockerfile-parse';
 import * as tmp from 'tmp';
 import * as uuid from 'uuid';
 import * as clipboard from 'clipboardy';
+import { pullAll } from 'lodash';
 
 // Internal dependencies
 import { host } from './host';
@@ -25,6 +26,7 @@ import * as configmaps from './configMap';
 import * as configureFromCluster from './configurefromcluster';
 import * as createCluster from './createcluster';
 import * as kuberesources from './kuberesources';
+import { useNamespaceKubernetes } from './kubeNamespace';
 import * as docker from './docker';
 import { kubeChannel } from './kubeChannel';
 import * as kubeconfig from './kubeconfig';
@@ -147,7 +149,7 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
         registerCommand('extension.vsKubernetesUseContext', useContextKubernetes),
         registerCommand('extension.vsKubernetesClusterInfo', clusterInfoKubernetes),
         registerCommand('extension.vsKubernetesDeleteContext', deleteContextKubernetes),
-        registerCommand('extension.vsKubernetesUseNamespace', useNamespaceKubernetes),
+        registerCommand('extension.vsKubernetesUseNamespace', () => { useNamespaceKubernetes(this, kubectl); } ),
         registerCommand('extension.vsKubernetesDashboard', () => { dashboardKubernetes(kubectl); }),
         registerCommand('extension.vsMinikubeStop', stopMinikube),
         registerCommand('extension.vsMinikubeStart', startMinikube),
@@ -899,8 +901,14 @@ export function findKindNameOrPrompt(resourceKinds: kuberesources.ResourceKind[]
     }
 }
 
-function promptKindName(resourceKinds: kuberesources.ResourceKind[], descriptionVerb, opts, handler) {
-    vscode.window.showInputBox({ prompt: "What resource do you want to " + descriptionVerb + "?", placeHolder: 'Empty string to be prompted' }).then((resource) => {
+export function promptKindName(resourceKinds: kuberesources.ResourceKind[], descriptionVerb, opts, handler) {
+    let placeHolder: string = 'Empty string to be prompted';
+    let prompt: string = "What resource do you want to " + descriptionVerb + "?";
+    if (opts) {
+        placeHolder = opts.placeHolder || placeHolder;
+        prompt = opts.prompt || prompt;
+    }
+    vscode.window.showInputBox({ prompt, placeHolder}).then((resource) => {
         if (resource === '') {
             quickPickKindName(resourceKinds, opts, handler);
         } else if (resource === undefined) {
@@ -931,11 +939,17 @@ function quickPickKindNameFromKind(resourceKind: kuberesources.ResourceKind, opt
             vscode.window.showErrorMessage(stderr);
             return;
         }
+
         let names = parseNamesFromKubectlLines(stdout);
         if (names.length === 0) {
             vscode.window.showInformationMessage("No resources of type " + resourceKind.displayName + " in cluster");
             return;
         }
+
+        if (opts) {
+            names = pullAll(names, opts.filterNames) || names;
+        }
+
         if (opts && opts.nameOptional) {
             names.push('(all)');
             vscode.window.showQuickPick(names).then((name) => {
@@ -1311,7 +1325,7 @@ async function syncKubernetes(): Promise<void> {
     }
 }
 
-async function refreshExplorer() {
+export async function refreshExplorer() {
     await vscode.commands.executeCommand("extension.vsKubernetesRefreshExplorer");
 }
 
@@ -1732,12 +1746,6 @@ async function deleteContextKubernetes(explorerNode: explorer.KubernetesObject) 
         return;
     }
     if (await kubectlUtils.deleteCluster(kubectl, contextObj)) {
-        refreshExplorer();
-    }
-}
-
-async function useNamespaceKubernetes(explorerNode: explorer.KubernetesObject) {
-    if (await kubectlUtils.switchNamespace(kubectl, explorerNode.id)) {
         refreshExplorer();
     }
 }
