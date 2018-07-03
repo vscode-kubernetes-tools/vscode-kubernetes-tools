@@ -80,7 +80,7 @@ export function makeRefOnKubernetes(id: string): { $ref: string } {
 export function parseKubernetesGroupVersionKind(groupKindNodeItem: any): {id: string, apiVersion: string, kind: string} {
     const group = getStringValue(groupKindNodeItem, 'group', StringComparison.OrdinalIgnoreCase);
     const version = getStringValue(groupKindNodeItem, 'version', StringComparison.OrdinalIgnoreCase);
-    const apiVersion = group ? group + '/' + version: version;
+    const apiVersion = group ? `${group}/${version}`: version;
     const kind = getStringValue(groupKindNodeItem, 'kind', StringComparison.OrdinalIgnoreCase);
     return { id: apiVersion + GROUP_VERSION_KIND_SEPARATOR + kind, apiVersion, kind };
 }
@@ -116,9 +116,9 @@ function getStringValue(node, key: string, ignoreCase: StringComparison = String
         return <string>node[key];
     }
     if (ignoreCase === StringComparison.OrdinalIgnoreCase) {
-        for (const _key of Object.keys(node)) {
-            if (equalIgnoreCase(key, _key)) {
-                return <string>node[_key];
+        for (const nodeKey of Object.keys(node)) {
+            if (equalIgnoreCase(key, nodeKey)) {
+                return <string>node[nodeKey];
             }
         }
     }

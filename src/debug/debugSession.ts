@@ -262,7 +262,8 @@ export class DebugSession implements IDebugSession {
     private async setupPortForward(podName: string, debugPort: number, appPort?: number): Promise<ProxyResult> {
         kubeChannel.showOutput(`Setting up port forwarding on pod ${podName}...`, "Set up port forwarding");
         const proxyResult = await this.createPortForward(this.kubectl, podName, debugPort, appPort);
-        kubeChannel.showOutput(`Created port-forward ${proxyResult.proxyDebugPort}:${debugPort} ${appPort ? proxyResult.proxyAppPort + ":" + appPort : ""}`);
+        const appPortStr = appPort ? `${proxyResult.proxyAppPort}:${appPort}` : "";
+        kubeChannel.showOutput(`Created port-forward ${proxyResult.proxyDebugPort}:${debugPort} ${appPortStr}`);
 
         // Wait for the port-forward proxy to be ready.
         kubeChannel.showOutput("Waiting for port forwarding to be ready...");
@@ -333,13 +334,13 @@ export class DebugSession implements IDebugSession {
             proxyAppPort = await portfinder.getPortPromise({
                 port: appPort
             });
-            portMapping.push(proxyAppPort + ":" + appPort);
+            portMapping.push(`${proxyAppPort}:${appPort}`);
         }
         // Find a free local port for forwarding data to remote debug port.
         const proxyDebugPort = await portfinder.getPortPromise({
             port: Math.max(10000, Number(proxyAppPort) + 1)
         });
-        portMapping.push(proxyDebugPort + ":" + debugPort);
+        portMapping.push(`${proxyDebugPort}:${debugPort}`);
 
         return {
             proxyProcess: await kubectl.spawnAsChild(["port-forward", podName, ...portMapping]),

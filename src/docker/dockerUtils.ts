@@ -45,7 +45,7 @@ async function getDefaultImageName(cwd: string, imagePrefix?: string): Promise<s
     const version = await findVersion(cwd);
     let image = `${name}:${version}`;
     if (imagePrefix) {
-        image = imagePrefix + "/" + image;
+        image = `${imagePrefix}/${image}`;
     }
     return image;
 }

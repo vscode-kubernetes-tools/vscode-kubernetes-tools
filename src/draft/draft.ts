@@ -82,7 +82,7 @@ async function packs(context: Context): Promise<string[] | undefined> {
 
 async function invoke(context: Context, args: string): Promise<ShellResult> {
     if (await checkPresent(context, CheckPresentMode.Alert)) {
-        const result = context.shell.exec(context.binPath + ' ' + args);
+        const result = context.shell.exec(`${context.binPath} ${args}`);
         return result;
     }
 }
@@ -97,18 +97,6 @@ async function up(context: Context): Promise<void> {
             term.show(true);
         }
     }
-}
-
-async function path(context: Context): Promise<string | undefined> {
-    const bin = await pathCore(context);
-    return binutil.execPath(context.shell, bin);
-}
-
-async function pathCore(context: Context): Promise<string | undefined> {
-    if (await checkPresent(context, CheckPresentMode.Alert)) {
-        return context.binPath;
-    }
-    return undefined;
 }
 
 async function checkForDraftInternal(context: Context, mode: CheckPresentMode): Promise<boolean> {

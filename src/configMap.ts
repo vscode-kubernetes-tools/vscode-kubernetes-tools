@@ -21,12 +21,12 @@ export class ConfigMapTextProvider implements vscode.TextDocumentContentProvider
 }
 
 export function loadConfigMapData(obj: KubernetesFileObject) {
-    let encoded_data = obj.configData[obj.id];
-    if (obj.resource == allKinds.configMap.abbreviation) {
-        encoded_data = Buffer.from(obj.configData[obj.id]).toString('base64');
+    let encodedData = obj.configData[obj.id];
+    if (obj.resource === allKinds.configMap.abbreviation) {
+        encodedData = Buffer.from(obj.configData[obj.id]).toString('base64');
     }
-    const uri_str = `${uriScheme}://${obj.resource}/${encoded_data}/${obj.id}`;
-    const uri = vscode.Uri.parse(uri_str);
+    const uriStr = `${uriScheme}://${obj.resource}/${encodedData}/${obj.id}`;
+    const uri = vscode.Uri.parse(uriStr);
     vscode.workspace.openTextDocument(uri).then(
         (doc) => {
             vscode.window.showTextDocument(doc);
@@ -98,7 +98,7 @@ export async function addKubernetesConfigFile(kubectl: Kubectl, obj: KubernetesD
             }
             // TODO: I really don't like sync calls here...
             const buff = fs.readFileToBufferSync(filePath);
-            if (obj.resource == 'configmap') {
+            if (obj.resource === 'configmap') {
                 dataHolder.data[fileName] = buff.toString();
             } else {
                 dataHolder.data[fileName] = buff.toString('base64');
@@ -106,7 +106,7 @@ export async function addKubernetesConfigFile(kubectl: Kubectl, obj: KubernetesD
         });
         const out = JSON.stringify(dataHolder);
         const shellRes = await kubectl.invokeAsync(`replace -f - --namespace=${currentNS}`, out);
-        if (shellRes.code != 0) {
+        if (shellRes.code !== 0) {
             vscode.window.showErrorMessage('Failed to add file(s) to resource ${obj.id}: ' + shellRes.stderr);
             return;
         }

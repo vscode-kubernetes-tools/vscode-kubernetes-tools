@@ -30,9 +30,8 @@ async function isAKSCluster (kubectl: Kubectl): Promise<boolean> {
     if (failed(nodes)) {
         return false;
     }
-    const nodeItems = nodes.result.items;
-    const nodeCount = nodeItems.length;
 
+    const nodeItems = nodes.result.items;
     for (const nodeItem of nodeItems) {
         const isAKSNode = _isNodeAKS(nodeItem);
 
@@ -41,7 +40,7 @@ async function isAKSCluster (kubectl: Kubectl): Promise<boolean> {
         }
     }
 
-    return true;
+   return true;
 }
 
 function _isNodeAKS(node: Node): boolean {
@@ -124,7 +123,7 @@ export async function dashboardKubernetes (kubectl: Kubectl): Promise<void> {
     }
 
     // Read kubectl proxy's stdout as a stream.
-    const proxyStream = createReadStream(
+    createReadStream(
         PROXY_OUTPUT_FILE,
         {encoding: 'utf8'}
     ).on('data', onStreamData);

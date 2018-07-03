@@ -20,7 +20,7 @@ export class HelmTemplateHoverProvider implements vscode.HoverProvider {
     public provideHover(doc: vscode.TextDocument, pos: vscode.Position, tok: vscode.CancellationToken): vscode.ProviderResult<vscode.Hover> {
         const wordRange = doc.getWordRangeAtPosition(pos);
         const word = wordRange ? doc.getText(wordRange) : "";
-        if (word == "") {
+        if (word === "") {
             return Promise.resolve(null);
         }
 
@@ -61,19 +61,19 @@ export class HelmTemplateHoverProvider implements vscode.HoverProvider {
 
     private inAction(doc: vscode.TextDocument, pos: vscode.Position, word: string): boolean {
         const lineText = doc.lineAt(pos.line).text;
-        const r = new RegExp("{{[^}]*[\\s\\(|]?("+word+")\\s[^{]*}}");
+        const r = new RegExp(`{{[^}]*[\\s\\(|]?(${word})\\s[^{]*}}`);
         return r.test(lineText);
     }
 
     private notInAction(doc: vscode.TextDocument, pos: vscode.Position, word: string): boolean {
         const lineText = doc.lineAt(pos.line).text;
-        const r = new RegExp("(^|})[^{]*("+word+")");
+        const r = new RegExp(`(^|})[^{]*(${word})`);
         return r.test(lineText);
     }
 
     private findFunc(word: string): vscode.MarkedString[] | string {
         for (const item of this.funcmap) {
-            if (item.label == word) {
+            if (item.label === word) {
                 return [{language: "helm", value: `{{ ${ item.detail } }}`}, `${ item.documentation }`];
             }
         }
@@ -81,20 +81,20 @@ export class HelmTemplateHoverProvider implements vscode.HoverProvider {
 
     private inActionVal(doc: vscode.TextDocument, pos: vscode.Position, word: string): boolean {
         const lineText = doc.lineAt(pos.line).text;
-        const r = new RegExp("{{[^}]*\\.("+word+")[\\.\\s]?[^{]*}}");
+        const r = new RegExp(`{{[^}]*\\.(${word})[\\.\\s]?[^{]*}}`);
         return r.test(lineText);
     }
 
     private findVal(word: string): vscode.MarkedString[] | string {
         for (const item of this.valmap) {
-            if (item.label == word) {
+            if (item.label === word) {
                 return [{language: "helm", value: `{{ ${ item.detail } }}`}, `${ item.documentation }`];
             }
         }
     }
     private findResourceDef(word: string): vscode.MarkedString[] | string {
         for (const item of this.resmap) {
-            if (item.label == word) {
+            if (item.label === word) {
                 return [{language: "helm", value: `${ item.detail }`}, `${ item.documentation }`];
             }
         }

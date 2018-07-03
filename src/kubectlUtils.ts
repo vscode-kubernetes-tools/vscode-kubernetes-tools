@@ -181,7 +181,7 @@ export async function getPods(kubectl: Kubectl, selector: any, namespace: string
     }
     if (matchLabelObj) {
         Object.keys(matchLabelObj).forEach((key) => {
-            labels.push(key + "=" + matchLabelObj[key]);
+            labels.push(`${key}=${matchLabelObj[key]}`);
         });
     }
     let labelStr = "";
@@ -246,10 +246,12 @@ export async function switchNamespace(kubectl: Kubectl, namespace: string): Prom
 export async function runAsDeployment(kubectl: Kubectl, deploymentName: string, image: string, exposedPorts: number[], env: any): Promise<string> {
     const imageName = image.split(":")[0];
     const imagePrefix = imageName.substring(0, imageName.lastIndexOf("/")+1);
+
     if (!deploymentName) {
         const baseName = imageName.substring(imageName.lastIndexOf("/")+1);
-        const deploymentName = `${baseName}-${Date.now()}`;
+        deploymentName = `${baseName}-${Date.now()}`;
     }
+
     const runCmd = [
         "run",
         deploymentName,
@@ -258,10 +260,12 @@ export async function runAsDeployment(kubectl: Kubectl, deploymentName: string, 
         ...exposedPorts.map((port) => `--port=${port}`),
         ...Object.keys(env || {}).map((key) => `--env="${key}=${env[key]}"`)
     ];
+
     const runResult = await kubectl.invokeAsync(runCmd.join(" "));
     if (runResult.code !== 0) {
         throw new Error(`Failed to run the image "${image}" on Kubernetes: ${runResult.stderr}`);
     }
+
     return deploymentName;
 }
 

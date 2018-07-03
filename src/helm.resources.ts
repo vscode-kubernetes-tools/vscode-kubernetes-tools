@@ -38,7 +38,7 @@ export class Resources {
             console.log("Adding schema " + itemPath);
             res = res.concat(this.fromSchema(schema.models));
         });
-        console.log("Attached " + res.length + " resource kinds");
+        console.log(`Attached ${res.length} resource kinds`);
         return res;
     }
 
@@ -51,7 +51,6 @@ export class Resources {
         const res = [];
         _.each(schema, (v, k) => {
             const i = k.lastIndexOf(".");
-            //let version = k.substr(0, i)
             const kind = k.substr(i+1);
             res.push(val(kind, `kind: ${ kind }`, v.description));
             _.each(v.properties, (spec, label) => {
@@ -93,6 +92,7 @@ function d(name: string, use: string, doc: string): vscode.CompletionItem {
     i.documentation = doc;
     return i;
 }
+
 function val(name: string, use: string, doc: string): vscode.CompletionItem {
     const i = new vscode.CompletionItem(name, vscode.CompletionItemKind.Value);
     i.detail = use;

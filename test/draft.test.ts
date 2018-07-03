@@ -33,7 +33,8 @@ suite("draft tests", () => {
         suite("If draft is not on the path", () => {
 
             test("...and configuration is not present, then checkPresent reports an error", async () => {
-                const errors: string[] = [];
+                /* tslint:disable-next-line:prefer-const */
+                let errors: string[] = [];
                 const draft = draftCreateWithFakes({
                     host: fakes.host({errors: errors})
                 });
@@ -44,7 +45,8 @@ suite("draft tests", () => {
             });
 
             test("...and configuration is present but file doesn't exist, then checkPresent reports an error", async () => {
-                const errors: string[] = [];
+                /* tslint:disable-next-line:prefer-const */
+                let errors: string[] = [];
                 const draft = draftCreateWithFakes({
                     host: fakes.host({errors: errors, configuration: draftFakePathConfig()})
                 });
@@ -55,7 +57,8 @@ suite("draft tests", () => {
             });
 
             test("...and in silent mode, then no errors are reported", async () => {
-                const errors: string[] = [];
+                /* tslint:disable-next-line:prefer-const */
+                let errors: string[] = [];
                 const draft = draftCreateWithFakes({
                     host: fakes.host({errors: errors})
                 });
@@ -65,7 +68,8 @@ suite("draft tests", () => {
             });
 
             test("...and configuration is present and file exists, then checkPresent does not report any messages", async () => {
-                const errors = [];
+                /* tslint:disable-next-line:prefer-const */
+                let errors = [];
                 const warnings: string[] = [];
                 const infos: string[] = [];
                 const draft = draftCreateWithFakes({
@@ -92,7 +96,8 @@ suite("draft tests", () => {
         suite("If draft is on the path", () => {
 
             test("...no messages are reported on Windows", async () => {
-                const errors: string[] = [];
+                /* tslint:disable-next-line:prefer-const */
+                let errors: string[] = [];
                 const warnings: string[] = [];
                 const infos: string[] = [];
                 const draft = draftCreateWithFakes({
@@ -106,7 +111,8 @@ suite("draft tests", () => {
             });
 
             test("...no messages are reported on Unix", async () => {
-                const errors: string[] = [];
+                /* tslint:disable-next-line:prefer-const */
+                let errors: string[] = [];
                 const warnings: string[] = [];
                 const infos: string[] = [];
                 const draft = draftCreateWithFakes({
@@ -211,7 +217,8 @@ suite("draft tests", () => {
                     onDirSync: (path) => { probedPath = path; return []; }
                 })
             });
-            const packs = await draft.packs();
+
+            await draft.packs();
             assert.equal(probedPath, 'c:\\itowlson\\.draft\\packs');
         });
 

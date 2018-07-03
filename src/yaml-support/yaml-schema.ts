@@ -30,20 +30,20 @@ declare type YamlSchemaContributor = (schema: string,
 
 class KubernetesSchemaHolder {
     // the schema for kubernetes
-    private _definitions: { [key: string]: KubernetesSchema; } = {};
+    private definitions: { [key: string]: KubernetesSchema; } = {};
 
-    private _schemaEnums: { [key: string]: { [key: string]: [string[]] }; };
+    private schemaEnums: { [key: string]: { [key: string]: [string[]] }; };
 
     // load the kubernetes schema and make some modifications to $ref node
     public loadSchema(schemaFile: string, schemaEnumFile?: string): void {
         const schemaRaw = util.loadJson(schemaFile);
-        this._schemaEnums = schemaEnumFile ? util.loadJson(schemaEnumFile) : {};
+        this.schemaEnums = schemaEnumFile ? util.loadJson(schemaEnumFile) : {};
         const definitions = schemaRaw.definitions;
         for (const name of Object.keys(definitions)) {
             this.saveSchemaWithManifestStyleKeys(name, definitions[name]);
         }
 
-        for (const schema of _.values(this._definitions) ) {
+        for (const schema of _.values(this.definitions) ) {
             if (schema.properties) {
                 // the swagger schema has very short description on properties, we need to get the actual type of
                 // the property and provide more description/properties details, just like `kubernetes explain` do.
@@ -77,7 +77,7 @@ class KubernetesSchemaHolder {
 
     // get kubernetes schema by the key
     public lookup(key: string): KubernetesSchema {
-        return key ? this._definitions[key.toLowerCase()] : undefined;
+        return key ? this.definitions[key.toLowerCase()] : undefined;
     }
 
     /**
@@ -135,10 +135,10 @@ class KubernetesSchemaHolder {
 
     // add enum field for pre-defined enums in schema-enums json file
     private loadEnumsForKubernetesSchema(node: KubernetesSchema) {
-        if (node.properties && this._schemaEnums[node.name]) {
+        if (node.properties && this.schemaEnums[node.name]) {
             _.each(node.properties, (propSchema, propKey) => {
-                if (this._schemaEnums[node.name][propKey]) {
-                    propSchema.enum = this._schemaEnums[node.name][propKey];
+                if (this.schemaEnums[node.name][propKey]) {
+                    propSchema.enum = this.schemaEnums[node.name][propKey];
                 }
             });
         }
@@ -147,10 +147,10 @@ class KubernetesSchemaHolder {
     // save the schema to the _definitions
     private saveSchema(schema: KubernetesSchema): void {
         if (schema.name) {
-            this._definitions[schema.name.toLowerCase()] = schema;
+            this.definitions[schema.name.toLowerCase()] = schema;
         }
         if (schema.id) {
-            this._definitions[schema.id.toLowerCase()] = schema;
+            this.definitions[schema.id.toLowerCase()] = schema;
         }
     }
 
@@ -209,18 +209,18 @@ function requestYamlSchemaUriCallback(resource: string): string {
 
 // see docs from YamlSchemaContributor
 function requestYamlSchemaContentCallback(uri: string): string {
-    const _uri = Uri.parse(uri);
-    if (_uri.scheme !== KUBERNETES_SCHEMA) {
+    const parsedUri = Uri.parse(uri);
+    if (parsedUri.scheme !== KUBERNETES_SCHEMA) {
         return undefined;
     }
-    if (!_uri.path || !_uri.path.startsWith('/')) {
+    if (!parsedUri.path || !parsedUri.path.startsWith('/')) {
         return undefined;
     }
 
     // slice(1) to remove the first '/' in schema
     // eg: kubernetes://schema/io.k8s.kubernetes.pkg.apis.extensions.v1beta1.httpingresspath will have
     // path '/io.k8s.kubernetes.pkg.apis.extensions.v1beta1.httpingresspath'
-    const manifestType = _uri.path.slice(1);
+    const manifestType = parsedUri.path.slice(1);
     // if it is a multiple choice, make an 'oneof' schema.
     if (manifestType.includes('+')) {
         const manifestRefList = manifestType.split('+').map(util.makeRefOnKubernetes);

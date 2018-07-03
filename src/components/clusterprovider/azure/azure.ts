@@ -154,7 +154,8 @@ async function listLocations(context: Context): Promise<Errorable<Locations>> {
     const sr = await context.shell.exec(`az account list-locations --query ${query} -ojson`);
 
     return fromShellJson<Locations>(sr, (response) => {
-        const locations: any = {};
+        /* tslint:disable-next-line:prefer-const */
+        let locations: any = {};
         for (const r of response) {
             locations[r.name] = r.displayName;
         }
@@ -242,7 +243,7 @@ async function ensureResourceGroupAsync(context: Context, resourceGroupName: str
 async function execCreateClusterCmd(context: Context, options: any): Promise<Errorable<Diagnostic>> {
     const clusterCmd = getClusterCommand(options.clusterType);
     let createCmd = `az ${clusterCmd} create -n "${options.metadata.clusterName}" -g "${options.metadata.resourceGroupName}" -l "${options.metadata.location}" --generate-ssh-keys --no-wait `;
-    if (clusterCmd == 'acs') {
+    if (clusterCmd === 'acs') {
         createCmd = createCmd + `--agent-count ${options.agentSettings.count} --agent-vm-size "${options.agentSettings.vmSize}" -t Kubernetes`;
     } else {
         createCmd = createCmd + `--node-count ${options.agentSettings.count} --node-vm-size "${options.agentSettings.vmSize}"`;
@@ -254,10 +255,6 @@ async function execCreateClusterCmd(context: Context, options: any): Promise<Err
 }
 
 export async function createCluster(context: Context, options: any): Promise<ActionResult<Diagnostic>> {
-    const description = `
-    Created ${options.clusterType} cluster ${options.metadata.clusterName} in ${options.metadata.resourceGroupName} with ${options.agentSettings.count} agents.
-    `;
-
     const login = await setSubscriptionAsync(context, options.subscription);
     if (!login.succeeded) {
         return {

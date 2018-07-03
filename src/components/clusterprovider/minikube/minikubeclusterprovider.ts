@@ -75,7 +75,7 @@ class HtmlServer {
     async handleRequest(handler: HtmlRequestHandler, request: restify.Request, requestData: any, response: restify.Response, next: restify.Next) {
         const html = await handler(request.query["step"], requestData, this.context);
         response.contentType = 'text/html';
-        response.send("<html><body><style id='styleholder'></style>" + html + "</body></html>");
+        response.send(`<html><body><style id='styleholder'></style>${html}</body></html>`);
 
         next();
     }

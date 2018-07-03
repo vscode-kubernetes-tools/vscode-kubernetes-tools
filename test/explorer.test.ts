@@ -60,7 +60,7 @@ suite("Explorer tests", () => {
                     kubectl: fakes.kubectl({ asLines: (c) => { command = c; return ["a"]; } })
                 });
                 const parent: any = kubeExplorer.createKubernetesResourceFolder(kuberesources.allKinds.pod);
-                const nodes = await explorer.getChildren(parent);
+                await explorer.getChildren(parent);
                 assert.equal(command, "get pod");
             });
 
@@ -100,7 +100,7 @@ suite("Explorer tests", () => {
                     host: fakes.host({errors: errors})
                 });
                 const parent: any = kubeExplorer.createKubernetesResourceFolder(kuberesources.allKinds.pod);
-                const nodes = await explorer.getChildren(parent);
+                await explorer.getChildren(parent);
                 assert.equal(errors.length, 1);
                 assert.equal(errors[0], "Oh no!");
             });

@@ -195,7 +195,7 @@ function findProperty(obj: any, name: string) {
     const n = (name + "").toLowerCase();
     for (const p in obj) {
         const pinfo = obj[p];
-        if ((p + "").toLowerCase() == n) {
+        if ((p + "").toLowerCase() === n) {
             return pinfo;
         }
         const gvks = pinfo["x-kubernetes-group-version-kind"];
@@ -205,14 +205,14 @@ function findProperty(obj: any, name: string) {
             const kind = gvk.kind;
             if (ver && kind) {
                 const vk = `${ver}.${kind}`;
-                if (vk.toLowerCase() == n) {
+                if (vk.toLowerCase() === n) {
                     return pinfo;
                 }
             }
         }
     }
     const singname = singularizeVersionedName(name);
-    if (singname == name) {
+    if (singname === name) {
         return undefined;
     } else {
         return findProperty(obj, singname);

@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 
-const HelmChannel = "Helm";
+const HELM_CHANNEL = "Helm";
 
 interface Logger extends vscode.Disposable {
     log(msg: string): void;
@@ -24,4 +24,4 @@ class LoggingConsole implements Logger {
     }
 }
 
-export const helm: Logger = new LoggingConsole(HelmChannel);
+export const helm: Logger = new LoggingConsole(HELM_CHANNEL);

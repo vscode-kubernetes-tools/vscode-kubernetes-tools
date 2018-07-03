@@ -8,7 +8,7 @@ export interface Typed {
 // get type description defined in JSON-schema
 export function formatType(p: Typed): string {
     const baseType = p.type || 'object';
-    if (baseType == 'array') {
+    if (baseType === 'array') {
         return formatType(p.items) + '[]';
     }
     return baseType;

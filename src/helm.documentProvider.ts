@@ -19,8 +19,8 @@ export class HelmInspectDocumentProvider implements vscode.TextDocumentContentPr
             console.log("provideTextDocumentContent called with uri " + uri.toString());
 
             const printer = (code, out, err) => {
-                if (code == 0) {
-                    const p = (filepath.extname(uri.fsPath) == ".tgz") ? filepath.basename(uri.fsPath) : "Chart";
+                if (code === 0) {
+                    const p = (filepath.extname(uri.fsPath) === ".tgz") ? filepath.basename(uri.fsPath) : "Chart";
                     const title = "Inspect " + p;
                     resolve(previewBody(title, out));
                 }
@@ -29,7 +29,7 @@ export class HelmInspectDocumentProvider implements vscode.TextDocumentContentPr
 
             const file = uri.fsPath || uri.authority;
             const fi = fs.statSync(file);
-            if (!fi.isDirectory() && filepath.extname(file) == ".tgz") {
+            if (!fi.isDirectory() && filepath.extname(file) === ".tgz") {
                 exec.helmExec(`inspect values "${file}"`, printer);
                 return;
             } else if (fi.isDirectory() && fs.existsSync(filepath.join(file, "Chart.yaml"))) {
@@ -46,20 +46,19 @@ export class HelmInspectDocumentProvider implements vscode.TextDocumentContentPr
 
 // Provide an HTML-formatted preview window.
 export class HelmTemplatePreviewDocumentProvider implements vscode.TextDocumentContentProvider {
-    private _onDidChange = new vscode.EventEmitter<vscode.Uri>();
+    private onDidChangeEmitter = new vscode.EventEmitter<vscode.Uri>();
 
     get onDidChange(): vscode.Event<vscode.Uri> {
-        return this._onDidChange.event;
+        return this.onDidChangeEmitter.event;
     }
 
     public update(uri: vscode.Uri) {
-        this._onDidChange.fire(uri);
+        this.onDidChangeEmitter.fire(uri);
 	}
 
     public provideTextDocumentContent(uri: vscode.Uri, tok: vscode.CancellationToken): vscode.ProviderResult<string> {
         return new Promise<string>((resolve, reject) => {
             // The URI is the encapsulated path to the template to render.
-            //let tpl = uri.fsPath
             if (!vscode.window.activeTextEditor) {
                 logger.helm.log("FIXME: no editor selected");
                 return;
@@ -74,18 +73,17 @@ export class HelmTemplatePreviewDocumentProvider implements vscode.TextDocumentC
                 }
                 const reltpl = filepath.relative(chartPath, tpl);
                 exec.helmExec(`template "${chartPath}" --execute "${reltpl}"`, (code, out, err) => {
-                    if (code != 0) {
+                    if (code !== 0) {
                         resolve(previewBody("Chart Preview", "Failed template call." + err, true));
                         return;
                     }
 
-                    if (filepath.basename(reltpl) != "NOTES.txt") {
+                    if (filepath.basename(reltpl) !== "NOTES.txt") {
                         try {
-                            const res = YAML.parse(out);
+                            YAML.parse(out);
                         } catch (e) {
                             // TODO: Figure out the best way to display this message, but have it go away when the
                             // file parses correctly.
-                            //resolve(previewBody("Chart Preview", "Invalid YAML: " + err.message, true))
                             vscode.window.showErrorMessage(`YAML failed to parse: ${ e.message }`);
                         }
                     }

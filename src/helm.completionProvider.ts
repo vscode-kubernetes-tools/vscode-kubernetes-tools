@@ -46,7 +46,6 @@ export class HelmTemplateCompletionProvider implements vscode.CompletionItemProv
     }
 
     public provideCompletionItems(doc: vscode.TextDocument, pos: vscode.Position) {
-
         // If the preceding character is a '.', we kick it into dot resolution mode.
         // Otherwise, we go with function completion.
         const wordPos = doc.getWordRangeAtPosition(pos);
@@ -54,9 +53,7 @@ export class HelmTemplateCompletionProvider implements vscode.CompletionItemProv
         const line = doc.lineAt(pos.line).text;
         const lineUntil = line.substr(0, wordPos.start.character);
 
-        //logger.log(lineUntil)
         if (lineUntil.endsWith(".")) {
-            //logger.log("sending to dotCompletionItems ")
             return this.dotCompletionItems(doc, pos, word, lineUntil);
         }
 
@@ -99,11 +96,10 @@ export class HelmTemplateCompletionProvider implements vscode.CompletionItemProv
 
             // If this does not match the valuesMatcher (Not a .Values.SOMETHING...) then
             // we return right away.
-            if (!res || res.length == 0) {
+            if (!res || res.length === 0) {
                 return [];
             }
-            //logger.log("Match: " + res[0] + " ('"+res[1]+"' matches)")
-            if (res[1].length == 0 ) {
+            if (res[1].length === 0 ) {
                 // This is probably impossible. It would match '.Values.', but that is
                 // matched by a previous condition.
                 return [];
@@ -113,10 +109,9 @@ export class HelmTemplateCompletionProvider implements vscode.CompletionItemProv
             // tree to see what suggestions we can give based on the contents of the
             // current values.yaml file.
             const parts = res[1].split(".");
-            const words = [];
             let cache = this.valuesCache;
             for (const cur of parts) {
-                if (cur.length == 0) {
+                if (cur.length === 0) {
                     // We hit the trailing dot.
                     break;
                 }
@@ -127,7 +122,6 @@ export class HelmTemplateCompletionProvider implements vscode.CompletionItemProv
                 cache = cache[cur];
             }
             if (!cache) {
-                //logger.log("Found no matches for " + res[1])
                 return [];
             }
             const k = [];
@@ -138,36 +132,11 @@ export class HelmTemplateCompletionProvider implements vscode.CompletionItemProv
             return k;
         }
     }
+
     v(name: string, use: string, doc: string): vscode.CompletionItem {
         const i = new vscode.CompletionItem(name, vscode.CompletionItemKind.Constant);
         i.detail = use;
         i.documentation = doc;
         return i;
     }
-/*
-    f(name: string, args: string, doc: string): vscode.CompletionItem {
-        let i = new vscode.CompletionItem(name, vscode.CompletionItemKind.Function);
-        i.detail = args;
-        i.documentation = doc;
-        return i;
-    }
-    withValues(fn) {
-        let doc = vscode.window.activeTextEditor.document;
-        exec.pickChartForFile(doc.fileName, (f) => {
-            let valsYaml = path.join(f, "values.yaml");
-            let vals;
-            try {
-                vals = YAML.load(valsYaml);
-            } catch (err) {
-                logger.helm.log(err.message);
-                fn({});
-            }
-            fn(vals);
-        });
-    }
-    */
-}
-
-interface UIOptions {
-    readonly warnIfNoCharts?: boolean;
 }
