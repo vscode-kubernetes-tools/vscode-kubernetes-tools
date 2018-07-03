@@ -426,18 +426,13 @@ class HelmReleasesFolder extends KubernetesResourceFolder {
         }
 
         const currentNS = await kubectlUtils.currentNamespace(kubectl);
-        const nsarg = currentNS ? `--namespace ${currentNS}` : "";
 
-        const sr = await helmexec.helmExecAsync(`list --short --max 0 ${nsarg}`);
-        if (sr.code !== 0) {
-            return [new DummyObject("Helm list error")];
+        const releases = await helmexec.helmListAll(currentNS);
+
+        if (failed(releases)) {
+            return [new DummyObject(releases.error[0])];
         }
 
-        const names = sr.stdout
-                        .split('\n')
-                        .map((s) => s.trim())
-                        .filter((l) => l.length > 0);
-        const nodes = names.map((n) => new HelmReleaseResource(n));
-        return nodes;
+        return releases.result.map((r) => new HelmReleaseResource(r));
     }
 }
