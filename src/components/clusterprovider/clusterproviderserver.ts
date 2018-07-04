@@ -52,7 +52,7 @@ function handleClusterTypeSelection(request: restify.Request, response: restify.
 
     reporter.sendTelemetryEvent("cloudselection", { action: action, clusterType: clusterType });
 
-    const clusterProvider = clusterproviderregistry.get().list().find((cp) => cp.id === clusterType);  // TODO: move into clusterproviderregistry
+    const clusterProvider = clusterproviderregistry.get().list().find((cp) => cp.id === clusterType)!;  // ! is safe because clusterType originally came from this list so should never be not found
     const url = `http://localhost:${clusterProvider.port}/${action}?clusterType=${clusterProvider.id}`;
     response.redirect(307, url, next);
 }
