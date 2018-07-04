@@ -18,7 +18,7 @@ type HtmlRequestHandler = (
     context: Context,
 ) => Promise<string>;
 
-let minikubeWizardServer: restify.Server;
+let minikubeWizardServer: restify.Server | undefined;
 
 export async function init(registry: clusterproviderregistry.ClusterProviderRegistry, context: Context): Promise<void> {
     if (!minikubeWizardServer) {
