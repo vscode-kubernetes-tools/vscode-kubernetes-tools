@@ -286,7 +286,7 @@ export async function helmExecAsync(args: string): Promise<ShellResult> {
     }
     const configuredBin: string | undefined = vscode.workspace.getConfiguration('vs-kubernetes')['vs-kubernetes.helm-path'];
     const bin = configuredBin ? `"${configuredBin}"` : "helm";
-    const cmd = bin + " " + args;
+    const cmd = `${bin} ${args}`;
     return await sh.exec(cmd);
 }
 
@@ -297,7 +297,7 @@ export async function helmListAll(namespace?: string): Promise<Errorable<string[
         return { succeeded: false, error: [ 'Helm not installed' ] };
     }
 
-    let releases: string[] = [];
+    const releases: string[] = [];
     let offset: string | null = null;
 
     do {
@@ -309,7 +309,7 @@ export async function helmListAll(namespace?: string): Promise<Errorable<string[
             return { succeeded: false, error: [ 'Helm list error' ] };
         }
 
-        let lines = sr.stdout.split('\n')
+        const lines = sr.stdout.split('\n')
                                .map((s) => s.trim())
                                .filter((l) => l.length > 0);
         if (lines.length > 0) {

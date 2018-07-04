@@ -403,7 +403,7 @@ class HelmReleaseResource implements KubernetesObject {
     }
 
     getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
-        let treeItem = new vscode.TreeItem(this.name, vscode.TreeItemCollapsibleState.None);
+        const treeItem = new vscode.TreeItem(this.name, vscode.TreeItemCollapsibleState.None);
         treeItem.command = {
             command: "extension.helmGet",
             title: "Get",
