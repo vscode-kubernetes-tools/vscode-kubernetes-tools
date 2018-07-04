@@ -21,7 +21,7 @@ export async function getEvents(kubectl: Kubectl, displayMode: EventDisplayMode,
     if (EventDisplayMode.Follow === displayMode) {
         cmd += ' -w';
         return kubectl.invokeInNewTerminal(cmd, 'Kubernetes Events');
-    }else{
+    } else {
         return kubectl.invokeInSharedTerminal(cmd);
     }
 }
