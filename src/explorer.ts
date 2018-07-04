@@ -178,6 +178,7 @@ class KubernetesResourceFolder extends KubernetesFolder {
     }
 
     async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
+        // TODO: Switch to asJson
         const childrenLines = await kubectl.asLines("get " + this.kind.abbreviation);
         if (failed(childrenLines)) {
             host.showErrorMessage(childrenLines.error[0]);
@@ -255,9 +256,16 @@ class KubernetesNodeResource extends KubernetesResource {
     }
 
     async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
-        const pods = await kubectlUtils.getPods(kubectl, null, 'all');
-        const filteredPods = pods.filter((p) => `node/${p.nodeName}` === this.resourceId);
-        return filteredPods.map((p) => new KubernetesResource(kuberesources.allKinds.pod, p.name, p));
+        // TODO: Switch to asJson
+        const pods = await kubectl.asLines(`get po --all-namespaces --field-selector spec.nodeName=${this.id}`);
+        if (failed(pods)) {
+            host.showErrorMessage(pods.error[0]);
+            return [new DummyObject("Error")];
+        }
+        return pods.result.map((line) => {
+            const bits = line.replace(/\s+/g, '|').split('|');
+            return new KubernetesResource(kuberesources.allKinds.pod, bits[1], { status: bits[3].toLowerCase(), name: bits[1], namespace: bits[0], node: this.resourceId });
+        });
     }
 }
 
