@@ -106,7 +106,9 @@ export class HelmTemplatePreviewDocumentProvider implements vscode.TextDocumentC
                         }
                     }
 
-                    const previewDoc = { title: reltpl, content: out, isErrorOutput: false };
+                    const previewDoc = out ?
+                        { title: reltpl, content: out, isErrorOutput: false } :
+                        { title: reltpl, content: 'Helm template produced no output', isErrorOutput: true };
                     resolve(render(previewDoc));
                 });
             });
