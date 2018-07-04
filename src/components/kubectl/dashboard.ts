@@ -16,7 +16,7 @@ const TERMINAL_NAME = "Kubernetes Dashboard";
 const PROXY_OUTPUT_FILE = resolve(__dirname, 'proxy.out');
 
 // The instance of the terminal running Kubectl Dashboard
-let terminal: vscode.Terminal;
+let terminal: vscode.Terminal | null = null;
 
 /**
  * Determines if the selected cluster is AKS or not by examining
@@ -44,8 +44,8 @@ async function isAKSCluster (kubectl: Kubectl): Promise<boolean> {
 }
 
 function _isNodeAKS(node: Node): boolean {
-    const name: string = node.metadata.name;
-    const roleLabel: string = node.metadata.labels["kubernetes.io/role"];
+    const name = node.metadata.name;
+    const roleLabel = node.metadata.labels ? node.metadata.labels["kubernetes.io/role"] : undefined;
 
     // Kind of a hack to determine if we're using an AKS cluster…
     const isAKSNode = name.startsWith('aks-');
@@ -60,7 +60,7 @@ function _isNodeAKS(node: Node): boolean {
  *
  * @returns The name of the dashboard pod.
  */
-async function findDashboardPod (kubectl: Kubectl): Promise<string> {
+async function findDashboardPod (kubectl: Kubectl): Promise<string | undefined> {
     const dashboardPod = await kubectl.asJson<KubernetesCollection<Pod>>(
         "get pod -n kube-system -l k8s-app=kubernetes-dashboard -o json"
     );
@@ -76,6 +76,10 @@ async function findDashboardPod (kubectl: Kubectl): Promise<string> {
  */
 async function openDashboardForAKSCluster (kubectl: Kubectl): Promise<void> {
     const dashboardPod = await findDashboardPod(kubectl);
+    if (!dashboardPod) {
+        vscode.window.showErrorMessage("Error finding dashboard pod - can't show dashboard");
+        return;
+    }
 
     // Local port 9090 could be bound to something else.
     const portMapping = buildPortMapping("9090");
@@ -172,5 +176,8 @@ const onStreamData = (data: string) => {
 
     // Maybe we've bound to the port already outside of the extension?
     vscode.window.showErrorMessage("Could not start the Kubernetes Dashboard. Is it already running?");
-    terminal.dispose();
+
+    if (terminal) {
+        terminal.dispose();
+    }
 };
