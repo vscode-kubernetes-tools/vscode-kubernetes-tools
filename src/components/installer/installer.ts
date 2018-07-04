@@ -10,7 +10,7 @@ import * as vscode from 'vscode';
 import { Shell, Platform } from '../../shell';
 import { Errorable, failed, succeeded } from '../../errorable';
 
-export async function installKubectl(shell: Shell): Promise<Errorable<void>> {
+export async function installKubectl(shell: Shell): Promise<Errorable<null>> {
     const tool = 'kubectl';
     const binFile = (shell.isUnix()) ? 'kubectl' : 'kubectl.exe';
     const os = platformUrlString(shell.platform());
@@ -48,25 +48,25 @@ async function getStableKubectlVersion(): Promise<Errorable<string>> {
     return { succeeded: true, result: version };
 }
 
-export async function installHelm(shell: Shell): Promise<Errorable<void>> {
+export async function installHelm(shell: Shell): Promise<Errorable<null>> {
     const tool = 'helm';
     const urlTemplate = 'https://storage.googleapis.com/kubernetes-helm/helm-v2.8.2-{os_placeholder}-amd64.tar.gz';
     return await installToolFromTar(tool, urlTemplate, shell);
 }
 
-export async function installDraft(shell: Shell): Promise<Errorable<void>> {
+export async function installDraft(shell: Shell): Promise<Errorable<null>> {
     const tool = 'draft';
     const urlTemplate = 'https://azuredraft.blob.core.windows.net/draft/draft-v0.14.1-{os_placeholder}-amd64.tar.gz';
     return await installToolFromTar(tool, urlTemplate, shell);
 }
 
-async function installToolFromTar(tool: string, urlTemplate: string, shell: Shell, supported?: Platform[]): Promise<Errorable<void>> {
+async function installToolFromTar(tool: string, urlTemplate: string, shell: Shell, supported?: Platform[]): Promise<Errorable<null>> {
     const os = platformUrlString(shell.platform(), supported);
     if (!os) {
         return { succeeded: false, error: ['Not supported on this OS'] };
     }
     const installFolder = getInstallFolder(shell, tool);
-    const executable = formatBin(tool, shell.platform());
+    const executable = formatBin(tool, shell.platform())!;  // safe to assert, because if this would fail it would be caught at the OS stage
     const url = urlTemplate.replace('{os_placeholder}', os);
     const configKey = `vs-kubernetes.${tool}-path`;
     return installFromTar(url, installFolder, executable, configKey);
@@ -100,7 +100,7 @@ function formatBin(tool: string, platform: Platform): string | null {
     return toolPath;
 }
 
-async function installFromTar(sourceUrl: string, destinationFolder: string, executablePath: string, configKey: string): Promise<Errorable<void>> {
+async function installFromTar(sourceUrl: string, destinationFolder: string, executablePath: string, configKey: string): Promise<Errorable<null>> {
     // download it
     const downloadResult = await downloadToTempFile(sourceUrl);
 
@@ -134,7 +134,7 @@ async function downloadToTempFile(sourceUrl: string): Promise<Errorable<string>>
     return { succeeded: false, error: downloadResult.error };
 }
 
-async function downloadTo(sourceUrl: string, destinationFile: string): Promise<Errorable<void>> {
+async function downloadTo(sourceUrl: string, destinationFile: string): Promise<Errorable<null>> {
     try {
         await download(sourceUrl, path.dirname(destinationFile), { filename: path.basename(destinationFile) });
         return { succeeded: true, result: null };
@@ -143,7 +143,7 @@ async function downloadTo(sourceUrl: string, destinationFile: string): Promise<E
     }
 }
 
-async function untar(sourceFile: string, destinationFolder: string): Promise<Errorable<void>> {
+async function untar(sourceFile: string, destinationFolder: string): Promise<Errorable<null>> {
     try {
         if (!fs.existsSync(destinationFolder)) {
             mkdirp.sync(destinationFolder);
@@ -159,13 +159,13 @@ async function untar(sourceFile: string, destinationFolder: string): Promise<Err
 }
 
 async function addPathToConfig(configKey: string, executableFullPath: string): Promise<void> {
-    const config = vscode.workspace.getConfiguration().inspect("vs-kubernetes");
+    const config = vscode.workspace.getConfiguration().inspect("vs-kubernetes") || { key: "vs-kubernetes" };
     await addPathToConfigAtScope(configKey, executableFullPath, vscode.ConfigurationTarget.Global, config.globalValue, true);
     await addPathToConfigAtScope(configKey, executableFullPath, vscode.ConfigurationTarget.Workspace, config.workspaceValue, false);
     await addPathToConfigAtScope(configKey, executableFullPath, vscode.ConfigurationTarget.WorkspaceFolder, config.workspaceFolderValue, false);
 }
 
-async function addPathToConfigAtScope(configKey: string, value: string, scope: vscode.ConfigurationTarget, valueAtScope: any, createIfNotExist: boolean): Promise<void> {
+async function addPathToConfigAtScope(configKey: string, value: string, scope: vscode.ConfigurationTarget, valueAtScope: {} | undefined, createIfNotExist: boolean): Promise<void> {
     if (!createIfNotExist) {
         if (!valueAtScope || !(valueAtScope[configKey])) {
             return;
