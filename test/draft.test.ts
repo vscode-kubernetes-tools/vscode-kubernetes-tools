@@ -1,14 +1,9 @@
-import * as vscode from 'vscode';
 
 import * as assert from 'assert';
 import * as textassert from './textassert';
 import * as fakes from './fakes';
 
-import { Host } from '../src/host';
-import { Shell, ShellResult } from '../src/shell';
-import { FS } from '../src/fs';
 import { create as draftCreate, CheckPresentMode as DraftCheckPresentMode } from '../src/draft/draft';
-import * as kuberesources from '../src/kuberesources';
 
 interface FakeContext {
     host?: any;
@@ -38,6 +33,7 @@ suite("draft tests", () => {
         suite("If draft is not on the path", () => {
 
             test("...and configuration is not present, then checkPresent reports an error", async () => {
+                /* tslint:disable-next-line:prefer-const */
                 let errors: string[] = [];
                 const draft = draftCreateWithFakes({
                     host: fakes.host({errors: errors})
@@ -49,6 +45,7 @@ suite("draft tests", () => {
             });
 
             test("...and configuration is present but file doesn't exist, then checkPresent reports an error", async () => {
+                /* tslint:disable-next-line:prefer-const */
                 let errors: string[] = [];
                 const draft = draftCreateWithFakes({
                     host: fakes.host({errors: errors, configuration: draftFakePathConfig()})
@@ -60,6 +57,7 @@ suite("draft tests", () => {
             });
 
             test("...and in silent mode, then no errors are reported", async () => {
+                /* tslint:disable-next-line:prefer-const */
                 let errors: string[] = [];
                 const draft = draftCreateWithFakes({
                     host: fakes.host({errors: errors})
@@ -70,9 +68,10 @@ suite("draft tests", () => {
             });
 
             test("...and configuration is present and file exists, then checkPresent does not report any messages", async () => {
+                /* tslint:disable-next-line:prefer-const */
                 let errors = [];
-                let warnings: string[] = [];
-                let infos: string[] = [];
+                const warnings: string[] = [];
+                const infos: string[] = [];
                 const draft = draftCreateWithFakes({
                     host: fakes.host({errors: errors, warnings: warnings, infos: infos, configuration: draftFakePathConfig()}),
                     fs: fakes.fs({existentPaths: [draftFakePath]})
@@ -97,9 +96,10 @@ suite("draft tests", () => {
         suite("If draft is on the path", () => {
 
             test("...no messages are reported on Windows", async () => {
+                /* tslint:disable-next-line:prefer-const */
                 let errors: string[] = [];
-                let warnings: string[] = [];
-                let infos: string[] = [];
+                const warnings: string[] = [];
+                const infos: string[] = [];
                 const draft = draftCreateWithFakes({
                     host: fakes.host({errors: errors, warnings: warnings, infos: infos}),
                     shell: fakes.shell({recognisedCommands: [{command: 'where.exe draft.exe', code: 0, stdout: 'c:\\draft.exe'}]})
@@ -111,9 +111,10 @@ suite("draft tests", () => {
             });
 
             test("...no messages are reported on Unix", async () => {
+                /* tslint:disable-next-line:prefer-const */
                 let errors: string[] = [];
-                let warnings: string[] = [];
-                let infos: string[] = [];
+                const warnings: string[] = [];
+                const infos: string[] = [];
                 const draft = draftCreateWithFakes({
                     host: fakes.host({errors: errors, warnings: warnings, infos: infos}),
                     shell: fakes.shell({isWindows: false, isUnix: true, recognisedCommands: [{command: 'which draft', code: 0, stdout: '/usr/bin/draft'}]})
@@ -216,7 +217,8 @@ suite("draft tests", () => {
                     onDirSync: (path) => { probedPath = path; return []; }
                 })
             });
-            const packs = await draft.packs();
+
+            await draft.packs();
             assert.equal(probedPath, 'c:\\itowlson\\.draft\\packs');
         });
 

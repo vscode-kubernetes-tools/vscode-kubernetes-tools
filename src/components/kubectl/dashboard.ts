@@ -11,7 +11,6 @@ import { Kubectl } from '../../kubectl';
 import { Node, KubernetesCollection, Pod } from '../../kuberesources.objectmodel';
 import { failed } from '../../errorable';
 
-
 const KUBE_DASHBOARD_URL = "http://localhost:8001/ui/";
 const TERMINAL_NAME = "Kubernetes Dashboard";
 const PROXY_OUTPUT_FILE = resolve(__dirname, 'proxy.out');
@@ -31,18 +30,17 @@ async function isAKSCluster (kubectl: Kubectl): Promise<boolean> {
     if (failed(nodes)) {
         return false;
     }
-    const nodeItems = nodes.result.items;
-    const nodeCount = nodeItems.length;
 
-    for (let nodeItem of nodeItems) {
-        let isAKSNode = _isNodeAKS(nodeItem);
+    const nodeItems = nodes.result.items;
+    for (const nodeItem of nodeItems) {
+        const isAKSNode = _isNodeAKS(nodeItem);
 
         if (!isAKSNode) {
             return false;
         }
     }
 
-    return true;
+   return true;
 }
 
 function _isNodeAKS(node: Node): boolean {
@@ -125,7 +123,7 @@ export async function dashboardKubernetes (kubectl: Kubectl): Promise<void> {
     }
 
     // Read kubectl proxy's stdout as a stream.
-    const proxyStream = createReadStream(
+    createReadStream(
         PROXY_OUTPUT_FILE,
         {encoding: 'utf8'}
     ).on('data', onStreamData);

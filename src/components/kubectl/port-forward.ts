@@ -29,7 +29,6 @@ interface PodFromDocument {
     readonly namespace?: string;
 }
 
-
 type PortForwardFindPodsResult = PodFromDocument | FindPodsResult;
 
 function isFindResultFromDocument(obj: PortForwardFindPodsResult): obj is PodFromDocument {
@@ -130,10 +129,10 @@ async function promptForPort (): Promise<PortMapping[]> {
  * @returns A ValidationResult object describing the first error found.
  */
 function validatePortMapping (portMapping: string): ValidationResult {
-    let portPairs = portMapping.split(' ');
+    const portPairs = portMapping.split(' ');
     const validationResults: ValidationResult[] = portPairs.map(validatePortPair);
 
-    return validationResults.find((result) => result.valid === false );
+    return validationResults.find((result) => !result.valid );
 }
 
 /**
@@ -143,7 +142,7 @@ function validatePortMapping (portMapping: string): ValidationResult {
  */
 function validatePortPair (portPair: string): ValidationResult {
     let localPort, targetPort;
-    let splitMapping = portPair.split(':');
+    const splitMapping = portPair.split(':');
 
     // User provided only the target port
     if (!portPair.includes(':') && Number(portPair)) {
@@ -220,7 +219,7 @@ function buildPortPair(portPair: string): PortMapping {
  * Checks the open document and returns an object describing the Pod, if it can find one
  */
 async function findPortForwardablePods (): Promise<PortForwardFindPodsResult> {
-    let kindFromEditor = tryFindKindNameFromEditor();
+    const kindFromEditor = tryFindKindNameFromEditor();
 
     // Find the pod type from the open editor.
     if (succeeded(kindFromEditor)) {

@@ -1,13 +1,11 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 
-import * as shell from './shell';
 import { Kubectl } from './kubectl';
 import * as kubectlUtils from './kubectlUtils';
 import { Host } from './host';
 import * as kuberesources from './kuberesources';
 import { failed } from './errorable';
-import { filter } from 'minimatch';
 
 export function create(kubectl: Kubectl, host: Host): KubernetesExplorer {
     return new KubernetesExplorer(kubectl, host);
@@ -43,8 +41,8 @@ export interface ResourceNode {
 }
 
 export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObject> {
-    private _onDidChangeTreeData: vscode.EventEmitter<KubernetesObject | undefined> = new vscode.EventEmitter<KubernetesObject | undefined>();
-    readonly onDidChangeTreeData: vscode.Event<KubernetesObject | undefined> = this._onDidChangeTreeData.event;
+    private onDidChangeTreeDataEmitter: vscode.EventEmitter<KubernetesObject | undefined> = new vscode.EventEmitter<KubernetesObject | undefined>();
+    readonly onDidChangeTreeData: vscode.Event<KubernetesObject | undefined> = this.onDidChangeTreeDataEmitter.event;
 
     constructor(private readonly kubectl: Kubectl, private readonly host: Host) {
         host.onDidChangeConfiguration((change) => {
@@ -66,14 +64,14 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObj
     }
 
     refresh(): void {
-        this._onDidChangeTreeData.fire();
+        this.onDidChangeTreeDataEmitter.fire();
     }
 
     private async getClusters(): Promise<KubernetesObject[]> {
         const contexts = await kubectlUtils.getContexts(this.kubectl);
         return contexts.map((context): KubernetesContext => {
             // TODO: this is slightly hacky...
-            if (context.contextName == 'minikube') {
+            if (context.contextName === 'minikube') {
                 return new MinikubeContext(context.contextName, context);
             }
             return new KubernetesContext(context.contextName, context);
@@ -133,7 +131,6 @@ class MinikubeContext extends KubernetesContext {
         return treeItem;
     }
 }
-
 
 abstract class KubernetesFolder implements KubernetesObject {
     constructor(readonly id: string, readonly displayName: string, readonly contextValue?: string) {
@@ -201,7 +198,7 @@ class KubernetesResource implements KubernetesObject, ResourceNode {
     readonly resourceId: string;
 
     constructor(readonly kind: kuberesources.ResourceKind, readonly id: string, readonly metadata?: any) {
-        this.resourceId = kind.abbreviation + '/' + id;
+        this.resourceId = `${kind.abbreviation}/${id}`;
     }
 
     get namespace(): string | null {
@@ -213,7 +210,7 @@ class KubernetesResource implements KubernetesObject, ResourceNode {
     }
 
     getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
-        let treeItem = new vscode.TreeItem(this.id, vscode.TreeItemCollapsibleState.None);
+        const treeItem = new vscode.TreeItem(this.id, vscode.TreeItemCollapsibleState.None);
         treeItem.command = {
             command: "extension.vsKubernetesLoad",
             title: "Load",
@@ -221,8 +218,8 @@ class KubernetesResource implements KubernetesObject, ResourceNode {
         };
         treeItem.contextValue = `vsKubernetes.resource`;
         if (this.kind === kuberesources.allKinds.pod ||
-            this.kind == kuberesources.allKinds.secret ||
-            this.kind == kuberesources.allKinds.configMap) {
+            this.kind === kuberesources.allKinds.secret ||
+            this.kind === kuberesources.allKinds.configMap) {
             treeItem.contextValue = `vsKubernetes.resource.${this.kind.abbreviation}`;
             if (this.kind === kuberesources.allKinds.pod && this.metadata.status !== null) {
                 treeItem.iconPath = getIconForPodStatus(this.metadata.status);
@@ -364,10 +361,10 @@ export class KubernetesDataHolderResource extends KubernetesResource {
     }
 
     async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
-        if (!this.configData || this.configData.length == 0) {
+        if (!this.configData || this.configData.length === 0) {
             return [];
         }
-        let files = Object.keys(this.configData);
+        const files = Object.keys(this.configData);
         return files.map((f) => new KubernetesFileObject(this.configData, f, this.resource, this.id));
     }
 }
@@ -377,7 +374,7 @@ export class KubernetesFileObject implements KubernetesObject {
     }
 
     getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
-        let treeItem = new vscode.TreeItem(this.id, vscode.TreeItemCollapsibleState.None);
+        const treeItem = new vscode.TreeItem(this.id, vscode.TreeItemCollapsibleState.None);
         treeItem.command = {
             command: "extension.vsKubernetesLoadConfigMapData",
             title: "Load",

@@ -37,4 +37,3 @@ export function formPage(fd: FormData): string {
             </form>
             </div>`;
 }
-

@@ -1,25 +1,20 @@
 import * as vscode from 'vscode';
 import { LoggingDebugSession, InitializedEvent, TerminatedEvent } from 'vscode-debugadapter';
-import { EventEmitter } from 'events';
-import { ChildProcess, exec } from 'child_process';
-import { OutputChannel } from 'vscode';
-import { Readable } from 'stream';
 import { DraftRuntime } from './draftRuntime';
 import { DebugProtocol } from 'vscode-debugprotocol/lib/debugProtocol';
 const { Subject } = require('await-notify');
 
-
 export class DraftDebugSession extends LoggingDebugSession {
-    private _runtime: DraftRuntime;
-    private _configurationDone = new Subject();
+    private runtime: DraftRuntime;
+    private configurationDone = new Subject();
 
     public config: vscode.DebugConfiguration;
 
     constructor() {
         super("draft-debug.txt");
-        this._runtime = new DraftRuntime();
+        this.runtime = new DraftRuntime();
 
-        this._runtime.on('end', () => {
+        this.runtime.on('end', () => {
             this.sendEvent(new TerminatedEvent());
         });
     }
@@ -30,30 +25,30 @@ export class DraftDebugSession extends LoggingDebugSession {
     }
 
     protected configurationDoneRequest(response: DebugProtocol.ConfigurationDoneResponse, args: DebugProtocol.LaunchRequestArguments): void {
-        this._configurationDone.notify();
+        this.configurationDone.notify();
     }
 
     protected async launchRequest(response: DebugProtocol.LaunchResponse, args: DebugProtocol.LaunchRequestArguments) {
         // wait until configuration has finished (and configurationDoneRequest has been called)
-        await this._configurationDone.wait(1000);
+        await this.configurationDone.wait(1000);
 
-        //start a `draft up` and `draft connect` session and attach debugger
-        this._runtime.draftUpDebug(this.config);
+        // start a `draft up` and `draft connect` session and attach debugger
+        this.runtime.draftUpDebug(this.config);
 
         this.sendResponse(response);
     }
 
     protected evaluateRequest(response: DebugProtocol.EvaluateResponse, args: DebugProtocol.EvaluateArguments): void {
-        if (args['restart'] == true) {
+        if (args['restart'] === true) {
             // TODO - check for request type
             //
             // when a request is received (such as a file was saved), restart the Draft cycle
-            this._runtime.killConnect();
-            this._runtime.draftUpDebug(this.config);
+            this.runtime.killConnect();
+            this.runtime.draftUpDebug(this.config);
         }
 
-        if (args['stop'] == true) {
-            this._runtime.killConnect();
+        if (args['stop'] === true) {
+            this.runtime.killConnect();
             this.stop();
         }
 

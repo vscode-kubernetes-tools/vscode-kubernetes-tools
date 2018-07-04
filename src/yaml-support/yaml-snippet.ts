@@ -12,13 +12,12 @@ export interface CodeSnippet {
     readonly body: string;
 }
 
-
 /**
  * A kubernetes completion provider provides yaml code snippets for kubernetes, eg: service, deployment.
  */
 export class KubernetesCompletionProvider implements vscode.CompletionItemProvider {
     // storing all loaded yaml code snippets from ../../snippets folder
-    private _snippets: CodeSnippet[] = [];
+    private snippets: CodeSnippet[] = [];
 
     // default constructor
     public constructor() {
@@ -41,14 +40,14 @@ export class KubernetesCompletionProvider implements vscode.CompletionItemProvid
     // load yaml code snippets from ../../snippets folder
     private loadCodeSnippets(): void {
         const snippetRoot = path.join(__dirname, '../../../snippets');
-        this._snippets  = fs.readdirSync(snippetRoot)
+        this.snippets  = fs.readdirSync(snippetRoot)
             .filter((filename: string): boolean => filename.endsWith('.yaml'))
             .map((filename: string): CodeSnippet => this.readYamlCodeSnippet(path.join(snippetRoot, filename)));
     }
 
     // filter all internal code snippets using the parameter word
     private filterCodeSnippets(word: string): CodeSnippet[] {
-        return this._snippets.filter((snippet: CodeSnippet): boolean =>
+        return this.snippets.filter((snippet: CodeSnippet): boolean =>
             fuzzysearch(word.toLowerCase(), snippet.name.toLowerCase()));
     }
 

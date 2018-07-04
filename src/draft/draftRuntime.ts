@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
-import { LoggingDebugSession, InitializedEvent, TerminatedEvent } from 'vscode-debugadapter';
 import { EventEmitter } from 'events';
-import { ChildProcess, exec, execFile, spawn } from 'child_process';
+import { ChildProcess, spawn } from 'child_process';
 import { OutputChannel } from 'vscode';
 import { Readable } from 'stream';
 import { host } from '../host';
@@ -11,29 +10,29 @@ import { create as draftCreate, CheckPresentMode } from './draft';
 import { installDependencies } from '../extension';
 
 export class DraftRuntime extends EventEmitter {
-	private _draft = draftCreate(host, fs, shell, installDependencies);
-	private _connectProccess: ChildProcess;
+	private draft = draftCreate(host, fs, shell, installDependencies);
+	private connectProcess: ChildProcess;
 
 	constructor() {
 		super();
 	}
 
 	public killConnect() {
-		this._connectProccess.kill('SIGTERM');
+		this.connectProcess.kill('SIGTERM');
 	}
 
 	public async draftUpDebug(config: vscode.DebugConfiguration) {
 
-		let output = vscode.window.createOutputChannel("draft");
+		const output = vscode.window.createOutputChannel("draft");
 		output.show();
 
-		let isPresent = await this._draft.checkPresent(CheckPresentMode.Alert);
+		const isPresent = await this.draft.checkPresent(CheckPresentMode.Alert);
 		if (!isPresent) {
 			host.showInformationMessage("Draft is not installed!");
 			return;
 		}
 
-		if (!this._draft.isFolderMapped(vscode.workspace.rootPath)) {
+		if (!this.draft.isFolderMapped(vscode.workspace.rootPath)) {
 			host.showErrorMessage("This folder does not contain a Draft app. Run draft create first!");
 			return;
 		}
@@ -42,8 +41,8 @@ export class DraftRuntime extends EventEmitter {
 		await waitForProcessToExit(createProcess('draft', ['up'], output));
 
 		// wait for `draft connect` to be ready
-		this._connectProccess = createProcess('draft', ['connect'], output);
-		await waitConnectionReady(this._connectProccess, config);
+		this.connectProcess = createProcess('draft', ['connect'], output);
+		await waitConnectionReady(this.connectProcess, config);
 
 		host.showInformationMessage(`attaching debugger`);
 
@@ -60,7 +59,7 @@ function createProcess(cmd: string, args: string[], output: OutputChannel): Chil
 	console.log(`started ${cmd} ${args.toString()}`);
 	host.showInformationMessage(`starting ${cmd} ${args.toString()}`);
 
-	let proc = spawn(cmd, args, shell.execOpts());
+	const proc = spawn(cmd, args, shell.execOpts());
 	console.log(process.env.PATH);
 	// output data on the tab
 	subscribeToDataEvent(proc.stdout, output);
@@ -107,19 +106,23 @@ async function waitConnectionReady(proc: ChildProcess, config: vscode.DebugConfi
 function canAttachDebugger(data: string, config: vscode.DebugConfiguration): boolean {
 	switch (config['original-debug'].type) {
 		case 'node': {
-			if (config['original-debug'].localRoot == '' || config['original-debug'].localRoot == null) {
+			if (config['original-debug'].localRoot === '' || config['original-debug'].localRoot === null) {
 				config['original-debug'].localRoot = vscode.workspace.rootPath;
 			}
-			if (data.indexOf('Debugger listening') >= 0)
+			if (data.indexOf('Debugger listening') >= 0) {
 				return true;
+			}
+			break;
 		}
 
 		case 'go': {
-			if (config["original-debug"].program == '' || config["original-debug"].program == null) {
+			if (config["original-debug"].program === '' || config["original-debug"].program === null) {
 				config['original-debug'].program = vscode.workspace.rootPath;
 			}
-			if (data.indexOf('API server listening') >= 0)
+			if (data.indexOf('API server listening') >= 0) {
 				return true;
+			}
+			break;
 		}
 	}
 }

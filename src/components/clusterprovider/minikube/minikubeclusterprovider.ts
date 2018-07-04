@@ -5,7 +5,7 @@ import * as clusterproviderregistry from '../clusterproviderregistry';
 import { styles, formStyles, waitScript, ActionResult, Diagnostic, fromShellExitCodeOnly } from '../../../wizard';
 import { propagationFields, formPage } from '../common/form';
 import { refreshExplorer } from '../common/explorer';
-import { Errorable, succeeded, failed, Failed, Succeeded } from '../../../errorable';
+import { succeeded, Failed } from '../../../errorable';
 import { Shell } from '../../../shell';
 
 export interface Context {
@@ -41,7 +41,7 @@ export async function init(registry: clusterproviderregistry.ClusterProviderRegi
         minikubeWizardServer.get('/configure', (req, resp, n) => htmlServer.handleGetConfigure(req, resp, n));
         minikubeWizardServer.post('/configure', (req, resp, n) => htmlServer.handlePostConfigure(req, resp, n));
 
-        registry.register({id: 'minikube', displayName: "Minikube local cluster", port: port, supportedActions: ['create','configure']});
+        registry.register({id: 'minikube', displayName: "Minikube local cluster", port: port, supportedActions: ['create', 'configure']});
     }
 }
 
@@ -75,7 +75,7 @@ class HtmlServer {
     async handleRequest(handler: HtmlRequestHandler, request: restify.Request, requestData: any, response: restify.Response, next: restify.Next) {
         const html = await handler(request.query["step"], requestData, this.context);
         response.contentType = 'text/html';
-        response.send("<html><body><style id='styleholder'></style>" + html + "</body></html>");
+        response.send(`<html><body><style id='styleholder'></style>${html}</body></html>`);
 
         next();
     }

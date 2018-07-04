@@ -22,7 +22,7 @@ export enum EnsureMode {
 
 export function helmVersion() {
     helmExec("version -c", (code, out, err) => {
-        if (code != 0) {
+        if (code !== 0) {
             vscode.window.showErrorMessage(err);
             return;
         }
@@ -36,7 +36,7 @@ export function helmVersion() {
 export function helmTemplate() {
     pickChart((path) => {
         helmExec(`template "${path}"`, (code, out, err) => {
-            if (code != 0) {
+            if (code !== 0) {
                 vscode.window.showErrorMessage(err);
                 return;
             }
@@ -47,13 +47,13 @@ export function helmTemplate() {
 }
 
 export function helmTemplatePreview() {
-    let editor = vscode.window.activeTextEditor;
+    const editor = vscode.window.activeTextEditor;
     if (!editor) {
         vscode.window.showInformationMessage("No active editor.");
         return;
     }
 
-    let filePath = editor.document.fileName;
+    const filePath = editor.document.fileName;
     if (filePath.indexOf("templates") < 0 ) {
         vscode.window.showInformationMessage("Not a template: " +filePath);
         return;
@@ -63,8 +63,8 @@ export function helmTemplatePreview() {
         return;
     }
 
-    let u = vscode.Uri.parse(helm.PREVIEW_URI);
-    let f = filepath.basename(filePath);
+    const u = vscode.Uri.parse(helm.PREVIEW_URI);
+    const f = filepath.basename(filePath);
     vscode.commands.executeCommand("vscode.previewHtml", u, vscode.ViewColumn.Two, `Preview ${ f }`);
     helm.recordPreviewHasBeenShown();
 }
@@ -75,7 +75,7 @@ export function helmDepUp() {
         helmExec(`dep up "${path}"`, (code, out, err) => {
             logger.log(out);
             logger.log(err);
-            if (code != 0) {
+            if (code !== 0) {
                 logger.log("⎈⎈⎈ UPDATE FAILED");
             }
         });
@@ -93,7 +93,7 @@ export async function helmCreate(): Promise<void> {
     }).then((name) => {
         const fullpath = filepath.join(folder.uri.fsPath, name);
         helmExec(`create "${fullpath}"`, (code, out, err) => {
-            if (code != 0) {
+            if (code !== 0) {
                 vscode.window.showErrorMessage(err);
             }
         });
@@ -107,7 +107,7 @@ export function helmLint() {
         helmExec(`lint "${path}"`, (code, out, err) => {
             logger.log(out);
             logger.log(err);
-            if (code != 0) {
+            if (code !== 0) {
                 logger.log("⎈⎈⎈ LINTING FAILED");
             }
         });
@@ -124,7 +124,7 @@ export function helmInspectValues(u: vscode.Uri) {
     if (!ensureHelm(EnsureMode.Alert)) {
         return;
     }
-    let uri = vscode.Uri.parse("helm-inspect-values://" + u.fsPath);
+    const uri = vscode.Uri.parse("helm-inspect-values://" + u.fsPath);
     vscode.commands.executeCommand("vscode.previewHtml", uri, vscode.ViewColumn.Two, "Inspect");
 }
 
@@ -135,7 +135,7 @@ export function helmDryRun() {
         helmExec(`install --dry-run --debug "${path}"`, (code, out, err) => {
             logger.log(out);
             logger.log(err);
-            if (code != 0) {
+            if (code !== 0) {
                 logger.log("⎈⎈⎈ INSTALL FAILED");
             }
         });
@@ -153,17 +153,17 @@ export function pickChart(fn) {
         return;
     }
     vscode.workspace.findFiles("**/Chart.yaml", "", 1024).then((matches) => {
-        switch(matches.length) {
+        switch (matches.length) {
             case 0:
                 vscode.window.showErrorMessage("No charts found");
                 return;
             case 1:
                 // Assume that if there is only one chart, that's the one to run.
-                let p = filepath.dirname(matches[0].fsPath);
+                const p = filepath.dirname(matches[0].fsPath);
                 fn(p);
                 return;
             default:
-                let paths = [];
+                const paths = [];
                 // TODO: This would be so much cooler if the QuickPick parsed the Chart.yaml
                 // and showed the chart name instead of the path.
                 matches.forEach((item) => {
@@ -187,7 +187,7 @@ class Chart {
 
 // Load a chart object
 export function loadChartMetadata(chartDir: string): Chart {
-    let f = filepath.join(chartDir, "Chart.yaml");
+    const f = filepath.join(chartDir, "Chart.yaml");
     let c;
     try {
         c = YAML.load(f);
@@ -200,8 +200,7 @@ export function loadChartMetadata(chartDir: string): Chart {
 // Given a file, show any charts that this file belongs to.
 export function pickChartForFile(file: string, options: PickChartUIOptions, fn) {
     vscode.workspace.findFiles("**/Chart.yaml", "", 1024).then((matches) => {
-        //logger.log(`Found ${ matches.length } charts`)
-        switch(matches.length) {
+        switch (matches.length) {
             case 0:
                 if (options.warnIfNoCharts) {
                     vscode.window.showErrorMessage("No charts found");
@@ -209,15 +208,15 @@ export function pickChartForFile(file: string, options: PickChartUIOptions, fn) 
                 return;
             case 1:
                 // Assume that if there is only one chart, that's the one to run.
-                let p = filepath.dirname(matches[0].fsPath);
+                const p = filepath.dirname(matches[0].fsPath);
                 fn(p);
                 return;
             default:
-                let paths = [];
+                const paths = [];
 
                 matches.forEach((item) => {
-                    let dirname = filepath.dirname(item.fsPath);
-                    let rel = filepath.relative(dirname, file);
+                    const dirname = filepath.dirname(item.fsPath);
+                    const rel = filepath.relative(dirname, file);
 
                     // If the present file is not in a subdirectory of the parent chart, skip the chart.
                     if (rel.indexOf("..") >= 0) {
@@ -229,7 +228,7 @@ export function pickChartForFile(file: string, options: PickChartUIOptions, fn) 
                     );
                 });
 
-                if (paths.length == 0) {
+                if (paths.length === 0) {
                     if (options.warnIfNoCharts) {
                         vscode.window.showErrorMessage("Chart not found for " + file);
                     }
@@ -257,7 +256,7 @@ export function helmExec(args: string, fn) {
     }
     const configuredBin: string | undefined = vscode.workspace.getConfiguration('vs-kubernetes')['vs-kubernetes.helm-path'];
     const bin = configuredBin ? `"${configuredBin}"` : "helm";
-    const cmd = bin + " " + args;
+    const cmd = `${bin} ${args}`;
     shell.exec(cmd, fn);
 }
 
@@ -308,12 +307,12 @@ export function insertRequirement() {
         prompt: "Chart",
         placeHolder: "stable/redis",
     }).then((val) => {
-        let req = searchForChart(val);
+        const req = searchForChart(val);
         if (!req) {
             vscode.window.showErrorMessage(`Chart ${ val } not found`);
             return;
         }
-        let ed = vscode.window.activeTextEditor;
+        const ed = vscode.window.activeTextEditor;
         if (!ed) {
             logger.log(YAML.stringify(req));
             return;
@@ -324,27 +323,24 @@ export function insertRequirement() {
 
 // searchForChart takes a 'repo/name' and returns an entry suitable for requirements
 export function searchForChart(name: string, version?: string): Requirement {
-    let parts = name.split("/", 2);
-    if (parts.length != 2) {
+    const parts = name.split("/", 2);
+    if (parts.length !== 2) {
         logger.log("Chart should be of the form REPO/CHARTNAME");
         return;
     }
-    let hh = helmHome();
-    let reposFile = filepath.join(hh, "repository", "repositories.yaml");
+    const hh = helmHome();
+    const reposFile = filepath.join(hh, "repository", "repositories.yaml");
     if (!fs.existsSync(reposFile)) {
-        vscode.window.showErrorMessage("Helm repositories file " + reposFile + " not found.");
+        vscode.window.showErrorMessage(`Helm repositories file ${reposFile} not found.`);
         return;
     }
-    let repos = YAML.load(reposFile);
+    const repos = YAML.load(reposFile);
     let req;
     repos.repositories.forEach((repo) => {
-        //logger.log("repo: " + repo.name)
-        if (repo.name == parts[0]) {
-            //let cache = YAML.load(filepath.join(hh, "repository", "cache", repo.cache))
-            let cache = YAML.load(repo.cache);
+        if (repo.name === parts[0]) {
+            const cache = YAML.load(repo.cache);
             _.each(cache.entries, (releases, name) => {
-                //logger.log("entry: " + name)
-                if (name == parts[1]) {
+                if (name === parts[1]) {
                     req = new Requirement();
                     req.repository = repo.url;
                     req.name = name;
@@ -359,6 +355,6 @@ export function searchForChart(name: string, version?: string): Requirement {
 }
 
 export function helmHome(): string {
-    let h = process.env.HOME;
+    const h = process.env.HOME;
     return process.env["HELM_HOME"] || filepath.join(h, '.helm');
 }

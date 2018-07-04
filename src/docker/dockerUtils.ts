@@ -6,8 +6,7 @@ import * as url from "url";
 import { kubeChannel } from "../kubeChannel";
 import { Kubectl } from "../kubectl";
 import { getCurrentClusterConfig } from "../kubectlUtils";
-import { shell, ShellResult } from "../shell";
-import { DockerfileParser } from "./dockerfileParser";
+import { shell } from "../shell";
 
 export enum DockerClient {
     docker = "docker",
@@ -46,7 +45,7 @@ async function getDefaultImageName(cwd: string, imagePrefix?: string): Promise<s
     const version = await findVersion(cwd);
     let image = `${name}:${version}`;
     if (imagePrefix) {
-        image = imagePrefix + "/" + image;
+        image = `${imagePrefix}/${image}`;
     }
     return image;
 }

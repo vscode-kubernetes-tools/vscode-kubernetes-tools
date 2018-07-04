@@ -1,7 +1,4 @@
-import * as vscode from "vscode";
-
 import { Kubectl } from "../kubectl";
-import { ShellResult } from "../shell";
 import { IDockerfile } from "../docker/parser";
 
 export interface PortInfo {

@@ -118,7 +118,7 @@ async function checkForKubectlInternal(context: Context, errorMessageMode: Check
 
     const contextMessage = getCheckKubectlContextMessage(errorMessageMode);
     const inferFailedMessage = 'Could not find "kubectl" binary.' + contextMessage;
-    const configuredFileMissingMessage = bin + ' does not exist!' + contextMessage;
+    const configuredFileMissingMessage = `${bin} does not exist! ${contextMessage}`;
 
     return await binutil.checkForBinary(context, bin, binName, inferFailedMessage, configuredFileMissingMessage, errorMessageMode !== 'silent');
 }
@@ -151,7 +151,7 @@ async function invokeWithProgress(context: Context, command: string, progressMes
 async function invokeAsync(context: Context, command: string, stdin?: string): Promise<ShellResult> {
     if (await checkPresent(context, 'command')) {
         const bin = baseKubectlPath(context);
-        let cmd = bin + ' ' + command;
+        const cmd = `${bin} ${command}`;
         return await context.shell.exec(cmd, stdin);
     } else {
         return { code: -1, stdout: '', stderr: '' };
@@ -190,7 +190,7 @@ async function runAsTerminal(context: Context, command: string[], terminalName: 
 async function kubectlInternal(context: Context, command: string, handler: ShellHandler): Promise<void> {
     if (await checkPresent(context, 'command')) {
         const bin = baseKubectlPath(context);
-        let cmd = bin + ' ' + command;
+        const cmd = `${bin} ${command}`;
         context.shell.exec(cmd, null).then(({code, stdout, stderr}) => handler(code, stdout, stderr));
     }
 }
@@ -237,6 +237,6 @@ async function asJson<T>(context: Context, command: string): Promise<Errorable<T
 }
 
 function path(context: Context): string {
-    let bin = baseKubectlPath(context);
+    const bin = baseKubectlPath(context);
     return binutil.execPath(context.shell, bin);
 }

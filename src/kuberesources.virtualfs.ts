@@ -11,9 +11,9 @@ export const K8S_RESOURCE_SCHEME = "k8smsx";
 export class KubernetesResourceVirtualFileSystemProvider implements FileSystemProvider {
     constructor(private readonly kubectl: Kubectl, private readonly host: Host, private readonly rootPath: string) { }
 
-    private readonly _onDidChangeFile: EventEmitter<FileChangeEvent[]> = new EventEmitter<FileChangeEvent[]>();
+    private readonly onDidChangeFileEmitter: EventEmitter<FileChangeEvent[]> = new EventEmitter<FileChangeEvent[]>();
 
-    onDidChangeFile: Event<FileChangeEvent[]> = this._onDidChangeFile.event;
+    onDidChangeFile: Event<FileChangeEvent[]> = this.onDidChangeFileEmitter.event;
 
     watch(uri: Uri, options: { recursive: boolean; excludes: string[] }): Disposable {
         // It would be quite neat to implement this to watch for changes

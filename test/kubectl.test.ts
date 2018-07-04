@@ -2,10 +2,7 @@ import * as assert from 'assert';
 import * as textassert from './textassert';
 import * as fakes from './fakes';
 
-import { Host } from '../src/host';
-import { Shell, ShellResult } from '../src/shell';
-import { FS } from '../src/fs';
-import { create as kubectlCreate, Kubectl } from '../src/kubectl';
+import { create as kubectlCreate } from '../src/kubectl';
 
 interface FakeContext {
     host?: any;
@@ -41,7 +38,7 @@ suite("kubectl tests", () => {
             });
 
             test("...and configuration is not present, then checkPresent reports an error", async () => {
-                let errors: string[] = [];
+                const errors: string[] = [];
                 const kubectl = kubectlCreateWithFakes({
                     host: fakes.host({errors: errors})
                 });
@@ -51,7 +48,7 @@ suite("kubectl tests", () => {
             });
 
             test("...the error message is appropriate for activation", async () => {
-                let errors: string[] = [];
+                const errors: string[] = [];
                 const kubectl = kubectlCreateWithFakes({
                     host: fakes.host({errors: errors})
                 });
@@ -61,7 +58,7 @@ suite("kubectl tests", () => {
             });
 
             test("...the error message is appropriate for command invocation", async () => {
-                let errors: string[] = [];
+                const errors: string[] = [];
                 const kubectl = kubectlCreateWithFakes({
                     host: fakes.host({errors: errors})
                 });
@@ -77,7 +74,7 @@ suite("kubectl tests", () => {
             });
 
             test("...and configuration is present but file doesn't exist, then checkPresent reports an error", async () => {
-                let errors: string[] = [];
+                const errors: string[] = [];
                 const kubectl = kubectlCreateWithFakes({
                     host: fakes.host({errors: errors, configuration: kcFakePathConfig()})
                 });
@@ -87,9 +84,9 @@ suite("kubectl tests", () => {
             });
 
             test("...and configuration is present and file exists, then checkPresent does not report any messages", async () => {
-                let errors = [];
-                let warnings: string[] = [];
-                let infos: string[] = [];
+                const errors = [];
+                const warnings: string[] = [];
+                const infos: string[] = [];
                 const kubectl = kubectlCreateWithFakes({
                     host: fakes.host({errors: errors, warnings: warnings, infos: infos, configuration: kcFakePathConfig()}),
                     fs: fakes.fs({existentPaths: [kcFakePath]})
@@ -121,9 +118,9 @@ suite("kubectl tests", () => {
             });
 
             test("...no messages are reported on Windows", async () => {
-                let errors: string[] = [];
-                let warnings: string[] = [];
-                let infos: string[] = [];
+                const errors: string[] = [];
+                const warnings: string[] = [];
+                const infos: string[] = [];
                 const kubectl = kubectlCreateWithFakes({
                     host: fakes.host({errors: errors, warnings: warnings, infos: infos}),
                     shell: fakes.shell({recognisedCommands: [{command: 'where.exe kubectl.exe', code: 0, stdout: 'c:\\kubectl.exe'}]})
@@ -143,9 +140,9 @@ suite("kubectl tests", () => {
             });
 
             test("...no messages are reported on Unix", async () => {
-                let errors: string[] = [];
-                let warnings: string[] = [];
-                let infos: string[] = [];
+                const errors: string[] = [];
+                const warnings: string[] = [];
+                const infos: string[] = [];
                 const kubectl = kubectlCreateWithFakes({
                     host: fakes.host({errors: errors, warnings: warnings, infos: infos}),
                     shell: fakes.shell({isWindows: false, isUnix: true, recognisedCommands: [{command: 'which kubectl', code: 0, stdout: '/usr/bin/kubectl'}]})
@@ -165,7 +162,7 @@ suite("kubectl tests", () => {
         suite("If kubectl is not present", () => {
 
             test("...checkPresent error handling is invoked", async () => {
-                let errors: string[] = [];
+                const errors: string[] = [];
                 const kubectl = kubectlCreateWithFakes({
                     host: fakes.host({errors: errors})
                 });
@@ -206,7 +203,7 @@ suite("kubectl tests", () => {
             });
 
             test("...but not on the path, we call it using the full path", async () => {
-                let invoked = [];
+                const invoked = [];
                 const kubectl = kubectlCreateWithFakes({
                     host: fakes.host({configuration: kcFakePathConfig()}),
                     shell: fakes.shell({
@@ -219,7 +216,7 @@ suite("kubectl tests", () => {
                 });
                 await kubectl.invoke('get', (code, stdout, stderr) => { return; });
                 // TODO: replace with a collectionassert.exists
-                let hasMatchingInvoke = invoked.indexOf(kcFakePath + " get") >= 0;
+                const hasMatchingInvoke = invoked.indexOf(kcFakePath + " get") >= 0;
                 assert.equal(hasMatchingInvoke, true);
             });
 
@@ -262,9 +259,9 @@ suite("kubectl tests", () => {
 
             test("...if there is no callback, and kubectl succeeds, we show the kubectl output as info", async () => {
                 const fakeKubectlResult = { code: 0, stdout: 'kubectl out', stderr: 'kubectl err' };
-                let errors: string[] = [];
-                let warnings: string[] = [];
-                let infos: string[] = [];
+                const errors: string[] = [];
+                const warnings: string[] = [];
+                const infos: string[] = [];
                 const kubectl = kubectlCreateWithFakes({
                     host: fakes.host({errors: errors, warnings: warnings, infos: infos}),
                     shell: fakes.shell({
@@ -284,9 +281,9 @@ suite("kubectl tests", () => {
 
             test("...if there is no callback, and kubectl fails, we show the kubectl error as error", async () => {
                 const fakeKubectlResult = { code: 1, stdout: 'kubectl out', stderr: 'kubectl err' };
-                let errors: string[] = [];
-                let warnings: string[] = [];
-                let infos: string[] = [];
+                const errors: string[] = [];
+                const warnings: string[] = [];
+                const infos: string[] = [];
                 const kubectl = kubectlCreateWithFakes({
                     host: fakes.host({errors: errors, warnings: warnings, infos: infos}),
                     shell: fakes.shell({

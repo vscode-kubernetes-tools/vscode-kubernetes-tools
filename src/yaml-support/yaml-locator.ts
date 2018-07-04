@@ -48,7 +48,7 @@ export interface YamlMatchedElement {
  */
 export class YamlLocator {
     // a mapping of URIs to cached documents
-    private _cache: { [key: string]: YamlCachedDocuments; }  = {};
+    private cache: { [key: string]: YamlCachedDocuments; }  = {};
 
     /**
      * Parse the yaml text and find the best node&document for the given position.
@@ -60,7 +60,7 @@ export class YamlLocator {
     public getMatchedElement(textDocument: vscode.TextDocument, pos: vscode.Position): YamlMatchedElement {
         const key: string = textDocument.uri.toString();
         this.ensureCache(key, textDocument);
-        const cacheEntry = this._cache[key];
+        const cacheEntry = this.cache[key];
         // findNodeAtPosition will find the matched node at given position
         return findNodeAtPosition(cacheEntry.yamlDocs, cacheEntry.lineLengths, pos.line, pos.character);
     }
@@ -75,21 +75,21 @@ export class YamlLocator {
     public getYamlDocuments(textDocument: vscode.TextDocument): YamlDocument[] {
         const key: string = textDocument.uri.toString();
         this.ensureCache(key, textDocument);
-        return this._cache[key].yamlDocs;
+        return this.cache[key].yamlDocs;
     }
 
     private ensureCache(key: string, textDocument: vscode.TextDocument): void {
-        if (!this._cache[key]) {
-            this._cache[key] = <YamlCachedDocuments> { version: -1 };
+        if (!this.cache[key]) {
+            this.cache[key] = <YamlCachedDocuments> { version: -1 };
         }
 
-        if (this._cache[key].version !== textDocument.version) {
+        if (this.cache[key].version !== textDocument.version) {
             // the document and line lengths from parse method is cached into YamlCachedDocuments to avoid duplicate
             // parse against the same text.
             const { documents, lineLengths } = parse(textDocument.getText());
-            this._cache[key].yamlDocs = documents;
-            this._cache[key].lineLengths = lineLengths;
-            this._cache[key].version = textDocument.version;
+            this.cache[key].yamlDocs = documents;
+            this.cache[key].lineLengths = lineLengths;
+            this.cache[key].version = textDocument.version;
         }
     }
 }

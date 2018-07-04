@@ -9,4 +9,3 @@ export async function showWorkspaceFolderPick(): Promise<vscode.WorkspaceFolder>
     }
     return await vscode.window.showWorkspaceFolderPick();
 }
-

@@ -123,7 +123,7 @@ function chaseFieldPath(swagger: any, currentProperty: TypeModel, currentPropert
     const currentPropertyTypeRef = currentProperty.$ref || (currentProperty.items ? currentProperty.items.$ref : undefined);
 
     if (currentPropertyTypeRef) {
-        let typeDefnPath: string[] = currentPropertyTypeRef.split('/');
+        const typeDefnPath: string[] = currentPropertyTypeRef.split('/');
         typeDefnPath.shift();
         const currentPropertyTypeInfo = findTypeDefinition(swagger, typeDefnPath);
         if (currentPropertyTypeInfo) {
@@ -167,11 +167,9 @@ function chaseFieldPath(swagger: any, currentProperty: TypeModel, currentPropert
     }
 }
 
-
 function explainError(header: string, error: string) {
     return `**${header}:** ${error}`;
 }
-
 
 function apiCredentials(kc: kubeconfig.KubeConfig) {
     return {
@@ -197,7 +195,7 @@ function findProperty(obj: any, name: string) {
     const n = (name + "").toLowerCase();
     for (const p in obj) {
         const pinfo = obj[p];
-        if ((p + "").toLowerCase() == n) {
+        if ((p + "").toLowerCase() === n) {
             return pinfo;
         }
         const gvks = pinfo["x-kubernetes-group-version-kind"];
@@ -207,14 +205,14 @@ function findProperty(obj: any, name: string) {
             const kind = gvk.kind;
             if (ver && kind) {
                 const vk = `${ver}.${kind}`;
-                if (vk.toLowerCase() == n) {
+                if (vk.toLowerCase() === n) {
                     return pinfo;
                 }
             }
         }
     }
     const singname = singularizeVersionedName(name);
-    if (singname == name) {
+    if (singname === name) {
         return undefined;
     } else {
         return findProperty(obj, singname);

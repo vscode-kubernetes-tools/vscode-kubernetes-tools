@@ -41,8 +41,8 @@ export async function init(registry: clusterproviderregistry.ClusterProviderRegi
         wizardServer.get('/configure', (req, resp, n) => htmlServer.handleGetConfigure(req, resp, n));
         wizardServer.post('/configure', (req, resp, n) => htmlServer.handlePostConfigure(req, resp, n));
 
-        registry.register({id: 'aks', displayName: "Azure Kubernetes Service", port: wizardPort, supportedActions: ['create','configure']});
-        registry.register({id: 'acs', displayName: "Azure Container Service", port: wizardPort, supportedActions: ['create','configure']});
+        registry.register({id: 'aks', displayName: "Azure Kubernetes Service", port: wizardPort, supportedActions: ['create', 'configure']});
+        registry.register({id: 'acs', displayName: "Azure Container Service", port: wizardPort, supportedActions: ['create', 'configure']});
     }
 }
 
@@ -77,7 +77,7 @@ class HtmlServer {
         const html = await handler(request.query["step"], this.context, requestData);
 
         response.contentType = 'text/html';
-        response.send("<html><body><style id='styleholder'></style>" + html + "</body></html>");
+        response.send(`<html><body><style id='styleholder'></style>${html}</body></html>`);
 
         next();
     }
@@ -229,7 +229,7 @@ async function promptForAgentSettings(previousData: any, context: azure.Context)
     }
 
     const defaultSize = "Standard_D2_v2";
-    const options = vmSizes.result.map((s) => `<option value="${s}" ${s == defaultSize ? "selected=true" : ""}>${s}</option>`).join('\n');
+    const options = vmSizes.result.map((s) => `<option value="${s}" ${s === defaultSize ? "selected=true" : ""}>${s}</option>`).join('\n');
 
     return formPage({
         stepId: 'PromptForAgentSettings',
@@ -416,7 +416,7 @@ ${styles()}
 // Utility helpers
 
 function formatCluster(cluster: any): string {
-    return cluster.resourceGroup + '/' + cluster.name;
+    return `${cluster.resourceGroup}/${cluster.name}`;
 }
 
 function parseCluster(encoded: string): azure.ClusterInfo {

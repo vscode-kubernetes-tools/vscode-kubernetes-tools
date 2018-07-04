@@ -562,7 +562,7 @@
             },
             {
                 "command": "extension.vsKubernetesUseNamespace",
-                "title": "Set as Current Namespace",
+                "title": "Use Namespace",
                 "category": "Kubernetes"
             },
             {

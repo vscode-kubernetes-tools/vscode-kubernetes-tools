@@ -9,7 +9,6 @@ import * as tmp from 'tmp';
 import * as vscode from 'vscode';
 import { Shell, Platform } from '../../shell';
 import { Errorable, failed, succeeded } from '../../errorable';
-import { exec } from 'child_process';
 
 export async function installKubectl(shell: Shell): Promise<Errorable<void>> {
     const tool = 'kubectl';
@@ -137,7 +136,7 @@ async function downloadToTempFile(sourceUrl: string): Promise<Errorable<string>>
 
 async function downloadTo(sourceUrl: string, destinationFile: string): Promise<Errorable<void>> {
     try {
-        const buffer = await download(sourceUrl, path.dirname(destinationFile), { filename: path.basename(destinationFile) });
+        await download(sourceUrl, path.dirname(destinationFile), { filename: path.basename(destinationFile) });
         return { succeeded: true, result: null };
     } catch (e) {
         return { succeeded: false, error: [e.message] };

@@ -2,13 +2,14 @@ import * as fs from 'fs';
 import { CommandEntry, parse } from 'docker-file-parser';
 
 import { IDockerfile, IDockerParser } from "./parser";
-import { shell, ShellResult } from "../shell";
 
 class RawDockerfile {
     private readonly commandEntries: CommandEntry[];
+    private readonly dockerfilePath: string;
 
-    constructor(private readonly dockerfilePath: string) {
-        const dockerData = fs.readFileSync(dockerfilePath, 'utf-8');
+    constructor(filePath: string) {
+        this.dockerfilePath = filePath;
+        const dockerData = fs.readFileSync(this.dockerfilePath, 'utf-8');
         this.commandEntries = parse(dockerData, { includeComments: false });
     }
 
@@ -47,9 +48,11 @@ class RawDockerfile {
 
 class Dockerfile implements IDockerfile {
     private readonly dockerfile: RawDockerfile;
+    private readonly dockerfilePath: string;
 
-    constructor(private readonly dockerfilePath: string) {
-        this.dockerfile = new RawDockerfile(dockerfilePath);
+    constructor(filePath: string) {
+        this.dockerfilePath = filePath;
+        this.dockerfile = new RawDockerfile(this.dockerfilePath);
     }
 
     getBaseImage(): string {
@@ -58,7 +61,6 @@ class Dockerfile implements IDockerfile {
             return;
         }
         const baseImageTag = String(fromEntries[0].args);
-        const baseImageID = baseImageTag.split(":")[0];
         const baseImageNameParts = baseImageTag.split("/");
         return baseImageNameParts[baseImageNameParts.length - 1].toLowerCase();
     }

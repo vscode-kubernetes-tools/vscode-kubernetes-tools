@@ -8,15 +8,15 @@ import { shell } from './shell';
 // Resources describes Kubernetes resource keywords.
 export class Resources {
     public all(): vscode.CompletionItem[] {
-        let home = shell.home();
-        let schemaDir = filepath.join(home, ".kube/schema");
+        const home = shell.home();
+        const schemaDir = filepath.join(home, ".kube/schema");
         if (!shelljs.test("-d", schemaDir)) {
             // Return the default set.
             return this.v1();
         }
         // Otherwise, try to dynamically build completion items from the
         // entire schema.
-        let kversion = _.last(shelljs.ls(schemaDir));
+        const kversion = _.last(shelljs.ls(schemaDir));
         console.log("Loading schema for version " + kversion);
 
         // Inside of the schemaDir, there are some top-level copies of the schemata.
@@ -25,20 +25,20 @@ export class Resources {
         // more likely to get the ones that this user is actually using, including
         // TPRs.
         let res = [];
-        let path = filepath.join(schemaDir, kversion);
+        const path = filepath.join(schemaDir, kversion);
         shelljs.ls(path).forEach((item) => {
-            let itemPath = filepath.join(path, item);
+            const itemPath = filepath.join(path, item);
             if (shelljs.test('-d', itemPath)) {
                 return;
             }
-            let schema = JSON.parse(shelljs.cat(itemPath));
+            const schema = JSON.parse(shelljs.cat(itemPath));
             if (!schema.models) {
                 return;
             }
             console.log("Adding schema " + itemPath);
             res = res.concat(this.fromSchema(schema.models));
         });
-        console.log("Attached " + res.length + " resource kinds");
+        console.log(`Attached ${res.length} resource kinds`);
         return res;
     }
 
@@ -48,11 +48,10 @@ export class Resources {
 
     // Extract hover documentation from a Swagger model.
     fromSchema(schema): vscode.CompletionItem[] {
-        let res = [];
+        const res = [];
         _.each(schema, (v, k) => {
-            let i = k.lastIndexOf(".");
-            //let version = k.substr(0, i)
-            let kind = k.substr(i+1);
+            const i = k.lastIndexOf(".");
+            const kind = k.substr(i+1);
             res.push(val(kind, `kind: ${ kind }`, v.description));
             _.each(v.properties, (spec, label) => {
                 let type = "undefined";
@@ -65,7 +64,7 @@ export class Resources {
                         break;
                     case "array":
                         // Try to give a pretty type.
-                        if(spec.items.type) {
+                        if (spec.items.type) {
                             type = spec.items.type + "[]";
                             break;
                         } else if (spec.items["$ref"]) {
@@ -88,13 +87,14 @@ export class Resources {
 }
 
 function d(name: string, use: string, doc: string): vscode.CompletionItem {
-    let i = new vscode.CompletionItem(name, vscode.CompletionItemKind.Variable);
+    const i = new vscode.CompletionItem(name, vscode.CompletionItemKind.Variable);
     i.detail = use;
     i.documentation = doc;
     return i;
 }
+
 function val(name: string, use: string, doc: string): vscode.CompletionItem {
-    let i = new vscode.CompletionItem(name, vscode.CompletionItemKind.Value);
+    const i = new vscode.CompletionItem(name, vscode.CompletionItemKind.Value);
     i.detail = use;
     i.documentation = doc;
     return i;

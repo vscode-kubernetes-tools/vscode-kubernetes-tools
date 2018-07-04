@@ -2,7 +2,6 @@ import * as restify from 'restify';
 import * as portfinder from 'portfinder';
 import * as clusterproviderregistry from './clusterproviderregistry';
 import { styles, script, waitScript } from '../../wizard';
-import TelemetryReporter from 'vscode-extension-telemetry';
 import { reporter } from '../../telemetry';
 
 let cpServer: restify.Server;

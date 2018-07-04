@@ -107,7 +107,7 @@ async function exec(cmd: string, stdin?: string): Promise<ShellResult> {
 
 function execCore(cmd: string, opts: any, stdin?: string): Promise<ShellResult> {
     return new Promise<ShellResult>((resolve, reject) => {
-        let proc = shelljs.exec(cmd, opts, (code, stdout, stderr) => resolve({code : code, stdout : stdout, stderr : stderr}));
+        const proc = shelljs.exec(cmd, opts, (code, stdout, stderr) => resolve({code : code, stdout : stdout, stderr : stderr}));
         if (stdin) {
             proc.stdin.end(stdin);
         }
@@ -115,8 +115,8 @@ function execCore(cmd: string, opts: any, stdin?: string): Promise<ShellResult> 
 }
 
 export function shellEnvironment(baseEnvironment: any): any {
-    let env = Object.assign({}, baseEnvironment);
-    let pathVariable = pathVariableName(env);
+    const env = Object.assign({}, baseEnvironment);
+    const pathVariable = pathVariableName(env);
     for (const tool of ['kubectl', 'helm', 'draft']) {
         const toolPath = vscode.workspace.getConfiguration('vs-kubernetes')[`vs-kubernetes.${tool}-path`];
         if (toolPath) {

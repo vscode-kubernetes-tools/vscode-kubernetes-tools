@@ -1,7 +1,7 @@
 import * as path from "path";
 import * as vscode from "vscode";
 
-import { shell, ShellResult } from "./shell";
+import { shell } from "./shell";
 
 /**
  * Install a vscode extension programmatically.
