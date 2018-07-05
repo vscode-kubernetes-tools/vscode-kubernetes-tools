@@ -97,7 +97,7 @@ class DummyObject implements KubernetesObject {
 }
 
 class KubernetesContext implements KubernetesObject {
-    constructor(readonly id: string, readonly metadata?: kubectlUtils.KubectlContext) {
+    constructor(readonly id: string, readonly metadata: kubectlUtils.KubectlContext) {
     }
 
     getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<KubernetesObject[]> {
