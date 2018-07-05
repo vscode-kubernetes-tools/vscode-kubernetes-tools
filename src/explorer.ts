@@ -204,6 +204,8 @@ class KubernetesResourceFolder extends KubernetesFolder {
                 return new KubernetesResource(this.kind, line.name, { status: line.status });
             });
         }
+        childrenLines.result.shift();
+        // ignore headers for other resources
         return childrenLines.result.map((line) => {
             const bits = line.split(' ');
             return new KubernetesResource(this.kind, bits[0]);
