@@ -1,3 +1,4 @@
+import * as path from 'path';
 import * as vscode from 'vscode';
 
 import { Host } from './host';
@@ -26,7 +27,12 @@ export class HelmRepoExplorer implements vscode.TreeDataProvider<HelmRepo> {
     }
 
     getTreeItem(element: HelmRepo): vscode.TreeItem | Thenable<vscode.TreeItem> {
-        return new vscode.TreeItem(element.name);
+        const treeItem = new vscode.TreeItem(element.name);
+        treeItem.iconPath = {
+            light: vscode.Uri.file(path.join(__dirname, "../../images/light/helm-blue-vector.svg")),
+            dark: vscode.Uri.file(path.join(__dirname, "../../images/dark/helm-white-vector.svg")),
+        };
+        return treeItem;
     }
 
     getChildren(parent?: any): vscode.ProviderResult<HelmRepo[]> {
