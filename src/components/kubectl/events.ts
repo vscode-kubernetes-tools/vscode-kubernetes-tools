@@ -1,6 +1,6 @@
-import { Kubectl } from './kubectl';
-import * as kubectlUtils from './kubectlUtils';
-import * as explorer from './explorer';
+import { Kubectl } from '../../kubectl';
+import * as kubectlUtils from '../../kubectlUtils';
+import * as explorer from '../../explorer';
 
 export enum EventDisplayMode {
     Show,
