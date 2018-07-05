@@ -5,6 +5,7 @@ import { FS } from './fs';
 import { Shell, ShellHandler, ShellResult } from './shell';
 import * as binutil from './binutil';
 import { Errorable } from './errorable';
+import { parseLineOutput } from './kubectlUtils';
 
 export interface Kubectl {
     checkPresent(errorMessageMode: CheckPresentMessageMode): Promise<boolean>;
@@ -22,6 +23,7 @@ export interface Kubectl {
     invokeInSharedTerminal(command: string): Promise<void>;
     runAsTerminal(command: string[], terminalName: string): Promise<void>;
     asLines(command: string): Promise<Errorable<string[]>>;
+    fromLines(command: string): Promise<Errorable<{ [key: string]: string }[]>>;
     asJson<T>(command: string): Promise<Errorable<T>>;
 }
 
@@ -75,6 +77,9 @@ class KubectlImpl implements Kubectl {
     }
     asLines(command: string): Promise<Errorable<string[]>> {
         return asLines(this.context, command);
+    }
+    fromLines(command: string): Promise<Errorable<{ [key: string]: string }[]>> {
+        return fromLines(this.context, command);
     }
     asJson<T>(command: string): Promise<Errorable<T>> {
         return asJson(this.context, command);
@@ -219,9 +224,21 @@ async function asLines(context: Context, command: string): Promise<Errorable<str
     const shellResult = await invokeAsync(context, command);
     if (shellResult.code === 0) {
         let lines = shellResult.stdout.split('\n');
+        lines.shift();
         lines = lines.filter((l) => l.length > 0);
         return { succeeded: true, result: lines };
 
+    }
+    return { succeeded: false, error: [ shellResult.stderr ] };
+}
+
+async function fromLines(context: Context, command: string): Promise<Errorable<{ [key: string]: string }[]>> {
+    const shellResult = await invokeAsync(context, command);
+    if (shellResult.code === 0) {
+        let lines = shellResult.stdout.split('\n');
+        lines = lines.filter((l) => l.length > 0);
+        const parsedOutput = parseLineOutput(lines);
+        return { succeeded: true, result: parsedOutput };
     }
     return { succeeded: false, error: [ shellResult.stderr ] };
 }

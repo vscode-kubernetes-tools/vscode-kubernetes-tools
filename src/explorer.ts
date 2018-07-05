@@ -20,26 +20,11 @@ export function createKubernetesResource(kind: kuberesources.ResourceKind, id: s
 }
 
 function getIconForPodStatus(status: string): vscode.Uri {
-    if (status === "Running" || status === "Completed") {
+    if (status === "running" || status === "completed") {
         return vscode.Uri.file(path.join(__dirname, "../../images/runningPod.svg"));
     } else {
         return vscode.Uri.file(path.join(__dirname, "../../images/errorPod.svg"));
     }
-}
-
-function parsePodLine(podInfo: string[]): any[] {
-    const headers = podInfo.shift();
-    const parsedHeaders = headers.toLowerCase().replace(/\s+/g, '|').split('|');
-    const pods = [];
-    podInfo.map((line) => {
-        const podObject = {};
-        const bits = line.replace(/\s+/g, '|').split('|');
-        bits.map((columnValue, index) => {
-            podObject[parsedHeaders[index]]= columnValue;
-        });
-        pods.push(podObject);
-    });
-    return pods;
 }
 
 export interface KubernetesObject {
@@ -193,22 +178,18 @@ class KubernetesResourceFolder extends KubernetesFolder {
     }
 
     async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
-        const childrenLines = await kubectl.asLines(`get ${this.kind.abbreviation}`);
-        if (failed(childrenLines)) {
-            host.showErrorMessage(childrenLines.error[0]);
+        const childrenObjects = await kubectl.fromLines(`get ${this.kind.abbreviation}`);
+        if (failed(childrenObjects)) {
+            host.showErrorMessage(childrenObjects.error[0]);
             return [new DummyObject("Error")];
         }
         if (this.kind.abbreviation === "pod") {
-            const parsedPods = parsePodLine(childrenLines.result);
-            return parsedPods.map((line) => {
-                return new KubernetesResource(this.kind, line.name, { status: line.status });
+            return childrenObjects.result.map((pod) => {
+                return new KubernetesResource(this.kind, pod.name, { status: pod.status.toLowerCase() });
             });
         }
-        childrenLines.result.shift();
-        // ignore headers for other resources
-        return childrenLines.result.map((line) => {
-            const bits = line.split(' ');
-            return new KubernetesResource(this.kind, bits[0]);
+        return childrenObjects.result.map((childrenObject) => {
+            return new KubernetesResource(this.kind, childrenObject.name);
         });
     }
 }
@@ -274,14 +255,13 @@ class KubernetesNodeResource extends KubernetesResource {
     }
 
     async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
-        const pods = await kubectl.asLines(`get po --all-namespaces --field-selector spec.nodeName=${this.id}`);
+        const pods = await kubectl.fromLines(`get po --all-namespaces --field-selector spec.nodeName=${this.id}`);
         if (failed(pods)) {
             host.showErrorMessage(pods.error[0]);
             return [new DummyObject("Error")];
         }
-        const parsedPods = parsePodLine(pods.result);
-        return parsedPods.map((line) => {
-            return new KubernetesResource(kuberesources.allKinds.pod, line.name, { status: line.status, name: line.name, namespace: line.namespace, node: this.resourceId });
+        return pods.result.map((pod) => {
+            return new KubernetesResource(kuberesources.allKinds.pod, pod.name, { status: pod.status.toLowerCase(), name: pod.name, namespace: pod.namespace, node: this.resourceId });
         });
     }
 }
@@ -358,14 +338,13 @@ class KubernetesSelectorResource extends KubernetesResource {
             selectors.push(`${sel}=${this.selector.matchLabels[sel]}`);
         }
         const selectorString = selectors.join(",");
-        const pods = await kubectl.asLines(`get po -l ${selectorString}`);
+        const pods = await kubectl.fromLines(`get po -l ${selectorString}`);
         if (failed(pods)) {
             host.showErrorMessage(pods.error[0]);
             return [new DummyObject("Error")];
         }
-        const parsedPods = parsePodLine(pods.result);
-        return parsedPods.map((line) => {
-            return new KubernetesResource(kuberesources.allKinds.pod, line.name, { status: line.status });
+        return pods.result.map((pod) => {
+            return new KubernetesResource(kuberesources.allKinds.pod, pod.name, { status: pod.status.toLowerCase() });
         });
     }
 }
