@@ -219,7 +219,6 @@ async function asLines(context: Context, command: string): Promise<Errorable<str
     const shellResult = await invokeAsync(context, command);
     if (shellResult.code === 0) {
         let lines = shellResult.stdout.split('\n');
-        // lines.shift();
         lines = lines.filter((l) => l.length > 0);
         return { succeeded: true, result: lines };
 
