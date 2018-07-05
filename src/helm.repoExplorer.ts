@@ -65,6 +65,7 @@ async function listHelmRepos(): Promise<Errorable<HelmRepo[]>> {
     const repos = sr.stdout.split('\n')
                            .slice(1)
                            .map((l) => l.trim())
+                           .filter((l) => l.length > 0)
                            .map((l) => l.split('\t').map((bit) => bit.trim()))
                            .map((bits) => ({ name: bits[0], url: bits[1] }));
     return { succeeded: true, result: repos };
