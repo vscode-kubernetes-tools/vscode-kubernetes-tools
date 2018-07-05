@@ -66,6 +66,7 @@
         "onCommand:extension.draftCreate",
         "onCommand:extension.draftUp",
         "onView:extension.vsKubernetesExplorer",
+        "onView:extension.vsKubernetesHelmRepoExplorer",
         "onLanguage:helm",
         "onLanguage:yaml",
         "onDebug"
@@ -135,6 +136,10 @@
                 {
                     "id": "extension.vsKubernetesExplorer",
                     "name": "Clusters"
+                },
+                {
+                    "id": "extension.vsKubernetesHelmRepoExplorer",
+                    "name": "Helm Repos"
                 }
             ]
         },

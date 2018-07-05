@@ -33,6 +33,7 @@ import { kubeChannel } from './kubeChannel';
 import { create as kubectlCreate } from './kubectl';
 import * as kubectlUtils from './kubectlUtils';
 import * as explorer from './explorer';
+import * as helmRepoExplorer from './helm.repoExplorer';
 import { create as draftCreate, CheckPresentMode as DraftCheckPresentMode } from './draft/draft';
 import * as logger from './logger';
 import * as helm from './helm';
@@ -109,6 +110,7 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
     kubectl.checkPresent('activation');
 
     const treeProvider = explorer.create(kubectl, host);
+    const helmRepoTreeProvider = helmRepoExplorer.create(host);
     const resourceDocProvider = new KubernetesResourceVirtualFileSystemProvider(kubectl, host, vscode.workspace.rootPath);
     const previewProvider = new HelmTemplatePreviewDocumentProvider();
     const inspectProvider = new HelmInspectDocumentProvider();
@@ -205,6 +207,7 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
 
         // Tree data providers
         vscode.window.registerTreeDataProvider('extension.vsKubernetesExplorer', treeProvider),
+        vscode.window.registerTreeDataProvider('extension.vsKubernetesHelmRepoExplorer', helmRepoTreeProvider),
 
         // Temporarily loaded resource providers
         vscode.workspace.registerFileSystemProvider(K8S_RESOURCE_SCHEME, resourceDocProvider, { /* TODO: case sensitive? */ }),
