@@ -5,6 +5,8 @@ import { sleep } from "./sleep";
 import { ObjectMeta, KubernetesCollection, DataResource, Namespace, Pod, KubernetesResource } from './kuberesources.objectmodel';
 import { failed } from "./errorable";
 
+export const ALL_NAMESPACES = "/all/";  // TODO: not type safe but safer than a legal DNS name
+
 export interface KubectlContext {
     readonly clusterName: string;
     readonly contextName: string;
@@ -168,13 +170,14 @@ export async function getPodSelector(resource: string, kubectl: Kubectl): Promis
     });
 }
 
-export async function getPods(kubectl: Kubectl, selector: any, namespace: string = null): Promise<PodInfo[]> {
-    const ns = namespace || await currentNamespace(kubectl);
+export async function getPods(kubectl: Kubectl, selector: any, namespace: string | null = null): Promise<PodInfo[]> {
+    const currentNS = await currentNamespace(kubectl);
+    const ns = namespace || currentNS;
     let nsFlag = `--namespace=${ns}`;
-    if (ns === 'all') {
+    if (ns === ALL_NAMESPACES) {
         nsFlag = '--all-namespaces';
     }
-    const labels = [];
+    const labels: string[] = [];
     let matchLabelObj = selector;
     if (selector && selector.matchLabels) {
         matchLabelObj = selector.matchLabels;
@@ -197,7 +200,7 @@ export async function getPods(kubectl: Kubectl, selector: any, namespace: string
     return pods.result.items.map((item) => {
         return {
             name: item.metadata.name,
-            namespace: item.metadata.namespace,
+            namespace: item.metadata.namespace || currentNS,
             nodeName: item.spec.nodeName
         };
     });

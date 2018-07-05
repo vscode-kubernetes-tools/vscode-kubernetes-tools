@@ -255,7 +255,7 @@ class KubernetesNodeResource extends KubernetesResource {
     }
 
     async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
-        const pods = await kubectlUtils.getPods(kubectl, null, 'all');
+        const pods = await kubectlUtils.getPods(kubectl, null, kubectlUtils.ALL_NAMESPACES);
         const filteredPods = pods.filter((p) => `node/${p.nodeName}` === this.resourceId);
         return filteredPods.map((p) => new KubernetesResource(kuberesources.allKinds.pod, p.name, p));
     }
