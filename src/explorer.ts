@@ -193,7 +193,7 @@ class KubernetesResourceFolder extends KubernetesFolder {
     }
 
     async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
-        const childrenLines = await kubectl.asLines("get " + this.kind.abbreviation);
+        const childrenLines = await kubectl.asLines(`get ${this.kind.abbreviation}`);
         if (failed(childrenLines)) {
             host.showErrorMessage(childrenLines.error[0]);
             return [new DummyObject("Error")];
