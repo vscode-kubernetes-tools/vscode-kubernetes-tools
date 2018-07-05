@@ -353,8 +353,20 @@ class KubernetesSelectorResource extends KubernetesResource {
         if (!this.selector) {
             return [];
         }
-        const pods = await kubectlUtils.getPods(kubectl, this.selector);
-        return pods.map((p) => new KubernetesResource(kuberesources.allKinds.pod, p.name, p));
+        const selectors = [];
+        for (const sel in this.selector.matchLabels) {
+            selectors.push(`${sel}=${this.selector.matchLabels[sel]}`);
+        }
+        const selectorString = selectors.join(",");
+        const pods = await kubectl.asLines(`get po -l ${selectorString}`);
+        if (failed(pods)) {
+            host.showErrorMessage(pods.error[0]);
+            return [new DummyObject("Error")];
+        }
+        const parsedPods = parsePodLine(pods.result);
+        return parsedPods.map((line) => {
+            return new KubernetesResource(kuberesources.allKinds.pod, line.name, { status: line.status });
+        });
     }
 }
 
