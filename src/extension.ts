@@ -27,7 +27,7 @@ import * as configureFromCluster from './configurefromcluster';
 import * as createCluster from './createcluster';
 import * as kuberesources from './kuberesources';
 import { useNamespaceKubernetes } from './components/kubectl/namespace';
-import { EventDisplayMode, getEvents } from './kubeEvents';
+import { EventDisplayMode, getEvents } from './components/kubectl/events';
 import * as docker from './docker';
 import { kubeChannel } from './kubeChannel';
 import { create as kubectlCreate } from './kubectl';
