@@ -27,6 +27,7 @@ import * as configureFromCluster from './configurefromcluster';
 import * as createCluster from './createcluster';
 import * as kuberesources from './kuberesources';
 import { useNamespaceKubernetes } from './components/kubectl/namespace';
+import { EventDisplayMode, getEvents } from './components/kubectl/events';
 import * as docker from './docker';
 import { kubeChannel } from './kubeChannel';
 import { create as kubectlCreate } from './kubectl';
@@ -158,7 +159,8 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
         registerCommand('extension.vsKubernetesLoadConfigMapData', configmaps.loadConfigMapData),
         registerCommand('extension.vsKubernetesDeleteFile', (obj) => { deleteKubernetesConfigFile(kubectl, obj, treeProvider); }),
         registerCommand('extension.vsKubernetesAddFile', (obj) => { addKubernetesConfigFile(kubectl, obj, treeProvider); }),
-
+        registerCommand('extension.vsKubernetesShowEvents', (explorerNode: explorer.ResourceNode) => { getEvents(kubectl, EventDisplayMode.Show, explorerNode); }),
+        registerCommand('extension.vsKubernetesFollowEvents', (explorerNode: explorer.ResourceNode) => { getEvents(kubectl, EventDisplayMode.Follow, explorerNode); }),
         // Commands - Helm
         registerCommand('extension.helmVersion', helmexec.helmVersion),
         registerCommand('extension.helmTemplate', helmexec.helmTemplate),
