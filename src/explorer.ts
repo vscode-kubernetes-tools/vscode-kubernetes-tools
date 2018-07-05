@@ -178,18 +178,18 @@ class KubernetesResourceFolder extends KubernetesFolder {
     }
 
     async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
-        const childrenLines = await kubectl.asLines("get " + this.kind.abbreviation);
-        if (failed(childrenLines)) {
-            host.showErrorMessage(childrenLines.error[0]);
+        const childrenObjects = await kubectl.fromLines(`get ${this.kind.abbreviation}`);
+        if (failed(childrenObjects)) {
+            host.showErrorMessage(childrenObjects.error[0]);
             return [new DummyObject("Error")];
         }
-        return childrenLines.result.map((line) => {
-            if (this.kind.abbreviation === "pod") {
-                const bits = line.replace(/\s+/g, '|').split('|');
-                return new KubernetesResource(this.kind, bits[0], { status: bits[2].toLowerCase() });
-            }
-            const bits = line.split(' ');
-            return new KubernetesResource(this.kind, bits[0]);
+        if (this.kind.abbreviation === "pod") {
+            return childrenObjects.result.map((pod) => {
+                return new KubernetesResource(this.kind, pod.name, { status: pod.status.toLowerCase() });
+            });
+        }
+        return childrenObjects.result.map((childrenObject) => {
+            return new KubernetesResource(this.kind, childrenObject.name);
         });
     }
 }
@@ -255,9 +255,14 @@ class KubernetesNodeResource extends KubernetesResource {
     }
 
     async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
-        const pods = await kubectlUtils.getPods(kubectl, null, 'all');
-        const filteredPods = pods.filter((p) => `node/${p.nodeName}` === this.resourceId);
-        return filteredPods.map((p) => new KubernetesResource(kuberesources.allKinds.pod, p.name, p));
+        const pods = await kubectl.fromLines(`get po --all-namespaces --field-selector spec.nodeName=${this.id}`);
+        if (failed(pods)) {
+            host.showErrorMessage(pods.error[0]);
+            return [new DummyObject("Error")];
+        }
+        return pods.result.map((pod) => {
+            return new KubernetesResource(kuberesources.allKinds.pod, pod.name, { status: pod.status.toLowerCase(), name: pod.name, namespace: pod.namespace, node: this.resourceId });
+        });
     }
 }
 
@@ -328,8 +333,19 @@ class KubernetesSelectorResource extends KubernetesResource {
         if (!this.selector) {
             return [];
         }
-        const pods = await kubectlUtils.getPods(kubectl, this.selector);
-        return pods.map((p) => new KubernetesResource(kuberesources.allKinds.pod, p.name, p));
+        const selectors = [];
+        for (const sel in this.selector.matchLabels) {
+            selectors.push(`${sel}=${this.selector.matchLabels[sel]}`);
+        }
+        const selectorString = selectors.join(",");
+        const pods = await kubectl.fromLines(`get po -l ${selectorString}`);
+        if (failed(pods)) {
+            host.showErrorMessage(pods.error[0]);
+            return [new DummyObject("Error")];
+        }
+        return pods.result.map((pod) => {
+            return new KubernetesResource(kuberesources.allKinds.pod, pod.name, { status: pod.status.toLowerCase() });
+        });
     }
 }
 
