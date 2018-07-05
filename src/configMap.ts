@@ -51,7 +51,7 @@ export async function deleteKubernetesConfigFile(kubectl: Kubectl, obj: Kubernet
         return;
     }
     const result = await vscode.window.showWarningMessage(`Are you sure you want to delete ${obj.id}? This can not be undone`, ...deleteMessageItems);
-    if (result.title !== deleteMessageItems[0].title) {
+    if (!result || result.title !== deleteMessageItems[0].title) {
         return;
     }
     const currentNS = await currentNamespace(kubectl);
@@ -92,7 +92,7 @@ export async function addKubernetesConfigFile(kubectl: Kubectl, obj: KubernetesD
             const fileName = basename(filePath);
             if (dataHolder.data[fileName]) {
                 const response = await vscode.window.showWarningMessage(`Are you sure you want to overwrite '${fileName}'? This can not be undone`, ...overwriteMessageItems);
-                if (response.title !== overwriteMessageItems[0].title) {
+                if (!response || response.title !== overwriteMessageItems[0].title) {
                     return;
                 }
             }

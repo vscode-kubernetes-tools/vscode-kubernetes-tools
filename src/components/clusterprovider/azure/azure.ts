@@ -79,7 +79,7 @@ async function verifyPrerequisitesAsync(context: Context): Promise<string[]> {
     return errors;
 }
 
-async function azureCliVersion(context: Context): Promise<string> {
+async function azureCliVersion(context: Context): Promise<string | null> {
     const sr = await context.shell.exec('az --version');
     if (sr.code !== 0 || sr.stderr) {
         return null;
@@ -232,7 +232,7 @@ async function resourceGroupExists(context: Context, resourceGroupName: string):
 
 async function ensureResourceGroupAsync(context: Context, resourceGroupName: string, location: string): Promise<Errorable<Diagnostic>> {
     if (await resourceGroupExists(context, resourceGroupName)) {
-        return { succeeded: true, result: null };
+        return { succeeded: true, result: { value: '' } };
     }
 
     const sr = await context.shell.exec(`az group create -n "${resourceGroupName}" -l "${location}"`);

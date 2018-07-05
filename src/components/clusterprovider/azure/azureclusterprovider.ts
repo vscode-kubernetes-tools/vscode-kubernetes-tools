@@ -10,8 +10,8 @@ import { refreshExplorer } from '../common/explorer';
 // HTTP request dispatch
 
 // TODO: de-globalise
-let wizardServer: restify.Server;
-let wizardPort: number;
+let wizardServer: restify.Server | undefined;
+let wizardPort: number | undefined;
 
 type HtmlRequestHandler = (
     step: string | undefined,
