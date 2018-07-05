@@ -1,14 +1,21 @@
 import * as vscode from 'vscode';
 
 import { Host } from './host';
+import * as helm from './helm.exec';
+import { Errorable, failed } from './errorable';
 
 export function create(host: Host): HelmRepoExplorer {
     return new HelmRepoExplorer(host);
 }
 
-export class HelmRepoExplorer implements vscode.TreeDataProvider<any> {
-    private onDidChangeTreeDataEmitter: vscode.EventEmitter<any | undefined> = new vscode.EventEmitter<any | undefined>();
-    readonly onDidChangeTreeData: vscode.Event<any | undefined> = this.onDidChangeTreeDataEmitter.event;
+interface HelmRepo {
+    readonly name: string;
+    readonly url: string;
+}
+
+export class HelmRepoExplorer implements vscode.TreeDataProvider<HelmRepo> {
+    private onDidChangeTreeDataEmitter: vscode.EventEmitter<HelmRepo | undefined> = new vscode.EventEmitter<HelmRepo | undefined>();
+    readonly onDidChangeTreeData: vscode.Event<HelmRepo | undefined> = this.onDidChangeTreeDataEmitter.event;
 
     constructor(private readonly host: Host) {
         host.onDidChangeConfiguration((change) => {
@@ -18,15 +25,41 @@ export class HelmRepoExplorer implements vscode.TreeDataProvider<any> {
         });
     }
 
-    getTreeItem(element: any): vscode.TreeItem | Thenable<vscode.TreeItem> {
-        return new vscode.TreeItem("placeholder");
+    getTreeItem(element: HelmRepo): vscode.TreeItem | Thenable<vscode.TreeItem> {
+        return new vscode.TreeItem(element.name);
     }
 
-    getChildren(parent?: any): vscode.ProviderResult<any[]> {
-        return [];
+    getChildren(parent?: any): vscode.ProviderResult<HelmRepo[]> {
+        if (parent) {
+            return [];
+        }
+
+        return this.getHelmRepos();
+    }
+
+    private async getHelmRepos(): Promise<HelmRepo[]> {
+        const repos = await listHelmRepos();
+        if (failed(repos)) {
+            return [ { name: 'Unable to list Helm repos', url: '' } ];
+        }
+        return repos.result;
     }
 
     refresh(): void {
         this.onDidChangeTreeDataEmitter.fire();
     }
+}
+
+async function listHelmRepos(): Promise<Errorable<HelmRepo[]>> {
+    const sr = await helm.helmExecAsync("repo list");
+    if (sr.code !== 0) {
+        return { succeeded: false, error: [sr.stderr] };
+    }
+
+    const repos = sr.stdout.split('\n')
+                           .slice(1)
+                           .map((l) => l.trim())
+                           .map((l) => l.split('\t').map((bit) => bit.trim()))
+                           .map((bits) => ({ name: bits[0], url: bits[1] }));
+    return { succeeded: true, result: repos };
 }
