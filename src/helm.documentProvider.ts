@@ -3,13 +3,30 @@ import * as filepath from 'path';
 import * as exec from './helm.exec';
 import * as YAML from 'yamljs';
 import * as fs from 'fs';
+import { escape as htmlEscape } from 'lodash';
 
 import * as logger from './logger';
 
-function previewBody(title: string, data: string, err?: boolean): string {
+interface HelmDocumentResult {
+    readonly title: string;
+    readonly subtitle?: string;
+    readonly content: string;
+    readonly isErrorOutput: boolean;
+}
+
+function htmlTag(tag: string, content: string): string {
+    const htmlContent = htmlEscape(content);
+    return `<${tag}>${htmlContent}</${tag}>`;
+}
+
+function render(document: HelmDocumentResult): string {
+    const subtitle = document.subtitle ? htmlTag('h2', document.subtitle) : '';
+    const bodyTag = document.isErrorOutput ? 'p' : 'pre';
+    const bodyContent = htmlTag(bodyTag, document.content);
     return `<body>
-      <h1>${ title }</h1>
-      <pre>${ data }</pre>
+      <h1>${document.title}</h1>
+      ${subtitle}
+      ${bodyContent}
     </body>`;
 }
 
@@ -22,7 +39,7 @@ export class HelmInspectDocumentProvider implements vscode.TextDocumentContentPr
                 if (code === 0) {
                     const p = (filepath.extname(uri.fsPath) === ".tgz") ? filepath.basename(uri.fsPath) : "Chart";
                     const title = "Inspect " + p;
-                    resolve(previewBody(title, out));
+                    resolve(render({ title: title, content: out, isErrorOutput: false }));
                 }
                 reject(err);
             };
@@ -74,7 +91,8 @@ export class HelmTemplatePreviewDocumentProvider implements vscode.TextDocumentC
                 const reltpl = filepath.relative(chartPath, tpl);
                 exec.helmExec(`template "${chartPath}" --execute "${reltpl}"`, (code, out, err) => {
                     if (code !== 0) {
-                        resolve(previewBody("Chart Preview", "Failed template call." + err, true));
+                        const errorDoc = { title: "Chart Preview", subtitle: "Failed template call", content: err, isErrorOutput: true };
+                        resolve(render(errorDoc));
                         return;
                     }
 
@@ -88,7 +106,10 @@ export class HelmTemplatePreviewDocumentProvider implements vscode.TextDocumentC
                         }
                     }
 
-                    resolve(previewBody(reltpl, out));
+                    const previewDoc = out ?
+                        { title: reltpl, content: out, isErrorOutput: false } :
+                        { title: reltpl, content: 'Helm template produced no output', isErrorOutput: true };
+                    resolve(render(previewDoc));
                 });
             });
         });
