@@ -339,6 +339,9 @@ export async function getResourceAsJson<T extends KubernetesResource | Kubernete
  */
 export function parseLineOutput(lineOutput: string[]): { [key: string]: string }[] {
     const headers = lineOutput.shift();
+    if (!headers) {
+        return [];
+    }
     const parsedHeaders = headers.toLowerCase().replace(/\s+/g, '|').split('|');
     return lineOutput.map((line) => {
         const lineInfoObject = {};
