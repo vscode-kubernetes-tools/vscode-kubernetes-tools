@@ -333,14 +333,7 @@ class KubernetesSelectorResource extends KubernetesResource {
         if (!this.selector) {
             return [];
         }
-        let selectorString = "";
-        if (this.selector.matchLabels) {
-            const selectors = [];
-            for (const sel in this.selector.matchLabels) {
-                selectors.push(`${sel}=${this.selector.matchLabels[sel]}`);
-            }
-            selectorString = `-l ${selectors.join(",")}`;
-        }
+        const selectorString = kubectlUtils.getResourceSelectorString(this.selector);
         const pods = await kubectl.fromLines(`get po ${selectorString}`);
         if (failed(pods)) {
             host.showErrorMessage(pods.error[0]);
