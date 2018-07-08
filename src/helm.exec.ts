@@ -294,7 +294,7 @@ const HELM_PAGING_PREFIX = "next:";
 
 export async function helmListAll(namespace?: string): Promise<Errorable<string[]>> {
     if (!ensureHelm(EnsureMode.Alert)) {
-        return { succeeded: false, error: [ 'Helm not installed' ] };
+        return { succeeded: false, error: [ "Helm client is not installed" ] };
     }
 
     const releases: string[] = [];
