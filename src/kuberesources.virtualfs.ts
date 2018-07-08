@@ -58,9 +58,9 @@ export class KubernetesResourceVirtualFileSystemProvider implements FileSystemPr
         const outputFormat = workspace.getConfiguration('vs-kubernetes')['vs-kubernetes.outputFormat'];
         const value = query.value;
         const ns = query.ns;
-        const loadMode = uri.authority;
+        const resourceAuthority = uri.authority;
 
-        const sr = await this.execLoadResource(loadMode, ns, value, outputFormat);
+        const sr = await this.execLoadResource(resourceAuthority, ns, value, outputFormat);
 
         if (sr.code !== 0) {
             this.host.showErrorMessage('Get command failed: ' + sr.stderr);
@@ -70,15 +70,15 @@ export class KubernetesResourceVirtualFileSystemProvider implements FileSystemPr
         return sr.stdout;
     }
 
-    async execLoadResource(loadMode: string, ns: string | undefined, value: string, outputFormat: string): Promise<ShellResult> {
-        switch (loadMode) {
+    async execLoadResource(resourceAuthority: string, ns: string | undefined, value: string, outputFormat: string): Promise<ShellResult> {
+        switch (resourceAuthority) {
             case KUBECTL_RESOURCE_AUTHORITY:
                 const nsarg = ns ? `--namespace ${ns}` : '';
                 return await this.kubectl.invokeAsyncWithProgress(`-o ${outputFormat} ${nsarg} get ${value}`, `Loading ${value}...`);
             case HELM_RESOURCE_AUTHORITY:
                 return await helmExecAsync(`get ${value}`);
             default:
-                return { code: -99, stdout: '', stderr: `Internal error: please raise an issue with the error code InvalidObjectLoadURI and report authority ${loadMode}.` };
+                return { code: -99, stdout: '', stderr: `Internal error: please raise an issue with the error code InvalidObjectLoadURI and report authority ${resourceAuthority}.` };
         }
     }
 
