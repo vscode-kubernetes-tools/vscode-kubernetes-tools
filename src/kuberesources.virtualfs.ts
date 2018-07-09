@@ -5,8 +5,12 @@ import * as querystring from 'querystring';
 
 import { Kubectl } from './kubectl';
 import { Host } from './host';
+import { ShellResult } from './shell';
+import { helmExecAsync } from './helm.exec';
 
 export const K8S_RESOURCE_SCHEME = "k8smsx";
+export const KUBECTL_RESOURCE_AUTHORITY = "loadkubernetescore";
+export const HELM_RESOURCE_AUTHORITY = "helmget";
 
 export class KubernetesResourceVirtualFileSystemProvider implements FileSystemProvider {
     constructor(private readonly kubectl: Kubectl, private readonly host: Host, private readonly rootPath: string) { }
@@ -54,8 +58,9 @@ export class KubernetesResourceVirtualFileSystemProvider implements FileSystemPr
         const outputFormat = workspace.getConfiguration('vs-kubernetes')['vs-kubernetes.outputFormat'];
         const value = query.value;
         const ns = query.ns;
-        const nsarg = ns ? `--namespace ${ns}` : '';
-        const sr = await this.kubectl.invokeAsyncWithProgress(`-o ${outputFormat} ${nsarg} get ${value}`, `Loading ${value}...`);
+        const resourceAuthority = uri.authority;
+
+        const sr = await this.execLoadResource(resourceAuthority, ns, value, outputFormat);
 
         if (sr.code !== 0) {
             this.host.showErrorMessage('Get command failed: ' + sr.stderr);
@@ -63,6 +68,18 @@ export class KubernetesResourceVirtualFileSystemProvider implements FileSystemPr
         }
 
         return sr.stdout;
+    }
+
+    async execLoadResource(resourceAuthority: string, ns: string | undefined, value: string, outputFormat: string): Promise<ShellResult> {
+        switch (resourceAuthority) {
+            case KUBECTL_RESOURCE_AUTHORITY:
+                const nsarg = ns ? `--namespace ${ns}` : '';
+                return await this.kubectl.invokeAsyncWithProgress(`-o ${outputFormat} ${nsarg} get ${value}`, `Loading ${value}...`);
+            case HELM_RESOURCE_AUTHORITY:
+                return await helmExecAsync(`get ${value}`);
+            default:
+                return { code: -99, stdout: '', stderr: `Internal error: please raise an issue with the error code InvalidObjectLoadURI and report authority ${resourceAuthority}.` };
+        }
     }
 
     writeFile(uri: Uri, content: Uint8Array, options: { create: boolean, overwrite: boolean }): void | Thenable<void> {

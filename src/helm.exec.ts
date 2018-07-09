@@ -6,8 +6,12 @@ import * as YAML from 'yamljs';
 import * as _ from 'lodash';
 import * as fs from "fs";
 import * as extension from './extension';
+import * as explorer from './explorer';
 import * as helm from './helm';
 import { showWorkspaceFolderPick } from './hostutils';
+import { shell as sh, ShellResult } from './shell';
+import { K8S_RESOURCE_SCHEME, HELM_RESOURCE_AUTHORITY } from './kuberesources.virtualfs';
+import { Errorable } from './errorable';
 
 export interface PickChartUIOptions {
     readonly warnIfNoCharts: boolean;
@@ -142,6 +146,21 @@ export function helmDryRun() {
     });
 }
 
+export function helmGet(resourceNode: explorer.ResourceNode) {
+    if (!resourceNode) {
+        return;
+    }
+    const releaseName = resourceNode.id.split(':')[1];
+    const docname = `helmrelease-${releaseName}.txt`;
+    const nonce = new Date().getTime();
+    const uri = `${K8S_RESOURCE_SCHEME}://${HELM_RESOURCE_AUTHORITY}/${docname}?value=${releaseName}&_=${nonce}`;
+    vscode.workspace.openTextDocument(vscode.Uri.parse(uri)).then((doc) => {
+        if (doc) {
+            vscode.window.showTextDocument(doc);
+        }
+    });
+}
+
 // pickChart tries to find charts in this repo. If one is found, fn() is executed with that
 // chart's path. If more than one are found, the user is prompted to choose one, and then
 // the fn is executed with that chart.
@@ -258,6 +277,57 @@ export function helmExec(args: string, fn) {
     const bin = configuredBin ? `"${configuredBin}"` : "helm";
     const cmd = `${bin} ${args}`;
     shell.exec(cmd, fn);
+}
+
+export async function helmExecAsync(args: string): Promise<ShellResult> {
+    // TODO: deduplicate with helmExec
+    if (!ensureHelm(EnsureMode.Alert)) {
+        return { code: -1, stdout: "", stderr: "" };
+    }
+    const configuredBin: string | undefined = vscode.workspace.getConfiguration('vs-kubernetes')['vs-kubernetes.helm-path'];
+    const bin = configuredBin ? `"${configuredBin}"` : "helm";
+    const cmd = `${bin} ${args}`;
+    return await sh.exec(cmd);
+}
+
+const HELM_PAGING_PREFIX = "next:";
+
+export async function helmListAll(namespace?: string): Promise<Errorable<string[]>> {
+    if (!ensureHelm(EnsureMode.Alert)) {
+        return { succeeded: false, error: [ "Helm client is not installed" ] };
+    }
+
+    const releases: string[] = [];
+    let offset: string | null = null;
+
+    do {
+        const nsarg = namespace ? `--namespace ${namespace}` : "";
+        const offsetarg = offset ? `--offset ${offset}` : "";
+        const sr = await helmExecAsync(`list --max 0 ${nsarg} ${offsetarg}`);
+
+        if (sr.code !== 0) {
+            return { succeeded: false, error: [ 'Helm list error' ] };
+        }
+
+        const lines = sr.stdout.split('\n')
+                               .map((s) => s.trim())
+                               .filter((l) => l.length > 0);
+        if (lines.length > 0) {
+            if (lines[0].startsWith(HELM_PAGING_PREFIX)) {
+                const pagingInfo = lines.shift();
+                offset = pagingInfo.substring(HELM_PAGING_PREFIX.length).trim();
+            } else {
+                offset = null;
+            }
+        }
+        if (lines.length > 0) {
+            lines.shift();  // remove the header line
+            const names = lines.map((l) => l.split('\t')[0].trim());
+            releases.push(...names);
+        }
+    } while (offset !== null);
+
+    return { succeeded: true, result: releases };
 }
 
 export function ensureHelm(mode: EnsureMode) {

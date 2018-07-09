@@ -61,6 +61,7 @@
         "onCommand:extension.helmInsertReq",
         "onCommand:extension.helmDepUp",
         "onCommand:extension.helmInspectValues",
+        "onCommand:extension.helmGet",
         "onCommand:extension.draftVersion",
         "onCommand:extension.draftCreate",
         "onCommand:extension.draftUp",
@@ -446,6 +447,10 @@
                     "when": "view == extension.vsKubernetesExplorer"
                 },
                 {
+                    "command": "extension.helmGet",
+                    "when": "view == extension.vsKubernetesExplorer"
+                },
+                {
                     "command": "extension.helmInspectValues",
                     "when": "filesExplorerFocus"
                 }
@@ -701,6 +706,12 @@
                 "command": "extension.helmCreate",
                 "title": "Create Chart",
                 "description": "Create a new Helm Chart",
+                "category": "Helm"
+            },
+            {
+                "command": "extension.helmGet",
+                "title": "Get Release",
+                "description": "Get a Helm release from the cluster",
                 "category": "Helm"
             }
         ],

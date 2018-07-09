@@ -6,6 +6,7 @@ import * as kubectlUtils from './kubectlUtils';
 import { Host } from './host';
 import * as kuberesources from './kuberesources';
 import { failed } from './errorable';
+import * as helmexec from './helm.exec';
 
 export function create(kubectl: Kubectl, host: Host): KubernetesExplorer {
     return new KubernetesExplorer(kubectl, host);
@@ -107,7 +108,8 @@ class KubernetesContext implements KubernetesObject {
             new KubernetesWorkloadFolder(),
             new KubernetesServiceFolder(),
             new KubernetesResourceFolder(kuberesources.allKinds.ingress),
-            new KubernetesConfigFolder()
+            new KubernetesConfigFolder(),
+            new HelmReleasesFolder(),
         ];
     }
 
@@ -405,5 +407,51 @@ export class KubernetesFileObject implements KubernetesObject {
 
     getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<KubernetesObject[]> {
         return [];
+    }
+}
+
+class HelmReleaseResource implements KubernetesObject {
+    readonly id: string;
+
+    constructor(readonly name: string) {
+        this.id = "helmrelease:" + name;
+    }
+
+    getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<KubernetesObject[]> {
+        return [];
+    }
+
+    getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
+        const treeItem = new vscode.TreeItem(this.name, vscode.TreeItemCollapsibleState.None);
+        treeItem.command = {
+            command: "extension.helmGet",
+            title: "Get",
+            arguments: [this]
+        };
+        treeItem.contextValue = "vsKubernetes.helmRelease";
+        return treeItem;
+    }
+}
+
+class HelmReleasesFolder extends KubernetesResourceFolder {
+    constructor() {
+        // TODO: this is not a true Kubernetes resource kind - need to refactor
+        super(new kuberesources.ResourceKind("Helm Release", "Helm Releases", "helmrelease"));
+    }
+
+    async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
+        if (!helmexec.ensureHelm(helmexec.EnsureMode.Silent)) {
+            return [new DummyObject("Helm client is not installed")];
+        }
+
+        const currentNS = await kubectlUtils.currentNamespace(kubectl);
+
+        const releases = await helmexec.helmListAll(currentNS);
+
+        if (failed(releases)) {
+            return [new DummyObject(releases.error[0])];
+        }
+
+        return releases.result.map((r) => new HelmReleaseResource(r));
     }
 }
