@@ -129,8 +129,18 @@ export async function getGlobalResources(kubectl: Kubectl, resource: string): Pr
     });
 }
 
+export async function isOpenshift(kubectl: Kubectl): Promise<Boolean> {
+    const apis = await kubectl.asLines("api-versions");
+    if (failed(apis)) {
+        return false;
+    }
+    return (typeof apis.result.find( (v) => { return "apps.openshift.io/v1"===v; })) !== "undefined";
+}
+
 export async function getNamespaces(kubectl: Kubectl): Promise<NamespaceInfo[]> {
-    const ns = await kubectl.asJson<KubernetesCollection<Namespace>>("get namespaces -o json");
+    const isOS = await isOpenshift(kubectl);
+    const resource = isOS ? "projects" : "namespaces";
+    const ns = await kubectl.asJson<KubernetesCollection<Namespace>>(`get ${resource} -o json`);
     if (failed(ns)) {
         vscode.window.showErrorMessage(ns.error[0]);
         return [];
