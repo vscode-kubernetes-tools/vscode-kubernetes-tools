@@ -30,12 +30,6 @@ export class HelmRepoExplorer implements vscode.TreeDataProvider<HelmObject> {
 
     getTreeItem(element: HelmObject): vscode.TreeItem | Thenable<vscode.TreeItem> {
         return element.getTreeItem();
-        // const treeItem = new vscode.TreeItem(element.name);
-        // treeItem.iconPath = {
-        //     light: vscode.Uri.file(path.join(__dirname, "../../images/light/helm-blue-vector.svg")),
-        //     dark: vscode.Uri.file(path.join(__dirname, "../../images/dark/helm-white-vector.svg")),
-        // };
-        // return treeItem;
     }
 
     getChildren(parent?: HelmObject): vscode.ProviderResult<HelmObject[]> {
