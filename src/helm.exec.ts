@@ -306,7 +306,7 @@ export async function helmListAll(namespace?: string): Promise<Errorable<string[
         const sr = await helmExecAsync(`list --max 0 ${nsarg} ${offsetarg}`);
 
         if (sr.code !== 0) {
-            return { succeeded: false, error: [ 'Helm list error' ] };
+            return { succeeded: false, error: [ sr.stderr ] };
         }
 
         const lines = sr.stdout.split('\n')
