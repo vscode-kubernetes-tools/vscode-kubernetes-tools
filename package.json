@@ -213,6 +213,11 @@
                     "group": "1"
                 },
                 {
+                    "command": "extension.vsKubernetesUseContext",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.minikubeCluster.inactive",
+                    "group": "0@4"
+                },
+                {
                     "command": "extension.vsKubernetesClusterInfo",
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.minikubeCluster",
                     "group": "0@1"
