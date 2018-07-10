@@ -1154,7 +1154,8 @@ function getPorts() {
 
 function describeKubernetes(explorerNode?: explorer.ResourceNode) {
     if (explorerNode) {
-        kubectl.invokeInSharedTerminal(`describe ${explorerNode.resourceId}`);
+        const nsarg = explorerNode.namespace ? `--namespace ${explorerNode.namespace}` : '';
+        kubectl.invokeInSharedTerminal(`describe ${explorerNode.resourceId} ${nsarg}`);
     } else {
         findKindNameOrPrompt(kuberesources.commonKinds, 'describe', { nameOptional: true }, (value) => {
             kubectl.invokeInSharedTerminal(`describe ${value}`);
