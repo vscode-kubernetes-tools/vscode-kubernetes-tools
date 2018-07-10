@@ -1336,7 +1336,8 @@ const deleteKubernetes = async (explorerNode?: explorer.ResourceNode) => {
         if (answer.isCloseAffordance) {
             return;
         }
-        const shellResult = await kubectl.invokeAsyncWithProgress(`delete ${explorerNode.resourceId}`, `Deleting ${explorerNode.resourceId}...`);
+        const nsarg = explorerNode.namespace ? `--namespace ${explorerNode.namespace}` : '';
+        const shellResult = await kubectl.invokeAsyncWithProgress(`delete ${explorerNode.resourceId} ${nsarg}`, `Deleting ${explorerNode.resourceId}...`);
         await reportDeleteResult(explorerNode.resourceId, shellResult);
     } else {
         promptKindName(kuberesources.commonKinds, 'delete', { nameOptional: true }, async (kindName) => {
