@@ -85,11 +85,15 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObj
  * For example, display an "Error" dummy node when failing to get children of expandable parent.
  */
 class DummyObject implements KubernetesObject {
-    constructor(readonly id: string) {
+    constructor(readonly id: string, readonly diagnostic?: string) {
     }
 
     getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
-        return new vscode.TreeItem(this.id, vscode.TreeItemCollapsibleState.None);
+        const treeItem = new vscode.TreeItem(this.id, vscode.TreeItemCollapsibleState.None);
+        if (this.diagnostic) {
+            treeItem.tooltip = this.diagnostic;
+        }
+        return treeItem;
     }
 
     getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<KubernetesObject[]> {
@@ -423,7 +427,7 @@ class HelmReleasesFolder extends KubernetesResourceFolder {
         const releases = await helmexec.helmListAll(currentNS);
 
         if (failed(releases)) {
-            return [new DummyObject(releases.error[0])];
+            return [new DummyObject("Helm list error", releases.error[0])];
         }
 
         return releases.result.map((r) => new HelmReleaseResource(r));
