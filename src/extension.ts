@@ -1546,10 +1546,10 @@ const debugKubernetes = async () => {
     }
 };
 
-const debugAttachKubernetes = async (explorerNode: explorer.KubernetesObject) => {
+const debugAttachKubernetes = async (explorerNode: explorer.ResourceNode) => {
     const workspaceFolder = await showWorkspaceFolderPick();
     if (workspaceFolder) {
-        new DebugSession(kubectl).attach(workspaceFolder, explorerNode ? explorerNode.id : null);
+        new DebugSession(kubectl).attach(workspaceFolder, explorerNode ? explorerNode.id : null, explorerNode ? explorerNode.namespace : undefined);
     }
 };
 
