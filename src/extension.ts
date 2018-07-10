@@ -674,8 +674,10 @@ function exposeKubernetes() {
 
 function getKubernetes(explorerNode?: any) {
     if (explorerNode) {
-        const id = explorerNode.resourceId || explorerNode.id;
-        kubectl.invokeInSharedTerminal(`get ${id} -o wide`);
+        const resourceNode = explorerNode as explorer.ResourceNode;
+        const id = resourceNode.resourceId || resourceNode.id;
+        const nsarg = resourceNode.namespace ? `--namespace ${resourceNode.namespace}` : '';
+        kubectl.invokeInSharedTerminal(`get ${id} ${nsarg} -o wide`);
     } else {
         findKindNameOrPrompt(kuberesources.commonKinds, 'get', { nameOptional: true }, (value) => {
             kubectl.invokeInSharedTerminal(` get ${value} -o wide`);
