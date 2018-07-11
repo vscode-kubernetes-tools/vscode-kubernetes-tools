@@ -97,7 +97,7 @@ export class DebugSession implements IDebugSession {
 
                 // Setup port-forward.
                 p.report({ message: "Setting up port forwarding..."});
-                const proxyResult = await this.setupPortForward(podName, portInfo.debugPort, portInfo.appPort);
+                const proxyResult = await this.setupPortForward(podName, undefined, portInfo.debugPort, portInfo.appPort);
 
                 // Start debug session.
                 p.report({ message: `Starting ${this.debugProvider.getDebuggerType()} debug session...`});
@@ -119,7 +119,7 @@ export class DebugSession implements IDebugSession {
      * @param workspaceFolder the active workspace folder.
      * @param pod the target pod name.
      */
-    public async attach(workspaceFolder: vscode.WorkspaceFolder, pod?: string): Promise<void> {
+    public async attach(workspaceFolder: vscode.WorkspaceFolder, pod?: string, podNamespace?: string): Promise<void> {
         if (!workspaceFolder) {
             return;
         }
@@ -132,11 +132,12 @@ export class DebugSession implements IDebugSession {
 
         // Select the target pod to attach.
         let targetPod = pod,
+            targetPodNS = podNamespace,
             targetContainer: string | undefined = undefined,
             containers: Container[] = [];
 
         const resource = pod ?
-                            await kubectlUtils.getResourceAsJson<Pod>(this.kubectl, `pod/${pod}`) :
+                            await kubectlUtils.getResourceAsJson<Pod>(this.kubectl, `pod/${pod}`, podNamespace) :
                             await kubectlUtils.getResourceAsJson<KubernetesCollection<Pod>>(this.kubectl, "pods");
         if (!resource) {
             return;
@@ -150,6 +151,7 @@ export class DebugSession implements IDebugSession {
                     label: `${pod.metadata.name} (${pod.spec.nodeName})`,
                     description: "pod",
                     name: pod.metadata.name,
+                    namespace: pod.metadata.namespace,
                     containers: pod.spec.containers
                 };
             });
@@ -160,6 +162,7 @@ export class DebugSession implements IDebugSession {
             }
 
             targetPod = selectedPod.name;
+            targetPodNS = selectedPod.namespace;
             containers = selectedPod.containers;
         }
 
@@ -184,7 +187,7 @@ export class DebugSession implements IDebugSession {
         }
 
         // Find the debug port to attach.
-        const portInfo = await this.debugProvider.resolvePortsFromContainer(this.kubectl, targetPod, targetContainer);
+        const portInfo = await this.debugProvider.resolvePortsFromContainer(this.kubectl, targetPod, targetPodNS, targetContainer);
         if (!portInfo || !portInfo.debugPort) {
             await this.openInBrowser("Cannot resolve the debug port to attach. See the documentation for how to use this command.", debugCommandDocumentationUrl);
             return;
@@ -194,7 +197,7 @@ export class DebugSession implements IDebugSession {
             try {
                 // Setup port-forward.
                 p.report({ message: "Setting up port forwarding..."});
-                const proxyResult = await this.setupPortForward(targetPod, portInfo.debugPort);
+                const proxyResult = await this.setupPortForward(targetPod, targetPodNS, portInfo.debugPort);
 
                 // Start debug session.
                 p.report({ message: `Starting ${this.debugProvider.getDebuggerType()} debug session...`});
@@ -259,9 +262,9 @@ export class DebugSession implements IDebugSession {
         kubeChannel.showOutput(`Finshed waiting.`);
     }
 
-    private async setupPortForward(podName: string, debugPort: number, appPort?: number): Promise<ProxyResult> {
+    private async setupPortForward(podName: string, podNamespace: string | undefined, debugPort: number, appPort?: number): Promise<ProxyResult> {
         kubeChannel.showOutput(`Setting up port forwarding on pod ${podName}...`, "Set up port forwarding");
-        const proxyResult = await this.createPortForward(this.kubectl, podName, debugPort, appPort);
+        const proxyResult = await this.createPortForward(this.kubectl, podName, podNamespace, debugPort, appPort);
         const appPortStr = appPort ? `${proxyResult.proxyAppPort}:${appPort}` : "";
         kubeChannel.showOutput(`Created port-forward ${proxyResult.proxyDebugPort}:${debugPort} ${appPortStr}`);
 
@@ -326,7 +329,7 @@ export class DebugSession implements IDebugSession {
         }
     }
 
-    private async createPortForward(kubectl: Kubectl, podName: string, debugPort: number, appPort?: number): Promise<ProxyResult> {
+    private async createPortForward(kubectl: Kubectl, podName: string, podNamespace: string | undefined, debugPort: number, appPort?: number): Promise<ProxyResult> {
         const portMapping = [];
         // Find a free local port for forwarding data to remote app port.
         let proxyAppPort = 0;
@@ -342,8 +345,10 @@ export class DebugSession implements IDebugSession {
         });
         portMapping.push(`${proxyDebugPort}:${debugPort}`);
 
+        const nsarg = podNamespace ? [ '--namespace', podNamespace ] : [];
+
         return {
-            proxyProcess: await kubectl.spawnAsChild(["port-forward", podName, ...portMapping]),
+            proxyProcess: await kubectl.spawnAsChild(["port-forward", podName, ...nsarg, ...portMapping]),
             proxyDebugPort,
             proxyAppPort
         };

@@ -88,9 +88,9 @@ export class JavaDebugProvider implements IDebugProvider {
         };
     }
 
-    public async resolvePortsFromContainer(kubectl: Kubectl, pod: string, container: string): Promise<PortInfo> {
+    public async resolvePortsFromContainer(kubectl: Kubectl, pod: string, podNamespace: string | undefined, container: string): Promise<PortInfo> {
         let rawDebugPortInfo: string;
-        const commandLines = await debugUtils.getCommandsOfProcesses(kubectl, pod, container);
+        const commandLines = await debugUtils.getCommandsOfProcesses(kubectl, pod, podNamespace, container);
         for (const commandLine of commandLines) {
             // java -Djava.security.egd=file:/dev/./urandom -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=1044,quiet=y -jar target/app.jar
             const matches = commandLine.match(fullJavaDebugOptsRegExp);

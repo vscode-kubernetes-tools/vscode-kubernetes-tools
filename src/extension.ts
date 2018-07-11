@@ -675,8 +675,10 @@ function exposeKubernetes() {
 
 function getKubernetes(explorerNode?: any) {
     if (explorerNode) {
-        const id = explorerNode.resourceId || explorerNode.id;
-        kubectl.invokeInSharedTerminal(`get ${id} -o wide`);
+        const resourceNode = explorerNode as explorer.ResourceNode;
+        const id = resourceNode.resourceId || resourceNode.id;
+        const nsarg = resourceNode.namespace ? `--namespace ${resourceNode.namespace}` : '';
+        kubectl.invokeInSharedTerminal(`get ${id} ${nsarg} -o wide`);
     } else {
         findKindNameOrPrompt(kuberesources.commonKinds, 'get', { nameOptional: true }, (value) => {
             kubectl.invokeInSharedTerminal(` get ${value} -o wide`);
@@ -1086,7 +1088,8 @@ function getPorts() {
 
 function describeKubernetes(explorerNode?: explorer.ResourceNode) {
     if (explorerNode) {
-        kubectl.invokeInSharedTerminal(`describe ${explorerNode.resourceId}`);
+        const nsarg = explorerNode.namespace ? `--namespace ${explorerNode.namespace}` : '';
+        kubectl.invokeInSharedTerminal(`describe ${explorerNode.resourceId} ${nsarg}`);
     } else {
         findKindNameOrPrompt(kuberesources.commonKinds, 'describe', { nameOptional: true }, (value) => {
             kubectl.invokeInSharedTerminal(`describe ${value}`);
@@ -1268,7 +1271,8 @@ const deleteKubernetes = async (explorerNode?: explorer.ResourceNode) => {
         if (answer.isCloseAffordance) {
             return;
         }
-        const shellResult = await kubectl.invokeAsyncWithProgress(`delete ${explorerNode.resourceId}`, `Deleting ${explorerNode.resourceId}...`);
+        const nsarg = explorerNode.namespace ? `--namespace ${explorerNode.namespace}` : '';
+        const shellResult = await kubectl.invokeAsyncWithProgress(`delete ${explorerNode.resourceId} ${nsarg}`, `Deleting ${explorerNode.resourceId}...`);
         await reportDeleteResult(explorerNode.resourceId, shellResult);
     } else {
         promptKindName(kuberesources.commonKinds, 'delete', { nameOptional: true }, async (kindName) => {
@@ -1478,10 +1482,10 @@ const debugKubernetes = async () => {
     }
 };
 
-const debugAttachKubernetes = async (explorerNode: explorer.KubernetesObject) => {
+const debugAttachKubernetes = async (explorerNode: explorer.ResourceNode) => {
     const workspaceFolder = await showWorkspaceFolderPick();
     if (workspaceFolder) {
-        new DebugSession(kubectl).attach(workspaceFolder, explorerNode ? explorerNode.id : null);
+        new DebugSession(kubectl).attach(workspaceFolder, explorerNode ? explorerNode.id : null, explorerNode ? explorerNode.namespace : undefined);
     }
 };
 

@@ -52,5 +52,5 @@ export interface IDebugProvider {
      * @param container the container id.
      * @return the resolved port info.
      */
-    resolvePortsFromContainer(kubectl: Kubectl, pod: string, container: string): Promise<PortInfo>;
+    resolvePortsFromContainer(kubectl: Kubectl, pod: string, podNamespace: string | undefined, container: string): Promise<PortInfo>;
 }
