@@ -73,13 +73,13 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObj
 
     private async getClusters(): Promise<KubernetesObject[]> {
         const contexts = await kubectlUtils.getContexts(this.kubectl);
-        return contexts.map((context): ClusterContext => {
+        return contexts.map((context): KubernetesContextNode => {
             // TODO: this is slightly hacky...
             if (context.contextName === 'minikube') {
-                return new ClusterContext(context.contextName, MINIKUBE_CLUSTER, context);
+                return new MiniKubeContextNode(context.contextName, context);
             }
 
-            return new ClusterContext(context.contextName, KUBERNETES_CLUSTER, context);
+            return new KubernetesContextNode(context.contextName, context);
         });
     }
 }
@@ -105,9 +105,17 @@ class DummyObject implements KubernetesObject {
     }
 }
 
-class ClusterContext implements KubernetesObject {
+class KubernetesContextNode implements KubernetesObject {
 
-    constructor(readonly id: string, readonly clusterType: string, readonly metadata?: kubectlUtils.KubectlContext) {
+    constructor(readonly id: string, readonly metadata?: kubectlUtils.KubectlContext) {
+    }
+
+    get icon(): vscode.Uri {
+        return vscode.Uri.file(path.join(__dirname, "../../images/k8s-logo.png"));
+    }
+
+    get clusterType(): string {
+        return KUBERNETES_CLUSTER;
     }
 
     getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<KubernetesObject[]> {
@@ -125,21 +133,7 @@ class ClusterContext implements KubernetesObject {
     getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
         const treeItem = new vscode.TreeItem(this.id, vscode.TreeItemCollapsibleState.Collapsed);
         treeItem.contextValue = this.clusterType;
-
-        let iconPath: vscode.Uri;
-
-        switch (this.clusterType) {
-            case MINIKUBE_CLUSTER:
-                iconPath = vscode.Uri.file(path.join(__dirname, "../../images/minikube-logo.png"));
-                break;
-            case KUBERNETES_CLUSTER:
-                iconPath = vscode.Uri.file(path.join(__dirname, "../../images/k8s-logo.png"));
-                break;
-            default:
-                break;
-        }
-
-        treeItem.iconPath = iconPath;
+        treeItem.iconPath = this.icon;
 
         if (!this.metadata.active) {
             treeItem.collapsibleState = vscode.TreeItemCollapsibleState.None;
@@ -148,6 +142,16 @@ class ClusterContext implements KubernetesObject {
 
         treeItem.tooltip = `${this.metadata.contextName}\nCluster: ${this.metadata.clusterName}`;
         return treeItem;
+    }
+}
+
+class MiniKubeContextNode extends KubernetesContextNode {
+    get icon(): vscode.Uri {
+        return vscode.Uri.file(path.join(__dirname, "../../images/minikube-logo.png"));
+    }
+
+    get clusterType(): string {
+        return MINIKUBE_CLUSTER;
     }
 }
 
