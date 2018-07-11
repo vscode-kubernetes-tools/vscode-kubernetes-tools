@@ -46,6 +46,7 @@ import * as telemetry from './telemetry-helper';
 import * as extensionapi from './extension.api';
 import { dashboardKubernetes } from './components/kubectl/dashboard';
 import { portForwardKubernetes } from './components/kubectl/port-forward';
+import { logsKubernetes, LogsDisplayMode } from './components/kubectl/logs';
 import { startMinikube, stopMinikube } from './components/clusterprovider/minikube/minikube';
 import { Errorable, failed, succeeded } from './errorable';
 import { Git } from './components/git/git';
@@ -62,7 +63,7 @@ import { showWorkspaceFolderPick } from './hostutils';
 import { DraftConfigurationProvider } from './draft/draftConfigurationProvider';
 import { installHelm, installDraft, installKubectl } from './components/installer/installer';
 import { KubernetesResourceVirtualFileSystemProvider, K8S_RESOURCE_SCHEME, KUBECTL_RESOURCE_AUTHORITY } from './kuberesources.virtualfs';
-import { Container, isPod, isKubernetesResource, KubernetesCollection, Pod, KubernetesResource } from './kuberesources.objectmodel';
+import { Container, isKubernetesResource, KubernetesCollection, Pod, KubernetesResource } from './kuberesources.objectmodel';
 
 let explainActive = false;
 let swaggerSpecPromise = null;
@@ -132,8 +133,8 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
         registerCommand('extension.vsKubernetesLoad', loadKubernetes),
         registerCommand('extension.vsKubernetesGet', getKubernetes),
         registerCommand('extension.vsKubernetesRun', runKubernetes),
-        registerCommand('extension.vsKubernetesShowLogs', logsKubernetes),
-        registerCommand('extension.vsKubernetesFollowLogs', (explorerNode: explorer.ResourceNode) => { logsKubernetes(explorerNode, true); }),
+        registerCommand('extension.vsKubernetesShowLogs', (explorerNode: explorer.ResourceNode) => { logsKubernetes(kubectl, explorerNode, LogsDisplayMode.Show); }),
+        registerCommand('extension.vsKubernetesFollowLogs', (explorerNode: explorer.ResourceNode) => { logsKubernetes(kubectl, explorerNode, LogsDisplayMode.Follow); }),
         registerCommand('extension.vsKubernetesExpose', exposeKubernetes),
         registerCommand('extension.vsKubernetesDescribe', describeKubernetes),
         registerCommand('extension.vsKubernetesSync', syncKubernetes),
@@ -150,15 +151,15 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
         registerCommand('extension.vsKubernetesUseContext', useContextKubernetes),
         registerCommand('extension.vsKubernetesClusterInfo', clusterInfoKubernetes),
         registerCommand('extension.vsKubernetesDeleteContext', deleteContextKubernetes),
-        registerCommand('extension.vsKubernetesUseNamespace', (obj) => { useNamespaceKubernetes(kubectl, obj); } ),
+        registerCommand('extension.vsKubernetesUseNamespace', (explorerNode: explorer.KubernetesObject) => { useNamespaceKubernetes(kubectl, explorerNode); } ),
         registerCommand('extension.vsKubernetesDashboard', () => { dashboardKubernetes(kubectl); }),
         registerCommand('extension.vsMinikubeStop', stopMinikube),
         registerCommand('extension.vsMinikubeStart', startMinikube),
         registerCommand('extension.vsKubernetesCopy', copyKubernetes),
-        registerCommand('extension.vsKubernetesPortForward', (obj) => { portForwardKubernetes(kubectl, obj); }),
+        registerCommand('extension.vsKubernetesPortForward', (explorerNode: explorer.ResourceNode) => { portForwardKubernetes(kubectl, explorerNode); }),
         registerCommand('extension.vsKubernetesLoadConfigMapData', configmaps.loadConfigMapData),
-        registerCommand('extension.vsKubernetesDeleteFile', (obj) => { deleteKubernetesConfigFile(kubectl, obj, treeProvider); }),
-        registerCommand('extension.vsKubernetesAddFile', (obj) => { addKubernetesConfigFile(kubectl, obj, treeProvider); }),
+        registerCommand('extension.vsKubernetesDeleteFile', (explorerNode: explorer.KubernetesFileObject) => { deleteKubernetesConfigFile(kubectl, explorerNode, treeProvider); }),
+        registerCommand('extension.vsKubernetesAddFile', (explorerNode: explorer.KubernetesDataHolderResource) => { addKubernetesConfigFile(kubectl, explorerNode, treeProvider); }),
         registerCommand('extension.vsKubernetesShowEvents', (explorerNode: explorer.ResourceNode) => { getEvents(kubectl, EventDisplayMode.Show, explorerNode); }),
         registerCommand('extension.vsKubernetesFollowEvents', (explorerNode: explorer.ResourceNode) => { getEvents(kubectl, EventDisplayMode.Follow, explorerNode); }),
         // Commands - Helm
@@ -923,7 +924,7 @@ export function promptKindName(resourceKinds: kuberesources.ResourceKind[], desc
     });
 }
 
-function quickPickKindName(resourceKinds: kuberesources.ResourceKind[], opts, handler) {
+export function quickPickKindName(resourceKinds: kuberesources.ResourceKind[], opts, handler) {
     if (resourceKinds.length === 1) {
         quickPickKindNameFromKind(resourceKinds[0], opts, handler);
         return;
@@ -1002,36 +1003,6 @@ function parseName(line) {
     return line.split(' ')[0];
 }
 
-function findPod(callback: (pod: PodSummary) => void) {
-    const editor = vscode.window.activeTextEditor;
-    if (editor) {
-        const text = editor.document.getText();
-        try {
-            const obj: {} = yaml.safeLoad(text);
-            if (isPod(obj)) {
-                callback({
-                    name: obj.metadata.name,
-                    namespace: obj.metadata.namespace
-                });
-                return;
-            }
-        } catch (ex) {
-            // pass
-        }
-    }
-
-    quickPickKindName(
-        [kuberesources.allKinds.pod],
-        {nameOptional: false},
-        (pod) => {
-            callback({
-                name: pod.split('/')[1],
-                namespace: undefined // should figure out how to handle namespaces.
-            });
-        }
-    );
-}
-
 async function getContainers(pod: PodSummary): Promise<Container[] | undefined> {
     let cmd = `get pod/${pod.name} -o jsonpath="{'NAME\\tIMAGE\\n'}{range .spec.containers[*]}{.name}{'\\t'}{.image}{'\\n'}{end}"`;
     if (pod.namespace && pod.namespace.length > 0) {
@@ -1098,43 +1069,6 @@ async function selectPod(scope: PodSelectionScope, fallback: PodSelectionFallbac
     return value.pod;
 }
 
-async function logsKubernetes(explorerNode?: explorer.ResourceNode, follow?: boolean) {
-    if (explorerNode) {
-        const podSummary = { name: explorerNode.id, namespace: undefined };  // TODO: namespaces
-        const container = await selectContainerForPod(podSummary);
-        if (container) {
-            getLogsForContainer(podSummary.name, podSummary.namespace, container.name, follow);
-        }
-    } else {
-        findPod((pod: PodSummary) => { getLogsForPod(pod, follow); });
-    }
-}
-
-async function getLogsForPod(pod: PodSummary, follow?: boolean) {
-    if (!pod) {
-        vscode.window.showErrorMessage('Can\'t find a pod!');
-        return;
-    }
-    const container = await selectContainerForPod(pod);
-    if (container) {
-        getLogsForContainer(pod.name, pod.namespace, container.name, follow);
-    }
-}
-
-function getLogsForContainer(podName: string, podNamespace: string | undefined, containerName: string | undefined, follow?: boolean) {
-    let cmd = 'logs ' + podName;
-    if (podNamespace && podNamespace.length > 0) {
-        cmd += ' --namespace=' + podNamespace;
-    }
-    if (containerName) {
-        cmd += ' --container=' + containerName;
-    }
-    if (follow) {
-        cmd += ' -f';
-    }
-    kubectl.invokeInSharedTerminal(cmd);
-}
-
 function getPorts() {
     const file = vscode.workspace.rootPath + '/Dockerfile';
     if (!fs.existsSync(file)) {
@@ -1160,7 +1094,7 @@ function describeKubernetes(explorerNode?: explorer.ResourceNode) {
     }
 }
 
-interface PodSummary {
+export interface PodSummary {
     readonly name: string;
     readonly namespace: string | undefined;
     readonly spec?: {
@@ -1176,7 +1110,7 @@ function summary(pod: Pod): PodSummary {
     };
 }
 
-async function selectContainerForPod(pod: PodSummary): Promise<Container | null> {
+export async function selectContainerForPod(pod: PodSummary): Promise<Container | null> {
     if (!pod) {
         return null;
     }
@@ -1213,7 +1147,8 @@ function execKubernetes() {
 
 async function terminalKubernetes(explorerNode?: explorer.ResourceNode) {
     if (explorerNode) {
-        const podSummary = { name: explorerNode.id, namespace: undefined };  // TODO: namespaces
+        const namespace = explorerNode.namespace;
+        const podSummary = { name: explorerNode.id, namespace: namespace };
         const container = await selectContainerForPod(podSummary);
         if (container) {
             // For those images (e.g. built from Busybox) where bash may not be installed by default, use sh instead.
