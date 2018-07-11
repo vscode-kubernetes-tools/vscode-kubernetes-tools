@@ -50,13 +50,13 @@ async function getStableKubectlVersion(): Promise<Errorable<string>> {
 
 export async function installHelm(shell: Shell): Promise<Errorable<void>> {
     const tool = 'helm';
-    const urlTemplate = 'https://storage.googleapis.com/kubernetes-helm/helm-v2.8.2-{os_placeholder}-amd64.tar.gz';
+    const urlTemplate = 'https://storage.googleapis.com/kubernetes-helm/helm-v2.9.1-{os_placeholder}-amd64.tar.gz';
     return await installToolFromTar(tool, urlTemplate, shell);
 }
 
 export async function installDraft(shell: Shell): Promise<Errorable<void>> {
     const tool = 'draft';
-    const urlTemplate = 'https://azuredraft.blob.core.windows.net/draft/draft-v0.14.1-{os_placeholder}-amd64.tar.gz';
+    const urlTemplate = 'https://azuredraft.blob.core.windows.net/draft/draft-v0.15.0-{os_placeholder}-amd64.tar.gz';
     return await installToolFromTar(tool, urlTemplate, shell);
 }
 
