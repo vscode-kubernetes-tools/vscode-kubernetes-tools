@@ -1,5 +1,26 @@
 # Change Log
 
+## 0.1.11
+
+* Moved the Clusters tree view to a new activity bar view.
+* You can now expand nodes in the tree view to see the pods running on them.
+* Clusters are now displayed using the context name instead of the raw cluster name.
+* The tree view now lists Helm releases in the cluster.
+* When creating an Azure cluster, we now generate the SSH keys for you if required.
+* You can now choose to follow (tail) logs as they are emitted.
+* You can now view events (at the namespace level in the tree view).
+* Port forward now supports multiple port pairs.
+* You can now create or attach to a Minikube cluster from within the extension.
+* You can now change namespace from the command palette as well as the tree view.
+* Updated the versions of Helm and Draft installed by 'Install Dependencies' button.
+* Fixed error handling Helm templates in subdirectories of /templates.
+* Fixed issue with port forward if the pods were not in the default namespace.
+* Fixed error invoking configmap/secret commands from command palette.
+* Fixed spurious 'Chart not found' message.
+* Fixed a couple of Helm preview errors.
+
+Thanks to contributors Brendan Burns, Shreyas Karnik, Bhargav Nookala and Kamesh Sampath.
+
 ## 0.1.10
 
 * The Load command now defaults to YAML format instead of JSON.  You can override this using the `vs-kubernetes.outputFormat` configuration setting.
