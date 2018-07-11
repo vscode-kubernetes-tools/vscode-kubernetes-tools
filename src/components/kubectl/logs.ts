@@ -39,21 +39,8 @@ async function getLogsForExplorerPod(
 ) {
     const namespace = explorerNode.namespace;
     const podSummary = { name: explorerNode.id, namespace: namespace };
-    const container = await selectContainerForPod(podSummary);
 
-    // No container. How'd we get here. How does this Pod even work. What is going on.
-    if (!container) {
-        return;
-    }
-
-    getLogsForContainer(
-        kubectl,
-        podSummary,
-        container.name,
-        displayMode
-    );
-
-    return;
+    return await getLogsForPod(kubectl, podSummary, displayMode);
 }
 
 /**
@@ -123,18 +110,15 @@ async function logsForPodFromOpenDocument(kubectl: Kubectl, editor: vscode.TextE
     const text = editor.document.getText();
     try {
         const obj: {} = yaml.safeLoad(text);
-        if (!isPod(obj)) {
-            // document doesn't desribe a pod.
-            return await logsForPodFromCurrentNamespace(kubectl, displayMode);
+        if (isPod(obj)) {
+            // document describes a pod.
+            const podSummary = {
+                name: obj.metadata.name,
+                namespace: obj.metadata.namespace
+            };
+
+            return await getLogsForPod(kubectl, podSummary, displayMode);
         }
-
-        const podSummary = {
-            name: obj.metadata.name,
-            namespace: obj.metadata.namespace
-        };
-
-        getLogsForPod(kubectl, podSummary, displayMode);
-        return;
     } catch (ex) {
         // pass
     }
@@ -151,14 +135,14 @@ async function logsForPodFromCurrentNamespace(kubectl: Kubectl, displayMode: Log
     quickPickKindName(
         [kuberesources.allKinds.pod],
         { nameOptional: false },
-        (pod) => {
+        async (pod) => {
 
             const podSummary: PodSummary = {
                 name: pod.split('/')[1],
                 namespace: namespace // should figure out how to handle namespaces.
             };
 
-            getLogsForPod(kubectl, podSummary, displayMode);
+            await getLogsForPod(kubectl, podSummary, displayMode);
         }
     );
 }
