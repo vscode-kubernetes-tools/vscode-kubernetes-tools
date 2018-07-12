@@ -87,14 +87,52 @@ class HelmRepo implements HelmObject {
 }
 
 class HelmRepoChart implements HelmObject {
-    constructor(private readonly name: string) {}
+    private readonly versions: HelmRepoChartVersion[];
+
+    constructor(private readonly name: string, private readonly content: any) {
+        this.versions = content ? (content as any[]).map((e) => new HelmRepoChartVersion(
+            e.version,
+            e.appVersion,
+            e.description,
+            e.sources,
+            e.urls)
+        ) : [];
+    }
 
     getTreeItem(): vscode.TreeItem {
-        return new vscode.TreeItem(this.name);
+        return new vscode.TreeItem(this.name, vscode.TreeItemCollapsibleState.Collapsed);
+    }
+
+    async getChildren(): Promise<HelmObject[]> {
+        return this.versions;
+    }
+}
+
+class HelmRepoChartVersion implements HelmObject {
+    constructor(
+        private readonly version: string,
+        private readonly appVersion: string | undefined,
+        private readonly description: string | undefined,
+        private readonly sources: string[],
+        private readonly urls: string[]
+    ) {}
+
+    getTreeItem(): vscode.TreeItem {
+        const treeItem = new vscode.TreeItem(this.version);
+        treeItem.tooltip = this.tooltip();
+        return treeItem;
     }
 
     async getChildren(): Promise<HelmObject[]> {
         return [];
+    }
+
+    private tooltip(): string {
+        const tooltipLines: string[] = [ this.description ? this.description : 'No description available'];
+        if (this.appVersion) {
+            tooltipLines.push(`App version: ${this.appVersion}`);
+        }
+        return tooltipLines.join('\n');
     }
 }
 
@@ -139,6 +177,6 @@ async function listHelmRepoChartsCore(indexUrl: string): Promise<HelmRepoChart[]
     const yaml = buffer.toString();
     const chartData = YAML.parse(yaml);
     const entries = chartData.entries;
-    const charts = Object.keys(entries).map((k) => new HelmRepoChart(k));
+    const charts = Object.keys(entries).map((k) => new HelmRepoChart(k, entries[k]));
     return charts;
 }
