@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as shell from 'shelljs';
 import * as filepath from 'path';
+import { ChildProcess, spawn } from 'child_process';
 import { helm as logger } from './logger';
 import * as YAML from 'yamljs';
 import * as _ from 'lodash';
@@ -13,6 +14,7 @@ import { shell as sh, ShellResult } from './shell';
 import { K8S_RESOURCE_SCHEME, HELM_RESOURCE_AUTHORITY } from './kuberesources.virtualfs';
 import { Errorable } from './errorable';
 import { parseLineOutput } from './outputUtils';
+import { sleep } from './sleep';
 
 export interface PickChartUIOptions {
     readonly warnIfNoCharts: boolean;
@@ -427,4 +429,20 @@ export function searchForChart(name: string, version?: string): Requirement {
 export function helmHome(): string {
     const h = process.env.HOME;
     return process.env["HELM_HOME"] || filepath.join(h, '.helm');
+}
+
+export async function helmServe(): Promise<vscode.Disposable> {
+    const configuredBin: string | undefined = vscode.workspace.getConfiguration('vs-kubernetes')['vs-kubernetes.helm-path'];
+    const bin = sh.unquotedPath(configuredBin ? `"${configuredBin}"` : "helm");
+    const process = spawn(bin, [ "serve" ]);
+    let ready = false;
+    process.stdout.on("data", (chunk: string) => {  // TODO: this huge sausage is VERY suspicious
+        if (chunk.indexOf("serving") >= 0) {
+            ready = true;
+        }
+    });
+    while (!ready) {
+        await sleep(100);
+    }
+    return new vscode.Disposable(() => { process.kill(); });
 }

@@ -116,13 +116,29 @@ async function listHelmRepos(): Promise<Errorable<HelmRepo[]>> {
 async function listHelmRepoCharts(repoUrl: string): Promise<Errorable<HelmRepoChart[]>> {
     const indexUrl = vscode.Uri.parse(repoUrl).with({ path: 'index.yaml' }).toString();
     try {
-        const buffer: Buffer = await download(indexUrl);
-        const yaml = buffer.toString();
-        const chartData = YAML.parse(yaml);
-        const entries = chartData.entries;
-        const charts = Object.keys(entries).map((k) => new HelmRepoChart(k));
+        const charts = await listHelmRepoChartsCore(indexUrl);
         return { succeeded: true, result: charts };
     } catch (e) {
+        if (vscode.Uri.parse(repoUrl).authority.indexOf("127.0.0.1") >= 0) {
+            const d = await helm.helmServe();
+            try {
+                const charts = await listHelmRepoChartsCore(indexUrl);
+                return { succeeded: true, result: charts };
+            } catch (e2) {
+                return { succeeded: false, error: [ "" + e2 ] };
+            } finally {
+                d.dispose();
+            }
+        }
         return { succeeded: false, error: [ "" + e ] };
     }
+}
+
+async function listHelmRepoChartsCore(indexUrl: string): Promise<HelmRepoChart[]> {
+    const buffer: Buffer = await download(indexUrl);
+    const yaml = buffer.toString();
+    const chartData = YAML.parse(yaml);
+    const entries = chartData.entries;
+    const charts = Object.keys(entries).map((k) => new HelmRepoChart(k));
+    return charts;
 }

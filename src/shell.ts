@@ -21,6 +21,7 @@ export interface Shell {
     execOpts(): any;
     exec(cmd: string, stdin?: string): Promise<ShellResult>;
     execCore(cmd: string, opts: any, stdin?: string): Promise<ShellResult>;
+    unquotedPath(path: string): string;
 }
 
 export const shell: Shell = {
@@ -33,6 +34,7 @@ export const shell: Shell = {
     execOpts : execOpts,
     exec : exec,
     execCore : execCore,
+    unquotedPath : unquotedPath,
 };
 
 const WINDOWS: string = 'win32';
@@ -111,6 +113,13 @@ function execCore(cmd: string, opts: any, stdin?: string): Promise<ShellResult> 
             proc.stdin.end(stdin);
         }
     });
+}
+
+function unquotedPath(path: string): string {
+    if (isWindows() && path && path.length > 1 && path.startsWith('"') && path.endsWith('"')) {
+        return path.substring(1, path.length - 1);
+    }
+    return path;
 }
 
 export function shellEnvironment(baseEnvironment: any): any {
