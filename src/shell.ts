@@ -121,7 +121,7 @@ export function shellEnvironment(baseEnvironment: any): any {
         if (toolPath) {
             const toolDirectory = path.dirname(toolPath);
             const currentPath = env[pathVariable];
-            env[pathVariable] = (currentPath ? `${currentPath}${pathEntrySeparator()}` : '') + toolDirectory;
+            env[pathVariable] = toolDirectory + (currentPath ? `${pathEntrySeparator()}${currentPath}` : '');
         }
     }
 
