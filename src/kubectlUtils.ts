@@ -198,7 +198,7 @@ export async function getPods(kubectl: Kubectl, selector: any, namespace: string
     return pods.result.map((item) => {
         return {
             name: item.name,
-            namespace: item.namespace,
+            namespace: item.namespace || ns,
             nodeName: item.node,
             status: item.status
         };
