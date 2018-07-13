@@ -1,4 +1,4 @@
-import * as restify from 'restify';
+import restify = require('restify');
 import * as portfinder from 'portfinder';
 import * as vscode from 'vscode';
 import * as clusterproviderregistry from '../clusterproviderregistry';
@@ -22,7 +22,8 @@ let minikubeWizardServer: restify.Server;
 
 export async function init(registry: clusterproviderregistry.ClusterProviderRegistry, context: Context): Promise<void> {
     if (!minikubeWizardServer) {
-        minikubeWizardServer = restify.createServer({
+        const restifyImpl: typeof restify = require('restify');
+        minikubeWizardServer = restifyImpl.createServer({
             formatters: {
                 'text/html': (req, resp, body) => body
             }
@@ -31,7 +32,7 @@ export async function init(registry: clusterproviderregistry.ClusterProviderRegi
         const port = await portfinder.getPortPromise({ port: 44000 });
 
         const htmlServer = new HtmlServer(context);
-        minikubeWizardServer.use(restify.plugins.queryParser(), restify.plugins.bodyParser());
+        minikubeWizardServer.use(restifyImpl.plugins.queryParser(), restifyImpl.plugins.bodyParser());
         minikubeWizardServer.listen(port, '127.0.0.1');
 
         // You MUST use fat arrow notation for the handler callbacks: passing the

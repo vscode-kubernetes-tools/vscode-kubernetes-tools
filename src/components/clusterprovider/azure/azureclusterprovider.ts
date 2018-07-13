@@ -1,4 +1,4 @@
-import * as restify from 'restify';
+import restify = require('restify');
 import * as portfinder from 'portfinder';
 import * as clusterproviderregistry from '../clusterproviderregistry';
 import * as azure from './azure';
@@ -21,7 +21,8 @@ type HtmlRequestHandler = (
 
 export async function init(registry: clusterproviderregistry.ClusterProviderRegistry, context: azure.Context): Promise<void> {
     if (!wizardServer) {
-        wizardServer = restify.createServer({
+        const restifyImpl: typeof restify = require('restify');
+        wizardServer = restifyImpl.createServer({
             formatters: {
                 'text/html': (req, resp, body) => body
             }
@@ -31,7 +32,7 @@ export async function init(registry: clusterproviderregistry.ClusterProviderRegi
 
         const htmlServer = new HtmlServer(context);
 
-        wizardServer.use(restify.plugins.queryParser(), restify.plugins.bodyParser());
+        wizardServer.use(restifyImpl.plugins.queryParser(), restifyImpl.plugins.bodyParser());
         wizardServer.listen(wizardPort, '127.0.0.1');
 
         // You MUST use fat arrow notation for the handler callbacks: passing the

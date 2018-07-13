@@ -1,4 +1,4 @@
-import * as restify from 'restify';
+import restify = require('restify');
 import * as portfinder from 'portfinder';
 import * as clusterproviderregistry from './clusterproviderregistry';
 import { styles, script, waitScript } from '../../wizard';
@@ -8,8 +8,9 @@ let cpServer: restify.Server;
 let cpPort: number;
 
 export async function init(): Promise<void> {
+    const restifyImpl: typeof restify = require('restify');
     if (!cpServer) {
-        cpServer = restify.createServer({
+        cpServer = restifyImpl.createServer({
             formatters: {
                 'text/html': (req, resp, body) => body
             }
@@ -17,7 +18,7 @@ export async function init(): Promise<void> {
 
         cpPort = await portfinder.getPortPromise({ port: 44000 });
 
-        cpServer.use(restify.plugins.queryParser());
+        cpServer.use(restifyImpl.plugins.queryParser());
         cpServer.listen(cpPort, '127.0.0.1');
         cpServer.get('/', handleRequest);
     }
