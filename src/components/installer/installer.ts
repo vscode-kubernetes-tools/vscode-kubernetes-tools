@@ -1,11 +1,10 @@
 'use strict';
 
-import * as download from 'download';
+import * as download from '../download/download';
 import * as fs from 'fs';
 import mkdirp = require('mkdirp');
 import * as path from 'path';
 import * as tar from 'tar';
-import * as tmp from 'tmp';
 import * as vscode from 'vscode';
 import { Shell, Platform } from '../../shell';
 import { Errorable, failed, succeeded } from '../../errorable';
@@ -25,7 +24,7 @@ export async function installKubectl(shell: Shell): Promise<Errorable<void>> {
 
     const kubectlUrl = `https://storage.googleapis.com/kubernetes-release/release/${version.result.trim()}/bin/${os}/amd64/${binFile}`;
     const downloadFile = path.join(installFolder, binFile);
-    const downloadResult = await downloadTo(kubectlUrl, downloadFile);
+    const downloadResult = await download.to(kubectlUrl, downloadFile);
     if (failed(downloadResult)) {
         return { succeeded: false, error: [`Failed to download kubectl: ${downloadResult.error[0]}`] };
     }
@@ -39,7 +38,7 @@ export async function installKubectl(shell: Shell): Promise<Errorable<void>> {
 }
 
 async function getStableKubectlVersion(): Promise<Errorable<string>> {
-    const downloadResult = await downloadToTempFile('https://storage.googleapis.com/kubernetes-release/release/stable.txt');
+    const downloadResult = await download.toTempFile('https://storage.googleapis.com/kubernetes-release/release/stable.txt');
     if (failed(downloadResult)) {
         return { succeeded: false, error: [`Failed to establish kubectl stable version: ${downloadResult.error[0]}`] };
     }
@@ -102,7 +101,7 @@ function formatBin(tool: string, platform: Platform): string | null {
 
 async function installFromTar(sourceUrl: string, destinationFolder: string, executablePath: string, configKey: string): Promise<Errorable<void>> {
     // download it
-    const downloadResult = await downloadToTempFile(sourceUrl);
+    const downloadResult = await download.toTempFile(sourceUrl);
 
     if (failed(downloadResult)) {
         return { succeeded: false, error: ['Failed to download Helm: error was ' + downloadResult.error[0]] };
@@ -123,24 +122,6 @@ async function installFromTar(sourceUrl: string, destinationFolder: string, exec
     await fs.unlink(tarfile);
 
     return { succeeded: true, result: null };
-}
-
-async function downloadToTempFile(sourceUrl: string): Promise<Errorable<string>> {
-    const tempFileObj = tmp.fileSync({ prefix: "vsk-autoinstall-" });
-    const downloadResult = await downloadTo(sourceUrl, tempFileObj.name);
-    if (succeeded(downloadResult)) {
-        return { succeeded: true, result: tempFileObj.name };
-    }
-    return { succeeded: false, error: downloadResult.error };
-}
-
-async function downloadTo(sourceUrl: string, destinationFile: string): Promise<Errorable<void>> {
-    try {
-        await download(sourceUrl, path.dirname(destinationFile), { filename: path.basename(destinationFile) });
-        return { succeeded: true, result: null };
-    } catch (e) {
-        return { succeeded: false, error: [e.message] };
-    }
 }
 
 async function untar(sourceFile: string, destinationFolder: string): Promise<Errorable<void>> {

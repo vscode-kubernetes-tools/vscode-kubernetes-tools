@@ -63,8 +63,7 @@ function platform(): Platform {
 }
 
 function home(): string {
-    const homeVar = isWindows() ? 'USERPROFILE' : 'HOME';
-    return process.env[homeVar];
+    return process.env['HOME'] || process.env['USERPROFILE'];
 }
 
 function combinePath(basePath: string, relativePath: string) {
