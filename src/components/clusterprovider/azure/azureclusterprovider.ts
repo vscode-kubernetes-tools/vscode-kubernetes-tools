@@ -11,7 +11,8 @@ import { refreshExplorer } from '../common/explorer';
 
 // TODO: de-globalise
 let wizardServer: restify.Server;
-let wizardPort: number;
+let wizardPort: number | undefined;
+let registered = false;
 
 type HtmlRequestHandler = (
     step: string | undefined,
@@ -20,31 +21,45 @@ type HtmlRequestHandler = (
 ) => Promise<string>;
 
 export async function init(registry: clusterproviderregistry.ClusterProviderRegistry, context: azure.Context): Promise<void> {
-    if (!wizardServer) {
-        const restifyImpl: typeof restify = require('restify');
-        wizardServer = restifyImpl.createServer({
-            formatters: {
-                'text/html': (req, resp, body) => body
-            }
-        });
-
-        wizardPort = await portfinder.getPortPromise({ port: 44000 });
-
-        const htmlServer = new HtmlServer(context);
-
-        wizardServer.use(restifyImpl.plugins.queryParser(), restifyImpl.plugins.bodyParser());
-        wizardServer.listen(wizardPort, '127.0.0.1');
-
-        // You MUST use fat arrow notation for the handler callbacks: passing the
-        // function reference directly will foul up the 'this' pointer.
-        wizardServer.get('/create', (req, resp, n) => htmlServer.handleGetCreate(req, resp, n));
-        wizardServer.post('/create', (req, resp, n) => htmlServer.handlePostCreate(req, resp, n));
-        wizardServer.get('/configure', (req, resp, n) => htmlServer.handleGetConfigure(req, resp, n));
-        wizardServer.post('/configure', (req, resp, n) => htmlServer.handlePostConfigure(req, resp, n));
-
-        registry.register({id: 'aks', displayName: "Azure Kubernetes Service", port: wizardPort, supportedActions: ['create', 'configure']});
-        registry.register({id: 'acs', displayName: "Azure Container Service", port: wizardPort, supportedActions: ['create', 'configure']});
+    if (!registered) {
+        const serve = serveCallback(context);
+        registry.register({id: 'aks', displayName: "Azure Kubernetes Service", supportedActions: ['create', 'configure'], serve: serve});
+        registry.register({id: 'acs', displayName: "Azure Container Service", supportedActions: ['create', 'configure'], serve: serve});
+        registered = true;
     }
+}
+
+function serveCallback(context: azure.Context): () => Promise<number> {
+    return () => serve(context);
+}
+
+async function serve(context: azure.Context): Promise<number> {
+    if (wizardPort) {
+        return wizardPort;
+    }
+
+    const restifyImpl: typeof restify = require('restify');
+    wizardServer = restifyImpl.createServer({
+        formatters: {
+            'text/html': (req, resp, body) => body
+        }
+    });
+
+    wizardPort = await portfinder.getPortPromise({ port: 44000 });
+
+    const htmlServer = new HtmlServer(context);
+
+    wizardServer.use(restifyImpl.plugins.queryParser(), restifyImpl.plugins.bodyParser());
+    wizardServer.listen(wizardPort, '127.0.0.1');
+
+    // You MUST use fat arrow notation for the handler callbacks: passing the
+    // function reference directly will foul up the 'this' pointer.
+    wizardServer.get('/create', (req, resp, n) => htmlServer.handleGetCreate(req, resp, n));
+    wizardServer.post('/create', (req, resp, n) => htmlServer.handlePostCreate(req, resp, n));
+    wizardServer.get('/configure', (req, resp, n) => htmlServer.handleGetConfigure(req, resp, n));
+    wizardServer.post('/configure', (req, resp, n) => htmlServer.handlePostConfigure(req, resp, n));
+
+    return wizardPort;
 }
 
 class HtmlServer {

@@ -28,10 +28,10 @@ export function url(action: clusterproviderregistry.ClusterProviderAction): stri
     return `http://localhost:${cpPort}/?action=${action}`;
 }
 
-function handleRequest(request: restify.Request, response: restify.Response, next: restify.Next): void {
+async function handleRequest(request: restify.Request, response: restify.Response, next: restify.Next): Promise<void> {
     const clusterType = request.query['clusterType'];
     if (clusterType) {
-        handleClusterTypeSelection(request, response, next);
+        await handleClusterTypeSelection(request, response, next);
     } else {
         handleGetProviderList(request, response, next);
     }
@@ -47,14 +47,16 @@ function handleGetProviderList(request: restify.Request, response: restify.Respo
     next();
 }
 
-function handleClusterTypeSelection(request: restify.Request, response: restify.Response, next: restify.Next): void {
+async function handleClusterTypeSelection(request: restify.Request, response: restify.Response, next: restify.Next): Promise<void> {
     const clusterType = request.query['clusterType'];
     const action = request.query["action"];
 
     reporter.sendTelemetryEvent("cloudselection", { action: action, clusterType: clusterType });
 
     const clusterProvider = clusterproviderregistry.get().list().find((cp) => cp.id === clusterType);  // TODO: move into clusterproviderregistry
-    const url = `http://localhost:${clusterProvider.port}/${action}?clusterType=${clusterProvider.id}`;
+    const port = await clusterProvider.serve();
+    console.log(`${clusterProvider.id} wizard serving on port ${port}`);
+    const url = `http://localhost:${port}/${action}?clusterType=${clusterProvider.id}`;
     response.redirect(307, url, next);
 }
 
