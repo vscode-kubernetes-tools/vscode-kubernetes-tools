@@ -27,6 +27,7 @@ export interface PodSelector extends KubernetesObject {
 export interface PodInfo extends KubernetesObject {
     readonly namespace: string;
     readonly nodeName: string;
+    readonly status: string;
 }
 
 export interface ClusterConfig {
