@@ -59,6 +59,29 @@ export async function installDraft(shell: Shell): Promise<Errorable<void>> {
     return await installToolFromTar(tool, urlTemplate, shell);
 }
 
+export async function installMinikube(shell: Shell): Promise<Errorable<void>> {
+    const tool = 'minikube';
+    const os = platformUrlString(shell.platform());
+    if (!os) {
+        return { succeeded: false, error: ['Not supported on this OS'] };
+    }
+    const urlTemplate = "https://storage.googleapis.com/minikube/releases/v0.28.0/minikube-{os_placeholder}-amd64" + shell.isWindows() ? '.exe' : '';
+    const url = urlTemplate.replace('{os_placeholder}', os);
+    const installFolder = getInstallFolder(shell, tool);
+    const executable = formatBin(tool, shell.platform());
+    const executableFullPath = path.join(installFolder, executable);
+    const downloadResult = await download.to(url, executableFullPath);
+    if (failed(downloadResult)) {
+        return { succeeded: false, error: ['Failed to download Minikube: error was ' + downloadResult.error[0]] };
+    }
+
+    // TODO: on Unixes, do a chmod +x per https://github.com/kubernetes/minikube/releases
+    const configKey = `vs-kubernetes.${tool}-path`;
+    await addPathToConfig(configKey, executableFullPath);
+
+    return { succeeded: true, result: null };
+}
+
 async function installToolFromTar(tool: string, urlTemplate: string, shell: Shell, supported?: Platform[]): Promise<Errorable<void>> {
     const os = platformUrlString(shell.platform(), supported);
     if (!os) {
