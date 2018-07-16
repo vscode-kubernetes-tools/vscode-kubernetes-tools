@@ -1,4 +1,4 @@
-import { Kubectl } from '../../kubectl';
+import { ShellResult } from '../../shell';
 
 interface CompatibilityGuaranteed {
     readonly guaranteed: true;
@@ -17,8 +17,8 @@ export function isGuaranteedCompatible(c: Compatibility): c is CompatibilityGuar
     return c.guaranteed;
 }
 
-export async function check(kubectl: Kubectl): Promise<Compatibility> {
-    const sr = await kubectl.invokeAsync('version --short');
+export async function check(kubectlInvokeAsync: (cmd: string) => Promise<ShellResult>): Promise<Compatibility> {
+    const sr = await kubectlInvokeAsync('version --short');
     if (sr.code !== 0) {
         return {
             guaranteed: false,
