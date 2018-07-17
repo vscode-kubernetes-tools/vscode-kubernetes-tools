@@ -75,7 +75,9 @@ export async function installMinikube(shell: Shell): Promise<Errorable<void>> {
         return { succeeded: false, error: ['Failed to download Minikube: error was ' + downloadResult.error[0]] };
     }
 
-    // TODO: on Unixes, do a chmod +x per https://github.com/kubernetes/minikube/releases
+    if (shell.isUnix()) {
+        await shell.exec(`chmod +x ${executableFullPath}`);
+    }
     const configKey = `vs-kubernetes.${tool}-path`;
     await addPathToConfig(configKey, executableFullPath);
 
