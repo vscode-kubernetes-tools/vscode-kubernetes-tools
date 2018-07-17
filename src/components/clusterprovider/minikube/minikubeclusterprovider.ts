@@ -5,11 +5,13 @@ import * as clusterproviderregistry from '../clusterproviderregistry';
 import { styles, formStyles, waitScript, ActionResult, Diagnostic, fromShellExitCodeOnly } from '../../../wizard';
 import { propagationFields, formPage } from '../common/form';
 import { refreshExplorer } from '../common/explorer';
-import { succeeded, Failed } from '../../../errorable';
+import { succeeded, Failed, failed } from '../../../errorable';
 import { Shell } from '../../../shell';
+import { Minikube } from './minikube';
 
 export interface Context {
     readonly shell: Shell;
+    readonly minikube: Minikube;
 }
 
 type HtmlRequestHandler = (
@@ -132,15 +134,13 @@ async function runMinikubeCommand(context: Context, cmd: string): Promise<Action
 }
 
 async function createCluster(previousData: any, context: Context): Promise<string> {
-    const createResult = await runMinikubeCommand(context, 'minikube help');
+    const runnable = await context.minikube.isRunnable();
+    const createResult = {
+        actionDescription: 'creating cluster',
+        result: runnable
+    };
 
-    context.shell.exec('minikube start').then((sr) => {
-        if (sr.code === 0) {
-            vscode.window.showInformationMessage('Minikube cluster created.');
-        } else {
-            vscode.window.showErrorMessage(`Minikube cluster creation failed ${sr.stderr}`);
-        }
-    });
+    context.minikube.start();
 
     const title = createResult.result.succeeded ? 'Cluster creation has started' : `Error ${createResult.actionDescription}`;
     const message = succeeded(createResult.result) ?

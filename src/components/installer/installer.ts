@@ -65,7 +65,7 @@ export async function installMinikube(shell: Shell): Promise<Errorable<void>> {
     if (!os) {
         return { succeeded: false, error: ['Not supported on this OS'] };
     }
-    const urlTemplate = "https://storage.googleapis.com/minikube/releases/v0.28.0/minikube-{os_placeholder}-amd64" + shell.isWindows() ? '.exe' : '';
+    const urlTemplate = "https://storage.googleapis.com/minikube/releases/v0.28.0/minikube-{os_placeholder}-amd64" + (shell.isWindows() ? '.exe' : '');
     const url = urlTemplate.replace('{os_placeholder}', os);
     const installFolder = getInstallFolder(shell, tool);
     const executable = formatBin(tool, shell.platform());

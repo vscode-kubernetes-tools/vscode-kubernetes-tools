@@ -116,7 +116,7 @@ function execCore(cmd: string, opts: any, stdin?: string): Promise<ShellResult> 
 export function shellEnvironment(baseEnvironment: any): any {
     const env = Object.assign({}, baseEnvironment);
     const pathVariable = pathVariableName(env);
-    for (const tool of ['kubectl', 'helm', 'draft']) {
+    for (const tool of ['kubectl', 'helm', 'draft', 'minikube']) {
         const toolPath = vscode.workspace.getConfiguration('vs-kubernetes')[`vs-kubernetes.${tool}-path`];
         if (toolPath) {
             const toolDirectory = path.dirname(toolPath);
