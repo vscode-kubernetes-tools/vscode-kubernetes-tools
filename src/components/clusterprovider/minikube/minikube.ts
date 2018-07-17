@@ -11,8 +11,8 @@ import { fromShellExitCodeOnly, Diagnostic } from '../../../wizard';
 export interface Minikube {
     checkPresent(mode: CheckPresentMode): Promise<boolean>;
     isRunnable(): Promise<Errorable<Diagnostic>>;
-    start(): Promise<Errorable<Diagnostic>>;
-    stop(): Promise<Errorable<Diagnostic>>;
+    start(): Promise<void>;
+    stop(): Promise<void>;
 }
 
 export function create(host: Host, fs: FS, shell: Shell, installDependenciesCallback: () => void): Minikube {
@@ -51,11 +51,11 @@ class MinikubeImpl implements Minikube {
         return isRunnableMinikube(this.context);
     }
 
-    start(): Promise<Errorable<Diagnostic>> {
+    start(): Promise<void> {
         return startMinikube(this.context);
     }
 
-    stop(): Promise<Errorable<Diagnostic>> {
+    stop(): Promise<void> {
         return stopMinikube(this.context);
     }
 }
@@ -69,7 +69,7 @@ async function isRunnableMinikube(context: Context): Promise<Errorable<Diagnosti
     return fromShellExitCodeOnly(sr);
 }
 
-async function startMinikube(context: Context): Promise<Errorable<Diagnostic>> {
+async function startMinikube(context: Context): Promise<void> {
     if (!await checkPresent(context, CheckPresentMode.Alert)) {
         return;
     }
@@ -85,7 +85,7 @@ async function startMinikube(context: Context): Promise<Errorable<Diagnostic>> {
     });
 }
 
-async function stopMinikube(context: Context): Promise<Errorable<Diagnostic>> {
+async function stopMinikube(context: Context): Promise<void> {
     if (!await checkPresent(context, CheckPresentMode.Alert)) {
         return;
     }
