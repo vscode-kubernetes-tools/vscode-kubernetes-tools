@@ -27,6 +27,7 @@ export interface PodSelector extends KubernetesObject {
 export interface PodInfo extends KubernetesObject {
     readonly namespace: string;
     readonly nodeName: string;
+    readonly status: string;
 }
 
 export interface ClusterConfig {
@@ -189,16 +190,18 @@ export async function getPods(kubectl: Kubectl, selector: any, namespace: string
         labelStr = "--selector=" + labels.join(",");
     }
 
-    const pods = await kubectl.asJson<KubernetesCollection<Pod>>(`get pods -o json ${nsFlag} ${labelStr}`);
+    const pods = await kubectl.fromLines(`get pods -o wide ${nsFlag} ${labelStr}`);
     if (failed(pods)) {
         vscode.window.showErrorMessage(pods.error[0]);
         return [];
     }
-    return pods.result.items.map((item) => {
+
+    return pods.result.map((item) => {
         return {
-            name: item.metadata.name,
-            namespace: item.metadata.namespace,
-            nodeName: item.spec.nodeName
+            name: item.name,
+            namespace: item.namespace || ns,
+            nodeName: item.node,
+            status: item.status
         };
     });
 }

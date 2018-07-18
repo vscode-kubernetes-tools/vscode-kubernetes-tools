@@ -201,6 +201,12 @@ class KubernetesResourceFolder extends KubernetesFolder {
     }
 
     async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
+        if (this.kind === kuberesources.allKinds.pod) {
+            const pods = await kubectlUtils.getPods(kubectl, null, null);
+            return pods.map((pod) => {
+                return new KubernetesResource(this.kind, pod.name, pod);
+            });
+        }
         const childrenLines = await kubectl.asLines(`get ${this.kind.abbreviation}`);
         if (failed(childrenLines)) {
             host.showErrorMessage(childrenLines.error[0]);
@@ -240,6 +246,9 @@ class KubernetesResource implements KubernetesObject, ResourceNode {
             this.kind === kuberesources.allKinds.secret ||
             this.kind === kuberesources.allKinds.configMap) {
             treeItem.contextValue = `vsKubernetes.resource.${this.kind.abbreviation}`;
+            if (this.kind === kuberesources.allKinds.pod && this.metadata && this.metadata.status) {
+                treeItem.iconPath = getIconForPodStatus(this.metadata.status.toLowerCase());
+            }
         }
         if (this.namespace) {
             treeItem.tooltip = `Namespace: ${this.namespace}`;  // TODO: show only if in non-current namespace?
