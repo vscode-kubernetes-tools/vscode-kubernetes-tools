@@ -123,16 +123,25 @@ export function helmLint() {
 
 // helmInspect inspects a packaged chart or a chart dir and returns the values.
 // If a non-tgz, non-directory file is passed, this tries to find a parent chart.
-export function helmInspectValues(u: vscode.Uri) {
-    if (!u) {
+export function helmInspectValues(arg: any) {
+    if (!arg) {
         vscode.window.showErrorMessage("Helm Inspect Values is primarily for inspecting packaged charts and directories. Launch the command from a file or directory in the Explorer pane.");
         return;
     }
     if (!ensureHelm(EnsureMode.Alert)) {
         return;
     }
-    const uri = vscode.Uri.parse("helm-inspect-values://" + u.fsPath);
-    vscode.commands.executeCommand("vscode.previewHtml", uri, vscode.ViewColumn.Two, "Inspect");
+
+    if (arg.kind && arg.kind === helm.INSPECT_CHART_REPO_AUTHORITY) {
+        const id: string = arg.id;
+        const version: string = arg.version;
+        const uri = vscode.Uri.parse(`${helm.INSPECT_CHART_SCHEME}://${helm.INSPECT_CHART_REPO_AUTHORITY}/${id}?${version}`);
+        vscode.commands.executeCommand("vscode.previewHtml", uri, vscode.ViewColumn.Two, "Inspect");
+    } else {
+        const u = arg as vscode.Uri;
+        const uri = vscode.Uri.parse("helm-inspect-values://" + u.fsPath);
+        vscode.commands.executeCommand("vscode.previewHtml", uri, vscode.ViewColumn.Two, "Inspect");
+    }
 }
 
 // helmDryRun runs a helm install with --dry-run and --debug set.

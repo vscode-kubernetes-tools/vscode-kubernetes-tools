@@ -5,6 +5,7 @@ import * as YAML from 'yamljs';
 
 import { Host } from './host';
 import * as helm from './helm.exec';
+import { INSPECT_CHART_REPO_AUTHORITY } from './helm';
 import { Errorable, failed } from './errorable';
 
 export function create(host: Host): HelmRepoExplorer {
@@ -78,7 +79,7 @@ class HelmRepo implements HelmObject {
     }
 
     async getChildren(): Promise<HelmObject[]> {
-        const charts = await listHelmRepoCharts(this.url);
+        const charts = await listHelmRepoCharts(this.name, this.url);
         if (failed(charts)) {
             return [ new HelmError('Error fetching charts') ];
         }
@@ -89,8 +90,9 @@ class HelmRepo implements HelmObject {
 class HelmRepoChart implements HelmObject {
     private readonly versions: HelmRepoChartVersion[];
 
-    constructor(private readonly name: string, private readonly content: any) {
+    constructor(private readonly repoName, private readonly name: string, private readonly content: any) {
         this.versions = content ? (content as any[]).map((e) => new HelmRepoChartVersion(
+            `${this.repoName}/${this.name}`,
             e.version,
             e.appVersion,
             e.description,
@@ -110,6 +112,7 @@ class HelmRepoChart implements HelmObject {
 
 class HelmRepoChartVersion implements HelmObject {
     constructor(
+        private readonly id: string,
         private readonly version: string,
         private readonly appVersion: string | undefined,
         private readonly description: string | undefined,
@@ -120,6 +123,11 @@ class HelmRepoChartVersion implements HelmObject {
     getTreeItem(): vscode.TreeItem {
         const treeItem = new vscode.TreeItem(this.version);
         treeItem.tooltip = this.tooltip();
+        treeItem.command = {
+            command: "extension.helmInspectValues",
+            title: "Inspect",
+            arguments: [{ kind: INSPECT_CHART_REPO_AUTHORITY, id: this.id, version: this.version }]
+        };
         return treeItem;
     }
 
@@ -151,16 +159,16 @@ async function listHelmRepos(): Promise<Errorable<HelmRepo[]>> {
     return { succeeded: true, result: repos };
 }
 
-async function listHelmRepoCharts(repoUrl: string): Promise<Errorable<HelmRepoChart[]>> {
+async function listHelmRepoCharts(repoName: string, repoUrl: string): Promise<Errorable<HelmRepoChart[]>> {
     const indexUrl = vscode.Uri.parse(repoUrl).with({ path: 'index.yaml' }).toString();
     try {
-        const charts = await listHelmRepoChartsCore(indexUrl);
+        const charts = await listHelmRepoChartsCore(repoName, indexUrl);
         return { succeeded: true, result: charts };
     } catch (e) {
         if (vscode.Uri.parse(repoUrl).authority.indexOf("127.0.0.1") >= 0) {
             const d = await helm.helmServe();
             try {
-                const charts = await listHelmRepoChartsCore(indexUrl);
+                const charts = await listHelmRepoChartsCore(repoName, indexUrl);
                 return { succeeded: true, result: charts };
             } catch (e2) {
                 return { succeeded: false, error: [ "" + e2 ] };
@@ -172,11 +180,11 @@ async function listHelmRepoCharts(repoUrl: string): Promise<Errorable<HelmRepoCh
     }
 }
 
-async function listHelmRepoChartsCore(indexUrl: string): Promise<HelmRepoChart[]> {
+async function listHelmRepoChartsCore(repoName: string, indexUrl: string): Promise<HelmRepoChart[]> {
     const buffer: Buffer = await download(indexUrl);
     const yaml = buffer.toString();
     const chartData = YAML.parse(yaml);
     const entries = chartData.entries;
-    const charts = Object.keys(entries).map((k) => new HelmRepoChart(k, entries[k]));
+    const charts = Object.keys(entries).map((k) => new HelmRepoChart(repoName, k, entries[k]));
     return charts;
 }
