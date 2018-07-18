@@ -31,6 +31,18 @@ function render(document: HelmDocumentResult): string {
     </body>`;
 }
 
+function extractChartName(uri: vscode.Uri): string {
+    if (uri.scheme === helm.INSPECT_CHART_SCHEME && uri.authority === helm.INSPECT_CHART_REPO_AUTHORITY) {
+        const id = uri.path.substring(1);
+        const version = uri.query;
+        return `${id} ${version}`;
+    }
+    if (filepath.extname(uri.fsPath) === ".tgz") {
+        return filepath.basename(uri.fsPath);
+    }
+    return "Chart";
+}
+
 export class HelmInspectDocumentProvider implements vscode.TextDocumentContentProvider {
     public provideTextDocumentContent(uri: vscode.Uri, tok: vscode.CancellationToken): vscode.ProviderResult<string> {
         return new Promise<string>((resolve, reject) => {
@@ -38,7 +50,7 @@ export class HelmInspectDocumentProvider implements vscode.TextDocumentContentPr
 
             const printer = (code, out, err) => {
                 if (code === 0) {
-                    const p = (filepath.extname(uri.fsPath) === ".tgz") ? filepath.basename(uri.fsPath) : "Chart";
+                    const p = extractChartName(uri);
                     const title = "Inspect " + p;
                     resolve(render({ title: title, content: out, isErrorOutput: false }));
                 }
