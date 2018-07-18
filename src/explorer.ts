@@ -437,10 +437,9 @@ class HelmReleaseResource implements KubernetesObject {
     }
 }
 
-class HelmReleasesFolder extends KubernetesResourceFolder {
+class HelmReleasesFolder extends KubernetesFolder {
     constructor() {
-        // TODO: this is not a true Kubernetes resource kind - need to refactor
-        super(new kuberesources.ResourceKind("Helm Release", "Helm Releases", "helmrelease"));
+        super("Helm Release", "Helm Releases", "vsKubernetes.nonResourceFolder");
     }
 
     async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
