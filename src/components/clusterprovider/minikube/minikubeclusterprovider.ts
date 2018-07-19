@@ -1,4 +1,4 @@
-import * as restify from 'restify';
+import restify = require('restify');
 import * as portfinder from 'portfinder';
 import * as vscode from 'vscode';
 import * as clusterproviderregistry from '../clusterproviderregistry';
@@ -19,30 +19,47 @@ type HtmlRequestHandler = (
 ) => Promise<string>;
 
 let minikubeWizardServer: restify.Server;
+let minikubeWizardPort: number | undefined;
+let registered = false;
 
 export async function init(registry: clusterproviderregistry.ClusterProviderRegistry, context: Context): Promise<void> {
-    if (!minikubeWizardServer) {
-        minikubeWizardServer = restify.createServer({
-            formatters: {
-                'text/html': (req, resp, body) => body
-            }
-        });
-
-        const port = await portfinder.getPortPromise({ port: 44000 });
-
-        const htmlServer = new HtmlServer(context);
-        minikubeWizardServer.use(restify.plugins.queryParser(), restify.plugins.bodyParser());
-        minikubeWizardServer.listen(port, '127.0.0.1');
-
-        // You MUST use fat arrow notation for the handler callbacks: passing the
-        // function reference directly will foul up the 'this' pointer.
-        minikubeWizardServer.get('/create', (req, resp, n) => htmlServer.handleGetCreate(req, resp, n));
-        minikubeWizardServer.post('/create', (req, resp, n) => htmlServer.handlePostCreate(req, resp, n));
-        minikubeWizardServer.get('/configure', (req, resp, n) => htmlServer.handleGetConfigure(req, resp, n));
-        minikubeWizardServer.post('/configure', (req, resp, n) => htmlServer.handlePostConfigure(req, resp, n));
-
-        registry.register({id: 'minikube', displayName: "Minikube local cluster", port: port, supportedActions: ['create', 'configure']});
+    if (!registered) {
+        const serve = serveCallback(context);
+        registry.register({id: 'minikube', displayName: "Minikube local cluster", supportedActions: ['create', 'configure'], serve: serve});
+        registered = true;
     }
+}
+
+function serveCallback(context: Context): () => Promise<number> {
+    return () => serve(context);
+}
+
+async function serve(context: Context): Promise<number> {
+    if (minikubeWizardPort) {
+        return minikubeWizardPort;
+    }
+
+    const restifyImpl: typeof restify = require('restify');
+    minikubeWizardServer = restifyImpl.createServer({
+        formatters: {
+            'text/html': (req, resp, body) => body
+        }
+    });
+
+    minikubeWizardPort = await portfinder.getPortPromise({ port: 44000 });
+
+    const htmlServer = new HtmlServer(context);
+    minikubeWizardServer.use(restifyImpl.plugins.queryParser(), restifyImpl.plugins.bodyParser());
+    minikubeWizardServer.listen(minikubeWizardPort, '127.0.0.1');
+
+    // You MUST use fat arrow notation for the handler callbacks: passing the
+    // function reference directly will foul up the 'this' pointer.
+    minikubeWizardServer.get('/create', (req, resp, n) => htmlServer.handleGetCreate(req, resp, n));
+    minikubeWizardServer.post('/create', (req, resp, n) => htmlServer.handlePostCreate(req, resp, n));
+    minikubeWizardServer.get('/configure', (req, resp, n) => htmlServer.handleGetConfigure(req, resp, n));
+    minikubeWizardServer.post('/configure', (req, resp, n) => htmlServer.handlePostConfigure(req, resp, n));
+
+    return minikubeWizardPort;
 }
 
 class HtmlServer {

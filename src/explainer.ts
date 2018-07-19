@@ -1,6 +1,6 @@
 'use strict';
 
-import * as k8s from 'k8s';
+import k8s = require('k8s');
 import * as pluralize from 'pluralize';
 import * as kubeconfig from './kubeconfig';
 import { formatComplex, formatOne, Typed, formatType } from "./schema-formatting";
@@ -16,8 +16,9 @@ function fixUrl(kapi: any /* deliberately bypass type checks as .domain is inter
 }
 
 function readSwaggerCore(kc: kubeconfig.KubeConfig): Promise<any> {
+    const k8sImpl: typeof k8s = require('k8s');
     return new Promise((resolve, reject) => {
-        const kapi = k8s.api(apiCredentials(kc));
+        const kapi = k8sImpl.api(apiCredentials(kc));
         fixUrl(kapi);
         kapi.get('swagger.json', (err, data) => {
             if (err) {

@@ -3,8 +3,8 @@ export type ClusterProviderAction = 'create' | 'configure';
 export interface ClusterProvider {
     readonly id: string;
     readonly displayName: string;
-    readonly port: number;
     readonly supportedActions: ClusterProviderAction[];
+    serve(): Promise<number>;
 }
 
 export interface ClusterProviderRegistry {
@@ -16,7 +16,7 @@ class RegistryImpl implements ClusterProviderRegistry {
     private readonly providers = new Array<ClusterProvider>();
 
     public register(clusterProvider: ClusterProvider) {
-        console.log(`You registered ${clusterProvider.id} for port ${clusterProvider.port}`);
+        console.log(`You registered cluster type ${clusterProvider.id}`);
         this.providers.push(clusterProvider);
     }
 
