@@ -424,10 +424,9 @@ export class KubernetesFileObject implements KubernetesObject {
 
 class HelmReleaseResource implements KubernetesObject {
     readonly id: string;
-    readonly status: string;
 
-    constructor(readonly helmRelease: any) {
-        this.id = "helmrelease:" + helmRelease.name;
+    constructor(readonly name: string, readonly status: string) {
+        this.id = "helmrelease:" + name;
     }
 
     getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<KubernetesObject[]> {
@@ -435,14 +434,14 @@ class HelmReleaseResource implements KubernetesObject {
     }
 
     getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
-        const treeItem = new vscode.TreeItem(this.helmRelease.name, vscode.TreeItemCollapsibleState.None);
+        const treeItem = new vscode.TreeItem(this.name, vscode.TreeItemCollapsibleState.None);
         treeItem.command = {
             command: "extension.helmGet",
             title: "Get",
             arguments: [this]
         };
         treeItem.contextValue = "vsKubernetes.helmRelease";
-        treeItem.iconPath = getIconForHelmRelease(this.helmRelease.status.toLowerCase());
+        treeItem.iconPath = getIconForHelmRelease(this.status.toLowerCase());
         return treeItem;
     }
 }
@@ -465,6 +464,6 @@ class HelmReleasesFolder extends KubernetesFolder {
             return [new DummyObject("Helm list error", releases.error[0])];
         }
 
-        return releases.result.map((r) => new HelmReleaseResource(r));
+        return releases.result.map((r) => new HelmReleaseResource(r.name, r.status));
     }
 }
