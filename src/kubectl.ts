@@ -6,6 +6,7 @@ import { Shell, ShellHandler, ShellResult } from './shell';
 import * as binutil from './binutil';
 import { Errorable } from './errorable';
 import { parseLineOutput } from './outputUtils';
+import * as compatibility from './components/kubectl/compatibility';
 
 const KUBECTL_OUTPUT_COLUMN_SEPARATOR = /\s+/g;
 
@@ -159,9 +160,21 @@ async function invokeAsync(context: Context, command: string, stdin?: string): P
     if (await checkPresent(context, 'command')) {
         const bin = baseKubectlPath(context);
         const cmd = `${bin} ${command}`;
-        return await context.shell.exec(cmd, stdin);
+        const sr = await context.shell.exec(cmd, stdin);
+        if (sr.code !== 0) {
+            checkPossibleIncompatibility(context);
+        }
+        return sr;
     } else {
         return { code: -1, stdout: '', stderr: '' };
+    }
+}
+
+async function checkPossibleIncompatibility(context: Context): Promise<void> {
+    const compat = await compatibility.check((cmd) => asJson<compatibility.Version>(context, cmd));
+    if (!compatibility.isGuaranteedCompatible(compat) && compat.didCheck) {
+        const versionAlert = `kubectl version ${compat.clientVersion} may be incompatible with cluster Kubernetes version ${compat.serverVersion}`;
+        context.host.showWarningMessage(versionAlert);
     }
 }
 
@@ -207,6 +220,7 @@ function kubectlDone(context: Context): ShellHandler {
         if (result !== 0) {
             context.host.showErrorMessage('Kubectl command failed: ' + stderr);
             console.log(stderr);
+            checkPossibleIncompatibility(context);
             return;
         }
 
