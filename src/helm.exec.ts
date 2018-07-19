@@ -322,7 +322,7 @@ export async function helmListAll(namespace?: string): Promise<Errorable<{ [key:
             }
         }
         if (lines.length > 0) {
-            const helmReleases = parseLineOutput(lines, helm.HELM_OUTPUT_PARSING_REGEX);
+            const helmReleases = parseLineOutput(lines, helm.HELM_OUTPUT_COLUMN_SEPARATOR);
             releases.push(...helmReleases);
         }
     } while (offset !== null);
