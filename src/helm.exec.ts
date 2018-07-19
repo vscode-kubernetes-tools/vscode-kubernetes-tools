@@ -298,7 +298,7 @@ export async function helmListAll(namespace?: string): Promise<Errorable<string[
         return { succeeded: false, error: [ "Helm client is not installed" ] };
     }
 
-    const releases  = [];
+    const releases = [];
     let offset: string | null = null;
 
     do {
