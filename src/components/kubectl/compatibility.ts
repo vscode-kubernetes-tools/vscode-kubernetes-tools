@@ -1,4 +1,5 @@
 import { ShellResult } from '../../shell';
+import { Errorable, failed } from '../../errorable';
 
 interface CompatibilityGuaranteed {
     readonly guaranteed: true;
@@ -17,9 +18,15 @@ export function isGuaranteedCompatible(c: Compatibility): c is CompatibilityGuar
     return c.guaranteed;
 }
 
-export async function check(kubectlInvokeAsync: (cmd: string) => Promise<ShellResult>): Promise<Compatibility> {
-    const sr = await kubectlInvokeAsync('version --short');
-    if (sr.code !== 0) {
+export interface Version {
+    readonly major: string;
+    readonly minor: string;
+    readonly gitVersion: string;
+}
+
+export async function check(kubectlLoadJSON: (cmd: string) => Promise<Errorable<any>>): Promise<Compatibility> {
+    const version = await kubectlLoadJSON('version -o json');
+    if (failed(version)) {
         return {
             guaranteed: false,
             didCheck: false,
@@ -28,10 +35,8 @@ export async function check(kubectlInvokeAsync: (cmd: string) => Promise<ShellRe
         };
     }
 
-    const lines = sr.stdout.split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
-    const versionMappings = lines.map((l) => parseVersion(l));
-    const clientVersion = versionMappings.find((m) => m[0] === 'client')[1];
-    const serverVersion = versionMappings.find((m) => m[0] === 'server')[1];
+    const clientVersion: Version = version.result.clientVersion;
+    const serverVersion: Version = version.result.serverVersion;
 
     if (isCompatible(clientVersion, serverVersion)) {
         return { guaranteed: true };
@@ -40,26 +45,18 @@ export async function check(kubectlInvokeAsync: (cmd: string) => Promise<ShellRe
     return {
         guaranteed: false,
         didCheck: true,
-        clientVersion: clientVersion,
-        serverVersion: serverVersion
+        clientVersion: clientVersion.gitVersion,
+        serverVersion: serverVersion.gitVersion
     };
 }
 
-function isCompatible(clientVersionStr: string, serverVersionStr: string): boolean {
-    const clientVersion = clientVersionStr.split('.');
-    const serverVersion = serverVersionStr.split('.');
-    if (clientVersion[0] === serverVersion[0]) {
-        const clientMinor = Number.parseInt(clientVersion[1]);
-        const serverMinor = Number.parseInt(serverVersion[1]);
-        if (Math.abs(clientMinor - serverMinor) <= 1) {
+function isCompatible(clientVersion: Version, serverVersion: Version): boolean {
+    if (clientVersion.major === serverVersion.major) {
+        const clientMinor = Number.parseInt(clientVersion.minor);
+        const serverMinor = Number.parseInt(serverVersion.minor);
+        if (Number.isInteger(clientMinor) && Number.isInteger(serverMinor) && Math.abs(clientMinor - serverMinor) <= 1) {
             return true;
         }
     }
     return false;
-}
-
-function parseVersion(versionLine: string): [string, string] {
-    // Format: Xxx Version: vN.N.N
-    const bits = versionLine.split(' ');
-    return [bits[0].toLowerCase(), bits[bits.length - 1]];
 }

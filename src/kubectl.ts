@@ -171,7 +171,7 @@ async function invokeAsync(context: Context, command: string, stdin?: string): P
 }
 
 async function checkPossibleIncompatibility(context: Context): Promise<void> {
-    const compat = await compatibility.check((cmd) => invokeAsync(context, cmd));
+    const compat = await compatibility.check((cmd) => asJson<compatibility.Version>(context, cmd));
     if (!compatibility.isGuaranteedCompatible(compat) && compat.didCheck) {
         const versionAlert = `kubectl version ${compat.clientVersion} may be incompatible with cluster Kubernetes version ${compat.serverVersion}`;
         context.host.showWarningMessage(versionAlert);
