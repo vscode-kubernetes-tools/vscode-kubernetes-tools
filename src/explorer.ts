@@ -23,6 +23,14 @@ export function createKubernetesResource(kind: kuberesources.ResourceKind, id: s
     return new KubernetesResource(kind, id, metadata);
 }
 
+function getIconForHelmRelease(status: string): vscode.Uri {
+    if (status === "deployed") {
+        return vscode.Uri.file(path.join(__dirname, "../../images/helmDeployed.svg"));
+    } else {
+        return vscode.Uri.file(path.join(__dirname, "../../images/helmFailed.svg"));
+    }
+}
+
 function getIconForPodStatus(status: string): vscode.Uri {
     if (status === "running" || status === "completed") {
         return vscode.Uri.file(path.join(__dirname, "../../images/runningPod.svg"));
@@ -417,7 +425,7 @@ export class KubernetesFileObject implements KubernetesObject {
 class HelmReleaseResource implements KubernetesObject {
     readonly id: string;
 
-    constructor(readonly name: string) {
+    constructor(readonly name: string, readonly status: string) {
         this.id = "helmrelease:" + name;
     }
 
@@ -433,6 +441,7 @@ class HelmReleaseResource implements KubernetesObject {
             arguments: [this]
         };
         treeItem.contextValue = "vsKubernetes.helmRelease";
+        treeItem.iconPath = getIconForHelmRelease(this.status.toLowerCase());
         return treeItem;
     }
 }
@@ -455,6 +464,6 @@ class HelmReleasesFolder extends KubernetesFolder {
             return [new DummyObject("Helm list error", releases.error[0])];
         }
 
-        return releases.result.map((r) => new HelmReleaseResource(r));
+        return releases.result.map((r) => new HelmReleaseResource(r.name, r.status));
     }
 }
