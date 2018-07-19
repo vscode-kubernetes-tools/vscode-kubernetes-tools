@@ -12,6 +12,7 @@ import { showWorkspaceFolderPick } from './hostutils';
 import { shell as sh, ShellResult } from './shell';
 import { K8S_RESOURCE_SCHEME, HELM_RESOURCE_AUTHORITY } from './kuberesources.virtualfs';
 import { Errorable } from './errorable';
+import { parseLineOutput } from './kubectlUtils';
 
 export interface PickChartUIOptions {
     readonly warnIfNoCharts: boolean;
@@ -297,7 +298,7 @@ export async function helmListAll(namespace?: string): Promise<Errorable<string[
         return { succeeded: false, error: [ "Helm client is not installed" ] };
     }
 
-    const releases: string[] = [];
+    const releases  = [];
     let offset: string | null = null;
 
     do {
@@ -321,9 +322,8 @@ export async function helmListAll(namespace?: string): Promise<Errorable<string[
             }
         }
         if (lines.length > 0) {
-            lines.shift();  // remove the header line
-            const names = lines.map((l) => l.split('\t')[0].trim());
-            releases.push(...names);
+            const hemlReleases = parseLineOutput(lines, helm.HELM_OUTPUT_PARSING_REGEX);
+            releases.push(...hemlReleases);
         }
     } while (offset !== null);
 

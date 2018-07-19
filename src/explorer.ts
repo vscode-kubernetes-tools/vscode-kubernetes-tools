@@ -23,6 +23,14 @@ export function createKubernetesResource(kind: kuberesources.ResourceKind, id: s
     return new KubernetesResource(kind, id, metadata);
 }
 
+function getIconForHelmRelease(status: string): vscode.Uri {
+    if (status === "deployed") {
+        return vscode.Uri.file(path.join(__dirname, "../../images/helmDeployed.svg"));
+    } else {
+        return vscode.Uri.file(path.join(__dirname, "../../images/helmFailed.svg"));
+    }
+}
+
 function getIconForPodStatus(status: string): vscode.Uri {
     if (status === "running" || status === "completed") {
         return vscode.Uri.file(path.join(__dirname, "../../images/runningPod.svg"));
@@ -416,9 +424,10 @@ export class KubernetesFileObject implements KubernetesObject {
 
 class HelmReleaseResource implements KubernetesObject {
     readonly id: string;
+    readonly status: string;
 
-    constructor(readonly name: string) {
-        this.id = "helmrelease:" + name;
+    constructor(readonly helmRelease: any) {
+        this.id = "helmrelease:" + helmRelease.name;
     }
 
     getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<KubernetesObject[]> {
@@ -426,13 +435,14 @@ class HelmReleaseResource implements KubernetesObject {
     }
 
     getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
-        const treeItem = new vscode.TreeItem(this.name, vscode.TreeItemCollapsibleState.None);
+        const treeItem = new vscode.TreeItem(this.helmRelease.name, vscode.TreeItemCollapsibleState.None);
         treeItem.command = {
             command: "extension.helmGet",
             title: "Get",
             arguments: [this]
         };
         treeItem.contextValue = "vsKubernetes.helmRelease";
+        treeItem.iconPath = getIconForHelmRelease(this.helmRelease.status.toLowerCase());
         return treeItem;
     }
 }

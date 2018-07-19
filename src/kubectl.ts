@@ -5,7 +5,7 @@ import { FS } from './fs';
 import { Shell, ShellHandler, ShellResult } from './shell';
 import * as binutil from './binutil';
 import { Errorable } from './errorable';
-import { parseLineOutput } from './kubectlUtils';
+import { parseLineOutput, POD_OUTPUT_PARSING_REGEX } from './kubectlUtils';
 
 export interface Kubectl {
     checkPresent(errorMessageMode: CheckPresentMessageMode): Promise<boolean>;
@@ -237,7 +237,7 @@ async function fromLines(context: Context, command: string): Promise<Errorable<{
     if (shellResult.code === 0) {
         let lines = shellResult.stdout.split('\n');
         lines = lines.filter((l) => l.length > 0);
-        const parsedOutput = parseLineOutput(lines);
+        const parsedOutput = parseLineOutput(lines, POD_OUTPUT_PARSING_REGEX);
         return { succeeded: true, result: parsedOutput };
     }
     return { succeeded: false, error: [ shellResult.stderr ] };
