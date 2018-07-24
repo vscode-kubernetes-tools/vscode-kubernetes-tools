@@ -74,12 +74,18 @@ async function checkPresent(context: Context, mode: CheckPresentMode): Promise<b
 
 async function packs(context: Context): Promise<string[] | undefined> {
     if (await checkPresent(context, CheckPresentMode.Alert)) {
-        const dhResult = await context.shell.exec(context.binPath + " home");
-        if (dhResult.code === 0) {
-            const draftHome = dhResult.stdout.trim();
-            const draftPacksDir = syspath.join(draftHome, 'packs');
-            const draftPacks = context.fs.dirSync(draftPacksDir);
-            return draftPacks;
+        const dpResult = await context.shell.exec(`${context.binPath} pack list`);
+        if (dpResult.code === 0) {
+            // Packs may be of the form path/to/the/actual/name
+            // We also may have spurious ones under github.com/Azure/draft/{cmd|pkg}
+            const packs = dpResult.stdout.split('\n')
+                                         .slice(1)  // remove "Available packs" line
+                                         .map((l) => l.trim())
+                                         .filter((l) => l.length > 0)
+                                         .filter((p) => !isSpuriousPackPath(p))
+                                         .map((p) => packNameFromPath(p));
+
+            return packs;
         }
     }
 
@@ -150,4 +156,14 @@ function isFolderMapped(context: Context, path: string): boolean {
     const tomlFile = syspath.join(path, 'draft.toml');
     const ignoreFile = syspath.join(path, '.draftignore');
     return context.fs.existsSync(tomlFile) && context.fs.existsSync(ignoreFile);
+}
+
+function isSpuriousPackPath(path: string) {
+    return path.indexOf('draft/pkg') >= 0
+        || path.indexOf('draft/cmd') >= 0;
+}
+
+function packNameFromPath(path: string) {
+    const parsePoint = path.lastIndexOf('/');
+    return path.substring(parsePoint + 1);
 }
