@@ -1006,7 +1006,11 @@ function parseName(line) {
 }
 
 async function getContainers(pod: PodSummary): Promise<Container[] | undefined> {
-    let cmd = `get pod/${pod.name} -o jsonpath="{'NAME\\tIMAGE\\n'}{range .spec.containers[*]}{.name}{'\\t'}{.image}{'\\n'}{end}"`;
+    const q = shell.isWindows() ? `'` : `"`;
+    const lit = (l: string) => `{${q}${l}${q}}`;
+    const query = `${lit("NAME\\tIMAGE\\n")}{range .spec.containers[*]}{.name}${lit("\\t")}{.image}${lit("\\n")}{end}`;
+    const queryArg = shell.isWindows() ? `"${query}"` : `'${query}'`;
+    let cmd = `get pod/${pod.name} -o jsonpath=${queryArg}`;
     if (pod.namespace && pod.namespace.length > 0) {
         cmd += ' --namespace=' + pod.namespace;
     }
