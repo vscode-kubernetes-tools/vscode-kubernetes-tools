@@ -1712,12 +1712,12 @@ async function execDraftVersion() {
         return;
     }
 
-    const dvResult = await draft.invoke("version");
+    const dvResult = await draft.version();
 
-    if (dvResult.code === 0) {
-        host.showInformationMessage(dvResult.stdout);
-    } else {
-        host.showErrorMessage(dvResult.stderr);
+    if (succeeded(dvResult)) {
+        host.showInformationMessage(dvResult.result);
+    } else if (dvResult.error[0]) {
+        host.showErrorMessage(dvResult.error[0]);
     }
 }
 
@@ -1748,7 +1748,7 @@ enum DraftCreateResult {
 
 async function execDraftCreateApp(appName: string, pack?: string): Promise<void> {
     const packOpt = pack ? ` -p ${pack}` : '';
-    const dcResult = await draft.invoke(`create -a ${appName} ${packOpt} "${vscode.workspace.rootPath}"`);
+    const dcResult = await draft.create(appName, pack, vscode.workspace.rootPath);
 
     switch (draftCreateResult(dcResult, !!pack)) {
         case DraftCreateResult.Succeeded:
@@ -1775,10 +1775,15 @@ function draftCreateResult(sr: ShellResult, hadPack: boolean) {
     if (sr.code === 0) {
         return DraftCreateResult.Succeeded;
     }
-    if (!hadPack && sr.stderr.indexOf('Unable to select a starter pack') >= 0) {
+    if (!hadPack && draftErrorMightBeSolvedByChoosingPack(sr.stderr)) {
         return DraftCreateResult.NeedsPack;
     }
     return DraftCreateResult.Fatal;
+}
+
+function draftErrorMightBeSolvedByChoosingPack(draftError: string) {
+    return draftError.indexOf('Unable to select a starter pack') >= 0
+        || draftError.indexOf('Error: no languages were detected') >= 0;
 }
 
 async function execDraftUp() {

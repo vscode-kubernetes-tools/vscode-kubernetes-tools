@@ -3,13 +3,15 @@ import { Shell, ShellResult } from '../shell';
 import { FS } from '../fs';
 import * as syspath from 'path';
 import * as binutil from '../binutil';
+import { Errorable } from '../errorable';
 
 export interface Draft {
     checkPresent(mode: CheckPresentMode): Promise<boolean>;
     isFolderMapped(path: string): boolean;
     packs(): Promise<string[] | undefined>;
-    invoke(args: string): Promise<ShellResult>;
+    create(appName: string, pack: string | undefined, path: string): Promise<ShellResult>;
     up(): Promise<void>;
+    version(): Promise<Errorable<string>>;
 }
 
 export function create(host: Host, fs: FS, shell: Shell, installDependenciesCallback: () => void): Draft {
@@ -49,12 +51,16 @@ class DraftImpl implements Draft {
         return packs(this.context);
     }
 
-    invoke(args: string): Promise<ShellResult> {
-        return invoke(this.context, args);
+    create(appName: string, pack: string | undefined, path: string): Promise<ShellResult> {
+        return invokeCreate(this.context, appName, pack, path);
     }
 
     up(): Promise<void> {
         return up(this.context);
+    }
+
+    version(): Promise<Errorable<string>> {
+        return version(this.context);
     }
 }
 
@@ -80,9 +86,29 @@ async function packs(context: Context): Promise<string[] | undefined> {
     return undefined;
 }
 
-async function invoke(context: Context, args: string): Promise<ShellResult> {
+async function invokeCreate(context: Context, appName: string, pack: string | undefined, path: string): Promise<ShellResult> {
     if (await checkPresent(context, CheckPresentMode.Alert)) {
-        const result = context.shell.exec(`${context.binPath} ${args}`);
+        const packOpt = pack ? ` -p ${pack}` : '';
+        const cmd = `create -a ${appName} ${packOpt} "${path}"`;
+        const result = await context.shell.exec(`${context.binPath} ${cmd}`);
+        if (result.code === 0 && result.stdout.indexOf('chart directory charts/ already exists') >= 0) {
+            const draftManifestFile = syspath.join(path, 'draft.toml');
+            const hasDraftManifest = context.fs.existsSync(draftManifestFile);
+            if (!hasDraftManifest) {
+                const toml = `[environments]
+  [environments.development]
+    name = "${appName}"
+    namespace = "default"
+    wait = true
+    watch = false
+    watch-delay = 2
+    auto-connect = false
+    dockerfile = ""
+    chart = ""`;
+                context.fs.writeFileSync(draftManifestFile, toml);
+                return { code: 0, stdout: '--> skipping pack detection - chart directory charts/ already exists. Ready to sail!', stderr: '' };
+            }
+        }
         return result;
     }
 }
@@ -97,6 +123,17 @@ async function up(context: Context): Promise<void> {
             term.show(true);
         }
     }
+}
+
+async function version(context: Context): Promise<Errorable<string>> {
+    if (await checkPresent(context, CheckPresentMode.Alert)) {
+        const result = await context.shell.exec(`${context.binPath} version`);
+        if (result.code === 0) {
+            return { succeeded: true, result: result.stdout.trim() };
+        }
+        return { succeeded: false, error: [ result.stdout ] };
+    }
+    return { succeeded: false, error: [ '' ] };  // already alerted
 }
 
 async function checkForDraftInternal(context: Context, mode: CheckPresentMode): Promise<boolean> {
