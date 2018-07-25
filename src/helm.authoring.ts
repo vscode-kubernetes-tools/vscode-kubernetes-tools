@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as yaml from 'js-yaml';
 import { FS } from './fs';
 import { Host } from './host';
 
@@ -54,6 +55,8 @@ async function addChart(context: Context, resourceYaml: string): Promise<void> {
         return;
     }
     // TODO: fold, spindle and mutilate content
+    const template = yaml.safeLoad(resourceYaml);
+    foldSpindleAndMutilate(template);
     // TODO: offer a default
     const templateName = await context.host.showInputBox({ prompt: "Name for the new template" });
     if (!templateName) {
@@ -61,8 +64,25 @@ async function addChart(context: Context, resourceYaml: string): Promise<void> {
     }
     const templateFile = path.join(chart.path, "templates", templateName + ".yaml");
     // TODO: check if file already exists
-    context.fs.writeFileSync(templateFile, resourceYaml);
+    const templateYaml = yaml.safeDump(template);  // the parse-dump cycle can change the indentation of collections - is this an issue?
+    context.fs.writeFileSync(templateFile, templateYaml);
     await context.host.openDocument(vscode.Uri.file(templateFile));
+}
+
+function foldSpindleAndMutilate(template: any): void {
+    template.metadata = template.metadata || {};
+
+    template.metadata.name = '{{ template "fullname" . }}';
+
+    template.metadata.labels = template.metadata.labels || {};
+    // This comes out single-quoted which is not what draft create does for the chart label...
+    // even if we force the double quotes to be included, it comes out with the double quoted
+    // string inside single quotes!
+    template.metadata.labels.chart = '{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}}';
+
+    // TODO: should we auto parameterise certain fields depending on the kind?
+    // E.g. spec.template.metadata.labels.app, is that always meant to be set?
+    // (Is there always a spec?)
 }
 
 function chartsInProject(context: Context): Chart[] {
