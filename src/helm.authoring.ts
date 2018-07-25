@@ -54,35 +54,68 @@ async function addChart(context: Context, resourceYaml: string): Promise<void> {
     if (!chart) {
         return;
     }
-    // TODO: fold, spindle and mutilate content
+
     const template = yaml.safeLoad(resourceYaml);
     foldSpindleAndMutilate(template);
+
     // TODO: offer a default
     const templateName = await context.host.showInputBox({ prompt: "Name for the new template" });
     if (!templateName) {
         return;
     }
+
     const templateFile = path.join(chart.path, "templates", templateName + ".yaml");
     // TODO: check if file already exists
+
     const templateYaml = yaml.safeDump(template);  // the parse-dump cycle can change the indentation of collections - is this an issue?
-    context.fs.writeFileSync(templateFile, templateYaml);
+    const templateText = fixYamlValueQuoting(templateYaml);
+    context.fs.writeFileSync(templateFile, templateText);
+
     await context.host.openDocument(vscode.Uri.file(templateFile));
 }
 
+enum QuoteMode {
+    None,
+    Double,
+}
+
+const NAME_EXPRESSION = '{{ template "fullname" . }}';
+const CHART_LABEL_EXPRESSION = '{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}}';
+
+const QUOTE_CONTROL_INFO = [
+    { text: NAME_EXPRESSION, mode: QuoteMode.None },
+    { text: CHART_LABEL_EXPRESSION, mode: QuoteMode.Double },
+];
+
 function foldSpindleAndMutilate(template: any): void {
-    template.metadata = template.metadata || {};
+    ensureMetadata(template);
+    cleanseMetadata(template.metadata);
 
-    template.metadata.name = '{{ template "fullname" . }}';
-
-    template.metadata.labels = template.metadata.labels || {};
-    // This comes out single-quoted which is not what draft create does for the chart label...
-    // even if we force the double quotes to be included, it comes out with the double quoted
-    // string inside single quotes!
-    template.metadata.labels.chart = '{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}}';
+    template.metadata.name = NAME_EXPRESSION;
+    template.metadata.labels.chart = CHART_LABEL_EXPRESSION;
 
     // TODO: should we auto parameterise certain fields depending on the kind?
     // E.g. spec.template.metadata.labels.app, is that always meant to be set?
     // (Is there always a spec?)
+
+    delete template.status;
+}
+
+function ensureMetadata(template: any): void {
+    template.metadata = template.metadata || {};
+    template.metadata.labels = template.metadata.labels || {};
+}
+
+function cleanseMetadata(metadata: any): void {
+    delete metadata.clusterName;
+    delete metadata.creationTimestamp;
+    delete metadata.deletionTimestamp;
+    delete metadata.generation;
+    delete metadata.generateName;
+    delete metadata.namespace;
+    delete metadata.resourceVersion;
+    delete metadata.selfLink;
+    delete metadata.uid;
 }
 
 function chartsInProject(context: Context): Chart[] {
@@ -115,4 +148,13 @@ async function pickOrCreateChart(context: Context): Promise<Chart | undefined> {
             const pick = await context.host.showQuickPick(chartPicks, { placeHolder: 'Select chart to add the new template to'  });
             return pick ? pick.chart : undefined;
     }
+}
+
+function fixYamlValueQuoting(yamlText: string): string {
+    let text = yamlText;
+    for (const expr of QUOTE_CONTROL_INFO) {
+        const q = expr.mode === QuoteMode.Double ? '"' : '';
+        text = text.replace(`'${expr.text}'`, `${q}${expr.text}${q}`);
+    }
+    return text;
 }
