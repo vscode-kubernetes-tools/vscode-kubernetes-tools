@@ -9,6 +9,11 @@ interface Context {
     readonly projectPath: string;
 }
 
+interface Chart {
+    name: string;
+    path: string;
+}
+
 export function convertToTemplate(fs: FS, host: Host, projectPath: string, uri: vscode.Uri | undefined): void {
     const context = { fs, host, projectPath };
     const activeDocument = host.activeDocument();
@@ -48,14 +53,23 @@ async function addChart(context: Context, resourceYaml: string): Promise<void> {
     if (!chart) {
         return;
     }
-    context.host.showInformationMessage(`create for ${resourceYaml.substring(0, 80)} in ${chart}`);
+    // TODO: fold, spindle and mutilate content
+    // TODO: offer a default
+    const templateName = await context.host.showInputBox({ prompt: "Name for the new template" });
+    if (!templateName) {
+        return;
+    }
+    const templateFile = path.join(chart.path, "templates", templateName + ".yaml");
+    // TODO: check if file already exists
+    context.fs.writeFileSync(templateFile, resourceYaml);
+    await context.host.openDocument(vscode.Uri.file(templateFile));
 }
 
-function chartsInProject(context: Context): string[] {
+function chartsInProject(context: Context): Chart[] {
     const fs = context.fs;
     return subdirectories(fs, context.projectPath)
              .filter((d) => fs.existsSync(path.join(d, "Chart.yaml")))
-             .map((d) => path.basename(d));
+             .map((d) => ({ name: path.basename(d), path: d }));
 }
 
 function subdirectories(fs: FS, directory: string): string[] {
@@ -66,7 +80,7 @@ function subdirectories(fs: FS, directory: string): string[] {
     return immediate.concat(...indirect);
 }
 
-async function pickOrCreateChart(context: Context): Promise<string | undefined> {
+async function pickOrCreateChart(context: Context): Promise<Chart | undefined> {
     // TODO: refactor helmexec.pickChart so we can leverage it here
     const charts = chartsInProject(context);
     switch (charts.length) {
@@ -77,6 +91,8 @@ async function pickOrCreateChart(context: Context): Promise<string | undefined> 
         case 1:
             return charts[0];
         default:
-            return await context.host.showQuickPick(charts, { placeHolder: 'Select chart to add the new template to'  });
+            const chartPicks = charts.map((c) => ({ label: c.name, chart: c }));
+            const pick = await context.host.showQuickPick(chartPicks, { placeHolder: 'Select chart to add the new template to'  });
+            return pick ? pick.chart : undefined;
     }
 }

@@ -14,6 +14,7 @@ export interface Host {
     onDidCloseTerminal(listener: (e: vscode.Terminal) => any): vscode.Disposable;
     onDidChangeConfiguration(listener: (ch: vscode.ConfigurationChangeEvent) => any): vscode.Disposable;
     activeDocument(): vscode.TextDocument | undefined;
+    openDocument(uri: vscode.Uri): Promise<vscode.TextDocument>;
 }
 
 export const host: Host = {
@@ -27,7 +28,8 @@ export const host: Host = {
     onDidCloseTerminal : onDidCloseTerminal,
     onDidChangeConfiguration : onDidChangeConfiguration,
     showInputBox : showInputBox,
-    activeDocument : activeDocument
+    activeDocument : activeDocument,
+    openDocument : openDocument
 };
 
 function showInputBox(options: vscode.InputBoxOptions, token?: vscode.CancellationToken): Thenable<string> {
@@ -103,4 +105,10 @@ function activeDocument(): vscode.TextDocument | undefined {
         return activeEditor.document;
     }
     return undefined;
+}
+
+async function openDocument(uri: vscode.Uri): Promise<vscode.TextDocument> {
+    const document = await vscode.workspace.openTextDocument(uri);
+    await vscode.window.showTextDocument(document);
+    return document;
 }
