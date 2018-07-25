@@ -69,6 +69,7 @@
         "onCommand:extension.helmFetch",
         "onCommand:extension.helmInstall",
         "onCommand:extension.helmDependencies",
+        "onCommand:extension.helmConvertToTemplate",
         "onCommand:extension.draftVersion",
         "onCommand:extension.draftCreate",
         "onCommand:extension.draftUp",
@@ -175,6 +176,11 @@
                 {
                     "when": "",
                     "command": "extension.helmInspectValues",
+                    "group": "2_helm@98"
+                },
+                {
+                    "when": "",
+                    "command": "extension.helmConvertToTemplate",
                     "group": "2_helm@98"
                 }
             ],
@@ -825,6 +831,12 @@
                 "command": "extension.helmCreate",
                 "title": "Create Chart",
                 "description": "Create a new Helm Chart",
+                "category": "Helm"
+            },
+            {
+                "command": "extension.helmConvertToTemplate",
+                "title": "Convert to Template",
+                "description": "Convert this manifest to a Helm template",
                 "category": "Helm"
             },
             {

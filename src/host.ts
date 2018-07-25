@@ -13,6 +13,7 @@ export interface Host {
     createTerminal(name?: string, shellPath?: string, shellArgs?: string[]): vscode.Terminal;
     onDidCloseTerminal(listener: (e: vscode.Terminal) => any): vscode.Disposable;
     onDidChangeConfiguration(listener: (ch: vscode.ConfigurationChangeEvent) => any): vscode.Disposable;
+    activeDocument(): vscode.TextDocument | undefined;
 }
 
 export const host: Host = {
@@ -25,7 +26,8 @@ export const host: Host = {
     createTerminal : createTerminal,
     onDidCloseTerminal : onDidCloseTerminal,
     onDidChangeConfiguration : onDidChangeConfiguration,
-    showInputBox : showInputBox
+    showInputBox : showInputBox,
+    activeDocument : activeDocument
 };
 
 function showInputBox(options: vscode.InputBoxOptions, token?: vscode.CancellationToken): Thenable<string> {
@@ -93,4 +95,12 @@ function onDidCloseTerminal(listener: (e: vscode.Terminal) => any): vscode.Dispo
 
 function onDidChangeConfiguration(listener: (e: vscode.ConfigurationChangeEvent) => any): vscode.Disposable {
     return vscode.workspace.onDidChangeConfiguration(listener);
+}
+
+function activeDocument(): vscode.TextDocument | undefined {
+    const activeEditor = vscode.window.activeTextEditor;
+    if (activeEditor) {
+        return activeEditor.document;
+    }
+    return undefined;
 }

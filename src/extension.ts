@@ -39,6 +39,7 @@ import { create as minikubeCreate, CheckPresentMode as MinikubeCheckPresentMode 
 import * as logger from './logger';
 import * as helm from './helm';
 import * as helmexec from './helm.exec';
+import * as helmauthoring from './helm.authoring';
 import { HelmRequirementsCodeLensProvider } from './helm.requirementsCodeLens';
 import { HelmTemplateHoverProvider } from './helm.hoverProvider';
 import { HelmTemplatePreviewDocumentProvider, HelmInspectDocumentProvider, HelmDependencyDocumentProvider } from './helm.documentProvider';
@@ -188,6 +189,7 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
         registerCommand('extension.helmFetch', helmexec.helmFetch),
         registerCommand('extension.helmInstall', (o) => helmexec.helmInstall(kubectl, o)),
         registerCommand('extension.helmDependencies', helmexec.helmDependencies),
+        registerCommand('extension.helmConvertToTemplate', helmConvertToTemplate),
 
         // Commands - Draft
         registerCommand('extension.draftVersion', execDraftVersion),
@@ -1865,4 +1867,12 @@ async function execDraftUp() {
 function editorIsActive(): boolean {
     // force type coercion
     return (vscode.window.activeTextEditor) ? true : false;
+}
+
+async function helmConvertToTemplate(arg?: any) {
+    const workspace = await showWorkspaceFolderPick();
+    if (!workspace) {
+        return;
+    }
+    helmauthoring.convertToTemplate(fs, host, workspace.uri.fsPath, arg);
 }
