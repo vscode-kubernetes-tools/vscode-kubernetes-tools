@@ -160,7 +160,7 @@ async function listHelmRepos(): Promise<Errorable<HelmRepo[]>> {
 }
 
 async function listHelmRepoCharts(repoName: string, repoUrl: string): Promise<Errorable<HelmRepoChart[]>> {
-    const indexUrl = vscode.Uri.parse(repoUrl).with({ path: 'index.yaml' }).toString();
+    const indexUrl = append(vscode.Uri.parse(repoUrl), 'index.yaml').toString();
     try {
         const charts = await listHelmRepoChartsCore(repoName, indexUrl);
         return { succeeded: true, result: charts };
@@ -187,4 +187,12 @@ async function listHelmRepoChartsCore(repoName: string, indexUrl: string): Promi
     const entries = chartData.entries;
     const charts = Object.keys(entries).map((k) => new HelmRepoChart(repoName, k, entries[k]));
     return charts;
+}
+
+function append(uri: vscode.Uri, resourceName: string): vscode.Uri {
+    const basePath = uri.path;
+    const separator = basePath.endsWith('/') ? '' : '/';
+    const resourcePath = basePath + separator + resourceName;
+    const resourceUri = uri.with({ path: resourcePath });
+    return resourceUri;
 }
