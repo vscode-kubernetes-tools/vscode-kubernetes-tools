@@ -33,6 +33,7 @@ import { kubeChannel } from './kubeChannel';
 import { create as kubectlCreate } from './kubectl';
 import * as kubectlUtils from './kubectlUtils';
 import * as explorer from './explorer';
+import * as helmRepoExplorer from './helm.repoExplorer';
 import { create as draftCreate, CheckPresentMode as DraftCheckPresentMode } from './draft/draft';
 import * as logger from './logger';
 import * as helm from './helm';
@@ -109,6 +110,7 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
     kubectl.checkPresent('activation');
 
     const treeProvider = explorer.create(kubectl, host);
+    const helmRepoTreeProvider = helmRepoExplorer.create(host);
     const resourceDocProvider = new KubernetesResourceVirtualFileSystemProvider(kubectl, host, vscode.workspace.rootPath);
     const previewProvider = new HelmTemplatePreviewDocumentProvider();
     const inspectProvider = new HelmInspectDocumentProvider();
@@ -148,6 +150,7 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
         registerCommand('extension.vsKubernetesConfigureFromCluster', configureFromClusterKubernetes),
         registerCommand('extension.vsKubernetesCreateCluster', createClusterKubernetes),
         registerCommand('extension.vsKubernetesRefreshExplorer', () => treeProvider.refresh()),
+        registerCommand('extension.vsKubernetesRefreshHelmRepoExplorer', () => helmRepoTreeProvider.refresh()),
         registerCommand('extension.vsKubernetesUseContext', useContextKubernetes),
         registerCommand('extension.vsKubernetesClusterInfo', clusterInfoKubernetes),
         registerCommand('extension.vsKubernetesDeleteContext', deleteContextKubernetes),
@@ -187,6 +190,7 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
         vscode.workspace.registerTextDocumentContentProvider(createCluster.uriScheme, createClusterUI),
         vscode.workspace.registerTextDocumentContentProvider(helm.PREVIEW_SCHEME, previewProvider),
         vscode.workspace.registerTextDocumentContentProvider(helm.INSPECT_SCHEME, inspectProvider),
+        vscode.workspace.registerTextDocumentContentProvider(helm.INSPECT_CHART_SCHEME, inspectProvider),
 
         // Completion providers
         vscode.languages.registerCompletionItemProvider(completionFilter, completionProvider),
@@ -205,6 +209,7 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
 
         // Tree data providers
         vscode.window.registerTreeDataProvider('extension.vsKubernetesExplorer', treeProvider),
+        vscode.window.registerTreeDataProvider('extension.vsKubernetesHelmRepoExplorer', helmRepoTreeProvider),
 
         // Temporarily loaded resource providers
         vscode.workspace.registerFileSystemProvider(K8S_RESOURCE_SCHEME, resourceDocProvider, { /* TODO: case sensitive? */ }),

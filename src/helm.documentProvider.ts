@@ -5,6 +5,7 @@ import * as YAML from 'yamljs';
 import * as fs from 'fs';
 import { escape as htmlEscape } from 'lodash';
 
+import * as helm from './helm';
 import * as logger from './logger';
 
 interface HelmDocumentResult {
@@ -30,6 +31,18 @@ function render(document: HelmDocumentResult): string {
     </body>`;
 }
 
+function extractChartName(uri: vscode.Uri): string {
+    if (uri.scheme === helm.INSPECT_CHART_SCHEME && uri.authority === helm.INSPECT_CHART_REPO_AUTHORITY) {
+        const id = uri.path.substring(1);
+        const version = uri.query;
+        return `${id} ${version}`;
+    }
+    if (filepath.extname(uri.fsPath) === ".tgz") {
+        return filepath.basename(uri.fsPath);
+    }
+    return "Chart";
+}
+
 export class HelmInspectDocumentProvider implements vscode.TextDocumentContentProvider {
     public provideTextDocumentContent(uri: vscode.Uri, tok: vscode.CancellationToken): vscode.ProviderResult<string> {
         return new Promise<string>((resolve, reject) => {
@@ -37,25 +50,31 @@ export class HelmInspectDocumentProvider implements vscode.TextDocumentContentPr
 
             const printer = (code, out, err) => {
                 if (code === 0) {
-                    const p = (filepath.extname(uri.fsPath) === ".tgz") ? filepath.basename(uri.fsPath) : "Chart";
+                    const p = extractChartName(uri);
                     const title = "Inspect " + p;
                     resolve(render({ title: title, content: out, isErrorOutput: false }));
                 }
                 reject(err);
             };
 
-            const file = uri.fsPath || uri.authority;
-            const fi = fs.statSync(file);
-            if (!fi.isDirectory() && filepath.extname(file) === ".tgz") {
-                exec.helmExec(`inspect values "${file}"`, printer);
-                return;
-            } else if (fi.isDirectory() && fs.existsSync(filepath.join(file, "Chart.yaml"))) {
-                exec.helmExec(`inspect values "${file}"`, printer);
-                return;
+            if (uri.scheme === helm.INSPECT_SCHEME) {
+                const file = uri.fsPath || uri.authority;
+                const fi = fs.statSync(file);
+                if (!fi.isDirectory() && filepath.extname(file) === ".tgz") {
+                    exec.helmExec(`inspect values "${file}"`, printer);
+                    return;
+                } else if (fi.isDirectory() && fs.existsSync(filepath.join(file, "Chart.yaml"))) {
+                    exec.helmExec(`inspect values "${file}"`, printer);
+                    return;
+                }
+                exec.pickChartForFile(file, { warnIfNoCharts: true }, (path) => {
+                    exec.helmExec(`inspect values "${path}"`, printer);
+                });
+            } else if (uri.scheme === helm.INSPECT_CHART_SCHEME && uri.authority === helm.INSPECT_CHART_REPO_AUTHORITY) {
+                const id = uri.path.substring(1);
+                const version = uri.query;
+                exec.helmExec(`inspect ${id} --version ${version}`, printer);
             }
-            exec.pickChartForFile(file, { warnIfNoCharts: true }, (path) => {
-                exec.helmExec(`inspect values "${path}"`, printer);
-            });
         });
 
     }
