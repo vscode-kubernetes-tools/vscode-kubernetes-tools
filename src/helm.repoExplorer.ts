@@ -44,7 +44,7 @@ export class HelmRepoExplorer implements vscode.TreeDataProvider<HelmObject> {
     private async getHelmRepos(): Promise<HelmObject[]> {
         const repos = await listHelmRepos();
         if (failed(repos)) {
-            return [ new HelmError('Unable to list Helm repos') ];
+            return [ new HelmError('Unable to list Helm repos', repos.error[0]) ];
         }
         return repos.result;
     }
@@ -55,10 +55,12 @@ export class HelmRepoExplorer implements vscode.TreeDataProvider<HelmObject> {
 }
 
 class HelmError implements HelmObject {
-    constructor(private readonly text: string) {}
+    constructor(private readonly text: string, private readonly detail: string) {}
 
     getTreeItem(): vscode.TreeItem {
-        return new vscode.TreeItem(this.text);
+        const treeItem = new vscode.TreeItem(this.text);
+        treeItem.tooltip = this.detail;
+        return treeItem;
     }
 
     async getChildren(): Promise<HelmObject[]> {
@@ -81,7 +83,7 @@ class HelmRepo implements HelmObject {
     async getChildren(): Promise<HelmObject[]> {
         const charts = await listHelmRepoCharts(this.name, this.url);
         if (failed(charts)) {
-            return [ new HelmError('Error fetching charts') ];
+            return [ new HelmError('Error fetching charts', charts.error[0]) ];
         }
         return charts.result;
     }
