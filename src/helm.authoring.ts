@@ -4,6 +4,8 @@ import * as yaml from 'js-yaml';
 import { FS } from './fs';
 import { Host } from './host';
 import { ResourceNode, isKubernetesExplorerResourceNode } from './explorer';
+import { helmCreateCore } from './helm.exec';
+import { failed } from './errorable';
 
 interface Context {
     readonly fs: FS;
@@ -133,9 +135,7 @@ async function pickOrCreateChart(context: Context): Promise<Chart | undefined> {
     const charts = chartsInProject(context);
     switch (charts.length) {
         case 0:
-            // for now.  Sad!
-            context.host.showErrorMessage("No charts found.");
-            return undefined;
+            return await createChart(context);
         case 1:
             return charts[0];
         default:
@@ -152,4 +152,19 @@ function fixYamlValueQuoting(yamlText: string): string {
         text = text.replace(`'${expr.text}'`, `${q}${expr.text}${q}`);
     }
     return text;
+}
+
+async function createChart(context: Context): Promise<Chart | undefined> {
+    const createResult = await helmCreateCore("No chart found. Enter name of the chart to create.", "mychart");
+
+    if (!createResult) {
+        return undefined;
+    }
+
+    if (failed(createResult)) {
+        context.host.showErrorMessage(createResult.error[0]);
+        return;
+    }
+
+    return createResult.result;
 }
