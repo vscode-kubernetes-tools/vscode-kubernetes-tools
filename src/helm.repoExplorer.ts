@@ -1,12 +1,12 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
-import * as download from 'download';
-import * as YAML from 'yamljs';
+import * as _ from 'lodash';
 
 import { Host } from './host';
 import * as helm from './helm.exec';
-import { INSPECT_CHART_REPO_AUTHORITY } from './helm';
+import { INSPECT_CHART_REPO_AUTHORITY, HELM_OUTPUT_COLUMN_SEPARATOR } from './helm';
 import { Errorable, failed } from './errorable';
+import { parseLineOutput } from './outputUtils';
 
 export function create(host: Host): HelmRepoExplorer {
     return new HelmRepoExplorer(host);
@@ -91,16 +91,16 @@ class HelmRepo implements HelmObject {
 
 class HelmRepoChart implements HelmObject {
     private readonly versions: HelmRepoChartVersion[];
+    private readonly name: string;
 
-    constructor(private readonly repoName, private readonly name: string, private readonly content: any) {
-        this.versions = content ? (content as any[]).map((e) => new HelmRepoChartVersion(
-            `${this.repoName}/${this.name}`,
-            e.version,
-            e.appVersion,
-            e.description,
-            e.sources,
-            e.urls)
-        ) : [];
+    constructor(private readonly repoName, private readonly id: string, private readonly content: { [key: string]: string }[]) {
+        this.versions = content.map((e) => new HelmRepoChartVersion(
+            id,
+            e['chart version'],
+            e['app version'],
+            e.description
+        ));
+        this.name = id.substring(repoName.length + 1);
     }
 
     getTreeItem(): vscode.TreeItem {
@@ -117,9 +117,7 @@ class HelmRepoChartVersion implements HelmObject {
         private readonly id: string,
         private readonly version: string,
         private readonly appVersion: string | undefined,
-        private readonly description: string | undefined,
-        private readonly sources: string[],
-        private readonly urls: string[]
+        private readonly description: string | undefined
     ) {}
 
     getTreeItem(): vscode.TreeItem {
@@ -162,39 +160,19 @@ async function listHelmRepos(): Promise<Errorable<HelmRepo[]>> {
 }
 
 async function listHelmRepoCharts(repoName: string, repoUrl: string): Promise<Errorable<HelmRepoChart[]>> {
-    const indexUrl = append(vscode.Uri.parse(repoUrl), 'index.yaml').toString();
-    try {
-        const charts = await listHelmRepoChartsCore(repoName, indexUrl);
-        return { succeeded: true, result: charts };
-    } catch (e) {
-        if (vscode.Uri.parse(repoUrl).authority.indexOf("127.0.0.1") >= 0) {
-            const d = await helm.helmServe();
-            try {
-                const charts = await listHelmRepoChartsCore(repoName, indexUrl);
-                return { succeeded: true, result: charts };
-            } catch (e2) {
-                return { succeeded: false, error: [ "" + e2 ] };
-            } finally {
-                d.dispose();
-            }
-        }
-        return { succeeded: false, error: [ "" + e ] };
+    const sr = await helm.helmExecAsync(`search ${repoName}/ -l`);
+    if (sr.code !== 0) {
+        return { succeeded: false, error: [ sr.stderr ]};
     }
-}
 
-async function listHelmRepoChartsCore(repoName: string, indexUrl: string): Promise<HelmRepoChart[]> {
-    const buffer: Buffer = await download(indexUrl);
-    const yaml = buffer.toString();
-    const chartData = YAML.parse(yaml);
-    const entries = chartData.entries;
-    const charts = Object.keys(entries).map((k) => new HelmRepoChart(repoName, k, entries[k]));
-    return charts;
-}
-
-function append(uri: vscode.Uri, resourceName: string): vscode.Uri {
-    const basePath = uri.path;
-    const separator = basePath.endsWith('/') ? '' : '/';
-    const resourcePath = basePath + separator + resourceName;
-    const resourceUri = uri.with({ path: resourcePath });
-    return resourceUri;
+    const lines = sr.stdout.split('\n')
+                           .map((l) => l.trim())
+                           .filter((l) => l.length > 0);
+    const entries = parseLineOutput(lines, HELM_OUTPUT_COLUMN_SEPARATOR);
+    const charts = _.chain(entries)
+                    .groupBy((e) => e.name)
+                    .toPairs()
+                    .map((p) => new HelmRepoChart(repoName, p[0], p[1]))
+                    .value();
+    return { succeeded: true, result: charts };
 }
