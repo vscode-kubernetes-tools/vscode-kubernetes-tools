@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as yaml from 'js-yaml';
 import { FS } from './fs';
 import { Host } from './host';
+import { ResourceNode, isKubernetesExplorerResourceNode } from './explorer';
 
 interface Context {
     readonly fs: FS;
@@ -15,33 +16,23 @@ interface Chart {
     path: string;
 }
 
-export function convertToTemplate(fs: FS, host: Host, projectPath: string, uri: vscode.Uri | undefined): void {
+export async function convertToTemplate(fs: FS, host: Host, projectPath: string, target: vscode.Uri | ResourceNode | undefined): Promise<void> {
     const context = { fs, host, projectPath };
     const activeDocument = host.activeDocument();
-    if (uri) {
+    if (isKubernetesExplorerResourceNode(target)) {
+        // it's a k8s explorer click
+        const uri = target.uri('yaml');
+        const yaml = (await host.readDocument(uri)).getText();
+        addChart(context, yaml);
+    }  else if (target) {
         // it's a file explorer click
-        addChartFrom(context, uri.fsPath);
+        addChartFrom(context, target.fsPath);
     } else if (activeDocument) {
         addChart(context, activeDocument.getText());
     } else {
         host.showErrorMessage("This command requires a YAML file open or selected in the Explorer.");
     }
 }
-
-// What it needs to do:
-// * How many charts already exist in this project?  (A chart is a diorectory containing
-//   a Chart.yaml file.)
-//   - None - we need to helm create one.  (But this will create scaffolding - do we want that?)
-//   - One - we need to add the template to that chart.
-//   - Several - we need to prompt for which chart to add it to.
-// * Then we create a file in chart_dir/templates
-//   - Do we need to create anything in chart_dir/charts?  (No - this is for dependent charts.)
-// * Copy the resource/active doc YAML to the new file
-// * Strip out output-only stuff such as status
-// * Paramterise anything we can reliably parameterise
-//   - Change it to a values.* (or something-else.*?) reference
-//   - Add the * to values.yaml if required
-// * Add Helm boilerplate such as chart: labels
 
 async function addChartFrom(context: Context, fsPath: string): Promise<void> {
     const yaml = context.fs.readFileSync(fsPath, 'utf-8');
@@ -71,7 +62,7 @@ async function addChart(context: Context, resourceYaml: string): Promise<void> {
     const templateText = fixYamlValueQuoting(templateYaml);
     context.fs.writeFileSync(templateFile, templateText);
 
-    await context.host.openDocument(vscode.Uri.file(templateFile));
+    await context.host.showDocument(vscode.Uri.file(templateFile));
 }
 
 enum QuoteMode {
@@ -116,6 +107,10 @@ function cleanseMetadata(metadata: any): void {
     delete metadata.resourceVersion;
     delete metadata.selfLink;
     delete metadata.uid;
+
+    if (metadata.annotations) {
+        delete metadata.annotations['kubectl.kubernetes.io/last-applied-configuration'];
+    }
 }
 
 function chartsInProject(context: Context): Chart[] {

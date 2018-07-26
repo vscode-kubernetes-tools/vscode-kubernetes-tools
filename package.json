@@ -331,6 +331,11 @@
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource"
                 },
                 {
+                    "command": "extension.helmConvertToTemplate",
+                    "group": "2",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource"
+                },
+                {
                     "command": "extension.vsKubernetesLoad",
                     "group": "0",
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
@@ -376,6 +381,11 @@
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
                 },
                 {
+                    "command": "extension.helmConvertToTemplate",
+                    "group": "2",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
+                },
+                {
                     "command": "extension.vsKubernetesShowLogs",
                     "group": "3",
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
@@ -411,6 +421,11 @@
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.configmap"
                 },
                 {
+                    "command": "extension.helmConvertToTemplate",
+                    "group": "2",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.configmap"
+                },
+                {
                     "command": "extension.vsKubernetesAddFile",
                     "group": "3",
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.configmap"
@@ -428,6 +443,11 @@
                 {
                     "command": "extension.vsKubernetesGet",
                     "group": "2@1",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.secret"
+                },
+                {
+                    "command": "extension.helmConvertToTemplate",
+                    "group": "2",
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.secret"
                 },
                 {

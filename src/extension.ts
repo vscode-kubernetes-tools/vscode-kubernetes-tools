@@ -66,7 +66,7 @@ import { KubernetesCompletionProvider } from "./yaml-support/yaml-snippet";
 import { showWorkspaceFolderPick } from './hostutils';
 import { DraftConfigurationProvider } from './draft/draftConfigurationProvider';
 import { installHelm, installDraft, installKubectl, installMinikube } from './components/installer/installer';
-import { KubernetesResourceVirtualFileSystemProvider, K8S_RESOURCE_SCHEME, KUBECTL_RESOURCE_AUTHORITY } from './kuberesources.virtualfs';
+import { KubernetesResourceVirtualFileSystemProvider, K8S_RESOURCE_SCHEME, KUBECTL_RESOURCE_AUTHORITY, kubefsUri } from './kuberesources.virtualfs';
 import { Container, isKubernetesResource, KubernetesCollection, Pod, KubernetesResource } from './kuberesources.objectmodel';
 import { setActiveKubeconfig, getKnownKubeconfigs, addKnownKubeconfig } from './components/config/config';
 
@@ -664,11 +664,8 @@ function loadKubernetes(explorerNode?: explorer.ResourceNode) {
 
 function loadKubernetesCore(namespace: string | null, value: string) {
     const outputFormat = vscode.workspace.getConfiguration('vs-kubernetes')['vs-kubernetes.outputFormat'];
-    const docname = `${value.replace('/', '-')}.${outputFormat}`;
-    const nonce = new Date().getTime();
-    const nsquery = namespace ? `ns=${namespace}&` : '';
-    const uri = `${K8S_RESOURCE_SCHEME}://${KUBECTL_RESOURCE_AUTHORITY}/${docname}?${nsquery}value=${value}&_=${nonce}`;
-    vscode.workspace.openTextDocument(vscode.Uri.parse(uri)).then((doc) => {
+    const uri = kubefsUri(namespace, value, outputFormat);
+    vscode.workspace.openTextDocument(uri).then((doc) => {
         if (doc) {
             vscode.window.showTextDocument(doc);
         }
