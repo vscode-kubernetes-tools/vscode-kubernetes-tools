@@ -741,7 +741,13 @@
                 "title": "Get Release",
                 "description": "Get a Helm release from the cluster",
                 "category": "Helm"
-            }
+            },
+            {
+				"command": "extension.helmPackage",
+				"title": "Package",
+				"description": "Run the Helm package on this chart.",
+				"category": "Helm"
+			}
         ],
         "languages": [
             {

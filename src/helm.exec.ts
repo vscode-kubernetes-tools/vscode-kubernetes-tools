@@ -173,6 +173,26 @@ export function helmGet(resourceNode: explorer.ResourceNode) {
     });
 }
 
+// helmPackage runs the Helm package on a chart within your project.
+export function helmPackage() {
+    pickChart((path) => {
+        vscode.window.showInputBox({
+            prompt: "package path",
+            placeHolder: "package path"
+        }).then((ppath) => {
+            const packagepath = ppath;
+            logger.log("⎈⎈⎈ Packaging " + path);
+            helmExec(`package "${path}" -d "${packagepath}"`, (code, out, err) => {
+                logger.log(out);
+                logger.log(err);
+                if (code !== 0) {
+                    vscode.window.showErrorMessage(err);
+                }
+            });
+        });
+    });
+}
+
 // pickChart tries to find charts in this repo. If one is found, fn() is executed with that
 // chart's path. If more than one are found, the user is prompted to choose one, and then
 // the fn is executed with that chart.
