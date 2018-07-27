@@ -176,19 +176,19 @@ export function helmGet(resourceNode: explorer.ResourceNode) {
 // helmPackage runs the Helm package on a chart within your project.
 export function helmPackage() {
     pickChart((path) => {
-        vscode.window.showInputBox({
-            prompt: "package path",
-            placeHolder: "package path"
-        }).then((ppath) => {
-            const packagepath = ppath;
-            logger.log("⎈⎈⎈ Packaging " + path);
-            helmExec(`package "${path}" -d "${packagepath}"`, (code, out, err) => {
-                logger.log(out);
-                logger.log(err);
-                if (code !== 0) {
-                    vscode.window.showErrorMessage(err);
-                }
-            });
+        let options = { openLabel: "Save", canSelectFiles: false, canSelectFolders: true };
+        vscode.window.showOpenDialog(options).then((packagePath) => {
+            if (packagePath) {
+                logger.log("⎈⎈⎈ Packaging " + path);
+                helmExec(`package "${path}" -d "${packagePath}"`, (code, out, err) => {
+                    logger.log(out);
+                    logger.log(err);
+                    if (code !== 0) {
+                        vscode.window.showErrorMessage(err);
+                    }
+                });
+            }
+            return;
         });
     });
 }
