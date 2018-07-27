@@ -179,6 +179,7 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
         registerCommand('extension.helmGet', helmexec.helmGet),
         registerCommand('extension.helmPackage', helmexec.helmPackage),
         registerCommand('extension.helmFetch', helmexec.helmFetch),
+        registerCommand('extension.helmInstall', (o) => helmexec.helmInstall(kubectl, o)),
 
         // Commands - Draft
         registerCommand('extension.draftVersion', execDraftVersion),

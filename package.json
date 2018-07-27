@@ -438,6 +438,16 @@
                     "command": "extension.helmFetch",
                     "group": "0",
                     "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem == vsKubernetes.chartversion"
+                },
+                {
+                    "command": "extension.helmInstall",
+                    "group": "1",
+                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem == vsKubernetes.chart"
+                },
+                {
+                    "command": "extension.helmInstall",
+                    "group": "1",
+                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem == vsKubernetes.chartversion"
                 }
             ],
             "commandPalette": [
@@ -764,6 +774,12 @@
                 "command": "extension.helmFetch",
                 "title": "Fetch",
                 "description": "Fetch a Helm chart into the current project",
+                "category": "Helm"
+            },
+            {
+                "command": "extension.helmInstall",
+                "title": "Install",
+                "description": "Install a Helm chart into the cluster",
                 "category": "Helm"
             }
         ],

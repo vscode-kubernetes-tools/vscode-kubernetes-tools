@@ -16,6 +16,8 @@ import { K8S_RESOURCE_SCHEME, HELM_RESOURCE_AUTHORITY } from './kuberesources.vi
 import { Errorable } from './errorable';
 import { parseLineOutput } from './outputUtils';
 import { sleep } from './sleep';
+import { currentNamespace } from './kubectlUtils';
+import { Kubectl } from './kubectl';
 
 export interface PickChartUIOptions {
     readonly warnIfNoCharts: boolean;
@@ -194,7 +196,7 @@ export function helmPackage() {
     });
 }
 
-export async function helmFetch(helmObject: helmrepoexplorer.HelmObject): Promise<void> {
+export async function helmFetch(helmObject: helmrepoexplorer.HelmObject | undefined): Promise<void> {
     if (!helmObject) {
         const id = await vscode.window.showInputBox({ prompt: "Chart to fetch", placeHolder: "stable/mychart" });
         if (id) {
@@ -221,6 +223,46 @@ async function helmFetchCore(chartId: string, version: string | undefined): Prom
         return;
     }
     await vscode.window.showInformationMessage(`Fetched ${chartId}`);
+}
+
+export async function helmInstall(kubectl: Kubectl, helmObject: helmrepoexplorer.HelmObject | undefined): Promise<void> {
+    if (!helmObject) {
+        const id = await vscode.window.showInputBox({ prompt: "Chart to install", placeHolder: "stable/mychart" });
+        if (id) {
+            helmInstallCore(kubectl, id, undefined);
+        }
+    }
+    if (helmrepoexplorer.isHelmRepoChart(helmObject)) {
+        await helmInstallCore(kubectl, helmObject.id, undefined);
+    } else if (helmrepoexplorer.isHelmRepoChartVersion(helmObject)) {
+        await helmInstallCore(kubectl, helmObject.id, helmObject.version);
+    }
+}
+
+async function helmInstallCore(kubectl: Kubectl, chartId: string, version: string | undefined): Promise<void> {
+    const ns = await currentNamespace(kubectl);
+    const nsArg = ns ? `--namespace ${ns}` : '';
+    const versionArg = version ? `--version ${version}` : '';
+    const sr = await helmExecAsync(`install ${chartId} ${versionArg} ${nsArg}`);
+    if (sr.code !== 0) {
+        logger.log(sr.stderr);
+        await vscode.window.showErrorMessage(`Helm install failed: ${sr.stderr}`);
+        return;
+    }
+    const releaseName = extractReleaseName(sr.stdout);
+    logger.log(sr.stdout);
+    await vscode.window.showInformationMessage(`Installed ${chartId} as release ${releaseName}`);
+}
+
+const HELM_INSTALL_NAME_HEADER = "NAME:";
+
+function extractReleaseName(helmOutput: string): string {
+    const lines = helmOutput.split('\n').map((l) => l.trim());
+    const nameLine = lines.find((l) => l.startsWith(HELM_INSTALL_NAME_HEADER));
+    if (!nameLine) {
+        return '(unknown)';
+    }
+    return nameLine.substring(HELM_INSTALL_NAME_HEADER.length + 1).trim();
 }
 
 // pickChart tries to find charts in this repo. If one is found, fn() is executed with that
