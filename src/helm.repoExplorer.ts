@@ -49,7 +49,8 @@ export class HelmRepoExplorer implements vscode.TreeDataProvider<HelmObject> {
         return repos.result;
     }
 
-    refresh(): void {
+    async refresh(): Promise<void> {
+        await helm.helmExecAsync('repo update');
         this.onDidChangeTreeDataEmitter.fire();
     }
 }
