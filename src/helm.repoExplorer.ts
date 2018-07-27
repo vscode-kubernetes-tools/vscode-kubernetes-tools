@@ -78,6 +78,7 @@ class HelmRepo implements HelmObject {
             light: vscode.Uri.file(path.join(__dirname, "../../images/light/helm-blue-vector.svg")),
             dark: vscode.Uri.file(path.join(__dirname, "../../images/dark/helm-white-vector.svg")),
         };
+        treeItem.contextValue = 'vsKubernetes.repo';
         return treeItem;
     }
 
@@ -105,7 +106,9 @@ class HelmRepoChart implements HelmObject {
     }
 
     getTreeItem(): vscode.TreeItem {
-        return new vscode.TreeItem(this.name, vscode.TreeItemCollapsibleState.Collapsed);
+        const treeItem = new vscode.TreeItem(this.name, vscode.TreeItemCollapsibleState.Collapsed);
+        treeItem.contextValue = 'vskubernetes.chart';
+        return treeItem;
     }
 
     async getChildren(): Promise<HelmObject[]> {
@@ -129,6 +132,7 @@ class HelmRepoChartVersion implements HelmObject {
             title: "Inspect",
             arguments: [{ kind: INSPECT_CHART_REPO_AUTHORITY, id: this.id, version: this.version }]
         };
+        treeItem.contextValue = 'vsKubernetes.chartversion';
         return treeItem;
     }
 
