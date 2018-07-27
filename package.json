@@ -745,7 +745,7 @@
             {
 				"command": "extension.helmPackage",
 				"title": "Package",
-				"description": "Run the Helm package on this chart.",
+				"description": "Package a chart directory into a versioned chart archive file.",
 				"category": "Helm"
 			}
         ],
