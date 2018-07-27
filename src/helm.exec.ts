@@ -176,7 +176,7 @@ export function helmGet(resourceNode: explorer.ResourceNode) {
 // helmPackage runs the Helm package on a chart within your project.
 export function helmPackage() {
     pickChart((path) => {
-        let options = { openLabel: "Save", canSelectFiles: false, canSelectFolders: true };
+        const options = { openLabel: "Save", canSelectFiles: false, canSelectFolders: true };
         vscode.window.showOpenDialog(options).then((packagePath) => {
             if (packagePath) {
                 logger.log("⎈⎈⎈ Packaging " + path);
