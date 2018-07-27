@@ -744,11 +744,11 @@
                 "category": "Helm"
             },
             {
-		"command": "extension.helmPackage",
-		"title": "Package",
-		"description": "Package a chart directory into a versioned chart archive file.",
-		"category": "Helm"
-	    }
+		        "command": "extension.helmPackage",
+		        "title": "Package",
+		        "description": "Package a chart directory into a versioned chart archive file.",
+		        "category": "Helm"
+	        }
         ],
         "languages": [
             {
