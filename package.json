@@ -63,6 +63,7 @@
         "onCommand:extension.helmInspectValues",
         "onCommand:extension.helmGet",
         "onCommand:extension.helmPackage",
+        "onCommand:extension.helmFetch",
         "onCommand:extension.draftVersion",
         "onCommand:extension.draftCreate",
         "onCommand:extension.draftUp",
@@ -427,6 +428,16 @@
                     "command": "extension.vsKubernetesDeleteFile",
                     "group": "3",
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.file"
+                },
+                {
+                    "command": "extension.helmFetch",
+                    "group": "0",
+                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem == vsKubernetes.chart"
+                },
+                {
+                    "command": "extension.helmFetch",
+                    "group": "0",
+                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem == vsKubernetes.chartversion"
                 }
             ],
             "commandPalette": [
@@ -747,6 +758,12 @@
                 "command": "extension.helmPackage",
                 "title": "Package",
                 "description": "Package a chart directory into a versioned chart archive file.",
+                "category": "Helm"
+            },
+            {
+                "command": "extension.helmFetch",
+                "title": "Fetch",
+                "description": "Fetch a Helm chart into the current project",
                 "category": "Helm"
             }
         ],

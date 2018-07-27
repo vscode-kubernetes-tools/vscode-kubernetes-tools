@@ -12,9 +12,42 @@ export function create(host: Host): HelmRepoExplorer {
     return new HelmRepoExplorer(host);
 }
 
-interface HelmObject {
+export enum RepoExplorerObjectKind {
+    Repo,
+    Chart,
+    ChartVersion,
+    Error,
+}
+
+export interface HelmObject {
+    readonly kind: RepoExplorerObjectKind;
     getChildren(): Promise<HelmObject[]>;
     getTreeItem(): vscode.TreeItem;
+}
+
+export interface HelmRepo extends HelmObject {
+    readonly name: string;
+}
+
+export interface HelmRepoChart extends HelmObject {
+    readonly id: string;
+}
+
+export interface HelmRepoChartVersion extends HelmObject {
+    readonly id: string;
+    readonly version: string;
+}
+
+export function isHelmRepo(o: HelmObject): o is HelmRepo {
+    return o && o.kind === RepoExplorerObjectKind.Repo;
+}
+
+export function isHelmRepoChart(o: HelmObject): o is HelmRepoChart {
+    return o && o.kind === RepoExplorerObjectKind.Chart;
+}
+
+export function isHelmRepoChartVersion(o: HelmObject): o is HelmRepoChartVersion {
+    return o && o.kind === RepoExplorerObjectKind.ChartVersion;
 }
 
 export class HelmRepoExplorer implements vscode.TreeDataProvider<HelmObject> {
@@ -58,6 +91,8 @@ export class HelmRepoExplorer implements vscode.TreeDataProvider<HelmObject> {
 class HelmError implements HelmObject {
     constructor(private readonly text: string, private readonly detail: string) {}
 
+    get kind() { return RepoExplorerObjectKind.Error; }
+
     getTreeItem(): vscode.TreeItem {
         const treeItem = new vscode.TreeItem(this.text);
         treeItem.tooltip = this.detail;
@@ -69,8 +104,10 @@ class HelmError implements HelmObject {
     }
 }
 
-class HelmRepo implements HelmObject {
-    constructor(private readonly name: string, private readonly url: string) {}
+class HelmRepoImpl implements HelmRepo {
+    constructor(readonly name: string, private readonly url: string) {}
+
+    get kind() { return RepoExplorerObjectKind.Repo; }
 
     getTreeItem(): vscode.TreeItem {
         const treeItem = new vscode.TreeItem(this.name, vscode.TreeItemCollapsibleState.Collapsed);
@@ -91,12 +128,12 @@ class HelmRepo implements HelmObject {
     }
 }
 
-class HelmRepoChart implements HelmObject {
-    private readonly versions: HelmRepoChartVersion[];
+class HelmRepoChartImpl implements HelmRepoChart {
+    private readonly versions: HelmRepoChartVersionImpl[];
     private readonly name: string;
 
-    constructor(private readonly repoName, private readonly id: string, private readonly content: { [key: string]: string }[]) {
-        this.versions = content.map((e) => new HelmRepoChartVersion(
+    constructor(private readonly repoName, readonly id: string, private readonly content: { [key: string]: string }[]) {
+        this.versions = content.map((e) => new HelmRepoChartVersionImpl(
             id,
             e['chart version'],
             e['app version'],
@@ -105,9 +142,11 @@ class HelmRepoChart implements HelmObject {
         this.name = id.substring(repoName.length + 1);
     }
 
+    get kind() { return RepoExplorerObjectKind.Chart; }
+
     getTreeItem(): vscode.TreeItem {
         const treeItem = new vscode.TreeItem(this.name, vscode.TreeItemCollapsibleState.Collapsed);
-        treeItem.contextValue = 'vskubernetes.chart';
+        treeItem.contextValue = 'vsKubernetes.chart';
         return treeItem;
     }
 
@@ -116,13 +155,15 @@ class HelmRepoChart implements HelmObject {
     }
 }
 
-class HelmRepoChartVersion implements HelmObject {
+class HelmRepoChartVersionImpl implements HelmRepoChartVersion {
     constructor(
-        private readonly id: string,
-        private readonly version: string,
+        readonly id: string,
+        readonly version: string,
         private readonly appVersion: string | undefined,
         private readonly description: string | undefined
     ) {}
+
+    get kind() { return RepoExplorerObjectKind.ChartVersion; }
 
     getTreeItem(): vscode.TreeItem {
         const treeItem = new vscode.TreeItem(this.version);
@@ -149,7 +190,7 @@ class HelmRepoChartVersion implements HelmObject {
     }
 }
 
-async function listHelmRepos(): Promise<Errorable<HelmRepo[]>> {
+async function listHelmRepos(): Promise<Errorable<HelmRepoImpl[]>> {
     const sr = await helm.helmExecAsync("repo list");
     if (sr.code !== 0) {
         return { succeeded: false, error: [sr.stderr] };
@@ -160,11 +201,11 @@ async function listHelmRepos(): Promise<Errorable<HelmRepo[]>> {
                            .map((l) => l.trim())
                            .filter((l) => l.length > 0)
                            .map((l) => l.split('\t').map((bit) => bit.trim()))
-                           .map((bits) => new HelmRepo(bits[0], bits[1]));
+                           .map((bits) => new HelmRepoImpl(bits[0], bits[1]));
     return { succeeded: true, result: repos };
 }
 
-async function listHelmRepoCharts(repoName: string, repoUrl: string): Promise<Errorable<HelmRepoChart[]>> {
+async function listHelmRepoCharts(repoName: string, repoUrl: string): Promise<Errorable<HelmRepoChartImpl[]>> {
     const sr = await helm.helmExecAsync(`search ${repoName}/ -l`);
     if (sr.code !== 0) {
         return { succeeded: false, error: [ sr.stderr ]};
@@ -177,7 +218,7 @@ async function listHelmRepoCharts(repoName: string, repoUrl: string): Promise<Er
     const charts = _.chain(entries)
                     .groupBy((e) => e.name)
                     .toPairs()
-                    .map((p) => new HelmRepoChart(repoName, p[0], p[1]))
+                    .map((p) => new HelmRepoChartImpl(repoName, p[0], p[1]))
                     .value();
     return { succeeded: true, result: charts };
 }

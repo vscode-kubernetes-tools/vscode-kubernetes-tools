@@ -8,6 +8,7 @@ import * as _ from 'lodash';
 import * as fs from "fs";
 import * as extension from './extension';
 import * as explorer from './explorer';
+import * as helmrepoexplorer from './helm.repoExplorer';
 import * as helm from './helm';
 import { showWorkspaceFolderPick } from './hostutils';
 import { shell as sh, ShellResult } from './shell';
@@ -191,6 +192,35 @@ export function helmPackage() {
             return;
         });
     });
+}
+
+export async function helmFetch(helmObject: helmrepoexplorer.HelmObject): Promise<void> {
+    if (!helmObject) {
+        const id = await vscode.window.showInputBox({ prompt: "Chart to fetch", placeHolder: "stable/mychart" });
+        if (id) {
+            helmFetchCore(id, undefined);
+        }
+    }
+    if (helmrepoexplorer.isHelmRepoChart(helmObject)) {
+        await helmFetchCore(helmObject.id, undefined);
+    } else if (helmrepoexplorer.isHelmRepoChartVersion(helmObject)) {
+        await helmFetchCore(helmObject.id, helmObject.version);
+    }
+}
+
+async function helmFetchCore(chartId: string, version: string | undefined): Promise<void> {
+    const projectFolder = await showWorkspaceFolderPick();
+    if (!projectFolder) {
+        return;
+    }
+
+    const versionArg = version ? `--version ${version}` : '';
+    const sr = await helmExecAsync(`fetch ${chartId} --untar ${versionArg} -d "${projectFolder.uri.fsPath}"`);
+    if (sr.code !== 0) {
+        await vscode.window.showErrorMessage(`Helm fetch failed: ${sr.stderr}`);
+        return;
+    }
+    await vscode.window.showInformationMessage(`Fetched ${chartId}`);
 }
 
 // pickChart tries to find charts in this repo. If one is found, fn() is executed with that
