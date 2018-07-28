@@ -120,6 +120,7 @@ If you are building and running the extension from source, see [CONTRIBUTING.md]
      * `Helm: DryRun` - Run a helm install --dry-run --debug on a remote cluster and get the results
      * `Helm: Version` - Get the Helm version
      * `Helm: Dependency Update` - Update a chart's dependencies.
+     * `Helm: Package` - Package the chart into a versioned chart archive file.
    * Code lenses for:
      * requirements.yaml (Add and update dependencies)
    * Right-click on a chart .tgz file, and choose inspect chart to preview all configurable chart values.
