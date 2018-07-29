@@ -62,7 +62,7 @@
         "onCommand:extension.helmDepUp",
         "onCommand:extension.helmInspectValues",
         "onCommand:extension.helmGet",
-	    "onCommand:extension.helmPackage",
+	"onCommand:extension.helmPackage",
         "onCommand:extension.draftVersion",
         "onCommand:extension.draftCreate",
         "onCommand:extension.draftUp",
@@ -744,11 +744,11 @@
                 "category": "Helm"
             },
             {
-		        "command": "extension.helmPackage",
-		        "title": "Package",
-		        "description": "Package a chart directory into a versioned chart archive file.",
-		        "category": "Helm"
-	        }
+		"command": "extension.helmPackage",
+		"title": "Package",
+		"description": "Package a chart directory into a versioned chart archive file.",
+		"category": "Helm"
+	    }
         ],
         "languages": [
             {
