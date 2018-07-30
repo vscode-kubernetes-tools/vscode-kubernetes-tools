@@ -65,6 +65,7 @@
         "onCommand:extension.helmGet",
         "onCommand:extension.helmPackage",
         "onCommand:extension.helmFetch",
+        "onCommand:extension.helmInstall",
         "onCommand:extension.draftVersion",
         "onCommand:extension.draftCreate",
         "onCommand:extension.draftUp",
