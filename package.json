@@ -60,6 +60,7 @@
         "onCommand:extension.helmCreate",
         "onCommand:extension.helmInsertReq",
         "onCommand:extension.helmDepUp",
+        "onCommand:extension.helmInspectChart",
         "onCommand:extension.helmInspectValues",
         "onCommand:extension.helmGet",
         "onCommand:extension.helmPackage",
@@ -431,22 +432,42 @@
                 },
                 {
                     "command": "extension.helmFetch",
-                    "group": "0",
+                    "group": "1",
                     "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem == vsKubernetes.chart"
                 },
                 {
                     "command": "extension.helmFetch",
-                    "group": "0",
+                    "group": "1",
                     "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem == vsKubernetes.chartversion"
                 },
                 {
                     "command": "extension.helmInstall",
-                    "group": "1",
+                    "group": "2",
                     "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem == vsKubernetes.chart"
                 },
                 {
                     "command": "extension.helmInstall",
-                    "group": "1",
+                    "group": "2",
+                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem == vsKubernetes.chartversion"
+                },
+                {
+                    "command": "extension.helmInspectChart",
+                    "group": "0@1",
+                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem == vsKubernetes.chart"
+                },
+                {
+                    "command": "extension.helmInspectChart",
+                    "group": "0@1",
+                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem == vsKubernetes.chartversion"
+                },
+                {
+                    "command": "extension.helmInspectValues",
+                    "group": "0@2",
+                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem == vsKubernetes.chart"
+                },
+                {
+                    "command": "extension.helmInspectValues",
+                    "group": "0@2",
                     "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem == vsKubernetes.chartversion"
                 }
             ],
@@ -494,6 +515,14 @@
                 {
                     "command": "extension.helmInspectValues",
                     "when": "filesExplorerFocus"
+                },
+                {
+                    "command": "extension.helmInspectValues",
+                    "when": "view === extension.vsKubernetesHelmRepoExplorer"
+                },
+                {
+                    "command": "extension.helmInspectChart",
+                    "when": "view === extension.vsKubernetesHelmRepoExplorer"
                 }
             ]
         },
@@ -748,6 +777,12 @@
             },
             {
                 "command": "extension.helmInspectValues",
+                "title": "Inspect Values",
+                "description": "Inspect a Helm Chart",
+                "category": "Helm"
+            },
+            {
+                "command": "extension.helmInspectChart",
                 "title": "Inspect Chart",
                 "description": "Inspect a Helm Chart",
                 "category": "Helm"

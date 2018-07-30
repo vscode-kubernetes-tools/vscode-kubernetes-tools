@@ -172,6 +172,7 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
         registerCommand('extension.helmTemplatePreview', helmexec.helmTemplatePreview),
         registerCommand('extension.helmLint', helmexec.helmLint),
         registerCommand('extension.helmInspectValues', helmexec.helmInspectValues),
+        registerCommand('extension.helmInspectChart', helmexec.helmInspectChart),
         registerCommand('extension.helmDryRun', helmexec.helmDryRun),
         registerCommand('extension.helmDepUp', helmexec.helmDepUp),
         registerCommand('extension.helmInsertReq', helmexec.insertRequirement),
@@ -193,7 +194,7 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
         vscode.workspace.registerTextDocumentContentProvider(configureFromCluster.uriScheme, configureFromClusterUI),
         vscode.workspace.registerTextDocumentContentProvider(createCluster.uriScheme, createClusterUI),
         vscode.workspace.registerTextDocumentContentProvider(helm.PREVIEW_SCHEME, previewProvider),
-        vscode.workspace.registerTextDocumentContentProvider(helm.INSPECT_SCHEME, inspectProvider),
+        vscode.workspace.registerTextDocumentContentProvider(helm.INSPECT_VALUES_SCHEME, inspectProvider),
         vscode.workspace.registerTextDocumentContentProvider(helm.INSPECT_CHART_SCHEME, inspectProvider),
 
         // Completion providers

@@ -128,21 +128,40 @@ export function helmLint() {
 // If a non-tgz, non-directory file is passed, this tries to find a parent chart.
 export function helmInspectValues(arg: any) {
     if (!arg) {
-        vscode.window.showErrorMessage("Helm Inspect Values is primarily for inspecting packaged charts and directories. Launch the command from a file or directory in the Explorer pane.");
+        vscode.window.showErrorMessage("Helm Inspect Values is for packaged charts and directories. Launch the command from a file or directory in the file explorer. or a chart or version in the Helm Repos explorer.");
         return;
     }
     if (!ensureHelm(EnsureMode.Alert)) {
         return;
     }
 
-    if (arg.kind && arg.kind === helm.INSPECT_CHART_REPO_AUTHORITY) {
-        const id: string = arg.id;
-        const version: string = arg.version;
-        const uri = vscode.Uri.parse(`${helm.INSPECT_CHART_SCHEME}://${helm.INSPECT_CHART_REPO_AUTHORITY}/${id}?${version}`);
+    if (helmrepoexplorer.isHelmRepoChart(arg) || helmrepoexplorer.isHelmRepoChartVersion(arg)) {
+        const id = arg.id;
+        const version = helmrepoexplorer.isHelmRepoChartVersion(arg) ? arg.version : undefined;
+        const versionQuery = version ? `?${version}` : '';
+        const uri = vscode.Uri.parse(`${helm.INSPECT_VALUES_SCHEME}://${helm.INSPECT_REPO_AUTHORITY}/${id}${versionQuery}`);
         vscode.commands.executeCommand("vscode.previewHtml", uri, vscode.ViewColumn.Two, "Inspect");
     } else {
         const u = arg as vscode.Uri;
-        const uri = vscode.Uri.parse("helm-inspect-values://" + u.fsPath);
+        const uri = vscode.Uri.parse(`${helm.INSPECT_VALUES_SCHEME}://${helm.INSPECT_FILE_AUTHORITY}/?${u.fsPath}`);
+        vscode.commands.executeCommand("vscode.previewHtml", uri, vscode.ViewColumn.Two, "Inspect");
+    }
+}
+
+export function helmInspectChart(arg: any) {
+    if (!arg) {
+        vscode.window.showErrorMessage("Helm Inspect Chart is for packaged charts and directories. Launch the command from a chart or version in the Helm Repos explorer.");
+        return;
+    }
+    if (!ensureHelm(EnsureMode.Alert)) {
+        return;
+    }
+
+    if (helmrepoexplorer.isHelmRepoChart(arg) || helmrepoexplorer.isHelmRepoChartVersion(arg)) {
+        const id: string = arg.id;
+        const version = helmrepoexplorer.isHelmRepoChartVersion(arg) ? arg.version : undefined;
+        const versionQuery = version ? `?${version}` : '';
+        const uri = vscode.Uri.parse(`${helm.INSPECT_CHART_SCHEME}://${helm.INSPECT_REPO_AUTHORITY}/${id}${versionQuery}`);
         vscode.commands.executeCommand("vscode.previewHtml", uri, vscode.ViewColumn.Two, "Inspect");
     }
 }

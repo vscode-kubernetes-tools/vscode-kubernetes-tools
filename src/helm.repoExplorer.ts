@@ -4,7 +4,7 @@ import * as _ from 'lodash';
 
 import { Host } from './host';
 import * as helm from './helm.exec';
-import { INSPECT_CHART_REPO_AUTHORITY, HELM_OUTPUT_COLUMN_SEPARATOR } from './helm';
+import { HELM_OUTPUT_COLUMN_SEPARATOR } from './helm';
 import { Errorable, failed } from './errorable';
 import { parseLineOutput } from './outputUtils';
 
@@ -169,9 +169,9 @@ class HelmRepoChartVersionImpl implements HelmRepoChartVersion {
         const treeItem = new vscode.TreeItem(this.version);
         treeItem.tooltip = this.tooltip();
         treeItem.command = {
-            command: "extension.helmInspectValues",
+            command: "extension.helmInspectChart",
             title: "Inspect",
-            arguments: [{ kind: INSPECT_CHART_REPO_AUTHORITY, id: this.id, version: this.version }]
+            arguments: [this]
         };
         treeItem.contextValue = 'vsKubernetes.chartversion';
         return treeItem;
