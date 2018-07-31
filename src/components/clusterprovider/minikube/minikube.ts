@@ -8,10 +8,15 @@ import * as binutil from '../../../binutil';
 import { Errorable } from '../../../errorable';
 import { fromShellExitCodeOnly, Diagnostic } from '../../../wizard';
 
+export class MinikubeOptions {
+    readonly vmDriver: string;
+    readonly additionalFlags: string;
+}
+
 export interface Minikube {
     checkPresent(mode: CheckPresentMode): Promise<boolean>;
     isRunnable(): Promise<Errorable<Diagnostic>>;
-    start(): Promise<void>;
+    start(options: MinikubeOptions): Promise<void>;
     stop(): Promise<void>;
 }
 
@@ -51,8 +56,8 @@ class MinikubeImpl implements Minikube {
         return isRunnableMinikube(this.context);
     }
 
-    start(): Promise<void> {
-        return startMinikube(this.context);
+    start(options: MinikubeOptions): Promise<void> {
+        return startMinikube(this.context, options);
     }
 
     stop(): Promise<void> {
@@ -69,12 +74,15 @@ async function isRunnableMinikube(context: Context): Promise<Errorable<Diagnosti
     return fromShellExitCodeOnly(sr);
 }
 
-async function startMinikube(context: Context): Promise<void> {
+async function startMinikube(context: Context, options: MinikubeOptions): Promise<void> {
     if (!await checkPresent(context, CheckPresentMode.Alert)) {
         return;
     }
-
-    context.shell.exec(`${context.binPath} start`).then((result: ShellResult) => {
+    let flags = options.additionalFlags ? options.additionalFlags : '';
+    if (options.vmDriver && options.vmDriver.length > 0) {
+        flags += ` --vm-driver=${options.vmDriver} `;
+    }
+    context.shell.exec(`${context.binPath} ${flags} start`).then((result: ShellResult) => {
         if (result.code === 0) {
             vscode.window.showInformationMessage('Cluster started.');
         } else {
