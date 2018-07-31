@@ -1306,7 +1306,6 @@ const deleteKubernetesNow = async (explorerNode?: explorer.ResourceNode) => {
             return;
         }
         const nsarg = explorerNode.namespace ? `--namespace ${explorerNode.namespace}` : '';
-        //adding now
         const shellResult = await kubectl.invokeAsyncWithProgress(`delete ${explorerNode.resourceId} ${nsarg}` + ' --now', `Deleting ${explorerNode.resourceId}...`);
         await reportDeleteResult(explorerNode.resourceId, shellResult);
     } else {
@@ -1316,7 +1315,6 @@ const deleteKubernetesNow = async (explorerNode?: explorer.ResourceNode) => {
                 if (!containsName(kindName)) {
                     commandArgs = kindName + " --all";
                 }
-                //adding now
                 const shellResult = await kubectl.invokeAsyncWithProgress(`delete ${commandArgs}` + ' --now', `Deleting ${kindName}...`);
                 await reportDeleteResult(kindName, shellResult);
             }
