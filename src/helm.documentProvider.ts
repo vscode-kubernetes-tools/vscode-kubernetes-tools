@@ -7,6 +7,7 @@ import { escape as htmlEscape } from 'lodash';
 
 import * as helm from './helm';
 import * as logger from './logger';
+import { failed } from './errorable';
 
 interface HelmDocumentResult {
     readonly title: string;
@@ -142,5 +143,34 @@ export class HelmTemplatePreviewDocumentProvider implements vscode.TextDocumentC
             });
         });
 
+    }
+}
+
+export class HelmDependencyDocumentProvider implements vscode.TextDocumentContentProvider {
+    public provideTextDocumentContent(uri: vscode.Uri, tok: vscode.CancellationToken): vscode.ProviderResult<string> {
+        return this.provideTextDocumentContentImpl(uri);
+    }
+
+    async provideTextDocumentContentImpl(uri: vscode.Uri): Promise<string> {
+        const chartId = uri.path.substring(1);
+        const version = uri.query;
+        const dependencies = await exec.helmDependenciesCore(chartId, version);
+        if (failed(dependencies)) {
+            return `<p>${dependencies.error[0]}</p>`;
+        }
+
+        const list =  dependencies.result
+                                  .map(this.formatDependency)
+                                  .join('<br>');
+        return `<p>${chartId} depends on:</p><ul>${list}</ul>`;
+    }
+
+    formatDependency(d: { [key: string]: string }): string {
+        const name = d.name;
+        const version = d.version === '*' ? '' : ` (v${d.version})`;
+        const repoPrefix = d.repository.startsWith('alias:') ? d.repository.substring('alias:'.length) + '/' : '';
+        const repoSuffix = d.repository.startsWith('alias:') ? '' : ` from ${d.repository}`;
+        const status = ` - ${d.status}`;
+        return `<li>${repoPrefix}${name}${version}${repoSuffix}${status}</li>`;
     }
 }

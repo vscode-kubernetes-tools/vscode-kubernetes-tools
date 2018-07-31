@@ -283,28 +283,41 @@ function extractReleaseName(helmOutput: string): string {
     return nameLine.substring(HELM_INSTALL_NAME_HEADER.length + 1).trim();
 }
 
+interface Dependency {
+    readonly name: string;
+    readonly version: string;
+    readonly repository: string;
+    readonly status: string;
+}
+
 export async function helmDependencies(helmObject: helmrepoexplorer.HelmObject | undefined): Promise<void> {
     if (!helmObject) {
         const id = await vscode.window.showInputBox({ prompt: "Chart to show dependencies for", placeHolder: "stable/mychart" });
         if (id) {
-            helmDependenciesCore(id, undefined);
+            helmDependenciesLaunchViewer(id, undefined);
         }
     }
     if (helmrepoexplorer.isHelmRepoChart(helmObject)) {
-        await helmDependenciesCore(helmObject.id, undefined);
+        await helmDependenciesLaunchViewer(helmObject.id, undefined);
     } else if (helmrepoexplorer.isHelmRepoChartVersion(helmObject)) {
-        await helmDependenciesCore(helmObject.id, helmObject.version);
+        await helmDependenciesLaunchViewer(helmObject.id, helmObject.version);
     }
 }
 
-async function helmDependenciesCore(chartId: string, version: string | undefined): Promise<void> {
+async function helmDependenciesLaunchViewer(chartId: string, version: string | undefined): Promise<void> {
+    // Boing it back through a HTML preview window
+    const versionQuery = version ? `?${version}` : '';
+    const uri = vscode.Uri.parse(`${helm.DEPENDENCIES_SCHEME}://${helm.DEPENDENCIES_REPO_AUTHORITY}/${chartId}${versionQuery}`);
+    await vscode.commands.executeCommand("vscode.previewHtml", uri, vscode.ViewColumn.Two, `${chartId} Dependencies`);
+}
+
+export async function helmDependenciesCore(chartId: string, version: string | undefined): Promise<Errorable<{ [key: string]: string }[]>> {
     const tempDirObj = tmp.dirSync({ prefix: "vsk-fetchfordeps-", unsafeCleanup: true });
     const versionArg = version ? `--version ${version}` : '';
     const fsr = await helmExecAsync(`fetch ${chartId} ${versionArg} -d "${tempDirObj.name}"`);
     if (fsr.code !== 0) {
-        await vscode.window.showErrorMessage(`Helm fetch failed: ${fsr.stderr}`);
         tempDirObj.removeCallback();
-        return;
+        return { succeeded: false, error: [`Helm fetch failed: ${fsr.stderr}`] };
     }
 
     const tempDirFiles = fs.readdirSync(tempDirObj.name);
@@ -312,15 +325,18 @@ async function helmDependenciesCore(chartId: string, version: string | undefined
     try {
         const dsr = await helmExecAsync(`dep list "${chartPath}"`);
         if (dsr.code !== 0) {
-            await vscode.window.showErrorMessage(`Helm dependency list failed: ${dsr.stderr}`);
-            return;
+            return { succeeded: false, error: [`Helm dependency list failed: ${dsr.stderr}`] };
         }
-        await vscode.window.showInformationMessage(`WHOOP WHOOP ${dsr.stdout}`);
+        const lines = dsr.stdout.split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
+        if (lines.length === 1) {
+            return { succeeded: false, error: [`${chartId} has no dependencies`] };  // I don't feel good about using an error for this but life is short
+        }
+        const dependencies = parseLineOutput(lines, helm.HELM_OUTPUT_COLUMN_SEPARATOR);
+        return { succeeded: true, result: dependencies };
     } finally {
         fs.unlinkSync(chartPath);
         tempDirObj.removeCallback();
     }
-
 }
 
 // pickChart tries to find charts in this repo. If one is found, fn() is executed with that

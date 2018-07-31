@@ -41,7 +41,7 @@ import * as helm from './helm';
 import * as helmexec from './helm.exec';
 import { HelmRequirementsCodeLensProvider } from './helm.requirementsCodeLens';
 import { HelmTemplateHoverProvider } from './helm.hoverProvider';
-import { HelmTemplatePreviewDocumentProvider, HelmInspectDocumentProvider } from './helm.documentProvider';
+import { HelmTemplatePreviewDocumentProvider, HelmInspectDocumentProvider, HelmDependencyDocumentProvider } from './helm.documentProvider';
 import { HelmTemplateCompletionProvider } from './helm.completionProvider';
 import { Reporter } from './telemetry';
 import * as telemetry from './telemetry-helper';
@@ -115,6 +115,7 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
     const resourceDocProvider = new KubernetesResourceVirtualFileSystemProvider(kubectl, host, vscode.workspace.rootPath);
     const previewProvider = new HelmTemplatePreviewDocumentProvider();
     const inspectProvider = new HelmInspectDocumentProvider();
+    const dependenciesProvider = new HelmDependencyDocumentProvider();
     const completionProvider = new HelmTemplateCompletionProvider();
     const completionFilter = [
         "helm",
@@ -197,6 +198,7 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
         vscode.workspace.registerTextDocumentContentProvider(helm.PREVIEW_SCHEME, previewProvider),
         vscode.workspace.registerTextDocumentContentProvider(helm.INSPECT_VALUES_SCHEME, inspectProvider),
         vscode.workspace.registerTextDocumentContentProvider(helm.INSPECT_CHART_SCHEME, inspectProvider),
+        vscode.workspace.registerTextDocumentContentProvider(helm.DEPENDENCIES_SCHEME, dependenciesProvider),
 
         // Completion providers
         vscode.languages.registerCompletionItemProvider(completionFilter, completionProvider),

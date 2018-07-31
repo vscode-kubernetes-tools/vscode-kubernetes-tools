@@ -444,22 +444,22 @@
                 },
                 {
                     "command": "extension.helmInstall",
-                    "group": "3",
+                    "group": "2",
                     "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem == vsKubernetes.chart"
                 },
                 {
                     "command": "extension.helmInstall",
-                    "group": "3",
+                    "group": "2",
                     "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem == vsKubernetes.chartversion"
                 },
                 {
                     "command": "extension.helmDependencies",
-                    "group": "2",
+                    "group": "0@3",
                     "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem == vsKubernetes.chart"
                 },
                 {
                     "command": "extension.helmDependencies",
-                    "group": "2",
+                    "group": "0@3",
                     "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem == vsKubernetes.chartversion"
                 },
                 {
