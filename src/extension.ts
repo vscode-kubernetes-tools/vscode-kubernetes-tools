@@ -35,6 +35,7 @@ import * as kubectlUtils from './kubectlUtils';
 import * as explorer from './explorer';
 import * as helmRepoExplorer from './helm.repoExplorer';
 import { create as draftCreate, CheckPresentMode as DraftCheckPresentMode } from './draft/draft';
+import { create as minikubeCreate, CheckPresentMode as MinikubeCheckPresentMode } from './components/clusterprovider/minikube/minikube';
 import * as logger from './logger';
 import * as helm from './helm';
 import * as helmexec from './helm.exec';
@@ -48,7 +49,6 @@ import * as extensionapi from './extension.api';
 import { dashboardKubernetes } from './components/kubectl/dashboard';
 import { portForwardKubernetes } from './components/kubectl/port-forward';
 import { logsKubernetes, LogsDisplayMode } from './components/kubectl/logs';
-import { startMinikube, stopMinikube } from './components/clusterprovider/minikube/minikube';
 import { Errorable, failed, succeeded } from './errorable';
 import { Git } from './components/git/git';
 import { DebugSession } from './debug/debugSession';
@@ -62,7 +62,7 @@ import { refreshExplorer } from './components/clusterprovider/common/explorer';
 import { KubernetesCompletionProvider } from "./yaml-support/yaml-snippet";
 import { showWorkspaceFolderPick } from './hostutils';
 import { DraftConfigurationProvider } from './draft/draftConfigurationProvider';
-import { installHelm, installDraft, installKubectl } from './components/installer/installer';
+import { installHelm, installDraft, installKubectl, installMinikube } from './components/installer/installer';
 import { KubernetesResourceVirtualFileSystemProvider, K8S_RESOURCE_SCHEME, KUBECTL_RESOURCE_AUTHORITY } from './kuberesources.virtualfs';
 import { Container, isKubernetesResource, KubernetesCollection, Pod, KubernetesResource } from './kuberesources.objectmodel';
 
@@ -71,6 +71,7 @@ let swaggerSpecPromise = null;
 
 const kubectl = kubectlCreate(host, fs, shell, installDependencies);
 const draft = draftCreate(host, fs, shell, installDependencies);
+const minikube = minikubeCreate(host, fs, shell, installDependencies);
 const configureFromClusterUI = configureFromCluster.uiProvider();
 const createClusterUI = createCluster.uiProvider();
 const clusterProviderRegistry = clusterproviderregistry.get();
@@ -156,8 +157,8 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
         registerCommand('extension.vsKubernetesDeleteContext', deleteContextKubernetes),
         registerCommand('extension.vsKubernetesUseNamespace', (explorerNode: explorer.KubernetesObject) => { useNamespaceKubernetes(kubectl, explorerNode); } ),
         registerCommand('extension.vsKubernetesDashboard', () => { dashboardKubernetes(kubectl); }),
-        registerCommand('extension.vsMinikubeStop', stopMinikube),
-        registerCommand('extension.vsMinikubeStart', startMinikube),
+        registerCommand('extension.vsMinikubeStop', () => minikube.stop()),
+        registerCommand('extension.vsMinikubeStart', () => minikube.start()),
         registerCommand('extension.vsKubernetesCopy', copyKubernetes),
         registerCommand('extension.vsKubernetesPortForward', (explorerNode: explorer.ResourceNode) => { portForwardKubernetes(kubectl, explorerNode); }),
         registerCommand('extension.vsKubernetesLoadConfigMapData', configmaps.loadConfigMapData),
@@ -223,7 +224,7 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
     ];
 
     await azureclusterprovider.init(clusterProviderRegistry, { shell: shell, fs: fs });
-    await minikubeclusterprovider.init(clusterProviderRegistry, { shell: shell });
+    await minikubeclusterprovider.init(clusterProviderRegistry, { shell: shell, minikube: minikube });
     // On save, refresh the Helm YAML preview.
     vscode.workspace.onDidSaveTextDocument((e: vscode.TextDocument) => {
         if (!editorIsActive()) {
@@ -1696,11 +1697,13 @@ export async function installDependencies() {
     const gotKubectl = await kubectl.checkPresent('silent');
     const gotHelm = helmexec.ensureHelm(helmexec.EnsureMode.Silent);
     const gotDraft = await draft.checkPresent(DraftCheckPresentMode.Silent);
+    const gotMinikube = await minikube.checkPresent(MinikubeCheckPresentMode.Silent);
 
     // TODO: parallelise
     await installDependency("kubectl", gotKubectl, installKubectl);
     await installDependency("Helm", gotHelm, installHelm);
     await installDependency("Draft", gotDraft, installDraft);
+    await installDependency("Minikube", gotMinikube, installMinikube);
 
     kubeChannel.showOutput("Done");
 }
