@@ -62,7 +62,7 @@
         "onCommand:extension.helmDepUp",
         "onCommand:extension.helmInspectValues",
         "onCommand:extension.helmGet",
-	    "onCommand:extension.helmPackage",
+        "onCommand:extension.helmPackage",
         "onCommand:extension.draftVersion",
         "onCommand:extension.draftCreate",
         "onCommand:extension.draftUp",
@@ -744,11 +744,11 @@
                 "category": "Helm"
             },
             {
-		        "command": "extension.helmPackage",
-		        "title": "Package",
-		        "description": "Package a chart directory into a versioned chart archive file.",
-		        "category": "Helm"
-	        }
+                "command": "extension.helmPackage",
+                "title": "Package",
+                "description": "Package a chart directory into a versioned chart archive file.",
+                "category": "Helm"
+            }
         ],
         "languages": [
             {
@@ -909,6 +909,7 @@
         "js-yaml": "^3.8.2",
         "k8s": "^0.4.12",
         "lodash": "^4.17.10",
+        "mixin-deep": "^1.3.1",
         "mkdirp": "^0.5.1",
         "natives": "^1.1.3",
         "node-yaml-parser": "^0.0.9",
