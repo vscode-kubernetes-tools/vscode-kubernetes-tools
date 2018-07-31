@@ -6,6 +6,7 @@ import { helm as logger } from './logger';
 import * as YAML from 'yamljs';
 import * as _ from 'lodash';
 import * as fs from "fs";
+import * as tmp from 'tmp';
 import * as extension from './extension';
 import * as explorer from './explorer';
 import * as helmrepoexplorer from './helm.repoExplorer';
@@ -280,6 +281,46 @@ function extractReleaseName(helmOutput: string): string {
         return '(unknown)';
     }
     return nameLine.substring(HELM_INSTALL_NAME_HEADER.length + 1).trim();
+}
+
+export async function helmDependencies(helmObject: helmrepoexplorer.HelmObject | undefined): Promise<void> {
+    if (!helmObject) {
+        const id = await vscode.window.showInputBox({ prompt: "Chart to show dependencies for", placeHolder: "stable/mychart" });
+        if (id) {
+            helmDependenciesCore(id, undefined);
+        }
+    }
+    if (helmrepoexplorer.isHelmRepoChart(helmObject)) {
+        await helmDependenciesCore(helmObject.id, undefined);
+    } else if (helmrepoexplorer.isHelmRepoChartVersion(helmObject)) {
+        await helmDependenciesCore(helmObject.id, helmObject.version);
+    }
+}
+
+async function helmDependenciesCore(chartId: string, version: string | undefined): Promise<void> {
+    const tempDirObj = tmp.dirSync({ prefix: "vsk-fetchfordeps-", unsafeCleanup: true });
+    const versionArg = version ? `--version ${version}` : '';
+    const fsr = await helmExecAsync(`fetch ${chartId} ${versionArg} -d "${tempDirObj.name}"`);
+    if (fsr.code !== 0) {
+        await vscode.window.showErrorMessage(`Helm fetch failed: ${fsr.stderr}`);
+        tempDirObj.removeCallback();
+        return;
+    }
+
+    const tempDirFiles = fs.readdirSync(tempDirObj.name);
+    const chartPath = filepath.join(tempDirObj.name, tempDirFiles[0]);  // should be the only thing in the directory
+    try {
+        const dsr = await helmExecAsync(`dep list "${chartPath}"`);
+        if (dsr.code !== 0) {
+            await vscode.window.showErrorMessage(`Helm dependency list failed: ${dsr.stderr}`);
+            return;
+        }
+        await vscode.window.showInformationMessage(`WHOOP WHOOP ${dsr.stdout}`);
+    } finally {
+        fs.unlinkSync(chartPath);
+        tempDirObj.removeCallback();
+    }
+
 }
 
 // pickChart tries to find charts in this repo. If one is found, fn() is executed with that

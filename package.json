@@ -66,6 +66,7 @@
         "onCommand:extension.helmPackage",
         "onCommand:extension.helmFetch",
         "onCommand:extension.helmInstall",
+        "onCommand:extension.helmDependencies",
         "onCommand:extension.draftVersion",
         "onCommand:extension.draftCreate",
         "onCommand:extension.draftUp",
@@ -443,11 +444,21 @@
                 },
                 {
                     "command": "extension.helmInstall",
-                    "group": "2",
+                    "group": "3",
                     "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem == vsKubernetes.chart"
                 },
                 {
                     "command": "extension.helmInstall",
+                    "group": "3",
+                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem == vsKubernetes.chartversion"
+                },
+                {
+                    "command": "extension.helmDependencies",
+                    "group": "2",
+                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem == vsKubernetes.chart"
+                },
+                {
+                    "command": "extension.helmDependencies",
                     "group": "2",
                     "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem == vsKubernetes.chartversion"
                 },
@@ -816,6 +827,12 @@
                 "command": "extension.helmInstall",
                 "title": "Install",
                 "description": "Install a Helm chart into the cluster",
+                "category": "Helm"
+            },
+            {
+                "command": "extension.helmDependencies",
+                "title": "Show Dependencies",
+                "description": "List the dependencies of a Helm chart",
                 "category": "Helm"
             }
         ],
