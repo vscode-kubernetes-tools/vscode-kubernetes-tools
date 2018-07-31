@@ -25,6 +25,7 @@
     "activationEvents": [
         "onCommand:extension.vsKubernetesCreate",
         "onCommand:extension.vsKubernetesDelete",
+        "onCommand:extension.vsKubernetesDeleteNow",
         "onCommand:extension.vsKubernetesApply",
         "onCommand:extension.vsKubernetesExplain",
         "onCommand:extension.vsKubernetesLoad",
@@ -62,7 +63,7 @@
         "onCommand:extension.helmDepUp",
         "onCommand:extension.helmInspectValues",
         "onCommand:extension.helmGet",
-	    "onCommand:extension.helmPackage",
+        "onCommand:extension.helmPackage",
         "onCommand:extension.draftVersion",
         "onCommand:extension.draftCreate",
         "onCommand:extension.draftUp",
@@ -334,18 +335,23 @@
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
                 },
                 {
-                    "command": "extension.vsKubernetesTerminal",
+                    "command": "extension.vsKubernetesDeleteNow",
                     "group": "2@3",
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
                 },
                 {
-                    "command": "extension.vsKubernetesDebugAttach",
+                    "command": "extension.vsKubernetesTerminal",
                     "group": "2@4",
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
                 },
                 {
-                    "command": "extension.vsKubernetesPortForward",
+                    "command": "extension.vsKubernetesDebugAttach",
                     "group": "2@5",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
+                },
+                {
+                    "command": "extension.vsKubernetesPortForward",
+                    "group": "2@6",
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
                 },
                 {
@@ -485,6 +491,11 @@
             {
                 "command": "extension.vsKubernetesDelete",
                 "title": "Delete",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesDeleteNow",
+                "title": "Delete Now",
                 "category": "Kubernetes"
             },
             {
@@ -744,11 +755,11 @@
                 "category": "Helm"
             },
             {
-		        "command": "extension.helmPackage",
-		        "title": "Package",
-		        "description": "Package a chart directory into a versioned chart archive file.",
-		        "category": "Helm"
-	        }
+                "command": "extension.helmPackage",
+                "title": "Package",
+                "description": "Package a chart directory into a versioned chart archive file.",
+                "category": "Helm"
+            }
         ],
         "languages": [
             {

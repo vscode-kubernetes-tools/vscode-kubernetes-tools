@@ -130,6 +130,7 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
             maybeRunKubernetesCommandForActiveWindow.bind(this, 'create', "Kubernetes Creating...")
         ),
         registerCommand('extension.vsKubernetesDelete', deleteKubernetes),
+        registerCommand('extension.vsKubernetesDeleteNow', deleteKubernetesNow),
         registerCommand('extension.vsKubernetesApply', applyKubernetes),
         registerCommand('extension.vsKubernetesExplain', explainActiveWindow),
         registerCommand('extension.vsKubernetesLoad', loadKubernetes),
@@ -1292,6 +1293,31 @@ const deleteKubernetes = async (explorerNode?: explorer.ResourceNode) => {
                     commandArgs = kindName + " --all";
                 }
                 const shellResult = await kubectl.invokeAsyncWithProgress(`delete ${commandArgs}`, `Deleting ${kindName}...`);
+                await reportDeleteResult(kindName, shellResult);
+            }
+        });
+    }
+};
+
+const deleteKubernetesNow = async (explorerNode?: explorer.ResourceNode) => {
+    if (explorerNode) {
+        const answer = await vscode.window.showWarningMessage(`Do you want to delete the resource '${explorerNode.resourceId}'?`, ...deleteMessageItems);
+        if (answer.isCloseAffordance) {
+            return;
+        }
+        const nsarg = explorerNode.namespace ? `--namespace ${explorerNode.namespace}` : '';
+        //adding now
+        const shellResult = await kubectl.invokeAsyncWithProgress(`delete ${explorerNode.resourceId} ${nsarg}` + ' --now', `Deleting ${explorerNode.resourceId}...`);
+        await reportDeleteResult(explorerNode.resourceId, shellResult);
+    } else {
+        promptKindName(kuberesources.commonKinds, 'delete', { nameOptional: true }, async (kindName) => {
+            if (kindName) {
+                let commandArgs = kindName;
+                if (!containsName(kindName)) {
+                    commandArgs = kindName + " --all";
+                }
+                //adding now
+                const shellResult = await kubectl.invokeAsyncWithProgress(`delete ${commandArgs}` + ' --now', `Deleting ${kindName}...`);
                 await reportDeleteResult(kindName, shellResult);
             }
         });
