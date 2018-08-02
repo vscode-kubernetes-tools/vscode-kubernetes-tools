@@ -325,9 +325,11 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
             const root = yp.safeLoad(fakeText);
             const syms: vscode.SymbolInformation[] = [];
             walk(root, '', document, document.uri, syms);
-            // for (const sym of syms) {
-            //     console.log(`${symkind(sym)} ${sym.name}`);
-            // }
+            for (const sym of syms) {
+                const cc = symContainmentChain(sym, syms);
+                const cctext = cc.map((s) => s.name).reverse().join('.');
+                console.log(`[${rfmt(sym)}]  ${symkind(sym)} ${cctext}.${sym.name}`);
+            }
             return syms;
         }
     });
@@ -340,6 +342,11 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
     };
 }
 
+function rfmt(s: vscode.SymbolInformation): string {
+    const r = s.location.range;
+    return `${r.start.line}:${r.start.character}-${r.end.line}:${r.end.character}`;
+}
+
 function symkind(s: vscode.SymbolInformation): string {
     switch (s.kind) {
         case vscode.SymbolKind.Field: return "[FI]";
@@ -350,30 +357,52 @@ function symkind(s: vscode.SymbolInformation): string {
     }
 }
 
+function symContainmentChain(s: vscode.SymbolInformation, sis: vscode.SymbolInformation[]): vscode.SymbolInformation[] {
+    const containers = sis.filter((si) => si.kind === vscode.SymbolKind.Field)
+                          .filter((si) => si.location.range.contains(s.location.range))
+                          .filter((si) => si !== s);
+    if (containers.length === 0) {
+        return [];
+    }
+    const nextUp = minimal(containers);
+    const fromThere = symContainmentChain(nextUp, sis);
+    return [nextUp, ...fromThere];
+}
+
+function minimal(sis: vscode.SymbolInformation[]): vscode.SymbolInformation {
+    let m = sis[0];
+    for (const si of sis) {
+        if (m.location.range.contains(si.location.range)) {
+            m = si;
+        }
+    }
+    return m;
+}
+
 function symInfo(node: yp.YAMLNode, containerName: string, d: vscode.TextDocument, uri: vscode.Uri): vscode.SymbolInformation {
     const start = node.startPosition;
     const end = node.endPosition;
     const loc = new vscode.Location(uri, new vscode.Range(d.positionAt(start), d.positionAt(end)));
     switch (node.kind) {
         case yp.Kind.ANCHOR_REF:
-            return new vscode.SymbolInformation(`${containerName}.ANCHOR_REF`, vscode.SymbolKind.Variable, containerName, loc);
+            return new vscode.SymbolInformation(`ANCHOR_REF`, vscode.SymbolKind.Variable, containerName, loc);
         case yp.Kind.INCLUDE_REF:
-            return new vscode.SymbolInformation(`${containerName}.INCLUDE_REF`, vscode.SymbolKind.Variable, containerName, loc);
+            return new vscode.SymbolInformation(`INCLUDE_REF`, vscode.SymbolKind.Variable, containerName, loc);
         case yp.Kind.MAP:
             const m = node as yp.YamlMap;
-            return new vscode.SymbolInformation(`${containerName}.{map}`, vscode.SymbolKind.Variable, containerName, loc);
+            return new vscode.SymbolInformation(`{map}`, vscode.SymbolKind.Variable, containerName, loc);
         case yp.Kind.MAPPING:
             const mp = node as yp.YAMLMapping;
-            return new vscode.SymbolInformation(`${containerName}.${mp.key.rawValue}`, vscode.SymbolKind.Field, containerName, loc);
+            return new vscode.SymbolInformation(`${mp.key.rawValue}`, vscode.SymbolKind.Field, containerName, loc);
         case yp.Kind.SCALAR:
             const sc = node as yp.YAMLScalar;
             const isTemplateExpr = sc.rawValue.startsWith('AA') && sc.rawValue.endsWith('ZZ');
             return new vscode.SymbolInformation(`"${sc.rawValue}"`, isTemplateExpr ? vscode.SymbolKind.Object : vscode.SymbolKind.Constant, containerName, loc);
         case yp.Kind.SEQ:
             const s = node as yp.YAMLSequence;
-            return new vscode.SymbolInformation(`${containerName}.[seq]`, vscode.SymbolKind.Variable, containerName, loc);
+            return new vscode.SymbolInformation(`[seq]`, vscode.SymbolKind.Variable, containerName, loc);
     }
-    return new vscode.SymbolInformation(`${containerName}.###ARSEBISCUITS###`, vscode.SymbolKind.Variable, containerName, loc);
+    return new vscode.SymbolInformation(`###ARSEBISCUITS###`, vscode.SymbolKind.Variable, containerName, loc);
 }
 
 function walk(node: yp.YAMLNode, containerName: string, d: vscode.TextDocument, uri: vscode.Uri, syms: vscode.SymbolInformation[]) {
@@ -1964,4 +1993,85 @@ async function helmConvertToTemplate(arg?: any) {
         return;
     }
     helmauthoring.convertToTemplate(fs, host, workspace.uri.fsPath, arg);
+}
+
+async function helmParameterise() {
+    const activeEditor = vscode.window.activeTextEditor;
+    if (!activeEditor) {
+        return;
+    }
+
+    const document = activeEditor.document;
+    if (!document) {
+        return;
+    }
+
+    const selection = activeEditor.selection;
+    if (!selection) {
+        return;
+    }
+
+    const convertResult = await convertToParameterCore(document, selection);
+
+    if (succeeded(convertResult)) {
+        activeEditor.revealRange(convertResult.result.range);
+        activeEditor.selection = new vscode.Selection(convertResult.result.range.start, convertResult.result.range.end);
+    } else {
+        vscode.window.showErrorMessage(convertResult.error[0]);
+    }
+}
+
+// TODO: any better way to make available for testing?
+export async function convertToParameterCore(document: vscode.TextDocument, selection: vscode.Selection): Promise<Errorable<vscode.TextEdit>> {
+    const helmSymbols = await getHelmSymbols(document);
+    if (helmSymbols.length === 0) {
+        return { succeeded: false, error: ['Active document is not a Helm template'] };
+    }
+
+    const property = findPropertyEx2(helmSymbols, selection.anchor);
+    if (!property) {
+        return { succeeded: false, error: ['Selection is not a YAML field'] };
+    }
+
+    // TODO: we probably want to do this only for leaf properties
+
+    const propertyLocation = property.location.range;
+    const propertyText = document.getText(propertyLocation);
+    const nameBitLength = propertyText.indexOf(':') + 1;
+    if (nameBitLength <= 0) {
+        return { succeeded: false, error: ['Cannot locate property name'] };
+    }
+    const propertyValueLocation = new vscode.Range(propertyLocation.start.translate(0, nameBitLength), propertyLocation.end);
+    const propertyValue = JSON.parse(document.getText(propertyValueLocation));
+
+    const replaceValueWithParamRef = new vscode.TextEdit(propertyValueLocation, ` {{ Values.${valuePath} }}`);
+
+    await applyEdits(document, /* insertParamEdit, */ replaceValueWithParamRef);
+
+    return { succeeded: true, result: replaceValueWithParamRef /* or better insertParamEdit but we've not done that yet */ };
+}
+
+async function applyEdits(document: vscode.TextDocument, ...edits: vscode.TextEdit[]): Promise<boolean> {
+    const wsEdit = new vscode.WorkspaceEdit();
+    wsEdit.set(document.uri, edits);
+    return await vscode.workspace.applyEdit(wsEdit);
+}
+
+async function getHelmSymbols(document: vscode.TextDocument): Promise<vscode.SymbolInformation[]> {
+    const sis: any = await vscode.commands.executeCommand('vscode.executeDocumentSymbolProvider', document.uri);
+
+    if (sis && sis.length) {
+        return sis;
+    }
+
+    return [];
+}
+
+function findPropertyEx2(symbols: vscode.SymbolInformation[], position: vscode.Position): vscode.SymbolInformation | null {
+    const containingSymbols = symbols.filter((s) => s.location.range.contains(position));
+    if (!containingSymbols || containingSymbols.length === 0) {
+        return null;
+    }
+    const sorted = containingSymbols.sort((a, b) => (a.containerName || '').length - (b.containerName || '').length);
+    return sorted[sorted.length - 1];
 }
