@@ -16,6 +16,7 @@ import * as tmp from 'tmp';
 import * as uuid from 'uuid';
 import * as clipboard from 'clipboardy';
 import { pullAll } from 'lodash';
+import * as yp from 'yaml-ast-parser';
 
 // Internal dependencies
 import { host } from './host';
@@ -309,11 +310,102 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
         context.subscriptions.push(element);
     }, this);
     await registerYamlSchemaSupport();
+
+    // TODO: OH LORD THIS IS HORRIBLE SO HORRIBLE
+    const azap = (s) => {
+        return s.replace(/{{/g, 'AA')
+                .replace(/}}/g, 'ZZ')
+                .replace(/"/g, 'Q');
+    };
+
+    // TODO: make into real class and register in a sane way
+    const helmSymbolProvider = vscode.languages.registerDocumentSymbolProvider({ language: 'helm' }, {
+        provideDocumentSymbols: async (document: vscode.TextDocument, token: vscode.CancellationToken) => {
+            const fakeText = document.getText().replace(/{{[^}]*}}/g, (s) => azap(s));  // TODO: expiate sins
+            const root = yp.safeLoad(fakeText);
+            const syms: vscode.SymbolInformation[] = [];
+            walk(root, '', document, document.uri, syms);
+            // for (const sym of syms) {
+            //     console.log(`${symkind(sym)} ${sym.name}`);
+            // }
+            return syms;
+        }
+    });
+    context.subscriptions.push(helmSymbolProvider);
+
     vscode.workspace.registerTextDocumentContentProvider(configmaps.uriScheme, configMapProvider);
     return {
         apiVersion: '0.1',
         clusterProviderRegistry: clusterProviderRegistry
     };
+}
+
+function symkind(s: vscode.SymbolInformation): string {
+    switch (s.kind) {
+        case vscode.SymbolKind.Field: return "[FI]";
+        case vscode.SymbolKind.Variable: return "[VA]";
+        case vscode.SymbolKind.Object: return "[TX]";
+        case vscode.SymbolKind.Constant: return "[CO]";
+        default: return "[??]";
+    }
+}
+
+function symInfo(node: yp.YAMLNode, containerName: string, d: vscode.TextDocument, uri: vscode.Uri): vscode.SymbolInformation {
+    const start = node.startPosition;
+    const end = node.endPosition;
+    const loc = new vscode.Location(uri, new vscode.Range(d.positionAt(start), d.positionAt(end)));
+    switch (node.kind) {
+        case yp.Kind.ANCHOR_REF:
+            return new vscode.SymbolInformation(`${containerName}.ANCHOR_REF`, vscode.SymbolKind.Variable, containerName, loc);
+        case yp.Kind.INCLUDE_REF:
+            return new vscode.SymbolInformation(`${containerName}.INCLUDE_REF`, vscode.SymbolKind.Variable, containerName, loc);
+        case yp.Kind.MAP:
+            const m = node as yp.YamlMap;
+            return new vscode.SymbolInformation(`${containerName}.{map}`, vscode.SymbolKind.Variable, containerName, loc);
+        case yp.Kind.MAPPING:
+            const mp = node as yp.YAMLMapping;
+            return new vscode.SymbolInformation(`${containerName}.${mp.key.rawValue}`, vscode.SymbolKind.Field, containerName, loc);
+        case yp.Kind.SCALAR:
+            const sc = node as yp.YAMLScalar;
+            const isTemplateExpr = sc.rawValue.startsWith('AA') && sc.rawValue.endsWith('ZZ');
+            return new vscode.SymbolInformation(`"${sc.rawValue}"`, isTemplateExpr ? vscode.SymbolKind.Object : vscode.SymbolKind.Constant, containerName, loc);
+        case yp.Kind.SEQ:
+            const s = node as yp.YAMLSequence;
+            return new vscode.SymbolInformation(`${containerName}.[seq]`, vscode.SymbolKind.Variable, containerName, loc);
+    }
+    return new vscode.SymbolInformation(`${containerName}.###ARSEBISCUITS###`, vscode.SymbolKind.Variable, containerName, loc);
+}
+
+function walk(node: yp.YAMLNode, containerName: string, d: vscode.TextDocument, uri: vscode.Uri, syms: vscode.SymbolInformation[]) {
+    // console.log(`WALKIN' ${node.startPosition}-${node.endPosition}: ${node.kind}`);
+    const sym = symInfo(node, containerName, d, uri);
+    syms.push(sym);
+    switch (node.kind) {
+        case yp.Kind.ANCHOR_REF:
+            return;
+        case yp.Kind.INCLUDE_REF:
+            return;
+        case yp.Kind.MAP:
+            const m = node as yp.YamlMap;
+            for (const mm of m.mappings) {
+                walk(mm, sym.name, d, uri, syms);
+            }
+            return;
+        case yp.Kind.MAPPING:
+            const mp = node as yp.YAMLMapping;
+            if (mp.value) {
+                walk(mp.value, sym.name, d, uri, syms);
+            }
+            return;
+        case yp.Kind.SCALAR:
+            return;
+        case yp.Kind.SEQ:
+            const s = node as yp.YAMLSequence;
+            for (const y of s.items) {
+                walk(y, sym.name, d, uri, syms);
+            }
+            return;
+    }
 }
 
 // this method is called when your extension is deactivated

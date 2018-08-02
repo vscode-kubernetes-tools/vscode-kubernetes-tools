@@ -1067,6 +1067,7 @@
         "vscode-debugprotocol": "1.27.0",
         "vscode-extension-telemetry": "^0.0.6",
         "vscode-uri": "^1.0.1",
+        "yaml-ast-parser": "^0.0.40",
         "yamljs": "0.2.10"
     },
     "devDependencies": {
