@@ -1282,10 +1282,8 @@ async function reportDeleteResult(resourceId: string, shellResult: ShellResult) 
 
 async function deleteKubernetes(delMode: KubernetesDeleteMode, explorerNode?: explorer.ResourceNode) {
 
-    let delModeString: string = '';
-    if (delMode === KubernetesDeleteMode.Now) {
-        delModeString = ' --now';
-    }
+    let delModeArg = '';
+    delMode === KubernetesDeleteMode.Now ? delModeArg = ' --now' : delModeArg = '';
 
     if (explorerNode) {
         const answer = await vscode.window.showWarningMessage(`Do you want to delete the resource '${explorerNode.resourceId}'?`, ...deleteMessageItems);
@@ -1293,7 +1291,7 @@ async function deleteKubernetes(delMode: KubernetesDeleteMode, explorerNode?: ex
             return;
         }
         const nsarg = explorerNode.namespace ? `--namespace ${explorerNode.namespace}` : '';
-        const shellResult = await kubectl.invokeAsyncWithProgress(`delete ${explorerNode.resourceId} ${nsarg} ${delModeString}`, `Deleting ${explorerNode.resourceId}...`);
+        const shellResult = await kubectl.invokeAsyncWithProgress(`delete ${explorerNode.resourceId} ${nsarg} ${delModeArg}`, `Deleting ${explorerNode.resourceId}...`);
         await reportDeleteResult(explorerNode.resourceId, shellResult);
     } else {
         promptKindName(kuberesources.commonKinds, 'delete', { nameOptional: true }, async (kindName) => {
@@ -1302,7 +1300,7 @@ async function deleteKubernetes(delMode: KubernetesDeleteMode, explorerNode?: ex
                 if (!containsName(kindName)) {
                     commandArgs = kindName + " --all";
                 }
-                const shellResult = await kubectl.invokeAsyncWithProgress(`delete ${commandArgs} ${delModeString}`, `Deleting ${kindName}...`);
+                const shellResult = await kubectl.invokeAsyncWithProgress(`delete ${commandArgs} ${delModeArg}`, `Deleting ${kindName}...`);
                 await reportDeleteResult(kindName, shellResult);
             }
         });
