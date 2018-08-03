@@ -762,8 +762,10 @@
                     "Chart.yaml",
                     "requirements.yaml",
                     "**/templates/*.yaml",
+                    "**/templates/*.yml",
                     "**/templates/*.tpl",
                     "**/templates/**/*.yaml",
+                    "**/templates/**/*.yml",
                     "**/templates/**/*.tpl"
                 ],
                 "configuration": "./language-configuration.json"
