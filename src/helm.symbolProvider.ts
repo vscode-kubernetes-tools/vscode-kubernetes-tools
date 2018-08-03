@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as yp from 'yaml-ast-parser';
+import * as _ from 'lodash';
 
 export class HelmDocumentSymbolProvider implements vscode.DocumentSymbolProvider {
     provideDocumentSymbols(document: vscode.TextDocument, token: vscode.CancellationToken): vscode.ProviderResult<vscode.SymbolInformation[]> {
@@ -11,11 +12,11 @@ export class HelmDocumentSymbolProvider implements vscode.DocumentSymbolProvider
         const root = yp.safeLoad(fakeText);
         const syms: vscode.SymbolInformation[] = [];
         walk(root, '', document, document.uri, syms);
-        for (const sym of syms) {
-            const cc = containmentChain(sym, syms);
-            const cctext = cc.map((s) => s.name).reverse().join('.');
-            console.log(`[${rfmt(sym)}]  ${symkind(sym)} ${cctext}.${sym.name}`);
-        }
+        // for (const sym of syms) {
+        //     const cc = containmentChain(sym, syms);
+        //     const cctext = cc.map((s) => s.name).reverse().join('.');
+        //     console.log(`[${rfmt(sym)}]  ${symkind(sym)} ${cctext}.${sym.name}`);
+        // }
         return syms;
     }
 }
@@ -27,19 +28,47 @@ function azap(s: string): string {
             .replace(/"/g, 'Q');
 }
 
-function rfmt(s: vscode.SymbolInformation): string {
-    const r = s.location.range;
-    return `${r.start.line}:${r.start.character}-${r.end.line}:${r.end.character}`;
+// function rfmt(s: vscode.SymbolInformation): string {
+//     const r = s.location.range;
+//     return `${r.start.line}:${r.start.character}-${r.end.line}:${r.end.character}`;
+// }
+
+// function symkind(s: vscode.SymbolInformation): string {
+//     switch (s.kind) {
+//         case vscode.SymbolKind.Field: return "[FI]";
+//         case vscode.SymbolKind.Variable: return "[VA]";
+//         case vscode.SymbolKind.Object: return "[TX]";
+//         case vscode.SymbolKind.Constant: return "[CO]";
+//         default: return "[??]";
+//     }
+// }
+
+export function findKeyPath(keyPath: string[], sis: vscode.SymbolInformation[]): { found: vscode.SymbolInformation | undefined, remaining: string[] } {
+    return findKeyPathAcc(keyPath, sis, undefined);
 }
 
-function symkind(s: vscode.SymbolInformation): string {
-    switch (s.kind) {
-        case vscode.SymbolKind.Field: return "[FI]";
-        case vscode.SymbolKind.Variable: return "[VA]";
-        case vscode.SymbolKind.Object: return "[TX]";
-        case vscode.SymbolKind.Constant: return "[CO]";
-        default: return "[??]";
+function findKeyPathAcc(keyPath: string[], sis: vscode.SymbolInformation[], acc: vscode.SymbolInformation | undefined): { found: vscode.SymbolInformation | undefined, remaining: string[] } {
+    const parentSym = findKey(keyPath[0], sis);
+    if (!parentSym) {
+        return { found: acc, remaining: keyPath };
     }
+    if (keyPath.length === 1) {
+        return { found: parentSym, remaining: [] };
+    }
+    const childSyms = sis.filter((s) => parentSym.location.range.contains(s.location.range));
+    return findKeyPathAcc(keyPath.slice(1), childSyms, parentSym);
+}
+
+function findKey(key: string, sis: vscode.SymbolInformation[]): vscode.SymbolInformation | undefined {
+    const fields = sis.filter((si) => si.kind === vscode.SymbolKind.Field && si.name === key);
+    if (fields.length === 0) {
+        return undefined;
+    }
+    return outermost(fields);
+}
+
+function outermost(sis: vscode.SymbolInformation[]): vscode.SymbolInformation {
+    return _.maxBy(sis, (s) => containmentChain(s, sis));
 }
 
 export function containmentChain(s: vscode.SymbolInformation, sis: vscode.SymbolInformation[]): vscode.SymbolInformation[] {
@@ -95,11 +124,10 @@ function symInfo(node: yp.YAMLNode, containerName: string, d: vscode.TextDocumen
             const s = node as yp.YAMLSequence;
             return new vscode.SymbolInformation(`[seq]`, vscode.SymbolKind.Variable, containerName, loc);
     }
-    return new vscode.SymbolInformation(`###ARSEBISCUITS###`, vscode.SymbolKind.Variable, containerName, loc);
+    return new vscode.SymbolInformation(`###_YAML_UNEXPECTED_###`, vscode.SymbolKind.Variable, containerName, loc);
 }
 
 function walk(node: yp.YAMLNode, containerName: string, d: vscode.TextDocument, uri: vscode.Uri, syms: vscode.SymbolInformation[]) {
-    // console.log(`WALKIN' ${node.startPosition}-${node.endPosition}: ${node.kind}`);
     const sym = symInfo(node, containerName, d, uri);
     syms.push(sym);
     switch (node.kind) {

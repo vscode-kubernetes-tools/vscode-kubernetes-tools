@@ -6,7 +6,7 @@ import { Host } from './host';
 import { ResourceNode, isKubernetesExplorerResourceNode } from './explorer';
 import { helmCreateCore } from './helm.exec';
 import { failed, Errorable } from './errorable';
-import { symbolAt, containmentChain } from './helm.symbolProvider';
+import { symbolAt, containmentChain, findKeyPath } from './helm.symbolProvider';
 
 interface Context {
     readonly fs: FS;
@@ -170,7 +170,7 @@ async function createChart(context: Context): Promise<Chart | undefined> {
     return createResult.result;
 }
 
-export async function convertToParameter(document: vscode.TextDocument, selection: vscode.Selection): Promise<Errorable<vscode.TextEdit>> {
+export async function convertToParameter(fs: FS, host: Host, document: vscode.TextDocument, selection: vscode.Selection): Promise<Errorable<vscode.TextEdit>> {
     const helmSymbols = await getHelmSymbols(document);
     if (helmSymbols.length === 0) {
         return { succeeded: false, error: ['Active document is not a Helm template'] };
@@ -183,6 +183,8 @@ export async function convertToParameter(document: vscode.TextDocument, selectio
 
     // TODO: we probably want to do this only for leaf properties
 
+    const chartName = path.parse(document.fileName).name;
+
     const valueLocation = property.location.range;
     const valueText = document.getText(valueLocation);
     const valueSymbolContainmentChain = containmentChain(property, helmSymbols);
@@ -191,12 +193,21 @@ export async function convertToParameter(document: vscode.TextDocument, selectio
         return { succeeded: false, error: ['Cannot locate property name'] };
     }
 
-    const valuePath = `service.${valueSymbolContainmentChain[0].name}`;
+    const keyPath = [chartName, valueSymbolContainmentChain[0].name];
+    const valuePath = keyPath.join('.');
     const replaceValueWithParamRef = new vscode.TextEdit(valueLocation, ` {{ .Values.${valuePath} }}`);
 
-    await applyEdits(document, /* insertParamEdit, */ replaceValueWithParamRef);
+    const insertParamEdit = await addEntryToValuesFile(fs, host, document, keyPath, valueText);
+    if (failed(insertParamEdit)) {
+        return { succeeded: false, error: insertParamEdit.error };
+    }
 
-    return { succeeded: true, result: replaceValueWithParamRef /* or better insertParamEdit but we've not done that yet */ };
+    const appliedEdits = await applyEdits(document, insertParamEdit.result, replaceValueWithParamRef);
+    if (!appliedEdits) {
+        return { succeeded: false, error: ['Unable to update the template and/or values file'] };
+    }
+
+    return insertParamEdit;
 }
 
 async function applyEdits(document: vscode.TextDocument, ...edits: vscode.TextEdit[]): Promise<boolean> {
@@ -213,4 +224,19 @@ async function getHelmSymbols(document: vscode.TextDocument): Promise<vscode.Sym
     }
 
     return [];
+}
+
+async function addEntryToValuesFile(fs: FS, host: Host, template: vscode.TextDocument, keyPath: string[], value: string): Promise<Errorable<vscode.TextEdit>> {
+    const valuesYamlPath = path.normalize(path.join(path.dirname(template.fileName), '..', 'values.yaml'));
+    if (!fs.existsSync(valuesYamlPath)) {
+        fs.writeFileSync(valuesYamlPath, '');
+    }
+
+    const valuesYamlDoc = await host.readDocument(vscode.Uri.file(valuesYamlPath));
+    const yamlAst = await getHelmSymbols(valuesYamlDoc);
+
+    const whatWeHave = findKeyPath(keyPath, yamlAst);
+    console.log(`WE HAVE ${whatWeHave.found ? whatWeHave.found.name : 'NOTHING!!!'} AND NEED TO ADD ${whatWeHave.remaining.join('->')} VALUE ${value}`);
+    // TODO: oh you know just add it that's all
+    return { succeeded: true, result: vscode.TextEdit.insert(valuesYamlDoc.positionAt(0), '') };
 }

@@ -1897,11 +1897,12 @@ async function helmParameterise() {
         return;
     }
 
-    const convertResult = await helmauthoring.convertToParameter(document, selection);
+    const convertResult = await helmauthoring.convertToParameter(fs, host, document, selection);
 
     if (succeeded(convertResult)) {
-        activeEditor.revealRange(convertResult.result.range);
-        activeEditor.selection = new vscode.Selection(convertResult.result.range.start, convertResult.result.range.end);
+        // TODO: this is no longer the active editor - would need to show values.yaml (if that's the UI we want)
+        // activeEditor.revealRange(convertResult.result.range);
+        // activeEditor.selection = new vscode.Selection(convertResult.result.range.start, convertResult.result.range.end);
     } else {
         vscode.window.showErrorMessage(convertResult.error[0]);
     }
