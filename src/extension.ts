@@ -101,7 +101,7 @@ export const deleteMessageItems: vscode.MessageItem[] = [
 // Filters for different Helm file types.
 // TODO: Consistently apply these to the providers registered.
 export const HELM_MODE: vscode.DocumentFilter = { language: "helm", scheme: "file" };
-export const HELM_REQ_MODE: vscode.DocumentFilter = { language: "helm", scheme: "file", pattern: "**/requirements.yaml" };
+export const HELM_REQ_MODE: vscode.DocumentFilter = { language: "helm", scheme: "file", pattern: "**/requirements.yaml"};
 export const HELM_CHART_MODE: vscode.DocumentFilter = { language: "helm", scheme: "file", pattern: "**/Chart.yaml" };
 export const HELM_TPL_MODE: vscode.DocumentFilter = { language: "helm", scheme: "file", pattern: "**/templates/*.*" };
 
@@ -118,7 +118,7 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
     const completionProvider = new HelmTemplateCompletionProvider();
     const completionFilter = [
         "helm",
-        { pattern: "**/templates/NOTES.txt" }
+        {pattern: "**/templates/NOTES.txt"}
     ];
 
     const draftDebugProvider = new DraftConfigurationProvider();
@@ -156,7 +156,7 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
         registerCommand('extension.vsKubernetesUseContext', useContextKubernetes),
         registerCommand('extension.vsKubernetesClusterInfo', clusterInfoKubernetes),
         registerCommand('extension.vsKubernetesDeleteContext', deleteContextKubernetes),
-        registerCommand('extension.vsKubernetesUseNamespace', (explorerNode: explorer.KubernetesObject) => { useNamespaceKubernetes(kubectl, explorerNode); }),
+        registerCommand('extension.vsKubernetesUseNamespace', (explorerNode: explorer.KubernetesObject) => { useNamespaceKubernetes(kubectl, explorerNode); } ),
         registerCommand('extension.vsKubernetesDashboard', () => { dashboardKubernetes(kubectl); }),
         registerCommand('extension.vsMinikubeStop', () => minikube.stop()),
         registerCommand('extension.vsMinikubeStart', () => minikube.start()),
@@ -284,7 +284,7 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
         previewProvider.update(u);
     });
 
-    vscode.debug.onDidChangeActiveDebugSession((e: vscode.DebugSession) => {
+    vscode.debug.onDidChangeActiveDebugSession((e: vscode.DebugSession)=> {
         if (e !== undefined) {
             // keep a copy of the initial Draft debug session
             if (e.name.indexOf('Draft') >= 0) {
@@ -513,7 +513,7 @@ function maybeRunKubernetesCommandForActiveWindow(command: string, progressMessa
     const isKubernetesSyntax = (editor.document.languageId === 'json' || editor.document.languageId === 'yaml');
     const resultHandler = isKubernetesSyntax ? undefined /* default handling */ :
         (code, stdout, stderr) => {
-            if (code === 0) {
+            if (code === 0 ) {
                 vscode.window.showInformationMessage(stdout);
             } else {
                 vscode.window.showErrorMessage(`Kubectl command failed. The open document might not be a valid Kubernetes resource.  Details: ${stderr}`);
@@ -664,7 +664,7 @@ function loadKubernetesCore(namespace: string | null, value: string) {
 }
 
 function exposeKubernetes() {
-    findKindNameOrPrompt(kuberesources.exposableKinds, 'expose', { nameOptional: false }, (kindName: string) => {
+    findKindNameOrPrompt(kuberesources.exposableKinds, 'expose', { nameOptional: false}, (kindName: string) => {
         if (!kindName) {
             vscode.window.showErrorMessage('couldn\'t find a relevant type to expose.');
             return;
@@ -708,7 +708,7 @@ function findVersionInternal(fn) {
         return;
     }
 
-    shell.execCore('git describe --always --dirty', shell.execOpts()).then(({ code, stdout, stderr }) => {
+    shell.execCore('git describe --always --dirty', shell.execOpts()).then(({code, stdout, stderr}) => {
         if (code !== 0) {
             vscode.window.showErrorMessage('git log returned: ' + code);
             console.log(stderr);
@@ -859,7 +859,7 @@ function buildPushThenExec(fn) {
 export function tryFindKindNameFromEditor(): Errorable<ResourceKindName> {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
-        return { succeeded: false, error: ['No open editor'] }; // No open text editor
+        return { succeeded: false, error: ['No open editor']}; // No open text editor
     }
     const text = editor.document.getText();
     return findKindNameForText(text);
@@ -901,7 +901,7 @@ function findKindNamesForText(text): Errorable<ResourceKindName[]> {
         return { succeeded: true, result: kindNames };
     } catch (ex) {
         console.log(ex);
-        return { succeeded: false, error: [ex] };
+        return { succeeded: false, error: [ ex ] };
     }
 }
 
@@ -923,7 +923,7 @@ export function promptKindName(resourceKinds: kuberesources.ResourceKind[], desc
         prompt = opts.prompt || prompt;
     }
 
-    vscode.window.showInputBox({ prompt, placeHolder }).then((resource) => {
+    vscode.window.showInputBox({ prompt, placeHolder}).then((resource) => {
         if (resource === '') {
             quickPickKindName(resourceKinds, opts, handler);
         } else if (resource === undefined) {
@@ -1068,13 +1068,11 @@ async function selectPod(scope: PodSelectionScope, fallback: PodSelectionFallbac
         return podList[0];
     }
 
-    const pickItems = podList.map((element) => {
-        return {
-            label: `${element.metadata.namespace || "default"}/${element.metadata.name}`,
-            description: '',
-            pod: element
-        };
-    });
+    const pickItems = podList.map((element) => { return {
+        label: `${element.metadata.namespace || "default"}/${element.metadata.name}`,
+        description: '',
+        pod: element
+    }; });
 
     const value = await vscode.window.showQuickPick(pickItems);
 
@@ -1142,14 +1140,12 @@ export async function selectContainerForPod(pod: PodSummary): Promise<Container 
         return containers[0];
     }
 
-    const pickItems = containers.map((element) => {
-        return {
-            label: element.name,
-            description: '',
-            detail: element.image,
-            container: element
-        };
-    });
+    const pickItems = containers.map((element) => { return {
+        label: element.name,
+        description: '',
+        detail: element.image,
+        container: element
+    }; });
 
     const value = await vscode.window.showQuickPick(pickItems, { placeHolder: "Select container" });
 
@@ -1222,7 +1218,7 @@ function execTerminalOnContainer(podName: string, podNamespace: string | undefin
         terminalExecCmd.push('--container', containerName);
     }
     terminalExecCmd.push('--', terminalCmd);
-    const terminalName = `${terminalCmd} on ${podName}` + (containerName ? `/${containerName}` : '');
+    const terminalName = `${terminalCmd} on ${podName}` + (containerName ? `/${containerName}`: '');
     kubectl.runAsTerminal(terminalExecCmd, terminalName);
 }
 
@@ -1519,8 +1515,7 @@ const debugInternal = (name, image) => {
     // TODO: make this smarter.
     vscode.window.showInputBox({
         prompt: 'Debug command for your container:',
-        placeHolder: 'Example: node debug server.js'
-    }
+        placeHolder: 'Example: node debug server.js' }
     ).then((cmd) => {
         if (!cmd) {
             return;
@@ -1762,7 +1757,7 @@ async function execDraftCreate() {
         return;
     }
     const proposedAppName = path.basename(vscode.workspace.rootPath);
-    const appName = await vscode.window.showInputBox({ value: proposedAppName, prompt: "Choose a name for the Helm release" });
+    const appName = await vscode.window.showInputBox({ value: proposedAppName, prompt: "Choose a name for the Helm release"});
     if (appName) {
         await execDraftCreateApp(appName, undefined);
     }
