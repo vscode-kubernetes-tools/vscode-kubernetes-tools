@@ -5,7 +5,8 @@ import { FS } from './fs';
 import { Host } from './host';
 import { ResourceNode, isKubernetesExplorerResourceNode } from './explorer';
 import { helmCreateCore } from './helm.exec';
-import { failed } from './errorable';
+import { failed, Errorable } from './errorable';
+import { symbolAt, containmentChain } from './helm.symbolProvider';
 
 interface Context {
     readonly fs: FS;
@@ -167,4 +168,49 @@ async function createChart(context: Context): Promise<Chart | undefined> {
     }
 
     return createResult.result;
+}
+
+export async function convertToParameter(document: vscode.TextDocument, selection: vscode.Selection): Promise<Errorable<vscode.TextEdit>> {
+    const helmSymbols = await getHelmSymbols(document);
+    if (helmSymbols.length === 0) {
+        return { succeeded: false, error: ['Active document is not a Helm template'] };
+    }
+
+    const property = symbolAt(selection.anchor, helmSymbols);
+    if (!property || property.kind !== vscode.SymbolKind.Constant) {
+        return { succeeded: false, error: ['Selection is not a YAML field'] };
+    }
+
+    // TODO: we probably want to do this only for leaf properties
+
+    const valueLocation = property.location.range;
+    const valueText = document.getText(valueLocation);
+    const valueSymbolContainmentChain = containmentChain(property, helmSymbols);
+
+    if (valueSymbolContainmentChain.length === 0) {
+        return { succeeded: false, error: ['Cannot locate property name'] };
+    }
+
+    const valuePath = `service.${valueSymbolContainmentChain[0].name}`;
+    const replaceValueWithParamRef = new vscode.TextEdit(valueLocation, ` {{ .Values.${valuePath} }}`);
+
+    await applyEdits(document, /* insertParamEdit, */ replaceValueWithParamRef);
+
+    return { succeeded: true, result: replaceValueWithParamRef /* or better insertParamEdit but we've not done that yet */ };
+}
+
+async function applyEdits(document: vscode.TextDocument, ...edits: vscode.TextEdit[]): Promise<boolean> {
+    const wsEdit = new vscode.WorkspaceEdit();
+    wsEdit.set(document.uri, edits);
+    return await vscode.workspace.applyEdit(wsEdit);
+}
+
+async function getHelmSymbols(document: vscode.TextDocument): Promise<vscode.SymbolInformation[]> {
+    const sis: any = await vscode.commands.executeCommand('vscode.executeDocumentSymbolProvider', document.uri);
+
+    if (sis && sis.length) {
+        return sis;
+    }
+
+    return [];
 }

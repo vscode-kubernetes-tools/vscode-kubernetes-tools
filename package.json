@@ -70,6 +70,7 @@
         "onCommand:extension.helmInstall",
         "onCommand:extension.helmDependencies",
         "onCommand:extension.helmConvertToTemplate",
+        "onCommand:extension.helmParameterise",
         "onCommand:extension.draftVersion",
         "onCommand:extension.draftCreate",
         "onCommand:extension.draftUp",
@@ -857,6 +858,12 @@
                 "command": "extension.helmConvertToTemplate",
                 "title": "Convert to Template",
                 "description": "Convert this manifest to a Helm template",
+                "category": "Helm"
+            },
+            {
+                "command": "extension.helmParameterise",
+                "title": "Convert to Template Parameter",
+                "description": "Convert this value to a Helm template parameter",
                 "category": "Helm"
             },
             {

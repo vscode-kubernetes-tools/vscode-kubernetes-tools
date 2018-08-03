@@ -16,7 +16,6 @@ import * as tmp from 'tmp';
 import * as uuid from 'uuid';
 import * as clipboard from 'clipboardy';
 import { pullAll } from 'lodash';
-import * as yp from 'yaml-ast-parser';
 
 // Internal dependencies
 import { host } from './host';
@@ -70,6 +69,7 @@ import { installHelm, installDraft, installKubectl, installMinikube } from './co
 import { KubernetesResourceVirtualFileSystemProvider, K8S_RESOURCE_SCHEME, KUBECTL_RESOURCE_AUTHORITY, kubefsUri } from './kuberesources.virtualfs';
 import { Container, isKubernetesResource, KubernetesCollection, Pod, KubernetesResource } from './kuberesources.objectmodel';
 import { setActiveKubeconfig, getKnownKubeconfigs, addKnownKubeconfig } from './components/config/config';
+import { HelmDocumentSymbolProvider } from './helm.symbolProvider';
 
 let explainActive = false;
 let swaggerSpecPromise = null;
@@ -121,6 +121,7 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
     const previewProvider = new HelmTemplatePreviewDocumentProvider();
     const inspectProvider = new HelmInspectDocumentProvider();
     const dependenciesProvider = new HelmDependencyDocumentProvider();
+    const helmSymbolProvider = new HelmDocumentSymbolProvider();
     const completionProvider = new HelmTemplateCompletionProvider();
     const completionFilter = [
         "helm",
@@ -191,6 +192,7 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
         registerCommand('extension.helmInstall', (o) => helmexec.helmInstall(kubectl, o)),
         registerCommand('extension.helmDependencies', helmexec.helmDependencies),
         registerCommand('extension.helmConvertToTemplate', helmConvertToTemplate),
+        registerCommand('extension.helmParameterise', helmParameterise),
 
         // Commands - Draft
         registerCommand('extension.draftVersion', execDraftVersion),
@@ -211,6 +213,9 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
         // Completion providers
         vscode.languages.registerCompletionItemProvider(completionFilter, completionProvider),
         vscode.languages.registerCompletionItemProvider('yaml', new KubernetesCompletionProvider()),
+
+        // Symbol providers
+        vscode.languages.registerDocumentSymbolProvider({ language: 'helm' }, helmSymbolProvider),
 
         // Hover providers
         vscode.languages.registerHoverProvider(
@@ -311,130 +316,11 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
     }, this);
     await registerYamlSchemaSupport();
 
-    // TODO: OH LORD THIS IS HORRIBLE SO HORRIBLE
-    const azap = (s) => {
-        return s.replace(/{{/g, 'AA')
-                .replace(/}}/g, 'ZZ')
-                .replace(/"/g, 'Q');
-    };
-
-    // TODO: make into real class and register in a sane way
-    const helmSymbolProvider = vscode.languages.registerDocumentSymbolProvider({ language: 'helm' }, {
-        provideDocumentSymbols: async (document: vscode.TextDocument, token: vscode.CancellationToken) => {
-            const fakeText = document.getText().replace(/{{[^}]*}}/g, (s) => azap(s));  // TODO: expiate sins
-            const root = yp.safeLoad(fakeText);
-            const syms: vscode.SymbolInformation[] = [];
-            walk(root, '', document, document.uri, syms);
-            for (const sym of syms) {
-                const cc = symContainmentChain(sym, syms);
-                const cctext = cc.map((s) => s.name).reverse().join('.');
-                console.log(`[${rfmt(sym)}]  ${symkind(sym)} ${cctext}.${sym.name}`);
-            }
-            return syms;
-        }
-    });
-    context.subscriptions.push(helmSymbolProvider);
-
     vscode.workspace.registerTextDocumentContentProvider(configmaps.uriScheme, configMapProvider);
     return {
         apiVersion: '0.1',
         clusterProviderRegistry: clusterProviderRegistry
     };
-}
-
-function rfmt(s: vscode.SymbolInformation): string {
-    const r = s.location.range;
-    return `${r.start.line}:${r.start.character}-${r.end.line}:${r.end.character}`;
-}
-
-function symkind(s: vscode.SymbolInformation): string {
-    switch (s.kind) {
-        case vscode.SymbolKind.Field: return "[FI]";
-        case vscode.SymbolKind.Variable: return "[VA]";
-        case vscode.SymbolKind.Object: return "[TX]";
-        case vscode.SymbolKind.Constant: return "[CO]";
-        default: return "[??]";
-    }
-}
-
-function symContainmentChain(s: vscode.SymbolInformation, sis: vscode.SymbolInformation[]): vscode.SymbolInformation[] {
-    const containers = sis.filter((si) => si.kind === vscode.SymbolKind.Field)
-                          .filter((si) => si.location.range.contains(s.location.range))
-                          .filter((si) => si !== s);
-    if (containers.length === 0) {
-        return [];
-    }
-    const nextUp = minimal(containers);
-    const fromThere = symContainmentChain(nextUp, sis);
-    return [nextUp, ...fromThere];
-}
-
-function minimal(sis: vscode.SymbolInformation[]): vscode.SymbolInformation {
-    let m = sis[0];
-    for (const si of sis) {
-        if (m.location.range.contains(si.location.range)) {
-            m = si;
-        }
-    }
-    return m;
-}
-
-function symInfo(node: yp.YAMLNode, containerName: string, d: vscode.TextDocument, uri: vscode.Uri): vscode.SymbolInformation {
-    const start = node.startPosition;
-    const end = node.endPosition;
-    const loc = new vscode.Location(uri, new vscode.Range(d.positionAt(start), d.positionAt(end)));
-    switch (node.kind) {
-        case yp.Kind.ANCHOR_REF:
-            return new vscode.SymbolInformation(`ANCHOR_REF`, vscode.SymbolKind.Variable, containerName, loc);
-        case yp.Kind.INCLUDE_REF:
-            return new vscode.SymbolInformation(`INCLUDE_REF`, vscode.SymbolKind.Variable, containerName, loc);
-        case yp.Kind.MAP:
-            const m = node as yp.YamlMap;
-            return new vscode.SymbolInformation(`{map}`, vscode.SymbolKind.Variable, containerName, loc);
-        case yp.Kind.MAPPING:
-            const mp = node as yp.YAMLMapping;
-            return new vscode.SymbolInformation(`${mp.key.rawValue}`, vscode.SymbolKind.Field, containerName, loc);
-        case yp.Kind.SCALAR:
-            const sc = node as yp.YAMLScalar;
-            const isTemplateExpr = sc.rawValue.startsWith('AA') && sc.rawValue.endsWith('ZZ');
-            return new vscode.SymbolInformation(`"${sc.rawValue}"`, isTemplateExpr ? vscode.SymbolKind.Object : vscode.SymbolKind.Constant, containerName, loc);
-        case yp.Kind.SEQ:
-            const s = node as yp.YAMLSequence;
-            return new vscode.SymbolInformation(`[seq]`, vscode.SymbolKind.Variable, containerName, loc);
-    }
-    return new vscode.SymbolInformation(`###ARSEBISCUITS###`, vscode.SymbolKind.Variable, containerName, loc);
-}
-
-function walk(node: yp.YAMLNode, containerName: string, d: vscode.TextDocument, uri: vscode.Uri, syms: vscode.SymbolInformation[]) {
-    // console.log(`WALKIN' ${node.startPosition}-${node.endPosition}: ${node.kind}`);
-    const sym = symInfo(node, containerName, d, uri);
-    syms.push(sym);
-    switch (node.kind) {
-        case yp.Kind.ANCHOR_REF:
-            return;
-        case yp.Kind.INCLUDE_REF:
-            return;
-        case yp.Kind.MAP:
-            const m = node as yp.YamlMap;
-            for (const mm of m.mappings) {
-                walk(mm, sym.name, d, uri, syms);
-            }
-            return;
-        case yp.Kind.MAPPING:
-            const mp = node as yp.YAMLMapping;
-            if (mp.value) {
-                walk(mp.value, sym.name, d, uri, syms);
-            }
-            return;
-        case yp.Kind.SCALAR:
-            return;
-        case yp.Kind.SEQ:
-            const s = node as yp.YAMLSequence;
-            for (const y of s.items) {
-                walk(y, sym.name, d, uri, syms);
-            }
-            return;
-    }
 }
 
 // this method is called when your extension is deactivated
@@ -2011,7 +1897,7 @@ async function helmParameterise() {
         return;
     }
 
-    const convertResult = await convertToParameterCore(document, selection);
+    const convertResult = await helmauthoring.convertToParameter(document, selection);
 
     if (succeeded(convertResult)) {
         activeEditor.revealRange(convertResult.result.range);
@@ -2019,59 +1905,4 @@ async function helmParameterise() {
     } else {
         vscode.window.showErrorMessage(convertResult.error[0]);
     }
-}
-
-// TODO: any better way to make available for testing?
-export async function convertToParameterCore(document: vscode.TextDocument, selection: vscode.Selection): Promise<Errorable<vscode.TextEdit>> {
-    const helmSymbols = await getHelmSymbols(document);
-    if (helmSymbols.length === 0) {
-        return { succeeded: false, error: ['Active document is not a Helm template'] };
-    }
-
-    const property = findPropertyEx2(helmSymbols, selection.anchor);
-    if (!property) {
-        return { succeeded: false, error: ['Selection is not a YAML field'] };
-    }
-
-    // TODO: we probably want to do this only for leaf properties
-
-    const propertyLocation = property.location.range;
-    const propertyText = document.getText(propertyLocation);
-    const nameBitLength = propertyText.indexOf(':') + 1;
-    if (nameBitLength <= 0) {
-        return { succeeded: false, error: ['Cannot locate property name'] };
-    }
-    const propertyValueLocation = new vscode.Range(propertyLocation.start.translate(0, nameBitLength), propertyLocation.end);
-    const propertyValue = JSON.parse(document.getText(propertyValueLocation));
-
-    const replaceValueWithParamRef = new vscode.TextEdit(propertyValueLocation, ` {{ Values.${valuePath} }}`);
-
-    await applyEdits(document, /* insertParamEdit, */ replaceValueWithParamRef);
-
-    return { succeeded: true, result: replaceValueWithParamRef /* or better insertParamEdit but we've not done that yet */ };
-}
-
-async function applyEdits(document: vscode.TextDocument, ...edits: vscode.TextEdit[]): Promise<boolean> {
-    const wsEdit = new vscode.WorkspaceEdit();
-    wsEdit.set(document.uri, edits);
-    return await vscode.workspace.applyEdit(wsEdit);
-}
-
-async function getHelmSymbols(document: vscode.TextDocument): Promise<vscode.SymbolInformation[]> {
-    const sis: any = await vscode.commands.executeCommand('vscode.executeDocumentSymbolProvider', document.uri);
-
-    if (sis && sis.length) {
-        return sis;
-    }
-
-    return [];
-}
-
-function findPropertyEx2(symbols: vscode.SymbolInformation[], position: vscode.Position): vscode.SymbolInformation | null {
-    const containingSymbols = symbols.filter((s) => s.location.range.contains(position));
-    if (!containingSymbols || containingSymbols.length === 0) {
-        return null;
-    }
-    const sorted = containingSymbols.sort((a, b) => (a.containerName || '').length - (b.containerName || '').length);
-    return sorted[sorted.length - 1];
 }
