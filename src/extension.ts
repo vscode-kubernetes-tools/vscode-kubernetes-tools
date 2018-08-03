@@ -1279,8 +1279,7 @@ async function reportDeleteResult(resourceId: string, shellResult: ShellResult) 
 
 async function deleteKubernetes(delMode: KubernetesDeleteMode, explorerNode?: explorer.ResourceNode) {
 
-    let delModeArg = '';
-    delMode === KubernetesDeleteMode.Now ? delModeArg = ' --now' : delModeArg = '';
+    const delModeArg = delMode ===  KubernetesDeleteMode.Now ? ' --now' : '';
 
     if (explorerNode) {
         const answer = await vscode.window.showWarningMessage(`Do you want to delete the resource '${explorerNode.resourceId}'?`, ...deleteMessageItems);
