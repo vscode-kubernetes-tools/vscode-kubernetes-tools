@@ -41,7 +41,7 @@ import * as helm from './helm';
 import * as helmexec from './helm.exec';
 import { HelmRequirementsCodeLensProvider } from './helm.requirementsCodeLens';
 import { HelmTemplateHoverProvider } from './helm.hoverProvider';
-import { HelmTemplatePreviewDocumentProvider, HelmInspectDocumentProvider } from './helm.documentProvider';
+import { HelmTemplatePreviewDocumentProvider, HelmInspectDocumentProvider, HelmDependencyDocumentProvider } from './helm.documentProvider';
 import { HelmTemplateCompletionProvider } from './helm.completionProvider';
 import { Reporter } from './telemetry';
 import * as telemetry from './telemetry-helper';
@@ -115,6 +115,7 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
     const resourceDocProvider = new KubernetesResourceVirtualFileSystemProvider(kubectl, host, vscode.workspace.rootPath);
     const previewProvider = new HelmTemplatePreviewDocumentProvider();
     const inspectProvider = new HelmInspectDocumentProvider();
+    const dependenciesProvider = new HelmDependencyDocumentProvider();
     const completionProvider = new HelmTemplateCompletionProvider();
     const completionFilter = [
         "helm",
@@ -173,12 +174,16 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
         registerCommand('extension.helmTemplatePreview', helmexec.helmTemplatePreview),
         registerCommand('extension.helmLint', helmexec.helmLint),
         registerCommand('extension.helmInspectValues', helmexec.helmInspectValues),
+        registerCommand('extension.helmInspectChart', helmexec.helmInspectChart),
         registerCommand('extension.helmDryRun', helmexec.helmDryRun),
         registerCommand('extension.helmDepUp', helmexec.helmDepUp),
         registerCommand('extension.helmInsertReq', helmexec.insertRequirement),
         registerCommand('extension.helmCreate', helmexec.helmCreate),
         registerCommand('extension.helmGet', helmexec.helmGet),
         registerCommand('extension.helmPackage', helmexec.helmPackage),
+        registerCommand('extension.helmFetch', helmexec.helmFetch),
+        registerCommand('extension.helmInstall', (o) => helmexec.helmInstall(kubectl, o)),
+        registerCommand('extension.helmDependencies', helmexec.helmDependencies),
 
         // Commands - Draft
         registerCommand('extension.draftVersion', execDraftVersion),
@@ -192,8 +197,9 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
         vscode.workspace.registerTextDocumentContentProvider(configureFromCluster.uriScheme, configureFromClusterUI),
         vscode.workspace.registerTextDocumentContentProvider(createCluster.uriScheme, createClusterUI),
         vscode.workspace.registerTextDocumentContentProvider(helm.PREVIEW_SCHEME, previewProvider),
-        vscode.workspace.registerTextDocumentContentProvider(helm.INSPECT_SCHEME, inspectProvider),
+        vscode.workspace.registerTextDocumentContentProvider(helm.INSPECT_VALUES_SCHEME, inspectProvider),
         vscode.workspace.registerTextDocumentContentProvider(helm.INSPECT_CHART_SCHEME, inspectProvider),
+        vscode.workspace.registerTextDocumentContentProvider(helm.DEPENDENCIES_SCHEME, dependenciesProvider),
 
         // Completion providers
         vscode.languages.registerCompletionItemProvider(completionFilter, completionProvider),

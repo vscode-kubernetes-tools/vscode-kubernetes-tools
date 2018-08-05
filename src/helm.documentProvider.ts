@@ -7,6 +7,7 @@ import { escape as htmlEscape } from 'lodash';
 
 import * as helm from './helm';
 import * as logger from './logger';
+import { failed } from './errorable';
 
 interface HelmDocumentResult {
     readonly title: string;
@@ -32,13 +33,16 @@ function render(document: HelmDocumentResult): string {
 }
 
 function extractChartName(uri: vscode.Uri): string {
-    if (uri.scheme === helm.INSPECT_CHART_SCHEME && uri.authority === helm.INSPECT_CHART_REPO_AUTHORITY) {
+    if (uri.authority === helm.INSPECT_REPO_AUTHORITY) {
         const id = uri.path.substring(1);
         const version = uri.query;
         return `${id} ${version}`;
     }
-    if (filepath.extname(uri.fsPath) === ".tgz") {
-        return filepath.basename(uri.fsPath);
+    if (uri.authority === helm.INSPECT_FILE_AUTHORITY) {
+        const fsPath = uri.query;
+        if (filepath.extname(fsPath) === ".tgz") {
+            return filepath.basename(fsPath);
+        }
     }
     return "Chart";
 }
@@ -57,8 +61,9 @@ export class HelmInspectDocumentProvider implements vscode.TextDocumentContentPr
                 reject(err);
             };
 
-            if (uri.scheme === helm.INSPECT_SCHEME) {
-                const file = uri.fsPath || uri.authority;
+            if (uri.authority === helm.INSPECT_FILE_AUTHORITY) {
+                // currently always INSPECT_VALUES_SCHEME
+                const file = uri.query;
                 const fi = fs.statSync(file);
                 if (!fi.isDirectory() && filepath.extname(file) === ".tgz") {
                     exec.helmExec(`inspect values "${file}"`, printer);
@@ -70,10 +75,15 @@ export class HelmInspectDocumentProvider implements vscode.TextDocumentContentPr
                 exec.pickChartForFile(file, { warnIfNoCharts: true }, (path) => {
                     exec.helmExec(`inspect values "${path}"`, printer);
                 });
-            } else if (uri.scheme === helm.INSPECT_CHART_SCHEME && uri.authority === helm.INSPECT_CHART_REPO_AUTHORITY) {
+            } else if (uri.authority === helm.INSPECT_REPO_AUTHORITY) {
                 const id = uri.path.substring(1);
                 const version = uri.query;
-                exec.helmExec(`inspect ${id} --version ${version}`, printer);
+                const versionArg = version ? `--version ${version}` : '';
+                if (uri.scheme === helm.INSPECT_CHART_SCHEME) {
+                    exec.helmExec(`inspect ${id} ${versionArg}`, printer);
+                } else if (uri.scheme === helm.INSPECT_VALUES_SCHEME) {
+                    exec.helmExec(`inspect values ${id} ${versionArg}`, printer);
+                }
             }
         });
 
@@ -133,5 +143,34 @@ export class HelmTemplatePreviewDocumentProvider implements vscode.TextDocumentC
             });
         });
 
+    }
+}
+
+export class HelmDependencyDocumentProvider implements vscode.TextDocumentContentProvider {
+    public provideTextDocumentContent(uri: vscode.Uri, tok: vscode.CancellationToken): vscode.ProviderResult<string> {
+        return this.provideTextDocumentContentImpl(uri);
+    }
+
+    async provideTextDocumentContentImpl(uri: vscode.Uri): Promise<string> {
+        const chartId = uri.path.substring(1);
+        const version = uri.query;
+        const dependencies = await exec.helmDependenciesCore(chartId, version);
+        if (failed(dependencies)) {
+            return `<p>${dependencies.error[0]}</p>`;
+        }
+
+        const list =  dependencies.result
+                                  .map(this.formatDependency)
+                                  .join('<br>');
+        return `<p>${chartId} depends on:</p><ul>${list}</ul>`;
+    }
+
+    formatDependency(d: { [key: string]: string }): string {
+        const name = d.name;
+        const version = d.version === '*' ? '' : ` (v${d.version})`;
+        const repoPrefix = d.repository.startsWith('alias:') ? d.repository.substring('alias:'.length) + '/' : '';
+        const repoSuffix = d.repository.startsWith('alias:') ? '' : ` from ${d.repository}`;
+        const status = ` - ${d.status}`;
+        return `<li>${repoPrefix}${name}${version}${repoSuffix}${status}</li>`;
     }
 }

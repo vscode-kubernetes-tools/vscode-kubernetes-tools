@@ -6,8 +6,10 @@ import { helm as logger } from './logger';
 import * as YAML from 'yamljs';
 import * as _ from 'lodash';
 import * as fs from "fs";
+import * as tmp from 'tmp';
 import * as extension from './extension';
 import * as explorer from './explorer';
+import * as helmrepoexplorer from './helm.repoExplorer';
 import * as helm from './helm';
 import { showWorkspaceFolderPick } from './hostutils';
 import { shell as sh, ShellResult } from './shell';
@@ -15,6 +17,8 @@ import { K8S_RESOURCE_SCHEME, HELM_RESOURCE_AUTHORITY } from './kuberesources.vi
 import { Errorable } from './errorable';
 import { parseLineOutput } from './outputUtils';
 import { sleep } from './sleep';
+import { currentNamespace } from './kubectlUtils';
+import { Kubectl } from './kubectl';
 
 export interface PickChartUIOptions {
     readonly warnIfNoCharts: boolean;
@@ -121,25 +125,42 @@ export function helmLint() {
     });
 }
 
-// helmInspect inspects a packaged chart or a chart dir and returns the values.
-// If a non-tgz, non-directory file is passed, this tries to find a parent chart.
 export function helmInspectValues(arg: any) {
+    helmInspect(arg, {
+        noTargetMessage: "Helm Inspect Values is for packaged charts and directories. Launch the command from a file or directory in the file explorer. or a chart or version in the Helm Repos explorer.",
+        inspectionScheme: helm.INSPECT_VALUES_SCHEME
+    });
+}
+
+export function helmInspectChart(arg: any) {
+    helmInspect(arg, {
+        noTargetMessage: "Helm Inspect Chart is for packaged charts and directories. Launch the command from a chart or version in the Helm Repos explorer.",
+        inspectionScheme: helm.INSPECT_CHART_SCHEME
+    });
+}
+
+interface InspectionStrategy {
+    readonly noTargetMessage: string;
+    readonly inspectionScheme: string;
+}
+
+function helmInspect(arg: any, s: InspectionStrategy) {
     if (!arg) {
-        vscode.window.showErrorMessage("Helm Inspect Values is primarily for inspecting packaged charts and directories. Launch the command from a file or directory in the Explorer pane.");
+        vscode.window.showErrorMessage(s.noTargetMessage);
         return;
     }
     if (!ensureHelm(EnsureMode.Alert)) {
         return;
     }
 
-    if (arg.kind && arg.kind === helm.INSPECT_CHART_REPO_AUTHORITY) {
-        const id: string = arg.id;
-        const version: string = arg.version;
-        const uri = vscode.Uri.parse(`${helm.INSPECT_CHART_SCHEME}://${helm.INSPECT_CHART_REPO_AUTHORITY}/${id}?${version}`);
+    if (helmrepoexplorer.isHelmRepoChart(arg) || helmrepoexplorer.isHelmRepoChartVersion(arg)) {
+        const id = arg.id;
+        const versionQuery = helmrepoexplorer.isHelmRepoChartVersion(arg) ? `?${arg.version}` : '';
+        const uri = vscode.Uri.parse(`${s.inspectionScheme}://${helm.INSPECT_REPO_AUTHORITY}/${id}${versionQuery}`);
         vscode.commands.executeCommand("vscode.previewHtml", uri, vscode.ViewColumn.Two, "Inspect");
     } else {
         const u = arg as vscode.Uri;
-        const uri = vscode.Uri.parse("helm-inspect-values://" + u.fsPath);
+        const uri = vscode.Uri.parse(`${s.inspectionScheme}://${helm.INSPECT_FILE_AUTHORITY}/?${u.fsPath}`);
         vscode.commands.executeCommand("vscode.previewHtml", uri, vscode.ViewColumn.Two, "Inspect");
     }
 }
@@ -191,6 +212,131 @@ export function helmPackage() {
             return;
         });
     });
+}
+
+export async function helmFetch(helmObject: helmrepoexplorer.HelmObject | undefined): Promise<void> {
+    if (!helmObject) {
+        const id = await vscode.window.showInputBox({ prompt: "Chart to fetch", placeHolder: "stable/mychart" });
+        if (id) {
+            helmFetchCore(id, undefined);
+        }
+    }
+    if (helmrepoexplorer.isHelmRepoChart(helmObject)) {
+        await helmFetchCore(helmObject.id, undefined);
+    } else if (helmrepoexplorer.isHelmRepoChartVersion(helmObject)) {
+        await helmFetchCore(helmObject.id, helmObject.version);
+    }
+}
+
+async function helmFetchCore(chartId: string, version: string | undefined): Promise<void> {
+    const projectFolder = await showWorkspaceFolderPick();
+    if (!projectFolder) {
+        return;
+    }
+
+    const versionArg = version ? `--version ${version}` : '';
+    const sr = await helmExecAsync(`fetch ${chartId} --untar ${versionArg} -d "${projectFolder.uri.fsPath}"`);
+    if (sr.code !== 0) {
+        await vscode.window.showErrorMessage(`Helm fetch failed: ${sr.stderr}`);
+        return;
+    }
+    await vscode.window.showInformationMessage(`Fetched ${chartId}`);
+}
+
+export async function helmInstall(kubectl: Kubectl, helmObject: helmrepoexplorer.HelmObject | undefined): Promise<void> {
+    if (!helmObject) {
+        const id = await vscode.window.showInputBox({ prompt: "Chart to install", placeHolder: "stable/mychart" });
+        if (id) {
+            helmInstallCore(kubectl, id, undefined);
+        }
+    }
+    if (helmrepoexplorer.isHelmRepoChart(helmObject)) {
+        await helmInstallCore(kubectl, helmObject.id, undefined);
+    } else if (helmrepoexplorer.isHelmRepoChartVersion(helmObject)) {
+        await helmInstallCore(kubectl, helmObject.id, helmObject.version);
+    }
+}
+
+async function helmInstallCore(kubectl: Kubectl, chartId: string, version: string | undefined): Promise<void> {
+    const ns = await currentNamespace(kubectl);
+    const nsArg = ns ? `--namespace ${ns}` : '';
+    const versionArg = version ? `--version ${version}` : '';
+    const sr = await helmExecAsync(`install ${chartId} ${versionArg} ${nsArg}`);
+    if (sr.code !== 0) {
+        logger.log(sr.stderr);
+        await vscode.window.showErrorMessage(`Helm install failed: ${sr.stderr}`);
+        return;
+    }
+    const releaseName = extractReleaseName(sr.stdout);
+    logger.log(sr.stdout);
+    await vscode.window.showInformationMessage(`Installed ${chartId} as release ${releaseName}`);
+}
+
+const HELM_INSTALL_NAME_HEADER = "NAME:";
+
+function extractReleaseName(helmOutput: string): string {
+    const lines = helmOutput.split('\n').map((l) => l.trim());
+    const nameLine = lines.find((l) => l.startsWith(HELM_INSTALL_NAME_HEADER));
+    if (!nameLine) {
+        return '(unknown)';
+    }
+    return nameLine.substring(HELM_INSTALL_NAME_HEADER.length + 1).trim();
+}
+
+interface Dependency {
+    readonly name: string;
+    readonly version: string;
+    readonly repository: string;
+    readonly status: string;
+}
+
+export async function helmDependencies(helmObject: helmrepoexplorer.HelmObject | undefined): Promise<void> {
+    if (!helmObject) {
+        const id = await vscode.window.showInputBox({ prompt: "Chart to show dependencies for", placeHolder: "stable/mychart" });
+        if (id) {
+            helmDependenciesLaunchViewer(id, undefined);
+        }
+    }
+    if (helmrepoexplorer.isHelmRepoChart(helmObject)) {
+        await helmDependenciesLaunchViewer(helmObject.id, undefined);
+    } else if (helmrepoexplorer.isHelmRepoChartVersion(helmObject)) {
+        await helmDependenciesLaunchViewer(helmObject.id, helmObject.version);
+    }
+}
+
+async function helmDependenciesLaunchViewer(chartId: string, version: string | undefined): Promise<void> {
+    // Boing it back through a HTML preview window
+    const versionQuery = version ? `?${version}` : '';
+    const uri = vscode.Uri.parse(`${helm.DEPENDENCIES_SCHEME}://${helm.DEPENDENCIES_REPO_AUTHORITY}/${chartId}${versionQuery}`);
+    await vscode.commands.executeCommand("vscode.previewHtml", uri, vscode.ViewColumn.Two, `${chartId} Dependencies`);
+}
+
+export async function helmDependenciesCore(chartId: string, version: string | undefined): Promise<Errorable<{ [key: string]: string }[]>> {
+    const tempDirObj = tmp.dirSync({ prefix: "vsk-fetchfordeps-", unsafeCleanup: true });
+    const versionArg = version ? `--version ${version}` : '';
+    const fsr = await helmExecAsync(`fetch ${chartId} ${versionArg} -d "${tempDirObj.name}"`);
+    if (fsr.code !== 0) {
+        tempDirObj.removeCallback();
+        return { succeeded: false, error: [`Helm fetch failed: ${fsr.stderr}`] };
+    }
+
+    const tempDirFiles = fs.readdirSync(tempDirObj.name);
+    const chartPath = filepath.join(tempDirObj.name, tempDirFiles[0]);  // should be the only thing in the directory
+    try {
+        const dsr = await helmExecAsync(`dep list "${chartPath}"`);
+        if (dsr.code !== 0) {
+            return { succeeded: false, error: [`Helm dependency list failed: ${dsr.stderr}`] };
+        }
+        const lines = dsr.stdout.split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
+        if (lines.length === 1) {
+            return { succeeded: false, error: [`${chartId} has no dependencies`] };  // I don't feel good about using an error for this but life is short
+        }
+        const dependencies = parseLineOutput(lines, helm.HELM_OUTPUT_COLUMN_SEPARATOR);
+        return { succeeded: true, result: dependencies };
+    } finally {
+        fs.unlinkSync(chartPath);
+        tempDirObj.removeCallback();
+    }
 }
 
 // pickChart tries to find charts in this repo. If one is found, fn() is executed with that
