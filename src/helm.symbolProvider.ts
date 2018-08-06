@@ -8,40 +8,33 @@ export class HelmDocumentSymbolProvider implements vscode.DocumentSymbolProvider
     }
 
     async provideDocumentSymbolsImpl(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.SymbolInformation[]> {
-        const fakeText = document.getText().replace(/{{[^}]*}}/g, (s) => azap(s));  // TODO: expiate sins
+        const fakeText = document.getText().replace(/{{[^}]*}}/g, (s) => encodeWithTemplateMarkers(s));
         const root = yp.safeLoad(fakeText);
         const syms: vscode.SymbolInformation[] = [];
         walk(root, '', document, document.uri, syms);
-        // for (const sym of syms) {
-        //     const cc = containmentChain(sym, syms);
-        //     const cctext = cc.map((s) => s.name).reverse().join('.');
-        //     console.log(`[${rfmt(sym)}]  ${symkind(sym)} ${cctext}.${sym.name}`);
-        // }
         return syms;
     }
 }
 
+// These MUST be the same lengths as the strings they replace
+// ('{{', '}}' and '"'") - we rely on the text ranges staying
+// the same in order to detect and substitute back the actual
+// template expression.
+const ENCODE_TEMPLATE_START = 'AA';
+const ENCODE_TEMPLATE_END = 'ZZ';
+const ENCODE_TEMPLATE_QUOTE = 'Q';
+
 // TODO: OH LORD THIS IS HORRIBLE SO HORRIBLE
-function azap(s: string): string {
-    return s.replace(/{{/g, 'AA')
-            .replace(/}}/g, 'ZZ')
-            .replace(/"/g, 'Q');
+function encodeWithTemplateMarkers(s: string): string {
+    return s.replace(/{{/g, ENCODE_TEMPLATE_START)
+            .replace(/}}/g, ENCODE_TEMPLATE_END)
+            .replace(/"/g, ENCODE_TEMPLATE_QUOTE);
 }
 
-// function rfmt(s: vscode.SymbolInformation): string {
-//     const r = s.location.range;
-//     return `${r.start.line}:${r.start.character}-${r.end.line}:${r.end.character}`;
-// }
-
-// function symkind(s: vscode.SymbolInformation): string {
-//     switch (s.kind) {
-//         case vscode.SymbolKind.Field: return "[FI]";
-//         case vscode.SymbolKind.Variable: return "[VA]";
-//         case vscode.SymbolKind.Object: return "[TX]";
-//         case vscode.SymbolKind.Constant: return "[CO]";
-//         default: return "[??]";
-//     }
-// }
+function hasEncodedTemplateMarkers(s: string): boolean {
+    return (s.startsWith(ENCODE_TEMPLATE_START) && s.endsWith(ENCODE_TEMPLATE_END))
+        || (s.startsWith('"' + ENCODE_TEMPLATE_START) && s.endsWith(ENCODE_TEMPLATE_END + '"'));
+}
 
 export function findKeyPath(keyPath: string[], sis: vscode.SymbolInformation[]): { found: vscode.SymbolInformation | undefined, remaining: string[] } {
     return findKeyPathAcc(keyPath, sis, undefined);
@@ -118,8 +111,12 @@ function symInfo(node: yp.YAMLNode, containerName: string, d: vscode.TextDocumen
             return new vscode.SymbolInformation(`${mp.key.rawValue}`, vscode.SymbolKind.Field, containerName, loc);
         case yp.Kind.SCALAR:
             const sc = node as yp.YAMLScalar;
-            const isTemplateExpr = sc.rawValue.startsWith('AA') && sc.rawValue.endsWith('ZZ');
-            return new vscode.SymbolInformation(`"${sc.rawValue}"`, isTemplateExpr ? vscode.SymbolKind.Object : vscode.SymbolKind.Constant, containerName, loc);
+            const isPossibleTemplateExpr = hasEncodedTemplateMarkers(sc.rawValue);
+            const realValue = isPossibleTemplateExpr ? d.getText(loc.range) : sc.rawValue;
+            const isTemplateExpr = (realValue.startsWith('{{') && realValue.endsWith('}}'))
+                                    || (realValue.startsWith('"{{') && realValue.endsWith('}}"'));
+            const symbolKind = isTemplateExpr ? vscode.SymbolKind.Object : vscode.SymbolKind.Constant;
+            return new vscode.SymbolInformation(realValue, symbolKind, containerName, loc);
         case yp.Kind.SEQ:
             const s = node as yp.YAMLSequence;
             return new vscode.SymbolInformation(`[seq]`, vscode.SymbolKind.Variable, containerName, loc);
