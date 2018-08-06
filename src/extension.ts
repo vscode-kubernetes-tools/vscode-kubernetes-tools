@@ -1900,9 +1900,10 @@ async function helmParameterise() {
     const convertResult = await helmauthoring.convertToParameter(fs, host, document, selection);
 
     if (succeeded(convertResult)) {
-        // TODO: this is no longer the active editor - would need to show values.yaml (if that's the UI we want)
-        // activeEditor.revealRange(convertResult.result.range);
-        // activeEditor.selection = new vscode.Selection(convertResult.result.range.start, convertResult.result.range.end);
+        const editor = await vscode.window.showTextDocument(convertResult.result.document);
+        const edit = convertResult.result.edits[0];
+        editor.revealRange(edit.range);
+        editor.selection = new vscode.Selection(edit.range.start, edit.range.end);  // TODO: this isn't quite right because it gives us the insert-at selection not the resultant edit
     } else {
         vscode.window.showErrorMessage(convertResult.error[0]);
     }

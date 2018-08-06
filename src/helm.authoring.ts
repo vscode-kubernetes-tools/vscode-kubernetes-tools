@@ -171,12 +171,12 @@ async function createChart(context: Context): Promise<Chart | undefined> {
     return createResult.result;
 }
 
-interface TextEdit {
+export interface TextEdit {
     readonly document: vscode.TextDocument;
     readonly edits: vscode.TextEdit[];
 }
 
-export async function convertToParameter(fs: FS, host: Host, document: vscode.TextDocument, selection: vscode.Selection): Promise<Errorable<vscode.TextEdit>> {
+export async function convertToParameter(fs: FS, host: Host, document: vscode.TextDocument, selection: vscode.Selection): Promise<Errorable<TextEdit>> {
     const helmSymbols = await getHelmSymbols(document);
     if (helmSymbols.length === 0) {
         return { succeeded: false, error: ['Active document is not a Helm template'] };
@@ -216,7 +216,7 @@ export async function convertToParameter(fs: FS, host: Host, document: vscode.Te
         return { succeeded: false, error: ['Unable to update the template and/or values file'] };
     }
 
-    return { succeeded: true, result: insertParamEdit.result.edits[0] };
+    return { succeeded: true, result: insertParamEdit.result };
 }
 
 async function applyEdits(...edits: TextEdit[]): Promise<boolean> {
