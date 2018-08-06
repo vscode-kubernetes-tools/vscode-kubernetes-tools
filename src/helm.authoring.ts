@@ -75,7 +75,7 @@ enum QuoteMode {
 }
 
 const NAME_EXPRESSION = '{{ template "fullname" . }}';
-const CHART_LABEL_EXPRESSION = '{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}}';
+const CHART_LABEL_EXPRESSION = '{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}';
 
 const QUOTE_CONTROL_INFO = [
     { text: NAME_EXPRESSION, mode: QuoteMode.None },
