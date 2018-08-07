@@ -1,4 +1,5 @@
 # Visual Studio Code Kubernetes Tools
+[![Build Status](https://travis-ci.org/Azure/vscode-kubernetes-tools.svg?branch=master)](https://travis-ci.org/Azure/vscode-kubernetes-tools)
 
 A Visual Studio Code extension for interacting with Kubernetes clusters.  This extension combines
 the `vs-kubernetes` extension by @brendandburns and the `vs-helm` extension by @technosophos.
@@ -7,18 +8,16 @@ the `vs-kubernetes` extension by @brendandburns and the `vs-helm` extension by @
 
 ### Setting up your environment
 
-This extension assumes that you have a `Dockerfile` in the root directory of
-your project.
+This extension assumes you have the following binaries on your `PATH`:
 
-It also assumes that you have the following binaries on your `PATH`:
-
-   * `kubectl`
    * `docker`
    * `git`
+   * `kubectl` (optional)
    * `helm` (optional)
    * `draft` (optional)
+   * `minikube` (optional)
 
-For `kubectl`, `helm` and `draft` the binaries need not be on the system PATH, provided you tell the extension their locations using the appropriate `vs-kubernetes -> vs-kubernetes.${tool}-path` configuration setting.  See "Extension Settings" below.
+For `kubectl`, `helm` and `draft` the binaries need not be on the system PATH, provided you tell the extension their locations using the appropriate `vs-kubernetes -> vs-kubernetes.${tool}-path` configuration setting.  See [Extension Settings](#extension-settings) below.
 
 The extension can install `kubectl`, `helm` and `draft` for you if they are missing - choose **Install dependencies** when you see an error notification for the missing tool.  This will set `kubectl-path`, `helm-path` and `draft-path` entries in your configuration - the programs will *not* be installed on the system PATH, but this will be sufficient for them to work with the extension.
 
@@ -30,7 +29,7 @@ If you plan to create managed clusters using Microsoft Azure (ACS or AKS), or to
 
 `helm` support requires that you have Helm installed and configured.
 
-To use the `Helm: DryRun` command, your Kubernetes cluster must be running Tiller.
+To use the `Helm: Dry Run` command, your Kubernetes cluster must be running Tiller.
 
 For setting up `draft` you can provide a path to the binary via configuration (`vs-kubernetes.draft-path`) if it is not on your PATH.
 
@@ -66,26 +65,32 @@ your user or workspace settings.
 
 If you are building and running the extension from source, see [CONTRIBUTING.md](CONTRIBUTING.md) for prerequisites for the development environment.
 
-## Features
+## Commands and features
 
-`vs-kubernetes` supports a number of commands for interacting with Kubernetes; these are accessible via the command menu (`Ctrl+Shift+P`) and may be bound to keys in the normal way.
+`vs-kubernetes-tools` supports a number of commands for interacting with Kubernetes; these are accessible via the command menu (`Ctrl+Shift+P`) and may be bound to keys in the normal way.
 
-### General commands
+### Kubernetes
+
+#### General commands
 
    * `Kubernetes: Load` - Load a resource from the Kubernetes API and create a new editor window.
    * `Kubernetes: Get` - Get the status for a specific resource.
    * `Kubernetes: Follow Logs` - Follow logs for a pod in an output window.
-   * `Kubernetes: Show Logs` - Get logs for a pod in an output window.
+   * `Kubernetes: Show Logs` - Show logs for a pod in an output window.
+   * `Kubernetes: Follow Events` - Follow events on a selected namespace.
+   * `Kubernetes: Show Events` - Show events on a selected namespace.
 
-### Commands while viewing a Kubernetes file
+#### Commands while viewing a Kubernetes manifest file
 
    * `Kubernetes: Explain` - Use the `kubectl explain ...` tool to annotate Kubernetes API objects
    * `Kubernetes: Create` - Create an object using the current document
    * `Kubernetes: Delete` - Delete an object contained in the current document.
    * `Kubernetes: Apply` - Apply changes to an object contained in the current document.
    * `Kubernetes: Expose` - Expose the object in the current document as a service.
+   * `Kubernetes: Describe` - Describe the object in a terminal window.
+   * `Kubernetes: Diff` - Show the difference between a local copy of the object, and that which is deployed to the cluster.
 
-### Commands for application directories
+#### Commands for application directories
 
    * `Kubernetes: Run` - Run the current application as a Kubernetes Deployment
    * `Kubernetes: Terminal` - Open an interactive terminal session in a pod of the Kubernetes Deployment
@@ -95,16 +100,37 @@ If you are building and running the extension from source, see [CONTRIBUTING.md]
    * `Kubernetes: Remove Debug` - Remove the deployment and/or service created for a `Kubernetes Debug (Launch)` session
    * `Kubernetes: Sync Working Copy to Cluster` - Checks out the version of the code that matches what is deployed in the cluster.  (This relies on Docker image versions also being Git commit IDs, which the extension does if you use the Run command to build the container, but which typically doesn't work for containers/deployments done by other means.)
 
-### Configuration commands
+#### Cluster Creation commands
 
-   * `Kubernetes Add Existing Cluster` - Install and configure the Kubernetes command line tool (kubectl) from a cloud cluster, such as an Azure Container Service (ACS) or Azure Kubernetes Service (AKS) cluster
+   * `Kubernetes: Create Cluster` - Initiate the flow for creating a Kubernetes cluster with a selected cloud provider (eg: Azure), or creating a Minikube cluster locally.
 
+#### Configuration commands
 
-### Miscellaneous commands
+   * `Kubernetes: Add Existing Cluster` - Install and configure the Kubernetes command line tool (kubectl) from a cloud cluster, such as an Azure Container Service (ACS) or Azure Kubernetes Service (AKS) cluster
+   * `Kubernetes: Set as Current Cluster` - Select from a list of configured clusters to set the "current" cluster. Used for searching, displaying, and deploying Kubernetes resources.
+   * `Kubernetes: Delete Context` - Remove a cluster's configuration from the kubeconfig file.
+   * `Kubernetes: Show Cluster Info` - For a cluster, show the status of Kubernetes Components (API Server, etcd, KubeDNS, etc.) in a terminal window.
+   * `Kubernetes: Use Namespace` - Select from a list of namespaces to set the "current" namespace. Used for searching, displaying, and deploying Kubernetes resources.
 
-   * `Kubernetes Open Dashboard` - Opens the Kubernetes Dashboard in your browser.
+#### ConfigMap and Secret commands
 
-### Helm support
+   * `Kubernetes: Add File` - Adds a file as a ConfigMap or a Secret
+   * `Kubernetes: Delete File` - Deletes a file from a ConfigMap or a Secret
+
+#### Miscellaneous commands
+
+   * `Kubernetes: Open Dashboard` - Opens the Kubernetes Dashboard in your browser.
+   * `Kubernetes: Port Forward` - Prompts user for a local port and a remote port to bind to on a Pod.
+
+### Minikube
+
+[Minikube](https://github.com/kubernetes/minikube) runs a local, single node Kubernetes cluster inside a VM. Support is currently experimental, and requires
+Minikube tools to be installed and available on your PATH.
+
+   * `Kubernetes: Start minikube` - Starts Minikube
+   * `Kubernetes: Stop minikube` - Stops Minikube
+
+### Helm
 
 [Helm](https://helm.sh/) is the package manager for Kubernetes and provides a way for you to define, install and upgrade applications using 'charts.'  This extension provides a set of tools for creating and testing Helm charts:
 
@@ -114,23 +140,27 @@ If you are building and running the extension from source, see [CONTRIBUTING.md]
    * Help text (on hover) for Helm, Sprig, and Go Tpl functions
    * Snippets for quickly scaffolding new charts and templates
    * Commands for...
+     * `Helm: Create Chart` - Create a new chart
+     * `Helm; Get Release` - Get a helm release from the cluster
      * `Helm: Lint` - Lint your chart
      * `Helm: Preview Template` - Open a preview window and preview how your template will render
      * `Helm: Template` - Run your chart through the template engine
-     * `Helm: DryRun` - Run a helm install --dry-run --debug on a remote cluster and get the results
+     * `Helm: Dry Run` - Run a helm install --dry-run --debug on a remote cluster and get the results
      * `Helm: Version` - Get the Helm version
-     * `Helm: Dependency Update` - Update a chart's dependencies.
-     * `Helm: Package` - Package the chart into a versioned chart archive file.
+     * `Helm: Insert Dependency` - Insert a dependency YAML fragment
+     * `Helm: Dependency Update` - Update a chart's dependencies
+     * `Helm: Package` - Package a chart directory into a chart archive
    * Code lenses for:
      * requirements.yaml (Add and update dependencies)
    * Right-click on a chart .tgz file, and choose inspect chart to preview all configurable chart values.
 
-### Draft support
+### Draft
 
 [Draft](http://blog.kubernetes.io/2017/05/draft-kubernetes-container-development.html) is a tool to simplify the process of developing a new Kubernetes application, by creating the necessary deployment components and by keeping code in the cluster in sync with the code on your computer.
 
-  * `Draft: Create` - Set up Draft in the current folder (prerequisite for syncing using Draft)
-  * `Draft: Up` - Runs Draft to watch the current folder and keep the cluster in sync with it
+  * `Draft: Create` - Set up Draft in the current folder (prerequisite for `Draft: Up`)
+  * `Draft: Up` - Runs Draft to package the current folder and push it to your cluster. To allow for cluster changes,
+  * `Draft: Version` - Get the version of the local Draft client
 
 **NOTE:** Draft itself is in 'draft' form and is not yet stable. So the extension support for Draft is strictly experimental - assumptions may break, and commands and behavior may change!
 
