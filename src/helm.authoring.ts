@@ -199,7 +199,8 @@ export async function convertToParameter(fs: FS, host: Host, document: vscode.Te
         return { succeeded: false, error: ['Cannot locate property name'] };
     }
 
-    const keyPath = [chartName, valueSymbolContainmentChain[0].name];
+    const rawKeyPath = [chartName, valueSymbolContainmentChain[0].name];
+    const keyPath = rawKeyPath.map(sanitiseForGoTemplate);
     const valuePath = keyPath.join('.');
     const replaceValueWithParamRef = new vscode.TextEdit(valueLocation, ` {{ .Values.${valuePath} }}`);
 
@@ -306,4 +307,8 @@ function makeTree(indentLevel: number, keys: string[], value: string, eol: strin
 
     const subtree = makeTree(indentLevel + 2, keys.slice(1), value, eol);
     return `${indent}${keys[0]}:${eol}${subtree}`;
+}
+
+function sanitiseForGoTemplate(s: string): string {
+    return s.replace(/-/g, '_');
 }
