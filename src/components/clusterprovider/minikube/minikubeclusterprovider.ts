@@ -146,7 +146,7 @@ async function promptForConfiguration(previousData: any, context: Context, actio
         </tr>
         <tr>
         <td>Additional Flags:</td>
-        <td style='text-align: right'><input name='addtionalflags' type='text' value='' /></td>
+        <td style='text-align: right'><input name='additionalflags' type='text' value='' /></td>
         </tr>
         </table>
         `
@@ -177,7 +177,7 @@ async function createCluster(previousData: any, context: Context): Promise<strin
 
     context.minikube.start({
         vmDriver: previousData.vmdriver,
-        additionalFlags: previousData.addtionalflags
+        additionalFlags: previousData.additionalflags
     } as MinikubeOptions);
 
     const title = createResult.result.succeeded ? 'Cluster creation has started' : `Error ${createResult.actionDescription}`;
