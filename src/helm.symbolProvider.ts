@@ -24,7 +24,11 @@ const ENCODE_TEMPLATE_START = 'AA';
 const ENCODE_TEMPLATE_END = 'ZZ';
 const ENCODE_TEMPLATE_QUOTE = 'Q';
 
-// TODO: OH LORD THIS IS HORRIBLE SO HORRIBLE
+// This is pretty horrible, but the YAML parser can't handle embedded Go template
+// expressions.  So we transform Go template expressions to (reasonably) distinctive
+// strings with the EXACT SAME position and length, run the YAML parser, then when we
+// construct the Helm AST, if we see such a string we check back to the original YAML
+// document to fix it up if necessary.
 function encodeWithTemplateMarkers(s: string): string {
     return s.replace(/{{/g, ENCODE_TEMPLATE_START)
             .replace(/}}/g, ENCODE_TEMPLATE_END)

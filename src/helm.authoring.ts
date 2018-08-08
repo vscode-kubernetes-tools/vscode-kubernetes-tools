@@ -89,10 +89,6 @@ function foldSpindleAndMutilate(template: any): void {
     template.metadata.name = NAME_EXPRESSION;
     template.metadata.labels.chart = CHART_LABEL_EXPRESSION;
 
-    // TODO: should we auto parameterise certain fields depending on the kind?
-    // E.g. spec.template.metadata.labels.app, is that always meant to be set?
-    // (Is there always a spec?)
-
     delete template.status;
 }
 
@@ -186,8 +182,6 @@ export async function convertToParameter(fs: FS, host: Host, document: vscode.Te
     if (!property || property.kind !== vscode.SymbolKind.Constant) {
         return { succeeded: false, error: ['Selection is not a YAML field'] };
     }
-
-    // TODO: we probably want to do this only for leaf properties
 
     const chartName = path.parse(document.fileName).name;
 
