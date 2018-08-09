@@ -151,6 +151,8 @@ Minikube tools to be installed and available on your PATH.
      * `Helm: Insert Dependency` - Insert a dependency YAML fragment
      * `Helm: Dependency Update` - Update a chart's dependencies
      * `Helm: Package` - Package a chart directory into a chart archive
+     * `Helm: Convert to Template` - Create a template based on an existing resource or manifest
+     * `Helm: Convert to Template Parameter` - Convert a fixed value in a template to a parameter in the `values.yaml` file
    * Code lenses for:
      * requirements.yaml (Add and update dependencies)
    * Right-click on a chart .tgz file, and choose inspect chart to preview all configurable chart values.
