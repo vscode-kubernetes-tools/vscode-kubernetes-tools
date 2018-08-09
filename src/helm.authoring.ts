@@ -7,7 +7,7 @@ import { Host } from './host';
 import { ResourceNode, isKubernetesExplorerResourceNode } from './explorer';
 import { helmCreateCore } from './helm.exec';
 import { failed, Errorable } from './errorable';
-import { symbolAt, containmentChain, findKeyPath } from './helm.symbolProvider';
+import { symbolAt, containmentChain, findKeyPath, FoundKeyPath } from './helm.symbolProvider';
 
 interface Context {
     readonly fs: FS;
@@ -241,9 +241,44 @@ async function addEntryToValuesFile(fs: FS, host: Host, template: vscode.TextDoc
     const valuesYamlDoc = await host.readDocument(vscode.Uri.file(valuesYamlPath));
     const valuesYamlAst = await getHelmSymbols(valuesYamlDoc);
 
-    const whatWeHave = findKeyPath(keyPath, valuesYamlAst);
+    const whatWeHave = findCreatableKeyPath(keyPath, valuesYamlAst);
     const edit = addToYaml(valuesYamlDoc, valuesYamlAst, whatWeHave.found, whatWeHave.remaining, value);
     return { succeeded: true, result: { document: valuesYamlDoc, edits: [edit] } };
+}
+
+function findCreatableKeyPath(keyPath: string[], ast: vscode.SymbolInformation[]): FoundKeyPath {
+    const foundPath = findKeyPath(keyPath, ast);
+    if (foundPath.remaining.length > 0) {
+        return foundPath;
+    }
+
+    const disambiguatingPath = disambiguate(keyPath);
+    const foundDisambiguatingPath = findKeyPath(disambiguatingPath, ast);
+    if (foundDisambiguatingPath.remaining.length > 0) {
+        return foundDisambiguatingPath;
+    }
+
+    return findCreatableKeyPathBySuffixing(keyPath, ast, 1);
+}
+
+function disambiguate(keyPath: string[]): string[] {
+    const path = keyPath.slice(0, keyPath.length - 1);
+    const disambiguatedFinal = keyPath.join('_');
+    path.push(disambiguatedFinal);
+    return path;
+}
+
+function findCreatableKeyPathBySuffixing(keyPath: string[], ast: vscode.SymbolInformation[], suffix: number): FoundKeyPath {
+    const path = keyPath.slice(0, keyPath.length - 1);
+    const suffixedFinal = keyPath[keyPath.length - 1] + suffix.toString();
+    path.push(suffixedFinal);
+
+    const foundPath = findKeyPath(path, ast);
+    if (foundPath.remaining.length > 0) {
+        return foundPath;
+    }
+
+    return findCreatableKeyPathBySuffixing(keyPath, ast, suffix + 1);
 }
 
 function addToYaml(document: vscode.TextDocument, ast: vscode.SymbolInformation[], parent: vscode.SymbolInformation, keys: string[], value: string): vscode.TextEdit {

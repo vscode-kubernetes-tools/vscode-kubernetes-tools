@@ -40,11 +40,16 @@ function hasEncodedTemplateMarkers(s: string): boolean {
         || (s.startsWith('"' + ENCODE_TEMPLATE_START) && s.endsWith(ENCODE_TEMPLATE_END + '"'));
 }
 
-export function findKeyPath(keyPath: string[], sis: vscode.SymbolInformation[]): { found: vscode.SymbolInformation | undefined, remaining: string[] } {
+export interface FoundKeyPath {
+    readonly found: vscode.SymbolInformation | undefined;
+    readonly remaining: string[];
+}
+
+export function findKeyPath(keyPath: string[], sis: vscode.SymbolInformation[]): FoundKeyPath {
     return findKeyPathAcc(keyPath, sis, undefined);
 }
 
-function findKeyPathAcc(keyPath: string[], sis: vscode.SymbolInformation[], acc: vscode.SymbolInformation | undefined): { found: vscode.SymbolInformation | undefined, remaining: string[] } {
+function findKeyPathAcc(keyPath: string[], sis: vscode.SymbolInformation[], acc: vscode.SymbolInformation | undefined): FoundKeyPath {
     const parentSym = findKey(keyPath[0], sis);
     if (!parentSym) {
         return { found: acc, remaining: keyPath };
