@@ -196,7 +196,7 @@ export async function convertToParameter(fs: FS, host: Host, document: vscode.Te
     const rawKeyPath = [chartName, valueSymbolContainmentChain[0].name];
     const keyPath = rawKeyPath.map(sanitiseForGoTemplate);
     const valuePath = keyPath.join('.');
-    const replaceValueWithParamRef = new vscode.TextEdit(valueLocation, ` {{ .Values.${valuePath} }}`);
+    const replaceValueWithParamRef = new vscode.TextEdit(valueLocation, `{{ .Values.${valuePath} }}`);
 
     const insertParamEdit = await addEntryToValuesFile(fs, host, document, keyPath, valueText);
     if (failed(insertParamEdit)) {
