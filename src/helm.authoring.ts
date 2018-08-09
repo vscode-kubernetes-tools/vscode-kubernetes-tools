@@ -339,5 +339,5 @@ function makeTree(indentLevel: number, keys: string[], value: string, eol: strin
 }
 
 function sanitiseForGoTemplate(s: string): string {
-    return s.replace(/-/g, '_');
+    return s.replace(/-./g, (h) => h.substring(1).toUpperCase());
 }
