@@ -1,5 +1,26 @@
 # Change Log
 
+## 0.1.12
+
+* Added tree view for Helm repos
+* Added Helm template authoring commands - convert a resource or manifest to a template, and convert values in a template to parameters in `values.yaml`
+* Pods now show status in the tree view
+* Added Delete Now to pod context menu
+* Added support for Draft-enabling projects that already have charts
+* You can now customize Minikube startup options
+* Install Dependencies now installs Minikube if not already present
+* We now support the `.yml` extension for Helm templates
+* Added Japan East and South East Asia regions to AKS cluster creation wizard
+* Better diagnostics if operations fail due to mismatched kubectl/cluster versions
+* Fixed issue where on Windows we used USERPROFILE even if HOME was defined
+* Fixed issue viewing logs on MacOS due to JSONPath quoting differences
+* Fixed issue listing Draft packs
+* Removed invalid Get command from Helm release tree view context menu
+* Documentation updates and fixes
+* The extension should now start a _lot_ faster!
+
+Thanks to contributors Brendan Burns, Mostafa Hossein, Dinica Ion, Shreyas Karnik, Bhargav Nookala and Tomas Restrepo, and to [Bhargav's cat for "helping" with the README](https://twitter.com/bhargav/status/1017900168027312128?s=20).
+
 ## 0.1.11
 
 * Moved the Clusters tree view to a new activity bar view.
