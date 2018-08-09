@@ -183,7 +183,7 @@ export async function convertToParameter(fs: FS, host: Host, document: vscode.Te
         return { succeeded: false, error: ['Selection is not a YAML field'] };
     }
 
-    const chartName = path.parse(document.fileName).name;
+    const templateName = path.parse(document.fileName).name;
 
     const valueLocation = property.location.range;
     const valueText = document.getText(valueLocation);
@@ -193,10 +193,10 @@ export async function convertToParameter(fs: FS, host: Host, document: vscode.Te
         return { succeeded: false, error: ['Cannot locate property name'] };
     }
 
-    const rawKeyPath = [chartName, valueSymbolContainmentChain[0].name];
+    const rawKeyPath = [templateName, valueSymbolContainmentChain[0].name];
     const keyPath = rawKeyPath.map(sanitiseForGoTemplate);
-    const valuePath = keyPath.join('.');
-    const replaceValueWithParamRef = new vscode.TextEdit(valueLocation, `{{ .Values.${valuePath} }}`);
+    const keyReference = keyPath.join('.');
+    const replaceValueWithParamRef = new vscode.TextEdit(valueLocation, `{{ .Values.${keyReference} }}`);
 
     const insertParamEdit = await addEntryToValuesFile(fs, host, document, keyPath, valueText);
     if (failed(insertParamEdit)) {
