@@ -8,6 +8,7 @@ import * as tar from 'tar';
 import * as vscode from 'vscode';
 import { Shell, Platform } from '../../shell';
 import { Errorable, failed, succeeded } from '../../errorable';
+import { addPathToConfig } from '../config/config';
 
 export async function installKubectl(shell: Shell): Promise<Errorable<void>> {
     const tool = 'kubectl';
@@ -162,26 +163,4 @@ async function untar(sourceFile: string, destinationFolder: string): Promise<Err
     } catch (e) {
         return { succeeded: false, error: [ "tar extract failed" ] /* TODO: extract error from exception */ };
     }
-}
-
-async function addPathToConfig(configKey: string, executableFullPath: string): Promise<void> {
-    const config = vscode.workspace.getConfiguration().inspect("vs-kubernetes");
-    await addPathToConfigAtScope(configKey, executableFullPath, vscode.ConfigurationTarget.Global, config.globalValue, true);
-    await addPathToConfigAtScope(configKey, executableFullPath, vscode.ConfigurationTarget.Workspace, config.workspaceValue, false);
-    await addPathToConfigAtScope(configKey, executableFullPath, vscode.ConfigurationTarget.WorkspaceFolder, config.workspaceFolderValue, false);
-}
-
-async function addPathToConfigAtScope(configKey: string, value: string, scope: vscode.ConfigurationTarget, valueAtScope: any, createIfNotExist: boolean): Promise<void> {
-    if (!createIfNotExist) {
-        if (!valueAtScope || !(valueAtScope[configKey])) {
-            return;
-        }
-    }
-
-    let newValue: any = {};
-    if (valueAtScope) {
-        newValue = Object.assign({}, valueAtScope);
-    }
-    newValue[configKey] = value;
-    await vscode.workspace.getConfiguration().update("vs-kubernetes", newValue, scope);
 }

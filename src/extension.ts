@@ -53,6 +53,7 @@ import { Errorable, failed, succeeded } from './errorable';
 import { Git } from './components/git/git';
 import { DebugSession } from './debug/debugSession';
 import { getDebugProviderOfType, getSupportedDebuggerTypes } from './debug/providerRegistry';
+import * as config from './components/config/config';
 
 import { registerYamlSchemaSupport } from './yaml-support/yaml-schema';
 import * as clusterproviderregistry from './components/clusterprovider/clusterproviderregistry';
@@ -156,6 +157,7 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
         registerCommand('extension.vsKubernetesRefreshExplorer', () => treeProvider.refresh()),
         registerCommand('extension.vsKubernetesRefreshHelmRepoExplorer', () => helmRepoTreeProvider.refresh()),
         registerCommand('extension.vsKubernetesUseContext', useContextKubernetes),
+        registerCommand('extension.vsKubernetesUseKubeconfig', useKubeconfigKubernetes),
         registerCommand('extension.vsKubernetesClusterInfo', clusterInfoKubernetes),
         registerCommand('extension.vsKubernetesDeleteContext', deleteContextKubernetes),
         registerCommand('extension.vsKubernetesUseNamespace', (explorerNode: explorer.KubernetesObject) => { useNamespaceKubernetes(kubectl, explorerNode); } ),
@@ -1669,6 +1671,46 @@ async function configureFromClusterKubernetes() {
 async function createClusterKubernetes() {
     const newId: string = uuid.v4();
     vscode.commands.executeCommand('vscode.previewHtml', createCluster.operationUri(newId), 2, "Create Kubernetes Cluster");
+}
+
+async function useKubeconfigKubernetes(kubeconfig?: string): Promise<void> {
+    const kc = await getKubeconfigSelection(kubeconfig);
+    if (!kc) {
+        return;
+    }
+    await setKubeconfigInConfig(kc);
+}
+
+async function getKubeconfigSelection(kubeconfig?: string): Promise<string | undefined> {
+    if (kubeconfig) {
+        return kubeconfig;
+    }
+    const knownKubeconfigs = getKnownKubeconfigs();
+    const picks = [ "+ Add new kubeconfig", ...knownKubeconfigs ];
+    const pick = await vscode.window.showQuickPick(picks);
+
+    if (pick === "+ Add new kubeconfig") {
+        const kubeconfig = await vscode.window.showOpenDialog({});
+        if (kubeconfig && kubeconfig.length === 1) {
+            // TODO: add the selection to the config
+            return kubeconfig[0].fsPath;
+        }
+        return undefined;
+    }
+
+    return pick;
+}
+
+function getKnownKubeconfigs(): string[] {
+    const kkcConfig = vscode.workspace.getConfiguration("vs-kubernetes")["vs-kubernetes.knownKubeconfigs"];
+    if (!kkcConfig || !kkcConfig.length) {
+        return [];
+    }
+    return kkcConfig as string[];
+}
+
+async function setKubeconfigInConfig(kubeconfig: string): Promise<void> {
+    await config.addPathToConfig("vs-kubernetes.kubeconfig", kubeconfig);
 }
 
 async function useContextKubernetes(explorerNode: explorer.KubernetesObject) {

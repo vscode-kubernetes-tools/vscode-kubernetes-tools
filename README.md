@@ -109,6 +109,7 @@ If you are building and running the extension from source, see [CONTRIBUTING.md]
    * `Kubernetes: Add Existing Cluster` - Install and configure the Kubernetes command line tool (kubectl) from a cloud cluster, such as an Azure Container Service (ACS) or Azure Kubernetes Service (AKS) cluster
    * `Kubernetes: Set as Current Cluster` - Select from a list of configured clusters to set the "current" cluster. Used for searching, displaying, and deploying Kubernetes resources.
    * `Kubernetes: Delete Context` - Remove a cluster's configuration from the kubeconfig file.
+   * `Kubernetes: Set Kubeconfig` - Select from a list of known kubeconfig files (for users who keep different kubeconfig files for different environments).
    * `Kubernetes: Show Cluster Info` - For a cluster, show the status of Kubernetes Components (API Server, etcd, KubeDNS, etc.) in a terminal window.
    * `Kubernetes: Use Namespace` - Select from a list of namespaces to set the "current" namespace. Used for searching, displaying, and deploying Kubernetes resources.
 
@@ -172,9 +173,16 @@ Minikube tools to be installed and available on your PATH.
        * `vs-kubernetes.helm-path` - File path to the helm binary. Note this is the binary file itself, not just the directory containing the file. On Windows, this must contain the `.exe` extension.
        * `vs-kubernetes.draft-path` - File path to the draft binary. Note this is the binary file itself, not just the directory containing the file. On Windows, this must contain the `.exe` extension (note current versions of Draft are not supported on Windows).
        * `vs-kubernetes.kubeconfig` - File path to the kubeconfig file you want to use. This overrides both the default kubeconfig and the KUBECONFIG environment variable.
+       * `vs-kubernetes.knownKubeconfigs` - An array of file paths of kubeconfig files that you want to be able to quickly switch between using the Set Kubeconfig command.
        * `vs-kubernetes.autoCleanupOnDebugTerminate` - The flag to control whether to auto cleanup the created deployment and associated pod by the command "Kubernetes: Debug (Launch)". The cleanup action occurs when it failed to start debug session or debug session terminated. If not specified, the extension will prompt for whether to clean up or not. You might choose not to clean up if you wanted to view pod logs, etc.
        * `vs-kubernetes.outputFormat` - The output format that you prefer to view Kubernetes manifests in. One of "yaml" or "json". Defaults to "yaml".
    * `vsdocker.imageUser` - Image prefix for docker images e.g. 'docker.io/brendanburns'
+
+## Keybinding Support
+
+The following commands support arguments in keybindings:
+
+  * **Set Kubeconfig** (command ID `extension.vsKubernetesUseKubeconfig`) - the keybinding can specify a string argument which is the kubeconfig file path to switch to.  This allows you to set up specific keybindings for your favourite kubeconfigs.
 
 ## Known Issues
 
