@@ -1673,6 +1673,9 @@ async function createClusterKubernetes() {
     vscode.commands.executeCommand('vscode.previewHtml', createCluster.operationUri(newId), 2, "Create Kubernetes Cluster");
 }
 
+const KNOWN_KUBECONFIGS_KEY = "vs-kubernetes.knownKubeconfigs";
+const ADD_NEW_KUBECONFIG_PICK = "+ Add new kubeconfig";
+
 async function useKubeconfigKubernetes(kubeconfig?: string): Promise<void> {
     const kc = await getKubeconfigSelection(kubeconfig);
     if (!kc) {
@@ -1686,14 +1689,15 @@ async function getKubeconfigSelection(kubeconfig?: string): Promise<string | und
         return kubeconfig;
     }
     const knownKubeconfigs = getKnownKubeconfigs();
-    const picks = [ "+ Add new kubeconfig", ...knownKubeconfigs ];
+    const picks = [ ADD_NEW_KUBECONFIG_PICK, ...knownKubeconfigs ];
     const pick = await vscode.window.showQuickPick(picks);
 
-    if (pick === "+ Add new kubeconfig") {
-        const kubeconfig = await vscode.window.showOpenDialog({});
-        if (kubeconfig && kubeconfig.length === 1) {
-            // TODO: add the selection to the config
-            return kubeconfig[0].fsPath;
+    if (pick === ADD_NEW_KUBECONFIG_PICK) {
+        const kubeconfigUris = await vscode.window.showOpenDialog({});
+        if (kubeconfigUris && kubeconfigUris.length === 1) {
+            const kubeconfigPath = kubeconfigUris[0].fsPath;
+            await config.addValueToConfigArray(KNOWN_KUBECONFIGS_KEY, kubeconfigPath);
+            return kubeconfigPath;
         }
         return undefined;
     }
@@ -1702,7 +1706,7 @@ async function getKubeconfigSelection(kubeconfig?: string): Promise<string | und
 }
 
 function getKnownKubeconfigs(): string[] {
-    const kkcConfig = vscode.workspace.getConfiguration("vs-kubernetes")["vs-kubernetes.knownKubeconfigs"];
+    const kkcConfig = vscode.workspace.getConfiguration("vs-kubernetes")[KNOWN_KUBECONFIGS_KEY];
     if (!kkcConfig || !kkcConfig.length) {
         return [];
     }
