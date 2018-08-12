@@ -44,6 +44,7 @@
         "onCommand:extension.vsKubernetesRemoveDebug",
         "onCommand:extension.vsKubernetesConfigureFromCluster",
         "onCommand:extension.vsKubernetesCreateCluster",
+        "onCommand:extension.vsKubernetesUseKubeconfig",
         "onCommand:extension.vsKubernetesDashboard",
         "onCommand:extension.vsMinikubeStop",
         "onCommand:extension.vsMinikubeStart",
@@ -107,6 +108,10 @@
                             "type": "string",
                             "description": "File path to the kubeconfig file."
                         },
+                        "vs-kubernetes.knownKubeconfigs": {
+                            "type": "array",
+                            "description": "File paths to kubeconfig files from which you can select."
+                        },
                         "vs-kubernetes.autoCleanupOnDebugTerminate": {
                             "type": "boolean",
                             "description": "Once the debug session is terminated, automatically clean up the created Deployment and associated Pod by the command \"Kubernetes: Debug (Launch)\"."
@@ -127,6 +132,7 @@
                         "vs-kubernetes.draft-path": "",
                         "vs-kubernetes.outputFormat": "yaml",
                         "vs-kubernetes.kubeconfig": "",
+                        "vs-kubernetes.knownKubeconfigs": [],
                         "vs-kubernetes.autoCleanupOnDebugTerminate": false
                     }
                 },
@@ -658,6 +664,11 @@
             {
                 "command": "extension.vsKubernetesUseContext",
                 "title": "Set as Current Cluster",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesUseKubeconfig",
+                "title": "Set Kubeconfig",
                 "category": "Kubernetes"
             },
             {
