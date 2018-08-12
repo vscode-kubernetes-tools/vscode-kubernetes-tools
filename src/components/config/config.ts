@@ -1,7 +1,11 @@
 import * as vscode from 'vscode';
 
+const EXTENSION_CONFIG_KEY = "vs-kubernetes";
+const KUBECONFIG_PATH_KEY = "vs-kubernetes.kubeconfig";
+const KNOWN_KUBECONFIGS_KEY = "vs-kubernetes.knownKubeconfigs";
+
 export async function addPathToConfig(configKey: string, value: string): Promise<void> {
-    const config = vscode.workspace.getConfiguration().inspect("vs-kubernetes");
+    const config = vscode.workspace.getConfiguration().inspect(EXTENSION_CONFIG_KEY);
     await addPathToConfigAtScope(configKey, value, vscode.ConfigurationTarget.Global, config.globalValue, true);
     await addPathToConfigAtScope(configKey, value, vscode.ConfigurationTarget.Workspace, config.workspaceValue, false);
     await addPathToConfigAtScope(configKey, value, vscode.ConfigurationTarget.WorkspaceFolder, config.workspaceFolderValue, false);
@@ -19,11 +23,11 @@ async function addPathToConfigAtScope(configKey: string, value: string, scope: v
         newValue = Object.assign({}, valueAtScope);
     }
     newValue[configKey] = value;
-    await vscode.workspace.getConfiguration().update("vs-kubernetes", newValue, scope);
+    await vscode.workspace.getConfiguration().update(EXTENSION_CONFIG_KEY, newValue, scope);
 }
 
-export async function addValueToConfigArray(configKey: string, value: string): Promise<void> {
-    const config = vscode.workspace.getConfiguration().inspect("vs-kubernetes");
+async function addValueToConfigArray(configKey: string, value: string): Promise<void> {
+    const config = vscode.workspace.getConfiguration().inspect(EXTENSION_CONFIG_KEY);
     await addValueToConfigArrayAtScope(configKey, value, vscode.ConfigurationTarget.Global, config.globalValue, true);
     await addValueToConfigArrayAtScope(configKey, value, vscode.ConfigurationTarget.Workspace, config.workspaceValue, false);
     await addValueToConfigArrayAtScope(configKey, value, vscode.ConfigurationTarget.WorkspaceFolder, config.workspaceFolderValue, false);
@@ -43,5 +47,29 @@ async function addValueToConfigArrayAtScope(configKey: string, value: string, sc
     const arrayEntry: string[] = newValue[configKey] || [];
     arrayEntry.push(value);
     newValue[configKey] = arrayEntry;
-    await vscode.workspace.getConfiguration().update("vs-kubernetes", newValue, scope);
+    await vscode.workspace.getConfiguration().update(EXTENSION_CONFIG_KEY, newValue, scope);
+}
+
+// Functions for working with the list of known kubeconfigs
+
+export function getKnownKubeconfigs(): string[] {
+    const kkcConfig = vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)[KNOWN_KUBECONFIGS_KEY];
+    if (!kkcConfig || !kkcConfig.length) {
+        return [];
+    }
+    return kkcConfig as string[];
+}
+
+export async function addKnownKubeconfig(kubeconfigPath: string) {
+    await addValueToConfigArray(KNOWN_KUBECONFIGS_KEY, kubeconfigPath);
+}
+
+// Functions for working with the active kubeconfig setting
+
+export async function setActiveKubeconfig(kubeconfig: string): Promise<void> {
+    await addPathToConfig(KUBECONFIG_PATH_KEY, kubeconfig);
+}
+
+export function getActiveKubeconfig(): string {
+    return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)[KUBECONFIG_PATH_KEY];
 }

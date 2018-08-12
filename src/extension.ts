@@ -67,6 +67,7 @@ import { DraftConfigurationProvider } from './draft/draftConfigurationProvider';
 import { installHelm, installDraft, installKubectl, installMinikube } from './components/installer/installer';
 import { KubernetesResourceVirtualFileSystemProvider, K8S_RESOURCE_SCHEME, KUBECTL_RESOURCE_AUTHORITY } from './kuberesources.virtualfs';
 import { Container, isKubernetesResource, KubernetesCollection, Pod, KubernetesResource } from './kuberesources.objectmodel';
+import { setActiveKubeconfig, getKnownKubeconfigs, addKnownKubeconfig } from './components/config/config';
 
 let explainActive = false;
 let swaggerSpecPromise = null;
@@ -1673,7 +1674,6 @@ async function createClusterKubernetes() {
     vscode.commands.executeCommand('vscode.previewHtml', createCluster.operationUri(newId), 2, "Create Kubernetes Cluster");
 }
 
-const KNOWN_KUBECONFIGS_KEY = "vs-kubernetes.knownKubeconfigs";
 const ADD_NEW_KUBECONFIG_PICK = "+ Add new kubeconfig";
 
 async function useKubeconfigKubernetes(kubeconfig?: string): Promise<void> {
@@ -1681,7 +1681,7 @@ async function useKubeconfigKubernetes(kubeconfig?: string): Promise<void> {
     if (!kc) {
         return;
     }
-    await setKubeconfigInConfig(kc);
+    await setActiveKubeconfig(kc);
 }
 
 async function getKubeconfigSelection(kubeconfig?: string): Promise<string | undefined> {
@@ -1696,25 +1696,13 @@ async function getKubeconfigSelection(kubeconfig?: string): Promise<string | und
         const kubeconfigUris = await vscode.window.showOpenDialog({});
         if (kubeconfigUris && kubeconfigUris.length === 1) {
             const kubeconfigPath = kubeconfigUris[0].fsPath;
-            await config.addValueToConfigArray(KNOWN_KUBECONFIGS_KEY, kubeconfigPath);
+            await addKnownKubeconfig(kubeconfigPath);
             return kubeconfigPath;
         }
         return undefined;
     }
 
     return pick;
-}
-
-function getKnownKubeconfigs(): string[] {
-    const kkcConfig = vscode.workspace.getConfiguration("vs-kubernetes")[KNOWN_KUBECONFIGS_KEY];
-    if (!kkcConfig || !kkcConfig.length) {
-        return [];
-    }
-    return kkcConfig as string[];
-}
-
-async function setKubeconfigInConfig(kubeconfig: string): Promise<void> {
-    await config.addPathToConfig("vs-kubernetes.kubeconfig", kubeconfig);
 }
 
 async function useContextKubernetes(explorerNode: explorer.KubernetesObject) {

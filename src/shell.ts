@@ -3,6 +3,7 @@
 import * as vscode from 'vscode';
 import * as shelljs from 'shelljs';
 import * as path from 'path';
+import { getActiveKubeconfig } from './components/config/config';
 
 export enum Platform {
     Windows,
@@ -134,7 +135,7 @@ export function shellEnvironment(baseEnvironment: any): any {
         }
     }
 
-    const kubeconfig: string = vscode.workspace.getConfiguration('vs-kubernetes')['vs-kubernetes.kubeconfig'];
+    const kubeconfig = getActiveKubeconfig();
     if (kubeconfig) {
         env['KUBECONFIG'] = kubeconfig;
     }
