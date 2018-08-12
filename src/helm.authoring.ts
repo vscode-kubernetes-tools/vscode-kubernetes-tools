@@ -173,12 +173,18 @@ async function createChart(context: Context): Promise<Chart | undefined> {
     return createResult.result;
 }
 
+export interface ValueInsertion {
+    readonly document: vscode.TextDocument;
+    readonly keyPath: string[];
+    readonly edit: vscode.TextEdit;
+}
+
 export interface TextEdit {
     readonly document: vscode.TextDocument;
     readonly edits: vscode.TextEdit[];
 }
 
-export async function convertToParameter(fs: FS, host: Host, document: vscode.TextDocument, selection: vscode.Selection): Promise<Errorable<TextEdit>> {
+export async function convertToParameter(fs: FS, host: Host, document: vscode.TextDocument, selection: vscode.Selection): Promise<Errorable<ValueInsertion>> {
     const helmSymbols = await getHelmSymbols(document);
     if (helmSymbols.length === 0) {
         return { succeeded: false, error: ['Active document is not a Helm template'] };
@@ -201,17 +207,18 @@ export async function convertToParameter(fs: FS, host: Host, document: vscode.Te
 
     const rawKeyPath = [templateName, valueSymbolContainmentChain[0].name];
     const keyPath = rawKeyPath.map(sanitiseForGoTemplate);
-    const keyReference = keyPath.join('.');
-    const replaceValueWithParamRef = new vscode.TextEdit(valueLocation, `{{ .Values.${keyReference} }}`);
 
     const insertParamEdit = await addEntryToValuesFile(fs, host, document, keyPath, valueText);
     if (failed(insertParamEdit)) {
         return { succeeded: false, error: insertParamEdit.error };
     }
 
+    const keyReference = insertParamEdit.result.keyPath.join('.');
+    const replaceValueWithParamRef = new vscode.TextEdit(valueLocation, `{{ .Values.${keyReference} }}`);
+
     const appliedEdits = await applyEdits(
         { document: document, edits: [replaceValueWithParamRef] },
-        insertParamEdit.result
+        { document: insertParamEdit.result.document, edits: [insertParamEdit.result.edit] }
     );
     if (!appliedEdits) {
         return { succeeded: false, error: ['Unable to update the template and/or values file'] };
@@ -238,7 +245,7 @@ async function getHelmSymbols(document: vscode.TextDocument): Promise<vscode.Sym
     return [];
 }
 
-async function addEntryToValuesFile(fs: FS, host: Host, template: vscode.TextDocument, keyPath: string[], value: string): Promise<Errorable<TextEdit>> {
+async function addEntryToValuesFile(fs: FS, host: Host, template: vscode.TextDocument, keyPath: string[], value: string): Promise<Errorable<ValueInsertion>> {
     const valuesYamlPath = path.normalize(path.join(path.dirname(template.fileName), '..', 'values.yaml'));
     if (!fs.existsSync(valuesYamlPath)) {
         fs.writeFileSync(valuesYamlPath, '');
@@ -248,8 +255,8 @@ async function addEntryToValuesFile(fs: FS, host: Host, template: vscode.TextDoc
     const valuesYamlAst = await getHelmSymbols(valuesYamlDoc);
 
     const whatWeHave = findCreatableKeyPath(keyPath, valuesYamlAst);
-    const edit = addToYaml(valuesYamlDoc, valuesYamlAst, whatWeHave.found, whatWeHave.remaining, value);
-    return { succeeded: true, result: { document: valuesYamlDoc, edits: [edit] } };
+    const insertion = addToYaml(valuesYamlDoc, valuesYamlAst, whatWeHave.found, whatWeHave.remaining, value);
+    return { succeeded: true, result: insertion };
 }
 
 function findCreatableKeyPath(keyPath: string[], ast: vscode.SymbolInformation[]): FoundKeyPath {
@@ -287,7 +294,7 @@ function findCreatableKeyPathBySuffixing(keyPath: string[], ast: vscode.SymbolIn
     return findCreatableKeyPathBySuffixing(keyPath, ast, suffix + 1);
 }
 
-function addToYaml(document: vscode.TextDocument, ast: vscode.SymbolInformation[], parent: vscode.SymbolInformation, keys: string[], value: string): vscode.TextEdit {
+function addToYaml(document: vscode.TextDocument, ast: vscode.SymbolInformation[], parent: vscode.SymbolInformation, keys: string[], value: string): ValueInsertion {
     const eol = document.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n';
     if (parent) {
         // TODO: do we need to handle the possibility of a parent node without any child nodes?
@@ -315,11 +322,12 @@ function firstChild(document: vscode.TextDocument, parent: vscode.SymbolInformat
             .value();
 }
 
-function insertBefore(document: vscode.TextDocument, element: vscode.SymbolInformation, keys: string[], value: string, eol: string): vscode.TextEdit {
+function insertBefore(document: vscode.TextDocument, element: vscode.SymbolInformation, keys: string[], value: string, eol: string): ValueInsertion {
     const insertAt = element ? lineStart(element.location.range.start) : document.positionAt(0);
     const indent = indentLevel(element);
     const text = makeTree(indent, keys, value, eol);
-    return vscode.TextEdit.insert(insertAt, text);
+    const edit = vscode.TextEdit.insert(insertAt, text);
+    return { document: document, keyPath: keys, edit: edit };
 }
 
 function lineStart(pos: vscode.Position): vscode.Position {

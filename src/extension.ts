@@ -1901,7 +1901,7 @@ async function helmParameterise() {
 
     if (succeeded(convertResult)) {
         const editor = await vscode.window.showTextDocument(convertResult.result.document);
-        const edit = convertResult.result.edits[0];
+        const edit = convertResult.result.edit;
         editor.revealRange(edit.range);
         editor.selection = new vscode.Selection(edit.range.start, edit.range.end);  // TODO: this isn't quite right because it gives us the insert-at selection not the resultant edit
     } else {
