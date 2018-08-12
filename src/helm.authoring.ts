@@ -51,7 +51,7 @@ async function addChart(context: Context, resourceYaml: string): Promise<void> {
     }
 
     const template = yaml.safeLoad(resourceYaml);
-    foldSpindleAndMutilate(template);
+    templatise(template);
 
     // TODO: offer a default
     const templateName = await context.host.showInputBox({ prompt: "Name for the new template" });
@@ -82,7 +82,7 @@ const QUOTE_CONTROL_INFO = [
     { text: CHART_LABEL_EXPRESSION, mode: QuoteMode.Double },
 ];
 
-function foldSpindleAndMutilate(template: any): void {
+function templatise(template: any): void {
     ensureMetadata(template);
     cleanseMetadata(template.metadata);
 
@@ -97,6 +97,10 @@ function ensureMetadata(template: any): void {
     template.metadata.labels = template.metadata.labels || {};
 }
 
+const ANNOTATIONS_TO_STRIP = [
+    'kubectl.kubernetes.io/last-applied-configuration'
+];
+
 function cleanseMetadata(metadata: any): void {
     delete metadata.clusterName;
     delete metadata.creationTimestamp;
@@ -109,7 +113,9 @@ function cleanseMetadata(metadata: any): void {
     delete metadata.uid;
 
     if (metadata.annotations) {
-        delete metadata.annotations['kubectl.kubernetes.io/last-applied-configuration'];
+        for (const annotation of ANNOTATIONS_TO_STRIP) {
+            delete metadata.annotations[annotation];
+        }
     }
 }
 
@@ -252,7 +258,7 @@ function findCreatableKeyPath(keyPath: string[], ast: vscode.SymbolInformation[]
         return foundPath;
     }
 
-    const disambiguatingPath = disambiguate(keyPath);
+    const disambiguatingPath = disambiguateKeyPath(keyPath);
     const foundDisambiguatingPath = findKeyPath(disambiguatingPath, ast);
     if (foundDisambiguatingPath.remaining.length > 0) {
         return foundDisambiguatingPath;
@@ -261,7 +267,7 @@ function findCreatableKeyPath(keyPath: string[], ast: vscode.SymbolInformation[]
     return findCreatableKeyPathBySuffixing(keyPath, ast, 1);
 }
 
-function disambiguate(keyPath: string[]): string[] {
+function disambiguateKeyPath(keyPath: string[]): string[] {
     const path = keyPath.slice(0, keyPath.length - 1);
     const disambiguatedFinal = keyPath.join('_');
     path.push(disambiguatedFinal);

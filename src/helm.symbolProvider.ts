@@ -80,7 +80,7 @@ export function containmentChain(s: vscode.SymbolInformation, sis: vscode.Symbol
     if (containers.length === 0) {
         return [];
     }
-    const nextUp = minimal(containers);
+    const nextUp = minimalSymbol(containers);
     const fromThere = containmentChain(nextUp, sis);
     return [nextUp, ...fromThere];
 }
@@ -90,10 +90,10 @@ export function symbolAt(position: vscode.Position, sis: vscode.SymbolInformatio
     if (containers.length === 0) {
         return undefined;
     }
-    return minimal(containers);
+    return minimalSymbol(containers);
 }
 
-function minimal(sis: vscode.SymbolInformation[]): vscode.SymbolInformation {
+function minimalSymbol(sis: vscode.SymbolInformation[]): vscode.SymbolInformation {
     let m = sis[0];
     for (const si of sis) {
         if (m.location.range.contains(si.location.range)) {
@@ -103,7 +103,7 @@ function minimal(sis: vscode.SymbolInformation[]): vscode.SymbolInformation {
     return m;
 }
 
-function symInfo(node: yp.YAMLNode, containerName: string, d: vscode.TextDocument, uri: vscode.Uri): vscode.SymbolInformation {
+function symbolInfo(node: yp.YAMLNode, containerName: string, d: vscode.TextDocument, uri: vscode.Uri): vscode.SymbolInformation {
     const start = node.startPosition;
     const end = node.endPosition;
     const loc = new vscode.Location(uri, new vscode.Range(d.positionAt(start), d.positionAt(end)));
@@ -134,7 +134,7 @@ function symInfo(node: yp.YAMLNode, containerName: string, d: vscode.TextDocumen
 }
 
 function walk(node: yp.YAMLNode, containerName: string, d: vscode.TextDocument, uri: vscode.Uri, syms: vscode.SymbolInformation[]) {
-    const sym = symInfo(node, containerName, d, uri);
+    const sym = symbolInfo(node, containerName, d, uri);
     syms.push(sym);
     switch (node.kind) {
         case yp.Kind.ANCHOR_REF:
