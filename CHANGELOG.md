@@ -6,6 +6,7 @@
 * Added Helm template authoring commands - convert a resource or manifest to a template, and convert values in a template to parameters in `values.yaml`
 * Pods now show status in the tree view
 * Added Delete Now to pod context menu
+* If you have multiple `kubeconfig` files you can now switch between them within the extension
 * Added support for Draft-enabling projects that already have charts
 * You can now customize Minikube startup options
 * Install Dependencies now installs Minikube if not already present
