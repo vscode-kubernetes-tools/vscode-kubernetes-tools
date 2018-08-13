@@ -4,6 +4,7 @@ import * as querystring from 'querystring';
 import * as kuberesources from './kuberesources';
 import { findParentYaml } from './yaml-support/yaml-navigation';
 import { kubefsUri } from './kuberesources.virtualfs';
+import { helmfsUri } from './helm.exec';
 
 export class KubernetesResourceDefinitionProvider implements vscode.DefinitionProvider {
     public provideDefinition(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): vscode.ProviderResult<vscode.Definition> {
@@ -11,8 +12,6 @@ export class KubernetesResourceDefinitionProvider implements vscode.DefinitionPr
     }
 
     async provideDefinitionAsync(document: vscode.TextDocument, position: vscode.Position): Promise<vscode.Definition> {
-        // TODO: construct the right URI.  This will require some understanding of
-        // the field we are in, to know if it is a reference and if so to what.
         // JOYOUS FACT: the YAML thingy does NOT give us symbols.  Let's kludge it for now.
         const currentLine = parseYamlLine(document, position.line);
         if (!currentLine || !currentLine.value) {
@@ -41,13 +40,36 @@ export class KubernetesResourceDefinitionProvider implements vscode.DefinitionPr
 }
 
 function findNavigationTarget(source: YAMLValueInContext): vscode.Uri | undefined {
+    // Things that apply to all source resource types
+    if (source.key === 'release' && source.parentKey === 'labels') {
+        return helmfsUri(source.value);
+    }
+    if (source.key === 'namespace' && source.parentKey === 'metadata') {
+        return kubefsUri(null, `ns/${source.value}`, 'yaml');
+    }
+
+    // Source=type-specific navigation
     switch (source.kind) {
+        case kuberesources.allKinds.deployment.abbreviation:
+            return findNavigationTargetFromDeployment(source);
         case kuberesources.allKinds.persistentVolume.abbreviation:
             return findNavigationTargetFromPV(source);
         case kuberesources.allKinds.persistentVolumeClaim.abbreviation:
             return findNavigationTargetFromPVC(source);
         default:
             return undefined;
+    }
+}
+
+function findNavigationTargetFromDeployment(source: YAMLValueInContext): vscode.Uri | undefined {
+    if (source.key === 'claimName' && source.parentKey === 'persistentVolumeClaim') {
+        return kubefsUri(null, `pvc/${source.value}`, 'yaml');
+    } else if (source.key === 'name' && source.parentKey === 'configMap') {
+        return kubefsUri(null, `cm/${source.value}`, 'yaml');
+    } else if (source.key === 'name' && source.parentKey === 'secretKeyRef') {
+        return kubefsUri(null, `secrets/${source.value}`, 'yaml');
+    } else {
+        return undefined;
     }
 }
 
@@ -79,7 +101,7 @@ function parseYamlLine(document: vscode.TextDocument, lineIndex: number): YAMLLi
     }
     const key = currentLine.substring(0, keySeparatorIndex).trim();
     const value = currentLine.substring(keySeparatorIndex + 1).trim();
-    return { key: key, value: value };
+    return { key: nameOnly(key), value: value };
 }
 
 function k8sKind(document: vscode.TextDocument): string {
@@ -87,6 +109,15 @@ function k8sKind(document: vscode.TextDocument): string {
     const k8sid: string = query.value;
     const kindSepIndex = k8sid.indexOf('/');
     return k8sid.substring(0, kindSepIndex);
+}
+
+const YAML_SECTION_WART = '- ';
+
+function nameOnly(key: string): string {
+    if (key.startsWith(YAML_SECTION_WART)) {
+        return key.substring(YAML_SECTION_WART.length);
+    }
+    return key;
 }
 
 interface YAMLLine {

@@ -200,14 +200,19 @@ export function helmGet(resourceNode: explorer.ResourceNode) {
         return;
     }
     const releaseName = resourceNode.id.split(':')[1];
-    const docname = `helmrelease-${releaseName}.txt`;
-    const nonce = new Date().getTime();
-    const uri = `${K8S_RESOURCE_SCHEME}://${HELM_RESOURCE_AUTHORITY}/${docname}?value=${releaseName}&_=${nonce}`;
-    vscode.workspace.openTextDocument(vscode.Uri.parse(uri)).then((doc) => {
+    const uri = helmfsUri(releaseName);
+    vscode.workspace.openTextDocument(uri).then((doc) => {
         if (doc) {
             vscode.window.showTextDocument(doc);
         }
     });
+}
+
+export function helmfsUri(releaseName: string): vscode.Uri {
+    const docname = `helmrelease-${releaseName}.txt`;
+    const nonce = new Date().getTime();
+    const uri = `${K8S_RESOURCE_SCHEME}://${HELM_RESOURCE_AUTHORITY}/${docname}?value=${releaseName}&_=${nonce}`;
+    return vscode.Uri.parse(uri);
 }
 
 // helmPackage runs the Helm package on a chart within your project.
