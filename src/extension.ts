@@ -67,6 +67,7 @@ import { showWorkspaceFolderPick } from './hostutils';
 import { DraftConfigurationProvider } from './draft/draftConfigurationProvider';
 import { installHelm, installDraft, installKubectl, installMinikube } from './components/installer/installer';
 import { KubernetesResourceVirtualFileSystemProvider, K8S_RESOURCE_SCHEME, KUBECTL_RESOURCE_AUTHORITY, kubefsUri } from './kuberesources.virtualfs';
+import { KubernetesResourceDefinitionProvider } from './kuberesources.definitionprovider';
 import { Container, isKubernetesResource, KubernetesCollection, Pod, KubernetesResource } from './kuberesources.objectmodel';
 import { setActiveKubeconfig, getKnownKubeconfigs, addKnownKubeconfig } from './components/config/config';
 import { HelmDocumentSymbolProvider } from './helm.symbolProvider';
@@ -118,6 +119,7 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
     const treeProvider = explorer.create(kubectl, host);
     const helmRepoTreeProvider = helmRepoExplorer.create(host);
     const resourceDocProvider = new KubernetesResourceVirtualFileSystemProvider(kubectl, host, vscode.workspace.rootPath);
+    const resourceDefinitionProvider = new KubernetesResourceDefinitionProvider();
     const previewProvider = new HelmTemplatePreviewDocumentProvider();
     const inspectProvider = new HelmInspectDocumentProvider();
     const dependenciesProvider = new HelmDependencyDocumentProvider();
@@ -234,6 +236,9 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
 
         // Temporarily loaded resource providers
         vscode.workspace.registerFileSystemProvider(K8S_RESOURCE_SCHEME, resourceDocProvider, { /* TODO: case sensitive? */ }),
+
+        // Go to definition for resources
+        vscode.languages.registerDefinitionProvider({ scheme: K8S_RESOURCE_SCHEME }, resourceDefinitionProvider),
 
         // Code lenses
         vscode.languages.registerCodeLensProvider(HELM_REQ_MODE, new HelmRequirementsCodeLensProvider()),
