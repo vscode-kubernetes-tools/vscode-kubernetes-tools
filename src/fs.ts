@@ -11,6 +11,7 @@ export interface FS {
     unlinkAsync(path: string): Promise<void>;
     existsAsync(path: string): Promise<boolean>;
     openAsync(path: string, flags: string): Promise<void>;
+    statSync(path: string): sysfs.Stats;
 }
 
 export const fs: FS = {
@@ -54,5 +55,7 @@ export const fs: FS = {
                 resolve();
             });
         });
-    }
+    },
+
+    statSync: (path) => sysfs.statSync(path)
 };

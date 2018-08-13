@@ -14,7 +14,7 @@ import * as helm from './helm';
 import { showWorkspaceFolderPick } from './hostutils';
 import { shell as sh, ShellResult } from './shell';
 import { K8S_RESOURCE_SCHEME, HELM_RESOURCE_AUTHORITY } from './kuberesources.virtualfs';
-import { Errorable } from './errorable';
+import { Errorable, failed } from './errorable';
 import { parseLineOutput } from './outputUtils';
 import { sleep } from './sleep';
 import { currentNamespace } from './kubectlUtils';
@@ -94,21 +94,37 @@ export function helmDepUp() {
 }
 
 export async function helmCreate(): Promise<void> {
+    const createResult = await helmCreateCore("Chart name", "mychart");
+
+    if (createResult && failed(createResult)) {
+        vscode.window.showErrorMessage(createResult.error[0]);
+    }
+}
+
+export async function helmCreateCore(prompt: string, sampleName: string): Promise<Errorable<{ name: string, path: string}> | undefined> {
     const folder = await showWorkspaceFolderPick();
     if (!folder) {
-        return;
+        return undefined;
     }
-    vscode.window.showInputBox({
-        prompt: "chart name",
-        placeHolder: "mychart"
-    }).then((name) => {
-        const fullpath = filepath.join(folder.uri.fsPath, name);
-        helmExec(`create "${fullpath}"`, (code, out, err) => {
-            if (code !== 0) {
-                vscode.window.showErrorMessage(err);
-            }
-        });
+
+    const name = await vscode.window.showInputBox({
+        prompt: prompt,
+        placeHolder: sampleName
     });
+
+    if (!name) {
+        return undefined;
+    }
+
+    const fullpath = filepath.join(folder.uri.fsPath, name);
+
+    const sr = await helmExecAsync(`create "${fullpath}"`);
+
+    if (sr.code !== 0) {
+        return { succeeded: false, error: [ sr.stderr ] };
+    }
+
+    return { succeeded: true, result: { name: name, path: fullpath } };
 }
 
 // helmLint runs the Helm linter on a chart within your project.

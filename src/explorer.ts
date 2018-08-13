@@ -7,6 +7,7 @@ import { Host } from './host';
 import * as kuberesources from './kuberesources';
 import { failed } from './errorable';
 import * as helmexec from './helm.exec';
+import { K8S_RESOURCE_SCHEME, KUBECTL_RESOURCE_AUTHORITY, kubefsUri } from './kuberesources.virtualfs';
 
 const KUBERNETES_CLUSTER = "vsKubernetes.cluster";
 const MINIKUBE_CLUSTER = "vsKubernetes.minikubeCluster";
@@ -49,7 +50,12 @@ export interface KubernetesObject {
 export interface ResourceNode {
     readonly id: string;
     readonly resourceId: string;
+    uri(outputFormat: string): vscode.Uri;
     namespace: string | null;
+}
+
+export function isKubernetesExplorerResourceNode(obj: any): obj is ResourceNode {
+    return obj && obj.id && obj.resourceId;
 }
 
 export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObject> {
@@ -236,6 +242,10 @@ class KubernetesResource implements KubernetesObject, ResourceNode {
 
     get namespace(): string | null {
         return (this.metadata && this.metadata.namespace) ? this.metadata.namespace : null;
+    }
+
+    uri(outputFormat: string): vscode.Uri {
+        return kubefsUri(this.namespace, this.resourceId, outputFormat);
     }
 
     getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<KubernetesObject[]> {

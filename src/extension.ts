@@ -39,6 +39,7 @@ import { create as minikubeCreate, CheckPresentMode as MinikubeCheckPresentMode 
 import * as logger from './logger';
 import * as helm from './helm';
 import * as helmexec from './helm.exec';
+import * as helmauthoring from './helm.authoring';
 import { HelmRequirementsCodeLensProvider } from './helm.requirementsCodeLens';
 import { HelmTemplateHoverProvider } from './helm.hoverProvider';
 import { HelmTemplatePreviewDocumentProvider, HelmInspectDocumentProvider, HelmDependencyDocumentProvider } from './helm.documentProvider';
@@ -65,9 +66,10 @@ import { KubernetesCompletionProvider } from "./yaml-support/yaml-snippet";
 import { showWorkspaceFolderPick } from './hostutils';
 import { DraftConfigurationProvider } from './draft/draftConfigurationProvider';
 import { installHelm, installDraft, installKubectl, installMinikube } from './components/installer/installer';
-import { KubernetesResourceVirtualFileSystemProvider, K8S_RESOURCE_SCHEME, KUBECTL_RESOURCE_AUTHORITY } from './kuberesources.virtualfs';
+import { KubernetesResourceVirtualFileSystemProvider, K8S_RESOURCE_SCHEME, KUBECTL_RESOURCE_AUTHORITY, kubefsUri } from './kuberesources.virtualfs';
 import { Container, isKubernetesResource, KubernetesCollection, Pod, KubernetesResource } from './kuberesources.objectmodel';
 import { setActiveKubeconfig, getKnownKubeconfigs, addKnownKubeconfig } from './components/config/config';
+import { HelmDocumentSymbolProvider } from './helm.symbolProvider';
 
 let explainActive = false;
 let swaggerSpecPromise = null;
@@ -119,6 +121,7 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
     const previewProvider = new HelmTemplatePreviewDocumentProvider();
     const inspectProvider = new HelmInspectDocumentProvider();
     const dependenciesProvider = new HelmDependencyDocumentProvider();
+    const helmSymbolProvider = new HelmDocumentSymbolProvider();
     const completionProvider = new HelmTemplateCompletionProvider();
     const completionFilter = [
         "helm",
@@ -188,6 +191,8 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
         registerCommand('extension.helmFetch', helmexec.helmFetch),
         registerCommand('extension.helmInstall', (o) => helmexec.helmInstall(kubectl, o)),
         registerCommand('extension.helmDependencies', helmexec.helmDependencies),
+        registerCommand('extension.helmConvertToTemplate', helmConvertToTemplate),
+        registerCommand('extension.helmParameterise', helmParameterise),
 
         // Commands - Draft
         registerCommand('extension.draftVersion', execDraftVersion),
@@ -208,6 +213,9 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
         // Completion providers
         vscode.languages.registerCompletionItemProvider(completionFilter, completionProvider),
         vscode.languages.registerCompletionItemProvider('yaml', new KubernetesCompletionProvider()),
+
+        // Symbol providers
+        vscode.languages.registerDocumentSymbolProvider({ language: 'helm' }, helmSymbolProvider),
 
         // Hover providers
         vscode.languages.registerHoverProvider(
@@ -307,6 +315,7 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
         context.subscriptions.push(element);
     }, this);
     await registerYamlSchemaSupport();
+
     vscode.workspace.registerTextDocumentContentProvider(configmaps.uriScheme, configMapProvider);
     return {
         apiVersion: '0.1',
@@ -662,11 +671,8 @@ function loadKubernetes(explorerNode?: explorer.ResourceNode) {
 
 function loadKubernetesCore(namespace: string | null, value: string) {
     const outputFormat = vscode.workspace.getConfiguration('vs-kubernetes')['vs-kubernetes.outputFormat'];
-    const docname = `${value.replace('/', '-')}.${outputFormat}`;
-    const nonce = new Date().getTime();
-    const nsquery = namespace ? `ns=${namespace}&` : '';
-    const uri = `${K8S_RESOURCE_SCHEME}://${KUBECTL_RESOURCE_AUTHORITY}/${docname}?${nsquery}value=${value}&_=${nonce}`;
-    vscode.workspace.openTextDocument(vscode.Uri.parse(uri)).then((doc) => {
+    const uri = kubefsUri(namespace, value, outputFormat);
+    vscode.workspace.openTextDocument(uri).then((doc) => {
         if (doc) {
             vscode.window.showTextDocument(doc);
         }
@@ -1865,4 +1871,40 @@ async function execDraftUp() {
 function editorIsActive(): boolean {
     // force type coercion
     return (vscode.window.activeTextEditor) ? true : false;
+}
+
+async function helmConvertToTemplate(arg?: any) {
+    const workspace = await showWorkspaceFolderPick();
+    if (!workspace) {
+        return;
+    }
+    helmauthoring.convertToTemplate(fs, host, workspace.uri.fsPath, arg);
+}
+
+async function helmParameterise() {
+    const activeEditor = vscode.window.activeTextEditor;
+    if (!activeEditor) {
+        return;
+    }
+
+    const document = activeEditor.document;
+    if (!document) {
+        return;
+    }
+
+    const selection = activeEditor.selection;
+    if (!selection) {
+        return;
+    }
+
+    const convertResult = await helmauthoring.convertToParameter(fs, host, document, selection);
+
+    if (succeeded(convertResult)) {
+        const editor = await vscode.window.showTextDocument(convertResult.result.document);
+        const edit = convertResult.result.edit;
+        editor.revealRange(edit.range);
+        editor.selection = new vscode.Selection(edit.range.start, edit.range.end);  // TODO: this isn't quite right because it gives us the insert-at selection not the resultant edit
+    } else {
+        vscode.window.showErrorMessage(convertResult.error[0]);
+    }
 }

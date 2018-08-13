@@ -13,6 +13,9 @@ export interface Host {
     createTerminal(name?: string, shellPath?: string, shellArgs?: string[]): vscode.Terminal;
     onDidCloseTerminal(listener: (e: vscode.Terminal) => any): vscode.Disposable;
     onDidChangeConfiguration(listener: (ch: vscode.ConfigurationChangeEvent) => any): vscode.Disposable;
+    activeDocument(): vscode.TextDocument | undefined;
+    showDocument(uri: vscode.Uri): Promise<vscode.TextDocument>;
+    readDocument(uri: vscode.Uri): Promise<vscode.TextDocument>;
 }
 
 export const host: Host = {
@@ -25,7 +28,10 @@ export const host: Host = {
     createTerminal : createTerminal,
     onDidCloseTerminal : onDidCloseTerminal,
     onDidChangeConfiguration : onDidChangeConfiguration,
-    showInputBox : showInputBox
+    showInputBox : showInputBox,
+    activeDocument : activeDocument,
+    showDocument : showDocument,
+    readDocument : readDocument
 };
 
 function showInputBox(options: vscode.InputBoxOptions, token?: vscode.CancellationToken): Thenable<string> {
@@ -93,4 +99,24 @@ function onDidCloseTerminal(listener: (e: vscode.Terminal) => any): vscode.Dispo
 
 function onDidChangeConfiguration(listener: (e: vscode.ConfigurationChangeEvent) => any): vscode.Disposable {
     return vscode.workspace.onDidChangeConfiguration(listener);
+}
+
+function activeDocument(): vscode.TextDocument | undefined {
+    const activeEditor = vscode.window.activeTextEditor;
+    if (activeEditor) {
+        return activeEditor.document;
+    }
+    return undefined;
+}
+
+async function showDocument(uri: vscode.Uri): Promise<vscode.TextDocument> {
+    const document = await vscode.workspace.openTextDocument(uri);
+    if (document) {
+        await vscode.window.showTextDocument(document);
+    }
+    return document;
+}
+
+async function readDocument(uri: vscode.Uri): Promise<vscode.TextDocument> {
+    return await vscode.workspace.openTextDocument(uri);
 }
