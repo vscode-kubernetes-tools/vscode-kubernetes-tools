@@ -71,6 +71,7 @@ import { KubernetesResourceDefinitionProvider } from './kuberesources.definition
 import { Container, isKubernetesResource, KubernetesCollection, Pod, KubernetesResource } from './kuberesources.objectmodel';
 import { setActiveKubeconfig, getKnownKubeconfigs, addKnownKubeconfig } from './components/config/config';
 import { HelmDocumentSymbolProvider } from './helm.symbolProvider';
+import { findParentYaml } from './yaml-support/yaml-navigation';
 
 let explainActive = false;
 let swaggerSpecPromise = null;
@@ -431,33 +432,6 @@ function findParentJson(document, line) {
         line = line - 1;
     }
     return line;
-}
-
-function findParentYaml(document, line) {
-    const indent = yamlIndentLevel(document.lineAt(line).text);
-    while (line >= 0) {
-        const txt = document.lineAt(line);
-        if (yamlIndentLevel(txt.text) < indent) {
-            return line;
-        }
-        line = line - 1;
-    }
-    return line;
-}
-
-function yamlIndentLevel(str) {
-    let i = 0;
-
-    while (true) {
-        if (str.length <= i || !isYamlIndentChar(str.charAt(i))) {
-            return i;
-        }
-        ++i;
-    }
-}
-
-function isYamlIndentChar(ch) {
-    return ch === ' ' || ch === '-';
 }
 
 async function explain(obj, field) {
