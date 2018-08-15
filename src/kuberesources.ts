@@ -20,6 +20,9 @@ export const allKinds = {
     configMap: new ResourceKind("ConfigMap", "ConfigMaps", "configmap"),
     secret: new ResourceKind("Secret", "Secrets", "secret"),
     ingress: new ResourceKind("Ingress", "Ingress", "ingress"),
+    persistentVolume: new ResourceKind("Persistent Volume", "Persistent Volumes", "pv"),
+    persistentVolumeClaim: new ResourceKind("Persistent Volume Claim", "Persistent Volume Claims", "pvc"),
+    storageClass: new ResourceKind("Storage Class", "Storage Classes", "sc"),
 };
 
 export const commonKinds = [
