@@ -14,7 +14,6 @@ export class KubernetesResourceLinkProvider implements vscode.DocumentLinkProvid
         const leaves: yl.YamlNode[] = getLeafNodes(yaml);
         const links = leaves.map((l) => getLink(document, sourceKind, l))
                             .filter((l) => !!l);
-        links.forEach((l) => { console.log(l.target.toString()); });
         return links;
     }
 }
