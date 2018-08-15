@@ -2,11 +2,24 @@ import * as vscode from 'vscode';
 
 import { parse, findNodeAtPosition } from 'node-yaml-parser';
 
+export function isMapping(node: YamlNode): node is YamlMap {
+    return node.kind === 'MAPPING';
+}
+
+export function isSequence(node: YamlNode): node is YamlSequence {
+    return node.kind === 'SEQ';
+}
+
+export function isMappingItem(node: YamlNode): node is YamlMappingItem {
+    return node.kind === 'PAIR';
+}
+
 export interface YamlNode {
     readonly kind: string;
     readonly raw: string;
     readonly startPosition: number;
     readonly endPosition: number;
+    readonly parent?: YamlNode;
 }
 
 export interface YamlMappingItem extends YamlNode {
@@ -16,6 +29,10 @@ export interface YamlMappingItem extends YamlNode {
 
 export interface YamlMap extends YamlNode {
     readonly mappings: YamlMappingItem[];
+}
+
+export interface YamlSequence extends YamlNode {
+    readonly items: YamlNode[];
 }
 
 export interface YamlDocument {
