@@ -15,6 +15,7 @@ export const allKinds = {
     replicaSet: new ResourceKind("ReplicaSet", "ReplicaSets", "rs"),
     replicationController: new ResourceKind("Replication Controller", "Replication Controllers", "rc"),
     job: new ResourceKind("Job", "Jobs", "job"),
+    cronjob: new ResourceKind("Cron Job", "Cron Jobs", "cronjob"),
     pod: new ResourceKind("Pod", "Pods", "pod"),
     service: new ResourceKind("Service", "Services", "service"),
     configMap: new ResourceKind("ConfigMap", "ConfigMaps", "configmap"),
