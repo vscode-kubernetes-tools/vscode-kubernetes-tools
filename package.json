@@ -78,6 +78,7 @@
         "onView:extension.vsKubernetesHelmRepoExplorer",
         "onLanguage:helm",
         "onLanguage:yaml",
+        "onFileSystem:k8smsx",
         "onDebug"
     ],
     "main": "./out/src/extension",
