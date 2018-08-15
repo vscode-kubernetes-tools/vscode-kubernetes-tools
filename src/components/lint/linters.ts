@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 
+import { expose } from './linter.impl';
 import { ResourceLimitsLinter } from './resourcelimits';
 
 export interface Linter {
@@ -8,4 +9,4 @@ export interface Linter {
 
 export const linters: Linter[] = [
     new ResourceLimitsLinter()
-];
+].map(expose);
