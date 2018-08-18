@@ -178,6 +178,7 @@ Minikube tools to be installed and available on your PATH.
        * `vs-kubernetes.knownKubeconfigs` - An array of file paths of kubeconfig files that you want to be able to quickly switch between using the Set Kubeconfig command.
        * `vs-kubernetes.autoCleanupOnDebugTerminate` - The flag to control whether to auto cleanup the created deployment and associated pod by the command "Kubernetes: Debug (Launch)". The cleanup action occurs when it failed to start debug session or debug session terminated. If not specified, the extension will prompt for whether to clean up or not. You might choose not to clean up if you wanted to view pod logs, etc.
        * `vs-kubernetes.outputFormat` - The output format that you prefer to view Kubernetes manifests in. One of "yaml" or "json". Defaults to "yaml".
+       * `vs-kubernetes.skip-tls-verification` - Skip TLS verification for insecure cerificates for API server. Useful for communicating with clusters with self signed certificates. One of "true" or "false". Defaults to "false".
    * `vsdocker.imageUser` - Image prefix for docker images e.g. 'docker.io/brendanburns'
 
 ## Keybinding Support

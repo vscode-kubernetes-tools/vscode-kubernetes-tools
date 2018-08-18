@@ -158,8 +158,9 @@ async function invokeWithProgress(context: Context, command: string, progressMes
 
 async function invokeAsync(context: Context, command: string, stdin?: string): Promise<ShellResult> {
     if (await checkPresent(context, 'command')) {
+        const kubectlArgs = getKubectlArgs(context);
         const bin = baseKubectlPath(context);
-        const cmd = `${bin} ${command}`;
+        const cmd = `${bin} ${command} ${kubectlArgs}`;
         const sr = await context.shell.exec(cmd, stdin);
         if (sr.code !== 0) {
             checkPossibleIncompatibility(context);
@@ -187,13 +188,16 @@ async function invokeAsyncWithProgress(context: Context, command: string, progre
 
 async function spawnAsChild(context: Context, command: string[]): Promise<ChildProcess> {
     if (await checkPresent(context, 'command')) {
+        const kubectlArgs = getKubectlArgs(context);
+        command.push(kubectlArgs);
         return spawnChildProcess(path(context), command, context.shell.execOpts());
     }
 }
 
 async function invokeInTerminal(context: Context, command: string, pipeTo: string | undefined, terminal: Terminal): Promise<void> {
     if (await checkPresent(context, 'command')) {
-        const kubectlCommand = `kubectl ${command}`;
+        const kubectlArgs = getKubectlArgs(context);
+        const kubectlCommand = `kubectl ${command} ${kubectlArgs}`;
         const fullCommand = pipeTo ? `${kubectlCommand} | ${pipeTo}` : kubectlCommand;
         terminal.sendText(fullCommand);
         terminal.show();
@@ -202,6 +206,8 @@ async function invokeInTerminal(context: Context, command: string, pipeTo: strin
 
 async function runAsTerminal(context: Context, command: string[], terminalName: string): Promise<void> {
     if (await checkPresent(context, 'command')) {
+        const kubectlArgs = getKubectlArgs(context);
+        command.push(kubectlArgs);
         const term = context.host.createTerminal(terminalName, path(context), command);
         term.show();
     }
@@ -209,8 +215,9 @@ async function runAsTerminal(context: Context, command: string[], terminalName: 
 
 async function kubectlInternal(context: Context, command: string, handler: ShellHandler): Promise<void> {
     if (await checkPresent(context, 'command')) {
+        const kubectlArgs = getKubectlArgs(context);
         const bin = baseKubectlPath(context);
-        const cmd = `${bin} ${command}`;
+        const cmd = `${bin} ${command} ${kubectlArgs}`;
         context.shell.exec(cmd, null).then(({code, stdout, stderr}) => handler(code, stdout, stderr));
     }
 }
@@ -271,4 +278,9 @@ async function asJson<T>(context: Context, command: string): Promise<Errorable<T
 function path(context: Context): string {
     const bin = baseKubectlPath(context);
     return binutil.execPath(context.shell, bin);
+}
+
+function getKubectlArgs(context: Context): string {
+    const skipTlsVerification: boolean = context.host.getConfiguration('vs-kubernetes')[`vs-kubernetes.skip-tls-verification`];
+    return `--insecure-skip-tls-verify=${skipTlsVerification}`;
 }

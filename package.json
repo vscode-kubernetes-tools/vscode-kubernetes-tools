@@ -111,6 +111,10 @@
                             "type": "string",
                             "description": "File path to the kubeconfig file."
                         },
+                        "vs-kubernetes.skip-tls-verification": {
+                            "type": "boolean",
+                            "description": "Skip TLS verification for insecure cerificates for API server."
+						},
                         "vs-kubernetes.knownKubeconfigs": {
                             "type": "array",
                             "description": "File paths to kubeconfig files from which you can select."
@@ -135,6 +139,7 @@
                         "vs-kubernetes.draft-path": "",
                         "vs-kubernetes.outputFormat": "yaml",
                         "vs-kubernetes.kubeconfig": "",
+                        "vs-kubernetes.skip-tls-verification": false,
                         "vs-kubernetes.knownKubeconfigs": [],
                         "vs-kubernetes.autoCleanupOnDebugTerminate": false
                     }
