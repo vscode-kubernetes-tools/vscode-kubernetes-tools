@@ -75,11 +75,17 @@ function key(node: yl.YamlNode): string | undefined {
 
 function parentKey(node: yl.YamlNode): string | undefined {
     const parent = node.parent;
-    if (!parent || !parent.parent || !yl.isMapping(parent.parent)) {
+    if (!parent) {
         return undefined;
     }
-    const parentPair = parent.parent.mappings.find((mi) => mi.value === parent);
-    return key(parentPair);
+    if (parent.parent && yl.isMapping(parent.parent)) {
+        const parentPair = parent.parent.mappings.find((mi) => mi.value === parent);
+        const parentKey = key(parentPair);
+        if (parentKey) {
+            return parentKey;
+        }
+    }
+    return parentKey(parent);
 }
 
 function siblings(node: yl.YamlMappingItem): yl.YamlMappingItem[] {
@@ -111,6 +117,12 @@ function getLinkUri(sourceKind: string, node: yl.YamlMappingItem): vscode.Uri | 
     }
     if (key(node) === 'namespace' && parentKey(node) === 'metadata') {
         return kubefsUri(null, `ns/${node.value.raw}`, 'yaml');
+    }
+    if (key(node) === 'name' && parentKey(node) === 'ownerReferences') {
+        const ownerKind = k8sKindFromManifestKind(sibling(node, 'kind'));
+        if (ownerKind) {
+            return kubefsUri(null, `${ownerKind}/${node.value.raw}`, 'yaml');
+        }
     }
 
     // Source=type-specific navigation
@@ -163,4 +175,9 @@ function k8sKind(document: vscode.TextDocument): string {
     const k8sid: string = query.value;
     const kindSepIndex = k8sid.indexOf('/');
     return k8sid.substring(0, kindSepIndex);
+}
+
+function k8sKindFromManifestKind(manifestKind: string): string | undefined {
+    const resourceKind = kuberesources.findKind(manifestKind);
+    return resourceKind ? resourceKind.abbreviation : undefined;
 }

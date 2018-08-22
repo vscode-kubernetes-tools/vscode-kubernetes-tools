@@ -192,6 +192,7 @@ class KubernetesWorkloadFolder extends KubernetesFolder {
         return [
             new KubernetesDeploymentFolder(),
             new KubernetesResourceFolder(kuberesources.allKinds.job),
+            new KubernetesResourceFolder(kuberesources.allKinds.cronjob),
             new KubernetesResourceFolder(kuberesources.allKinds.pod)
         ];
     }
