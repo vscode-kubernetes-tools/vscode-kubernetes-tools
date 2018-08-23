@@ -72,9 +72,12 @@ import { Container, isKubernetesResource, KubernetesCollection, Pod, KubernetesR
 import { setActiveKubeconfig, getKnownKubeconfigs, addKnownKubeconfig } from './components/config/config';
 import { HelmDocumentSymbolProvider } from './helm.symbolProvider';
 import { findParentYaml } from './yaml-support/yaml-navigation';
+import { linters } from './components/lint/linters';
 
 let explainActive = false;
 let swaggerSpecPromise = null;
+
+const kubernetesDiagnostics = vscode.languages.createDiagnosticCollection("Kubernetes");
 
 const kubectl = kubectlCreate(host, fs, shell, installDependencies);
 const draft = draftCreate(host, fs, shell, installDependencies);
@@ -316,6 +319,12 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
             }
         }
     });
+
+    vscode.workspace.onDidOpenTextDocument(kubernetesLint);
+    vscode.workspace.onDidChangeTextDocument((e) => kubernetesLint(e.document));  // TODO: we could use the change hint
+    vscode.workspace.onDidSaveTextDocument(kubernetesLint);
+    vscode.workspace.onDidCloseTextDocument((d) => kubernetesDiagnostics.delete(d.uri));
+    vscode.workspace.textDocuments.forEach(kubernetesLint);
 
     subscriptions.forEach((element) => {
         context.subscriptions.push(element);
@@ -1886,4 +1895,19 @@ async function helmParameterise() {
     } else {
         vscode.window.showErrorMessage(convertResult.error[0]);
     }
+}
+
+function isLintable(document: vscode.TextDocument): boolean {
+    return document.languageId === 'yaml' || document.languageId === 'json' || document.languageId === 'helm';
+}
+
+async function kubernetesLint(document: vscode.TextDocument): Promise<void> {
+    // Is it a Kubernetes document?
+    if (!isLintable(document)) {
+        return;
+    }
+    const linterPromises = linters.map((l) => l.lint(document));
+    const linterResults = await Promise.all(linterPromises);
+    const diagnostics = ([] as vscode.Diagnostic[]).concat(...linterResults);
+    kubernetesDiagnostics.set(document.uri, diagnostics);
 }
