@@ -74,10 +74,22 @@ async function isRunnableMinikube(context: Context): Promise<Errorable<Diagnosti
     return fromShellExitCodeOnly(sr);
 }
 
+let minikubeStatusBarItem;
+
+function getStatusBar(): vscode.StatusBarItem {
+    if (!minikubeStatusBarItem) {
+        minikubeStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+    }
+    return minikubeStatusBarItem;
+}
+
 async function startMinikube(context: Context, options: MinikubeOptions): Promise<void> {
     if (!await checkPresent(context, CheckPresentMode.Alert)) {
         return;
     }
+    const item = getStatusBar();
+    item.text = 'minikube-starting';
+    item.show();
     let flags = options.additionalFlags ? options.additionalFlags : '';
     if (options.vmDriver && options.vmDriver.length > 0) {
         flags += ` --vm-driver=${options.vmDriver} `;
@@ -85,10 +97,13 @@ async function startMinikube(context: Context, options: MinikubeOptions): Promis
     context.shell.exec(`${context.binPath} ${flags} start`).then((result: ShellResult) => {
         if (result.code === 0) {
             vscode.window.showInformationMessage('Cluster started.');
+            item.text = 'minikube-running';
         } else {
             vscode.window.showErrorMessage(`Failed to start cluster ${result.stderr}`);
+            item.hide();
         }
     }).catch((err) => {
+        item.hide();
         vscode.window.showErrorMessage(`Failed to start cluster: ${err}`);
     });
 }
@@ -97,15 +112,21 @@ async function stopMinikube(context: Context): Promise<void> {
     if (!await checkPresent(context, CheckPresentMode.Alert)) {
         return;
     }
+    const item = getStatusBar();
+    item.text = 'minikube-stopping';
+    item.show();
 
     context.shell.exec(`${context.binPath} stop`).then((result: ShellResult) => {
         if (result.code === 0) {
             vscode.window.showInformationMessage('Cluster stopped.');
+            item.hide();
         } else {
             vscode.window.showErrorMessage(`Error stopping cluster ${result.stderr}`);
+            item.hide();
         }
     }).catch((err) => {
         vscode.window.showErrorMessage(`Error stopping cluster: ${err}`);
+        item.hide();
     });
 }
 
