@@ -174,6 +174,7 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
         registerCommand('extension.vsKubernetesDashboard', () => { dashboardKubernetes(kubectl); }),
         registerCommand('extension.vsMinikubeStop', () => minikube.stop()),
         registerCommand('extension.vsMinikubeStart', () => minikube.start({} as MinikubeOptions)),
+        registerCommand('extension.vsMinikubeStatus', () => minikube.status(true)),
         registerCommand('extension.vsKubernetesCopy', copyKubernetes),
         registerCommand('extension.vsKubernetesPortForward', (explorerNode: explorer.ResourceNode) => { portForwardKubernetes(kubectl, explorerNode); }),
         registerCommand('extension.vsKubernetesLoadConfigMapData', configmaps.loadConfigMapData),
