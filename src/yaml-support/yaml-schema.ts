@@ -1,4 +1,5 @@
 import * as _ from 'lodash';
+import * as semver from 'semver';
 import Uri from 'vscode-uri';
 import * as vscode from 'vscode';
 import { yamlLocator, YamlMap } from "./yaml-locator";
@@ -224,7 +225,9 @@ function requestYamlSchemaContentCallback(uri: string): string {
     // if it is a multiple choice, make an 'oneof' schema.
     if (manifestType.includes('+')) {
         const manifestRefList = manifestType.split('+').map(util.makeRefOnKubernetes);
-        return JSON.stringify({ oneOf: manifestRefList });
+        // yaml language server supports schemaSequence at
+        // https://github.com/redhat-developer/yaml-language-server/pull/81
+        return JSON.stringify({ schemaSequence: manifestRefList });
     }
     const schema = kubeSchema.lookup(manifestType);
 
@@ -301,6 +304,10 @@ async function activateYamlExtension(): Promise<{registerContributor: YamlSchema
     if (!yamlPlugin || !yamlPlugin.registerContributor) {
         vscode.window.showWarningMessage('The installed Red Hat YAML extension doesn\'t support Kubernetes Intellisense. Please upgrade \'YAML Support by Red Hat\' via the Extensions pane.');
         return;
+    }
+
+    if (ext.packageJSON.version && !semver.satisfies(ext.packageJSON.version, '^0.0.15')) {
+        vscode.window.showWarningMessage('The installed Red Hat YAML extension doesn\'t support multiple schemas. Please upgrade \'YAML Support by Red Hat\' via the Extensions pane.');
     }
     return yamlPlugin;
 }

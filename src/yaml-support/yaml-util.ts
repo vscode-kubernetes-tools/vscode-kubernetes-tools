@@ -61,11 +61,11 @@ export function makeKubernetesUri(ids: string | string[]): string {
     if (_.isString(ids)) {
         return KUBERNETES_SCHEMA_PREFIX + (<string>ids).toLowerCase();
     }
-    const newIds = _.uniq(ids);
-    if (newIds.length === 1) {
-        return makeKubernetesUri(newIds[0]);
+    // vscode-yaml now supports schema-sequence, we need to be care about the order in ids
+    if (ids.length === 1) {
+        return makeKubernetesUri(ids[0]);
     } else if (ids.length > 1) {
-        return KUBERNETES_SCHEMA_PREFIX + newIds.map((id) => id.toLowerCase()).join('+');
+        return KUBERNETES_SCHEMA_PREFIX + ids.map((id) => id.toLowerCase()).join('+');
     } else {
         return undefined;
     }
