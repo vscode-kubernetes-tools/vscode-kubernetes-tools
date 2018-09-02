@@ -1,5 +1,18 @@
 # Change Log
 
+## 0.1.13
+
+* Warn if a pod spec does not specify CPU and/or memory limits
+* Added status bar notifications for starting, stopping and running Minikube
+* Added storage resources (persistent volumes, persistent volume claims and storage classes) to the tree view
+* Added cron jobs to the tree view
+* When a cluster resource refers to another resource, you can now use Ctrl+click to follow that reference
+* Added new region to create AKS cluster wizard.
+* Cluster resource tabs should now reload correctly after restarting VS Code
+* Fix for multiple documents in a single YAML file
+
+Thanks to contributors Brendan Burns and Andy Xu.
+
 ## 0.1.12
 
 * Added tree view for Helm repos
