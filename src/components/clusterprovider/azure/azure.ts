@@ -191,6 +191,7 @@ export async function listAksLocations(context: Context): Promise<Errorable<Serv
         "canadaeast",
         "centralus",
         "eastus",
+        "eastus2",
         "uksouth",
         "westus",
         "westus2",
