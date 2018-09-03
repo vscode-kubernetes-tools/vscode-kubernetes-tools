@@ -84,3 +84,44 @@ export function getToolPath(host: Host, tool: string): string | undefined {
 export function toolPathKey(tool: string) {
     return `vs-kubernetes.${tool}-path`;
 }
+
+// Auto cleanup on debug terminate
+
+const AUTO_CLEANUP_DEBUG_KEY = "vs-kubernetes.autoCleanupOnDebugTerminate";
+
+export function getAutoCompleteOnDebugTerminate(): boolean {
+    return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)[AUTO_CLEANUP_DEBUG_KEY];
+}
+
+export async function setAlwaysCleanUp(): Promise<void> {
+    // The object returned by VS Code API is readonly, clone it first.
+    const oldConfig = vscode.workspace.getConfiguration().inspect(EXTENSION_CONFIG_KEY);
+    // Always update global config.
+    const globalConfig = <any> Object.assign({}, oldConfig.globalValue);
+    globalConfig[AUTO_CLEANUP_DEBUG_KEY] = true;
+    await vscode.workspace.getConfiguration().update(EXTENSION_CONFIG_KEY, globalConfig, vscode.ConfigurationTarget.Global);
+    // If workspace folder value exists, update it.
+    if (oldConfig.workspaceFolderValue && oldConfig.workspaceFolderValue[AUTO_CLEANUP_DEBUG_KEY] === false) {
+        const workspaceFolderConfig = <any> Object.assign({}, oldConfig.workspaceFolderValue);
+        workspaceFolderConfig[AUTO_CLEANUP_DEBUG_KEY] = true;
+        await vscode.workspace.getConfiguration().update(EXTENSION_CONFIG_KEY, workspaceFolderConfig, vscode.ConfigurationTarget.WorkspaceFolder);
+    } else if (oldConfig.workspaceValue && oldConfig.workspaceValue[AUTO_CLEANUP_DEBUG_KEY] === false) { // if workspace value exists, update it.
+        const workspaceConfig = <any> Object.assign({}, oldConfig.workspaceValue);
+        workspaceConfig[AUTO_CLEANUP_DEBUG_KEY] = true;
+        await vscode.workspace.getConfiguration().update(EXTENSION_CONFIG_KEY, workspaceConfig, vscode.ConfigurationTarget.Workspace);
+    }
+}
+
+// Other bits and bobs
+
+export function getOutputFormat(): string {
+    return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.outputFormat'];
+}
+
+export function getConfiguredNamespace(): string | undefined {
+    return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.namespace'];
+}
+
+export function affectsUs(change: vscode.ConfigurationChangeEvent) {
+    return change.affectsConfiguration(EXTENSION_CONFIG_KEY);
+}

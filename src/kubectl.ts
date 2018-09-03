@@ -7,7 +7,7 @@ import * as binutil from './binutil';
 import { Errorable } from './errorable';
 import { parseLineOutput } from './outputUtils';
 import * as compatibility from './components/kubectl/compatibility';
-import { getToolPath } from './components/config/config';
+import { getToolPath, affectsUs } from './components/config/config';
 
 const KUBECTL_OUTPUT_COLUMN_SEPARATOR = /\s+/g;
 
@@ -98,7 +98,7 @@ class KubectlImpl implements Kubectl {
                 }
             });
             this.context.host.onDidChangeConfiguration((change) => {
-                if (change.affectsConfiguration('vs-kubernetes') && this.sharedTerminal) {
+                if (affectsUs(change) && this.sharedTerminal) {
                     this.sharedTerminal.dispose();
                 }
             });

@@ -512,7 +512,7 @@ function maybeRunKubernetesCommandForActiveWindow(command: string, progressMessa
         return false; // No open text editor
     }
 
-    const namespace = vscode.workspace.getConfiguration('vs-kubernetes')['vs-kubernetes.namespace'];
+    const namespace = config.getConfiguredNamespace();
     if (namespace) {
         command = `${command} --namespace ${namespace} `;
     }
@@ -658,7 +658,7 @@ function loadKubernetes(explorerNode?: explorer.ResourceNode) {
 }
 
 function loadKubernetesCore(namespace: string | null, value: string) {
-    const outputFormat = vscode.workspace.getConfiguration('vs-kubernetes')['vs-kubernetes.outputFormat'];
+    const outputFormat = config.getOutputFormat();
     const uri = kubefsUri(namespace, value, outputFormat);
     vscode.workspace.openTextDocument(uri).then((doc) => {
         if (doc) {

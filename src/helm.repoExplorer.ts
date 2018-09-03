@@ -7,6 +7,7 @@ import * as helm from './helm.exec';
 import { HELM_OUTPUT_COLUMN_SEPARATOR } from './helm';
 import { Errorable, failed } from './errorable';
 import { parseLineOutput } from './outputUtils';
+import { affectsUs } from './components/config/config';
 
 export function create(host: Host): HelmRepoExplorer {
     return new HelmRepoExplorer(host);
@@ -56,7 +57,7 @@ export class HelmRepoExplorer implements vscode.TreeDataProvider<HelmObject> {
 
     constructor(private readonly host: Host) {
         host.onDidChangeConfiguration((change) => {
-            if (change.affectsConfiguration('vs-kubernetes')) {
+            if (affectsUs(change)) {
                 this.refresh();
             }
         });
