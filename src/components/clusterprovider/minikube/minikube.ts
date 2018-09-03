@@ -7,6 +7,7 @@ import { FS } from '../../../fs';
 import * as binutil from '../../../binutil';
 import { Errorable } from '../../../errorable';
 import { fromShellExitCodeOnly, Diagnostic } from '../../../wizard';
+import { getToolPath } from '../../config/config';
 
 export class MinikubeOptions {
     readonly vmDriver: string;
@@ -140,9 +141,9 @@ async function checkPresent(context: Context, mode: CheckPresentMode): Promise<b
 
 async function checkForMinikubeInternal(context: Context, mode: CheckPresentMode): Promise<boolean> {
     const binName = 'minikube';
-    const bin = context.host.getConfiguration('vs-kubernetes')[`vs-kubernetes.${binName}-path`];
+    const bin = getToolPath(context.host, binName);
 
-    const inferFailedMessage = 'Could not find "minikube" binary.';
-    const configuredFileMissingMessage = bin + ' does not exist!';
+    const inferFailedMessage = `Could not find "${binName}" binary.`;
+    const configuredFileMissingMessage = `${bin} does not exist!`;
     return binutil.checkForBinary(context, bin, binName, inferFailedMessage, configuredFileMissingMessage, mode === CheckPresentMode.Alert);
 }

@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { Host } from '../../host';
 
 const EXTENSION_CONFIG_KEY = "vs-kubernetes";
 const KUBECONFIG_PATH_KEY = "vs-kubernetes.kubeconfig";
@@ -72,4 +73,14 @@ export async function setActiveKubeconfig(kubeconfig: string): Promise<void> {
 
 export function getActiveKubeconfig(): string {
     return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)[KUBECONFIG_PATH_KEY];
+}
+
+// Functions for working with tool paths
+
+export function getToolPath(host: Host, tool: string): string | undefined {
+    return host.getConfiguration(EXTENSION_CONFIG_KEY)[toolPathKey(tool)];
+}
+
+export function toolPathKey(tool: string) {
+    return `vs-kubernetes.${tool}-path`;
 }

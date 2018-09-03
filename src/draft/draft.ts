@@ -4,6 +4,7 @@ import { FS } from '../fs';
 import * as syspath from 'path';
 import * as binutil from '../binutil';
 import { Errorable } from '../errorable';
+import { getToolPath } from '../components/config/config';
 
 export interface Draft {
     checkPresent(mode: CheckPresentMode): Promise<boolean>;
@@ -144,10 +145,10 @@ async function version(context: Context): Promise<Errorable<string>> {
 
 async function checkForDraftInternal(context: Context, mode: CheckPresentMode): Promise<boolean> {
     const binName = 'draft';
-    const bin = context.host.getConfiguration('vs-kubernetes')[`vs-kubernetes.${binName}-path`];
+    const bin = getToolPath(context.host, binName);
 
-    const inferFailedMessage = 'Could not find "draft" binary.';
-    const configuredFileMissingMessage = bin + ' does not exist!';
+    const inferFailedMessage = `Could not find "${binName}" binary.`;
+    const configuredFileMissingMessage = `${bin} does not exist!`;
     return binutil.checkForBinary(context, bin, binName, inferFailedMessage, configuredFileMissingMessage, mode === CheckPresentMode.Alert);
 }
 
