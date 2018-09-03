@@ -6,13 +6,14 @@ const KUBECONFIG_PATH_KEY = "vs-kubernetes.kubeconfig";
 const KNOWN_KUBECONFIGS_KEY = "vs-kubernetes.knownKubeconfigs";
 
 export async function addPathToConfig(configKey: string, value: string): Promise<void> {
-    const config = vscode.workspace.getConfiguration().inspect(EXTENSION_CONFIG_KEY);
-    await addPathToConfigAtScope(configKey, value, vscode.ConfigurationTarget.Global, config.globalValue, true);
-    await addPathToConfigAtScope(configKey, value, vscode.ConfigurationTarget.Workspace, config.workspaceValue, false);
-    await addPathToConfigAtScope(configKey, value, vscode.ConfigurationTarget.WorkspaceFolder, config.workspaceFolderValue, false);
+    await setConfigValue(configKey, value);
 }
 
-async function addPathToConfigAtScope(configKey: string, value: string, scope: vscode.ConfigurationTarget, valueAtScope: any, createIfNotExist: boolean): Promise<void> {
+async function setConfigValue(configKey: string, value: any): Promise<void> {
+    await atAllConfigScopes(addValueToConfigAtScope, configKey, value);
+}
+
+async function addValueToConfigAtScope(configKey: string, value: any, scope: vscode.ConfigurationTarget, valueAtScope: any, createIfNotExist: boolean): Promise<void> {
     if (!createIfNotExist) {
         if (!valueAtScope || !(valueAtScope[configKey])) {
             return;
@@ -28,10 +29,7 @@ async function addPathToConfigAtScope(configKey: string, value: string, scope: v
 }
 
 async function addValueToConfigArray(configKey: string, value: string): Promise<void> {
-    const config = vscode.workspace.getConfiguration().inspect(EXTENSION_CONFIG_KEY);
-    await addValueToConfigArrayAtScope(configKey, value, vscode.ConfigurationTarget.Global, config.globalValue, true);
-    await addValueToConfigArrayAtScope(configKey, value, vscode.ConfigurationTarget.Workspace, config.workspaceValue, false);
-    await addValueToConfigArrayAtScope(configKey, value, vscode.ConfigurationTarget.WorkspaceFolder, config.workspaceFolderValue, false);
+    await atAllConfigScopes(addValueToConfigArrayAtScope, configKey, value);
 }
 
 async function addValueToConfigArrayAtScope(configKey: string, value: string, scope: vscode.ConfigurationTarget, valueAtScope: any, createIfNotExist: boolean): Promise<void> {
@@ -49,6 +47,15 @@ async function addValueToConfigArrayAtScope(configKey: string, value: string, sc
     arrayEntry.push(value);
     newValue[configKey] = arrayEntry;
     await vscode.workspace.getConfiguration().update(EXTENSION_CONFIG_KEY, newValue, scope);
+}
+
+type ConfigUpdater<T> = (configKey: string, value: T, scope: vscode.ConfigurationTarget, valueAtScope: any, createIfNotExist: boolean) => Promise<void>;
+
+async function atAllConfigScopes<T>(fn: ConfigUpdater<T>, configKey: string, value: T): Promise<void> {
+    const config = vscode.workspace.getConfiguration().inspect(EXTENSION_CONFIG_KEY);
+    await fn(configKey, value, vscode.ConfigurationTarget.Global, config.globalValue, true);
+    await fn(configKey, value, vscode.ConfigurationTarget.Workspace, config.workspaceValue, false);
+    await fn(configKey, value, vscode.ConfigurationTarget.WorkspaceFolder, config.workspaceFolderValue, false);
 }
 
 // Functions for working with the list of known kubeconfigs
@@ -94,22 +101,7 @@ export function getAutoCompleteOnDebugTerminate(): boolean {
 }
 
 export async function setAlwaysCleanUp(): Promise<void> {
-    // The object returned by VS Code API is readonly, clone it first.
-    const oldConfig = vscode.workspace.getConfiguration().inspect(EXTENSION_CONFIG_KEY);
-    // Always update global config.
-    const globalConfig = <any> Object.assign({}, oldConfig.globalValue);
-    globalConfig[AUTO_CLEANUP_DEBUG_KEY] = true;
-    await vscode.workspace.getConfiguration().update(EXTENSION_CONFIG_KEY, globalConfig, vscode.ConfigurationTarget.Global);
-    // If workspace folder value exists, update it.
-    if (oldConfig.workspaceFolderValue && oldConfig.workspaceFolderValue[AUTO_CLEANUP_DEBUG_KEY] === false) {
-        const workspaceFolderConfig = <any> Object.assign({}, oldConfig.workspaceFolderValue);
-        workspaceFolderConfig[AUTO_CLEANUP_DEBUG_KEY] = true;
-        await vscode.workspace.getConfiguration().update(EXTENSION_CONFIG_KEY, workspaceFolderConfig, vscode.ConfigurationTarget.WorkspaceFolder);
-    } else if (oldConfig.workspaceValue && oldConfig.workspaceValue[AUTO_CLEANUP_DEBUG_KEY] === false) { // if workspace value exists, update it.
-        const workspaceConfig = <any> Object.assign({}, oldConfig.workspaceValue);
-        workspaceConfig[AUTO_CLEANUP_DEBUG_KEY] = true;
-        await vscode.workspace.getConfiguration().update(EXTENSION_CONFIG_KEY, workspaceConfig, vscode.ConfigurationTarget.Workspace);
-    }
+    await setConfigValue(AUTO_CLEANUP_DEBUG_KEY, true);
 }
 
 // Other bits and bobs
