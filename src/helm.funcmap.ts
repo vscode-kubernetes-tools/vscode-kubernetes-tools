@@ -212,7 +212,7 @@ export class FuncMap {
             this.f("base", "base $path", "return base name (last element) of $path"),
             this.f("dir", "dir $path", "return all but base name of path (return next dir up)"),
             this.f("clean", "clean $path", "clean up the $path"),
-            this.f("ext", "ext $path", "return the file extensio (or empty string) of last item on $path"),
+            this.f("ext", "ext $path", "return the file extension (or empty string) of last item on $path"),
             this.f("isAbs", "isAps $path", "return true if $path is absolute"),
             // UUID
             this.f("uuidv4", "uuidv4", "generate a UUID v4 (random universally unique ID"),
