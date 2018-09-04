@@ -123,7 +123,7 @@ async function checkPresent(context: Context, errorMessageMode: CheckPresentMess
 
 async function checkForKubectlInternal(context: Context, errorMessageMode: CheckPresentMessageMode): Promise<boolean> {
     const binName = 'kubectl';
-    const bin = getToolPath(context.host, binName);
+    const bin = getToolPath(context.host, context.shell, binName);
 
     const contextMessage = getCheckKubectlContextMessage(errorMessageMode);
     const inferFailedMessage = `Could not find "${binName}" binary.${contextMessage}`;
@@ -230,7 +230,7 @@ function kubectlDone(context: Context): ShellHandler {
 }
 
 function baseKubectlPath(context: Context): string {
-    let bin = getToolPath(context.host, 'kubectl');
+    let bin = getToolPath(context.host, context.shell, 'kubectl');
     if (!bin) {
         bin = 'kubectl';
     }

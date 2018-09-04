@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { Host } from '../../host';
+import { Shell, Platform } from '../../shell';
 
 const EXTENSION_CONFIG_KEY = "vs-kubernetes";
 const KUBECONFIG_PATH_KEY = "vs-kubernetes.kubeconfig";
@@ -84,12 +85,33 @@ export function getActiveKubeconfig(): string {
 
 // Functions for working with tool paths
 
-export function getToolPath(host: Host, tool: string): string | undefined {
-    return host.getConfiguration(EXTENSION_CONFIG_KEY)[toolPathKey(tool)];
+export function getToolPath(host: Host, shell: Shell, tool: string): string | undefined {
+    const baseKey = toolPathBaseKey(tool);
+    return getPathSetting(host, shell, baseKey);
 }
 
-export function toolPathKey(tool: string) {
+function getPathSetting(host: Host, shell: Shell, baseKey: string): string | undefined {
+    const os = shell.platform();
+    const osOverridePath = host.getConfiguration(EXTENSION_CONFIG_KEY)[osOverrideKey(os, baseKey)];
+    return osOverridePath || host.getConfiguration(EXTENSION_CONFIG_KEY)[baseKey];
+}
+
+export function toolPathBaseKey(tool: string): string {
     return `vs-kubernetes.${tool}-path`;
+}
+
+function osOverrideKey(os: Platform, baseKey: string): string {
+    const osKey = osKeyString(os);
+    return osKey ? `${baseKey}.${osKey}` : baseKey;  // The 'else' clause should never happen so don't worry that this would result in double-checking a missing base key
+}
+
+function osKeyString(os: Platform): string | null {
+    switch (os) {
+        case Platform.Windows: return 'windows';
+        case Platform.MacOS: return 'mac';
+        case Platform.Linux: return 'linux';
+        default: return null;
+    }
 }
 
 // Auto cleanup on debug terminate

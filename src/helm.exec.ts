@@ -474,7 +474,7 @@ export function helmExec(args: string, fn) {
     if (!ensureHelm(EnsureMode.Alert)) {
         return;
     }
-    const configuredBin: string | undefined = getToolPath(host, 'helm');
+    const configuredBin: string | undefined = getToolPath(host, sh, 'helm');
     const bin = configuredBin ? `"${configuredBin}"` : "helm";
     const cmd = `${bin} ${args}`;
     shell.exec(cmd, fn);
@@ -485,7 +485,7 @@ export async function helmExecAsync(args: string): Promise<ShellResult> {
     if (!ensureHelm(EnsureMode.Alert)) {
         return { code: -1, stdout: "", stderr: "" };
     }
-    const configuredBin: string | undefined = getToolPath(host, 'helm');
+    const configuredBin: string | undefined = getToolPath(host, sh, 'helm');
     const bin = configuredBin ? `"${configuredBin}"` : "helm";
     const cmd = `${bin} ${args}`;
     return await sh.exec(cmd);
@@ -531,7 +531,7 @@ export async function helmListAll(namespace?: string): Promise<Errorable<{ [key:
 }
 
 export function ensureHelm(mode: EnsureMode) {
-    const configuredBin: string | undefined = getToolPath(host, 'helm');
+    const configuredBin: string | undefined = getToolPath(host, sh, 'helm');
     if (configuredBin) {
         if (fs.existsSync(configuredBin)) {
             return true;
@@ -630,7 +630,7 @@ export function helmHome(): string {
 }
 
 export async function helmServe(): Promise<vscode.Disposable> {
-    const configuredBin: string | undefined = getToolPath(host, 'helm');
+    const configuredBin: string | undefined = getToolPath(host, sh, 'helm');
     const bin = sh.unquotedPath(configuredBin ? `"${configuredBin}"` : "helm");
     const process = spawn(bin, [ "serve" ]);
     let ready = false;

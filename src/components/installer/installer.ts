@@ -8,7 +8,7 @@ import * as tar from 'tar';
 import * as vscode from 'vscode';
 import { Shell, Platform } from '../../shell';
 import { Errorable, failed, succeeded } from '../../errorable';
-import { addPathToConfig, toolPathKey } from '../config/config';
+import { addPathToConfig, toolPathBaseKey } from '../config/config';
 
 export async function installKubectl(shell: Shell): Promise<Errorable<void>> {
     const tool = 'kubectl';
@@ -34,7 +34,7 @@ export async function installKubectl(shell: Shell): Promise<Errorable<void>> {
         fs.chmodSync(downloadFile, '0777');
     }
 
-    await addPathToConfig(toolPathKey(tool), downloadFile);
+    await addPathToConfig(toolPathBaseKey(tool), downloadFile);
     return { succeeded: true, result: null };
 }
 
@@ -79,7 +79,7 @@ export async function installMinikube(shell: Shell): Promise<Errorable<void>> {
     if (shell.isUnix()) {
         await shell.exec(`chmod +x ${executableFullPath}`);
     }
-    const configKey = toolPathKey(tool);
+    const configKey = toolPathBaseKey(tool);
     await addPathToConfig(configKey, executableFullPath);
 
     return { succeeded: true, result: null };
@@ -93,7 +93,7 @@ async function installToolFromTar(tool: string, urlTemplate: string, shell: Shel
     const installFolder = getInstallFolder(shell, tool);
     const executable = formatBin(tool, shell.platform());
     const url = urlTemplate.replace('{os_placeholder}', os);
-    const configKey = toolPathKey(tool);
+    const configKey = toolPathBaseKey(tool);
     return installFromTar(url, installFolder, executable, configKey);
 }
 

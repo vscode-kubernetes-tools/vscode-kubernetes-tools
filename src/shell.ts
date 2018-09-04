@@ -134,7 +134,7 @@ export function shellEnvironment(baseEnvironment: any): any {
     const env = Object.assign({}, baseEnvironment);
     const pathVariable = pathVariableName(env);
     for (const tool of ['kubectl', 'helm', 'draft', 'minikube']) {
-        const toolPath = getToolPath(host, tool);
+        const toolPath = getToolPath(host, shell, tool);
         if (toolPath) {
             const toolDirectory = path.dirname(toolPath);
             const currentPath = env[pathVariable];

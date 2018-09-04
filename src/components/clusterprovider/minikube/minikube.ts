@@ -183,7 +183,7 @@ async function checkPresent(context: Context, mode: CheckPresentMode): Promise<b
 
 async function checkForMinikubeInternal(context: Context, mode: CheckPresentMode): Promise<boolean> {
     const binName = 'minikube';
-    const bin = getToolPath(context.host, binName);
+    const bin = getToolPath(context.host, context.shell, binName);
 
     const inferFailedMessage = `Could not find "${binName}" binary.`;
     const configuredFileMissingMessage = `${bin} does not exist!`;
