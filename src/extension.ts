@@ -342,7 +342,7 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
 export const deactivate = () => { };
 
 function registerCommand(command: string, callback: (...args: any[]) => any): vscode.Disposable {
-    const wrappedCallback = telemetry.telemetrise(command, callback);
+    const wrappedCallback = telemetry.telemetrise(command, kubectl, callback);
     return vscode.commands.registerCommand(command, wrappedCallback);
 }
 
@@ -1708,6 +1708,7 @@ async function useContextKubernetes(explorerNode: explorer.KubernetesObject) {
     const shellResult = await kubectl.invokeAsync(`config use-context ${targetContext}`);
     if (shellResult.code === 0) {
         refreshExplorer();
+        telemetry.invalidateClusterType(targetContext);
     } else {
         vscode.window.showErrorMessage(`Failed to set '${targetContext}' as current cluster: ${shellResult.stderr}`);
     }
