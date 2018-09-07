@@ -19,23 +19,5 @@ class APIBroker implements api.APIBroker {
                     reason: 'APIComponentUnknownInThisExtensionVersion',
                 };
         }
-        // switch (version) {
-        //     case "0.1":
-        //     case "0.2":
-        //         return {
-        //             succeeded: false,
-        //             reason: 'APIVersionNoLongerSupported',
-        //         };
-        //     case v1.id:
-        //         return {
-        //             succeeded: true,
-        //             api: v1adapter.implementation()
-        //         };
-        //     default:
-        //         return {
-        //             succeeded: false,
-        //             reason: 'APIVersionUnknownInThisExtensionVersion',
-        //         };
-        // }
     }
 }
