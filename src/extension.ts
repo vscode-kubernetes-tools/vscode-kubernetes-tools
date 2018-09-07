@@ -73,6 +73,8 @@ import { setActiveKubeconfig, getKnownKubeconfigs, addKnownKubeconfig } from './
 import { HelmDocumentSymbolProvider } from './helm.symbolProvider';
 import { findParentYaml } from './yaml-support/yaml-navigation';
 import { linters } from './components/lint/linters';
+import { APIBroker } from './api/api/api';
+import { apiBroker } from './api/adapters/apibroker';
 
 let explainActive = false;
 let swaggerSpecPromise = null;
@@ -117,7 +119,7 @@ export const HELM_TPL_MODE: vscode.DocumentFilter = { language: "helm", scheme: 
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
-export async function activate(context): Promise<extensionapi.ExtensionAPI> {
+export async function activate(context): Promise<APIBroker /* backcompat -> */ & extensionapi.ExtensionAPI> {
     kubectl.checkPresent('activation');
 
     const treeProvider = explorer.create(kubectl, host);
@@ -334,7 +336,8 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
     vscode.workspace.registerTextDocumentContentProvider(configmaps.uriScheme, configMapProvider);
     return {
         apiVersion: '0.1',
-        clusterProviderRegistry: clusterProviderRegistry
+        clusterProviderRegistry: clusterProviderRegistry,
+        ...apiBroker()
     };
 }
 
