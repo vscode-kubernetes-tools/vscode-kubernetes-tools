@@ -24,7 +24,7 @@ export interface Minikube {
     isRunnable(): Promise<Errorable<Diagnostic>>;
     start(options: MinikubeOptions): Promise<void>;
     stop(): Promise<void>;
-    status(notification: boolean): Promise<MinikubeInfo>;
+    status(): Promise<MinikubeInfo>;
 }
 
 export function create(host: Host, fs: FS, shell: Shell, installDependenciesCallback: () => void): Minikube {
@@ -52,7 +52,7 @@ class MinikubeImpl implements Minikube {
     private readonly context: Context;
 
     constructor(host: Host, fs: FS, shell: Shell, installDependenciesCallback: () => void, toolFound: boolean) {
-        this.context = { host : host, fs : fs, shell : shell, installDependenciesCallback : installDependenciesCallback, binFound : toolFound, binPath : 'minikube' };
+        this.context = { host: host, fs: fs, shell: shell, installDependenciesCallback: installDependenciesCallback, binFound: toolFound, binPath: 'minikube' };
     }
 
     checkPresent(mode: CheckPresentMode): Promise<boolean> {
@@ -71,14 +71,14 @@ class MinikubeImpl implements Minikube {
         return stopMinikube(this.context);
     }
 
-    status(notification: boolean): Promise<MinikubeInfo> {
-        return minikubeStatus(this.context, notification);
+    status(): Promise<MinikubeInfo> {
+        return minikubeStatus(this.context);
     }
 }
 
 async function isRunnableMinikube(context: Context): Promise<Errorable<Diagnostic>> {
     if (!await checkPresent(context, CheckPresentMode.Alert)) {
-        return { succeeded: false, error: [ 'Minikube is not installed '] };
+        return { succeeded: false, error: ['Minikube is not installed'] };
     }
 
     const sr = await context.shell.exec(`${context.binPath} help`);
@@ -102,7 +102,7 @@ async function startMinikube(context: Context, options: MinikubeOptions): Promis
     item.text = 'minikube-starting';
     item.show();
 
-    const status = await minikubeStatus(context, false);
+    const status = await minikubeStatus(context);
     if (status.running) {
         vscode.window.showWarningMessage('Minikube cluster is already started.');
         return;
@@ -134,7 +134,7 @@ async function stopMinikube(context: Context): Promise<void> {
     item.text = 'minikube-stopping';
     item.show();
 
-    const status = await minikubeStatus(context, false);
+    const status = await minikubeStatus(context);
     if (!status.running) {
         vscode.window.showWarningMessage('Minikube cluster is already stopped.');
         return;
@@ -154,39 +154,22 @@ async function stopMinikube(context: Context): Promise<void> {
     });
 }
 
-async function minikubeStatus(context: Context, notification: boolean): Promise<MinikubeInfo> {
-    if (!await checkPresent(context, notification? CheckPresentMode.Alert : CheckPresentMode.Silent)) {
-        if (notification) {
-            return;
-        }
+async function minikubeStatus(context: Context): Promise<MinikubeInfo> {
+    if (!await checkPresent(context, CheckPresentMode.Silent)) {
         throw new Error('minikube executable could not be found!');
     }
 
-    try {
-        const result = await context.shell.exec(
-            `${context.binPath} status --format '["{{.MinikubeStatus}}","{{.ClusterStatus}}","{{.KubeconfigStatus}}"]'`);
-        if (result.stderr.length === 0) {
-            const obj = JSON.parse(result.stdout);
-            if (notification) {
-                vscode.window.showInformationMessage(`Minikube is ${obj[0]}`);
-            }
-            return {
-                running: 'Stopped' !== obj[0],
-                cluster: obj[1],
-                kubectl: obj[2],
-            } as MinikubeInfo;
-        }
-        if (notification) {
-            vscode.window.showErrorMessage(`failed to get status: ${result.stderr}`);
-        } else {
-            throw new Error(`failed to get status: ${result.stderr}`);
-        }
-    } catch (err) {
-        if (notification) {
-            vscode.window.showErrorMessage(`minikube status failed: ${err}`);
-        }
-        throw(err);
+    const result = await context.shell.exec(
+        `${context.binPath} status --format '["{{.MinikubeStatus}}","{{.ClusterStatus}}","{{.KubeconfigStatus}}"]'`);
+    if (result.stderr.length === 0) {
+        const obj = JSON.parse(result.stdout);
+        return {
+            running: 'Stopped' !== obj[0],
+            cluster: obj[1],
+            kubectl: obj[2],
+        } as MinikubeInfo;
     }
+    throw new Error(`failed to get status: ${result.stderr}`);
 }
 
 async function checkPresent(context: Context, mode: CheckPresentMode): Promise<boolean> {
