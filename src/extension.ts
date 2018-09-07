@@ -75,7 +75,7 @@ import { setActiveKubeconfig, getKnownKubeconfigs, addKnownKubeconfig } from './
 import { HelmDocumentSymbolProvider } from './helm.symbolProvider';
 import { findParentYaml } from './yaml-support/yaml-navigation';
 import { linters } from './components/lint/linters';
-import { APIBroker } from 'api';
+import { APIBroker } from 'vscode-kubernetes-tools-api';
 import { apiBroker } from './api/adapters/apibroker';
 
 let explainActive = false;

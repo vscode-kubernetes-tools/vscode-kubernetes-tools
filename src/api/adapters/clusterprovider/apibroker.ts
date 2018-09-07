@@ -1,7 +1,7 @@
-/// <reference path='../../vscode-kubernetes-tools-api.d.ts' />
+/// <reference path='../../api/vscode-kubernetes-tools-api.d.ts' />
 
-import { APIVersion } from 'api';
-import * as v1 from 'api.clusterprovider.v1';
+import { APIVersion } from 'vscode-kubernetes-tools-api';
+import * as v1 from 'vscode-kubernetes-tools-api.clusterprovider.v1';
 import * as v1adapter from './v1.adapter';
 
 export function api(version: string): APIVersion {

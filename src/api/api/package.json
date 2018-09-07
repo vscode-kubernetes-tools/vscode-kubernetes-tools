@@ -1,0 +1,16 @@
+{
+    "name": "vscode-kubernetes-tools-api",
+    "displayName": "VS Code Kubernetes extension API typings",
+    "description": "Type declarations for interacting with the VS Code Kubernetes extension",
+    "version": "1.0.0",
+    "preview": true,
+    "publisher": "ms-kubernetes-tools",
+    "license": "MIT",
+    "dependencies": {
+    },
+    "typings": "vscode-kubernetes-tools-api.d.ts",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/Azure/vscode-kubernetes-tools"
+    }
+}

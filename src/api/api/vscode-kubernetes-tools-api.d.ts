@@ -1,4 +1,4 @@
-declare module "api" {
+declare module "vscode-kubernetes-tools-api" {
 
     export interface APIBroker {
         api(requested: APIRequest): APIVersion;
@@ -28,15 +28,10 @@ declare module "api" {
     
     export type APIVersion = AvailableAPIVersion | UnavailableAPIVersion;
 
+    export const clusterProviderComponentId = 'clusterprovider';
 }
 
-declare module "api.clusterprovider" {
-
-    export const componentId = 'clusterprovider';
-
-}
-
-declare module "api.clusterprovider.v1" {
+declare module "vscode-kubernetes-tools-api.clusterprovider.v1" {
 
     export const versionId = '1.0';
 

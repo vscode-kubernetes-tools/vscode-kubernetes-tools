@@ -1,7 +1,6 @@
-/// <reference path='../vscode-kubernetes-tools-api.d.ts' />
+/// <reference path='../api/vscode-kubernetes-tools-api.d.ts' />
 
-import * as api from 'api';
-import * as clusterprovider from 'api.clusterprovider';
+import * as api from 'vscode-kubernetes-tools-api';
 import * as clusterproviderapibroker from './clusterprovider/apibroker';
 
 export function apiBroker(): api.APIBroker {
@@ -11,7 +10,7 @@ export function apiBroker(): api.APIBroker {
 class APIBroker implements api.APIBroker {
     api(requested: api.APIRequest): api.APIVersion {
         switch (requested.component) {
-            case clusterprovider.componentId:
+            case api.clusterProviderComponentId:
                 return clusterproviderapibroker.api(requested.version);
             default:
                 return {
