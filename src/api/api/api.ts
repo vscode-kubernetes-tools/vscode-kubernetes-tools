@@ -1,5 +1,10 @@
 export interface APIBroker {
-    api(version: string): APIVersion;
+    api(requested: APIRequest): APIVersion;
+}
+
+export interface APIRequest {
+    component: string;
+    version: string;
 }
 
 export interface AvailableAPIVersion {
@@ -11,7 +16,8 @@ export interface AvailableAPIVersion {
 // entry accidentally changing the values.
 export type UnavailableAPIVersionReason =
     'APIVersionNoLongerSupported' |
-    'APIVersionUnknownInThisExtensionVersion';
+    'APIVersionUnknownInThisExtensionVersion' |
+    'APIComponentUnknownInThisExtensionVersion';
 
 export interface UnavailableAPIVersion {
     readonly succeeded: false;

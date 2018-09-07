@@ -1,5 +1,5 @@
-import { get as getClusterProviderRegistry } from '../../components/clusterprovider/clusterproviderregistry';
-import * as v1 from '../api/v1';
+import { get as getClusterProviderRegistry } from '../../../components/clusterprovider/clusterproviderregistry';
+import * as v1 from '../../api/clusterprovider/v1';
 
 export function implementation(): v1.API {
     return impl;

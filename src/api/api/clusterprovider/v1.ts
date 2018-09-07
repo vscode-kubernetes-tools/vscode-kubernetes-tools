@@ -1,4 +1,4 @@
-export const id = '1.0';
+export const versionId = '1.0';
 
 export type ClusterProviderAction = 'create' | 'configure';
 
