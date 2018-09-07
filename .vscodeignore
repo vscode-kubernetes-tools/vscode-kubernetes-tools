@@ -9,3 +9,4 @@ src/**
 tsconfig.json
 vsc-extension-quickstart.md
 images/screenshots/**
+**/api/*.tgz
