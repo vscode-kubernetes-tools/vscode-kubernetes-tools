@@ -1,5 +1,7 @@
-import * as api from '../api/api';
-import * as clusterprovider from '../api/clusterprovider/component';
+/// <reference path='../vscode-kubernetes-tools-api.d.ts' />
+
+import * as api from 'api';
+import * as clusterprovider from 'api.clusterprovider';
 import * as clusterproviderapibroker from './clusterprovider/apibroker';
 
 export function apiBroker(): api.APIBroker {

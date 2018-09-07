@@ -1,5 +1,7 @@
 'use strict';
 
+/// <reference path='./api/vscode-kubernetes-tools-api.d.ts' />
+
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
@@ -73,7 +75,7 @@ import { setActiveKubeconfig, getKnownKubeconfigs, addKnownKubeconfig } from './
 import { HelmDocumentSymbolProvider } from './helm.symbolProvider';
 import { findParentYaml } from './yaml-support/yaml-navigation';
 import { linters } from './components/lint/linters';
-import { APIBroker } from './api/api/api';
+import { APIBroker } from 'api';
 import { apiBroker } from './api/adapters/apibroker';
 
 let explainActive = false;
