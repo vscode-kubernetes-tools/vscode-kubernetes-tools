@@ -8,7 +8,18 @@ import { warningOn, childSymbols } from './linter.utils';
 
 export class ResourceLimitsLinter implements LinterImpl {
     async lint(document: vscode.TextDocument, syntax: Syntax): Promise<vscode.Diagnostic[]> {
-        const resource = syntax.load(document.getText());
+        const resources = syntax.load(document.getText());
+        if (!resources) {
+            return [];
+        }
+
+        const symbols = await syntax.symbolise(document);
+
+        const diagnostics = resources.map((r) => this.lintOne(r, symbols));
+        return [].concat(...diagnostics);
+    }
+
+    private lintOne(resource: any, symbols: vscode.SymbolInformation[]): vscode.Diagnostic[] {
         if (!resource) {
             return [];
         }
@@ -21,7 +32,6 @@ export class ResourceLimitsLinter implements LinterImpl {
             return [];
         }
 
-        const symbols = await syntax.symbolise(document);
         const containersSymbols = symbols.filter((s) => s.name === 'containers' && s.containerName === podSpecPrefix);
         if (!containersSymbols) {
             return [];
