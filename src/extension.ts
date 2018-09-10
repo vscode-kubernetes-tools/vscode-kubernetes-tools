@@ -251,6 +251,8 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
         registerTelemetry(context)
     ];
 
+    telemetry.invalidateClusterType(undefined, kubectl);
+
     await azureclusterprovider.init(clusterProviderRegistry, { shell: shell, fs: fs });
     await minikubeclusterprovider.init(clusterProviderRegistry, { shell: shell, minikube: minikube });
     // On save, refresh the Helm YAML preview.
@@ -1707,8 +1709,8 @@ async function useContextKubernetes(explorerNode: explorer.KubernetesObject) {
     const targetContext = contextObj.contextName;
     const shellResult = await kubectl.invokeAsync(`config use-context ${targetContext}`);
     if (shellResult.code === 0) {
-        refreshExplorer();
         telemetry.invalidateClusterType(targetContext);
+        refreshExplorer();
     } else {
         vscode.window.showErrorMessage(`Failed to set '${targetContext}' as current cluster: ${shellResult.stderr}`);
     }

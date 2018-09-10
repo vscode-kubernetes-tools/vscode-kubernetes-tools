@@ -9,30 +9,35 @@ export function telemetrise(command: string, kubectl: Kubectl, callback: (...arg
 }
 
 export enum ClusterType {
+    Unknown = 0,
     Azure,
     Minikube,
     Other
 }
 
 let latestContextName: string | null;
-let cachedClusterType: ClusterType | null = null;
+let cachedClusterType: ClusterType = ClusterType.Unknown;
 const knownClusters: any = {};
 
-export function invalidateClusterType(newContext: string): void {
+export function invalidateClusterType(newContext: string, kubectl?: Kubectl): void {
     latestContextName = newContext || null;
-    cachedClusterType = null;
+    cachedClusterType = ClusterType.Unknown;
+    if (kubectl) {
+        setImmediate(() => {
+            try {
+                loadCachedClusterType(kubectl);
+            } catch {
+                // swallow it
+            }
+        });
+    }
 }
 
 async function clusterType(kubectl: Kubectl): Promise<string> {
-    if (latestContextName && knownClusters[latestContextName]) {
-        cachedClusterType = knownClusters[latestContextName];
+    if (cachedClusterType === ClusterType.Unknown) {
+        await loadCachedClusterType(kubectl);
     }
-    if (!cachedClusterType) {
-        cachedClusterType = await inferCurrentClusterType(kubectl, latestContextName);
-        if (latestContextName) {
-            knownClusters[latestContextName] = cachedClusterType;
-        }
-    }
+
     switch (cachedClusterType) {
         case ClusterType.Azure:
             return 'azure';
@@ -40,10 +45,24 @@ async function clusterType(kubectl: Kubectl): Promise<string> {
             return 'minikube';
         case ClusterType.Other:
             return 'other';
+        default:
+            return 'indeterminate';
     }
 }
 
-async function inferCurrentClusterType(kubectl: Kubectl, contextNameHint: string | null): Promise<ClusterType | null> {
+async function loadCachedClusterType(kubectl: Kubectl) {
+    if (latestContextName && knownClusters[latestContextName]) {
+        cachedClusterType = knownClusters[latestContextName];
+    }
+    else {
+        cachedClusterType = await inferCurrentClusterType(kubectl, latestContextName);
+        if (latestContextName) {
+            knownClusters[latestContextName] = cachedClusterType;
+        }
+    }
+}
+
+async function inferCurrentClusterType(kubectl: Kubectl, contextNameHint: string | null): Promise<ClusterType> {
     if (!latestContextName) {
         const ctxsr = await kubectl.invokeAsync('config current-context');
         if (ctxsr.code === 0) {
@@ -59,7 +78,7 @@ async function inferCurrentClusterType(kubectl: Kubectl, contextNameHint: string
 
     const cisr = await kubectl.invokeAsync('cluster-info');
     if (cisr.code !== 0) {
-        return null;
+        return ClusterType.Unknown;
     }
     const masterInfos = cisr.stdout.split('\n')
                                    .filter((s) => s.indexOf('master is running at') >= 0);
@@ -69,7 +88,7 @@ async function inferCurrentClusterType(kubectl: Kubectl, contextNameHint: string
     }
 
     const masterInfo = masterInfos[0];
-    if (masterInfo.indexOf('azure.com') >= 0) {
+    if (masterInfo.indexOf('azmk8s.io') >= 0 || masterInfo.indexOf('azure.com') >= 0) {
         return ClusterType.Azure;
     }
 
