@@ -623,7 +623,7 @@ export function searchForChart(name: string, version?: string): Requirement {
 }
 
 export function helmHome(): string {
-    const h = process.env.HOME;
+    const h = sh.home();
     return process.env["HELM_HOME"] || filepath.join(h, '.helm');
 }
 
