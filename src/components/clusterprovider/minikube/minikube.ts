@@ -8,6 +8,12 @@ import * as binutil from '../../../binutil';
 import { Errorable } from '../../../errorable';
 import { fromShellExitCodeOnly, Diagnostic } from '../../../wizard';
 
+export class MinikubeInfo {
+    readonly running: boolean;
+    readonly cluster: string;
+    readonly kubectl: string;
+}
+
 export class MinikubeOptions {
     readonly vmDriver: string;
     readonly additionalFlags: string;
@@ -18,6 +24,7 @@ export interface Minikube {
     isRunnable(): Promise<Errorable<Diagnostic>>;
     start(options: MinikubeOptions): Promise<void>;
     stop(): Promise<void>;
+    status(): Promise<MinikubeInfo>;
 }
 
 export function create(host: Host, fs: FS, shell: Shell, installDependenciesCallback: () => void): Minikube {
@@ -45,7 +52,7 @@ class MinikubeImpl implements Minikube {
     private readonly context: Context;
 
     constructor(host: Host, fs: FS, shell: Shell, installDependenciesCallback: () => void, toolFound: boolean) {
-        this.context = { host : host, fs : fs, shell : shell, installDependenciesCallback : installDependenciesCallback, binFound : toolFound, binPath : 'minikube' };
+        this.context = { host: host, fs: fs, shell: shell, installDependenciesCallback: installDependenciesCallback, binFound: toolFound, binPath: 'minikube' };
     }
 
     checkPresent(mode: CheckPresentMode): Promise<boolean> {
@@ -63,11 +70,15 @@ class MinikubeImpl implements Minikube {
     stop(): Promise<void> {
         return stopMinikube(this.context);
     }
+
+    status(): Promise<MinikubeInfo> {
+        return minikubeStatus(this.context);
+    }
 }
 
 async function isRunnableMinikube(context: Context): Promise<Errorable<Diagnostic>> {
     if (!await checkPresent(context, CheckPresentMode.Alert)) {
-        return { succeeded: false, error: [ 'Minikube is not installed '] };
+        return { succeeded: false, error: ['Minikube is not installed'] };
     }
 
     const sr = await context.shell.exec(`${context.binPath} help`);
@@ -90,6 +101,13 @@ async function startMinikube(context: Context, options: MinikubeOptions): Promis
     const item = getStatusBar();
     item.text = 'minikube-starting';
     item.show();
+
+    const status = await minikubeStatus(context);
+    if (status.running) {
+        vscode.window.showWarningMessage('Minikube cluster is already started.');
+        return;
+    }
+
     let flags = options.additionalFlags ? options.additionalFlags : '';
     if (options.vmDriver && options.vmDriver.length > 0) {
         flags += ` --vm-driver=${options.vmDriver} `;
@@ -116,6 +134,12 @@ async function stopMinikube(context: Context): Promise<void> {
     item.text = 'minikube-stopping';
     item.show();
 
+    const status = await minikubeStatus(context);
+    if (!status.running) {
+        vscode.window.showWarningMessage('Minikube cluster is already stopped.');
+        return;
+    }
+
     context.shell.exec(`${context.binPath} stop`).then((result: ShellResult) => {
         if (result.code === 0) {
             vscode.window.showInformationMessage('Cluster stopped.');
@@ -128,6 +152,24 @@ async function stopMinikube(context: Context): Promise<void> {
         vscode.window.showErrorMessage(`Error stopping cluster: ${err}`);
         item.hide();
     });
+}
+
+async function minikubeStatus(context: Context): Promise<MinikubeInfo> {
+    if (!await checkPresent(context, CheckPresentMode.Silent)) {
+        throw new Error('minikube executable could not be found!');
+    }
+
+    const result = await context.shell.exec(
+        `${context.binPath} status --format '["{{.MinikubeStatus}}","{{.ClusterStatus}}","{{.KubeconfigStatus}}"]'`);
+    if (result.stderr.length === 0) {
+        const obj = JSON.parse(result.stdout);
+        return {
+            running: 'Stopped' !== obj[0],
+            cluster: obj[1],
+            kubectl: obj[2],
+        } as MinikubeInfo;
+    }
+    throw new Error(`failed to get status: ${result.stderr}`);
 }
 
 async function checkPresent(context: Context, mode: CheckPresentMode): Promise<boolean> {

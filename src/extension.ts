@@ -174,6 +174,15 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
         registerCommand('extension.vsKubernetesDashboard', () => { dashboardKubernetes(kubectl); }),
         registerCommand('extension.vsMinikubeStop', () => minikube.stop()),
         registerCommand('extension.vsMinikubeStart', () => minikube.start({} as MinikubeOptions)),
+        registerCommand('extension.vsMinikubeStatus', async () => {
+            try {
+                const status = await minikube.status();
+                const isRunning = status.running ? "running" : "stopped";
+                vscode.window.showInformationMessage(`Minikube is ${isRunning}`);
+            } catch (err) {
+                vscode.window.showErrorMessage(`Error getting status ${err}`);
+            }
+        }),
         registerCommand('extension.vsKubernetesCopy', copyKubernetes),
         registerCommand('extension.vsKubernetesPortForward', (explorerNode: explorer.ResourceNode) => { portForwardKubernetes(kubectl, explorerNode); }),
         registerCommand('extension.vsKubernetesLoadConfigMapData', configmaps.loadConfigMapData),
