@@ -1678,6 +1678,7 @@ async function useKubeconfigKubernetes(kubeconfig?: string): Promise<void> {
         return;
     }
     await setActiveKubeconfig(kc);
+    telemetry.invalidateClusterType(undefined, kubectl);
 }
 
 async function getKubeconfigSelection(kubeconfig?: string): Promise<string | undefined> {
