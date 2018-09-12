@@ -306,7 +306,7 @@ async function activateYamlExtension(): Promise<{registerContributor: YamlSchema
         return;
     }
 
-    if (ext.packageJSON.version && !semver.satisfies(ext.packageJSON.version, '^0.0.15')) {
+    if (ext.packageJSON.version && !semver.gte(ext.packageJSON.version, '0.0.15')) {
         vscode.window.showWarningMessage('The installed Red Hat YAML extension doesn\'t support multiple schemas. Please upgrade \'YAML Support by Red Hat\' via the Extensions pane.');
     }
     return yamlPlugin;
