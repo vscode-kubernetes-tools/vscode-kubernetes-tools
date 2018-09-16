@@ -1,5 +1,15 @@
 # Change Log
 
+## 0.1.14
+
+* Added support for checking Minikube status
+* Fixed spurious warning about Red Hat YAML extension version
+* Fixed Helm Insert Depenedncy command not working on Windows
+* Fixed resource limits warning not displayed in multi-resource YAML and JSON files
+* Fixed a typo in Helm messages
+
+Thanks for contributors Brendan Burns, Bernhard Millauer and Andy Xu.
+
 ## 0.1.13
 
 * Warn if a pod spec does not specify CPU and/or memory limits
