@@ -66,7 +66,7 @@ function platform(): Platform {
 }
 
 function home(): string {
-    return process.env['HOME'] || process.env['USERPROFILE'];
+    return process.env['HOME'] || process.env['HOMEDRIVE'].concat(process.env['HOMEPATH']) || process.env['USERPROFILE'];
 }
 
 function combinePath(basePath: string, relativePath: string) {
