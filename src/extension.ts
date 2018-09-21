@@ -234,11 +234,11 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
 
         // Hover providers
         vscode.languages.registerHoverProvider(
-            { language: 'json', scheme: 'file' },
+            { language: 'json' },
             { provideHover: provideHoverJson }
         ),
         vscode.languages.registerHoverProvider(
-            { language: 'yaml', scheme: 'file' },
+            { language: 'yaml' },
             { provideHover: provideHoverYaml }
         ),
         vscode.languages.registerHoverProvider(HELM_MODE, new HelmTemplateHoverProvider()),
