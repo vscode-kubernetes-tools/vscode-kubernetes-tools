@@ -359,7 +359,7 @@ function registerTelemetry(context: vscode.ExtensionContext): vscode.Disposable 
     return new Reporter(context);
 }
 
-function provideHover(document, position, token, syntax): Promise<vscode.Hover> {
+function provideHover(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken, syntax): Promise<vscode.Hover> {
     return new Promise(async (resolve) => {
         if (!explainActive) {
             resolve(null);
@@ -404,7 +404,7 @@ function provideHover(document, position, token, syntax): Promise<vscode.Hover> 
 
 }
 
-function provideHoverJson(document, position, token) {
+function provideHoverJson(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): Promise<vscode.Hover> {
     const syntax = {
         parse: (text) => JSON.parse(text),
         findParent: (document, parentLine) => findParentJson(document, parentLine - 1)
@@ -413,7 +413,7 @@ function provideHoverJson(document, position, token) {
     return provideHover(document, position, token, syntax);
 }
 
-function provideHoverYaml(document, position, token) {
+function provideHoverYaml(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): Promise<vscode.Hover> {
     const syntax = {
         parse: (text) => yaml.safeLoad(text),
         findParent: (document, parentLine) => findParentYaml(document, parentLine)
