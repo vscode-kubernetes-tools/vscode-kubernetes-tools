@@ -65,8 +65,14 @@ function platform(): Platform {
     }
 }
 
+function concatIfBoth(s1: string | undefined, s2: string | undefined): string | undefined {
+    return s1 && s2 ? s1.concat(s2) : undefined;
+}
+
 function home(): string {
-    return process.env['HOME'] || process.env['HOMEDRIVE'].concat(process.env['HOMEPATH']) || process.env['USERPROFILE'];
+    return process.env['HOME'] ||
+        concatIfBoth(process.env['HOMEDRIVE'], process.env['HOMEPATH']) ||
+        process.env['USERPROFILE'];
 }
 
 function combinePath(basePath: string, relativePath: string) {
