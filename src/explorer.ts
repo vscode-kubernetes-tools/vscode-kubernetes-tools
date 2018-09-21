@@ -140,6 +140,8 @@ class KubernetesContextNode implements KubernetesObject {
             new KubernetesNodeFolder(),
             new KubernetesWorkloadFolder(),
             new KubernetesNetworkFolder(),
+            new KubernetesSelectsPodsFolder(kuberesources.allKinds.service),
+            new KubernetesResourceFolder(kuberesources.allKinds.ingress),
             new KubernetesStorageFolder(),
             new KubernetesConfigFolder(),
             new HelmReleasesFolder(),
