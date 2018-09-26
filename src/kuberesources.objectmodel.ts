@@ -31,6 +31,7 @@ export interface Container {
 
 export interface Pod extends KubernetesResource {
     readonly spec: PodSpec;
+    readonly status: PodStatus;
 }
 
 export interface Node extends KubernetesResource {
@@ -39,6 +40,16 @@ export interface Node extends KubernetesResource {
 export interface PodSpec {
     readonly containers: Container[];
     readonly nodeName: string;
+}
+
+export interface PodStatus {
+    readonly podIP: string;
+    readonly phase: string;
+    readonly containerStatuses: ContainerStatus[];
+}
+
+export interface ContainerStatus {
+    readonly ready: boolean;
 }
 
 function isObjectMeta(obj: any): obj is ObjectMeta {
