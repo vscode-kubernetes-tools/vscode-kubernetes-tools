@@ -255,6 +255,10 @@
                     "when": "view == extension.vsKubernetesExplorer"
                 },
                 {
+                    "command": "extension.vsKubernetesUseKubeconfig",
+                    "when": "view == extension.vsKubernetesExplorer"
+                },
+                {
                     "command": "extension.vsKubernetesRefreshHelmRepoExplorer",
                     "when": "view == extension.vsKubernetesHelmRepoExplorer",
                     "group": "navigation"
