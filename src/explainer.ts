@@ -1,30 +1,44 @@
 'use strict';
 
-import k8s = require('k8s');
+import request = require('request');
+import * as kubernetes from '@kubernetes/client-node';
 import * as pluralize from 'pluralize';
-import * as kubeconfig from './kubeconfig';
 import { formatComplex, formatOne, Typed, formatType } from "./schema-formatting";
+import { getActiveKubeconfig } from './components/config/config';
 
 export function readSwagger(): Promise<any> {
-    return kubeconfig.readKubectlConfig().then((kc) => readSwaggerCore(kc));
-}
-
-function fixUrl(kapi: any /* deliberately bypass type checks as .domain is internal */): void {
-    if (kapi.domain.endsWith('//')) {
-        kapi.domain = kapi.domain.substr(0, kapi.domain.length - 1);
+    const kc = new kubernetes.KubeConfig();
+    const kubeconfig = getActiveKubeconfig();
+    if (kubeconfig) {
+        kc.loadFromFile(kubeconfig);
+    } else {
+        kc.loadFromDefault();
     }
+    return readSwaggerCore(kc);
 }
 
-function readSwaggerCore(kc: kubeconfig.KubeConfig): Promise<any> {
-    const k8sImpl: typeof k8s = require('k8s');
+function readSwaggerCore(kc: kubernetes.KubeConfig): Promise<any> {
+    const uri = `${kc.getCurrentCluster().server}/swagger.json`;
+    const opts: request.Options = {
+        url: uri,
+    };
+    kc.applyToRequest(opts);
+
     return new Promise((resolve, reject) => {
-        const kapi = k8sImpl.api(apiCredentials(kc));
-        fixUrl(kapi);
-        kapi.get('swagger.json', (err, data) => {
-            if (err) {
-                reject(err);
-            } else {
-                resolve(data);
+        request(uri, opts, (error, response, body) => {
+            if (error) {
+                reject(error);
+                return;
+            }
+            if (response.statusCode !== 200) {
+                reject(response);
+                return;
+            }
+            try {
+                const obj = JSON.parse(body);
+                resolve(obj);
+            } catch (ex) {
+                console.log(ex);
             }
         });
     });
@@ -170,18 +184,6 @@ function chaseFieldPath(swagger: any, currentProperty: TypeModel, currentPropert
 
 function explainError(header: string, error: string) {
     return `**${header}:** ${error}`;
-}
-
-function apiCredentials(kc: kubeconfig.KubeConfig) {
-    return {
-        endpoint: kc.endpoint,
-        auth: {
-            clientCert: kc.clientCertificateData,
-            clientKey: kc.clientKeyData,
-            caCert: kc.certificateAuthorityData
-        },
-        version: '/'
-    };
 }
 
 function singularizeVersionedName(name: string) {
