@@ -2,8 +2,8 @@ name: pod
 label: Kubernetes Pod
 description: Kubernetes Pod
 body: |2
-  kind: Pod
   apiVersion: v1
+  kind: Pod
   metadata:
     name: ${1:myapp}
     labels:

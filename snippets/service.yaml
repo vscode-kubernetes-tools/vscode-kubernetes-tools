@@ -2,8 +2,8 @@ name: service
 label: Kubernetes Service
 description: Kubernetes Service
 body: |2
-  kind: Service
   apiVersion: v1
+  kind: Service
   metadata:
     name: ${1:myapp}
   spec:
