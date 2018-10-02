@@ -360,7 +360,7 @@ function registerTelemetry(context: vscode.ExtensionContext): vscode.Disposable 
 }
 
 function provideHover(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken, syntax): Promise<vscode.Hover> {
-    return new Promise(async (resolve) => {
+    return new Promise(async (resolve, reject) => {
         if (!explainActive) {
             resolve(null);
             return;
@@ -372,7 +372,8 @@ function provideHover(document: vscode.TextDocument, position: vscode.Position, 
         try {
             obj = syntax.parse(body);
         } catch (err) {
-            // Bad document
+            // Bad document, return nothing
+            // TODO: at least verbose log here?
             resolve(null);
             return;
         }
@@ -398,7 +399,8 @@ function provideHover(document: vscode.TextDocument, position: vscode.Position, 
         }
 
         explain(obj, field).then(
-            (msg: string) => resolve(new vscode.Hover(msg))
+            (msg: string) => resolve(new vscode.Hover(msg)),
+            (err: any) => reject(err)
         );
     });
 
@@ -418,7 +420,6 @@ function provideHoverYaml(document: vscode.TextDocument, position: vscode.Positi
         parse: (text) => yaml.safeLoad(text),
         findParent: (document, parentLine) => findParentYaml(document, parentLine)
     };
-
     return provideHover(document, position, token, syntax);
 }
 
@@ -468,9 +469,15 @@ async function explain(obj, field) {
             swaggerSpecPromise = explainer.readSwagger();
         }
 
-        swaggerSpecPromise.then((s) => {
-            resolve(explainer.readExplanation(s, ref));
-        });
+        swaggerSpecPromise.then(
+            (s) => {
+                resolve(explainer.readExplanation(s, ref));
+            },
+            (err) => {
+                vscode.window.showErrorMessage(`Explain failed: ${err}`);
+                swaggerSpecPromise = null;
+                resolve(null);
+            });
     });
 }
 
@@ -565,9 +572,12 @@ function maybeRunKubernetesCommandForActiveWindow(command: string, progressMessa
                         return;
                     }
                     kubectlTextDocument(command, editor.document, progressMessage, resultHandler);
+                }, (err) => {
+                    vscode.window.showErrorMessage(`Error saving: ${err}`);
                 });
             }
-        });
+        },
+        (err) => vscode.window.showErrorMessage(`Error confirming save: ${err}`));
     } else {
         kubectlTextDocument(command, editor.document, progressMessage, resultHandler);
     }
@@ -649,7 +659,7 @@ function getTextForActiveWindow(callback: (data: string | null, file: vscode.Uri
             });
 
             return;
-        });
+        }, (err) => vscode.window.showErrorMessage(`Error saving changes: ${err}`));
     }
 
     callback(null, editor.document.uri);
@@ -673,7 +683,8 @@ function loadKubernetesCore(namespace: string | null, value: string) {
         if (doc) {
             vscode.window.showTextDocument(doc);
         }
-    });
+    },
+    (err) => vscode.window.showErrorMessage(`Error loading document: ${err}`));
 }
 
 function exposeKubernetes() {
@@ -721,15 +732,19 @@ function findVersionInternal(fn) {
         return;
     }
 
-    shell.execCore('git describe --always --dirty', shell.execOpts()).then(({code, stdout, stderr}) => {
-        if (code !== 0) {
-            vscode.window.showErrorMessage('git log returned: ' + code);
-            console.log(stderr);
+    shell.execCore('git describe --always --dirty', shell.execOpts()).then(
+        ({code, stdout, stderr}) => {
+            if (code !== 0) {
+                vscode.window.showErrorMessage('git log returned: ' + code);
+                console.log(stderr);
+                fn('error');
+                return;
+            }
+            fn(stdout);
+        }, (err) => {
             fn('error');
-            return;
-        }
-        fn(stdout);
-    });
+            vscode.window.showErrorMessage(`git describe failed: ${err}`);
+        });
 }
 
 export async function findAllPods(): Promise<FindPodsResult> {
@@ -818,7 +833,8 @@ function promptScaleKubernetes(kindName: string) {
                 vscode.window.showErrorMessage('Replica count must be a non-negative integer');
             }
         }
-    });
+    },
+    (err) => vscode.window.showErrorMessage(`Error getting scale input: ${err}`));
 }
 
 function invokeScaleKubernetes(kindName: string, replicas: number) {
@@ -944,7 +960,8 @@ export function promptKindName(resourceKinds: kuberesources.ResourceKind[], desc
         } else {
             handler(resource);
         }
-    });
+    },
+    (err) => vscode.window.showErrorMessage(`Error getting kind input: ${err}`));
 }
 
 export function quickPickKindName(resourceKinds: kuberesources.ResourceKind[], opts, handler) {
@@ -957,7 +974,8 @@ export function quickPickKindName(resourceKinds: kuberesources.ResourceKind[], o
         if (resourceKind) {
             quickPickKindNameFromKind(resourceKind, opts, handler);
         }
-    });
+    },
+    (err) => vscode.window.showErrorMessage(`Error picking resource kind: ${err}`));
 }
 
 function quickPickKindNameFromKind(resourceKind: kuberesources.ResourceKind, opts, handler) {
@@ -990,14 +1008,16 @@ function quickPickKindNameFromKind(resourceKind: kuberesources.ResourceKind, opt
                     }
                     handler(kindName);
                 }
-            });
+            }),
+            (err) => vscode.window.showErrorMessage(`Error picking name: ${err}`);
         } else {
             vscode.window.showQuickPick(names).then((name) => {
                 if (name) {
                     const kindName = `${kind}/${name}`;
                     handler(kindName);
                 }
-            });
+            },
+            (err) => vscode.window.showErrorMessage(`Error picking name: ${err}`));
         }
     });
 }
@@ -1487,7 +1507,8 @@ function diffKubernetesCore(callback: (r: DiffResult) => void): void {
                 fileUri).then((result) => {
                     console.log(result);
                     callback({ result: DiffResultKind.Succeeded });
-                });
+                },
+                (err) => vscode.window.showErrorMessage(`Error running command: ${err}`));
         });
     });
 }
@@ -1534,7 +1555,8 @@ const debugInternal = (name, image) => {
         }
 
         doDebug(name, image, cmd);
-    });
+    },
+    (err) => vscode.window.showErrorMessage(`Error getting input: ${err}`));
 };
 
 const doDebug = async (name, image, cmd) => {
@@ -1600,10 +1622,9 @@ const doDebug = async (name, image, cmd) => {
                         vscode.window.showInformationMessage(`Deployment exposed. Run Kubernetes Get > service ${deploymentName} for IP address`);
                     });
                 });
-            });
-        }, (err) => {
-            vscode.window.showInformationMessage('Error: ' + err.message);
-        });
+            },
+            (err) => vscode.window.showErrorMessage(`Error getting port info: ${err}`));
+        }, (err) => vscode.window.showErrorMessage(`Error getting expose info: ${err.message}`));
     });
 };
 
@@ -1661,7 +1682,8 @@ function removeDebugKubernetes() {
                     if (deployment) {
                         kubectl.invoke('delete deployment ' + deploymentName);
                     }
-                });
+                },
+                (err) => vscode.window.showErrorMessage(`Error getting confirmation of delete: ${err}`));
             });
         });
     });
