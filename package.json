@@ -108,6 +108,10 @@
                             "type": "string",
                             "description": "File path to a draft binary."
                         },
+                        "vs-kubernetes.minikube-path": {
+                            "type": "string",
+                            "description": "File path to a minikube binary."
+                        },
                         "vs-kubernetes.kubeconfig": {
                             "type": "string",
                             "description": "File path to the kubeconfig file."
@@ -134,6 +138,7 @@
                         "vs-kubernetes.kubectl-path": "",
                         "vs-kubernetes.helm-path": "",
                         "vs-kubernetes.draft-path": "",
+                        "vs-kubernetes.minikube-path": "",
                         "vs-kubernetes.outputFormat": "yaml",
                         "vs-kubernetes.kubeconfig": "",
                         "vs-kubernetes.knownKubeconfigs": [],

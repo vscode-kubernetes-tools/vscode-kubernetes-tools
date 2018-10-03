@@ -3,7 +3,8 @@
 import * as vscode from 'vscode';
 import * as shelljs from 'shelljs';
 import * as path from 'path';
-import { getActiveKubeconfig } from './components/config/config';
+import { getActiveKubeconfig, getToolPath } from './components/config/config';
+import { host } from './host';
 
 export enum Platform {
     Windows,
@@ -133,7 +134,7 @@ export function shellEnvironment(baseEnvironment: any): any {
     const env = Object.assign({}, baseEnvironment);
     const pathVariable = pathVariableName(env);
     for (const tool of ['kubectl', 'helm', 'draft', 'minikube']) {
-        const toolPath = vscode.workspace.getConfiguration('vs-kubernetes')[`vs-kubernetes.${tool}-path`];
+        const toolPath = getToolPath(host, tool);
         if (toolPath) {
             const toolDirectory = path.dirname(toolPath);
             const currentPath = env[pathVariable];

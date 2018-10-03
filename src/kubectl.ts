@@ -7,6 +7,7 @@ import * as binutil from './binutil';
 import { Errorable } from './errorable';
 import { parseLineOutput } from './outputUtils';
 import * as compatibility from './components/kubectl/compatibility';
+import { getToolPath, affectsUs } from './components/config/config';
 
 const KUBECTL_OUTPUT_COLUMN_SEPARATOR = /\s+/g;
 
@@ -97,7 +98,7 @@ class KubectlImpl implements Kubectl {
                 }
             });
             this.context.host.onDidChangeConfiguration((change) => {
-                if (change.affectsConfiguration('vs-kubernetes') && this.sharedTerminal) {
+                if (affectsUs(change) && this.sharedTerminal) {
                     this.sharedTerminal.dispose();
                 }
             });
@@ -122,10 +123,10 @@ async function checkPresent(context: Context, errorMessageMode: CheckPresentMess
 
 async function checkForKubectlInternal(context: Context, errorMessageMode: CheckPresentMessageMode): Promise<boolean> {
     const binName = 'kubectl';
-    const bin = context.host.getConfiguration('vs-kubernetes')[`vs-kubernetes.${binName}-path`];
+    const bin = getToolPath(context.host, binName);
 
     const contextMessage = getCheckKubectlContextMessage(errorMessageMode);
-    const inferFailedMessage = 'Could not find "kubectl" binary.' + contextMessage;
+    const inferFailedMessage = `Could not find "${binName}" binary.${contextMessage}`;
     const configuredFileMissingMessage = `${bin} does not exist! ${contextMessage}`;
 
     return await binutil.checkForBinary(context, bin, binName, inferFailedMessage, configuredFileMissingMessage, errorMessageMode !== 'silent');
@@ -229,7 +230,7 @@ function kubectlDone(context: Context): ShellHandler {
 }
 
 function baseKubectlPath(context: Context): string {
-    let bin = context.host.getConfiguration('vs-kubernetes')['vs-kubernetes.kubectl-path'];
+    let bin = getToolPath(context.host, 'kubectl');
     if (!bin) {
         bin = 'kubectl';
     }

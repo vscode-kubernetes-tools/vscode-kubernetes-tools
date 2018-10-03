@@ -16,6 +16,7 @@ import { shell } from "../shell";
 import { DockerfileParser } from "../docker/dockerfileParser";
 import * as dockerUtils from "../docker/dockerUtils";
 import { isPod, Pod, KubernetesCollection, Container } from "../kuberesources.objectmodel";
+import * as config from "../components/config/config";
 
 const debugCommandDocumentationUrl = "https://github.com/Azure/vscode-kubernetes-tools/blob/master/debug-on-kubernetes.md";
 
@@ -289,7 +290,7 @@ export class DebugSession implements IDebugSession {
     }
 
     private async promptForCleanup(resourceId: string): Promise<void> {
-        const autoCleanupFlag = vscode.workspace.getConfiguration("vs-kubernetes")["vs-kubernetes.autoCleanupOnDebugTerminate"];
+        const autoCleanupFlag = config.getAutoCompleteOnDebugTerminate();
         if (autoCleanupFlag) {
             return await this.cleanupResource(resourceId);
         }
@@ -297,22 +298,7 @@ export class DebugSession implements IDebugSession {
         if (answer === "Clean Up") {
             return await this.cleanupResource(resourceId);
         } else if (answer === "Always Clean Up") {
-            // The object returned by VS Code API is readonly, clone it first.
-            const oldConfig = vscode.workspace.getConfiguration().inspect("vs-kubernetes");
-            // Always update global config.
-            const globalConfig = <any> Object.assign({}, oldConfig.globalValue);
-            globalConfig["vs-kubernetes.autoCleanupOnDebugTerminate"] = true;
-            await vscode.workspace.getConfiguration().update("vs-kubernetes", globalConfig, vscode.ConfigurationTarget.Global);
-            // If workspace folder value exists, update it.
-            if (oldConfig.workspaceFolderValue && oldConfig.workspaceFolderValue["vs-kubernetes.autoCleanupOnDebugTerminate"] === false) {
-                const workspaceFolderConfig = <any> Object.assign({}, oldConfig.workspaceFolderValue);
-                workspaceFolderConfig["vs-kubernetes.autoCleanupOnDebugTerminate"] = true;
-                await vscode.workspace.getConfiguration().update("vs-kubernetes", workspaceFolderConfig, vscode.ConfigurationTarget.WorkspaceFolder);
-            } else if (oldConfig.workspaceValue && oldConfig.workspaceValue["vs-kubernetes.autoCleanupOnDebugTerminate"] === false) { // if workspace value exists, update it.
-                const workspaceConfig = <any> Object.assign({}, oldConfig.workspaceValue);
-                workspaceConfig["vs-kubernetes.autoCleanupOnDebugTerminate"] = true;
-                await vscode.workspace.getConfiguration().update("vs-kubernetes", workspaceConfig, vscode.ConfigurationTarget.Workspace);
-            }
+            await config.setAlwaysCleanUp();
             return await this.cleanupResource(resourceId);
         }
     }

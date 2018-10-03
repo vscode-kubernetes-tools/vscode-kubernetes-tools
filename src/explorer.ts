@@ -8,6 +8,7 @@ import * as kuberesources from './kuberesources';
 import { failed } from './errorable';
 import * as helmexec from './helm.exec';
 import { K8S_RESOURCE_SCHEME, KUBECTL_RESOURCE_AUTHORITY, kubefsUri } from './kuberesources.virtualfs';
+import { affectsUs } from './components/config/config';
 
 const KUBERNETES_CLUSTER = "vsKubernetes.cluster";
 const MINIKUBE_CLUSTER = "vsKubernetes.minikubeCluster";
@@ -64,7 +65,7 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObj
 
     constructor(private readonly kubectl: Kubectl, private readonly host: Host) {
         host.onDidChangeConfiguration((change) => {
-            if (change.affectsConfiguration('vs-kubernetes')) {
+            if (affectsUs(change)) {
                 this.refresh();
             }
         });

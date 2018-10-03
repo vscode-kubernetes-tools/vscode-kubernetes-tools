@@ -7,6 +7,7 @@ import { Kubectl } from './kubectl';
 import { Host } from './host';
 import { ShellResult } from './shell';
 import { helmExecAsync } from './helm.exec';
+import * as config from './components/config/config';
 
 export const K8S_RESOURCE_SCHEME = "k8smsx";
 export const KUBECTL_RESOURCE_AUTHORITY = "loadkubernetescore";
@@ -63,7 +64,7 @@ export class KubernetesResourceVirtualFileSystemProvider implements FileSystemPr
     async loadResource(uri: Uri): Promise<string> {
         const query = querystring.parse(uri.query);
 
-        const outputFormat = workspace.getConfiguration('vs-kubernetes')['vs-kubernetes.outputFormat'];
+        const outputFormat = config.getOutputFormat();
         const value = query.value;
         const ns = query.ns;
         const resourceAuthority = uri.authority;
