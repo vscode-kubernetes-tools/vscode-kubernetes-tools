@@ -139,7 +139,7 @@
     "description": "Create a Secret manifest"
   },
   "Service": {
-    "prefix": "kindSerice",
+    "prefix": "kindService",
     "body": [
       "apiVersion: v1",
       "kind: Service",

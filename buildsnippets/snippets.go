@@ -37,7 +37,7 @@ var snippets = map[string]Snippet{
 		Body:        load("deployment.yaml"),
 	},
 	"Service": {
-		Prefix:      "kindSerice",
+		Prefix:      "kindService",
 		Description: "Create a Service manifest",
 		Body:        load("service.yaml"),
 	},
