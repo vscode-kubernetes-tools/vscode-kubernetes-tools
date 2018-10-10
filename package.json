@@ -112,6 +112,54 @@
                             "type": "string",
                             "description": "File path to a minikube binary."
                         },
+                        "vs-kubernetes.kubectl-path.windows": {
+                            "type": "string",
+                            "description": "File path to a kubectl binary."
+                        },
+                        "vs-kubernetes.helm-path.windows": {
+                            "type": "string",
+                            "description": "File path to a helm binary."
+                        },
+                        "vs-kubernetes.draft-path.windows": {
+                            "type": "string",
+                            "description": "File path to a draft binary."
+                        },
+                        "vs-kubernetes.minikube-path.windows": {
+                            "type": "string",
+                            "description": "File path to a minikube binary."
+                        },
+                        "vs-kubernetes.kubectl-path.mac": {
+                            "type": "string",
+                            "description": "File path to a kubectl binary."
+                        },
+                        "vs-kubernetes.helm-path.mac": {
+                            "type": "string",
+                            "description": "File path to a helm binary."
+                        },
+                        "vs-kubernetes.draft-path.mac": {
+                            "type": "string",
+                            "description": "File path to a draft binary."
+                        },
+                        "vs-kubernetes.minikube-path.mac": {
+                            "type": "string",
+                            "description": "File path to a minikube binary."
+                        },
+                        "vs-kubernetes.kubectl-path.linux": {
+                            "type": "string",
+                            "description": "File path to a kubectl binary."
+                        },
+                        "vs-kubernetes.helm-path.linux": {
+                            "type": "string",
+                            "description": "File path to a helm binary."
+                        },
+                        "vs-kubernetes.draft-path.linux": {
+                            "type": "string",
+                            "description": "File path to a draft binary."
+                        },
+                        "vs-kubernetes.minikube-path.linux": {
+                            "type": "string",
+                            "description": "File path to a minikube binary."
+                        },
                         "vs-kubernetes.kubeconfig": {
                             "type": "string",
                             "description": "File path to the kubeconfig file."

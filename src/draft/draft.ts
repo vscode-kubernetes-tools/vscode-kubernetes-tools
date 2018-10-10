@@ -145,7 +145,7 @@ async function version(context: Context): Promise<Errorable<string>> {
 
 async function checkForDraftInternal(context: Context, mode: CheckPresentMode): Promise<boolean> {
     const binName = 'draft';
-    const bin = getToolPath(context.host, binName);
+    const bin = getToolPath(context.host, context.shell, binName);
 
     const inferFailedMessage = `Could not find "${binName}" binary.`;
     const configuredFileMissingMessage = `${bin} does not exist!`;
