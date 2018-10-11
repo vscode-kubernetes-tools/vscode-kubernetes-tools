@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import * as textassert from './textassert';
 import * as fakes from './fakes';
 
-import { create as kubectlCreate } from '../src/kubectl';
+import { CheckPresentMessageMode, create as kubectlCreate } from '../src/kubectl';
 
 interface FakeContext {
     host?: any;
@@ -33,7 +33,7 @@ suite("kubectl tests", () => {
 
             test("...and configuration is not present, then checkPresent fails", async () => {
                 const kubectl = kubectlCreateWithFakes({});
-                const present = await kubectl.checkPresent('activation');
+                const present = await kubectl.checkPresent(CheckPresentMessageMode.Activation);
                 assert.equal(present, false);
             });
 
@@ -42,7 +42,7 @@ suite("kubectl tests", () => {
                 const kubectl = kubectlCreateWithFakes({
                     host: fakes.host({errors: errors})
                 });
-                await kubectl.checkPresent('activation');
+                await kubectl.checkPresent(CheckPresentMessageMode.Activation);
                 assert.equal(errors.length, 1);
                 textassert.startsWith('Could not find "kubectl" binary.', errors[0]);
             });
@@ -52,7 +52,7 @@ suite("kubectl tests", () => {
                 const kubectl = kubectlCreateWithFakes({
                     host: fakes.host({errors: errors})
                 });
-                await kubectl.checkPresent('activation');
+                await kubectl.checkPresent(CheckPresentMessageMode.Activation);
                 assert.equal(errors.length, 1);
                 textassert.includes('will not function correctly', errors[0]);
             });
@@ -62,14 +62,14 @@ suite("kubectl tests", () => {
                 const kubectl = kubectlCreateWithFakes({
                     host: fakes.host({errors: errors})
                 });
-                await kubectl.checkPresent('command');
+                await kubectl.checkPresent(CheckPresentMessageMode.Command);
                 assert.equal(errors.length, 1);
                 textassert.includes('Cannot execute command', errors[0]);
             });
 
             test("...and configuration is present but file doesn't exist, then checkPresent fails", async () => {
                 const kubectl = kubectlCreateWithFakes({});
-                const present = await kubectl.checkPresent('activation');
+                const present = await kubectl.checkPresent(CheckPresentMessageMode.Activation);
                 assert.equal(present, false);
             });
 
@@ -78,7 +78,7 @@ suite("kubectl tests", () => {
                 const kubectl = kubectlCreateWithFakes({
                     host: fakes.host({errors: errors, configuration: kcFakePathConfig()})
                 });
-                await kubectl.checkPresent('activation');
+                await kubectl.checkPresent(CheckPresentMessageMode.Activation);
                 assert.equal(errors.length, 1);
                 textassert.startsWith('c:\\fake\\kubectl\\kubectl.exe does not exist!', errors[0]);
             });
@@ -91,7 +91,7 @@ suite("kubectl tests", () => {
                     host: fakes.host({errors: errors, warnings: warnings, infos: infos, configuration: kcFakePathConfig()}),
                     fs: fakes.fs({existentPaths: [kcFakePath]})
                 });
-                await kubectl.checkPresent('activation');
+                await kubectl.checkPresent(CheckPresentMessageMode.Activation);
                 assert.equal(errors.length, 0);
                 assert.equal(warnings.length, 0);
                 assert.equal(infos.length, 0);
@@ -102,7 +102,7 @@ suite("kubectl tests", () => {
                     host: fakes.host({configuration: kcFakePathConfig()}),
                     fs: fakes.fs({existentPaths: [kcFakePath]})
                 });
-                const present = await kubectl.checkPresent('activation');
+                const present = await kubectl.checkPresent(CheckPresentMessageMode.Activation);
                 assert.equal(present, true);
             });
         });
@@ -113,7 +113,7 @@ suite("kubectl tests", () => {
                 const kubectl = kubectlCreateWithFakes({
                     shell: fakes.shell({recognisedCommands: [{command: 'where.exe kubectl.exe', code: 0, stdout: 'c:\\kubectl.exe'}]})
                 });
-                const present = await kubectl.checkPresent('activation');
+                const present = await kubectl.checkPresent(CheckPresentMessageMode.Activation);
                 assert.equal(present, true);
             });
 
@@ -125,7 +125,7 @@ suite("kubectl tests", () => {
                     host: fakes.host({errors: errors, warnings: warnings, infos: infos}),
                     shell: fakes.shell({recognisedCommands: [{command: 'where.exe kubectl.exe', code: 0, stdout: 'c:\\kubectl.exe'}]})
                 });
-                await kubectl.checkPresent('activation');
+                await kubectl.checkPresent(CheckPresentMessageMode.Activation);
                 assert.equal(errors.length, 0);
                 assert.equal(warnings.length, 0);
                 assert.equal(infos.length, 0);
@@ -135,7 +135,7 @@ suite("kubectl tests", () => {
                 const kubectl = kubectlCreateWithFakes({
                     shell: fakes.shell({isWindows: false, isUnix: true, recognisedCommands: [{command: 'which kubectl', code: 0, stdout: '/usr/bin/kubectl'}]})
                 });
-                const present = await kubectl.checkPresent('activation');
+                const present = await kubectl.checkPresent(CheckPresentMessageMode.Activation);
                 assert.equal(present, true);
             });
 
@@ -147,7 +147,7 @@ suite("kubectl tests", () => {
                     host: fakes.host({errors: errors, warnings: warnings, infos: infos}),
                     shell: fakes.shell({isWindows: false, isUnix: true, recognisedCommands: [{command: 'which kubectl', code: 0, stdout: '/usr/bin/kubectl'}]})
                 });
-                await kubectl.checkPresent('activation');
+                await kubectl.checkPresent(CheckPresentMessageMode.Activation);
                 assert.equal(errors.length, 0);
                 assert.equal(warnings.length, 0);
                 assert.equal(infos.length, 0);
