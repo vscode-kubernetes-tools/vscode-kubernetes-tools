@@ -7,6 +7,7 @@ import { Host } from './host';
 import * as kuberesources from './kuberesources';
 import { failed } from './errorable';
 import * as helmexec from './helm.exec';
+import { Pod } from './kuberesources.objectmodel';
 import { K8S_RESOURCE_SCHEME, KUBECTL_RESOURCE_AUTHORITY, kubefsUri } from './kuberesources.virtualfs';
 import { affectsUs } from './components/config/config';
 
@@ -138,7 +139,7 @@ class KubernetesContextNode implements KubernetesObject {
             new KubernetesNamespaceFolder(),
             new KubernetesNodeFolder(),
             new KubernetesWorkloadFolder(),
-            new KubernetesServiceFolder(),
+            new KubernetesSelectsPodsFolder(kuberesources.allKinds.service),
             new KubernetesResourceFolder(kuberesources.allKinds.ingress),
             new KubernetesStorageFolder(),
             new KubernetesConfigFolder(),
@@ -191,10 +192,12 @@ class KubernetesWorkloadFolder extends KubernetesFolder {
 
     getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<KubernetesObject[]> {
         return [
-            new KubernetesDeploymentFolder(),
+            new KubernetesSelectsPodsFolder(kuberesources.allKinds.deployment),
+            new KubernetesSelectsPodsFolder(kuberesources.allKinds.statefulSet),
+            new KubernetesSelectsPodsFolder(kuberesources.allKinds.daemonSet),
             new KubernetesResourceFolder(kuberesources.allKinds.job),
             new KubernetesResourceFolder(kuberesources.allKinds.cronjob),
-            new KubernetesResourceFolder(kuberesources.allKinds.pod)
+            new KubernetesResourceFolder(kuberesources.allKinds.pod),
         ];
     }
 }
@@ -265,7 +268,7 @@ class KubernetesResource implements KubernetesObject, ResourceNode {
         return kubefsUri(this.namespace, this.resourceId, outputFormat);
     }
 
-    getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<KubernetesObject[]> {
+    async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
         return [];
     }
 
@@ -349,25 +352,14 @@ class KubernetesNamespaceResource extends KubernetesResource {
     }
 }
 
-class KubernetesServiceFolder extends KubernetesResourceFolder {
-    constructor() {
-        super(kuberesources.allKinds.service);
+class KubernetesSelectsPodsFolder extends KubernetesResourceFolder {
+    constructor(readonly kind: kuberesources.ResourceKind) {
+        super(kind);
     }
 
     async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
-        const services = await kubectlUtils.getServices(kubectl);
-        return services.map((svc) => new KubernetesSelectorResource(this.kind, svc.name, svc, svc.selector));
-    }
-}
-
-class KubernetesDeploymentFolder extends KubernetesResourceFolder {
-    constructor() {
-        super(kuberesources.allKinds.deployment);
-    }
-
-    async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
-        const deployments = await kubectlUtils.getDeployments(kubectl);
-        return deployments.map((dp) => new KubernetesSelectorResource(this.kind, dp.name, dp, dp.selector));
+        const objects = await kubectlUtils.getResourceWithSelector(this.kind.abbreviation, kubectl);
+        return objects.map((obj) => new KubernetesSelectorResource(this.kind, obj.name, obj, obj.selector));
     }
 }
 

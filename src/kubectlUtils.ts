@@ -20,7 +20,7 @@ export interface NamespaceInfo extends KubernetesObject {
     readonly active: boolean;
 }
 
-export interface PodSelector extends KubernetesObject {
+export interface HasSelector extends KubernetesObject {
     readonly selector: object;
 }
 
@@ -145,15 +145,7 @@ export async function getNamespaces(kubectl: Kubectl): Promise<NamespaceInfo[]> 
     });
 }
 
-export async function getServices(kubectl: Kubectl): Promise<PodSelector[]> {
-    return getPodSelector('services', kubectl);
-}
-
-export async function getDeployments(kubectl: Kubectl): Promise<PodSelector[]> {
-    return getPodSelector('deployments', kubectl);
-}
-
-export async function getPodSelector(resource: string, kubectl: Kubectl): Promise<PodSelector[]> {
+export async function getResourceWithSelector(resource: string, kubectl: Kubectl): Promise<HasSelector[]> {
     const currentNS = await currentNamespace(kubectl);
 
     const shellResult = await kubectl.asJson<KubernetesCollection<any>>(`get ${resource} -o json --namespace=${currentNS}`);
@@ -201,7 +193,7 @@ export async function getPods(kubectl: Kubectl, selector: any, namespace: string
             name: item.name,
             namespace: item.namespace || ns,
             nodeName: item.node,
-            status: item.status
+            status: item.status,
         };
     });
 }
