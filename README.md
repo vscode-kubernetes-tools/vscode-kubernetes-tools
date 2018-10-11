@@ -1,69 +1,72 @@
 # Visual Studio Code Kubernetes Tools
 [![Build Status](https://travis-ci.org/Azure/vscode-kubernetes-tools.svg?branch=master)](https://travis-ci.org/Azure/vscode-kubernetes-tools)
 
-A Visual Studio Code extension for interacting with Kubernetes clusters.  This extension combines
-the `vs-kubernetes` extension by @brendandburns and the `vs-helm` extension by @technosophos.
+An extension for developers building applications to run in Kubernetes clusters,
+and for DevOps staff troubleshooting Kubernetes applications.  Features include:
 
-## Configuring
+* View your clusters in an explorer tree view, and drill into workloads, services,
+  pods and nodes.
+* Browse Helm repos and install charts into your Kubernetes cluster.
+* Intellisense for Kubernetes resources and Helm charts and templates.
+* Edit Kubernetes resource manifests and apply them to your cluster.
+* Build and run Dockerfiles in your cluster.
+* View diffs of a resource's current state against the resource manifest in your
+  Git repo
+* Easily check out the Git commit corresponding to a deployed application.
+* Run commands or start a shell within your application's pods.
+* Get logs and events from your clusters.
+* Create Helm charts using scaffolding and snippets.
+* Bootstrap applications using Draft, and rapidly deploy and debug them to speed up
+  the development loop.
 
-### Setting up your environment
+## Getting started with the extension
 
-This extension assumes you have the following binaries on your `PATH`:
+### Dependencies
 
-   * `docker`
-   * `git`
-   * `kubectl` (optional)
-   * `helm` (optional)
-   * `draft` (optional)
-   * `minikube` (optional)
+The Kubernetes extension may need to invoke the following command line tools, depending on
+which features you use.  You will probably need `kubectl` and `docker` at minimum.
 
-For `kubectl`, `helm` and `draft` the binaries do not need to be on the system PATH. You can configure the extension by specifying the locations using the appropriate `vs-kubernetes -> vs-kubernetes.${tool}-path` configuration setting.  See [Extension Settings](#extension-settings) below.
+* `kubectl`
+* `docker`
+* `helm`
+* `draft`
+* `az` (Azure CLI - only if using the extension to create or register Azure clusters)
+* `minikube` (only if you want to use it)
+* `git` (only if using the 'sync working copy to repository' feature)
 
-The extension can install `kubectl`, `helm` and `draft` for you if they are missing - choose **Install dependencies** when you see an error notification for the missing tool.  This will set `kubectl-path`, `helm-path` and `draft-path` entries in your configuration - the programs will *not* be installed on the system PATH, but this will be sufficient for them to work with the extension.
+We recommend you install these binaries on your system PATH before using the extension.
+If these binaries aren't on your system PATH, then some commands may not work. If the
+extension needs one of the core Kubernetes tools and it's missing, it will offer to
+install it for you.
 
-If you are working with Azure Container Services or Azure Kubernetes Services, then you can install and configure `kubectl` using the `Kubernetes: Add Existing Cluster` command.
-
-If you plan to create managed clusters using Microsoft Azure (ACS or AKS), or to add clusters in those environments to your kubeconfig, then you will need Azure CLI 2.0.23 or above.  You do not need Azure CLI if you do not use Azure, or to interact with Azure clusters that are already in your kubeconfig.
-
-### Setting up your environment for Helm and Draft
-
-`helm` support requires that you have Helm installed and configured.
-
-To use the `Helm: Dry Run` command, your Kubernetes cluster must be running Tiller.
-
-For setting up `draft` you can provide a path to the binary via configuration (`vs-kubernetes.draft-path`) if it is not on your PATH.
-
-### Setting up the image repository path
+### Configuration settings for building and running applications
 
 If you want to use the `Kubernetes: Run` and `Kubernetes: Debug` features
-then you need to have correctly set the user and repository for your
-images. You can do this via preferences in VS Code:
-
-File > Preferences
-
-And then add:
+then you need to configure a user and repository for your Docker
+images. This is required because these commands need to `docker push` your application
+for your cluster to run it. To do this, add the following to your VS Code preferences
+(File > Preferences):
 
 ```javascript
 {
-  ...
   "vsdocker.imageUser": "<your-image-prefix-here>",
-  ...
 }
 ```
 
-Where `<your-image-prefix-here>` is something like `docker.io/brendanburns`.
+where `<your-image-prefix-here>` is something like `docker.io/brendanburns`.
 
-### Selecting a kubeconfig file
+**That's it!  You're good to go.**
+
+## Working with kubeconfigs
 
 By default, the extension uses the active kubeconfig file -- that is, the file
 to which the KUBECONFIG environment variable points, or the default kubeconfig
-if no KUBECONFIG environment variable exists.  If you want to swap kubeconfig
-files, you can specify the file path in the `vs-kubernetes.kubeconfig` setting in
-your user or workspace settings.
+if no KUBECONFIG environment variable exists. You can override this using the
+`vs-kubernetes.kubeconfig` setting in your user or workspace settings.
 
-### Running from source
-
-If you are building and running the extension from source, see [CONTRIBUTING.md](CONTRIBUTING.md) for prerequisites for the development environment.
+If you want to swap between multiple kubeconfig files, you can list them in the
+`vs-kubernetes.knownKubeconfigs` configuration setting and switch between them
+using the `Set Kubeconfig` command.
 
 ## Commands and features
 
@@ -100,7 +103,7 @@ If you are building and running the extension from source, see [CONTRIBUTING.md]
    * `Kubernetes: Remove Debug` - Remove the deployment and/or service created for a `Kubernetes Debug (Launch)` session
    * `Kubernetes: Sync Working Copy to Cluster` - Checks out the version of the code that matches what is deployed in the cluster.  (This relies on Docker image versions also being Git commit IDs, which the extension does if you use the Run command to build the container, but which typically doesn't work for containers/deployments done by other means.)
 
-#### Cluster Creation commands
+#### Cluster creation commands
 
    * `Kubernetes: Create Cluster` - Initiate the flow for creating a Kubernetes cluster with a selected cloud provider (eg: Azure), or creating a Minikube cluster locally.
 
@@ -135,18 +138,17 @@ Minikube tools to be installed and available on your PATH.
 
 [Helm](https://helm.sh/) is the package manager for Kubernetes and provides a way for you to define, install and upgrade applications using 'charts.'  This extension provides a set of tools for creating and testing Helm charts:
 
-
    * Syntax highlighting for YAML + Helm Templates
    * Autocomplete for Helm, Sprig, and Go Tpl functions
    * Help text (on hover) for Helm, Sprig, and Go Tpl functions
    * Snippets for quickly scaffolding new charts and templates
    * Commands for...
      * `Helm: Create Chart` - Create a new chart
-     * `Helm; Get Release` - Get a helm release from the cluster
+     * `Helm: Get Release` - Get a helm release from the cluster
      * `Helm: Lint` - Lint your chart
      * `Helm: Preview Template` - Open a preview window and preview how your template will render
      * `Helm: Template` - Run your chart through the template engine
-     * `Helm: Dry Run` - Run a helm install --dry-run --debug on a remote cluster and get the results
+     * `Helm: Dry Run` - Run a helm install --dry-run --debug on a remote cluster and get the results (NOTE: requires Tiller on the remote cluster)
      * `Helm: Version` - Get the Helm version
      * `Helm: Insert Dependency` - Insert a dependency YAML fragment
      * `Helm: Dependency Update` - Update a chart's dependencies
@@ -181,7 +183,15 @@ Minikube tools to be installed and available on your PATH.
        * `vs-kubernetes.outputFormat` - The output format that you prefer to view Kubernetes manifests in. One of "yaml" or "json". Defaults to "yaml".
    * `vsdocker.imageUser` - Image prefix for docker images e.g. 'docker.io/brendanburns'
 
-### Portable Extension Configuration
+## Custom tool locations
+
+For `kubectl`, `helm` and `draft` the binaries do not need to be on the system PATH. You can configure the extension by specifying the locations using the appropriate `vs-kubernetes -> vs-kubernetes.${tool}-path` configuration setting.  See [Extension Settings](#extension-settings) below.
+
+The extension can install `kubectl`, `helm` and `draft` for you if they are missing - choose **Install dependencies** when you see an error notification for the missing tool.  This will set `kubectl-path`, `helm-path` and `draft-path` entries in your configuration - the programs will *not* be installed on the system PATH, but this will be sufficient for them to work with the extension.
+
+If you are working with Azure Container Services or Azure Kubernetes Services, then you can install and configure `kubectl` using the `Kubernetes: Add Existing Cluster` command.
+
+### Portable extension configuration
 
 If you move your configuration file between machines with different OSes (and therefore different paths to binaries) you can override the following settings on a per-OS basis by appending `.windows`, `.mac` or `.linux` to the setting name:
 
@@ -203,22 +213,23 @@ For example, consider the following settings file:
 
 The first path would be used when invoking `kubectl` on Mac or Linux machines.  The second would be used when invoking `kubectl` on Windows machines.
 
-## Keybinding Support
+## Keybinding support
 
 The following commands support arguments in keybindings:
 
   * **Set Kubeconfig** (command ID `extension.vsKubernetesUseKubeconfig`) - the keybinding can specify a string argument which is the kubeconfig file path to switch to.  This allows you to set up specific keybindings for your favourite kubeconfigs.
 
-## Known Issues
+## Known issues
 
   * `Kubernetes: Debug` command currently works only with Node.js and Java applications
   * For deeply nested Helm charts, template previews are generated against highest (umbrella) chart values (though for `Helm: Template` calls you can pick your chart)
 
-## Release Notes
+## Release notes
 
 See the [change log](CHANGELOG.md).
 
 ## Telemetry
+
 This extension collects telemetry data to help us build a better experience for building applications with Kubernetes and VS Code. We only collect the following data:
 
 * Which commands are executed
@@ -226,7 +237,11 @@ This extension collects telemetry data to help us build a better experience for 
 
 We do not collect any information about image names, paths, etc. The extension respects the `telemetry.enableTelemetry` setting which you can learn more about in our [FAQ](https://code.visualstudio.com/docs/supporting/faq#_how-to-disable-telemetry-reporting).
 
-# Contributing
+## Running from source
+
+If you are building and running the extension from source, see [CONTRIBUTING.md](CONTRIBUTING.md) for prerequisites for the development environment.
+
+## Contributing
 
 This project welcomes contributions and suggestions.  Most contributions require you to agree to a
 Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
@@ -241,3 +256,8 @@ For more information see the [Code of Conduct FAQ](https://opensource.microsoft.
 contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
 
 For technical information about contributing, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+# Acknowledgments
+
+This extension was born from the `vs-kubernetes` extension by @brendandburns and
+the `vs-helm` extension by @technosophos.
