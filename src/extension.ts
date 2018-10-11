@@ -137,6 +137,8 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
     const draftDebugProvider = new DraftConfigurationProvider();
     let draftDebugSession: vscode.DebugSession;
 
+    minikube.checkUpgradeAvailable();
+
     const subscriptions = [
 
         // Commands - Kubernetes

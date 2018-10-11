@@ -1,5 +1,7 @@
 'use strict';
 
+import * as os from 'os';
+
 import * as vscode from 'vscode';
 import { Shell, ShellResult } from '../../../shell';
 import { Host } from '../../../host';
@@ -22,6 +24,7 @@ export class MinikubeOptions {
 
 export interface Minikube {
     checkPresent(mode: CheckPresentMode): Promise<boolean>;
+    checkUpgradeAvailable();
     isRunnable(): Promise<Errorable<Diagnostic>>;
     start(options: MinikubeOptions): Promise<void>;
     stop(): Promise<void>;
@@ -75,6 +78,34 @@ class MinikubeImpl implements Minikube {
     status(): Promise<MinikubeInfo> {
         return minikubeStatus(this.context);
     }
+
+    checkUpgradeAvailable() {
+        return minikubeUpgradeAvailable(this.context);
+    }
+}
+
+async function minikubeUpgradeAvailable(context: Context) {
+    if (!await checkPresent(context, CheckPresentMode.Alert)) {
+        // not installed, no upgrade.
+        return;
+    }
+
+    const sr = await context.shell.exec(`${context.binPath} update-check`);
+    const lines = sr.stdout.split(os.EOL);
+    const currentVersion = extractVersion(lines[0]);
+    const availableVersion = extractVersion(lines[1]);
+    if (currentVersion !== availableVersion) {
+        vscode.window.showInformationMessage('Minikube upgrade available.', 'Install').then((value: string) => {
+            if (value === 'Install') {
+                vscode.commands.executeCommand('vscode.open', vscode.Uri.parse('https://github.com/kubernetes/minikube/releases/latest'));
+            }
+        });
+    }
+}
+
+function extractVersion(line: string): string {
+    const parts = line.split(' ');
+    return parts[1];
 }
 
 async function isRunnableMinikube(context: Context): Promise<Errorable<Diagnostic>> {
