@@ -19,6 +19,8 @@ and for DevOps staff troubleshooting Kubernetes applications.  Features include:
 * Bootstrap applications using Draft, and rapidly deploy and debug them to speed up
   the development loop.
 
+**What's new in this version?**  See the [change log](CHANGELOG.md) to find out!
+
 ## Getting started with the extension
 
 ### Dependencies
