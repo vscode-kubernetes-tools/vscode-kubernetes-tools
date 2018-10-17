@@ -260,6 +260,8 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
         registerTelemetry(context)
     ];
 
+    telemetry.invalidateClusterType(undefined, kubectl);
+
     await azureclusterprovider.init(clusterProviderRegistry, { shell: shell, fs: fs });
     await minikubeclusterprovider.init(clusterProviderRegistry, { shell: shell, minikube: minikube });
     // On save, refresh the Helm YAML preview.
@@ -351,7 +353,7 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
 export const deactivate = () => { };
 
 function registerCommand(command: string, callback: (...args: any[]) => any): vscode.Disposable {
-    const wrappedCallback = telemetry.telemetrise(command, callback);
+    const wrappedCallback = telemetry.telemetrise(command, kubectl, callback);
     return vscode.commands.registerCommand(command, wrappedCallback);
 }
 
@@ -1707,6 +1709,7 @@ async function useKubeconfigKubernetes(kubeconfig?: string): Promise<void> {
         return;
     }
     await setActiveKubeconfig(kc);
+    telemetry.invalidateClusterType(undefined, kubectl);
 }
 
 async function getKubeconfigSelection(kubeconfig?: string): Promise<string | undefined> {
@@ -1738,6 +1741,7 @@ async function useContextKubernetes(explorerNode: explorer.KubernetesObject) {
     const targetContext = contextObj.contextName;
     const shellResult = await kubectl.invokeAsync(`config use-context ${targetContext}`);
     if (shellResult.code === 0) {
+        telemetry.invalidateClusterType(targetContext);
         refreshExplorer();
     } else {
         vscode.window.showErrorMessage(`Failed to set '${targetContext}' as current cluster: ${shellResult.stderr}`);
