@@ -14,7 +14,8 @@ and for DevOps staff troubleshooting Kubernetes applications.  Features include:
   Git repo
 * Easily check out the Git commit corresponding to a deployed application.
 * Run commands or start a shell within your application's pods.
-* Get logs and events from your clusters.
+* Get or follow logs and events from your clusters.
+* Forward local ports to your application's pods.
 * Create Helm charts using scaffolding and snippets.
 * Bootstrap applications using Draft, and rapidly deploy and debug them to speed up
   the development loop.
@@ -26,7 +27,8 @@ and for DevOps staff troubleshooting Kubernetes applications.  Features include:
 ### Dependencies
 
 The Kubernetes extension may need to invoke the following command line tools, depending on
-which features you use.  You will probably need `kubectl` and `docker` at minimum.
+which features you use.  You will need `kubectl` at minimum, and `docker` if you plan to
+use the extension to build applications rather than only browse.
 
 * `kubectl`
 * `docker`
