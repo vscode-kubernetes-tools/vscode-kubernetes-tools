@@ -67,6 +67,8 @@ export async function getSubscriptionList(context: Context): Promise<ActionResul
     };
 }
 
+const kubectlInstalledEcho = `kubectl already installed.`;
+
 async function verifyPrerequisitesAsync(context: Context): Promise<string[]> {
     const errors = new Array<string>();
 
@@ -318,20 +320,33 @@ export async function configureCluster(context: Context, clusterType: string, cl
 }
 
 async function downloadKubectlCli(context: Context, clusterType: string): Promise<any> {
-    const cliInfo = installKubectlCliInfo(context, clusterType);
 
-    const sr = await context.shell.exec(cliInfo.commandLine);
-    if (sr.code === 0) {
+    const cliInfo = getKubectlInstallInfo(context, clusterType);
+
+    const installed = (await context.shell.exec(cliInfo.installVerification)).stdout.includes(kubectlInstalledEcho);
+
+    // TODO: Error handling?
+    if (installed) {
+        // Already found an installed kubectl
         return {
             succeeded: true,
             installFile: cliInfo.installFile,
             onDefaultPath: !context.shell.isWindows()
         };
     } else {
-        return {
-            succeeded: false,
-            error: sr.stderr
-        };
+        const sr = await context.shell.exec(cliInfo.commandLine);
+        if (sr.code === 0) {
+            return {
+                succeeded: true,
+                installFile: cliInfo.installFile,
+                onDefaultPath: !context.shell.isWindows()
+            };
+        } else {
+            return {
+                succeeded: false,
+                error: sr.stderr
+            };
+        }
     }
 }
 
@@ -359,7 +374,7 @@ async function getCredentials(context: Context, clusterType: string, clusterName
     }
 }
 
-function installKubectlCliInfo(context: Context, clusterType: string) {
+function getKubectlInstallInfo(context: Context, clusterType: string) {
     const cmdCore = `az ${getClusterCommandAndSubcommand(clusterType)} install-cli`;
     const isWindows = context.shell.isWindows();
     if (isWindows) {
@@ -371,7 +386,8 @@ function installKubectlCliInfo(context: Context, clusterType: string) {
         const installDir = appDataDir + '\\kubectl';
         const installFile = installDir + '\\kubectl.exe';
         const cmd = `(if not exist "${installDir}" md "${installDir}") & ${cmdCore} --install-location="${installFile}"`;
-        return { installFile: installFile, commandLine: cmd };
+        const installVerificationCmd = `IF EXIST ${installDir} IF EXIST ${installFile} ECHO ${kubectlInstalledEcho}`;
+        return { installFile: installFile, commandLine: cmd, installVerification: installVerificationCmd };
     } else {
         // Bah, the default Linux install location requires admin permissions too!
         // Fortunately, $HOME/bin is on the path albeit not created by default.
@@ -379,7 +395,8 @@ function installKubectlCliInfo(context: Context, clusterType: string) {
         const installDir = homeDir + '/bin';
         const installFile = installDir + '/kubectl';
         const cmd = `mkdir -p "${installDir}" ; ${cmdCore} --install-location="${installFile}"`;
-        return { installFile: installFile, commandLine: cmd };
+        const installVerificationCmd = `[ -d ${installFile} ] && echo ${kubectlInstalledEcho}`;
+        return { installFile: installFile, commandLine: cmd, installVerification: installVerificationCmd };
     }
 }
 
