@@ -9,7 +9,7 @@ and for DevOps staff troubleshooting Kubernetes applications.  Features include:
 * Browse Helm repos and install charts into your Kubernetes cluster.
 * Intellisense for Kubernetes resources and Helm charts and templates.
 * Edit Kubernetes resource manifests and apply them to your cluster.
-* Build and run Dockerfiles in your cluster.
+* Build and run containers in your cluster from Dockerfiles in your project.
 * View diffs of a resource's current state against the resource manifest in your
   Git repo
 * Easily check out the Git commit corresponding to a deployed application.
