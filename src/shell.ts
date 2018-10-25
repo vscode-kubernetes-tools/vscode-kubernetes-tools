@@ -3,7 +3,7 @@
 import * as vscode from 'vscode';
 import * as shelljs from 'shelljs';
 import * as path from 'path';
-import { getActiveKubeconfig, getToolPath } from './components/config/config';
+import { getActiveKubeconfig, getToolPath, getUseWsl } from './components/config/config';
 import { host } from './host';
 
 export enum Platform {
@@ -50,7 +50,7 @@ export interface ShellResult {
 export type ShellHandler = (code: number, stdout: string, stderr: string) => void;
 
 function isWindows(): boolean {
-    return (process.platform === WINDOWS);
+    return (process.platform === WINDOWS) && !getUseWsl();
 }
 
 function isUnix(): boolean {
@@ -116,6 +116,9 @@ async function exec(cmd: string, stdin?: string): Promise<ShellResult> {
 
 function execCore(cmd: string, opts: any, stdin?: string): Promise<ShellResult> {
     return new Promise<ShellResult>((resolve, reject) => {
+        if (getUseWsl()) {
+            cmd = 'wsl ' + cmd;
+        }
         const proc = shelljs.exec(cmd, opts, (code, stdout, stderr) => resolve({code : code, stdout : stdout, stderr : stderr}));
         if (stdin) {
             proc.stdin.end(stdin);
