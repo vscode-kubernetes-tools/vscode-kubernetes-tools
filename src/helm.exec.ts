@@ -220,11 +220,15 @@ export function helmfsUri(releaseName: string): vscode.Uri {
 // helmPackage runs the Helm package on a chart within your project.
 export function helmPackage() {
     pickChart((path) => {
-        const options = { openLabel: "Save", canSelectFiles: false, canSelectFolders: true };
+        const options = { openLabel: "Save Package", canSelectFiles: false, canSelectFolders: true, canSelectMany: false };
         vscode.window.showOpenDialog(options).then((packagePath) => {
-            if (packagePath) {
+            if (packagePath && packagePath.length === 1) {
+                if (packagePath[0].scheme !== 'file') {
+                    vscode.window.showErrorMessage('Packaging folder must be a filesystem folder');
+                    return;
+                }
                 logger.log("⎈⎈⎈ Packaging " + path);
-                helmExec(`package "${path}" -d "${packagePath}"`, (code, out, err) => {
+                helmExec(`package "${path}" -d "${packagePath[0].fsPath}"`, (code, out, err) => {
                     logger.log(out);
                     logger.log(err);
                     if (code !== 0) {
