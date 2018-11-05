@@ -16,7 +16,7 @@ function loadKubeconfig(): kubernetes.KubeConfig {
     } else {
         if (getUseWsl()) {
             const result = shelljs.exec('wsl.exe cat $HOME/.kube/config', { silent: true }) as shelljs.ExecOutputReturnValue;
-            if (result.code == 0) {
+            if (result.code === 0) {
                 kc.loadFromString(result.stdout);
                 return kc;
             }
