@@ -1780,7 +1780,9 @@ export async function installDependencies() {
         installDependency("kubectl", gotKubectl, installKubectl),
         installDependency("Helm", gotHelm, installHelm),
         installDependency("Draft", gotDraft, installDraft),
-        installDependency("Minikube", gotMinikube, installMinikube),
+        installDependency("Minikube", gotMinikube, (shell: Shell): Promise<Errorable<void>> => {
+            return installMinikube(shell, null);
+        }),
     ];
     await Promise.all(installPromises);
     kubeChannel.showOutput("Done");

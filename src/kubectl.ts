@@ -138,7 +138,7 @@ async function checkForKubectlInternal(context: Context, errorMessageMode: Check
 
 function getCheckKubectlContextMessage(errorMessageMode: CheckPresentMessageMode): string {
     if (errorMessageMode === CheckPresentMessageMode.Activation) {
-        return ' Kubernetes Commands other than configuration will not function correctly.';
+        return ' Kubernetes commands other than configuration will not function correctly.';
     } else if (errorMessageMode === CheckPresentMessageMode.Command) {
         return ' Cannot execute command.';
     }

@@ -7,9 +7,10 @@ import { Shell, ShellResult } from '../../../shell';
 import { Host } from '../../../host';
 import { FS } from '../../../fs';
 import * as binutil from '../../../binutil';
-import { Errorable } from '../../../errorable';
+import { Errorable, failed } from '../../../errorable';
 import { fromShellExitCodeOnly, Diagnostic } from '../../../wizard';
 import { getToolPath } from '../../config/config';
+import { installMinikube } from '../../installer/installer';
 
 export class MinikubeInfo {
     readonly running: boolean;
@@ -91,13 +92,24 @@ async function minikubeUpgradeAvailable(context: Context) {
     }
 
     const sr = await context.shell.exec(`${context.binPath} update-check`);
+    if (sr.code !== 0) {
+        vscode.window.showErrorMessage(`Error checking for minikube updates: ${sr.stderr}`);
+        return;
+    }
     const lines = sr.stdout.split(os.EOL);
+    if (lines.length !== 2) {
+        vscode.window.showErrorMessage(`Unexpected output for minikube version check: ${lines}`);
+        return;
+    }
     const currentVersion = extractVersion(lines[0]);
     const availableVersion = extractVersion(lines[1]);
     if (currentVersion !== availableVersion) {
-        vscode.window.showInformationMessage('Minikube upgrade available.', 'Install').then((value: string) => {
+        vscode.window.showInformationMessage(`Minikube upgrade available to ${availableVersion}, currently on ${currentVersion}`, 'Install').then(async (value: string) => {
             if (value === 'Install') {
-                vscode.commands.executeCommand('vscode.open', vscode.Uri.parse('https://github.com/kubernetes/minikube/releases/latest'));
+                const result = await installMinikube(context.shell, availableVersion);
+                if (failed(result)) {
+                    vscode.window.showErrorMessage(`Failed to update minikube: ${result.error}`);
+                }
             }
         });
     }
