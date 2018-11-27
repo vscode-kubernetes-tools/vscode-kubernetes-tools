@@ -128,7 +128,7 @@ export async function setAlwaysCleanUp(): Promise<void> {
 
 // Use WSL on Windows
 
-const USE_WSL_KEY = "useWsl";
+const USE_WSL_KEY = "use-wsl";
 
 export function getUseWsl(): boolean {
     return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)[USE_WSL_KEY];

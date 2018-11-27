@@ -58,6 +58,9 @@ function isUnix(): boolean {
 }
 
 function platform(): Platform {
+    if (getUseWsl()) {
+        return Platform.Linux;
+    }
     switch (process.platform) {
         case 'win32': return Platform.Windows;
         case 'darwin': return Platform.MacOS;
@@ -71,6 +74,9 @@ function concatIfBoth(s1: string | undefined, s2: string | undefined): string | 
 }
 
 function home(): string {
+    if (getUseWsl()) {
+        return shelljs.exec('wsl.exe echo ${HOME}').stdout;
+    }
     return process.env['HOME'] ||
         concatIfBoth(process.env['HOMEDRIVE'], process.env['HOMEPATH']) ||
         process.env['USERPROFILE'];
@@ -85,8 +91,12 @@ function combinePath(basePath: string, relativePath: string) {
     return basePath + separator + relativePath;
 }
 
+function isWindowsFilePath(filePath: string) {
+    return filePath[1] == ':' && filePath[2] == '\\';
+}
+
 function fileUri(filePath: string): vscode.Uri {
-    if (isWindows()) {
+    if (isWindowsFilePath(filePath)) {
         return vscode.Uri.parse('file:///' + filePath.replace(/\\/g, '/'));
     }
     return vscode.Uri.parse('file://' + filePath);
