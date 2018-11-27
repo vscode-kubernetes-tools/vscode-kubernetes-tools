@@ -248,11 +248,18 @@
                 },
                 {
                     "command": "extension.vsKubernetesCreateCluster",
-                    "when": "view == extension.vsKubernetesExplorer"
+                    "when": "view == extension.vsKubernetesExplorer",
+                    "group": "0"
                 },
                 {
                     "command": "extension.vsKubernetesConfigureFromCluster",
-                    "when": "view == extension.vsKubernetesExplorer"
+                    "when": "view == extension.vsKubernetesExplorer",
+                    "group": "0"
+                },
+                {
+                    "command": "extension.vsKubernetesUseKubeconfig",
+                    "when": "view == extension.vsKubernetesExplorer",
+                    "group": "1"
                 },
                 {
                     "command": "extension.vsKubernetesRefreshHelmRepoExplorer",

@@ -111,7 +111,11 @@ export function create(host: Host, fs: FS, shell: Shell, installDependenciesCall
     return new KubectlImpl(host, fs, shell, installDependenciesCallback, false);
 }
 
-type CheckPresentMessageMode = 'command' | 'activation' | 'silent';
+export enum CheckPresentMessageMode {
+    Command,
+    Activation,
+    Silent,
+}
 
 async function checkPresent(context: Context, errorMessageMode: CheckPresentMessageMode): Promise<boolean> {
     if (context.binFound) {
@@ -129,13 +133,13 @@ async function checkForKubectlInternal(context: Context, errorMessageMode: Check
     const inferFailedMessage = `Could not find "${binName}" binary.${contextMessage}`;
     const configuredFileMissingMessage = `${bin} does not exist! ${contextMessage}`;
 
-    return await binutil.checkForBinary(context, bin, binName, inferFailedMessage, configuredFileMissingMessage, errorMessageMode !== 'silent');
+    return await binutil.checkForBinary(context, bin, binName, inferFailedMessage, configuredFileMissingMessage, errorMessageMode !== CheckPresentMessageMode.Silent);
 }
 
 function getCheckKubectlContextMessage(errorMessageMode: CheckPresentMessageMode): string {
-    if (errorMessageMode === 'activation') {
+    if (errorMessageMode === CheckPresentMessageMode.Activation) {
         return ' Kubernetes commands other than configuration will not function correctly.';
-    } else if (errorMessageMode === 'command') {
+    } else if (errorMessageMode === CheckPresentMessageMode.Command) {
         return ' Cannot execute command.';
     }
     return '';
@@ -158,7 +162,7 @@ async function invokeWithProgress(context: Context, command: string, progressMes
 }
 
 async function invokeAsync(context: Context, command: string, stdin?: string): Promise<ShellResult> {
-    if (await checkPresent(context, 'command')) {
+    if (await checkPresent(context, CheckPresentMessageMode.Command)) {
         const bin = baseKubectlPath(context);
         const cmd = `${bin} ${command}`;
         const sr = await context.shell.exec(cmd, stdin);
@@ -187,13 +191,13 @@ async function invokeAsyncWithProgress(context: Context, command: string, progre
 }
 
 async function spawnAsChild(context: Context, command: string[]): Promise<ChildProcess> {
-    if (await checkPresent(context, 'command')) {
+    if (await checkPresent(context, CheckPresentMessageMode.Command)) {
         return spawnChildProcess(path(context), command, context.shell.execOpts());
     }
 }
 
 async function invokeInTerminal(context: Context, command: string, pipeTo: string | undefined, terminal: Terminal): Promise<void> {
-    if (await checkPresent(context, 'command')) {
+    if (await checkPresent(context, CheckPresentMessageMode.Command)) {
         const kubectlCommand = `kubectl ${command}`;
         const fullCommand = pipeTo ? `${kubectlCommand} | ${pipeTo}` : kubectlCommand;
         terminal.sendText(fullCommand);
@@ -202,14 +206,14 @@ async function invokeInTerminal(context: Context, command: string, pipeTo: strin
 }
 
 async function runAsTerminal(context: Context, command: string[], terminalName: string): Promise<void> {
-    if (await checkPresent(context, 'command')) {
+    if (await checkPresent(context, CheckPresentMessageMode.Command)) {
         const term = context.host.createTerminal(terminalName, path(context), command);
         term.show();
     }
 }
 
 async function kubectlInternal(context: Context, command: string, handler: ShellHandler): Promise<void> {
-    if (await checkPresent(context, 'command')) {
+    if (await checkPresent(context, CheckPresentMessageMode.Command)) {
         const bin = baseKubectlPath(context);
         const cmd = `${bin} ${command}`;
         context.shell.exec(cmd, null).then(({code, stdout, stderr}) => handler(code, stdout, stderr));

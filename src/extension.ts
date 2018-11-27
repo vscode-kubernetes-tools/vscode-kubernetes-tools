@@ -30,7 +30,7 @@ import { useNamespaceKubernetes } from './components/kubectl/namespace';
 import { EventDisplayMode, getEvents } from './components/kubectl/events';
 import * as docker from './docker';
 import { kubeChannel } from './kubeChannel';
-import { create as kubectlCreate } from './kubectl';
+import { CheckPresentMessageMode, create as kubectlCreate } from './kubectl';
 import * as kubectlUtils from './kubectlUtils';
 import * as explorer from './explorer';
 import * as helmRepoExplorer from './helm.repoExplorer';
@@ -118,7 +118,7 @@ export const HELM_TPL_MODE: vscode.DocumentFilter = { language: "helm", scheme: 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export async function activate(context): Promise<extensionapi.ExtensionAPI> {
-    kubectl.checkPresent('activation');
+    kubectl.checkPresent(CheckPresentMessageMode.Activation);
 
     const treeProvider = explorer.create(kubectl, host);
     const helmRepoTreeProvider = helmRepoExplorer.create(host);
@@ -136,6 +136,8 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
 
     const draftDebugProvider = new DraftConfigurationProvider();
     let draftDebugSession: vscode.DebugSession;
+
+    minikube.checkUpgradeAvailable();
 
     const subscriptions = [
 
@@ -1773,17 +1775,20 @@ function copyKubernetes(explorerNode: explorer.KubernetesObject) {
 // TODO: having to export this is untidy - unpick dependencies and move
 export async function installDependencies() {
     // TODO: gosh our binchecking is untidy
-    const gotKubectl = await kubectl.checkPresent('silent');
+    const gotKubectl = await kubectl.checkPresent(CheckPresentMessageMode.Silent);
     const gotHelm = helmexec.ensureHelm(helmexec.EnsureMode.Silent);
     const gotDraft = await draft.checkPresent(DraftCheckPresentMode.Silent);
     const gotMinikube = await minikube.checkPresent(MinikubeCheckPresentMode.Silent);
 
-    // TODO: parallelise
-    await installDependency("kubectl", gotKubectl, installKubectl);
-    await installDependency("Helm", gotHelm, installHelm);
-    await installDependency("Draft", gotDraft, installDraft);
-    await installDependency("Minikube", gotMinikube, installMinikube);
-
+    const installPromises = [
+        installDependency("kubectl", gotKubectl, installKubectl),
+        installDependency("Helm", gotHelm, installHelm),
+        installDependency("Draft", gotDraft, installDraft),
+        installDependency("Minikube", gotMinikube, (shell: Shell): Promise<Errorable<void>> => {
+            return installMinikube(shell, null);
+        }),
+    ];
+    await Promise.all(installPromises);
     kubeChannel.showOutput("Done");
 }
 

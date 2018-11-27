@@ -38,6 +38,16 @@ export async function installKubectl(shell: Shell): Promise<Errorable<void>> {
     return { succeeded: true, result: null };
 }
 
+async function getStableMinikubeVersion(): Promise<Errorable<string>> {
+    const downloadResult = await download.toTempFile('https://api.github.com/repos/kubernetes/minikube/releases/latest');
+    if (failed(downloadResult)) {
+        return { succeeded: false, error: [`Failed to find minikube stable version: ${downloadResult.error[0]}`]};
+    }
+    const versionObj = JSON.parse(fs.readFileSync(downloadResult.result, 'utf-8'));
+    fs.unlinkSync(downloadResult.result);
+    return { succeeded: true, result: versionObj['tag_name'] };
+}
+
 async function getStableKubectlVersion(): Promise<Errorable<string>> {
     const downloadResult = await download.toTempFile('https://storage.googleapis.com/kubernetes-release/release/stable.txt');
     if (failed(downloadResult)) {
@@ -60,13 +70,21 @@ export async function installDraft(shell: Shell): Promise<Errorable<void>> {
     return await installToolFromTar(tool, urlTemplate, shell);
 }
 
-export async function installMinikube(shell: Shell): Promise<Errorable<void>> {
+export async function installMinikube(shell: Shell, version: string): Promise<Errorable<void>> {
     const tool = 'minikube';
     const os = platformUrlString(shell.platform());
     if (!os) {
         return { succeeded: false, error: ['Not supported on this OS'] };
     }
-    const urlTemplate = "https://storage.googleapis.com/minikube/releases/v0.28.0/minikube-{os_placeholder}-amd64" + (shell.isWindows() ? '.exe' : '');
+    if (!version) {
+        const versionRes = await getStableMinikubeVersion();
+        if (failed(versionRes)) {
+            return { succeeded: false, error: versionRes.error };
+        }
+        version = versionRes.result;
+    }
+    const exe = (shell.isWindows() ? '.exe' : '');
+    const urlTemplate = `https://storage.googleapis.com/minikube/releases/${version}/minikube-{os_placeholder}-amd64${exe}`;
     const url = urlTemplate.replace('{os_placeholder}', os);
     const installFolder = getInstallFolder(shell, tool);
     const executable = formatBin(tool, shell.platform());

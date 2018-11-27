@@ -1,13 +1,16 @@
 'use strict';
 
+import * as os from 'os';
+
 import * as vscode from 'vscode';
 import { Shell, ShellResult } from '../../../shell';
 import { Host } from '../../../host';
 import { FS } from '../../../fs';
 import * as binutil from '../../../binutil';
-import { Errorable } from '../../../errorable';
+import { Errorable, failed } from '../../../errorable';
 import { fromShellExitCodeOnly, Diagnostic } from '../../../wizard';
 import { getToolPath } from '../../config/config';
+import { installMinikube } from '../../installer/installer';
 
 export class MinikubeInfo {
     readonly running: boolean;
@@ -22,6 +25,7 @@ export class MinikubeOptions {
 
 export interface Minikube {
     checkPresent(mode: CheckPresentMode): Promise<boolean>;
+    checkUpgradeAvailable();
     isRunnable(): Promise<Errorable<Diagnostic>>;
     start(options: MinikubeOptions): Promise<void>;
     stop(): Promise<void>;
@@ -75,6 +79,45 @@ class MinikubeImpl implements Minikube {
     status(): Promise<MinikubeInfo> {
         return minikubeStatus(this.context);
     }
+
+    checkUpgradeAvailable() {
+        return minikubeUpgradeAvailable(this.context);
+    }
+}
+
+async function minikubeUpgradeAvailable(context: Context) {
+    if (!await checkPresent(context, CheckPresentMode.Alert)) {
+        // not installed, no upgrade.
+        return;
+    }
+
+    const sr = await context.shell.exec(`${context.binPath} update-check`);
+    if (sr.code !== 0) {
+        vscode.window.showErrorMessage(`Error checking for minikube updates: ${sr.stderr}`);
+        return;
+    }
+    const lines = sr.stdout.split(os.EOL);
+    if (lines.length !== 2) {
+        vscode.window.showErrorMessage(`Unexpected output for minikube version check: ${lines}`);
+        return;
+    }
+    const currentVersion = extractVersion(lines[0]);
+    const availableVersion = extractVersion(lines[1]);
+    if (currentVersion !== availableVersion) {
+        vscode.window.showInformationMessage(`Minikube upgrade available to ${availableVersion}, currently on ${currentVersion}`, 'Install').then(async (value: string) => {
+            if (value === 'Install') {
+                const result = await installMinikube(context.shell, availableVersion);
+                if (failed(result)) {
+                    vscode.window.showErrorMessage(`Failed to update minikube: ${result.error}`);
+                }
+            }
+        });
+    }
+}
+
+function extractVersion(line: string): string {
+    const parts = line.split(' ');
+    return parts[1];
 }
 
 async function isRunnableMinikube(context: Context): Promise<Errorable<Diagnostic>> {
