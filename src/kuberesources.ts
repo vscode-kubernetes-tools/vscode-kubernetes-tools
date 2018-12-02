@@ -9,6 +9,7 @@ export class ResourceKind implements vscode.QuickPickItem {
 }
 
 export const allKinds = {
+    endpoint: new ResourceKind("Endpoint", "Endpoints", "Endpoint", "endpoints"),
     namespace: new ResourceKind("Namespace", "Namespaces", "Namespace", "namespace"),
     node: new ResourceKind("Node", "Nodes", "Node", "node"),
     deployment: new ResourceKind("Deployment", "Deployments", "Deployment", "deployment"),

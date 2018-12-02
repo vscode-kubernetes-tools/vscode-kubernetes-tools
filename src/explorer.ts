@@ -139,8 +139,7 @@ class KubernetesContextNode implements KubernetesObject {
             new KubernetesNamespaceFolder(),
             new KubernetesNodeFolder(),
             new KubernetesWorkloadFolder(),
-            new KubernetesSelectsPodsFolder(kuberesources.allKinds.service),
-            new KubernetesResourceFolder(kuberesources.allKinds.ingress),
+            new KubernetesNetworkFolder(),
             new KubernetesStorageFolder(),
             new KubernetesConfigFolder(),
             new HelmReleasesFolder(),
@@ -211,6 +210,20 @@ class KubernetesConfigFolder extends KubernetesFolder {
         return [
             new KubernetesDataHolderFolder(kuberesources.allKinds.configMap),
             new KubernetesDataHolderFolder(kuberesources.allKinds.secret)
+        ];
+    }
+}
+
+class KubernetesNetworkFolder extends KubernetesFolder {
+    constructor() {
+        super("network", "Network");
+    }
+
+    getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<KubernetesObject[]> {
+        return [
+            new KubernetesSelectsPodsFolder(kuberesources.allKinds.service),
+            new KubernetesResourceFolder(kuberesources.allKinds.endpoint),
+            new KubernetesResourceFolder(kuberesources.allKinds.ingress),
         ];
     }
 }
