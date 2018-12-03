@@ -159,7 +159,10 @@ async function installFromTar(sourceUrl: string, destinationFolder: string, exec
     }
 
     // add path to config
-    const executableFullPath = path.join(destinationFolder, executablePath);
+    let executableFullPath = path.join(destinationFolder, executablePath);
+    if (getUseWsl()) {
+        executableFullPath = executableFullPath.replace(/\\/g, '/');
+    }
     await addPathToConfig(configKey, executableFullPath);
 
     await fs.unlink(tarfile);
@@ -171,8 +174,8 @@ async function untar(sourceFile: string, destinationFolder: string, shell: Shell
     try {
         if (getUseWsl()) {
             const destination = destinationFolder.replace(/\\/g, '/');
-            var result = await shell.exec(`mkdir -p ${destination}`);
-            if (result.code != 0) {
+            let result = await shell.exec(`mkdir -p ${destination}`);
+            if (result.code !== 0) {
                 console.log(result.stderr);
                 throw new Error(`Error making directory: ${result.stderr}`);
             }
@@ -180,11 +183,10 @@ async function untar(sourceFile: string, destinationFolder: string, shell: Shell
             const filePath = sourceFile.substring(2).replace(/\\/g, '/');
             const fileName = `/mnt/${drive}/${filePath}`;
             const cmd = `tar -C ${destination} -xf ${fileName}`;
-            console.log('Running: ' + cmd)
             result = await shell.exec(cmd);
-            if (result.code != 0) {
+            if (result.code !== 0) {
                 console.log(result.stderr);
-                throw new Error(`Error making directory: ${result.stderr}`);
+                throw new Error(`Error unpacking: ${result.stderr}`);
             }
             return { succeeded: true, result: null };
         }
@@ -197,6 +199,7 @@ async function untar(sourceFile: string, destinationFolder: string, shell: Shell
         });
         return { succeeded: true, result: null };
     } catch (e) {
+        console.log(e);
         return { succeeded: false, error: [ "tar extract failed" ] /* TODO: extract error from exception */ };
     }
 }

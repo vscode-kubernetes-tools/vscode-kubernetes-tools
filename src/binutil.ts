@@ -1,3 +1,4 @@
+import * as config from './components/config/config';
 import { Shell } from './shell';
 import { Host } from './host';
 import { FS } from './fs';
@@ -94,8 +95,12 @@ export async function checkForBinary(context: BinCheckContext, bin: string, binN
         return true;
     }
 
-    context.binFound = context.fs.existsSync(bin);
-
+    if (!config.getUseWsl()) {
+        context.binFound = context.fs.existsSync(bin);
+    } else {
+        const sr = await context.shell.exec(`ls ${bin}`);
+        context.binFound = sr.code === 0;
+    }
     if (context.binFound) {
         context.binPath = bin;
     } else {

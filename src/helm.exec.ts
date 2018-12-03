@@ -1,26 +1,25 @@
 import * as vscode from 'vscode';
-import * as shell from 'shelljs';
 import * as filepath from 'path';
 import { ChildProcess, spawn } from 'child_process';
 import { helm as logger } from './logger';
 import * as YAML from 'yamljs';
 import * as _ from 'lodash';
-import * as fs from "fs";
 import * as tmp from 'tmp';
 import * as extension from './extension';
 import * as explorer from './explorer';
 import * as helmrepoexplorer from './helm.repoExplorer';
 import * as helm from './helm';
 import { showWorkspaceFolderPick } from './hostutils';
-import { shell as sh, ShellResult } from './shell';
+import { shell as sh, ShellResult, ExecCallback } from './shell';
 import { K8S_RESOURCE_SCHEME, HELM_RESOURCE_AUTHORITY } from './kuberesources.virtualfs';
 import { Errorable, failed } from './errorable';
 import { parseLineOutput } from './outputUtils';
 import { sleep } from './sleep';
 import { currentNamespace } from './kubectlUtils';
 import { Kubectl } from './kubectl';
-import { getToolPath } from './components/config/config';
+import { getToolPath, getUseWsl } from './components/config/config';
 import { host } from './host';
+import * as fs from './wsl-fs';
 
 export interface PickChartUIOptions {
     readonly warnIfNoCharts: boolean;
@@ -347,7 +346,7 @@ export async function helmDependenciesCore(chartId: string, version: string | un
         return { succeeded: false, error: [`Helm fetch failed: ${fsr.stderr}`] };
     }
 
-    const tempDirFiles = fs.readdirSync(tempDirObj.name);
+    const tempDirFiles = sh.ls(tempDirObj.name);
     const chartPath = filepath.join(tempDirObj.name, tempDirFiles[0]);  // should be the only thing in the directory
     try {
         const dsr = await helmExecAsync(`dep list "${chartPath}"`);
@@ -474,14 +473,19 @@ export function pickChartForFile(file: string, options: PickChartUIOptions, fn) 
 //
 // This will abort and send an error message if Helm is not installed.
 
-export function helmExec(args: string, fn) {
+export function helmExec(args: string, fn: ExecCallback) {
     if (!ensureHelm(EnsureMode.Alert)) {
         return;
     }
     const configuredBin: string | undefined = getToolPath(host, sh, 'helm');
     const bin = configuredBin ? `"${configuredBin}"` : "helm";
     const cmd = `${bin} ${args}`;
-    shell.exec(cmd, fn);
+    const promise = sh.exec(cmd);
+    promise.then((res: ShellResult) => {
+        fn(res.code, res.stdout, res.stderr);
+    }, (err) => {
+        console.log(`exec failed! (${err})`);
+    });
 }
 
 export async function helmExecAsync(args: string): Promise<ShellResult> {
@@ -550,7 +554,7 @@ export function ensureHelm(mode: EnsureMode) {
         }
         return false;
     }
-    if (shell.which("helm")) {
+    if (sh.which("helm")) {
         return true;
     }
     if (mode === EnsureMode.Alert) {

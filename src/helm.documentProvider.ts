@@ -2,12 +2,14 @@ import * as vscode from 'vscode';
 import * as filepath from 'path';
 import * as exec from './helm.exec';
 import * as YAML from 'yamljs';
-import * as fs from 'fs';
+import * as fs from './wsl-fs';
 import { escape as htmlEscape } from 'lodash';
 
 import * as helm from './helm';
 import * as logger from './logger';
 import { failed } from './errorable';
+import { config } from 'bluebird';
+import { getUseWsl } from './components/config/config';
 
 interface HelmDocumentResult {
     readonly title: string;
@@ -52,12 +54,14 @@ export class HelmInspectDocumentProvider implements vscode.TextDocumentContentPr
         return new Promise<string>((resolve, reject) => {
             console.log("provideTextDocumentContent called with uri " + uri.toString());
 
-            const printer = (code, out, err) => {
+            const printer = (code: number, out: string, err: string) => {
                 if (code === 0) {
                     const p = extractChartName(uri);
                     const title = "Inspect " + p;
                     resolve(render({ title: title, content: out, isErrorOutput: false }));
+                    return;
                 }
+                console.log(`Inspect failed: ${out} ${err}`);
                 reject(err);
             };
 

@@ -7,27 +7,28 @@ import * as shelljs from 'shelljs';
 
 import { formatComplex, formatOne, Typed, formatType } from "./schema-formatting";
 import { getActiveKubeconfig, getUseWsl } from './components/config/config';
+import { shell } from '../test/fakes';
 
-function loadKubeconfig(): kubernetes.KubeConfig {
+async function loadKubeconfig(): Promise<kubernetes.KubeConfig> {
     const kc = new kubernetes.KubeConfig();
     const kubeconfig = getActiveKubeconfig();
     if (kubeconfig) {
         kc.loadFromFile(kubeconfig);
-    } else {
-        if (getUseWsl()) {
-            const result = shelljs.exec('wsl.exe cat $HOME/.kube/config', { silent: true }) as shelljs.ExecOutputReturnValue;
-            if (result.code === 0) {
-                kc.loadFromString(result.stdout);
-                return kc;
-            }
-        }
-        kc.loadFromDefault();
+        return kc;
     }
+    if (getUseWsl()) {
+        const result = shelljs.exec('wsl.exe sh -c "cat ${KUBECONFIG:-$HOME/.kube/config}"', { silent: true }) as shelljs.ExecOutputReturnValue;
+        if (result.code === 0) {
+            kc.loadFromString(result.stdout);
+            return kc;
+        }
+    }
+    kc.loadFromDefault();
     return kc;
 }
 
-export function readSwagger(): Promise<any> {
-    return readSwaggerCore(loadKubeconfig());
+export async function readSwagger(): Promise<any> {
+    return readSwaggerCore(await loadKubeconfig());
 }
 
 function readSwaggerCore(kc: kubernetes.KubeConfig): Promise<any> {

@@ -5,6 +5,7 @@ import * as shelljs from 'shelljs';
 import * as path from 'path';
 import { getActiveKubeconfig, getToolPath, getUseWsl } from './components/config/config';
 import { host } from './host';
+import { config } from 'bluebird';
 
 export enum Platform {
     Windows,
@@ -12,6 +13,8 @@ export enum Platform {
     Linux,
     Unsupported,  // shouldn't happen!
 }
+
+export interface ExecCallback extends shelljs.ExecCallback {}
 
 export interface Shell {
     isWindows(): boolean;
@@ -24,6 +27,9 @@ export interface Shell {
     exec(cmd: string, stdin?: string): Promise<ShellResult>;
     execCore(cmd: string, opts: any, stdin?: string): Promise<ShellResult>;
     unquotedPath(path: string): string;
+    which(bin: string): string | null;
+    cat(path: string): string;
+    ls(path: string): string[];
 }
 
 export const shell: Shell = {
@@ -37,6 +43,9 @@ export const shell: Shell = {
     exec : exec,
     execCore : execCore,
     unquotedPath : unquotedPath,
+    which: which,
+    cat: cat,
+    ls: ls,
 };
 
 const WINDOWS: string = 'win32';
@@ -75,7 +84,7 @@ function concatIfBoth(s1: string | undefined, s2: string | undefined): string | 
 
 function home(): string {
     if (getUseWsl()) {
-        return shelljs.exec('wsl.exe echo ${HOME}').stdout;
+        return shelljs.exec('wsl.exe echo ${HOME}').stdout.trim();
     }
     return process.env['HOME'] ||
         concatIfBoth(process.env['HOMEDRIVE'], process.env['HOMEPATH']) ||
@@ -92,7 +101,7 @@ function combinePath(basePath: string, relativePath: string) {
 }
 
 function isWindowsFilePath(filePath: string) {
-    return filePath[1] == ':' && filePath[2] == '\\';
+    return filePath[1] === ':' && filePath[2] === '\\';
 }
 
 function fileUri(filePath: string): vscode.Uri {
@@ -176,4 +185,39 @@ function pathVariableName(env: any): string {
 
 function pathEntrySeparator() {
     return isWindows() ? ';' : ':';
+}
+
+function which(bin: string): string | null {
+    if (getUseWsl()) {
+        const result = shelljs.exec(`wsl.exe which ${bin}`);
+        if (result.code !== 0) {
+            throw new Error(result.stderr);
+        }
+        return result.stdout;
+    }
+    return shelljs.which(bin);
+}
+
+function cat(path: string): string {
+    if (getUseWsl()) {
+        const filePath = path.replace(/\\/g, '/');
+        const result = shelljs.exec(`wsl.exe cat ${filePath}`);
+        if (result.code !== 0) {
+            throw new Error(result.stderr);
+        }
+        return result.stdout;
+    }
+    return shelljs.cat(path);
+}
+
+function ls(path: string): string[] {
+    if (getUseWsl()) {
+        const filePath = path.replace(/\\/g, '/');
+        const result = shelljs.exec(`wsl.exe ls ${filePath}`);
+        if (result.code !== 0) {
+            throw new Error(result.stderr);
+        }
+        return result.stdout.trim().split('\n');
+    }
+    return shelljs.ls(path);
 }

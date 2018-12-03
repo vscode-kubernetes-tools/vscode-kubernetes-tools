@@ -596,7 +596,7 @@ function convertWindowsToWSL(filePath: string): string {
 
 function kubectlTextDocument(command: string, document: vscode.TextDocument, progressMessage: string, resultHandler: ShellHandler | undefined): void {
     if (document.uri.scheme === 'file') {
-        var fileName = document.fileName;
+        let fileName = document.fileName;
         if (config.getUseWsl()) {
             fileName = convertWindowsToWSL(fileName);
         }
@@ -611,7 +611,7 @@ function kubectlViaTempFile(command, fileContent, progressMessage, handler?) {
     const tmpobj = tmp.fileSync();
     fs.writeFileSync(tmpobj.name, fileContent);
 
-    var fileName = tmpobj.name;
+    let fileName = tmpobj.name;
     if (config.getUseWsl()) {
         fileName = convertWindowsToWSL(fileName);
     }
@@ -1801,6 +1801,7 @@ export async function installDependencies() {
     ];
 
     if (!config.getUseWsl()) {
+        // TODO: Install Win32 Minikube
         installPromises.push(
             installDependency("Minikube", gotMinikube, (shell: Shell): Promise<Errorable<void>> => {
                 return installMinikube(shell, null);
