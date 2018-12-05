@@ -139,3 +139,19 @@ export function getConfiguredNamespace(): string | undefined {
 export function affectsUs(change: vscode.ConfigurationChangeEvent) {
     return change.affectsConfiguration(EXTENSION_CONFIG_KEY);
 }
+
+export function getEnabledLinters(): string[] {
+    const config = vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY);
+    return getEnabledLintersInternal(config['disable-lint'], config['use-linters']);
+}
+
+// only exported for testing...
+export function getEnabledLintersInternal(disableLint: string, linters: string): string[] {
+    if (disableLint === 'true') {
+        return [];
+    }
+    if (linters) {
+        return linters.trim().split(',').map((linter: string) => linter.trim());
+    }
+    return ["all"];
+}

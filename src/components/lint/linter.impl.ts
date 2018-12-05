@@ -20,6 +20,10 @@ export interface Syntax {
 class StandardLinter implements Linter {
     constructor(private readonly impl: LinterImpl) {}
 
+    name(): string {
+        return this.impl.name();
+    }
+
     async lint(document: vscode.TextDocument): Promise<vscode.Diagnostic[]> {
         try {
             switch (document.languageId) {
@@ -48,5 +52,6 @@ const yamlSyntax = {
 };
 
 export interface LinterImpl {
+    name(): string;
     lint(document: vscode.TextDocument, syntax: Syntax): Promise<vscode.Diagnostic[]>;
 }

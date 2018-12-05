@@ -1941,12 +1941,30 @@ function isLintable(document: vscode.TextDocument): boolean {
     return document.languageId === 'yaml' || document.languageId === 'json' || document.languageId === 'helm';
 }
 
+function linterEnabled(enabledLinters: string[], name: string): boolean {
+    for (const linter of enabledLinters) {
+        if (linter === name) {
+            return true;
+        }
+    }
+    return false;
+}
+
 async function kubernetesLint(document: vscode.TextDocument): Promise<void> {
     // Is it a Kubernetes document?
     if (!isLintable(document)) {
         return;
     }
-    const linterPromises = linters.map((l) => l.lint(document));
+    const enabledLinters = config.getEnabledLinters();
+    if (enabledLinters.length === 0) {
+        return;
+    }
+    const linterPromises: Promise<vscode.Diagnostic[]>[] = [];
+    linters.map((l) => {
+        if (linterEnabled(enabledLinters, l.name())) {
+            linterPromises.push(l.lint(document));
+        }
+    });
     const linterResults = await Promise.all(linterPromises);
     const diagnostics = ([] as vscode.Diagnostic[]).concat(...linterResults);
     kubernetesDiagnostics.set(document.uri, diagnostics);
