@@ -186,6 +186,8 @@ Minikube tools to be installed and available on your PATH.
        * `vs-kubernetes.autoCleanupOnDebugTerminate` - The flag to control whether to auto cleanup the created deployment and associated pod by the command "Kubernetes: Debug (Launch)". The cleanup action occurs when it failed to start debug session or debug session terminated. If not specified, the extension will prompt for whether to clean up or not. You might choose not to clean up if you wanted to view pod logs, etc.
        * `vs-kubernetes.outputFormat` - The output format that you prefer to view Kubernetes manifests in. One of "yaml" or "json". Defaults to "yaml".
    * `vsdocker.imageUser` - Image prefix for docker images e.g. 'docker.io/brendanburns'
+   * `disable-lint` - Disable all linting of Kubernetes files
+   * `disable-linters` - Disable specific linters by name
 
 ## Custom tool locations
 
@@ -222,6 +224,11 @@ The first path would be used when invoking `kubectl` on Mac or Linux machines.  
 The following commands support arguments in keybindings:
 
   * **Set Kubeconfig** (command ID `extension.vsKubernetesUseKubeconfig`) - the keybinding can specify a string argument which is the kubeconfig file path to switch to.  This allows you to set up specific keybindings for your favourite kubeconfigs.
+
+## Linters
+The extension supports linting Kubernetes YAML files for potential problems or suggestions.
+Here are the various linters, you can enable or disable them individually using the `disable-linters` configuration value.
+  * `resource-limits`: Warn when a Pod is missing resource limits
 
 ## Known issues
 

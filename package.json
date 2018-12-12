@@ -179,6 +179,14 @@
                             ],
                             "type": "string",
                             "description": "Output format for Kubernetes specs. One of 'json' or 'yaml' (default)."
+                        },
+                        "disable-lint": {
+                            "type": "boolean",
+                            "description": "Disable all linting of Kubernetes files"
+                        },
+                        "disable-linters": {
+                            "type": "array",
+                            "description": "Lit of linters by name to disable"
                         }
                     },
                     "default": {

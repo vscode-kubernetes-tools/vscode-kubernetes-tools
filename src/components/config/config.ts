@@ -140,18 +140,11 @@ export function affectsUs(change: vscode.ConfigurationChangeEvent) {
     return change.affectsConfiguration(EXTENSION_CONFIG_KEY);
 }
 
-export function getEnabledLinters(): string[] {
-    const config = vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY);
-    return getEnabledLintersInternal(config['disable-lint'], config['use-linters']);
+export function getDisableLint(): boolean {
+    return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['disable-lint'] === 'true';
 }
 
-// only exported for testing...
-export function getEnabledLintersInternal(disableLint: string, linters: string): string[] {
-    if (disableLint === 'true') {
-        return [];
-    }
-    if (linters) {
-        return linters.trim().split(',').map((linter: string) => linter.trim());
-    }
-    return ["all"];
+export function getDisabledLinters(): string[] {
+    const config = vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY);
+    return config['disable-linters'] as string[];
 }
