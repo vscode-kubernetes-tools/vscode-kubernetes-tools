@@ -6,7 +6,7 @@ export const KUBERNETES_SCHEMA_PREFIX = KUBERNETES_SCHEMA + '://schema/';
 
 export const VSCODE_YAML_EXTENSION_ID = 'redhat.vscode-yaml';
 
-export const KUBERNETES_SCHEMA_VERSION = '1.9.3';
+export const KUBERNETES_SCHEMA_VERSION = '1.12.2';
 
 export const KUBERNETES_SCHEMA_FILE = path.join(__dirname, `../../../schema/swagger-v${KUBERNETES_SCHEMA_VERSION}.json`);
 
