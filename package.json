@@ -1146,12 +1146,12 @@
     "devDependencies": {
         "@types/mocha": "^2.2.32",
         "@types/node": "^6.0.40",
-        "gulp": "^3.9.1",
+        "gulp": "^4.0.0",
         "gulp-tslint": "^8.1.2",
         "mocha": "^4.1.0",
         "tslint": "^5.9.1",
         "typescript": "^2.9.2",
-        "vscode": "^1.0.17"
+        "vscode": "^1.1.21"
     },
     "repository": {
         "type": "git",
