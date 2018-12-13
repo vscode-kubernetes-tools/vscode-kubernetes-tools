@@ -7,6 +7,7 @@ import { refreshExplorer } from '../common/explorer';
 import { Wizard, NEXT_FN } from '../../wizard/wizard';
 import { Sequence, Observable } from '../../../utils/observable';
 import { trackReadiness } from '../readinesstracker';
+import { reporter } from '../../../telemetry';
 
 // TODO: de-globalise
 let registered = false;
@@ -216,6 +217,8 @@ async function createCluster(previousData: any, context: azure.Context): Promise
         } };
     const createResult = await azure.createCluster(context, options);
 
+    reporter.sendTelemetryEvent("createCluster", { result: createResult.result.succeeded ? "success" : "fail", clusterType: previousData.clusterType });
+
     const title = createResult.result.succeeded ? 'Cluster creation has started' : `Error ${createResult.actionDescription}`;
     const additionalDiagnostic = diagnoseCreationError(createResult.result);
     const successCliErrorInfo = diagnoseCreationSuccess(createResult.result);
@@ -280,6 +283,8 @@ function renderConfigurationResult(configureResult: ActionResult<azure.Configure
     const result = configureResult.result as Succeeded<azure.ConfigureResult>;  // currently always reports success and puts failure in the body
     const configResult = result.result;
     const clusterServiceString = result.result.clusterType === "aks" ? "Azure Kubernetes Service" : "Azure Container Service";
+
+    reporter.sendTelemetryEvent("addCluster", { result: configureResult.result.succeeded ? "success" : "fail", clusterType: clusterServiceString });
 
     const pathMessage = configResult.cliOnDefaultPath ? '' :
         '<p>This location is not on your system PATH. Add this directory to your path, or set the VS Code <b>vs-kubernetes.kubectl-path</b> config setting.</p>';
