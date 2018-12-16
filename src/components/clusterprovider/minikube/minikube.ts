@@ -96,7 +96,9 @@ async function minikubeUpgradeAvailable(context: Context) {
         vscode.window.showErrorMessage(`Error checking for minikube updates: ${sr.stderr}`);
         return;
     }
-    const lines = sr.stdout.split(os.EOL);
+    const lines = sr.stdout.split('\n')
+                           .map((l) => l.trim())
+                           .filter((l) => l.length > 0);
     if (lines.length !== 2) {
         vscode.window.showErrorMessage(`Unexpected output for minikube version check: ${lines}`);
         return;
