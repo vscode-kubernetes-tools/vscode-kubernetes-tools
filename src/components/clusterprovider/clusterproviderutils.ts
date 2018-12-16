@@ -19,6 +19,17 @@ export async function renderWizardContainer(action: clusterproviderregistry.Clus
                 height: 100%;
                 border: 0px;
             }
+        </style>
+<!--        <style>
+            html, body {
+                width: 100%;
+                height: 100%;
+            }
+            iframe {
+                width: 100%;
+                height: 100%;
+                border: 0px;
+            }
             .vscode-light #theme-canary {
                 display: none;
                 visibility: hidden;
@@ -42,9 +53,10 @@ export async function renderWizardContainer(action: clusterproviderregistry.Clus
         }
         </script>
     </head>
+    -->
     <body>
-        <p id='theme-canary'>Theme canary - if you see this, it's a bug</p>
-        <iframe id='contentFrame' src='${clusterproviderserver.url(action)}' onload='styleme()' />
+        <!--<p id='theme-canary'>Theme canary - if you see this, it's a bug</p>-->
+        <iframe id='contentFrame' src='${clusterproviderserver.url(action)}' />
     </body>
     </html>`;
 }

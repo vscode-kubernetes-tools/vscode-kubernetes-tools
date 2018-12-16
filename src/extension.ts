@@ -1709,7 +1709,14 @@ function removeDebugKubernetes() {
 
 async function configureFromClusterKubernetes() {
     const newId: string = uuid.v4();
-    vscode.commands.executeCommand('vscode.previewHtml', configureFromCluster.operationUri(newId), 2, "Add Existing Kubernetes Cluster");
+    const wizardUri = configureFromCluster.operationUri(newId);
+    const wizardDoc = await vscode.workspace.openTextDocument(wizardUri);
+    const html = wizardDoc.getText();
+    // const doc = vscode.workspace.openTextDocument()
+    // const redirect = `<script>window.location.replace("${wizardUri.toString()}");</script>`;
+    // console.log(redirect);
+    const webview = vscode.window.createWebviewPanel("kubernetes-addexistingcluster", "Add Existing Cluster", vscode.ViewColumn.Two, { retainContextWhenHidden: true, enableScripts: true });
+    webview.webview.html = html;
 }
 
 async function createClusterKubernetes() {
