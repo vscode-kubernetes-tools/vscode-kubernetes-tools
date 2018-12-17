@@ -6,6 +6,7 @@ import { styles, formStyles, waitScript, ActionResult, Diagnostic } from '../../
 import { Errorable, succeeded, failed, Failed, Succeeded } from '../../../errorable';
 import { formPage, propagationFields } from '../common/form';
 import { refreshExplorer } from '../common/explorer';
+import { Wizard } from '../../wizard/wizard';
 
 // HTTP request dispatch
 
@@ -23,14 +24,25 @@ type HtmlRequestHandler = (
 export async function init(registry: clusterproviderregistry.ClusterProviderRegistry, context: azure.Context): Promise<void> {
     if (!registered) {
         const serve = serveCallback(context);
-        registry.register({id: 'aks', displayName: "Azure Kubernetes Service", supportedActions: ['create', 'configure'], serve: serve});
-        registry.register({id: 'acs', displayName: "Azure Container Service", supportedActions: ['create', 'configure'], serve: serve});
+        registry.register({id: 'aks', displayName: "Azure Kubernetes Service", supportedActions: ['create', 'configure'], serve: serve, next: (w, a, m) => next(context, w, a, m)});
+        registry.register({id: 'acs', displayName: "Azure Container Service", supportedActions: ['create', 'configure'], serve: serve, next: (w, a, m) => next(context, w, a, m)});
         registered = true;
     }
 }
 
 function serveCallback(context: azure.Context): () => Promise<number> {
     return () => serve(context);
+}
+
+function next(context: azure.Context, wizard: Wizard, action: clusterproviderregistry.ClusterProviderAction, message: any): void {
+    wizard.showPage("<h1>Contacting Microsoft Azure</h1>");
+    const step = undefined;
+    const requestData = { clusterType: message["clusterTypeId"] };
+    if (action === 'create') {
+        getHandleCreateHtml(step, context, requestData).then((h) => wizard.showPage(h));
+    } else {
+        getHandleConfigureHtml(step, context, requestData).then((h) => wizard.showPage(h));
+    }
 }
 
 async function serve(context: azure.Context): Promise<number> {

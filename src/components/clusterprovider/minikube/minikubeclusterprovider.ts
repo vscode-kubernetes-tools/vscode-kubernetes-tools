@@ -8,6 +8,7 @@ import { refreshExplorer } from '../common/explorer';
 import { succeeded, Failed, failed } from '../../../errorable';
 import { Shell } from '../../../shell';
 import { Minikube, MinikubeOptions } from './minikube';
+import { Wizard } from '../../wizard/wizard';
 
 export interface Context {
     readonly shell: Shell;
@@ -27,9 +28,12 @@ let registered = false;
 export async function init(registry: clusterproviderregistry.ClusterProviderRegistry, context: Context): Promise<void> {
     if (!registered) {
         const serve = serveCallback(context);
-        registry.register({id: 'minikube', displayName: "Minikube local cluster", supportedActions: ['create', 'configure'], serve: serve});
+        registry.register({id: 'minikube', displayName: "Minikube local cluster", supportedActions: ['create', 'configure'], serve: serve, next: next});
         registered = true;
     }
+}
+
+function next(wizard: Wizard, action: clusterproviderregistry.ClusterProviderAction, message: any): void {
 }
 
 function serveCallback(context: Context): () => Promise<number> {
