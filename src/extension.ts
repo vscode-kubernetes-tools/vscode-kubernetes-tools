@@ -73,7 +73,7 @@ import { setActiveKubeconfig, getKnownKubeconfigs, addKnownKubeconfig } from './
 import { HelmDocumentSymbolProvider } from './helm.symbolProvider';
 import { findParentYaml } from './yaml-support/yaml-navigation';
 import { linters } from './components/lint/linters';
-import { NEXT_FN, createWizard, Wizard, showPage } from './components/wizard/wizard';
+import { NEXT_FN, createWizard, Wizard } from './components/wizard/wizard';
 
 let explainActive = false;
 let swaggerSpecPromise = null;
@@ -1719,27 +1719,57 @@ async function configureFromClusterKubernetes() {
     // const webview = vscode.window.createWebviewPanel("kubernetes-addexistingcluster", "Add Existing Cluster", vscode.ViewColumn.Two, { retainContextWhenHidden: true, enableScripts: true });
     // webview.webview.html = html;
 
-    const s = {
-        onCancel() {
-            console.log("GOODNIGHT SWEET PRINCE");
-        },
-        onStep(w: Wizard, m: any) {
-            console.log(m);
-            showPage(w, "<h1>TEST</h1>");
-        }
-    };
-
-    const wiz = createWizard("WIZ ME UP", 'f', s);
-
-    const html = `
+    const html1 = () => `
+    <h1>WONDERPAGE</h1>
     <form id='f'>
+        <input type='hidden' name='stage__' value='1' />
         <p>SOMETHING: <input type='text' name='t' value='ttt'></p>
     </form>
     <p>
-        <a id="n" onclick="${NEXT_FN}">NEXT! &gt;&gt;</a>
+        <a onclick="${NEXT_FN}">NEXT! &gt;&gt;</a>
     </p>
     `;
-    showPage(wiz, html);
+
+    const html2 = (st: any) => `
+    <h1>PAGE TWO</h1>
+    <form id='f'>
+        <input type='hidden' name='stage__' value='2' />
+        <input type='hidden' name='t' value='${st.t}'></p>
+        <p>SOMETHING ELSE: <input type='text' name='tt' value='${st.t}'></p>
+    </form>
+    <p>
+        <a onclick="${NEXT_FN}">NEXT! &gt;&gt;</a>
+    </p>
+    `;
+
+    const html3 = (st: any) => `
+    <h1>THE END</h1>
+    <p>
+        You chose something to be ${st.t} and something else to be ${st.tt}.
+    </p>
+    `;
+
+    const s = {
+        onCancel() {
+        },
+        onStep(w: Wizard, m: any) {
+            switch (m.stage__) {
+                case "1":
+                    w.showPage(html2(m));
+                    break;
+                case "2":
+                    w.showPage(html3(m));
+                    break;
+                default:
+                    console.log('bah');
+                    break;
+            }
+        }
+    };
+
+    const testWizard = createWizard("WIZ ME UP", 'f', s);
+
+    testWizard.showPage(html1());
 }
 
 async function createClusterKubernetes() {
