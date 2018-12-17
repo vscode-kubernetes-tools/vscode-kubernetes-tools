@@ -73,6 +73,7 @@ import { setActiveKubeconfig, getKnownKubeconfigs, addKnownKubeconfig } from './
 import { HelmDocumentSymbolProvider } from './helm.symbolProvider';
 import { findParentYaml } from './yaml-support/yaml-navigation';
 import { linters } from './components/lint/linters';
+import { NEXT_FN, createWizard, Wizard, showPage } from './components/wizard/wizard';
 
 let explainActive = false;
 let swaggerSpecPromise = null;
@@ -1708,15 +1709,37 @@ function removeDebugKubernetes() {
 }
 
 async function configureFromClusterKubernetes() {
-    const newId: string = uuid.v4();
-    const wizardUri = configureFromCluster.operationUri(newId);
-    const wizardDoc = await vscode.workspace.openTextDocument(wizardUri);
-    const html = wizardDoc.getText();
-    // const doc = vscode.workspace.openTextDocument()
-    // const redirect = `<script>window.location.replace("${wizardUri.toString()}");</script>`;
-    // console.log(redirect);
-    const webview = vscode.window.createWebviewPanel("kubernetes-addexistingcluster", "Add Existing Cluster", vscode.ViewColumn.Two, { retainContextWhenHidden: true, enableScripts: true });
-    webview.webview.html = html;
+    // const newId: string = uuid.v4();
+    // const wizardUri = configureFromCluster.operationUri(newId);
+    // const wizardDoc = await vscode.workspace.openTextDocument(wizardUri);
+    // const html = wizardDoc.getText();
+    // // const doc = vscode.workspace.openTextDocument()
+    // // const redirect = `<script>window.location.replace("${wizardUri.toString()}");</script>`;
+    // // console.log(redirect);
+    // const webview = vscode.window.createWebviewPanel("kubernetes-addexistingcluster", "Add Existing Cluster", vscode.ViewColumn.Two, { retainContextWhenHidden: true, enableScripts: true });
+    // webview.webview.html = html;
+
+    const s = {
+        onCancel() {
+            console.log("GOODNIGHT SWEET PRINCE");
+        },
+        onStep(w: Wizard, m: any) {
+            console.log(m);
+            showPage(w, "<h1>TEST</h1>");
+        }
+    };
+
+    const wiz = createWizard("WIZ ME UP", 'f', s);
+
+    const html = `
+    <form id='f'>
+        <p>SOMETHING: <input type='text' name='t' value='ttt'></p>
+    </form>
+    <p>
+        <a id="n" onclick="${NEXT_FN}">NEXT! &gt;&gt;</a>
+    </p>
+    `;
+    showPage(wiz, html);
 }
 
 async function createClusterKubernetes() {
