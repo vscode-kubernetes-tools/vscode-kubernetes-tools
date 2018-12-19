@@ -285,7 +285,7 @@ export async function createCluster(context: Context, options: any): Promise<Act
 
 export async function waitForCluster(context: Context, clusterType: string, clusterName: string, clusterResourceGroup: string): Promise<Errorable<WaitResult>> {
     const clusterCmd = getClusterCommand(clusterType);
-    const waitCmd = `az ${clusterCmd} wait --created --timeout 15 -n ${clusterName} -g ${clusterResourceGroup} -o json`;
+    const waitCmd = `az ${clusterCmd} wait --created --interval 5 --timeout 10 -n ${clusterName} -g ${clusterResourceGroup} -o json`;
     const sr = await context.shell.exec(waitCmd);
 
     if (sr.code === 0) {

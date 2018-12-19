@@ -1714,8 +1714,7 @@ async function configureFromClusterKubernetes() {
 }
 
 async function createClusterKubernetes() {
-    const newId: string = uuid.v4();
-    vscode.commands.executeCommand('vscode.previewHtml', createCluster.operationUri(newId), 2, "Create Kubernetes Cluster");
+    runClusterWizard('Create Kubernetes Cluster', 'create');
 }
 
 const ADD_NEW_KUBECONFIG_PICK = "+ Add new kubeconfig";

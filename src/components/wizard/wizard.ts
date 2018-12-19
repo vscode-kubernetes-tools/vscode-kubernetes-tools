@@ -2,11 +2,39 @@ import * as vscode from 'vscode';
 
 export const NEXT_FN = "onNext();";
 
+export interface Observable<T> {
+    subscribe(observer: Observer<T>): void;
+}
+
+export interface Observer<T> {
+    onNext(value: T): Promise<boolean>;
+}
+
+export type Sequence<T> = T | Thenable<T> | Observable<T>;
+
+function isObservable<T>(s: Sequence<T>): s is Observable<T> {
+    return !!((s as Observable<T>).subscribe);
+}
+
+function isThenable<T>(s: Sequence<T>): s is Thenable<T> {
+    return !!((s as Thenable<T>).then);
+}
+
 export class Wizard {
     constructor(private readonly w: vscode.WebviewPanel) { }
 
-    async showPage(htmlBody: string): Promise<void> {
-        await this.w.webview.postMessage({ command: 'showPage', html: htmlBody });
+    async showPage(htmlBody: Sequence<string>): Promise<void> {
+        if (isObservable(htmlBody)) {
+            htmlBody.subscribe({
+                async onNext(value: string) {
+                    return await this.w.webview.postMessage({ command: 'showPage', html: value });
+                }
+            });
+        } else if (isThenable(htmlBody)) {
+            await this.w.webview.postMessage({ command: 'showPage', html: await htmlBody });
+        } else {
+            await this.w.webview.postMessage({ command: 'showPage', html: htmlBody });
+        }
         this.w.reveal();
     }
 }

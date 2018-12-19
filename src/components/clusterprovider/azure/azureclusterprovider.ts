@@ -4,7 +4,8 @@ import { styles, formStyles, waitScript, ActionResult, Diagnostic } from '../../
 import { Errorable, succeeded, failed, Failed, Succeeded } from '../../../errorable';
 import { formPage, propagationFields } from '../common/form';
 import { refreshExplorer } from '../common/explorer';
-import { Wizard } from '../../wizard/wizard';
+import { Wizard, NEXT_FN, Sequence, Observable, Observer } from '../../wizard/wizard';
+import { sleep } from '../../../sleep';
 
 // TODO: de-globalise
 let registered = false;
@@ -24,35 +25,35 @@ function next(context: azure.Context, wizard: Wizard, action: clusterproviderreg
     const nextStep: string | undefined = message.nextStep;
     const requestData = nextStep ? message : { clusterType: message["clusterType"] };
     if (action === 'create') {
-        getHandleCreateHtml(nextStep, context, requestData).then((h) => wizard.showPage(h));
+        wizard.showPage(getHandleCreateHtml(nextStep, context, requestData));
     } else {
-        getHandleConfigureHtml(nextStep, context, requestData).then((h) => wizard.showPage(h));
+        wizard.showPage(getHandleConfigureHtml(nextStep, context, requestData));
     }
 }
 
-async function getHandleCreateHtml(step: string | undefined, context: azure.Context, requestData: any): Promise<string> {
+function getHandleCreateHtml(step: string | undefined, context: azure.Context, requestData: any): Sequence<string> {
     if (!step) {
-        return await promptForSubscription(requestData, context, "create", "metadata");
+        return promptForSubscription(requestData, context, "create", "metadata");
     } else if (step === "metadata") {
-        return await promptForMetadata(requestData, context);
+        return promptForMetadata(requestData, context);
     } else if (step === "agentSettings") {
-        return await promptForAgentSettings(requestData, context);
+        return promptForAgentSettings(requestData, context);
     } else if (step === "create") {
-        return await createCluster(requestData, context);
+        return createCluster(requestData, context);
     } else if (step === "wait") {
-        return await waitForClusterAndReportConfigResult(requestData, context);
+        return waitForClusterAndReportConfigResult(requestData, context);
     } else {
         return renderInternalError(`AzureStepError (${step})`);
     }
 }
 
-async function getHandleConfigureHtml(step: string | undefined, context: azure.Context, requestData: any): Promise<string> {
+function getHandleConfigureHtml(step: string | undefined, context: azure.Context, requestData: any): Sequence<string> {
     if (!step) {
-        return await promptForSubscription(requestData, context, "configure", "cluster");
+        return promptForSubscription(requestData, context, "configure", "cluster");
     } else if (step === "cluster") {
-        return await promptForCluster(requestData, context);
+        return promptForCluster(requestData, context);
     } else if (step === "configure") {
-        return await configureKubernetes(requestData, context);
+        return configureKubernetes(requestData, context);
     } else {
         return renderInternalError(`AzureStepError (${step})`);
     }
@@ -221,12 +222,12 @@ async function createCluster(previousData: any, context: azure.Context): Promise
         `<div id='content'>
          ${formStyles()}
          ${styles()}
-         ${waitScript('Contacting Microsoft Azure')}
-         <form id='form' action='create?step=wait' method='post' onsubmit='return promptWait();'>
+         <form id='form'>
+         <input type='hidden' name='nextStep' value='wait' />
          ${propagationFields(previousData)}
          <p class='success'>Azure is creating the cluster, but this may take some time. You can now close this window,
          or wait for creation to complete so that we can add the new cluster to your Kubernetes configuration.</p>
-         <p><button type='submit' class='link-button'>Wait and add the new cluster &gt;</button></p>
+         <p><button onclick=${NEXT_FN} class='link-button'>Wait and add the new cluster &gt;</button></p>
          </form>
          ${successCliErrorInfo}
          </div>` :
@@ -248,33 +249,59 @@ function refreshCountIndicator(): string {
     return ".".repeat(refreshCount % 4);
 }
 
-async function waitForClusterAndReportConfigResult(previousData: any, context: azure.Context): Promise<string> {
+function waitForClusterAndReportConfigResult(previousData: any, context: azure.Context): Observable<string> {
 
-    ++refreshCount;
+    const observers: Observer<string>[] = [];
 
-    const waitResult = await azure.waitForCluster(context, previousData.clusterType, previousData.clustername, previousData.resourcegroupname);
-    if (failed(waitResult)) {
-        return `<h1>Error creating cluster</h1><p>Error details: ${waitResult.error[0]}</p>`;
+    const observable = {
+        subscribe(s: Observer<string>): void {
+            observers.push(s);
+        },
+        async notify(s: string): Promise<void> {
+            for (const o of observers) {
+                const okay = await o.onNext(s);
+                console.log("notified " + okay);
+            }
+        },
+        async run(): Promise<void> {
+            while (true) {
+                ++refreshCount;
+                await sleep(100);
+                const [html, retry] = await f();
+                this.notify(html);
+                if (!retry) {
+                    while (observers.length > 0) {
+                        observers.unshift();
+                    }
+                    return;
+                }
+            }
+        }
+    };
+
+    async function f(): Promise<[string, boolean]> {
+        const waitResult = await azure.waitForCluster(context, previousData.clusterType, previousData.clustername, previousData.resourcegroupname);
+        if (failed(waitResult)) {
+            return [`<h1>Error creating cluster</h1><p>Error details: ${waitResult.error[0]}</p>`, false];
+        }
+
+        if (waitResult.result.stillWaiting) {
+            return [`<h1>Waiting for cluster - this will take several minutes${refreshCountIndicator()}</h1>
+                <form id='form'>
+                <input type='hidden' name='nextStep' value='wait' />
+                ${propagationFields(previousData)}
+                </form>`, true];
+        }
+
+        const configureResult = await azure.configureCluster(context, previousData.clusterType, previousData.clustername, previousData.resourcegroupname);
+
+        await refreshExplorer();
+
+        return [renderConfigurationResult(configureResult), false];
     }
 
-    if (waitResult.result.stillWaiting) {
-        return `<h1>Waiting for cluster - this will take several minutes${refreshCountIndicator()}</h1>
-            <form id='form' action='create?step=wait' method='post'>
-            ${propagationFields(previousData)}
-            </form>
-            <script>
-            window.setTimeout(function() {
-                var f = document.getElementById('form');
-                f.submit();
-            }, 100)
-            </script>`;
-    }
-
-    const configureResult = await azure.configureCluster(context, previousData.clusterType, previousData.clustername, previousData.resourcegroupname);
-
-    await refreshExplorer();
-
-    return renderConfigurationResult(configureResult);
+    observable.run();
+    return observable;
 }
 
 function renderConfigurationResult(configureResult: ActionResult<azure.ConfigureResult>): string {
