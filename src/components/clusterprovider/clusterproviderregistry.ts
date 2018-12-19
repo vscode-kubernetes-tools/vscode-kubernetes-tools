@@ -6,7 +6,7 @@ export interface ClusterProvider {
     readonly id: string;
     readonly displayName: string;
     readonly supportedActions: ClusterProviderAction[];
-    serve(): Promise<number>;
+    serve(): Promise<number> | undefined;
     next(w: Wizard, action: ClusterProviderAction, m: any): void;
 }
 
