@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as v1 from './v1';
 import * as _ from 'lodash';
-import * as shelljs from 'shelljs';
+import * as fs from './wsl-fs';
 import * as filepath from 'path';
 import { shell } from './shell';
 
@@ -10,13 +10,14 @@ export class Resources {
     public all(): vscode.CompletionItem[] {
         const home = shell.home();
         const schemaDir = filepath.join(home, ".kube/schema");
-        if (!shelljs.test("-d", schemaDir)) {
+        const stat = fs.statSync(schemaDir);
+        if (!stat.isDirectory()) {
             // Return the default set.
             return this.v1();
         }
         // Otherwise, try to dynamically build completion items from the
         // entire schema.
-        const kversion = _.last(shelljs.ls(schemaDir));
+        const kversion = _.last(shell.ls(schemaDir));
         console.log("Loading schema for version " + kversion);
 
         // Inside of the schemaDir, there are some top-level copies of the schemata.
@@ -26,12 +27,13 @@ export class Resources {
         // TPRs.
         let res = [];
         const path = filepath.join(schemaDir, kversion);
-        shelljs.ls(path).forEach((item) => {
+        shell.ls(path).forEach((item) => {
             const itemPath = filepath.join(path, item);
-            if (shelljs.test('-d', itemPath)) {
+            const stat = fs.statSync(itemPath);
+            if (stat.isDirectory()) {
                 return;
             }
-            const schema = JSON.parse(shelljs.cat(itemPath));
+            const schema = JSON.parse(shell.cat(itemPath));
             if (!schema.models) {
                 return;
             }

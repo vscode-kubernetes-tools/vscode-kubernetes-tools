@@ -148,6 +148,7 @@ async function checkForDraftInternal(context: Context, mode: CheckPresentMode): 
     const bin = getToolPath(context.host, context.shell, binName);
 
     const inferFailedMessage = `Could not find "${binName}" binary.`;
+    // TODO: this is duplicated in various places...
     const configuredFileMissingMessage = `${bin} does not exist!`;
     return binutil.checkForBinary(context, bin, binName, inferFailedMessage, configuredFileMissingMessage, mode === CheckPresentMode.Alert);
 }

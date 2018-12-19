@@ -588,9 +588,19 @@ function maybeRunKubernetesCommandForActiveWindow(command: string, progressMessa
     return true;
 }
 
+function convertWindowsToWSL(filePath: string): string {
+    const drive = filePath[0].toLowerCase();
+    const path = filePath.substring(2).replace(/\\/g, '/');
+    return `/mnt/${drive}/${path}`;
+}
+
 function kubectlTextDocument(command: string, document: vscode.TextDocument, progressMessage: string, resultHandler: ShellHandler | undefined): void {
     if (document.uri.scheme === 'file') {
-        const fullCommand = `${command} -f "${document.fileName}"`;
+        let fileName = document.fileName;
+        if (config.getUseWsl()) {
+            fileName = convertWindowsToWSL(fileName);
+        }
+        const fullCommand = `${command} -f "${fileName}"`;
         kubectl.invokeWithProgress(fullCommand, progressMessage, resultHandler);
     } else {
         kubectlViaTempFile(command, document.getText(), progressMessage, resultHandler);
@@ -600,8 +610,12 @@ function kubectlTextDocument(command: string, document: vscode.TextDocument, pro
 function kubectlViaTempFile(command, fileContent, progressMessage, handler?) {
     const tmpobj = tmp.fileSync();
     fs.writeFileSync(tmpobj.name, fileContent);
-    console.log(tmpobj.name);
-    kubectl.invokeWithProgress(`${command} -f ${tmpobj.name}`, progressMessage, handler);
+
+    let fileName = tmpobj.name;
+    if (config.getUseWsl()) {
+        fileName = convertWindowsToWSL(fileName);
+    }
+    kubectl.invokeWithProgress(`${command} -f ${fileName}`, progressMessage, handler);
 }
 
 /**
@@ -1784,11 +1798,17 @@ export async function installDependencies() {
         installDependency("kubectl", gotKubectl, installKubectl),
         installDependency("Helm", gotHelm, installHelm),
         installDependency("Draft", gotDraft, installDraft),
-        installDependency("Minikube", gotMinikube, (shell: Shell): Promise<Errorable<void>> => {
-            return installMinikube(shell, null);
-        }),
     ];
+
+    if (!config.getUseWsl()) {
+        // TODO: Install Win32 Minikube
+        installPromises.push(
+            installDependency("Minikube", gotMinikube, (shell: Shell): Promise<Errorable<void>> => {
+                return installMinikube(shell, null);
+            }));
+    }
     await Promise.all(installPromises);
+
     kubeChannel.showOutput("Done");
 }
 

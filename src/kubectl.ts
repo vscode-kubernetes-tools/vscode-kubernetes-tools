@@ -7,7 +7,7 @@ import * as binutil from './binutil';
 import { Errorable } from './errorable';
 import { parseLineOutput } from './outputUtils';
 import * as compatibility from './components/kubectl/compatibility';
-import { getToolPath, affectsUs } from './components/config/config';
+import { getToolPath, affectsUs, getUseWsl } from './components/config/config';
 
 const KUBECTL_OUTPUT_COLUMN_SEPARATOR = /\s+/g;
 
@@ -198,6 +198,10 @@ async function spawnAsChild(context: Context, command: string[]): Promise<ChildP
 
 async function invokeInTerminal(context: Context, command: string, pipeTo: string | undefined, terminal: Terminal): Promise<void> {
     if (await checkPresent(context, CheckPresentMessageMode.Command)) {
+        // You might be tempted to think we needed to add 'wsl' here if user is using wsl
+        // but this runs in the context of a vanilla terminal, which is controlled by the
+        // existing preference, so it's not necessary.
+        // But a user does need to default VS code to use WSL in the settings.json
         const kubectlCommand = `kubectl ${command}`;
         const fullCommand = pipeTo ? `${kubectlCommand} | ${pipeTo}` : kubectlCommand;
         terminal.sendText(fullCommand);
@@ -207,7 +211,14 @@ async function invokeInTerminal(context: Context, command: string, pipeTo: strin
 
 async function runAsTerminal(context: Context, command: string[], terminalName: string): Promise<void> {
     if (await checkPresent(context, CheckPresentMessageMode.Command)) {
-        const term = context.host.createTerminal(terminalName, path(context), command);
+        let execPath = path(context);
+        const cmd = command;
+        if (getUseWsl()) {
+            cmd.unshift(execPath);
+            // Note VS Code is picky here. It requires the '.exe' to work
+            execPath = 'wsl.exe';
+        }
+        const term = context.host.createTerminal(terminalName, execPath, cmd);
         term.show();
     }
 }

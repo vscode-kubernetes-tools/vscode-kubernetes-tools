@@ -5,10 +5,9 @@ import * as fs from 'fs';
 import mkdirp = require('mkdirp');
 import * as path from 'path';
 import * as tar from 'tar';
-import * as vscode from 'vscode';
 import { Shell, Platform } from '../../shell';
-import { Errorable, failed, succeeded } from '../../errorable';
-import { addPathToConfig, toolPathBaseKey } from '../config/config';
+import { Errorable, failed } from '../../errorable';
+import { addPathToConfig, toolPathBaseKey, getUseWsl } from '../config/config';
 
 export async function installKubectl(shell: Shell): Promise<Errorable<void>> {
     const tool = 'kubectl';
@@ -112,7 +111,7 @@ async function installToolFromTar(tool: string, urlTemplate: string, shell: Shel
     const executable = formatBin(tool, shell.platform());
     const url = urlTemplate.replace('{os_placeholder}', os);
     const configKey = toolPathBaseKey(tool);
-    return installFromTar(url, installFolder, executable, configKey);
+    return installFromTar(url, installFolder, executable, configKey, shell);
 }
 
 function getInstallFolder(shell: Shell, tool: string): string {
@@ -143,24 +142,27 @@ function formatBin(tool: string, platform: Platform): string | null {
     return toolPath;
 }
 
-async function installFromTar(sourceUrl: string, destinationFolder: string, executablePath: string, configKey: string): Promise<Errorable<void>> {
+async function installFromTar(sourceUrl: string, destinationFolder: string, executablePath: string, configKey: string, shell: Shell): Promise<Errorable<void>> {
     // download it
     const downloadResult = await download.toTempFile(sourceUrl);
 
     if (failed(downloadResult)) {
-        return { succeeded: false, error: ['Failed to download Helm: error was ' + downloadResult.error[0]] };
+        return { succeeded: false, error: ['Failed to download: error was ' + downloadResult.error[0]] };
     }
 
     const tarfile = downloadResult.result;
 
     // untar it
-    const untarResult = await untar(tarfile, destinationFolder);
+    const untarResult = await untar(tarfile, destinationFolder, shell);
     if (failed(untarResult)) {
-        return { succeeded: false, error: ['Failed to unpack Helm: error was ' + untarResult.error[0]] };
+        return { succeeded: false, error: ['Failed to unpack: error was ' + untarResult.error[0]] };
     }
 
     // add path to config
-    const executableFullPath = path.join(destinationFolder, executablePath);
+    let executableFullPath = path.join(destinationFolder, executablePath);
+    if (getUseWsl()) {
+        executableFullPath = executableFullPath.replace(/\\/g, '/');
+    }
     await addPathToConfig(configKey, executableFullPath);
 
     await fs.unlink(tarfile);
@@ -168,8 +170,26 @@ async function installFromTar(sourceUrl: string, destinationFolder: string, exec
     return { succeeded: true, result: null };
 }
 
-async function untar(sourceFile: string, destinationFolder: string): Promise<Errorable<void>> {
+async function untar(sourceFile: string, destinationFolder: string, shell: Shell): Promise<Errorable<void>> {
     try {
+        if (getUseWsl()) {
+            const destination = destinationFolder.replace(/\\/g, '/');
+            let result = await shell.exec(`mkdir -p ${destination}`);
+            if (result.code !== 0) {
+                console.log(result.stderr);
+                throw new Error(`Error making directory: ${result.stderr}`);
+            }
+            const drive = sourceFile[0].toLowerCase();
+            const filePath = sourceFile.substring(2).replace(/\\/g, '/');
+            const fileName = `/mnt/${drive}/${filePath}`;
+            const cmd = `tar -C ${destination} -xf ${fileName}`;
+            result = await shell.exec(cmd);
+            if (result.code !== 0) {
+                console.log(result.stderr);
+                throw new Error(`Error unpacking: ${result.stderr}`);
+            }
+            return { succeeded: true, result: null };
+        }
         if (!fs.existsSync(destinationFolder)) {
             mkdirp.sync(destinationFolder);
         }
@@ -179,6 +199,7 @@ async function untar(sourceFile: string, destinationFolder: string): Promise<Err
         });
         return { succeeded: true, result: null };
     } catch (e) {
+        console.log(e);
         return { succeeded: false, error: [ "tar extract failed" ] /* TODO: extract error from exception */ };
     }
 }

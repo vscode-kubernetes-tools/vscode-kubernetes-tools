@@ -3,18 +3,32 @@
 import request = require('request');
 import * as kubernetes from '@kubernetes/client-node';
 import * as pluralize from 'pluralize';
-import { formatComplex, formatOne, Typed, formatType } from "./schema-formatting";
-import { getActiveKubeconfig } from './components/config/config';
+import * as shelljs from 'shelljs';
 
-export function readSwagger(): Promise<any> {
+import { formatComplex, formatOne, Typed, formatType } from "./schema-formatting";
+import { getActiveKubeconfig, getUseWsl } from './components/config/config';
+import { shell } from '../test/fakes';
+
+async function loadKubeconfig(): Promise<kubernetes.KubeConfig> {
     const kc = new kubernetes.KubeConfig();
     const kubeconfig = getActiveKubeconfig();
     if (kubeconfig) {
         kc.loadFromFile(kubeconfig);
-    } else {
-        kc.loadFromDefault();
+        return kc;
     }
-    return readSwaggerCore(kc);
+    if (getUseWsl()) {
+        const result = shelljs.exec('wsl.exe sh -c "cat ${KUBECONFIG:-$HOME/.kube/config}"', { silent: true }) as shelljs.ExecOutputReturnValue;
+        if (result.code === 0) {
+            kc.loadFromString(result.stdout);
+            return kc;
+        }
+    }
+    kc.loadFromDefault();
+    return kc;
+}
+
+export async function readSwagger(): Promise<any> {
+    return readSwaggerCore(await loadKubeconfig());
 }
 
 function readSwaggerCore(kc: kubernetes.KubeConfig): Promise<any> {

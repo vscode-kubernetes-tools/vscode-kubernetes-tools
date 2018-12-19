@@ -126,6 +126,14 @@ export async function setAlwaysCleanUp(): Promise<void> {
     await setConfigValue(AUTO_CLEANUP_DEBUG_KEY, true);
 }
 
+// Use WSL on Windows
+
+const USE_WSL_KEY = "use-wsl";
+
+export function getUseWsl(): boolean {
+    return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)[USE_WSL_KEY];
+}
+
 // Other bits and bobs
 
 export function getOutputFormat(): string {

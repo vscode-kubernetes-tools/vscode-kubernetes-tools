@@ -193,6 +193,7 @@ class HelmRepoChartVersionImpl implements HelmRepoChartVersion {
 
 async function listHelmRepos(): Promise<Errorable<HelmRepoImpl[]>> {
     const sr = await helm.helmExecAsync("repo list");
+    // TODO: prompt to run 'helm init' here if needed...
     if (sr.code !== 0) {
         return { succeeded: false, error: [sr.stderr] };
     }
