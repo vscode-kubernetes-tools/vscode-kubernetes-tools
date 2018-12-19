@@ -36,12 +36,12 @@ function serveCallback(context: azure.Context): () => Promise<number> {
 
 function next(context: azure.Context, wizard: Wizard, action: clusterproviderregistry.ClusterProviderAction, message: any): void {
     wizard.showPage("<h1>Contacting Microsoft Azure</h1>");
-    const step = undefined;
-    const requestData = { clusterType: message["clusterTypeId"] };
+    const nextStep: string | undefined = message.nextStep;
+    const requestData = nextStep ? message : { clusterType: message["clusterType"] };
     if (action === 'create') {
-        getHandleCreateHtml(step, context, requestData).then((h) => wizard.showPage(h));
+        getHandleCreateHtml(nextStep, context, requestData).then((h) => wizard.showPage(h));
     } else {
-        getHandleConfigureHtml(step, context, requestData).then((h) => wizard.showPage(h));
+        getHandleConfigureHtml(nextStep, context, requestData).then((h) => wizard.showPage(h));
     }
 }
 

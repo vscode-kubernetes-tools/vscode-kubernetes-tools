@@ -1,9 +1,10 @@
 import restify = require('restify');
-import * as portfinder from 'portfinder';
 import * as clusterproviderregistry from './clusterproviderregistry';
-import { styles, script, waitScript } from '../../wizard';
+import { styles, formStyles } from '../../wizard';
 import { reporter } from '../../telemetry';
 import { NEXT_FN, Wizard, createWizard, Subscriber } from '../wizard/wizard';
+
+export const SENDING_STEP_KEY = 'sendingStep';
 
 const SELECT_CLUSTER_TYPE = 'selectClusterType';
 
@@ -12,7 +13,12 @@ function subscriber(action: clusterproviderregistry.ClusterProviderAction): Subs
         onCancel(): void {
         },
         onStep(w: Wizard, m: any): void {
-            const cp = clusterproviderregistry.get().list().find((cp) => cp.id === m.clusterTypeId);
+            const clusterType: string = m.clusterType;
+            if (m[SENDING_STEP_KEY] === SELECT_CLUSTER_TYPE) {
+                console.log(`sending telemetry, action=${action}, clusterType=${clusterType}`);
+                reporter.sendTelemetryEvent("cloudselection", { action: action, clusterType: clusterType });
+            }
+            const cp = clusterproviderregistry.get().list().find((cp) => cp.id === clusterType);
             cp.next(w, action, m);
         }
     };
@@ -60,20 +66,23 @@ function handleGetProviderListHtml(action: clusterproviderregistry.ClusterProvid
     </p>
     `;
 
-    const html = `<html><body><h1 id='h'>Choose cluster type</h1>
+    const html = `<html><body>
+            ${formStyles()}
+            ${styles()}
+            <h1 id='h'>Choose cluster type</h1>
             <div id='content'>
             <form id='form'>
-            <input type='hidden' name='sender' value='${SELECT_CLUSTER_TYPE}' />
+            <input type='hidden' name='${SENDING_STEP_KEY}' value='${SELECT_CLUSTER_TYPE}' />
             <input type='hidden' name='action' value='${action}' />
             <p>
-            Cluster type: <select name='clusterTypeId' onchange='selectionChanged()'>
+            Cluster type: <select name='clusterType' onchange='selectionChanged()'>
             ${options}
             </select>
             </p>
             </form>
 
             <p>
-            <a onclick='${NEXT_FN}'>Next &gt;</a>
+            <button onclick='${NEXT_FN}' class='link-button'>Next &gt;</button>
             </p>
 
             ${otherClustersInfo}
