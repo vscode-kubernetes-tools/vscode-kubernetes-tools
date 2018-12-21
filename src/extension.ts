@@ -1946,15 +1946,15 @@ function linterDisabled(disabledLinters: string[], name: string): boolean {
 }
 
 async function kubernetesLint(document: vscode.TextDocument): Promise<void> {
+    if (config.getDisableLint()) {
+        return;
+    }
     // Is it a Kubernetes document?
     if (!isLintable(document)) {
         return;
     }
-    if (config.getDisableLint()) {
-        return;
-    }
     const disabledLinters = config.getDisabledLinters();
-    const linterPromises = 
+    const linterPromises =
         linters
             .filter((l) => !linterDisabled(disabledLinters, l.name()))
             .map((l) => l.lint(document));

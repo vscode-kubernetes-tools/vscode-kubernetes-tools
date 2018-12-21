@@ -186,7 +186,7 @@
                         },
                         "disable-linters": {
                             "type": "array",
-                            "description": "Lit of linters by name to disable"
+                            "description": "List of linters by name to disable"
                         }
                     },
                     "default": {
