@@ -25,9 +25,10 @@ export class Wizard {
 
     async showPage(htmlBody: Sequence<string>): Promise<void> {
         if (isObservable(htmlBody)) {
+            const webview = this.w.webview;
             htmlBody.subscribe({
                 async onNext(value: string) {
-                    return await this.w.webview.postMessage({ command: 'showPage', html: value });
+                    return await webview.postMessage({ command: 'showPage', html: value });
                 }
             });
         } else if (isThenable(htmlBody)) {

@@ -259,8 +259,7 @@ function waitForClusterAndReportConfigResult(previousData: any, context: azure.C
         },
         async notify(s: string): Promise<void> {
             for (const o of observers) {
-                const okay = await o.onNext(s);
-                console.log("notified " + okay);
+                await o.onNext(s);
             }
         },
         async run(): Promise<void> {
@@ -268,7 +267,7 @@ function waitForClusterAndReportConfigResult(previousData: any, context: azure.C
                 ++refreshCount;
                 await sleep(100);
                 const [html, retry] = await f();
-                this.notify(html);
+                await this.notify(html);
                 if (!retry) {
                     while (observers.length > 0) {
                         observers.unshift();
