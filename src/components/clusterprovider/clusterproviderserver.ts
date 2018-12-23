@@ -15,7 +15,6 @@ function subscriber(action: clusterproviderregistry.ClusterProviderAction): Subs
         onStep(w: Wizard, m: any): void {
             const clusterType: string = m.clusterType;
             if (m[SENDING_STEP_KEY] === SELECT_CLUSTER_TYPE) {
-                console.log(`sending telemetry, action=${action}, clusterType=${clusterType}`);
                 reporter.sendTelemetryEvent("cloudselection", { action: action, clusterType: clusterType });
             }
             const cp = clusterproviderregistry.get().list().find((cp) => cp.id === clusterType);
