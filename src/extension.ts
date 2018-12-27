@@ -1961,12 +1961,23 @@ function isLintable(document: vscode.TextDocument): boolean {
     return document.languageId === 'yaml' || document.languageId === 'json' || document.languageId === 'helm';
 }
 
+function linterDisabled(disabledLinters: string[], name: string): boolean {
+    return disabledLinters.some((l) => l === name);
+}
+
 async function kubernetesLint(document: vscode.TextDocument): Promise<void> {
+    if (config.getDisableLint()) {
+        return;
+    }
     // Is it a Kubernetes document?
     if (!isLintable(document)) {
         return;
     }
-    const linterPromises = linters.map((l) => l.lint(document));
+    const disabledLinters = config.getDisabledLinters();
+    const linterPromises =
+        linters
+            .filter((l) => !linterDisabled(disabledLinters, l.name()))
+            .map((l) => l.lint(document));
     const linterResults = await Promise.all(linterPromises);
     const diagnostics = ([] as vscode.Diagnostic[]).concat(...linterResults);
     kubernetesDiagnostics.set(document.uri, diagnostics);

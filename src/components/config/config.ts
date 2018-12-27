@@ -147,3 +147,12 @@ export function getConfiguredNamespace(): string | undefined {
 export function affectsUs(change: vscode.ConfigurationChangeEvent) {
     return change.affectsConfiguration(EXTENSION_CONFIG_KEY);
 }
+
+export function getDisableLint(): boolean {
+    return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['disable-lint'] === 'true';
+}
+
+export function getDisabledLinters(): string[] {
+    const config = vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY);
+    return config['disable-linters'] as string[];
+}

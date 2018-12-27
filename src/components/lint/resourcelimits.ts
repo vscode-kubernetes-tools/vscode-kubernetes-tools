@@ -7,6 +7,10 @@ import { warningOn, childSymbols } from './linter.utils';
 // .containers[each].resources.limits.{cpu,memory}
 
 export class ResourceLimitsLinter implements LinterImpl {
+    name(): string {
+        return "resource-limits";
+    }
+
     async lint(document: vscode.TextDocument, syntax: Syntax): Promise<vscode.Diagnostic[]> {
         const resources = syntax.load(document.getText());
         if (!resources) {
