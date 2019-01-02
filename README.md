@@ -165,7 +165,7 @@ Minikube tools to be installed and available on your PATH.
 
 ### Draft
 
-[Draft](http://blog.kubernetes.io/2017/05/draft-kubernetes-container-development.html) is a tool to simplify the process of developing a new Kubernetes application, by creating the necessary deployment components and by keeping code in the cluster in sync with the code on your computer.
+[Draft](https://kubernetes.io/blog/2017/05/draft-kubernetes-container-development/) is a tool to simplify the process of developing a new Kubernetes application, by creating the necessary deployment components and by keeping code in the cluster in sync with the code on your computer.
 
   * `Draft: Create` - Set up Draft in the current folder (prerequisite for `Draft: Up`)
   * `Draft: Up` - Runs Draft to package the current folder and push it to your cluster. To allow for cluster changes,
