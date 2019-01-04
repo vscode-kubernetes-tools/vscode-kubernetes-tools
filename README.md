@@ -72,6 +72,14 @@ If you want to swap between multiple kubeconfig files, you can list them in the
 `vs-kubernetes.knownKubeconfigs` configuration setting and switch between them
 using the `Set Kubeconfig` command.
 
+If you want to skip TLS verification for a particular cluster, you can edit your ~/.kube/config and set the ```insecure-skip-tls-verify: true``` flag under the proper cluster:
+```
+- cluster:
+    insecure-skip-tls-verify: true
+    server: https://my-insecure-cluster:443
+    name: my-insecure-cluster:443
+```
+
 ## Commands and features
 
 `vs-kubernetes-tools` supports a number of commands for interacting with Kubernetes; these are accessible via the command menu (`Ctrl+Shift+P`) and may be bound to keys in the normal way.
