@@ -74,7 +74,7 @@ function handleGetProviderListHtml(action: clusterproviderregistry.ClusterProvid
             <input type='hidden' name='${SENDING_STEP_KEY}' value='${SELECT_CLUSTER_TYPE}' />
             <input type='hidden' name='action' value='${action}' />
             <p>
-            Cluster type: <select name='clusterType' onchange='selectionChanged()'>
+            Cluster type: <select name='clusterType'>
             ${options}
             </select>
             </p>
