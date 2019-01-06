@@ -1,6 +1,3 @@
-import restify = require('restify');
-import * as portfinder from 'portfinder';
-import * as vscode from 'vscode';
 import * as clusterproviderregistry from '../clusterproviderregistry';
 import { styles, formStyles, waitScript, ActionResult, Diagnostic, fromShellExitCodeOnly } from '../../../wizard';
 import { propagationFields, formPage } from '../common/form';
@@ -8,119 +5,50 @@ import { refreshExplorer } from '../common/explorer';
 import { succeeded, Failed, failed } from '../../../errorable';
 import { Shell } from '../../../shell';
 import { Minikube, MinikubeOptions } from './minikube';
-import { Wizard } from '../../wizard/wizard';
+import { Wizard, Sequence, NEXT_FN, Observer, Observable } from '../../wizard/wizard';
+import { sleep } from '../../../sleep';
 
 export interface Context {
     readonly shell: Shell;
     readonly minikube: Minikube;
 }
 
-type HtmlRequestHandler = (
-    step: string | undefined,
-    requestData: any,
-    context: Context,
-) => Promise<string>;
-
-let minikubeWizardServer: restify.Server;
-let minikubeWizardPort: number | undefined;
 let registered = false;
 
 export async function init(registry: clusterproviderregistry.ClusterProviderRegistry, context: Context): Promise<void> {
     if (!registered) {
-        const serve = serveCallback(context);
-        registry.register({id: 'minikube', displayName: "Minikube local cluster", supportedActions: ['create', 'configure'], serve: serve, next: next});
+        registry.register({id: 'minikube', displayName: "Minikube local cluster", supportedActions: ['create', 'configure'], serve: undefined, next: (w, a, m) => next(context, w, a, m)});
         registered = true;
     }
 }
 
-function next(wizard: Wizard, action: clusterproviderregistry.ClusterProviderAction, message: any): void {
-}
-
-function serveCallback(context: Context): () => Promise<number> {
-    return () => serve(context);
-}
-
-async function serve(context: Context): Promise<number> {
-    if (minikubeWizardPort) {
-        return minikubeWizardPort;
-    }
-
-    const restifyImpl: typeof restify = require('restify');
-    minikubeWizardServer = restifyImpl.createServer({
-        formatters: {
-            'text/html': (req, resp, body) => body
-        }
-    });
-
-    minikubeWizardPort = await portfinder.getPortPromise({ port: 44000 });
-
-    const htmlServer = new HtmlServer(context);
-    minikubeWizardServer.use(restifyImpl.plugins.queryParser(), restifyImpl.plugins.bodyParser());
-    minikubeWizardServer.listen(minikubeWizardPort, '127.0.0.1');
-
-    // You MUST use fat arrow notation for the handler callbacks: passing the
-    // function reference directly will foul up the 'this' pointer.
-    minikubeWizardServer.get('/create', (req, resp, n) => htmlServer.handleGetCreate(req, resp, n));
-    minikubeWizardServer.post('/create', (req, resp, n) => htmlServer.handlePostCreate(req, resp, n));
-    minikubeWizardServer.get('/configure', (req, resp, n) => htmlServer.handleGetConfigure(req, resp, n));
-    minikubeWizardServer.post('/configure', (req, resp, n) => htmlServer.handlePostConfigure(req, resp, n));
-
-    return minikubeWizardPort;
-}
-
-class HtmlServer {
-    constructor(readonly context: Context) {}
-
-    async handleGetCreate(request: restify.Request, response: restify.Response, next: restify.Next) {
-        await this.handleCreate(request, { clusterType: request.query["clusterType"] }, response, next);
-    }
-
-    async handlePostCreate(request: restify.Request, response: restify.Response, next: restify.Next) {
-        await this.handleCreate(request, request.body, response, next);
-    }
-
-    async handleGetConfigure(request: restify.Request, response: restify.Response, next: restify.Next) {
-        await this.handleConfigure(request, { clusterType: request.query["clusterType"] }, response, next);
-    }
-
-    async handlePostConfigure(request: restify.Request, response: restify.Response, next: restify.Next) {
-        await this.handleConfigure(request, request.body, response, next);
-    }
-
-    async handleCreate(request: restify.Request, requestData: any, response: restify.Response, next: restify.Next): Promise<void> {
-        await this.handleRequest(getHandleCreateHtml, request, requestData, response, next);
-    }
-
-    async handleConfigure(request: restify.Request, requestData: any, response: restify.Response, next: restify.Next): Promise<void> {
-        await this.handleRequest(getHandleConfigureHtml, request, requestData, response, next);
-    }
-
-    async handleRequest(handler: HtmlRequestHandler, request: restify.Request, requestData: any, response: restify.Response, next: restify.Next) {
-        const html = await handler(request.query["step"], requestData, this.context);
-        response.contentType = 'text/html';
-        response.send(`<html><body><style id='styleholder'></style>${html}</body></html>`);
-
-        next();
+function next(context: Context, wizard: Wizard, action: clusterproviderregistry.ClusterProviderAction, message: any): void {
+    const nextStep: string | undefined = message.nextStep;
+    const requestData = nextStep ? message : { clusterType: message["clusterType"] };
+    if (action === 'create') {
+        wizard.showPage(getHandleCreateHtml(nextStep, context, requestData));
+    } else {
+        wizard.showPage(getHandleConfigureHtml(nextStep, requestData));
     }
 }
 
-async function getHandleCreateHtml(step: string | undefined, requestData: any, context: Context): Promise<string> {
+function getHandleCreateHtml(step: string | undefined, context: Context, requestData: any): Sequence<string> {
     if (!step) {
-        return await promptForConfiguration(requestData, context, "create", "create");
+        return promptForConfiguration(requestData, context, "create", "create");
     } else if (step === "create") {
-        return await createCluster(requestData, context);
+        return createCluster(requestData, context);
     } else if (step === "wait") {
-        return await waitForClusterAndReportConfigResult(context, requestData);
+        return waitForClusterAndReportConfigResult(requestData, context);
     } else {
         return renderInternalError(`MinikubeStepError (${step})`);
     }
 }
 
-async function getHandleConfigureHtml(step: string | undefined, requestData: any): Promise<string> {
+function getHandleConfigureHtml(step: string | undefined, requestData: any): Sequence<string> {
     if (!step || step === "configure") {
-        return await configureKubernetes(requestData);
+        return configureKubernetes(requestData);
     } else {
-        return renderInternalError(`ConfigurationStepError (${step})`);
+        return renderInternalError(`MinikubeStepError (${step})`);
     }
 }
 
@@ -189,12 +117,12 @@ async function createCluster(previousData: any, context: Context): Promise<strin
         `<div id='content'>
          ${formStyles()}
          ${styles()}
-         <!-- ${waitScript('Checking on minikube cluster')} -->
-         <form id='form' action='create?step=wait' method='post' onsubmit='return promptWait();'>
+         <form id='form'>
+         <input type='hidden' name='nextStep' value='wait' />
          ${propagationFields(previousData)}
          <p class='success'>Minikube is creating the cluster, but this may take some time. You can now close this window,
          or wait for creation to complete so that we can add the new cluster to your Kubernetes configuration.</p>
-         <p><button type='submit' class='link-button'>Wait and add the new cluster &gt;</button></p>
+         <p><button onclick=${NEXT_FN} class='link-button'>Wait and add the new cluster &gt;</button></p>
          </form>
          </div>` :
         `<p class='error'>An error occurred while creating the cluster. Is 'minikube' installed and in your PATH?</p>
@@ -208,27 +136,64 @@ async function createCluster(previousData: any, context: Context): Promise<strin
 
 }
 
-async function waitForClusterAndReportConfigResult(context: Context, previousData: any): Promise<string> {
-    const waitResult = await runMinikubeCommand(context, 'minikube status');
-    if (!waitResult.result.succeeded) {
-        const failed = waitResult.result as Failed;
-        return `<h1>Waiting for minikube cluster</h1>
-        <p>Current Status</p>
-        <pre><code>${failed.error[0]}</code></pre>
-        <form id='form' action='create?step=wait' method='post'>
-        ${propagationFields(previousData)}
-        </form>
-        <script>
-        window.setTimeout(function() {
-            var f = document.getElementById('form');
-            f.submit();
-        }, 1000)
-        </script>
-        `;
-    }
-    await refreshExplorer();
+let refreshCount = 0;  // TODO: ugh
 
-    return renderConfigurationResult();
+function refreshCountIndicator(): string {
+    return ".".repeat(refreshCount % 4);
+}
+
+function waitForClusterAndReportConfigResult(previousData: any, context: Context): Observable<string> {
+
+    // TODO: deduplicate
+    const observers: Observer<string>[] = [];
+
+    const observable = {
+        subscribe(s: Observer<string>): void {
+            observers.push(s);
+        },
+        async notify(s: string): Promise<void> {
+            for (const o of observers) {
+                await o.onNext(s);
+            }
+        },
+        async run(): Promise<void> {
+            while (true) {
+                ++refreshCount;
+                await sleep(100);
+                const [html, retry] = await f();
+                await this.notify(html);
+                if (!retry) {
+                    while (observers.length > 0) {
+                        observers.unshift();
+                    }
+                    return;
+                }
+            }
+        }
+    };
+
+    async function f(): Promise<[string, boolean]> {
+        const waitResult = await runMinikubeCommand(context, 'minikube status');
+        if (!waitResult.result.succeeded) {
+            const failed = waitResult.result as Failed;
+            const message = `<h1>Waiting for minikube cluster${refreshCountIndicator()}</h1>
+            <p>Current Status</p>
+            <pre><code>${failed.error[0]}</code></pre>
+            <form id='form'>
+            <input type='hidden' name='nextStep' value='wait' />
+            ${propagationFields(previousData)}
+            </form>
+            `;
+            return [message, true];
+        }
+
+        await refreshExplorer();
+
+        return [renderConfigurationResult(), false];
+    }
+
+    observable.run();
+    return observable;
 }
 
 function renderConfigurationResult(): string {
