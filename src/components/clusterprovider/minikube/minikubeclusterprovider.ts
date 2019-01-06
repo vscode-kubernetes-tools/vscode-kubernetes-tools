@@ -5,7 +5,8 @@ import { refreshExplorer } from '../common/explorer';
 import { succeeded, Failed, failed } from '../../../errorable';
 import { Shell } from '../../../shell';
 import { Minikube, MinikubeOptions } from './minikube';
-import { Wizard, Sequence, NEXT_FN, Observer, Observable } from '../../wizard/wizard';
+import { Wizard, NEXT_FN } from '../../wizard/wizard';
+import { Sequence, Observable, Observer } from '../../../utils/observable';
 import { sleep } from '../../../sleep';
 
 export interface Context {

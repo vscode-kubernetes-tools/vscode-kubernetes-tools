@@ -4,7 +4,8 @@ import { styles, formStyles, waitScript, ActionResult, Diagnostic } from '../../
 import { Errorable, succeeded, failed, Failed, Succeeded } from '../../../errorable';
 import { formPage, propagationFields } from '../common/form';
 import { refreshExplorer } from '../common/explorer';
-import { Wizard, NEXT_FN, Sequence, Observable, Observer } from '../../wizard/wizard';
+import { Wizard, NEXT_FN } from '../../wizard/wizard';
+import { Sequence, Observable, Observer } from '../../../utils/observable';
 import { sleep } from '../../../sleep';
 
 // TODO: de-globalise
