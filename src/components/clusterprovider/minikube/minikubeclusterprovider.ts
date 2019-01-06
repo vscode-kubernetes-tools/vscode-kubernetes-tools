@@ -17,7 +17,7 @@ let registered = false;
 
 export async function init(registry: clusterproviderregistry.ClusterProviderRegistry, context: Context): Promise<void> {
     if (!registered) {
-        registry.register({id: 'minikube', displayName: "Minikube local cluster", supportedActions: ['create', 'configure'], serve: undefined, next: (w, a, m) => next(context, w, a, m)});
+        registry.register({id: 'minikube', displayName: "Minikube local cluster", supportedActions: ['create', 'configure'], next: (w, a, m) => next(context, w, a, m)});
         registered = true;
     }
 }

@@ -12,8 +12,8 @@ let registered = false;
 
 export async function init(registry: clusterproviderregistry.ClusterProviderRegistry, context: azure.Context): Promise<void> {
     if (!registered) {
-        registry.register({id: 'aks', displayName: "Azure Kubernetes Service", supportedActions: ['create', 'configure'], serve: undefined, next: (w, a, m) => next(context, w, a, m)});
-        registry.register({id: 'acs', displayName: "Azure Container Service", supportedActions: ['create', 'configure'], serve: undefined, next: (w, a, m) => next(context, w, a, m)});
+        registry.register({id: 'aks', displayName: "Azure Kubernetes Service", supportedActions: ['create', 'configure'], next: (w, a, m) => next(context, w, a, m)});
+        registry.register({id: 'acs', displayName: "Azure Container Service", supportedActions: ['create', 'configure'], next: (w, a, m) => next(context, w, a, m)});
         registered = true;
     }
 }
