@@ -10,6 +10,10 @@ export class Resources {
     public all(): vscode.CompletionItem[] {
         const home = shell.home();
         const schemaDir = filepath.join(home, ".kube/schema");
+        if (!fs.existsSync(schemaDir)) {
+            // Return the default set.
+            return this.v1();
+        }
         const stat = fs.statSync(schemaDir);
         if (!stat.isDirectory()) {
             // Return the default set.
@@ -17,7 +21,12 @@ export class Resources {
         }
         // Otherwise, try to dynamically build completion items from the
         // entire schema.
-        const kversion = _.last(shell.ls(schemaDir));
+        const schemaDirContents = shell.ls(schemaDir);
+        if (schemaDirContents.length === 0) {
+            // Return the default set.
+            return this.v1();
+        }
+        const kversion = _.last(schemaDirContents);
         console.log("Loading schema for version " + kversion);
 
         // Inside of the schemaDir, there are some top-level copies of the schemata.
