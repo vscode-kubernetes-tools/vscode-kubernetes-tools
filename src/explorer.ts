@@ -1,6 +1,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 
+import { Failed } from './errorable';
 import { Kubectl } from './kubectl';
 import * as kubectlUtils from './kubectlUtils';
 import { Host } from './host';
@@ -140,6 +141,8 @@ class KubernetesContextNode implements KubernetesObject {
             new KubernetesNodeFolder(),
             new KubernetesWorkloadFolder(),
             new KubernetesNetworkFolder(),
+            new KubernetesSelectsPodsFolder(kuberesources.allKinds.service),
+            new KubernetesResourceFolder(kuberesources.allKinds.ingress),
             new KubernetesStorageFolder(),
             new KubernetesConfigFolder(),
             new HelmReleasesFolder(),
@@ -282,7 +285,25 @@ class KubernetesResource implements KubernetesObject, ResourceNode {
     }
 
     async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
-        return [];
+        if (this.kind !== kuberesources.allKinds.pod) {
+            return [];
+        }
+        const result = await kubectl.asJson<Pod>(`get pods ${this.metadata.name} -o json`);
+        if (result.succeeded) {
+            const pod = result.result;
+            let ready = 0;
+            pod.status.containerStatuses.forEach((status) => {
+                if (status.ready) {
+                    ready++;
+                }
+            });
+            return [
+                new DummyObject(`${pod.status.phase} (${ready}/${pod.status.containerStatuses.length})`),
+                new DummyObject(pod.status.podIP),
+            ];
+        } else {
+            return [ new DummyObject("Error", (<Failed>result).error[0]) ];
+        }
     }
 
     getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
@@ -303,6 +324,9 @@ class KubernetesResource implements KubernetesObject, ResourceNode {
         }
         if (this.namespace) {
             treeItem.tooltip = `Namespace: ${this.namespace}`;  // TODO: show only if in non-current namespace?
+        }
+        if (this.kind === kuberesources.allKinds.pod) {
+            treeItem.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
         }
         return treeItem;
     }
