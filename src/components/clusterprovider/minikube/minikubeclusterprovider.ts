@@ -8,6 +8,7 @@ import { Minikube, MinikubeOptions } from './minikube';
 import { Wizard, NEXT_FN } from '../../wizard/wizard';
 import { Sequence, Observable, Observer } from '../../../utils/observable';
 import { sleep } from '../../../sleep';
+import { trackReadiness } from '../readinesstracker';
 
 export interface Context {
     readonly shell: Shell;
@@ -137,47 +138,17 @@ async function createCluster(previousData: any, context: Context): Promise<strin
 
 }
 
-let refreshCount = 0;  // TODO: ugh
-
-function refreshCountIndicator(): string {
+function refreshCountIndicator(refreshCount: number): string {
     return ".".repeat(refreshCount % 4);
 }
 
 function waitForClusterAndReportConfigResult(previousData: any, context: Context): Observable<string> {
 
-    // TODO: deduplicate
-    const observers: Observer<string>[] = [];
-
-    const observable = {
-        subscribe(s: Observer<string>): void {
-            observers.push(s);
-        },
-        async notify(s: string): Promise<void> {
-            for (const o of observers) {
-                await o.onNext(s);
-            }
-        },
-        async run(): Promise<void> {
-            while (true) {
-                ++refreshCount;
-                await sleep(100);
-                const [html, retry] = await f();
-                await this.notify(html);
-                if (!retry) {
-                    while (observers.length > 0) {
-                        observers.unshift();
-                    }
-                    return;
-                }
-            }
-        }
-    };
-
-    async function f(): Promise<[string, boolean]> {
+    async function waitOnce(refreshCount: number): Promise<[string, boolean]> {
         const waitResult = await runMinikubeCommand(context, 'minikube status');
         if (!waitResult.result.succeeded) {
             const failed = waitResult.result as Failed;
-            const message = `<h1>Waiting for minikube cluster${refreshCountIndicator()}</h1>
+            const message = `<h1>Waiting for minikube cluster${refreshCountIndicator(refreshCount)}</h1>
             <p>Current Status</p>
             <pre><code>${failed.error[0]}</code></pre>
             <form id='form'>
@@ -193,8 +164,7 @@ function waitForClusterAndReportConfigResult(previousData: any, context: Context
         return [renderConfigurationResult(), false];
     }
 
-    observable.run();
-    return observable;
+    return trackReadiness(100, waitOnce);
 }
 
 function renderConfigurationResult(): string {

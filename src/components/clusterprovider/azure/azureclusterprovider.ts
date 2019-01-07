@@ -7,6 +7,7 @@ import { refreshExplorer } from '../common/explorer';
 import { Wizard, NEXT_FN } from '../../wizard/wizard';
 import { Sequence, Observable, Observer } from '../../../utils/observable';
 import { sleep } from '../../../sleep';
+import { trackReadiness } from '../readinesstracker';
 
 // TODO: de-globalise
 let registered = false;
@@ -244,49 +245,20 @@ async function createCluster(previousData: any, context: azure.Context): Promise
 
 }
 
-let refreshCount = 0;  // TODO: ugh
-
-function refreshCountIndicator(): string {
+function refreshCountIndicator(refreshCount: number): string {
     return ".".repeat(refreshCount % 4);
 }
 
 function waitForClusterAndReportConfigResult(previousData: any, context: azure.Context): Observable<string> {
 
-    const observers: Observer<string>[] = [];
-
-    const observable = {
-        subscribe(s: Observer<string>): void {
-            observers.push(s);
-        },
-        async notify(s: string): Promise<void> {
-            for (const o of observers) {
-                await o.onNext(s);
-            }
-        },
-        async run(): Promise<void> {
-            while (true) {
-                ++refreshCount;
-                await sleep(100);
-                const [html, retry] = await f();
-                await this.notify(html);
-                if (!retry) {
-                    while (observers.length > 0) {
-                        observers.unshift();
-                    }
-                    return;
-                }
-            }
-        }
-    };
-
-    async function f(): Promise<[string, boolean]> {
+    async function waitOnce(refreshCount: number): Promise<[string, boolean]> {
         const waitResult = await azure.waitForCluster(context, previousData.clusterType, previousData.clustername, previousData.resourcegroupname);
         if (failed(waitResult)) {
             return [`<h1>Error creating cluster</h1><p>Error details: ${waitResult.error[0]}</p>`, false];
         }
 
         if (waitResult.result.stillWaiting) {
-            return [`<h1>Waiting for cluster - this will take several minutes${refreshCountIndicator()}</h1>
+            return [`<h1>Waiting for cluster - this will take several minutes${refreshCountIndicator(refreshCount)}</h1>
                 <form id='form'>
                 <input type='hidden' name='nextStep' value='wait' />
                 ${propagationFields(previousData)}
@@ -300,8 +272,7 @@ function waitForClusterAndReportConfigResult(previousData: any, context: azure.C
         return [renderConfigurationResult(configureResult), false];
     }
 
-    observable.run();
-    return observable;
+    return trackReadiness(100, waitOnce);
 }
 
 function renderConfigurationResult(configureResult: ActionResult<azure.ConfigureResult>): string {
