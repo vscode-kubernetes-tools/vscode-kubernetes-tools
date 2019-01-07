@@ -20,6 +20,7 @@ import { Kubectl } from './kubectl';
 import { getToolPath, getUseWsl } from './components/config/config';
 import { host } from './host';
 import * as fs from './wsl-fs';
+import { preview } from './utils/preview';
 
 export interface PickChartUIOptions {
     readonly warnIfNoCharts: boolean;
@@ -77,7 +78,7 @@ export function helmTemplatePreview() {
 
     const u = vscode.Uri.parse(helm.PREVIEW_URI);
     const f = filepath.basename(filePath);
-    vscode.commands.executeCommand("vscode.previewHtml", u, vscode.ViewColumn.Two, `Preview ${ f }`);
+    preview(u, vscode.ViewColumn.Two, `Preview ${ f }`);
     helm.recordPreviewHasBeenShown();
 }
 
@@ -188,11 +189,11 @@ function helmInspect(arg: any, s: InspectionStrategy) {
         const id = arg.id;
         const versionQuery = helmrepoexplorer.isHelmRepoChartVersion(arg) ? `?${arg.version}` : '';
         const uri = vscode.Uri.parse(`${s.inspectionScheme}://${helm.INSPECT_REPO_AUTHORITY}/${id}${versionQuery}`);
-        vscode.commands.executeCommand("vscode.previewHtml", uri, vscode.ViewColumn.Two, "Inspect");
+        preview(uri, vscode.ViewColumn.Two, "Inspect");
     } else {
         const u = arg as vscode.Uri;
         const uri = vscode.Uri.parse(`${s.inspectionScheme}://${helm.INSPECT_FILE_AUTHORITY}/?${u.fsPath}`);
-        vscode.commands.executeCommand("vscode.previewHtml", uri, vscode.ViewColumn.Two, "Inspect");
+        preview(uri, vscode.ViewColumn.Two, "Inspect");
     }
 }
 
@@ -348,7 +349,7 @@ async function helmDependenciesLaunchViewer(chartId: string, version: string | u
     // Boing it back through a HTML preview window
     const versionQuery = version ? `?${version}` : '';
     const uri = vscode.Uri.parse(`${helm.DEPENDENCIES_SCHEME}://${helm.DEPENDENCIES_REPO_AUTHORITY}/${chartId}${versionQuery}`);
-    await vscode.commands.executeCommand("vscode.previewHtml", uri, vscode.ViewColumn.Two, `${chartId} Dependencies`);
+    await preview(uri, vscode.ViewColumn.Two, `${chartId} Dependencies`);
 }
 
 export async function helmDependenciesCore(chartId: string, version: string | undefined): Promise<Errorable<{ [key: string]: string }[]>> {
