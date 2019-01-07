@@ -81,16 +81,29 @@ export function helmTemplatePreview() {
     helm.recordPreviewHasBeenShown();
 }
 
-export function helmDepUp() {
-    pickChart((path) => {
-        logger.log("⎈⎈⎈ Updating dependencies for " + path);
-        helmExec(`dep up "${path}"`, (code, out, err) => {
-            logger.log(out);
-            logger.log(err);
-            if (code !== 0) {
-                logger.log("⎈⎈⎈ UPDATE FAILED");
-            }
-        });
+export function helmDepUp(arg: any) {
+    if (arg) {
+        const doc = arg as vscode.TextDocument;
+        if (doc.uri.scheme !== 'file') {
+            vscode.window.showErrorMessage('Chart is not on the filesystem');
+            return;
+        }
+        const path = filepath.dirname(doc.fileName);
+        helmDepUpCore(path);
+        return;
+    }
+
+    pickChart((path) => helmDepUpCore(path));
+}
+
+function helmDepUpCore(path: string) {
+    logger.log("⎈⎈⎈ Updating dependencies for " + path);
+    helmExec(`dep up "${path}"`, (code, out, err) => {
+        logger.log(out);
+        logger.log(err);
+        if (code !== 0) {
+            logger.log("⎈⎈⎈ UPDATE FAILED");
+        }
     });
 }
 
@@ -370,7 +383,7 @@ export async function helmDependenciesCore(chartId: string, version: string | un
 // the fn is executed with that chart.
 //
 // callback is fn(path)
-export function pickChart(fn) {
+export function pickChart(fn: (chartPath: string) => void) {
     if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0) {
         vscode.window.showErrorMessage("This command requires an open folder.");
         return;

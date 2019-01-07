@@ -16,7 +16,8 @@ export class HelmRequirementsCodeLensProvider implements vscode.CodeLensProvider
 
         const update = new vscode.CodeLens(range, {
             title: "update dependencies",
-            command: "extension.helmDepUp"
+            command: "extension.helmDepUp",
+            arguments: [doc]
         });
         const insert = new vscode.CodeLens(range, {
             title: "insert dependency",
