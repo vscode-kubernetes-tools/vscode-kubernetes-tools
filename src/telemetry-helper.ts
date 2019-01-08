@@ -2,8 +2,10 @@ import { reporter } from './telemetry';
 import { Kubectl } from './kubectl';
 
 export function telemetrise(command: string, kubectl: Kubectl, callback: (...args: any[]) => any): (...args: any[]) => any {
-    return async (a) => {
-        reporter.sendTelemetryEvent("command", { command: command, clusterType: await clusterType(kubectl) });
+    return (a) => {
+        clusterType(kubectl).then((ct) =>
+            reporter.sendTelemetryEvent("command", { command: command, clusterType: ct })
+        );
         return callback(a);
     };
 }
