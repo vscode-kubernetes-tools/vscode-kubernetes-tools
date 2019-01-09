@@ -81,19 +81,20 @@ export function helmTemplatePreview() {
     helm.recordPreviewHasBeenShown();
 }
 
-export function helmDepUp(arg: any) {
-    if (arg) {
-        const doc = arg as vscode.TextDocument;
-        if (doc.uri.scheme !== 'file') {
-            vscode.window.showErrorMessage('Chart is not on the filesystem');
-            return;
-        }
-        const path = filepath.dirname(doc.fileName);
-        helmDepUpCore(path);
+export function helmDepUp(arg: any /* Uri | TextDocument | undefined */) {
+    if (!arg) {
+        pickChart((path) => helmDepUpCore(path));
         return;
     }
 
-    pickChart((path) => helmDepUpCore(path));
+    const uri: vscode.Uri = arg.uri || arg;
+
+    if (uri.scheme !== 'file') {
+        vscode.window.showErrorMessage('Chart is not on the filesystem');
+        return;
+    }
+    const path = filepath.dirname(uri.fsPath);
+    helmDepUpCore(path);
 }
 
 function helmDepUpCore(path: string) {
