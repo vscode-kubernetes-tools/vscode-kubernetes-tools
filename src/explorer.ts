@@ -200,6 +200,7 @@ class KubernetesWorkloadFolder extends KubernetesFolder {
             new KubernetesResourceFolder(kuberesources.allKinds.job),
             new KubernetesResourceFolder(kuberesources.allKinds.cronjob),
             new KubernetesResourceFolder(kuberesources.allKinds.pod),
+            new KubernetesCRDFolder(kuberesources.allKinds.crd),
         ];
     }
 }
@@ -397,6 +398,17 @@ class KubernetesSelectsPodsFolder extends KubernetesResourceFolder {
     async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
         const objects = await kubectlUtils.getResourceWithSelector(this.kind.abbreviation, kubectl);
         return objects.map((obj) => new KubernetesSelectorResource(this.kind, obj.name, obj, obj.selector));
+    }
+}
+
+class KubernetesCRDFolder extends KubernetesFolder {
+    constructor(readonly kind: kuberesources.ResourceKind) {
+        super(kind.abbreviation, kind.pluralDisplayName);
+    }
+
+    async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
+        const objects = await kubectlUtils.getGlobalResources(kubectl, "crd");
+        return objects.map((obj) => new KubernetesResourceFolder(new kuberesources.ResourceKind(obj.metadata.name, obj.metadata.name, obj.metadata.name, obj.metadata.name)));
     }
 }
 
