@@ -145,6 +145,7 @@ class KubernetesContextNode implements KubernetesObject {
             new KubernetesResourceFolder(kuberesources.allKinds.ingress),
             new KubernetesStorageFolder(),
             new KubernetesConfigFolder(),
+            new KubernetesCRDFolder(kuberesources.allKinds.crd),
             new HelmReleasesFolder(),
         ];
     }
@@ -200,7 +201,6 @@ class KubernetesWorkloadFolder extends KubernetesFolder {
             new KubernetesResourceFolder(kuberesources.allKinds.job),
             new KubernetesResourceFolder(kuberesources.allKinds.cronjob),
             new KubernetesResourceFolder(kuberesources.allKinds.pod),
-            new KubernetesCRDFolder(kuberesources.allKinds.crd),
         ];
     }
 }
