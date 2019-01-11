@@ -407,8 +407,8 @@ class KubernetesCRDFolder extends KubernetesFolder {
     }
 
     async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
-        const objects = await kubectlUtils.getGlobalResources(kubectl, "crd");
-        return objects.map((obj) => new KubernetesResourceFolder(new kuberesources.ResourceKind(obj.metadata.name, obj.metadata.name, obj.metadata.name, obj.metadata.name)));
+        const objects = await kubectlUtils.getCRDTypes(kubectl);
+        return objects.map((obj) => new KubernetesResourceFolder(new kuberesources.ResourceKind(obj.metadata.name, obj.pluralName, obj.kind, obj.abbreviation)));
     }
 }
 

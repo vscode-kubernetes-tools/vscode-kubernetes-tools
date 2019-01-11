@@ -30,6 +30,11 @@ export interface PodInfo extends KubernetesObject {
     readonly status: string;
 }
 
+export interface CRDInfo extends KubernetesResource {
+    readonly pluralName: string;
+    readonly abbreviation: string;
+}
+
 export interface ClusterConfig {
     readonly server: string;
     readonly certificateAuthority: string;
@@ -126,6 +131,24 @@ export async function getGlobalResources(kubectl: Kubectl, resource: string): Pr
         return {
             metadata: item.metadata,
             kind: resource
+        };
+    });
+}
+
+
+export async function getCRDTypes(kubectl: Kubectl): Promise<CRDInfo[]> {
+    const crdTypes = await kubectl.asJson<KubernetesCollection<any>>(`get crds -o json`);
+    if (failed(crdTypes)) {
+        vscode.window.showErrorMessage(crdTypes.error[0]);
+        return [];
+    }
+
+    return crdTypes.result.items.map((item) => {
+        return {
+            metadata: item.metadata,
+            kind: "crd",
+            pluralName: item.spec.names.plural,
+            abbreviation: (item.spec.names.shortNames != null) ? (item.spec.names.shortNames.length > 0 ? item.spec.names.shortNames[0] : "") : ""
         };
     });
 }
