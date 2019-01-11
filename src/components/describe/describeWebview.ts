@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 
 export class DescribePanel {
 	public static readonly viewType = 'vscodeKubernetesDescribe';
-	public static currentPanel = null;
+	public static currentPanels = [];
 
 	private readonly panel: vscode.WebviewPanel;
     private readonly extensionPath: string;
@@ -15,10 +15,11 @@ export class DescribePanel {
 		const column = vscode.window.activeTextEditor ? vscode.window.activeTextEditor.viewColumn : undefined;
 
 		// If we already have a panel, show it.
-		if (DescribePanel.currentPanel) {
-			DescribePanel.currentPanel.setContent(content);
-			DescribePanel.currentPanel.update();
-			DescribePanel.currentPanel.panel.reveal(column);
+		const currentPanel = DescribePanel.currentPanels[resource];
+		if (currentPanel) {
+			currentPanel.setInfo(content, resource);
+			currentPanel.update();
+			currentPanel.panel.reveal(column);
 			return;
 		}
 		const panel = vscode.window.createWebviewPanel(DescribePanel.viewType, "Kubernetes Describe", column || vscode.ViewColumn.One, {
@@ -29,11 +30,7 @@ export class DescribePanel {
 			]
 		});
 
-		DescribePanel.currentPanel = new DescribePanel(panel, extensionPath, content, resource);
-	}
-
-	public static revive(panel: vscode.WebviewPanel, extensionPath: string) {
-		DescribePanel.currentPanel = new DescribePanel(panel, extensionPath, '', '');
+		DescribePanel.currentPanels[resource] = new DescribePanel(panel, extensionPath, content, resource);
 	}
 
 	private constructor(
@@ -57,11 +54,14 @@ export class DescribePanel {
 		}, null, this.disposables);
 	}
 
-    public setContent(content: string) {
-        this.content = content;
+    public setInfo(content: string, resource: string) {
+		this.content = content;
+		this.resource = resource;
     }
 
 	public dispose() {
+		DescribePanel.currentPanels[this.resource] = undefined;
+
 		this.panel.dispose();
 
 		while (this.disposables.length) {
