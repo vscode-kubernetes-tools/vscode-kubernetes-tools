@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { Kubectl } from "./kubectl";
 import { kubeChannel } from "./kubeChannel";
 import { sleep } from "./sleep";
-import { ObjectMeta, KubernetesCollection, DataResource, Namespace, Pod, KubernetesResource } from './kuberesources.objectmodel';
+import { ObjectMeta, KubernetesCollection, DataResource, Namespace, Pod, KubernetesResource, CRD } from './kuberesources.objectmodel';
 import { failed } from "./errorable";
 
 export interface KubectlContext {
@@ -28,11 +28,6 @@ export interface PodInfo extends KubernetesObject {
     readonly namespace: string;
     readonly nodeName: string;
     readonly status: string;
-}
-
-export interface CRDInfo extends KubernetesResource {
-    readonly pluralName: string;
-    readonly abbreviation: string;
 }
 
 export interface ClusterConfig {
@@ -135,8 +130,7 @@ export async function getGlobalResources(kubectl: Kubectl, resource: string): Pr
     });
 }
 
-
-export async function getCRDTypes(kubectl: Kubectl): Promise<CRDInfo[]> {
+export async function getCRDTypes(kubectl: Kubectl): Promise<CRD[]> {
     const crdTypes = await kubectl.asJson<KubernetesCollection<any>>(`get crds -o json`);
     if (failed(crdTypes)) {
         vscode.window.showErrorMessage(crdTypes.error[0]);
@@ -147,8 +141,7 @@ export async function getCRDTypes(kubectl: Kubectl): Promise<CRDInfo[]> {
         return {
             metadata: item.metadata,
             kind: "crd",
-            pluralName: item.spec.names.plural,
-            abbreviation: (item.spec.names.shortNames != null) ? (item.spec.names.shortNames.length > 0 ? item.spec.names.shortNames[0] : "") : ""
+            spec: item.spec
         };
     });
 }
