@@ -52,8 +52,6 @@ function extractChartName(uri: vscode.Uri): string {
 export class HelmInspectDocumentProvider implements vscode.TextDocumentContentProvider {
     public provideTextDocumentContent(uri: vscode.Uri, tok: vscode.CancellationToken): vscode.ProviderResult<string> {
         return new Promise<string>((resolve, reject) => {
-            console.log("provideTextDocumentContent called with uri " + uri.toString());
-
             const printer = (code: number, out: string, err: string) => {
                 if (code === 0) {
                     const p = extractChartName(uri);
