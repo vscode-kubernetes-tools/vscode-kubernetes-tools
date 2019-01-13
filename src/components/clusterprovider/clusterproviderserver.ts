@@ -1,4 +1,3 @@
-import restify = require('restify');
 import * as clusterproviderregistry from './clusterproviderregistry';
 import { styles, formStyles } from '../../wizard';
 import { reporter } from '../../telemetry';

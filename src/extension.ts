@@ -23,8 +23,6 @@ import { addKubernetesConfigFile, deleteKubernetesConfigFile } from './configMap
 import * as explainer from './explainer';
 import { shell, Shell, ShellResult, ShellHandler } from './shell';
 import * as configmaps from './configMap';
-import * as configureFromCluster from './configurefromcluster';
-import * as createCluster from './createcluster';
 import * as kuberesources from './kuberesources';
 import { useNamespaceKubernetes } from './components/kubectl/namespace';
 import { EventDisplayMode, getEvents } from './components/kubectl/events';
@@ -73,7 +71,6 @@ import { setActiveKubeconfig, getKnownKubeconfigs, addKnownKubeconfig } from './
 import { HelmDocumentSymbolProvider } from './helm.symbolProvider';
 import { findParentYaml } from './yaml-support/yaml-navigation';
 import { linters } from './components/lint/linters';
-import { NEXT_FN, createWizard, Wizard } from './components/wizard/wizard';
 import { runClusterWizard } from './components/clusterprovider/clusterproviderserver';
 
 let explainActive = false;
@@ -84,8 +81,6 @@ const kubernetesDiagnostics = vscode.languages.createDiagnosticCollection("Kuber
 const kubectl = kubectlCreate(host, fs, shell, installDependencies);
 const draft = draftCreate(host, fs, shell, installDependencies);
 const minikube = minikubeCreate(host, fs, shell, installDependencies);
-const configureFromClusterUI = configureFromCluster.uiProvider();
-const createClusterUI = createCluster.uiProvider();
 const clusterProviderRegistry = clusterproviderregistry.get();
 const configMapProvider = new configmaps.ConfigMapTextProvider(kubectl);
 const git = new Git(shell);
@@ -222,8 +217,6 @@ export async function activate(context): Promise<extensionapi.ExtensionAPI> {
         vscode.debug.registerDebugConfigurationProvider('draft', draftDebugProvider),
 
         // HTML renderers
-        vscode.workspace.registerTextDocumentContentProvider(configureFromCluster.uriScheme, configureFromClusterUI),
-        vscode.workspace.registerTextDocumentContentProvider(createCluster.uriScheme, createClusterUI),
         vscode.workspace.registerTextDocumentContentProvider(helm.PREVIEW_SCHEME, previewProvider),
         vscode.workspace.registerTextDocumentContentProvider(helm.INSPECT_VALUES_SCHEME, inspectProvider),
         vscode.workspace.registerTextDocumentContentProvider(helm.INSPECT_CHART_SCHEME, inspectProvider),
