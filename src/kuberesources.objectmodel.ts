@@ -61,6 +61,7 @@ export interface CRDSpec {
 }
 
 export interface CRDNames {
+    readonly kind: string;
     readonly plural: string;
     readonly singular: string;
     readonly shortNames: string[];

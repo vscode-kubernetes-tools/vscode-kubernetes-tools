@@ -140,7 +140,7 @@ export async function getCRDTypes(kubectl: Kubectl): Promise<CRD[]> {
     return crdTypes.result.items.map((item) => {
         return {
             metadata: item.metadata,
-            kind: "crd",
+            kind: item.spec.names.kind,
             spec: item.spec
         };
     });

@@ -145,7 +145,7 @@ class KubernetesContextNode implements KubernetesObject {
             new KubernetesResourceFolder(kuberesources.allKinds.ingress),
             new KubernetesStorageFolder(),
             new KubernetesConfigFolder(),
-            new KubernetesCRDFolder(kuberesources.allKinds.crd),
+            new KubernetesCRDFolder(),
             new HelmReleasesFolder(),
         ];
     }
@@ -402,13 +402,13 @@ class KubernetesSelectsPodsFolder extends KubernetesResourceFolder {
 }
 
 class KubernetesCRDFolder extends KubernetesFolder {
-    constructor(readonly kind: kuberesources.ResourceKind) {
-        super(kind.abbreviation, kind.pluralDisplayName);
+    constructor() {
+        super(kuberesources.allKinds.crd.abbreviation, kuberesources.allKinds.crd.pluralDisplayName);
     }
 
     async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
         const objects = await kubectlUtils.getCRDTypes(kubectl);
-        return objects.map((obj) => new KubernetesResourceFolder(new kuberesources.ResourceKind(obj.metadata.name, obj.spec.names.plural, obj.kind, obj.spec.names.shortNames !== null ? (obj.spec.names.shortNames.length > 0 ? obj.spec.names.shortNames[0] : "") : "")));
+        return objects.map((obj) => new KubernetesResourceFolder(new kuberesources.ResourceKind(obj.spec.names.singular, obj.spec.names.plural, obj.spec.names.kind, obj.spec.names.shortNames !== null ? (obj.spec.names.shortNames.length > 0 ? obj.spec.names.shortNames[0] : obj.metadata.name) : obj.metadata.name)));
     }
 }
 
