@@ -1,127 +1,61 @@
-import restify = require('restify');
-import * as portfinder from 'portfinder';
 import * as clusterproviderregistry from '../clusterproviderregistry';
 import * as azure from './azure';
 import { styles, formStyles, waitScript, ActionResult, Diagnostic } from '../../../wizard';
 import { Errorable, succeeded, failed, Failed, Succeeded } from '../../../errorable';
 import { formPage, propagationFields } from '../common/form';
 import { refreshExplorer } from '../common/explorer';
-
-// HTTP request dispatch
+import { Wizard, NEXT_FN } from '../../wizard/wizard';
+import { Sequence, Observable, Observer } from '../../../utils/observable';
+import { sleep } from '../../../sleep';
+import { trackReadiness } from '../readinesstracker';
 
 // TODO: de-globalise
-let wizardServer: restify.Server;
-let wizardPort: number | undefined;
 let registered = false;
-
-type HtmlRequestHandler = (
-    step: string | undefined,
-    context: azure.Context,
-    requestData: any,
-) => Promise<string>;
 
 export async function init(registry: clusterproviderregistry.ClusterProviderRegistry, context: azure.Context): Promise<void> {
     if (!registered) {
-        const serve = serveCallback(context);
-        registry.register({id: 'aks', displayName: "Azure Kubernetes Service", supportedActions: ['create', 'configure'], serve: serve});
-        registry.register({id: 'acs', displayName: "Azure Container Service", supportedActions: ['create', 'configure'], serve: serve});
+        registry.register({id: 'aks', displayName: "Azure Kubernetes Service", supportedActions: ['create', 'configure'], next: (w, a, m) => next(context, w, a, m)});
+        registry.register({id: 'acs', displayName: "Azure Container Service", supportedActions: ['create', 'configure'], next: (w, a, m) => next(context, w, a, m)});
         registered = true;
     }
 }
 
-function serveCallback(context: azure.Context): () => Promise<number> {
-    return () => serve(context);
-}
+// Wizard step dispatch
 
-async function serve(context: azure.Context): Promise<number> {
-    if (wizardPort) {
-        return wizardPort;
-    }
-
-    const restifyImpl: typeof restify = require('restify');
-    wizardServer = restifyImpl.createServer({
-        formatters: {
-            'text/html': (req, resp, body) => body
-        }
-    });
-
-    wizardPort = await portfinder.getPortPromise({ port: 44000 });
-
-    const htmlServer = new HtmlServer(context);
-
-    wizardServer.use(restifyImpl.plugins.queryParser(), restifyImpl.plugins.bodyParser());
-    wizardServer.listen(wizardPort, '127.0.0.1');
-
-    // You MUST use fat arrow notation for the handler callbacks: passing the
-    // function reference directly will foul up the 'this' pointer.
-    wizardServer.get('/create', (req, resp, n) => htmlServer.handleGetCreate(req, resp, n));
-    wizardServer.post('/create', (req, resp, n) => htmlServer.handlePostCreate(req, resp, n));
-    wizardServer.get('/configure', (req, resp, n) => htmlServer.handleGetConfigure(req, resp, n));
-    wizardServer.post('/configure', (req, resp, n) => htmlServer.handlePostConfigure(req, resp, n));
-
-    return wizardPort;
-}
-
-class HtmlServer {
-    constructor(private readonly context: azure.Context) {}
-
-    async handleGetCreate(request: restify.Request, response: restify.Response, next: restify.Next) {
-        await this.handleCreate(request, { clusterType: request.query["clusterType"] }, response, next);
-    }
-
-    async handlePostCreate(request: restify.Request, response: restify.Response, next: restify.Next) {
-        await this.handleCreate(request, request.body, response, next);
-    }
-
-    async handleGetConfigure(request: restify.Request, response: restify.Response, next: restify.Next) {
-        await this.handleConfigure(request, { clusterType: request.query["clusterType"] }, response, next);
-    }
-
-    async handlePostConfigure(request: restify.Request, response: restify.Response, next: restify.Next) {
-        await this.handleConfigure(request, request.body, response, next);
-    }
-
-    async handleCreate(request: restify.Request, requestData: any, response: restify.Response, next: restify.Next): Promise<void> {
-        await this.handleRequest(getHandleCreateHtml, request, requestData, response, next);
-    }
-
-    async handleConfigure(request: restify.Request, requestData: any, response: restify.Response, next: restify.Next): Promise<void> {
-        await this.handleRequest(getHandleConfigureHtml, request, requestData, response, next);
-    }
-
-    async handleRequest(handler: HtmlRequestHandler, request: restify.Request, requestData: any, response: restify.Response, next: restify.Next) {
-        const html = await handler(request.query["step"], this.context, requestData);
-
-        response.contentType = 'text/html';
-        response.send(`<html><body><style id='styleholder'></style>${html}</body></html>`);
-
-        next();
+function next(context: azure.Context, wizard: Wizard, action: clusterproviderregistry.ClusterProviderAction, message: any): void {
+    wizard.showPage("<h1>Contacting Microsoft Azure</h1>");
+    const nextStep: string | undefined = message.nextStep;
+    const requestData = nextStep ? message : { clusterType: message["clusterType"] };
+    if (action === 'create') {
+        wizard.showPage(getHandleCreateHtml(nextStep, context, requestData));
+    } else {
+        wizard.showPage(getHandleConfigureHtml(nextStep, context, requestData));
     }
 }
 
-async function getHandleCreateHtml(step: string | undefined, context: azure.Context, requestData: any): Promise<string> {
+function getHandleCreateHtml(step: string | undefined, context: azure.Context, requestData: any): Sequence<string> {
     if (!step) {
-        return await promptForSubscription(requestData, context, "create", "metadata");
+        return promptForSubscription(requestData, context, "create", "metadata");
     } else if (step === "metadata") {
-        return await promptForMetadata(requestData, context);
+        return promptForMetadata(requestData, context);
     } else if (step === "agentSettings") {
-        return await promptForAgentSettings(requestData, context);
+        return promptForAgentSettings(requestData, context);
     } else if (step === "create") {
-        return await createCluster(requestData, context);
+        return createCluster(requestData, context);
     } else if (step === "wait") {
-        return await waitForClusterAndReportConfigResult(requestData, context);
+        return waitForClusterAndReportConfigResult(requestData, context);
     } else {
         return renderInternalError(`AzureStepError (${step})`);
     }
 }
 
-async function getHandleConfigureHtml(step: string | undefined, context: azure.Context, requestData: any): Promise<string> {
+function getHandleConfigureHtml(step: string | undefined, context: azure.Context, requestData: any): Sequence<string> {
     if (!step) {
-        return await promptForSubscription(requestData, context, "configure", "cluster");
+        return promptForSubscription(requestData, context, "configure", "cluster");
     } else if (step === "cluster") {
-        return await promptForCluster(requestData, context);
+        return promptForCluster(requestData, context);
     } else if (step === "configure") {
-        return await configureKubernetes(requestData, context);
+        return configureKubernetes(requestData, context);
     } else {
         return renderInternalError(`AzureStepError (${step})`);
     }
@@ -290,12 +224,12 @@ async function createCluster(previousData: any, context: azure.Context): Promise
         `<div id='content'>
          ${formStyles()}
          ${styles()}
-         ${waitScript('Contacting Microsoft Azure')}
-         <form id='form' action='create?step=wait' method='post' onsubmit='return promptWait();'>
+         <form id='form'>
+         <input type='hidden' name='nextStep' value='wait' />
          ${propagationFields(previousData)}
          <p class='success'>Azure is creating the cluster, but this may take some time. You can now close this window,
          or wait for creation to complete so that we can add the new cluster to your Kubernetes configuration.</p>
-         <p><button type='submit' class='link-button'>Wait and add the new cluster &gt;</button></p>
+         <p><button onclick=${NEXT_FN} class='link-button'>Wait and add the new cluster &gt;</button></p>
          </form>
          ${successCliErrorInfo}
          </div>` :
@@ -311,39 +245,34 @@ async function createCluster(previousData: any, context: azure.Context): Promise
 
 }
 
-let refreshCount = 0;  // TODO: ugh
-
-function refreshCountIndicator(): string {
+function refreshCountIndicator(refreshCount: number): string {
     return ".".repeat(refreshCount % 4);
 }
 
-async function waitForClusterAndReportConfigResult(previousData: any, context: azure.Context): Promise<string> {
+function waitForClusterAndReportConfigResult(previousData: any, context: azure.Context): Observable<string> {
 
-    ++refreshCount;
+    async function waitOnce(refreshCount: number): Promise<[string, boolean]> {
+        const waitResult = await azure.waitForCluster(context, previousData.clusterType, previousData.clustername, previousData.resourcegroupname);
+        if (failed(waitResult)) {
+            return [`<h1>Error creating cluster</h1><p>Error details: ${waitResult.error[0]}</p>`, false];
+        }
 
-    const waitResult = await azure.waitForCluster(context, previousData.clusterType, previousData.clustername, previousData.resourcegroupname);
-    if (failed(waitResult)) {
-        return `<h1>Error creating cluster</h1><p>Error details: ${waitResult.error[0]}</p>`;
+        if (waitResult.result.stillWaiting) {
+            return [`<h1>Waiting for cluster - this will take several minutes${refreshCountIndicator(refreshCount)}</h1>
+                <form id='form'>
+                <input type='hidden' name='nextStep' value='wait' />
+                ${propagationFields(previousData)}
+                </form>`, true];
+        }
+
+        const configureResult = await azure.configureCluster(context, previousData.clusterType, previousData.clustername, previousData.resourcegroupname);
+
+        await refreshExplorer();
+
+        return [renderConfigurationResult(configureResult), false];
     }
 
-    if (waitResult.result.stillWaiting) {
-        return `<h1>Waiting for cluster - this will take several minutes${refreshCountIndicator()}</h1>
-            <form id='form' action='create?step=wait' method='post'>
-            ${propagationFields(previousData)}
-            </form>
-            <script>
-            window.setTimeout(function() {
-                var f = document.getElementById('form');
-                f.submit();
-            }, 100)
-            </script>`;
-    }
-
-    const configureResult = await azure.configureCluster(context, previousData.clusterType, previousData.clustername, previousData.resourcegroupname);
-
-    await refreshExplorer();
-
-    return renderConfigurationResult(configureResult);
+    return trackReadiness(100, waitOnce);
 }
 
 function renderConfigurationResult(configureResult: ActionResult<azure.ConfigureResult>): string {
