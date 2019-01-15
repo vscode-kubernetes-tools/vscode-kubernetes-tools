@@ -24,6 +24,10 @@ and for DevOps staff troubleshooting Kubernetes applications.  Features include:
 
 ## Getting started with the extension
 
+### Install
+
+[Open this extension in the Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=ms-kubernetes-tools.vscode-kubernetes-tools)
+
 ### Dependencies
 
 The Kubernetes extension may need to invoke the following command line tools, depending on
