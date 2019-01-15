@@ -4,14 +4,11 @@ export class DescribePanel {
 	public static readonly viewType = 'vscodeKubernetesDescribe';
 	public static currentPanels = [];
 
-	private readonly panel: vscode.WebviewPanel;
-    private readonly extensionPath: string;
-    private content: string;
+	private disposables: vscode.Disposable[] = [];
+	private content: string;
 	private resource: string;
 
-	private disposables: vscode.Disposable[] = [];
-
-	public static createOrShow(extensionPath: string, content: string, resource: string) {
+	public static createOrShow(content: string, resource: string) {
 		const column = vscode.window.activeTextEditor ? vscode.window.activeTextEditor.viewColumn : undefined;
 
 		// If we already have a panel, show it.
@@ -30,17 +27,14 @@ export class DescribePanel {
 			]
 		});
 
-		DescribePanel.currentPanels[resource] = new DescribePanel(panel, extensionPath, content, resource);
+		DescribePanel.currentPanels[resource] = new DescribePanel(panel, content, resource);
 	}
 
 	private constructor(
-		panel: vscode.WebviewPanel,
-        extensionPath: string,
+		private readonly panel: vscode.WebviewPanel,
 		content: string,
 		resource: string
 	) {
-		this.panel = panel;
-        this.extensionPath = extensionPath;
 		this.content = content;
 		this.resource = resource;
 
@@ -54,13 +48,13 @@ export class DescribePanel {
 		}, null, this.disposables);
 	}
 
-    public setInfo(content: string, resource: string) {
+	public setInfo(content: string, resource: string) {
 		this.content = content;
 		this.resource = resource;
-    }
+	}
 
 	public dispose() {
-		DescribePanel.currentPanels[this.resource] = undefined;
+		delete DescribePanel.currentPanels[this.resource];
 
 		this.panel.dispose();
 
