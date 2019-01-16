@@ -131,7 +131,7 @@ export async function getGlobalResources(kubectl: Kubectl, resource: string): Pr
 }
 
 export async function getCRDTypes(kubectl: Kubectl): Promise<CRD[]> {
-    const crdTypes = await kubectl.asJson<KubernetesCollection<any>>(`get crds -o json`);
+    const crdTypes = await kubectl.asJson<KubernetesCollection<any>>(`get crd -o json`);
     if (failed(crdTypes)) {
         vscode.window.showErrorMessage(crdTypes.error[0]);
         return [];
