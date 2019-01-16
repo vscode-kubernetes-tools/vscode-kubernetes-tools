@@ -23,6 +23,7 @@ import { addKubernetesConfigFile, deleteKubernetesConfigFile } from './configMap
 import * as explainer from './explainer';
 import { shell, Shell, ShellResult, ShellHandler } from './shell';
 import * as configmaps from './configMap';
+import { DescribePanel } from './components/describe/describeWebview';
 import * as kuberesources from './kuberesources';
 import { useNamespaceKubernetes } from './components/kubectl/namespace';
 import { EventDisplayMode, getEvents } from './components/kubectl/events';
@@ -1144,13 +1145,15 @@ function getPorts() {
     }
 }
 
-function describeKubernetes(explorerNode?: explorer.ResourceNode) {
+async function describeKubernetes(explorerNode?: explorer.ResourceNode) {
     if (explorerNode) {
         const nsarg = explorerNode.namespace ? `--namespace ${explorerNode.namespace}` : '';
-        kubectl.invokeInSharedTerminal(`describe ${explorerNode.resourceId} ${nsarg}`);
+        const result = await kubectl.invokeAsync(`describe ${explorerNode.resourceId} ${nsarg}`);
+        DescribePanel.createOrShow(result.stdout, explorerNode.resourceId);
     } else {
-        findKindNameOrPrompt(kuberesources.commonKinds, 'describe', { nameOptional: true }, (value) => {
-            kubectl.invokeInSharedTerminal(`describe ${value}`);
+        findKindNameOrPrompt(kuberesources.commonKinds, 'describe', { nameOptional: true }, async (value) => {
+            const result = await kubectl.invokeAsync(`describe ${value}`);
+            DescribePanel.createOrShow(result.stdout, value);
         });
     }
 }
