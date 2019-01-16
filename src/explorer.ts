@@ -8,7 +8,7 @@ import { Host } from './host';
 import * as kuberesources from './kuberesources';
 import { failed } from './errorable';
 import * as helmexec from './helm.exec';
-import { Pod } from './kuberesources.objectmodel';
+import { Pod, CRD } from './kuberesources.objectmodel';
 import { K8S_RESOURCE_SCHEME, KUBECTL_RESOURCE_AUTHORITY, kubefsUri } from './kuberesources.virtualfs';
 import { affectsUs } from './components/config/config';
 
@@ -408,7 +408,21 @@ class KubernetesCRDFolder extends KubernetesFolder {
 
     async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
         const objects = await kubectlUtils.getCRDTypes(kubectl);
-        return objects.map((obj) => new KubernetesResourceFolder(new kuberesources.ResourceKind(obj.spec.names.singular, obj.spec.names.plural, obj.spec.names.kind, obj.spec.names.shortNames !== null ? (obj.spec.names.shortNames.length > 0 ? obj.spec.names.shortNames[0] : obj.metadata.name) : obj.metadata.name)));
+        return objects.map((obj) => new KubernetesResourceFolder(this.customResourceKind(obj)));
+    }
+
+    private customResourceKind(crd: CRD): kuberesources.ResourceKind {
+        return new kuberesources.ResourceKind(
+            crd.spec.names.singular,
+            crd.spec.names.plural,
+            crd.spec.names.kind,
+            this.safeAbbreviation(crd)
+        );
+    }
+
+    private safeAbbreviation(crd: CRD): string {
+        const shortNames = crd.spec.names.shortNames;
+        return (shortNames && shortNames.length > 0) ? shortNames[0] : crd.metadata.name;
     }
 }
 
