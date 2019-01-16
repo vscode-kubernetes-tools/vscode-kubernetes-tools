@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { Kubectl } from "./kubectl";
 import { kubeChannel } from "./kubeChannel";
 import { sleep } from "./sleep";
-import { ObjectMeta, KubernetesCollection, DataResource, Namespace, Pod, KubernetesResource } from './kuberesources.objectmodel';
+import { ObjectMeta, KubernetesCollection, DataResource, Namespace, Pod, KubernetesResource, CRD } from './kuberesources.objectmodel';
 import { failed } from "./errorable";
 
 export interface KubectlContext {
@@ -126,6 +126,22 @@ export async function getGlobalResources(kubectl: Kubectl, resource: string): Pr
         return {
             metadata: item.metadata,
             kind: resource
+        };
+    });
+}
+
+export async function getCRDTypes(kubectl: Kubectl): Promise<CRD[]> {
+    const crdTypes = await kubectl.asJson<KubernetesCollection<any>>(`get crds -o json`);
+    if (failed(crdTypes)) {
+        vscode.window.showErrorMessage(crdTypes.error[0]);
+        return [];
+    }
+
+    return crdTypes.result.items.map((item) => {
+        return {
+            metadata: item.metadata,
+            kind: item.spec.names.kind,
+            spec: item.spec
         };
     });
 }

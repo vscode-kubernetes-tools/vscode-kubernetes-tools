@@ -19,6 +19,7 @@ export const allKinds = {
     job: new ResourceKind("Job", "Jobs", "Job", "job"),
     cronjob: new ResourceKind("CronJob", "CronJobs", "CronJob", "cronjob"),
     pod: new ResourceKind("Pod", "Pods", "Pod", "pod"),
+    crd: new ResourceKind("Custom Resource", "Custom Resources", "CustomResourceDefinition", "crd"),
     service: new ResourceKind("Service", "Services", "Service", "service"),
     configMap: new ResourceKind("ConfigMap", "Config Maps", "ConfigMap", "configmap"),
     secret: new ResourceKind("Secret", "Secrets", "Secret", "secret"),

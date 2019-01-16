@@ -52,6 +52,21 @@ export interface ContainerStatus {
     readonly ready: boolean;
 }
 
+export interface CRD extends KubernetesResource {
+    readonly spec: CRDSpec;
+}
+
+export interface CRDSpec {
+    readonly names: CRDNames;
+}
+
+export interface CRDNames {
+    readonly kind: string;
+    readonly plural: string;
+    readonly singular: string;
+    readonly shortNames: string[];
+}
+
 function isObjectMeta(obj: any): obj is ObjectMeta {
     return obj && obj.name;
 }
