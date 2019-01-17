@@ -193,12 +193,14 @@ export async function listAksLocations(context: Context): Promise<Errorable<Serv
         "eastus",
         "eastus2",
         "uksouth",
+        "ukwest",
         "westus",
         "westus2",
         "northeurope",
         "westeurope",
         "southeastasia",
-        "japaneast"
+        "japaneast",
+        "southindia"
     ];
     const previewRegions = [];
     const result = locationDisplayNamesEx(productionRegions, previewRegions, locations);
