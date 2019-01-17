@@ -1113,7 +1113,7 @@
         "redhat.vscode-yaml"
     ],
     "dependencies": {
-        "@kubernetes/client-node": "^0.6.0",
+        "@kubernetes/client-node": "^0.7.0",
         "@types/lodash": "^4.14.113",
         "@types/request": "^2.48.1",
         "@types/restify": "^5.0.7",
