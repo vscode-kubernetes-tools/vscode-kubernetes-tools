@@ -2,7 +2,7 @@
     "name": "vscode-kubernetes-tools",
     "displayName": "Kubernetes",
     "description": "Develop, deploy and debug Kubernetes applications",
-    "version": "0.1.14",
+    "version": "0.1.15",
     "preview": true,
     "publisher": "ms-kubernetes-tools",
     "engines": {
@@ -1113,7 +1113,7 @@
         "redhat.vscode-yaml"
     ],
     "dependencies": {
-        "@kubernetes/client-node": "^0.6.0",
+        "@kubernetes/client-node": "0.7.1",
         "@types/lodash": "^4.14.113",
         "@types/request": "^2.48.1",
         "@types/restify": "^5.0.7",
@@ -1159,7 +1159,7 @@
         "gulp-tslint": "^8.1.2",
         "mocha": "^4.1.0",
         "tslint": "^5.9.1",
-        "typescript": "^2.9.2",
+        "typescript": "^3.2.2",
         "vscode": "^1.1.21"
     },
     "repository": {

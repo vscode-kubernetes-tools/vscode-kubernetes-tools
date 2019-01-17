@@ -1,5 +1,35 @@
 # Change Log
 
+## 0.1.15
+
+* Added custom resources (CRDs), stateful sets and daemon sets to the tree view
+* Display pod status and IP address in the tree view
+* Display service endpoints in the tree view
+* Windows users can now set the extension to use Linux builds of kubectl and Helm via WSL
+* Updated the Kubernetes resource schema to 1.12
+* You can now disable resource limits linting
+* Describe results are now displayed in the main window instead of the terminal
+* You can now configure different tool paths on different OSes (for roaming settings)
+* Made snippets more consistent
+* Added some new snippets
+* Explain now works on unsaved files
+* Reorganised and rewrote the README
+* README now links to the Marketplace (installation) page
+* README now covers installing from VSIX for airgapped scenarios
+* README now explains how to skip TLS verification of clusters
+* Running Helm Update Dependencies from the file explorer or code lens no longer prompts you for which chart to update
+* Improved startup speed (after I slowed it down)
+* Fixed link to Draft blog post
+* Fixed load failure while trying to load schemas for Helm intellisense
+* Fixed error on Minikube update availability
+* Fixed disabling other extensions' links in the Output window
+* Fixed Helm Package command error
+* Fixed a type on the Service snippet
+* Fixed an issue where the Windows user profile path was being used when kubectl used %HOMEDRIVE%\%HOMEPATH%
+* Considerable internal refactoring and error handling
+
+Thanks to contributors Brendan Burns, Mostafa Hussein, Matthias Lechner, Dan McCracken, Bhargav Nookala, Stefan Schacherl and Ahmadali Shafiee.
+
 ## 0.1.14
 
 * Added support for checking Minikube status

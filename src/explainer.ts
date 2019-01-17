@@ -7,7 +7,6 @@ import * as shelljs from 'shelljs';
 
 import { formatComplex, formatOne, Typed, formatType } from "./schema-formatting";
 import { getActiveKubeconfig, getUseWsl } from './components/config/config';
-import { shell } from '../test/fakes';
 
 async function loadKubeconfig(): Promise<kubernetes.KubeConfig> {
     const kc = new kubernetes.KubeConfig();
@@ -23,9 +22,62 @@ async function loadKubeconfig(): Promise<kubernetes.KubeConfig> {
             return kc;
         }
     }
-    kc.loadFromDefault();
+    // loadFromDefault() is broken on Windows in k8s/client-node 0.7.1, and there are bugs in 0.7.2
+    // which stop it compiling.  So work around by using the 0.7.2 loadFromDefault() logic.
+    loadKubeconfigFromDefault(kc);
     return kc;
 }
+
+// TODO: remove once @kubernetes/client-node is fixed (all copied from k/cn 0.7.2)
+
+import * as path from 'path';
+import * as fs from 'fs';
+
+function loadKubeconfigFromDefault(kc: kubernetes.KubeConfig): void {
+    if (process.env.KUBECONFIG && process.env.KUBECONFIG.length > 0) {
+        kc.loadFromFile(process.env.KUBECONFIG);
+        return;
+    }
+    const home = findHomeDir();
+    if (home) {
+        const config = path.join(home, '.kube', 'config');
+        if (fs.existsSync(config)) {
+            kc.loadFromFile(config);
+            return;
+        }
+    }
+}
+
+function findHomeDir(): string | null {
+    if (process.env.HOME) {
+        try {
+            fs.accessSync(process.env.HOME);
+            return process.env.HOME;
+            // tslint:disable-next-line:no-empty
+        } catch (ignore) { }
+    }
+    if (process.platform !== 'win32') {
+        return null;
+    }
+    if (process.env.HOMEDRIVE && process.env.HOMEPATH) {
+        const dir = path.join(process.env.HOMEDRIVE, process.env.HOMEPATH);
+        try {
+            fs.accessSync(dir);
+            return dir;
+            // tslint:disable-next-line:no-empty
+        } catch (ignore) { }
+    }
+    if (process.env.USERPROFILE) {
+        try {
+            fs.accessSync(process.env.USERPROFILE);
+            return process.env.USERPROFILE;
+        // tslint:disable-next-line:no-empty
+        } catch (ignore) {}
+    }
+    return null;
+}
+
+// TODO: end remove
 
 export async function readSwagger(): Promise<any> {
     return readSwaggerCore(await loadKubeconfig());
