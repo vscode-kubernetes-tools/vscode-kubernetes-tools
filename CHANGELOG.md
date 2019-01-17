@@ -28,7 +28,7 @@
 * Fixed an issue where the Windows user profile path was being used when kubectl used %HOMEDRIVE%\%HOMEPATH%
 * Considerable internal refactoring and error handling
 
-Thanks to contributors Brendan Burns, Mostafa Hussein, Matthias Lechner, Dan McCracken, Bhargav Nookala, Stefan Schacherl and Ahmadali Shafiee.
+Thanks to contributors Brendan Burns, Dimitris-Ilias Gkanatsios, Mostafa Hussein, Shreyas Karnik, Matthias Lechner, Dan McCracken, Bhargav Nookala, Stefan Schacherl and Ahmadali Shafiee.
 
 ## 0.1.14
 
