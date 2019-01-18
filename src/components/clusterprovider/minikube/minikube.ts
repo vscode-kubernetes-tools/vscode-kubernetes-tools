@@ -91,7 +91,7 @@ async function minikubeUpgradeAvailable(context: Context) {
         return;
     }
 
-    const sr = await context.shell.exec(`${context.binPath} update-check`);
+    const sr = await context.shell.exec(`"${context.binPath}" update-check`);
     if (sr.code !== 0) {
         vscode.window.showErrorMessage(`Error checking for minikube updates: ${sr.stderr}`);
         return;
@@ -127,7 +127,7 @@ async function isRunnableMinikube(context: Context): Promise<Errorable<Diagnosti
         return { succeeded: false, error: ['Minikube is not installed'] };
     }
 
-    const sr = await context.shell.exec(`${context.binPath} help`);
+    const sr = await context.shell.exec(`"${context.binPath}" help`);
     return fromShellExitCodeOnly(sr);
 }
 
@@ -158,7 +158,7 @@ async function startMinikube(context: Context, options: MinikubeOptions): Promis
     if (options.vmDriver && options.vmDriver.length > 0) {
         flags += ` --vm-driver=${options.vmDriver} `;
     }
-    context.shell.exec(`${context.binPath} ${flags} start`).then((result: ShellResult) => {
+    context.shell.exec(`"${context.binPath}" ${flags} start`).then((result: ShellResult) => {
         if (result.code === 0) {
             vscode.window.showInformationMessage('Cluster started.');
             item.text = 'minikube-running';
@@ -186,7 +186,7 @@ async function stopMinikube(context: Context): Promise<void> {
         return;
     }
 
-    context.shell.exec(`${context.binPath} stop`).then((result: ShellResult) => {
+    context.shell.exec(`"${context.binPath}" stop`).then((result: ShellResult) => {
         if (result.code === 0) {
             vscode.window.showInformationMessage('Cluster stopped.');
             item.hide();
@@ -206,7 +206,7 @@ async function minikubeStatus(context: Context): Promise<MinikubeInfo> {
     }
 
     const result = await context.shell.exec(
-        `${context.binPath} status --format '["{{.MinikubeStatus}}","{{.ClusterStatus}}","{{.KubeconfigStatus}}"]'`);
+        `"${context.binPath}" status --format '["{{.MinikubeStatus}}","{{.ClusterStatus}}","{{.KubeconfigStatus}}"]'`);
     if (result.stderr.length === 0) {
         const obj = JSON.parse(result.stdout);
         return {
