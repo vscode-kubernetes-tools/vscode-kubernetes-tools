@@ -6,6 +6,9 @@ import * as kuberesources from '../../kuberesources';
 import { ResourceNode } from '../../explorer';
 import * as yaml from 'js-yaml';
 import * as kubectlUtils from '../../kubectlUtils';
+import { host } from '../../host';
+import { LogsPanel } from '../../components/logs/logsWebview';
+import { ShellResult } from '../../shell';
 
 export enum LogsDisplayMode {
     Show,
@@ -85,7 +88,13 @@ function getLogsForContainer(
         return;
     }
 
-    kubectl.invokeInSharedTerminal(cmd);
+    // kubectl.invokeInSharedTerminal(cmd);
+    kubectl.invokeAsync(cmd).then(
+        (result: ShellResult) => {
+            LogsPanel.createOrShow('TODO', result.stdout, `${podSummary.namespace}/${podSummary.name}`);
+        }, (err: any) => {
+            vscode.window.showErrorMessage(err);
+        });
 }
 
 /**
