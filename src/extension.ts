@@ -1958,7 +1958,7 @@ function isLintable(document: vscode.TextDocument): boolean {
 }
 
 function linterDisabled(disabledLinters: string[], name: string): boolean {
-    return disabledLinters.some((l) => l === name);
+    return (disabledLinters || []).some((l) => l === name);
 }
 
 async function kubernetesLint(document: vscode.TextDocument): Promise<void> {
