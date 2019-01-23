@@ -86,7 +86,7 @@ class MinikubeImpl implements Minikube {
 }
 
 async function minikubeUpgradeAvailable(context: Context) {
-    if (!await checkPresent(context, CheckPresentMode.Alert)) {
+    if (!await checkPresent(context, CheckPresentMode.Silent)) {
         // not installed, no upgrade.
         return;
     }
