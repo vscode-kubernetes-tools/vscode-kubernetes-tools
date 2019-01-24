@@ -1127,6 +1127,7 @@
         "@types/tar": "^4.0.0",
         "@types/tmp": "^0.0.33",
         "@types/uuid": "^3.4.4",
+        "@types/websocket": "^0.0.40",
         "@types/yamljs": "^0.2.30",
         "await-notify": "^1.0.1",
         "clipboardy": "^1.2.3",
