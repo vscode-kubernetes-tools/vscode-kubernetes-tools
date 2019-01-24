@@ -36,8 +36,8 @@ export function loadConfigMapData(obj: KubernetesFileObject) {
         });
 }
 
-function removeKey(dictionary: any, keyToDelete: string) {
-    const newData = {};
+function removeKey(dictionary: any, keyToDelete: string): any {
+    const newData: any = {};
     Object.keys(dictionary).forEach((key) => {
         if (key !== keyToDelete) {
             newData[key] = dictionary[key];
