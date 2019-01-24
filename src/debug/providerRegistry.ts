@@ -2,9 +2,10 @@ import * as vscode from "vscode";
 
 import { IDebugProvider } from "./debugProvider";
 import { JavaDebugProvider } from "./javaDebugProvider";
-
+import { NodejsDebugProvider } from "./nodejsDebugProvider";
 const supportedProviders: IDebugProvider[] = [
-    new JavaDebugProvider()
+    new JavaDebugProvider(),
+    new NodejsDebugProvider()
 ];
 
 async function showProviderPick(): Promise<IDebugProvider> {
@@ -16,11 +17,11 @@ async function showProviderPick(): Promise<IDebugProvider> {
         };
     });
 
-    const pickedProvider = await vscode.window.showQuickPick(<vscode.QuickPickItem[]> providerItems, { placeHolder: "Select the environment" });
+    const pickedProvider = await vscode.window.showQuickPick(<vscode.QuickPickItem[]>providerItems, { placeHolder: "Select the environment" });
     if (!pickedProvider) {
         return null;
     }
-    return (<any> pickedProvider).provider;
+    return (<any>pickedProvider).provider;
 }
 
 export async function getDebugProvider(baseImage?: string): Promise<IDebugProvider> {

@@ -180,6 +180,18 @@
                             "type": "string",
                             "description": "Output format for Kubernetes specs. One of 'json' or 'yaml' (default)."
                         },
+                        "vs-kubernetes.nodejs-autodetect-remote-root": {
+                            "type": "boolean",
+                            "description": "If true will try to automatically get the root location of the source code in the container."
+                        },
+                        "vs-kubernetes.nodejs-remote-root": {
+                            "type": "string",
+                            "description": "User specified root location of the source code in the container."
+                        },
+                        "vs-kubernetes.nodejs-debug-port": {
+                            "type": "string",
+                            "description": "Remote debugging port for nodejs. Usually 9229."
+                        },
                         "disable-lint": {
                             "type": "boolean",
                             "description": "Disable all linting of Kubernetes files"
@@ -198,7 +210,10 @@
                         "vs-kubernetes.outputFormat": "yaml",
                         "vs-kubernetes.kubeconfig": "",
                         "vs-kubernetes.knownKubeconfigs": [],
-                        "vs-kubernetes.autoCleanupOnDebugTerminate": false
+                        "vs-kubernetes.autoCleanupOnDebugTerminate": false,
+                        "vs-kubernetes.nodejs-autodetect-remote-root": true,
+                        "vs-kubernetes.nodejs-remote-root": "",
+                        "vs-kubernetes.nodejs-debug-port": "9229"
                     }
                 },
                 "vsdocker.imageUser": {

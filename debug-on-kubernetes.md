@@ -13,6 +13,10 @@ One of the key features of VS Code Kubernetes Extension is its one-click debuggi
 ## 3. Extension Settings for debugging
    * `vs-kubernetes` - Parent for Kubernetes-related extension settings
       * `vs-kubernetes.autoCleanupOnDebugTerminate` - The flag to control whether to auto cleanup the created Deployment and associated Pod by the command "Kubernetes: Debug (Launch)". The cleanup action occurs when it failed to start debug session or debug session terminated. If not specified, the extension will prompt for whether to clean up or not. You might choose not to clean up if you wanted to view pod logs, etc.
+      * `vs-kubernetes.nodejs-autodetect-remote-root` - If true will try to automatically get the root location of the source code in the container. The detection attempts to get the CWD of the nodejs process.  
+      * `vs-kubernetes.nodejs-remote-root` - User specified root location of the source code in the container. Remote root is passed to the debug configuration to allow vscode to map local files to files in the container. If `vs-kubernetes.nodejs-autodetect-remote-root` is set to `false` and `vs-kubernetes.nodejs-remote-root` is empty, no remoteRoot is set in the debug configuration. For more info on nodejs remote debugging see [vscode documentation](https://code.visualstudio.com/docs/nodejs/nodejs-debugging#_remote-debugging)
+      * `vs-kubernetes.nodejs-debug-port` - Sets the nodejs remote debugging port. The default for node is 9229.
+
    * `vsdocker.imageUser` - Image prefix for docker images e.g. 'docker.io/brendanburns'.
 
 ## 4. How to use it for Java debugging

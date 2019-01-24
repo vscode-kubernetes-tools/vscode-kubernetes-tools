@@ -156,3 +156,18 @@ export function getDisabledLinters(): string[] {
     const config = vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY);
     return config['disable-linters'] as string[];
 }
+
+// nodejs debugger attach  options
+
+// if true will try to automatically get the root location of the source code in the container
+export function getNodejsAutoDetectRemoteRoot(): boolean {
+    return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.nodejs-autodetect-remote-root'];
+}
+// user specified root location of the source code in the container
+export function getNodejsRemoteRoot(): string {
+    return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.nodejs-remote-root'];
+}
+// remote debugging port for nodejs. Usually 9229
+export function getNodejsDebugPort(): string {
+    return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.nodejs-debug-port'];
+}
