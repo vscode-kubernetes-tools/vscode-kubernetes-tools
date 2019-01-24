@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import * as fs from "fs";
-import * as opn from 'opn';
+import opn = require('opn');
 import * as path from "path";
 import * as portfinder from "portfinder";
 import { ChildProcess } from "child_process";

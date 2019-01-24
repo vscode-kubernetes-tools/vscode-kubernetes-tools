@@ -11,7 +11,7 @@ import { fs } from './fs';
 
 // External dependencies
 import * as yaml from 'js-yaml';
-import * as dockerfileParse from 'dockerfile-parse';
+import dockerfileParse = require('dockerfile-parse');
 import * as tmp from 'tmp';
 import * as clipboard from 'clipboardy';
 import { pullAll } from 'lodash';
