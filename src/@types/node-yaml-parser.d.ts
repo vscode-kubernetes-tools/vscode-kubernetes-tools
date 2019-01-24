@@ -19,4 +19,10 @@ declare module 'node-yaml-parser' {
         readonly matchedNode: YamlNode;
         readonly matchedDocument: YamlDocument;
     }
+
+    export interface Util {
+        isKey(node: YamlNode): boolean;
+    }
+
+    export const util: Util;
 }
