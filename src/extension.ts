@@ -13,7 +13,6 @@ import { fs } from './fs';
 import * as yaml from 'js-yaml';
 import * as dockerfileParse from 'dockerfile-parse';
 import * as tmp from 'tmp';
-import * as uuid from 'uuid';
 import * as clipboard from 'clipboardy';
 import { pullAll } from 'lodash';
 

@@ -5,7 +5,6 @@ import * as shelljs from 'shelljs';
 import * as path from 'path';
 import { getActiveKubeconfig, getToolPath, getUseWsl } from './components/config/config';
 import { host } from './host';
-import { config } from 'bluebird';
 
 export enum Platform {
     Windows,
