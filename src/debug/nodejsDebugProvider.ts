@@ -63,7 +63,7 @@ export class NodejsDebugProvider implements IDebugProvider {
         const nsarg = podNamespace ? `--namespace ${podNamespace}` : '';
         const execCmd = `exec ${pod} ${nsarg} ${container ? "-c ${selectedContainer}" : ""} -- ${this.shell} -c 'kill -SIGUSR1 1'`;
         const execResult = await kubectl.invokeAsync(execCmd);
-        return execResult.code == 0; 
+        return execResult.code === 0;
     }
 
     async tryGetRemoteRoot(kubectl: Kubectl, podName: string, podNamespace: string | undefined, containerName: string | undefined): Promise<String> {
@@ -73,7 +73,7 @@ export class NodejsDebugProvider implements IDebugProvider {
             const nsarg = podNamespace ? `--namespace ${podNamespace}` : '';
             const execCmd = `exec ${podName} ${nsarg} ${containerName ? "-c ${selectedContainer}" : ""} -- ${this.shell} -c 'readlink /proc/1/cwd'`;
             const execResult = await kubectl.invokeAsync(execCmd);
-            if (execResult.code == 0) {
+            if (execResult.code === 0) {
                 remoteRoot = execResult.stdout.replace(/(\r\n|\n|\r)/gm, '');
                 kubeChannel.showOutput(`Got remote root from container: ${remoteRoot}`);
             }
@@ -97,6 +97,4 @@ export class NodejsDebugProvider implements IDebugProvider {
         }
         return 'sh';
     }
-
-
 }
