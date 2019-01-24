@@ -458,7 +458,7 @@ function findParentJson(document: vscode.TextDocument, line: number): number {
 }
 
 async function explain(obj: any, field: string): Promise<string | null> {
-    return new Promise((resolve) => {
+    return new Promise<string | null>((resolve) => {
         if (!obj.kind) {
             vscode.window.showErrorMessage("Not a Kubernetes API Object!");
             resolve(null);
