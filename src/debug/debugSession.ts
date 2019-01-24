@@ -17,6 +17,7 @@ import { DockerfileParser } from "../docker/dockerfileParser";
 import * as dockerUtils from "../docker/dockerUtils";
 import { isPod, Pod, KubernetesCollection, Container } from "../kuberesources.objectmodel";
 import * as config from "../components/config/config";
+import { Dictionary } from "../utils/dictionary";
 
 const debugCommandDocumentationUrl = "https://github.com/Azure/vscode-kubernetes-tools/blob/master/debug-on-kubernetes.md";
 
@@ -69,7 +70,7 @@ export class DebugSession implements IDebugSession {
 
         const cwd = workspaceFolder.uri.fsPath;
         const imagePrefix = vscode.workspace.getConfiguration().get("vsdocker.imageUser", null);
-        const containerEnv = {};
+        const containerEnv = Dictionary.of<string>();
         const portInfo = await this.debugProvider.resolvePortsFromFile(dockerfile, containerEnv);
         if (!portInfo || !portInfo.debugPort || !portInfo.appPort) {
             await this.openInBrowser("Cannot resolve debug/application port from Dockerfile. See the documentation for how to use this command.", debugCommandDocumentationUrl);

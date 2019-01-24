@@ -1,5 +1,6 @@
 import { Kubectl } from "../kubectl";
 import { IDockerfile } from "../docker/parser";
+import { Dictionary } from "../utils/dictionary";
 
 export interface PortInfo {
     readonly debugPort: number;
@@ -42,7 +43,7 @@ export interface IDebugProvider {
      * @param env the environment variables defined by the docker file.
      * @return the resolved debug port info.
      */
-    resolvePortsFromFile(dockerfile: IDockerfile, env: {}): Promise<PortInfo>;
+    resolvePortsFromFile(dockerfile: IDockerfile, env: Dictionary<string>): Promise<PortInfo>;
 
     /**
      * Resolve the debug port info from the container's shell environment.
