@@ -80,7 +80,7 @@ async function pushDockerImage(dockerClient: string, image: string, shellOpts: a
  * To workaround this, this function will try to resolve the equivalent docker env from kubeconfig instead.
  */
 export async function resolveKubernetesDockerEnv(kubectl: Kubectl): Promise<{}> {
-    const dockerEnv: Dictionary<string | number> = {};
+    const dockerEnv = Dictionary.of<string | number>();
     dockerEnv["DOCKER_API_VERSION"] = await dockerApiVersion();
     const currentCluster = await getCurrentClusterConfig(kubectl);
     if (!currentCluster || !currentCluster.server || !currentCluster.certificateAuthority) {

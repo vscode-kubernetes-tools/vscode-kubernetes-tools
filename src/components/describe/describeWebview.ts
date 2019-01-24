@@ -3,7 +3,7 @@ import { Dictionary } from '../../utils/dictionary';
 
 export class DescribePanel {
     public static readonly viewType = 'vscodeKubernetesDescribe';
-    public static currentPanels: Dictionary<DescribePanel> = {};
+    public static currentPanels = Dictionary.of<DescribePanel>();
 
     private disposables: vscode.Disposable[] = [];
     private content: string;

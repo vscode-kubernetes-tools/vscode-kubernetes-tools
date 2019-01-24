@@ -5,9 +5,9 @@ import { isPositionInKey } from "./yaml-support/yaml-util";
 
 // Provide hover support
 export class HelmTemplateHoverProvider implements vscode.HoverProvider {
-    private funcmap;
-    private valmap;
-    private resmap;
+    private funcmap: vscode.CompletionItem[];
+    private valmap: vscode.CompletionItem[];
+    private resmap: vscode.CompletionItem[];
 
     public constructor() {
         const fm = new FuncMap();

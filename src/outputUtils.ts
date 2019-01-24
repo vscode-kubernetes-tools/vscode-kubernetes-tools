@@ -1,3 +1,5 @@
+import { Dictionary } from "./utils/dictionary";
+
 /**
  * Parse column based output which is seperated by whitespace(s) from kubectl or similar sources
  * for example, kubectl get po
@@ -12,7 +14,7 @@ export function parseLineOutput(lineOutput: string[], columnSeparator: RegExp): 
     }
     const parsedHeaders = headers.toLowerCase().replace(columnSeparator, '|').split('|');
     return lineOutput.map((line) => {
-        const lineInfoObject = {};
+        const lineInfoObject = Dictionary.of<string>();
         const bits = line.replace(columnSeparator, '|').split('|');
         bits.forEach((columnValue, index) => {
             lineInfoObject[parsedHeaders[index].trim()] = columnValue.trim();

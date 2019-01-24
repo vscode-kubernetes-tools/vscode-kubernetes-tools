@@ -5,6 +5,7 @@ import * as vscode from 'vscode';
 import { yamlLocator, YamlMap } from './yaml-locator';
 import { util as yamlUtil } from 'node-yaml-parser';
 import { GROUP_VERSION_KIND_SEPARATOR, KUBERNETES_SCHEMA_PREFIX } from "./yaml-constant";
+import { Dictionary } from '../utils/dictionary';
 
 export enum StringComparison {
     Ordinal,
@@ -108,17 +109,17 @@ export function getYamlMappingValue(mapRootNode: YamlMap, key: string,
 }
 
 // get the string value in a javascript object with key(may be case sensitive due to the third parameter)
-function getStringValue(node, key: string, ignoreCase: StringComparison = StringComparison.Ordinal): string {
+function getStringValue(node: Dictionary<string>, key: string, ignoreCase: StringComparison = StringComparison.Ordinal): string {
     if (!node) {
         return undefined;
     }
     if (node.hasOwnProperty(key)) {
-        return <string>node[key];
+        return node[key];
     }
     if (ignoreCase === StringComparison.OrdinalIgnoreCase) {
         for (const nodeKey of Object.keys(node)) {
             if (equalIgnoreCase(key, nodeKey)) {
-                return <string>node[nodeKey];
+                return node[nodeKey];
             }
         }
     }
