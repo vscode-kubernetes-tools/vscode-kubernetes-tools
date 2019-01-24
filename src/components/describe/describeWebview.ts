@@ -1,8 +1,9 @@
 import * as vscode from 'vscode';
+import { Dictionary } from '../../utils/dictionary';
 
 export class DescribePanel {
     public static readonly viewType = 'vscodeKubernetesDescribe';
-    public static currentPanels = [];
+    public static currentPanels: Dictionary<DescribePanel> = {};
 
     private disposables: vscode.Disposable[] = [];
     private content: string;

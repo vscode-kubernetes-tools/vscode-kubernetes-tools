@@ -21,8 +21,8 @@ export interface Shell {
     isUnix(): boolean;
     platform(): Platform;
     home(): string;
-    combinePath(basePath: string, relativePath: string);
-    fileUri(filePath): vscode.Uri;
+    combinePath(basePath: string, relativePath: string): string;
+    fileUri(filePath: string): vscode.Uri;
     execOpts(): any;
     exec(cmd: string, stdin?: string): Promise<ShellResult>;
     execCore(cmd: string, opts: any, stdin?: string): Promise<ShellResult>;

@@ -21,7 +21,7 @@ class RawDockerfile {
     }
 
     public mergeCommandArgsOfType(command: string): string[] {
-        let args = [];
+        let args = Array.of<string>();
         this.commandEntries.forEach((entry) => {
             if (entry.name.toLowerCase() === command) {
                 args = args.concat(entry.args);
