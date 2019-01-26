@@ -88,10 +88,12 @@ function getLogsForContainer(
         return;
     }
 
-    // kubectl.invokeInSharedTerminal(cmd);
+    const resource = `${podSummary.namespace}/${podSummary.name}`;
+    const panel = LogsPanel.createOrShow('TODO', 'Loading \u25CC', resource);
+
     kubectl.invokeAsync(cmd).then(
         (result: ShellResult) => {
-            LogsPanel.createOrShow('TODO', result.stdout, `${podSummary.namespace}/${podSummary.name}`);
+            panel.setInfo(result.stdout, resource);
         }, (err: any) => {
             vscode.window.showErrorMessage(err);
         });
