@@ -16,12 +16,15 @@ const debuggerType = 'nodejs';
 export class NodejsDebugProvider implements IDebugProvider {
     remoteRoot: String;
     shell: string;
+
     public getDebuggerType(): string {
         return debuggerType;
     }
+
     public async isDebuggerInstalled(): Promise<boolean> {
         return true;
     }
+
     public async startDebugging(workspaceFolder: string, sessionName: string, port: number): Promise<boolean> {
 
         const debugConfiguration = {
@@ -40,6 +43,7 @@ export class NodejsDebugProvider implements IDebugProvider {
         const currentFolder = vscode.workspace.workspaceFolders.find((folder) => folder.name === path.basename(workspaceFolder));
         return await vscode.debug.startDebugging(currentFolder, debugConfiguration);
     }
+
     isSupportedImage(baseImage: string): boolean {
         throw new Error("Method not implemented.");
     }
