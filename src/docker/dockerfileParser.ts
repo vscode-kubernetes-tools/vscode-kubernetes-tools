@@ -24,7 +24,7 @@ class RawDockerfile {
         let args = Array.of<string>();
         this.commandEntries.forEach((entry) => {
             if (entry.name.toLowerCase() === command) {
-                args = args.concat(entry.args);
+                args = args.concat(argArray(entry));
             }
         });
         return args;
@@ -78,4 +78,15 @@ export class DockerfileParser implements IDockerParser {
     parse(dockerfilePath: string): IDockerfile {
         return new Dockerfile(dockerfilePath);
     }
+}
+
+function argArray(entry: CommandEntry): string[] {
+    const args = entry.args;
+    if (Array.isArray(args)) {
+        return args;
+    }
+    if (typeof args === 'string' || args instanceof String) {
+        return [args as string];
+    }
+    return Object.keys(args).map((k) => `${k} ${args[k]}`);
 }
