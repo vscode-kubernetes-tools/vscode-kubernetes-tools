@@ -175,7 +175,14 @@ async function invokeAsync(context: Context, command: string, stdin?: string): P
     }
 }
 
+// TODO: invalidate this when the context changes or if we know kubectl has changed (e.g. config)
+let checkedCompatibility = false;  // We don't want to spam the user (or CPU!) repeatedly running the version check
+
 async function checkPossibleIncompatibility(context: Context): Promise<void> {
+    if (checkedCompatibility) {
+        return;
+    }
+    checkedCompatibility = true;
     const compat = await compatibility.check((cmd) => asJson<compatibility.Version>(context, cmd));
     if (!compatibility.isGuaranteedCompatible(compat) && compat.didCheck) {
         const versionAlert = `kubectl version ${compat.clientVersion} may be incompatible with cluster Kubernetes version ${compat.serverVersion}`;
