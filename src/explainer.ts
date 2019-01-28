@@ -126,7 +126,7 @@ function findKindModel(swagger: any, kindName: string): TypeModel {
     return kindDef;
 }
 
-function chaseFieldPath(swagger: any, currentProperty: TypeModel, currentPropertyName: string, fields: string[]) {
+function chaseFieldPath(swagger: any, currentProperty: TypeModel, currentPropertyName: string, fields: string[]): string {
 
     // What are our scenarios?
     // 1. (ex: Deployment.[metadata]): We are at the end of the chain and
@@ -260,11 +260,11 @@ function singularizeVersionedName(name: string) {
     return bits.join('.');
 }
 
-function findProperty(obj: any, name: string) {
-    const n = (name + "").toLowerCase();
+function findProperty(obj: any, name: string): TypeModel {
+    const n = name.toLowerCase();
     for (const p in obj) {
         const pinfo = obj[p];
-        if ((p + "").toLowerCase() === n) {
+        if (p.toLowerCase() === n) {
             return pinfo;
         }
         const gvks = pinfo["x-kubernetes-group-version-kind"];

@@ -6,6 +6,7 @@ import * as debugUtils from "./debugUtils";
 import * as extensionUtils from "../extensionUtils";
 import { Kubectl } from "../kubectl";
 import { IDockerfile } from "../docker/parser";
+import { Dictionary } from "../utils/dictionary";
 
 // Use the java debugger extension provided by microsoft team for java debugging.
 const defaultJavaDebuggerExtensionId = "vscjava.vscode-java-debug";
@@ -55,7 +56,7 @@ export class JavaDebugProvider implements IDebugProvider {
             || baseImage.indexOf("oracle") >= 0;
     }
 
-    public async resolvePortsFromFile(dockerfile: IDockerfile, env: {}): Promise<PortInfo | undefined> {
+    public async resolvePortsFromFile(dockerfile: IDockerfile, env: Dictionary<string>): Promise<PortInfo | undefined> {
         let rawDebugPortInfo: string;
         let rawAppPortInfo: string;
 

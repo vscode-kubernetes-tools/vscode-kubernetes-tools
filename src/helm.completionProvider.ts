@@ -13,7 +13,7 @@ export class HelmTemplateCompletionProvider implements vscode.CompletionItemProv
     private funcmap = new FuncMap();
 
     // TODO: On focus, rebuild the values.yaml cache
-    private valuesCache;
+    private valuesCache: any;  // pulled in from YAML, no schema
 
     public constructor() {
         // The extension activates on things like 'Kubernetes tree visible',
@@ -76,19 +76,18 @@ export class HelmTemplateCompletionProvider implements vscode.CompletionItemProv
                 return;
             }
             const keys = _.keys(this.valuesCache);
-            const res = [];
-            keys.forEach((key) => {
-                res.push(this.funcmap.v(key, ".Values."+key, "In values.yaml: " + this.valuesCache[key]));
-            });
+            const res = keys.map((key) =>
+                this.funcmap.v(key, ".Values."+key, "In values.yaml: " + this.valuesCache[key])
+            );
             return res;
 
         } else {
             // If we get here, we inspect the string to see if we are at some point in a
             // .Values.SOMETHING. expansion. We recurse through the values file to see
             // if there are any autocomplete options there.
-            let res;
+            let reExecResult: RegExpExecArray | undefined = undefined;
             try {
-                res = this.valuesMatcher.exec(lineUntil);
+                reExecResult = this.valuesMatcher.exec(lineUntil);
             } catch (err) {
                 logger.helm.log(err.message);
                 return [];
@@ -96,19 +95,21 @@ export class HelmTemplateCompletionProvider implements vscode.CompletionItemProv
 
             // If this does not match the valuesMatcher (Not a .Values.SOMETHING...) then
             // we return right away.
-            if (!res || res.length === 0) {
+            if (!reExecResult || reExecResult.length === 0) {
                 return [];
             }
-            if (res[1].length === 0 ) {
+            if (reExecResult[1].length === 0 ) {
                 // This is probably impossible. It would match '.Values.', but that is
                 // matched by a previous condition.
                 return [];
             }
 
+            const valuesMatches = reExecResult;  // for type inference
+
             // If we get here, we've got .Values.SOMETHING..., and we want to walk that
             // tree to see what suggestions we can give based on the contents of the
             // current values.yaml file.
-            const parts = res[1].split(".");
+            const parts = reExecResult[1].split(".");
             let cache = this.valuesCache;
             for (const cur of parts) {
                 if (cur.length === 0) {
@@ -124,11 +125,10 @@ export class HelmTemplateCompletionProvider implements vscode.CompletionItemProv
             if (!cache) {
                 return [];
             }
-            const k = [];
-            _.keys(cache).forEach((item) => {
+            const k = _.keys(cache).map((item) =>
                 // Build help text for each suggestion we found.
-                k.push(this.v(item, res[0] + item, "In values.yaml: " + cache[item]));
-            });
+                this.v(item, valuesMatches[0] + item, "In values.yaml: " + cache[item])
+            );
             return k;
         }
     }

@@ -7,6 +7,7 @@ import { kubeChannel } from "../kubeChannel";
 import { Kubectl } from "../kubectl";
 import { getCurrentClusterConfig } from "../kubectlUtils";
 import { shell } from "../shell";
+import { Dictionary } from "../utils/dictionary";
 
 export enum DockerClient {
     docker = "docker",
@@ -79,7 +80,7 @@ async function pushDockerImage(dockerClient: string, image: string, shellOpts: a
  * To workaround this, this function will try to resolve the equivalent docker env from kubeconfig instead.
  */
 export async function resolveKubernetesDockerEnv(kubectl: Kubectl): Promise<{}> {
-    const dockerEnv = {};
+    const dockerEnv = Dictionary.of<string | number>();
     dockerEnv["DOCKER_API_VERSION"] = await dockerApiVersion();
     const currentCluster = await getCurrentClusterConfig(kubectl);
     if (!currentCluster || !currentCluster.server || !currentCluster.certificateAuthority) {

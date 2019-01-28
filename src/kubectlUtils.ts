@@ -12,6 +12,31 @@ export interface KubectlContext {
     readonly active: boolean;
 }
 
+interface Kubeconfig {
+    readonly apiVersion: string;
+    readonly 'current-context': string;
+    readonly clusters: {
+        readonly name: string;
+        readonly cluster: {
+            readonly server: string;
+            readonly 'certificate-authority'?: string;
+            readonly 'certificate-authority-data'?: string;
+        };
+    }[] | undefined;
+    readonly contexts: {
+        readonly name: string;
+        readonly context: {
+            readonly cluster: string;
+            readonly user: string;
+            readonly namespace?: string;
+        };
+    }[] | undefined;
+    readonly users: {
+        readonly name: string;
+        readonly user: {};
+    }[] | undefined;
+}
+
 export interface KubernetesObject {
     readonly name: string;
 }
@@ -40,7 +65,7 @@ export interface DataHolder {
     readonly data: any;
 }
 
-async function getKubeconfig(kubectl: Kubectl): Promise<any> {
+async function getKubeconfig(kubectl: Kubectl): Promise<Kubeconfig> {
     const shellResult = await kubectl.asJson<any>("config view -o json");
     if (failed(shellResult)) {
         vscode.window.showErrorMessage(shellResult.error[0]);
@@ -183,7 +208,7 @@ export async function getPods(kubectl: Kubectl, selector: any, namespace: string
     if (ns === 'all') {
         nsFlag = '--all-namespaces';
     }
-    const labels = [];
+    const labels = Array.of<string>();
     let matchLabelObj = selector;
     if (selector && selector.matchLabels) {
         matchLabelObj = selector.matchLabels;

@@ -31,6 +31,15 @@ export enum EnsureMode {
     Silent,
 }
 
+// Schema for repositories.yaml
+interface HelmRepositoriesFile {
+    readonly repositories: ReadonlyArray<{
+        readonly name: string;
+        readonly cache: string;  // cache file path
+        readonly url: string;
+    }>;
+}
+
 // This file contains utilities for executing command line tools, notably Helm.
 
 export function helmVersion() {
@@ -401,14 +410,11 @@ export function pickChart(fn: (chartPath: string) => void) {
                 fn(p);
                 return;
             default:
-                const paths = [];
                 // TODO: This would be so much cooler if the QuickPick parsed the Chart.yaml
                 // and showed the chart name instead of the path.
-                matches.forEach((item) => {
-                    paths.push(
-                        filepath.relative(vscode.workspace.rootPath, filepath.dirname(item.fsPath)) || "."
-                    );
-                });
+                const paths = matches.map((item) =>
+                    filepath.relative(vscode.workspace.rootPath, filepath.dirname(item.fsPath)) || "."
+                );
                 vscode.window.showQuickPick(paths).then((picked) => {
                     fn(filepath.join(vscode.workspace.rootPath, picked));
                 });
@@ -436,7 +442,7 @@ export function loadChartMetadata(chartDir: string): Chart {
 }
 
 // Given a file, show any charts that this file belongs to.
-export function pickChartForFile(file: string, options: PickChartUIOptions, fn) {
+export function pickChartForFile(file: string, options: PickChartUIOptions, fn: (path: string) => void) {
     vscode.workspace.findFiles("**/Chart.yaml", "", 1024).then((matches) => {
         switch (matches.length) {
             case 0:
@@ -450,7 +456,7 @@ export function pickChartForFile(file: string, options: PickChartUIOptions, fn) 
                 fn(p);
                 return;
             default:
-                const paths = [];
+                const paths = Array.of<string>();
 
                 matches.forEach((item) => {
                     const dirname = filepath.dirname(item.fsPath);
@@ -627,7 +633,7 @@ export function searchForChart(name: string, version?: string): Requirement {
         vscode.window.showErrorMessage(`Helm repositories file ${reposFile} not found.`);
         return;
     }
-    const repos = YAML.load(reposFile);
+    const repos: HelmRepositoriesFile = YAML.load(reposFile);
     let req;
     repos.repositories.forEach((repo) => {
         if (repo.name === parts[0]) {

@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { Dictionary } from './utils/dictionary';
 
 export class ResourceKind implements vscode.QuickPickItem {
     constructor(readonly displayName: string, readonly pluralDisplayName: string, readonly manifestKind: string, readonly abbreviation: string) {
@@ -8,7 +9,7 @@ export class ResourceKind implements vscode.QuickPickItem {
     get description() { return ''; }
 }
 
-export const allKinds = {
+export const allKinds: Dictionary<ResourceKind> = {
     endpoint: new ResourceKind("Endpoint", "Endpoints", "Endpoint", "endpoints"),
     namespace: new ResourceKind("Namespace", "Namespaces", "Namespace", "namespace"),
     node: new ResourceKind("Node", "Nodes", "Node", "node"),
