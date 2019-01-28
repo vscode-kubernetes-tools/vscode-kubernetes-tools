@@ -28,7 +28,7 @@ export class NodejsDebugProvider implements IDebugProvider {
 
     public async startDebugging(workspaceFolder: string, sessionName: string, port: number): Promise<boolean> {
 
-        const debugConfiguration = {
+        const debugConfiguration: vscode.DebugConfiguration = {
             type: "node",
             request: "attach",
             name: sessionName,
