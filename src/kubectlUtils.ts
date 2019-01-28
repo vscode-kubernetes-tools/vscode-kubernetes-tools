@@ -367,3 +367,33 @@ export async function getResourceAsJson<T extends KubernetesResource | Kubernete
     }
     return shellResult.result;
 }
+
+export async function createResourceFromUri(uri: vscode.Uri, kubectl: Kubectl) {
+    await changeResourceFromUri(uri, kubectl, 'create', 'creating', 'created');
+}
+
+export async function deleteResourceFromUri(uri: vscode.Uri, kubectl: Kubectl) {
+    const result = await vscode.window.showWarningMessage('Are you sure you want to delete this resource?', 'Delete', 'Cancel');
+    if (result === 'Delete') {
+        await changeResourceFromUri(uri, kubectl, 'delete', 'deleting', 'deleted');
+    }
+}
+
+export async function applyResourceFromUri(uri: vscode.Uri, kubectl: Kubectl) {
+    await changeResourceFromUri(uri, kubectl, 'apply', 'applying', 'applied');
+}
+
+async function changeResourceFromUri(uri: vscode.Uri, kubectl: Kubectl, command: string, verbParticiple: string, verbPast: string) {
+    if (uri.scheme !== 'file') {
+        vscode.window.showErrorMessage(`${uri.toString()} is not a file path.`);
+        return;
+    }
+    const path = vscode.workspace.asRelativePath(uri);
+    const result = await kubectl.invokeAsync(`${command} -f "${path}"`);
+    if (result.code !== 0) {
+        vscode.window.showErrorMessage(`Error ${verbParticiple} resource: ${result.stderr}`);
+        kubeChannel.showOutput(result.stderr, `Error ${verbParticiple} resource (${result.code})`);
+    } else {
+        vscode.window.showInformationMessage(`Resource ${path} ${verbPast}.`);
+    }
+}
