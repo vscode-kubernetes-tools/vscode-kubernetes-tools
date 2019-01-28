@@ -8,8 +8,6 @@ import { escape as htmlEscape } from 'lodash';
 import * as helm from './helm';
 import * as logger from './logger';
 import { failed } from './errorable';
-import { config } from 'bluebird';
-import { getUseWsl } from './components/config/config';
 
 interface HelmDocumentResult {
     readonly title: string;

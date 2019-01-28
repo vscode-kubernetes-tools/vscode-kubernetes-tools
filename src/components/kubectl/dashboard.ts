@@ -1,7 +1,7 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import * as opn from 'opn';
+import opn = require('opn');
 
 import { createReadStream } from 'fs';
 import { resolve } from 'path';

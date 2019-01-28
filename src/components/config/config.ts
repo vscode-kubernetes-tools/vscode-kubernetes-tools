@@ -154,7 +154,7 @@ export function getDisableLint(): boolean {
 
 export function getDisabledLinters(): string[] {
     const config = vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY);
-    return config['disable-linters'] as string[];
+    return config['disable-linters'] as string[] || [];
 }
 
 // nodejs debugger attach  options

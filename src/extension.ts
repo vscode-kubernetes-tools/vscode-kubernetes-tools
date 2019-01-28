@@ -11,9 +11,8 @@ import { fs } from './fs';
 
 // External dependencies
 import * as yaml from 'js-yaml';
-import * as dockerfileParse from 'dockerfile-parse';
+import dockerfileParse = require('dockerfile-parse');
 import * as tmp from 'tmp';
-import * as uuid from 'uuid';
 import * as clipboard from 'clipboardy';
 import { pullAll } from 'lodash';
 
@@ -76,7 +75,7 @@ import { linters } from './components/lint/linters';
 import { runClusterWizard } from './components/clusterprovider/clusterproviderserver';
 
 let explainActive = false;
-let swaggerSpecPromise = null;
+let swaggerSpecPromise: Promise<any> | null = null;
 
 const kubernetesDiagnostics = vscode.languages.createDiagnosticCollection("Kubernetes");
 
@@ -116,7 +115,7 @@ export const HELM_TPL_MODE: vscode.DocumentFilter = { language: "helm", scheme: 
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
-export async function activate(context): Promise<extensionapi.ExtensionAPI> {
+export async function activate(context: vscode.ExtensionContext): Promise<extensionapi.ExtensionAPI> {
     kubectl.checkPresent(CheckPresentMessageMode.Activation);
 
     const treeProvider = explorer.create(kubectl, host);
@@ -360,7 +359,12 @@ function registerTelemetry(context: vscode.ExtensionContext): vscode.Disposable 
     return new Reporter(context);
 }
 
-function provideHover(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken, syntax): Promise<vscode.Hover> {
+interface Syntax {
+    parse(text: string): any;
+    findParent(document: vscode.TextDocument, line: number): number;
+}
+
+function provideHover(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken, syntax: Syntax): Promise<vscode.Hover> {
     return new Promise(async (resolve, reject) => {
         if (!explainActive) {
             resolve(null);
@@ -408,7 +412,7 @@ function provideHover(document: vscode.TextDocument, position: vscode.Position, 
 }
 
 function provideHoverJson(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): Promise<vscode.Hover> {
-    const syntax = {
+    const syntax: Syntax = {
         parse: (text) => JSON.parse(text),
         findParent: (document, parentLine) => findParentJson(document, parentLine - 1)
     };
@@ -417,19 +421,19 @@ function provideHoverJson(document: vscode.TextDocument, position: vscode.Positi
 }
 
 function provideHoverYaml(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): Promise<vscode.Hover> {
-    const syntax = {
+    const syntax: Syntax = {
         parse: (text) => yaml.safeLoad(text),
         findParent: (document, parentLine) => findParentYaml(document, parentLine)
     };
     return provideHover(document, position, token, syntax);
 }
 
-function findProperty(line) {
+function findProperty(line: vscode.TextLine): string {
     const ix = line.text.indexOf(':');
     return line.text.substring(line.firstNonWhitespaceCharacterIndex, ix);
 }
 
-function findParentJson(document, line) {
+function findParentJson(document: vscode.TextDocument, line: number): number {
     let count = 1;
     while (line >= 0) {
         const txt = document.lineAt(line);
@@ -454,8 +458,8 @@ function findParentJson(document, line) {
     return line;
 }
 
-async function explain(obj, field) {
-    return new Promise((resolve) => {
+async function explain(obj: any, field: string): Promise<string | null> {
+    return new Promise<string | null>((resolve) => {
         if (!obj.kind) {
             vscode.window.showErrorMessage("Not a Kubernetes API Object!");
             resolve(null);
@@ -505,7 +509,7 @@ function explainActiveWindow() {
     }
 }
 
-let statusBarItem;
+let statusBarItem: vscode.StatusBarItem | undefined = undefined;
 
 function initStatusBar() {
     if (!statusBarItem) {
@@ -535,7 +539,7 @@ function maybeRunKubernetesCommandForActiveWindow(command: string, progressMessa
     }
 
     const isKubernetesSyntax = (editor.document.languageId === 'json' || editor.document.languageId === 'yaml');
-    const resultHandler = isKubernetesSyntax ? undefined /* default handling */ :
+    const resultHandler: ShellHandler | undefined = isKubernetesSyntax ? undefined /* default handling */ :
         (code, stdout, stderr) => {
             if (code === 0 ) {
                 vscode.window.showInformationMessage(stdout);
@@ -604,7 +608,7 @@ function kubectlTextDocument(command: string, document: vscode.TextDocument, pro
     }
 }
 
-function kubectlViaTempFile(command, fileContent, progressMessage, handler?) {
+function kubectlViaTempFile(command: string, fileContent: string, progressMessage: string, handler?: ShellHandler) {
     const tmpobj = tmp.fileSync();
     fs.writeFileSync(tmpobj.name, fileContent);
 
@@ -739,7 +743,7 @@ function findVersion() {
     };
 }
 
-function findVersionInternal(fn) {
+function findVersionInternal(fn: (text: string) => void): void {
     // No .git dir, use 'latest'
     // TODO: use 'git rev-parse' to detect upstream directories
     if (!fs.existsSync(path.join(vscode.workspace.rootPath, '.git'))) {
@@ -814,7 +818,7 @@ function findNameAndImage() {
     };
 }
 
-function _findNameAndImageInternal(fn) {
+function _findNameAndImageInternal(fn: (name: string, image: string) => void) {
     if (vscode.workspace.rootPath === undefined) {
         vscode.window.showErrorMessage('This command requires an open folder.');
         return;
@@ -874,7 +878,7 @@ function diagnosePushError(exitCode: number, error: string): string {
     return 'Image push failed.';
 }
 
-function buildPushThenExec(fn) {
+function buildPushThenExec(fn: (name: string, image: string) => void): void {
     findNameAndImage().then((name, image) => {
         vscode.window.withProgress({ location: vscode.ProgressLocation.Window }, async (p) => {
             p.report({ message: "Docker Building..." });
@@ -915,7 +919,7 @@ interface ResourceKindName {
     readonly resourceName: string;
 }
 
-function findKindNameForText(text): Errorable<ResourceKindName> {
+function findKindNameForText(text: string): Errorable<ResourceKindName> {
     const kindNames = findKindNamesForText(text);
     if (!succeeded(kindNames)) {
         return { succeeded: false, error: kindNames.error };
@@ -926,7 +930,7 @@ function findKindNameForText(text): Errorable<ResourceKindName> {
     return { succeeded: true, result: kindNames.result[0] };
 }
 
-function findKindNamesForText(text): Errorable<ResourceKindName[]> {
+function findKindNamesForText(text: string): Errorable<ResourceKindName[]> {
     try {
         const objs: {}[] = yaml.safeLoadAll(text);
         if (objs.some((o) => !isKubernetesResource(o))) {
@@ -949,7 +953,7 @@ function findKindNamesForText(text): Errorable<ResourceKindName[]> {
     }
 }
 
-export function findKindNameOrPrompt(resourceKinds: kuberesources.ResourceKind[], descriptionVerb, opts, handler) {
+export function findKindNameOrPrompt(resourceKinds: kuberesources.ResourceKind[], descriptionVerb: string, opts: vscode.InputBoxOptions & QuickPickKindNameOptions, handler: (kindName: string) => void) {
     const kindObject = tryFindKindNameFromEditor();
     if (failed(kindObject)) {
         promptKindName(resourceKinds, descriptionVerb, opts, handler);
@@ -958,7 +962,7 @@ export function findKindNameOrPrompt(resourceKinds: kuberesources.ResourceKind[]
     }
 }
 
-export function promptKindName(resourceKinds: kuberesources.ResourceKind[], descriptionVerb, opts, handler) {
+export function promptKindName(resourceKinds: kuberesources.ResourceKind[], descriptionVerb: string, opts: vscode.InputBoxOptions & QuickPickKindNameOptions, handler: (kindName: string) => void) {
     let placeHolder: string = 'Empty string to be prompted';
     let prompt: string = `What resource do you want to ${descriptionVerb}?`;
 
@@ -979,7 +983,7 @@ export function promptKindName(resourceKinds: kuberesources.ResourceKind[], desc
     (err) => vscode.window.showErrorMessage(`Error getting kind input: ${err}`));
 }
 
-export function quickPickKindName(resourceKinds: kuberesources.ResourceKind[], opts, handler) {
+export function quickPickKindName(resourceKinds: kuberesources.ResourceKind[], opts: QuickPickKindNameOptions, handler: (kindName: string) => void) {
     if (resourceKinds.length === 1) {
         quickPickKindNameFromKind(resourceKinds[0], opts, handler);
         return;
@@ -993,7 +997,12 @@ export function quickPickKindName(resourceKinds: kuberesources.ResourceKind[], o
     (err) => vscode.window.showErrorMessage(`Error picking resource kind: ${err}`));
 }
 
-function quickPickKindNameFromKind(resourceKind: kuberesources.ResourceKind, opts, handler) {
+interface QuickPickKindNameOptions {
+    readonly filterNames?: string[];
+    readonly nameOptional?: boolean;
+}
+
+function quickPickKindNameFromKind(resourceKind: kuberesources.ResourceKind, opts: QuickPickKindNameOptions, handler: (kindName: string) => void) {
     const kind = resourceKind.abbreviation;
     kubectl.invoke("get " + kind, (code, stdout, stderr) => {
         if (code !== 0) {
@@ -1024,7 +1033,7 @@ function quickPickKindNameFromKind(resourceKind: kuberesources.ResourceKind, opt
                     handler(kindName);
                 }
             }),
-            (err) => vscode.window.showErrorMessage(`Error picking name: ${err}`);
+            (err: any) => vscode.window.showErrorMessage(`Error picking name: ${err}`);
         } else {
             vscode.window.showQuickPick(names).then((name) => {
                 if (name) {
@@ -1037,14 +1046,14 @@ function quickPickKindNameFromKind(resourceKind: kuberesources.ResourceKind, opt
     });
 }
 
-function containsName(kindName) {
-    if (typeof kindName === 'string' || kindName instanceof String) {
+function containsName(kindName: string): boolean {
+    if (kindName) {
         return kindName.indexOf('/') > 0;
     }
     return false;
 }
 
-function parseNamesFromKubectlLines(text) {
+function parseNamesFromKubectlLines(text: string): string[] {
     const lines = text.split('\n');
     lines.shift();
 
@@ -1057,7 +1066,7 @@ function parseNamesFromKubectlLines(text) {
     return names;
 }
 
-function parseName(line) {
+function parseName(line: string): string {
     return line.split(' ')[0];
 }
 
@@ -1225,7 +1234,7 @@ async function terminalKubernetes(explorerNode?: explorer.ResourceNode) {
     }
 }
 
-async function execKubernetesCore(isTerminal): Promise<void> {
+async function execKubernetesCore(isTerminal: boolean): Promise<void> {
     const opts: any = { prompt: 'Please provide a command to execute' };
 
     if (isTerminal) {
@@ -1414,9 +1423,9 @@ const applyKubernetes = () => {
     });
 };
 
-const handleError = (err) => {
+const handleError = (err: NodeJS.ErrnoException) => {
     if (err) {
-        vscode.window.showErrorMessage(err);
+        vscode.window.showErrorMessage(err.message);
     }
 };
 
@@ -1548,7 +1557,7 @@ const debugAttachKubernetes = async (explorerNode: explorer.ResourceNode) => {
     }
 };
 
-const debugInternal = (name, image) => {
+const debugInternal = (name: string, image: string) => {
     // TODO: optionalize/customize the '-debug'
     // TODO: make this smarter.
     vscode.window.showInputBox({
@@ -1564,7 +1573,7 @@ const debugInternal = (name, image) => {
     (err) => vscode.window.showErrorMessage(`Error getting input: ${err}`));
 };
 
-const doDebug = async (name, image, cmd) => {
+const doDebug = async (name: string, image: string, cmd: string) => {
     const deploymentName = `${name}-debug`;
     const runCmd = `run ${deploymentName} --image=${image} -i --attach=false -- ${cmd}`;
     console.log(runCmd);
@@ -1633,7 +1642,7 @@ const doDebug = async (name, image, cmd) => {
     });
 };
 
-const waitForRunningPod = (name, callback) => {
+const waitForRunningPod = (name: string, callback: () => void) => {
     kubectl.invoke(` get pods ${name} -o jsonpath --template="{.status.phase}"`,
         (result, stdout, stderr) => {
             if (result !== 0) {
@@ -1650,17 +1659,17 @@ const waitForRunningPod = (name, callback) => {
         });
 };
 
-function exists(kind, name, handler) {
+function exists(kind: string, name: string, handler: (exists: boolean) => void) {
     kubectl.invoke(`get ${kind} ${name}`, (result) => {
         handler(result === 0);
     });
 }
 
-function deploymentExists(deploymentName, handler) {
+function deploymentExists(deploymentName: string, handler: (exists: boolean) => void) {
     exists('deployments', deploymentName, handler);
 }
 
-function serviceExists(serviceName, handler) {
+function serviceExists(serviceName: string, handler: (exists: boolean) => void) {
     exists('services', serviceName, handler);
 }
 
@@ -1947,7 +1956,7 @@ function isLintable(document: vscode.TextDocument): boolean {
 }
 
 function linterDisabled(disabledLinters: string[], name: string): boolean {
-    return disabledLinters.some((l) => l === name);
+    return (disabledLinters || []).some((l) => l === name);
 }
 
 async function kubernetesLint(document: vscode.TextDocument): Promise<void> {

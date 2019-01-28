@@ -202,8 +202,7 @@ export async function listAksLocations(context: Context): Promise<Errorable<Serv
         "japaneast",
         "southindia"
     ];
-    const previewRegions = [];
-    const result = locationDisplayNamesEx(productionRegions, previewRegions, locations);
+    const result = locationDisplayNamesEx(productionRegions, [], locations);
     return { succeeded: true, result: result };
 }
 

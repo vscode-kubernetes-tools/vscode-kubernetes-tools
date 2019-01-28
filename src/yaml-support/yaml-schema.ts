@@ -258,14 +258,14 @@ function isGroupVersionKindStyle(originalSchema: any): boolean {
  * @returns {KubernetesSchema[]} an array of schemas for the same manifest differentiated by id/apiVersion/kind;
  */
 function getManifestStyleSchemas(originalSchema: any): KubernetesSchema[] {
-    const schemas = [];
+    const schemas = Array.of<KubernetesSchema>();
     // eg: service, pod, deployment
     const groupKindNode = originalSchema[KUBERNETES_GROUP_VERSION_KIND];
 
     // delete 'x-kubernetes-group-version-kind' since it is not a schema standard, it is only a selector
     delete originalSchema[KUBERNETES_GROUP_VERSION_KIND];
 
-    groupKindNode.forEach((groupKindNode) => {
+    groupKindNode.forEach((groupKindNode: any) => {
         const { id, apiVersion, kind } = util.parseKubernetesGroupVersionKind(groupKindNode);
 
         // a direct kubernetes manifest has two reference keys: id && name

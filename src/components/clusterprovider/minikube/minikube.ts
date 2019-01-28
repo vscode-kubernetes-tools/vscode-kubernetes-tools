@@ -25,7 +25,7 @@ export class MinikubeOptions {
 
 export interface Minikube {
     checkPresent(mode: CheckPresentMode): Promise<boolean>;
-    checkUpgradeAvailable();
+    checkUpgradeAvailable(): Promise<void>;
     isRunnable(): Promise<Errorable<Diagnostic>>;
     start(options: MinikubeOptions): Promise<void>;
     stop(): Promise<void>;
@@ -85,8 +85,8 @@ class MinikubeImpl implements Minikube {
     }
 }
 
-async function minikubeUpgradeAvailable(context: Context) {
-    if (!await checkPresent(context, CheckPresentMode.Alert)) {
+async function minikubeUpgradeAvailable(context: Context): Promise<void> {
+    if (!await checkPresent(context, CheckPresentMode.Silent)) {
         // not installed, no upgrade.
         return;
     }
@@ -131,7 +131,7 @@ async function isRunnableMinikube(context: Context): Promise<Errorable<Diagnosti
     return fromShellExitCodeOnly(sr);
 }
 
-let minikubeStatusBarItem;
+let minikubeStatusBarItem: vscode.StatusBarItem | undefined;
 
 function getStatusBar(): vscode.StatusBarItem {
     if (!minikubeStatusBarItem) {

@@ -4,6 +4,11 @@ import { DraftRuntime } from './draftRuntime';
 import { DebugProtocol } from 'vscode-debugprotocol/lib/debugProtocol';
 const { Subject } = require('await-notify');
 
+interface DraftDebugSessionExtraEvaluateArguments {
+    readonly restart?: boolean;
+    readonly stop?: boolean;
+}
+
 export class DraftDebugSession extends LoggingDebugSession {
     private runtime: DraftRuntime;
     private configurationDone = new Subject();
@@ -38,7 +43,7 @@ export class DraftDebugSession extends LoggingDebugSession {
         this.sendResponse(response);
     }
 
-    protected evaluateRequest(response: DebugProtocol.EvaluateResponse, args: DebugProtocol.EvaluateArguments): void {
+    protected evaluateRequest(response: DebugProtocol.EvaluateResponse, args: DebugProtocol.EvaluateArguments & DraftDebugSessionExtraEvaluateArguments): void {
         if (args['restart'] === true) {
             // TODO - check for request type
             //
