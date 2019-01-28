@@ -9,6 +9,9 @@
         ],
         "sourceMap": true,
         "rootDir": ".",
+        "alwaysStrict": true,
+        "noFallthroughCasesInSwitch": true,
+        "noImplicitReturns": true,
         "noImplicitAny": true
     },
     "exclude": [

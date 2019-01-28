@@ -621,17 +621,17 @@ export function insertRequirement() {
 }
 
 // searchForChart takes a 'repo/name' and returns an entry suitable for requirements
-export function searchForChart(name: string, version?: string): Requirement {
+export function searchForChart(name: string, version?: string): Requirement | undefined {
     const parts = name.split("/", 2);
     if (parts.length !== 2) {
         logger.log("Chart should be of the form REPO/CHARTNAME");
-        return;
+        return undefined;
     }
     const hh = helmHome();
     const reposFile = filepath.join(hh, "repository", "repositories.yaml");
     if (!fs.existsSync(reposFile)) {
         vscode.window.showErrorMessage(`Helm repositories file ${reposFile} not found.`);
-        return;
+        return undefined;
     }
     const repos: HelmRepositoriesFile = YAML.load(reposFile);
     let req;

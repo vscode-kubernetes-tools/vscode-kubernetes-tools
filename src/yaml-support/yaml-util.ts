@@ -109,7 +109,7 @@ export function getYamlMappingValue(mapRootNode: YamlMap, key: string,
 }
 
 // get the string value in a javascript object with key(may be case sensitive due to the third parameter)
-function getStringValue(node: Dictionary<string>, key: string, ignoreCase: StringComparison = StringComparison.Ordinal): string {
+function getStringValue(node: Dictionary<string>, key: string, ignoreCase: StringComparison = StringComparison.Ordinal): string | undefined {
     if (!node) {
         return undefined;
     }
@@ -123,4 +123,5 @@ function getStringValue(node: Dictionary<string>, key: string, ignoreCase: Strin
             }
         }
     }
+    return undefined;
 }

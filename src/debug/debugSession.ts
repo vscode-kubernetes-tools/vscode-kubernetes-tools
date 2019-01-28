@@ -215,9 +215,9 @@ export class DebugSession implements IDebugSession {
     private async pickupAndInstallDebugProvider(baseImage?: string): Promise<IDebugProvider | undefined> {
         const debugProvider: IDebugProvider = await providerRegistry.getDebugProvider();
         if (!debugProvider) {
-            return;
+            return undefined;
         } else if (!await debugProvider.isDebuggerInstalled()) {
-            return;
+            return undefined;
         }
 
         return debugProvider;

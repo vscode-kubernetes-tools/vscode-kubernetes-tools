@@ -2,7 +2,7 @@ export interface IDockerfile {
     /**
      * Parse the inherited base image from the dockerfile.
      */
-    getBaseImage(): string;
+    getBaseImage(): string | undefined;
 
     /**
      *  Parse the exposed ports from the dockerfile.

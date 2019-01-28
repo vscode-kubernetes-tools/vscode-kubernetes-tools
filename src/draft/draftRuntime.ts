@@ -124,7 +124,8 @@ function canAttachDebugger(data: string, config: vscode.DebugConfiguration): boo
 			}
 			break;
 		}
-	}
+    }
+    return false;
 }
 
 function subscribeToDataEvent(readable: Readable, outputChannel: OutputChannel): void {

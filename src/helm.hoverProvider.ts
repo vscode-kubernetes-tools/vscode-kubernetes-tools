@@ -46,7 +46,7 @@ export class HelmTemplateHoverProvider implements vscode.HoverProvider {
                 //  app: metadata
 
                 if (!isPositionInKey(doc, pos)) {
-                    return;
+                    return undefined;
                 }
             } catch (ex) {
                 // ignore since the editing yaml may not be able to parse
@@ -77,6 +77,7 @@ export class HelmTemplateHoverProvider implements vscode.HoverProvider {
                 return [{language: "helm", value: `{{ ${ item.detail } }}`}, `${ item.documentation }`];
             }
         }
+        return [];
     }
 
     private inActionVal(doc: vscode.TextDocument, pos: vscode.Position, word: string): boolean {
@@ -91,12 +92,15 @@ export class HelmTemplateHoverProvider implements vscode.HoverProvider {
                 return [{language: "helm", value: `{{ ${ item.detail } }}`}, `${ item.documentation }`];
             }
         }
+        return [];
     }
+
     private findResourceDef(word: string): vscode.MarkedString[] | string {
         for (const item of this.resmap) {
             if (item.label === word) {
                 return [{language: "helm", value: `${ item.detail }`}, `${ item.documentation }`];
             }
         }
+        return [];
     }
 }
