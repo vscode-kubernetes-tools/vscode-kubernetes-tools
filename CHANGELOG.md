@@ -1,5 +1,15 @@
 # Change Log
 
+## 0.1.16
+
+* Fixed looping if `kubectl version` returned an error
+* Fixed 'Minikube not present' alert on startup
+* Fixed error if no disabled linters
+* Fixed error if space in path to Minikube binary
+* Fixed contributors who were left out of the credits list for 0.1.15
+
+Thanks to contributors Brendan Burns and Aurelien Pupier.
+
 ## 0.1.15
 
 * Added custom resources (CRDs), stateful sets and daemon sets to the tree view
