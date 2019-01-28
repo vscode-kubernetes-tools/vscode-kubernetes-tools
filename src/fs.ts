@@ -46,7 +46,7 @@ export const fs: FS = {
 
     openAsync: (path, flags) => {
         return new Promise((resolve, reject) => {
-            sysfs.open(path, flags, (error, fd) => {
+            sysfs.open(path, flags, (error, _fd) => {
                 if (error) {
                     reject();
                     return;

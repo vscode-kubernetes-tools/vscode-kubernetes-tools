@@ -13,7 +13,7 @@ export const uriScheme: string = 'k8sviewfiledata';
 export class ConfigMapTextProvider implements vscode.TextDocumentContentProvider {
     constructor(readonly kubectl: Kubectl) { }
 
-    provideTextDocumentContent(uri: vscode.Uri, token: vscode.CancellationToken): vscode.ProviderResult<string> {
+    provideTextDocumentContent(uri: vscode.Uri, _token: vscode.CancellationToken): vscode.ProviderResult<string> {
         const parts = uri.path.split('/');
         const b: Buffer = new Buffer(parts[1], 'base64');
         return b.toString();

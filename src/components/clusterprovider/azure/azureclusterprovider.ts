@@ -5,8 +5,7 @@ import { Errorable, succeeded, failed, Failed, Succeeded } from '../../../errora
 import { formPage, propagationFields } from '../common/form';
 import { refreshExplorer } from '../common/explorer';
 import { Wizard, NEXT_FN } from '../../wizard/wizard';
-import { Sequence, Observable, Observer } from '../../../utils/observable';
-import { sleep } from '../../../sleep';
+import { Sequence, Observable } from '../../../utils/observable';
 import { trackReadiness } from '../readinesstracker';
 
 // TODO: de-globalise
@@ -72,7 +71,7 @@ async function promptForSubscription(previousData: any, context: azure.Context, 
     const subscriptions: string[] = subscriptionList.result.result;
 
     if (!subscriptions || !subscriptions.length) {
-        return renderNoOptions('PromptForSubscription', 'No Azure subscriptions', 'You have no Azure subscriptions.');
+        return renderNoOptions('No Azure subscriptions', 'You have no Azure subscriptions.');
     }
 
     const options = subscriptions.map((s) => `<option value="${s}">${s}</option>`).join('\n');
@@ -106,7 +105,7 @@ async function promptForCluster(previousData: any, context: azure.Context): Prom
     const clusters = clusterList.result.result;
 
     if (!clusters || clusters.length === 0) {
-        return renderNoOptions('PromptForCluster', 'No clusters', 'There are no Kubernetes clusters in the selected subscription.');
+        return renderNoOptions('No clusters', 'There are no Kubernetes clusters in the selected subscription.');
     }
 
     const options = clusters.map((c) => `<option value="${formatCluster(c)}">${c.name} (in ${c.resourceGroup})</option>`).join('\n');
@@ -341,7 +340,7 @@ function renderCliError<T>(stageId: string, last: ActionResult<T>): string {
         <p>${errorInfo.error}</p>`;
 }
 
-function renderNoOptions(stageId: string, title: string, message: string): string {
+function renderNoOptions(title: string, message: string): string {
     return `
 <h1>${title}</h1>
 ${styles()}

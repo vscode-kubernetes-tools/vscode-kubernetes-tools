@@ -2,12 +2,11 @@ import * as clusterproviderregistry from '../clusterproviderregistry';
 import { styles, formStyles, waitScript, ActionResult, Diagnostic, fromShellExitCodeOnly } from '../../../wizard';
 import { propagationFields, formPage } from '../common/form';
 import { refreshExplorer } from '../common/explorer';
-import { succeeded, Failed, failed } from '../../../errorable';
+import { succeeded, Failed } from '../../../errorable';
 import { Shell } from '../../../shell';
 import { Minikube, MinikubeOptions } from './minikube';
 import { Wizard, NEXT_FN } from '../../wizard/wizard';
-import { Sequence, Observable, Observer } from '../../../utils/observable';
-import { sleep } from '../../../sleep';
+import { Sequence, Observable } from '../../../utils/observable';
 import { trackReadiness } from '../readinesstracker';
 
 export interface Context {
@@ -36,7 +35,7 @@ function next(context: Context, wizard: Wizard, action: clusterproviderregistry.
 
 function getHandleCreateHtml(step: string | undefined, context: Context, requestData: any): Sequence<string> {
     if (!step) {
-        return promptForConfiguration(requestData, context, "create", "create");
+        return promptForConfiguration(requestData, "create", "create");
     } else if (step === "create") {
         return createCluster(requestData, context);
     } else if (step === "wait") {
@@ -46,15 +45,15 @@ function getHandleCreateHtml(step: string | undefined, context: Context, request
     }
 }
 
-function getHandleConfigureHtml(step: string | undefined, requestData: any): Sequence<string> {
+function getHandleConfigureHtml(step: string | undefined, _requestData: any): Sequence<string> {
     if (!step || step === "configure") {
-        return configureKubernetes(requestData);
+        return configureKubernetes();
     } else {
         return renderInternalError(`MinikubeStepError (${step})`);
     }
 }
 
-async function promptForConfiguration(previousData: any, context: Context, action: clusterproviderregistry.ClusterProviderAction, nextStep: string): Promise<string> {
+async function promptForConfiguration(previousData: any, action: clusterproviderregistry.ClusterProviderAction, nextStep: string): Promise<string> {
     return formPage({
         stepId: 'PromptForConfiguration',
         title: 'Configure Minikube',
@@ -87,7 +86,7 @@ async function promptForConfiguration(previousData: any, context: Context, actio
     });
 }
 
-async function configureKubernetes(previousData: any): Promise<string> {
+async function configureKubernetes(): Promise<string> {
     await refreshExplorer();
     return renderConfigurationResult();
 }

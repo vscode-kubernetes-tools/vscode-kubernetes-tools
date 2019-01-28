@@ -6,7 +6,6 @@ import * as kuberesources from '../../kuberesources';
 import { ResourceNode } from '../../explorer';
 import * as yaml from 'js-yaml';
 import * as kubectlUtils from '../../kubectlUtils';
-import { host } from '../../host';
 
 export enum LogsDisplayMode {
     Show,

@@ -48,7 +48,7 @@ function extractChartName(uri: vscode.Uri): string {
 }
 
 export class HelmInspectDocumentProvider implements vscode.TextDocumentContentProvider {
-    public provideTextDocumentContent(uri: vscode.Uri, tok: vscode.CancellationToken): vscode.ProviderResult<string> {
+    public provideTextDocumentContent(uri: vscode.Uri, _token: vscode.CancellationToken): vscode.ProviderResult<string> {
         return new Promise<string>((resolve, reject) => {
             const printer = (code: number, out: string, err: string) => {
                 if (code === 0) {
@@ -102,8 +102,8 @@ export class HelmTemplatePreviewDocumentProvider implements vscode.TextDocumentC
         this.onDidChangeEmitter.fire(uri);
 	}
 
-    public provideTextDocumentContent(uri: vscode.Uri, tok: vscode.CancellationToken): vscode.ProviderResult<string> {
-        return new Promise<string>((resolve, reject) => {
+    public provideTextDocumentContent(_uri: vscode.Uri, _token: vscode.CancellationToken): vscode.ProviderResult<string> {
+        return new Promise<string>((resolve) => {
             // The URI is the encapsulated path to the template to render.
             if (!vscode.window.activeTextEditor) {
                 logger.helm.log("FIXME: no editor selected");
@@ -147,7 +147,7 @@ export class HelmTemplatePreviewDocumentProvider implements vscode.TextDocumentC
 }
 
 export class HelmDependencyDocumentProvider implements vscode.TextDocumentContentProvider {
-    public provideTextDocumentContent(uri: vscode.Uri, tok: vscode.CancellationToken): vscode.ProviderResult<string> {
+    public provideTextDocumentContent(uri: vscode.Uri, _token: vscode.CancellationToken): vscode.ProviderResult<string> {
         return this.provideTextDocumentContentImpl(uri);
     }
 

@@ -57,14 +57,14 @@ async function loadCachedClusterType(kubectl: Kubectl) {
         cachedClusterType = knownClusters[latestContextName];
     }
     else {
-        cachedClusterType = await inferCurrentClusterType(kubectl, latestContextName);
+        cachedClusterType = await inferCurrentClusterType(kubectl);
         if (latestContextName) {
             knownClusters[latestContextName] = cachedClusterType;
         }
     }
 }
 
-async function inferCurrentClusterType(kubectl: Kubectl, contextNameHint: string | null): Promise<ClusterType> {
+async function inferCurrentClusterType(kubectl: Kubectl): Promise<ClusterType> {
     if (!latestContextName) {
         const ctxsr = await kubectl.invokeAsync('config current-context');
         if (ctxsr.code === 0) {
