@@ -168,6 +168,6 @@ export function getNodejsRemoteRoot(): string {
     return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.nodejs-remote-root'];
 }
 // remote debugging port for nodejs. Usually 9229
-export function getNodejsDebugPort(): string {
+export function getNodejsDebugPort(): number | undefined {
     return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.nodejs-debug-port'];
 }

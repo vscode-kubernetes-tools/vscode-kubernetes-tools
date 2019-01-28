@@ -78,3 +78,16 @@ export async function getCommandsOfProcesses(kubectl: Kubectl, pod: string, podN
 
     return commandLines;
 }
+
+const isBashOnContainer = async (kubectl: Kubectl, podName: string, podNamespace: string | undefined, containerName: string | undefined): Promise<boolean> => {
+    const nsarg = podNamespace ? `--namespace ${podNamespace}` : '';
+    const result = await kubectl.invokeAsync(`exec ${podName} ${nsarg} ${containerName ? "-c ${selectedContainer}" : ""} -- ls -la /bin/bash`);
+    return !result.code;
+};
+
+export async function suggestedShellForContainer(kubectl: Kubectl, podName: string, podNamespace: string | undefined, containerName: string | undefined): Promise<string> {
+    if (await isBashOnContainer(kubectl, podName, podNamespace, containerName)) {
+        return 'bash';
+    }
+    return 'sh';
+}

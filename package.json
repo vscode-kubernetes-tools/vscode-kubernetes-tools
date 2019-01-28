@@ -189,7 +189,7 @@
                             "description": "User specified root location of the source code in the container."
                         },
                         "vs-kubernetes.nodejs-debug-port": {
-                            "type": "string",
+                            "type": "number",
                             "description": "Remote debugging port for nodejs. Usually 9229."
                         },
                         "disable-lint": {
@@ -213,7 +213,7 @@
                         "vs-kubernetes.autoCleanupOnDebugTerminate": false,
                         "vs-kubernetes.nodejs-autodetect-remote-root": true,
                         "vs-kubernetes.nodejs-remote-root": "",
-                        "vs-kubernetes.nodejs-debug-port": "9229"
+                        "vs-kubernetes.nodejs-debug-port": 9229
                     }
                 },
                 "vsdocker.imageUser": {
