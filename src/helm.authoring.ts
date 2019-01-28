@@ -167,7 +167,7 @@ async function createChart(context: Context): Promise<Chart | undefined> {
 
     if (failed(createResult)) {
         context.host.showErrorMessage(createResult.error[0]);
-        return;
+        return undefined;
     }
 
     return createResult.result;

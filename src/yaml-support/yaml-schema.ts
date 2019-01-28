@@ -26,7 +26,7 @@ export interface KubernetesSchema {
 // 2. the requestSchemaContent api  will give the parameter uri returned by the first api, and ask for the json content(after stringify) of
 // the schema
 declare type YamlSchemaContributor = (schema: string,
-                                       requestSchema: (resource: string) => string,
+                                       requestSchema: (resource: string) => string | undefined,
                                        requestSchemaContent: (uri: string) => string) => void;
 
 class KubernetesSchemaHolder {
@@ -186,7 +186,7 @@ export async function registerYamlSchemaSupport(): Promise<void> {
 }
 
 // see docs from YamlSchemaContributor
-function requestYamlSchemaUriCallback(resource: string): string {
+function requestYamlSchemaUriCallback(resource: string): string | undefined {
     const textEditor = vscode.window.visibleTextEditors.find((editor) => editor.document.uri.toString() === resource);
     if (textEditor) {
         const yamlDocs = yamlLocator.getYamlDocuments(textEditor.document);
@@ -206,6 +206,7 @@ function requestYamlSchemaUriCallback(resource: string): string {
         });
         return util.makeKubernetesUri(choices);
     }
+    return undefined;
 }
 
 // see docs from YamlSchemaContributor
@@ -293,17 +294,17 @@ function getNameInDefinitions ($ref: string): string {
 }
 
 // find redhat.vscode-yaml extension and try to activate it to get the yaml contributor
-async function activateYamlExtension(): Promise<{registerContributor: YamlSchemaContributor}> {
+async function activateYamlExtension(): Promise<{registerContributor: YamlSchemaContributor} | undefined> {
     const ext: vscode.Extension<any> = vscode.extensions.getExtension(VSCODE_YAML_EXTENSION_ID);
     if (!ext) {
         vscode.window.showWarningMessage('Please install \'YAML Support by Red Hat\' via the Extensions pane.');
-        return;
+        return undefined;
     }
     const yamlPlugin = await ext.activate();
 
     if (!yamlPlugin || !yamlPlugin.registerContributor) {
         vscode.window.showWarningMessage('The installed Red Hat YAML extension doesn\'t support Kubernetes Intellisense. Please upgrade \'YAML Support by Red Hat\' via the Extensions pane.');
-        return;
+        return undefined;
     }
 
     if (ext.packageJSON.version && !semver.gte(ext.packageJSON.version, '0.0.15')) {

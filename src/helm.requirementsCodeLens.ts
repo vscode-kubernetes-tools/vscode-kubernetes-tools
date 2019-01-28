@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 export class HelmRequirementsCodeLensProvider implements vscode.CodeLensProvider {
     provideCodeLenses(doc: vscode.TextDocument, tok: vscode.CancellationToken): vscode.CodeLens[] {
         if (!doc.fileName.endsWith("requirements.yaml")) {
-            return;
+            return [];
         }
 
         // Find the dependencies section
@@ -11,7 +11,7 @@ export class HelmRequirementsCodeLensProvider implements vscode.CodeLensProvider
         const start = doc.positionAt(i);
         const range = doc.getWordRangeAtPosition(start);
         if (range.isEmpty) {
-            return;
+            return [];
         }
 
         const update = new vscode.CodeLens(range, {

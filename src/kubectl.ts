@@ -17,7 +17,7 @@ export interface Kubectl {
     invokeWithProgress(command: string, progressMessage: string, handler?: ShellHandler): Promise<void>;
     invokeAsync(command: string, stdin?: string): Promise<ShellResult>;
     invokeAsyncWithProgress(command: string, progressMessage: string): Promise<ShellResult>;
-    spawnAsChild(command: string[]): Promise<ChildProcess>;
+    spawnAsChild(command: string[]): Promise<ChildProcess | undefined>;
     /**
      * Invoke a kubectl command in Terminal.
      * @param command the subcommand to run.
@@ -63,7 +63,7 @@ class KubectlImpl implements Kubectl {
     invokeAsyncWithProgress(command: string, progressMessage: string): Promise<ShellResult> {
         return invokeAsyncWithProgress(this.context, command, progressMessage);
     }
-    spawnAsChild(command: string[]): Promise<ChildProcess> {
+    spawnAsChild(command: string[]): Promise<ChildProcess | undefined> {
         return spawnAsChild(this.context, command);
     }
     async invokeInNewTerminal(command: string, terminalName: string, onClose?: (e: Terminal) => any, pipeTo?: string): Promise<Disposable> {
@@ -197,10 +197,11 @@ async function invokeAsyncWithProgress(context: Context, command: string, progre
     });
 }
 
-async function spawnAsChild(context: Context, command: string[]): Promise<ChildProcess> {
+async function spawnAsChild(context: Context, command: string[]): Promise<ChildProcess | undefined> {
     if (await checkPresent(context, CheckPresentMessageMode.Command)) {
         return spawnChildProcess(path(context), command, context.shell.execOpts());
     }
+    return undefined;
 }
 
 async function invokeInTerminal(context: Context, command: string, pipeTo: string | undefined, terminal: Terminal): Promise<void> {

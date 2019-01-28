@@ -23,7 +23,7 @@ export interface Shell {
     combinePath(basePath: string, relativePath: string): string;
     fileUri(filePath: string): vscode.Uri;
     execOpts(): any;
-    exec(cmd: string, stdin?: string): Promise<ShellResult>;
+    exec(cmd: string, stdin?: string): Promise<ShellResult | undefined>;
     execCore(cmd: string, opts: any, stdin?: string): Promise<ShellResult>;
     unquotedPath(path: string): string;
     which(bin: string): string | null;
@@ -124,11 +124,12 @@ function execOpts(): any {
     return opts;
 }
 
-async function exec(cmd: string, stdin?: string): Promise<ShellResult> {
+async function exec(cmd: string, stdin?: string): Promise<ShellResult | undefined> {
     try {
         return await execCore(cmd, execOpts(), stdin);
     } catch (ex) {
         vscode.window.showErrorMessage(ex);
+        return undefined;
     }
 }
 

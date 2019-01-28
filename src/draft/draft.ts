@@ -10,7 +10,7 @@ export interface Draft {
     checkPresent(mode: CheckPresentMode): Promise<boolean>;
     isFolderMapped(path: string): boolean;
     packs(): Promise<string[] | undefined>;
-    create(appName: string, pack: string | undefined, path: string): Promise<ShellResult>;
+    create(appName: string, pack: string | undefined, path: string): Promise<ShellResult | undefined>;
     up(): Promise<void>;
     version(): Promise<Errorable<string>>;
 }
@@ -52,7 +52,7 @@ class DraftImpl implements Draft {
         return packs(this.context);
     }
 
-    create(appName: string, pack: string | undefined, path: string): Promise<ShellResult> {
+    create(appName: string, pack: string | undefined, path: string): Promise<ShellResult | undefined> {
         return invokeCreate(this.context, appName, pack, path);
     }
 
@@ -93,7 +93,7 @@ async function packs(context: Context): Promise<string[] | undefined> {
     return undefined;
 }
 
-async function invokeCreate(context: Context, appName: string, pack: string | undefined, path: string): Promise<ShellResult> {
+async function invokeCreate(context: Context, appName: string, pack: string | undefined, path: string): Promise<ShellResult | undefined> {
     if (await checkPresent(context, CheckPresentMode.Alert)) {
         const packOpt = pack ? ` -p ${pack}` : '';
         const cmd = `create -a ${appName} ${packOpt} "${path}"`;
@@ -118,6 +118,7 @@ async function invokeCreate(context: Context, appName: string, pack: string | un
         }
         return result;
     }
+    return undefined;
 }
 
 async function up(context: Context): Promise<void> {

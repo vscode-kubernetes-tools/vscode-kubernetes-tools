@@ -17,7 +17,7 @@ export async function promptForDebugPort(defaultPort: string): Promise<string> {
     return await promptForPort("Please specify debug port exposed for debugging", defaultPort);
 }
 
-export async function promptForAppPort(ports: string[], defaultPort: string, env: Dictionary<string>): Promise<string> {
+export async function promptForAppPort(ports: string[], defaultPort: string, env: Dictionary<string>): Promise<string | undefined> {
     let rawAppPortInfo: string;
     if (ports.length === 0) {
         return await promptForPort("What port does your application listen on?", defaultPort);
@@ -37,7 +37,7 @@ export async function promptForAppPort(ports: string[], defaultPort: string, env
             rawAppPortInfo = defaultAppPort;
         } else {
             vscode.window.showErrorMessage(`Invalid port variable ${rawAppPortInfo} in the docker file.`);
-            return;
+            return undefined;
         }
     }
 

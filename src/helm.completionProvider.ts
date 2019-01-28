@@ -73,7 +73,7 @@ export class HelmTemplateCompletionProvider implements vscode.CompletionItemProv
             return this.funcmap.capabilitiesVals();
         } else if (lineUntil.endsWith(".Values.")) {
             if (!_.isPlainObject(this.valuesCache)) {
-                return;
+                return [];
             }
             const keys = _.keys(this.valuesCache);
             const res = keys.map((key) =>
