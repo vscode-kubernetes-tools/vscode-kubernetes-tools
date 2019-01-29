@@ -9,7 +9,7 @@ import { Shell, Platform } from '../../shell';
 import { Errorable, failed } from '../../errorable';
 import { addPathToConfig, toolPathBaseKey, getUseWsl } from '../config/config';
 
-export async function installKubectl(shell: Shell): Promise<Errorable<void>> {
+export async function installKubectl(shell: Shell): Promise<Errorable<null>> {
     const tool = 'kubectl';
     const binFile = (shell.isUnix()) ? 'kubectl' : 'kubectl.exe';
     const os = platformUrlString(shell.platform());
@@ -57,19 +57,19 @@ async function getStableKubectlVersion(): Promise<Errorable<string>> {
     return { succeeded: true, result: version };
 }
 
-export async function installHelm(shell: Shell): Promise<Errorable<void>> {
+export async function installHelm(shell: Shell): Promise<Errorable<null>> {
     const tool = 'helm';
     const urlTemplate = 'https://storage.googleapis.com/kubernetes-helm/helm-v2.9.1-{os_placeholder}-amd64.tar.gz';
     return await installToolFromTar(tool, urlTemplate, shell);
 }
 
-export async function installDraft(shell: Shell): Promise<Errorable<void>> {
+export async function installDraft(shell: Shell): Promise<Errorable<null>> {
     const tool = 'draft';
     const urlTemplate = 'https://azuredraft.blob.core.windows.net/draft/draft-v0.15.0-{os_placeholder}-amd64.tar.gz';
     return await installToolFromTar(tool, urlTemplate, shell);
 }
 
-export async function installMinikube(shell: Shell, version: string): Promise<Errorable<void>> {
+export async function installMinikube(shell: Shell, version: string | null): Promise<Errorable<null>> {
     const tool = 'minikube';
     const os = platformUrlString(shell.platform());
     if (!os) {
@@ -86,7 +86,7 @@ export async function installMinikube(shell: Shell, version: string): Promise<Er
     const urlTemplate = `https://storage.googleapis.com/minikube/releases/${version}/minikube-{os_placeholder}-amd64${exe}`;
     const url = urlTemplate.replace('{os_placeholder}', os);
     const installFolder = getInstallFolder(shell, tool);
-    const executable = formatBin(tool, shell.platform());
+    const executable = formatBin(tool, shell.platform())!;  // safe because we checked platform earlier
     const executableFullPath = path.join(installFolder, executable);
     const downloadResult = await download.to(url, executableFullPath);
     if (failed(downloadResult)) {
@@ -102,13 +102,13 @@ export async function installMinikube(shell: Shell, version: string): Promise<Er
     return { succeeded: true, result: null };
 }
 
-async function installToolFromTar(tool: string, urlTemplate: string, shell: Shell, supported?: Platform[]): Promise<Errorable<void>> {
+async function installToolFromTar(tool: string, urlTemplate: string, shell: Shell, supported?: Platform[]): Promise<Errorable<null>> {
     const os = platformUrlString(shell.platform(), supported);
     if (!os) {
         return { succeeded: false, error: ['Not supported on this OS'] };
     }
     const installFolder = getInstallFolder(shell, tool);
-    const executable = formatBin(tool, shell.platform());
+    const executable = formatBin(tool, shell.platform())!;  // safe because we have already checked the platform
     const url = urlTemplate.replace('{os_placeholder}', os);
     const configKey = toolPathBaseKey(tool);
     return installFromTar(url, installFolder, executable, configKey, shell);
@@ -142,7 +142,7 @@ function formatBin(tool: string, platform: Platform): string | null {
     return toolPath;
 }
 
-async function installFromTar(sourceUrl: string, destinationFolder: string, executablePath: string, configKey: string, shell: Shell): Promise<Errorable<void>> {
+async function installFromTar(sourceUrl: string, destinationFolder: string, executablePath: string, configKey: string, shell: Shell): Promise<Errorable<null>> {
     // download it
     const downloadResult = await download.toTempFile(sourceUrl);
 
@@ -170,7 +170,7 @@ async function installFromTar(sourceUrl: string, destinationFolder: string, exec
     return { succeeded: true, result: null };
 }
 
-async function untar(sourceFile: string, destinationFolder: string, shell: Shell): Promise<Errorable<void>> {
+async function untar(sourceFile: string, destinationFolder: string, shell: Shell): Promise<Errorable<null>> {
     try {
         if (getUseWsl()) {
             const destination = destinationFolder.replace(/\\/g, '/');

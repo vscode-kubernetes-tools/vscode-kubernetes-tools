@@ -1816,7 +1816,7 @@ export async function installDependencies() {
     if (!config.getUseWsl()) {
         // TODO: Install Win32 Minikube
         installPromises.push(
-            installDependency("Minikube", gotMinikube, (shell: Shell): Promise<Errorable<void>> => {
+            installDependency("Minikube", gotMinikube, (shell: Shell) => {
                 return installMinikube(shell, null);
             }));
     }
@@ -1825,7 +1825,7 @@ export async function installDependencies() {
     kubeChannel.showOutput("Done");
 }
 
-async function installDependency(name: string, alreadyGot: boolean, installFunc: (shell: Shell) => Promise<Errorable<void>>): Promise<void> {
+async function installDependency(name: string, alreadyGot: boolean, installFunc: (shell: Shell) => Promise<Errorable<null>>): Promise<void> {
     if (alreadyGot) {
         kubeChannel.showOutput(`Already got ${name}...`);
     } else {
