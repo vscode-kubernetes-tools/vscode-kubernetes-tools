@@ -77,7 +77,7 @@ class KubernetesSchemaHolder {
     }
 
     // get kubernetes schema by the key
-    public lookup(key: string): KubernetesSchema {
+    public lookup(key: string): KubernetesSchema | undefined {
         return key ? this.definitions[key.toLowerCase()] : undefined;
     }
 
@@ -210,7 +210,7 @@ function requestYamlSchemaUriCallback(resource: string): string | undefined {
 }
 
 // see docs from YamlSchemaContributor
-function requestYamlSchemaContentCallback(uri: string): string {
+function requestYamlSchemaContentCallback(uri: string): string | undefined {
     const parsedUri = Uri.parse(uri);
     if (parsedUri.scheme !== KUBERNETES_SCHEMA) {
         return undefined;
@@ -225,7 +225,7 @@ function requestYamlSchemaContentCallback(uri: string): string {
     const manifestType = parsedUri.path.slice(1);
     // if it is a multiple choice, make an 'oneof' schema.
     if (manifestType.includes('+')) {
-        const manifestRefList = manifestType.split('+').map(util.makeRefOnKubernetes);
+        const manifestRefList = manifestType.split('+').choose(util.makeRefOnKubernetes);
         // yaml language server supports schemaSequence at
         // https://github.com/redhat-developer/yaml-language-server/pull/81
         return JSON.stringify({ schemaSequence: manifestRefList });
@@ -267,7 +267,12 @@ function getManifestStyleSchemas(originalSchema: any): KubernetesSchema[] {
     delete originalSchema[KUBERNETES_GROUP_VERSION_KIND];
 
     groupKindNode.forEach((groupKindNode: any) => {
-        const { id, apiVersion, kind } = util.parseKubernetesGroupVersionKind(groupKindNode);
+        const gvk = util.parseKubernetesGroupVersionKind(groupKindNode);
+        if (!gvk) {
+            return;
+        }
+
+        const { id, apiVersion, kind } = gvk;
 
         // a direct kubernetes manifest has two reference keys: id && name
         // id: apiVersion + kind
@@ -295,7 +300,7 @@ function getNameInDefinitions ($ref: string): string {
 
 // find redhat.vscode-yaml extension and try to activate it to get the yaml contributor
 async function activateYamlExtension(): Promise<{registerContributor: YamlSchemaContributor} | undefined> {
-    const ext: vscode.Extension<any> = vscode.extensions.getExtension(VSCODE_YAML_EXTENSION_ID);
+    const ext = vscode.extensions.getExtension(VSCODE_YAML_EXTENSION_ID);
     if (!ext) {
         vscode.window.showWarningMessage('Please install \'YAML Support by Red Hat\' via the Extensions pane.');
         return undefined;

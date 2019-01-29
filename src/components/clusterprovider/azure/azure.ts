@@ -7,6 +7,7 @@ import { Errorable, failed } from '../../../errorable';
 import * as compareVersions from 'compare-versions';
 import { sleep } from '../../../sleep';
 import { getActiveKubeconfig } from '../../config/config';
+import { Dictionary } from '../../../utils/dictionary';
 
 export interface Context {
     readonly fs: FS;
@@ -79,9 +80,9 @@ async function verifyPrerequisitesAsync(context: Context): Promise<string[]> {
     return errors;
 }
 
-async function azureCliVersion(context: Context): Promise<string> {
+async function azureCliVersion(context: Context): Promise<string | null> {
     const sr = await context.shell.exec('az --version');
-    if (sr.code !== 0 || sr.stderr) {
+    if (!sr || sr.code !== 0 || sr.stderr) {
         return null;
     } else {
         const versionMatches = /azure-cli \(([^)]+)\)/.exec(sr.stdout);
@@ -95,13 +96,13 @@ async function azureCliVersion(context: Context): Promise<string> {
 async function listSubscriptionsAsync(context: Context): Promise<Errorable<string[]>> {
     const sr = await context.shell.exec("az account list --all --query [*].name -ojson");
 
-    return fromShellJson<string[]>(sr);
+    return fromShellJson<string[]>(sr, "Unable to list Azure subscriptions");
 }
 
 export async function setSubscriptionAsync(context: Context, subscription: string): Promise<Errorable<Diagnostic>> {
     const sr = await context.shell.exec(`az account set --subscription "${subscription}"`);
 
-    return fromShellExitCodeAndStandardError(sr);
+    return fromShellExitCodeAndStandardError(sr, "Unable to set Azure CLI subscription");
 }
 
 export async function getClusterList(context: Context, subscription: string, clusterType: string): Promise<ActionResult<ClusterInfo[]>> {
@@ -126,7 +127,7 @@ async function listClustersAsync(context: Context, clusterType: string): Promise
     const cmd = getListClustersCommand(context, clusterType);
     const sr = await context.shell.exec(cmd);
 
-    return fromShellJson<ClusterInfo[]>(sr);
+    return fromShellJson<ClusterInfo[]>(sr, "Unable to list Kubernetes clusters");
 }
 
 function listClustersFilter(clusterType: string): string {
@@ -153,9 +154,9 @@ async function listLocations(context: Context): Promise<Errorable<Locations>> {
 
     const sr = await context.shell.exec(`az account list-locations --query ${query} -ojson`);
 
-    return fromShellJson<Locations>(sr, (response) => {
+    return fromShellJson<Locations>(sr, "Unable to list Azure regions", (response) => {
         /* tslint:disable-next-line:prefer-const */
-        let locations: any = {};
+        let locations = Dictionary.of<string>();
         for (const r of response) {
             locations[r.name] = r.displayName;
         }
@@ -172,7 +173,7 @@ export async function listAcsLocations(context: Context): Promise<Errorable<Serv
 
     const sr = await context.shell.exec(`az acs list-locations -ojson`);
 
-    return fromShellJson<ServiceLocation[]>(sr, (response) =>
+    return fromShellJson<ServiceLocation[]>(sr, "Unable to list ACS locations", (response) =>
         locationDisplayNamesEx(response.productionRegions, response.previewRegions, locations));
 }
 
@@ -219,6 +220,7 @@ export async function listVMSizes(context: Context, location: string): Promise<E
     const sr = await context.shell.exec(`az vm list-sizes -l "${location}" -ojson`);
 
     return fromShellJson<string[]>(sr,
+        "Unable to list Azure VM sizes",
         (response: any[]) => response.map((r) => r.name as string)
                                       .filter((name) => !name.startsWith('Basic_'))
     );
@@ -227,21 +229,21 @@ export async function listVMSizes(context: Context, location: string): Promise<E
 async function resourceGroupExists(context: Context, resourceGroupName: string): Promise<boolean> {
     const sr = await context.shell.exec(`az group show -n "${resourceGroupName}" -ojson`);
 
-    if (sr.code === 0 && !sr.stderr) {
+    if (sr && sr.code === 0 && !sr.stderr) {
         return sr.stdout !== null && sr.stdout.length > 0;
     } else {
         return false;
     }
 }
 
-async function ensureResourceGroupAsync(context: Context, resourceGroupName: string, location: string): Promise<Errorable<Diagnostic>> {
+async function ensureResourceGroupAsync(context: Context, resourceGroupName: string, location: string): Promise<Errorable<Diagnostic | null>> {
     if (await resourceGroupExists(context, resourceGroupName)) {
         return { succeeded: true, result: null };
     }
 
     const sr = await context.shell.exec(`az group create -n "${resourceGroupName}" -l "${location}"`);
 
-    return fromShellExitCodeAndStandardError(sr);
+    return fromShellExitCodeAndStandardError(sr, "Unable to check if resource group exists");
 }
 
 async function execCreateClusterCmd(context: Context, options: any): Promise<Errorable<Diagnostic>> {
@@ -255,7 +257,7 @@ async function execCreateClusterCmd(context: Context, options: any): Promise<Err
 
     const sr = await context.shell.exec(createCmd);
 
-    return fromShellExitCodeOnly(sr);
+    return fromShellExitCodeOnly(sr, "Unable to call Azure CLI to create cluster");
 }
 
 export async function createCluster(context: Context, options: any): Promise<ActionResult<Diagnostic>> {
@@ -268,7 +270,7 @@ export async function createCluster(context: Context, options: any): Promise<Act
     }
 
     const ensureResourceGroup = await ensureResourceGroupAsync(context, options.metadata.resourceGroupName, options.metadata.location);
-    if (!ensureResourceGroup.succeeded) {
+    if (!ensureResourceGroup || !ensureResourceGroup.succeeded) {
         return {
             actionDescription: 'ensuring resource group exists',
             result: ensureResourceGroup
@@ -287,6 +289,10 @@ export async function waitForCluster(context: Context, clusterType: string, clus
     const clusterCmd = getClusterCommand(clusterType);
     const waitCmd = `az ${clusterCmd} wait --created --interval 5 --timeout 10 -n ${clusterName} -g ${clusterResourceGroup} -o json`;
     const sr = await context.shell.exec(waitCmd);
+
+    if (!sr) {
+        return { succeeded: false, error: ["Unable to invoke Azure CLI"] };
+    }
 
     if (sr.code === 0) {
         return { succeeded: true, result: { stillWaiting: sr.stdout !== "" } };
@@ -321,6 +327,11 @@ async function downloadKubectlCli(context: Context, clusterType: string): Promis
     const cliInfo = installKubectlCliInfo(context, clusterType);
 
     const sr = await context.shell.exec(cliInfo.commandLine);
+
+    if (!sr) {
+        return { succeeded: false, error: ["Unable to invoke Azure CLI"] };
+    }
+
     if (sr.code === 0) {
         return {
             succeeded: true,
@@ -344,7 +355,7 @@ async function getCredentials(context: Context, clusterType: string, clusterName
         const cmd = `az ${getClusterCommandAndSubcommand(clusterType)} get-credentials -n ${clusterName} -g ${clusterGroup} ${kubeconfigFileOption}`;
         const sr = await context.shell.exec(cmd);
 
-        if (sr.code === 0 && !sr.stderr) {
+        if (sr && sr.code === 0 && !sr.stderr) {
             return {
                 succeeded: true
             };
@@ -353,7 +364,7 @@ async function getCredentials(context: Context, clusterType: string, clusterName
         } else {
             return {
                 succeeded: false,
-                error: sr.stderr
+                error: sr ? sr.stderr : "Unable to invoke Azure CLI"
             };
         }
     }

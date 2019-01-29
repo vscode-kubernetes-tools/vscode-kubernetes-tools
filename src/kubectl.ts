@@ -46,7 +46,7 @@ class KubectlImpl implements Kubectl {
     }
 
     private readonly context: Context;
-    private sharedTerminal: Terminal;
+    private sharedTerminal: Terminal = null;
 
     checkPresent(errorMessageMode: CheckPresentMessageMode): Promise<boolean> {
         return checkPresent(this.context, errorMessageMode);
