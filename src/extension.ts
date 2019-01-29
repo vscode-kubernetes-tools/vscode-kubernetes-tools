@@ -140,7 +140,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<extens
 
         // Commands - Kubernetes
         registerCommand('extension.vsKubernetesCreate',
-            maybeRunKubernetesCommandForActiveWindow.bind(this, 'create', "Kubernetes Creating...")
+            () => maybeRunKubernetesCommandForActiveWindow('create', "Kubernetes Creating...")
         ),
         registerCommand('extension.vsKubernetesDelete', (explorerNode: explorer.ResourceNode) => { deleteKubernetes(KubernetesDeleteMode.Graceful, explorerNode); }),
         registerCommand('extension.vsKubernetesDeleteNow', (explorerNode: explorer.ResourceNode) => { deleteKubernetes(KubernetesDeleteMode.Now, explorerNode); }),
@@ -336,7 +336,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<extens
 
     subscriptions.forEach((element) => {
         context.subscriptions.push(element);
-    }, this);
+    });
     await registerYamlSchemaSupport();
 
     vscode.workspace.registerTextDocumentContentProvider(configmaps.uriScheme, configMapProvider);
