@@ -90,8 +90,8 @@ async function minikubeUpgradeAvailable(context: Context): Promise<void> {
     }
 
     const sr = await context.shell.exec(`"${context.binPath}" update-check`);
-    if (sr.code !== 0) {
-        vscode.window.showErrorMessage(`Error checking for minikube updates: ${sr.stderr}`);
+    if (!sr || sr.code !== 0) {
+        vscode.window.showErrorMessage(`Error checking for minikube updates: ${sr ? sr.stderr : 'cannot run minikube'}`);
         return;
     }
     const lines = sr.stdout.split('\n')
@@ -104,14 +104,13 @@ async function minikubeUpgradeAvailable(context: Context): Promise<void> {
     const currentVersion = extractVersion(lines[0]);
     const availableVersion = extractVersion(lines[1]);
     if (currentVersion !== availableVersion) {
-        vscode.window.showInformationMessage(`Minikube upgrade available to ${availableVersion}, currently on ${currentVersion}`, 'Install').then(async (value: string) => {
-            if (value === 'Install') {
-                const result = await installMinikube(context.shell, availableVersion);
-                if (failed(result)) {
-                    vscode.window.showErrorMessage(`Failed to update minikube: ${result.error}`);
-                }
+        const value = await vscode.window.showInformationMessage(`Minikube upgrade available to ${availableVersion}, currently on ${currentVersion}`, 'Install');
+        if (value === 'Install') {
+            const result = await installMinikube(context.shell, availableVersion);
+            if (failed(result)) {
+                vscode.window.showErrorMessage(`Failed to update minikube: ${result.error}`);
             }
-        });
+        }
     }
 }
 
@@ -126,7 +125,7 @@ async function isRunnableMinikube(context: Context): Promise<Errorable<Diagnosti
     }
 
     const sr = await context.shell.exec(`"${context.binPath}" help`);
-    return fromShellExitCodeOnly(sr);
+    return fromShellExitCodeOnly(sr, "Unable to run Minikube");
 }
 
 let minikubeStatusBarItem: vscode.StatusBarItem | undefined;
@@ -156,12 +155,12 @@ async function startMinikube(context: Context, options: MinikubeOptions): Promis
     if (options.vmDriver && options.vmDriver.length > 0) {
         flags += ` --vm-driver=${options.vmDriver} `;
     }
-    context.shell.exec(`"${context.binPath}" ${flags} start`).then((result: ShellResult) => {
-        if (result.code === 0) {
+    context.shell.exec(`"${context.binPath}" ${flags} start`).then((result) => {
+        if (result && result.code === 0) {
             vscode.window.showInformationMessage('Cluster started.');
             item.text = 'minikube-running';
         } else {
-            vscode.window.showErrorMessage(`Failed to start cluster ${result.stderr}`);
+            vscode.window.showErrorMessage(`Failed to start cluster ${result ? result.stderr : "Unable to run Minikube"}`);
             item.hide();
         }
     }).catch((err) => {
@@ -184,12 +183,12 @@ async function stopMinikube(context: Context): Promise<void> {
         return;
     }
 
-    context.shell.exec(`"${context.binPath}" stop`).then((result: ShellResult) => {
-        if (result.code === 0) {
+    context.shell.exec(`"${context.binPath}" stop`).then((result) => {
+        if (result && result.code === 0) {
             vscode.window.showInformationMessage('Cluster stopped.');
             item.hide();
         } else {
-            vscode.window.showErrorMessage(`Error stopping cluster ${result.stderr}`);
+            vscode.window.showErrorMessage(`Error stopping cluster ${result ? result.stderr : "Unable to run Minikube"}`);
             item.hide();
         }
     }).catch((err) => {
@@ -205,7 +204,7 @@ async function minikubeStatus(context: Context): Promise<MinikubeInfo> {
 
     const result = await context.shell.exec(
         `"${context.binPath}" status --format '["{{.MinikubeStatus}}","{{.ClusterStatus}}","{{.KubeconfigStatus}}"]'`);
-    if (result.stderr.length === 0) {
+    if (result && result.stderr.length === 0) {
         const obj = JSON.parse(result.stdout);
         return {
             running: 'Stopped' !== obj[0],
@@ -213,7 +212,7 @@ async function minikubeStatus(context: Context): Promise<MinikubeInfo> {
             kubectl: obj[2],
         } as MinikubeInfo;
     }
-    throw new Error(`failed to get status: ${result.stderr}`);
+    throw new Error(`failed to get status: ${result ? result.stderr : "Unable to run Minikube"}`);
 }
 
 async function checkPresent(context: Context, mode: CheckPresentMode): Promise<boolean> {

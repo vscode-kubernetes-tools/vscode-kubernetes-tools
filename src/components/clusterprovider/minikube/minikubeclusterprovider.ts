@@ -94,7 +94,7 @@ async function configureKubernetes(): Promise<string> {
 async function runMinikubeCommand(context: Context, cmd: string): Promise<ActionResult<Diagnostic>> {
     const sr = await context.shell.exec(cmd);
 
-    const createCluster = await fromShellExitCodeOnly(sr);
+    const createCluster = await fromShellExitCodeOnly(sr, "Unable to run Minikube");
     return {
         actionDescription: 'creating cluster',
         result: createCluster

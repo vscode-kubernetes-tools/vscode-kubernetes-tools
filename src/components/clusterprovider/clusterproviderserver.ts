@@ -17,7 +17,9 @@ function subscriber(action: clusterproviderregistry.ClusterProviderAction): Subs
                 reporter.sendTelemetryEvent("cloudselection", { action: action, clusterType: clusterType });
             }
             const cp = clusterproviderregistry.get().list().find((cp) => cp.id === clusterType);
-            cp.next(w, action, m);
+            if (cp) {
+                cp.next(w, action, m);
+            }
         }
     };
 }
