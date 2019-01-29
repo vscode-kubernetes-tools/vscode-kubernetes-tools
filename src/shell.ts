@@ -134,7 +134,7 @@ async function exec(cmd: string, stdin?: string): Promise<ShellResult | undefine
 }
 
 function execCore(cmd: string, opts: any, stdin?: string): Promise<ShellResult> {
-    return new Promise<ShellResult>((resolve, reject) => {
+    return new Promise<ShellResult>((resolve) => {
         if (getUseWsl()) {
             cmd = 'wsl ' + cmd;
         }

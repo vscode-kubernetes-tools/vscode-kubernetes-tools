@@ -8,7 +8,7 @@ import { helmfsUri } from './helm.exec';
 import * as yl from './yaml-support/yaml-locator';
 
 export class KubernetesResourceLinkProvider implements vscode.DocumentLinkProvider {
-    provideDocumentLinks(document: vscode.TextDocument, token: vscode.CancellationToken): vscode.ProviderResult<vscode.DocumentLink[]> {
+    provideDocumentLinks(document: vscode.TextDocument, _token: vscode.CancellationToken): vscode.ProviderResult<vscode.DocumentLink[]> {
         const sourceKind = k8sKind(document);
         const yaml = yl.yamlLocator.getYamlDocuments(document);
         const leaves: yl.YamlNode[] = getLeafNodes(yaml);

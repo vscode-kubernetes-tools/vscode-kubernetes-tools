@@ -72,7 +72,7 @@ class KubectlImpl implements Kubectl {
         await invokeInTerminal(this.context, command, pipeTo, terminal);
         return disposable;
     }
-    invokeInSharedTerminal(command: string, terminalName?: string): Promise<void> {
+    invokeInSharedTerminal(command: string): Promise<void> {
         const terminal = this.getSharedTerminal();
         return invokeInTerminal(this.context, command, undefined, terminal);
     }
@@ -151,7 +151,7 @@ async function invoke(context: Context, command: string, handler?: ShellHandler)
 
 async function invokeWithProgress(context: Context, command: string, progressMessage: string, handler?: ShellHandler): Promise<void> {
     return context.host.withProgress((p) => {
-        return new Promise<void>((resolve, reject) => {
+        return new Promise<void>((resolve) => {
             p.report({ message: progressMessage });
             kubectlInternal(context, command, (code, stdout, stderr) => {
                 resolve();

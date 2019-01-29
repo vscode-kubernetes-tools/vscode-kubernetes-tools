@@ -24,16 +24,16 @@ export class DraftDebugSession extends LoggingDebugSession {
         });
     }
 
-    protected initializeRequest(response: DebugProtocol.InitializeResponse, args: DebugProtocol.InitializeRequestArguments): void {
+    protected initializeRequest(response: DebugProtocol.InitializeResponse, _args: DebugProtocol.InitializeRequestArguments): void {
         this.sendResponse(response);
         this.sendEvent(new InitializedEvent());
     }
 
-    protected configurationDoneRequest(response: DebugProtocol.ConfigurationDoneResponse, args: DebugProtocol.LaunchRequestArguments): void {
+    protected configurationDoneRequest(_response: DebugProtocol.ConfigurationDoneResponse, _args: DebugProtocol.LaunchRequestArguments): void {
         this.configurationDone.notify();
     }
 
-    protected async launchRequest(response: DebugProtocol.LaunchResponse, args: DebugProtocol.LaunchRequestArguments) {
+    protected async launchRequest(response: DebugProtocol.LaunchResponse, _args: DebugProtocol.LaunchRequestArguments) {
         // wait until configuration has finished (and configurationDoneRequest has been called)
         await this.configurationDone.wait(1000);
 

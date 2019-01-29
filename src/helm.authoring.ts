@@ -310,7 +310,7 @@ function addToYaml(document: vscode.TextDocument, ast: vscode.SymbolInformation[
 function firstChild(document: vscode.TextDocument, parent: vscode.SymbolInformation, ast: vscode.SymbolInformation[]): vscode.SymbolInformation | undefined {
     const isDescendant = parent ?
         (n: vscode.SymbolInformation) => parent.location.range.contains(n.location.range) :
-        (n: vscode.SymbolInformation) => true;
+        (_n: vscode.SymbolInformation) => true;
     const linearPos = (p: vscode.Position) => document.offsetAt(p);
 
     return _.chain(ast)

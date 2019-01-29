@@ -55,7 +55,7 @@ export class HelmRepoExplorer implements vscode.TreeDataProvider<HelmObject> {
     private onDidChangeTreeDataEmitter: vscode.EventEmitter<HelmObject | undefined> = new vscode.EventEmitter<HelmObject | undefined>();
     readonly onDidChangeTreeData: vscode.Event<HelmObject | undefined> = this.onDidChangeTreeDataEmitter.event;
 
-    constructor(private readonly host: Host) {
+    constructor(host: Host) {
         host.onDidChangeConfiguration((change) => {
             if (affectsUs(change)) {
                 this.refresh();
@@ -106,7 +106,7 @@ class HelmError implements HelmObject {
 }
 
 class HelmRepoImpl implements HelmRepo {
-    constructor(readonly name: string, private readonly url: string) {}
+    constructor(readonly name: string) {}
 
     get kind() { return RepoExplorerObjectKind.Repo; }
 
@@ -121,7 +121,7 @@ class HelmRepoImpl implements HelmRepo {
     }
 
     async getChildren(): Promise<HelmObject[]> {
-        const charts = await listHelmRepoCharts(this.name, this.url);
+        const charts = await listHelmRepoCharts(this.name);
         if (failed(charts)) {
             return [ new HelmError('Error fetching charts', charts.error[0]) ];
         }
@@ -203,11 +203,11 @@ async function listHelmRepos(): Promise<Errorable<HelmRepoImpl[]>> {
                            .map((l) => l.trim())
                            .filter((l) => l.length > 0)
                            .map((l) => l.split('\t').map((bit) => bit.trim()))
-                           .map((bits) => new HelmRepoImpl(bits[0], bits[1]));
+                           .map((bits) => new HelmRepoImpl(bits[0]));
     return { succeeded: true, result: repos };
 }
 
-async function listHelmRepoCharts(repoName: string, repoUrl: string): Promise<Errorable<HelmRepoChartImpl[]>> {
+async function listHelmRepoCharts(repoName: string): Promise<Errorable<HelmRepoChartImpl[]>> {
     const sr = await helm.helmExecAsync(`search ${repoName}/ -l`);
     if (sr.code !== 0) {
         return { succeeded: false, error: [ sr.stderr ]};

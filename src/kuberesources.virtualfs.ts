@@ -1,4 +1,4 @@
-import { Uri, FileSystemProvider, FileType, FileStat, FileChangeEvent, Event, EventEmitter, Disposable, workspace } from 'vscode';
+import { Uri, FileSystemProvider, FileType, FileStat, FileChangeEvent, Event, EventEmitter, Disposable } from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as querystring from 'querystring';
@@ -28,14 +28,14 @@ export class KubernetesResourceVirtualFileSystemProvider implements FileSystemPr
 
     onDidChangeFile: Event<FileChangeEvent[]> = this.onDidChangeFileEmitter.event;
 
-    watch(uri: Uri, options: { recursive: boolean; excludes: string[] }): Disposable {
+    watch(_uri: Uri, _options: { recursive: boolean; excludes: string[] }): Disposable {
         // It would be quite neat to implement this to watch for changes
         // in the cluster and update the doc accordingly.  But that is very
         // definitely a future enhancement thing!
         return new Disposable(() => {});
     }
 
-    stat(uri: Uri): FileStat {
+    stat(_uri: Uri): FileStat {
         return {
             type: FileType.File,
             ctime: 0,
@@ -44,11 +44,11 @@ export class KubernetesResourceVirtualFileSystemProvider implements FileSystemPr
         };
     }
 
-    readDirectory(uri: Uri): [string, FileType][] | Thenable<[string, FileType][]> {
+    readDirectory(_uri: Uri): [string, FileType][] | Thenable<[string, FileType][]> {
         return [];
     }
 
-    createDirectory(uri: Uri): void | Thenable<void> {
+    createDirectory(_uri: Uri): void | Thenable<void> {
         // no-op
     }
 
@@ -91,18 +91,18 @@ export class KubernetesResourceVirtualFileSystemProvider implements FileSystemPr
         }
     }
 
-    writeFile(uri: Uri, content: Uint8Array, options: { create: boolean, overwrite: boolean }): void | Thenable<void> {
+    writeFile(uri: Uri, content: Uint8Array, _options: { create: boolean, overwrite: boolean }): void | Thenable<void> {
         // This assumes no pathing in the URI - if this changes, we'll need to
         // create subdirectories.
         const fspath = path.join(this.rootPath, uri.fsPath);
         fs.writeFileSync(fspath, content);
     }
 
-    delete(uri: Uri, options: { recursive: boolean }): void | Thenable<void> {
+    delete(_uri: Uri, _options: { recursive: boolean }): void | Thenable<void> {
         // no-op
     }
 
-    rename(oldUri: Uri, newUri: Uri, options: { overwrite: boolean }): void | Thenable<void> {
+    rename(_oldUri: Uri, _newUri: Uri, _options: { overwrite: boolean }): void | Thenable<void> {
         // no-op
     }
 }

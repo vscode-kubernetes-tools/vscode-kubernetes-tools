@@ -64,7 +64,7 @@ import { KubernetesCompletionProvider } from "./yaml-support/yaml-snippet";
 import { showWorkspaceFolderPick } from './hostutils';
 import { DraftConfigurationProvider } from './draft/draftConfigurationProvider';
 import { installHelm, installDraft, installKubectl, installMinikube } from './components/installer/installer';
-import { KubernetesResourceVirtualFileSystemProvider, K8S_RESOURCE_SCHEME, KUBECTL_RESOURCE_AUTHORITY, kubefsUri } from './kuberesources.virtualfs';
+import { KubernetesResourceVirtualFileSystemProvider, K8S_RESOURCE_SCHEME, kubefsUri } from './kuberesources.virtualfs';
 import { KubernetesResourceLinkProvider } from './kuberesources.linkprovider';
 import { Container, isKubernetesResource, KubernetesCollection, Pod, KubernetesResource } from './kuberesources.objectmodel';
 import { setActiveKubeconfig, getKnownKubeconfigs, addKnownKubeconfig } from './components/config/config';
@@ -291,7 +291,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<extens
         }
     });
 
-    vscode.debug.onDidTerminateDebugSession((e) => {
+    vscode.debug.onDidTerminateDebugSession((_e) => {
 
         // if there is an active Draft debugging session, restart the cycle
         if (draftDebugSession !== undefined) {
@@ -307,7 +307,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<extens
     });
 
     // On editor change, refresh the Helm YAML preview
-    vscode.window.onDidChangeActiveTextEditor((e: vscode.TextEditor) => {
+    vscode.window.onDidChangeActiveTextEditor((_e: vscode.TextEditor) => {
         if (!editorIsActive()) {
             return;
         }
@@ -363,7 +363,7 @@ interface Syntax {
     findParent(document: vscode.TextDocument, line: number): number;
 }
 
-function provideHover(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken, syntax: Syntax): Promise<vscode.Hover> {
+function provideHover(document: vscode.TextDocument, position: vscode.Position, _token: vscode.CancellationToken, syntax: Syntax): Promise<vscode.Hover> {
     return new Promise(async (resolve, reject) => {
         if (!explainActive) {
             resolve(null);
@@ -865,7 +865,7 @@ function runKubernetes() {
     });
 }
 
-function diagnosePushError(exitCode: number, error: string): string {
+function diagnosePushError(_exitCode: number, error: string): string {
     if (error.includes("denied")) {
         const user = vscode.workspace.getConfiguration().get("vsdocker.imageUser", null);
         if (user) {
@@ -1281,7 +1281,8 @@ function execTerminalOnContainer(podName: string, podNamespace: string | undefin
 }
 
 async function isBashOnContainer(podName: string, podNamespace: string | undefined, containerName: string | undefined): Promise<boolean> {
-    const result = await kubectl.invokeAsync(`exec ${podName} -c ${containerName} -- ls -la /bin/bash`);
+    const nsarg = podNamespace ? `--namespace ${podNamespace}` : '';
+    const result = await kubectl.invokeAsync(`exec ${podName} ${nsarg} -c ${containerName} -- ls -la /bin/bash`);
     return !result.code;
 }
 
@@ -1639,7 +1640,7 @@ const doDebug = async (name: string, image: string, cmd: string) => {
                     }
 
                     const exposeCmd = `expose deployment ${deploymentName} --type=LoadBalancer --port=${port}`;
-                    kubectl.invoke(exposeCmd, (result, stdout, stderr) => {
+                    kubectl.invoke(exposeCmd, (result, _stdout, stderr) => {
                         if (result !== 0) {
                             vscode.window.showErrorMessage('Failed to expose deployment: ' + stderr);
                             return;
@@ -1685,7 +1686,7 @@ function serviceExists(serviceName: string, handler: (exists: boolean) => void) 
 }
 
 function removeDebugKubernetes() {
-    findNameAndImage().then((name, image) => {
+    findNameAndImage().then((name, _image) => {
         const deploymentName = name + '-debug';
         deploymentExists(deploymentName, (deployment) => {
             serviceExists(deploymentName, (service) => {
@@ -1769,7 +1770,8 @@ async function useContextKubernetes(explorerNode: explorer.KubernetesObject) {
     }
 }
 
-async function clusterInfoKubernetes(explorerNode: explorer.KubernetesObject) {
+async function clusterInfoKubernetes(_explorerNode: explorer.KubernetesObject) {
+    // If a node is passed, it's always the active cluster so we don't need to use the argument
     kubectl.invokeInSharedTerminal("cluster-info");
 }
 
@@ -1869,7 +1871,6 @@ enum DraftCreateResult {
 }
 
 async function execDraftCreateApp(appName: string, pack?: string): Promise<void> {
-    const packOpt = pack ? ` -p ${pack}` : '';
     const dcResult = await draft.create(appName, pack, vscode.workspace.rootPath);
 
     switch (draftCreateResult(dcResult, !!pack)) {

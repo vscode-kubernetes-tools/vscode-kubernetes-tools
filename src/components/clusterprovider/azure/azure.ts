@@ -1,6 +1,5 @@
 'use strict';
 
-import * as vscode from 'vscode';
 import { Shell } from '../../../shell';
 import { FS } from '../../../fs';
 import { ActionResult, fromShellJson, fromShellExitCodeAndStandardError, fromShellExitCodeOnly, Diagnostic } from '../../../wizard';

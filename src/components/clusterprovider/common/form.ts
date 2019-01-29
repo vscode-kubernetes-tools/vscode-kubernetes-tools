@@ -1,4 +1,4 @@
-import { formStyles, styles, waitScript } from '../../../wizard';
+import { formStyles, styles } from '../../../wizard';
 import { NEXT_FN } from '../../wizard/wizard';
 import { SENDING_STEP_KEY } from '../clusterproviderserver';
 

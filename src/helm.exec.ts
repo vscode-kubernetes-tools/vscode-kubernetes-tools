@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as filepath from 'path';
-import { ChildProcess, spawn } from 'child_process';
+import { spawn } from 'child_process';
 import { helm as logger } from './logger';
 import * as YAML from 'yamljs';
 import * as _ from 'lodash';
@@ -17,7 +17,7 @@ import { parseLineOutput } from './outputUtils';
 import { sleep } from './sleep';
 import { currentNamespace } from './kubectlUtils';
 import { Kubectl } from './kubectl';
-import { getToolPath, getUseWsl } from './components/config/config';
+import { getToolPath } from './components/config/config';
 import { host } from './host';
 import * as fs from './wsl-fs';
 import { preview } from './utils/preview';
@@ -333,13 +333,6 @@ function extractReleaseName(helmOutput: string): string {
     return nameLine.substring(HELM_INSTALL_NAME_HEADER.length + 1).trim();
 }
 
-interface Dependency {
-    readonly name: string;
-    readonly version: string;
-    readonly repository: string;
-    readonly status: string;
-}
-
 export async function helmDependencies(helmObject: helmrepoexplorer.HelmObject | undefined): Promise<void> {
     if (!helmObject) {
         const id = await vscode.window.showInputBox({ prompt: "Chart to show dependencies for", placeHolder: "stable/mychart" });
@@ -621,7 +614,7 @@ export function insertRequirement() {
 }
 
 // searchForChart takes a 'repo/name' and returns an entry suitable for requirements
-export function searchForChart(name: string, version?: string): Requirement | undefined {
+export function searchForChart(name: string): Requirement | undefined {
     const parts = name.split("/", 2);
     if (parts.length !== 2) {
         logger.log("Chart should be of the form REPO/CHARTNAME");

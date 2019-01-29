@@ -7,7 +7,7 @@ export class JsonALikeYamlDocumentSymbolProvider implements vscode.DocumentSymbo
         return this.provideDocumentSymbolsImpl(document, token);
     }
 
-    async provideDocumentSymbolsImpl(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.SymbolInformation[]> {
+    async provideDocumentSymbolsImpl(document: vscode.TextDocument, _token: vscode.CancellationToken): Promise<vscode.SymbolInformation[]> {
         const fakeText = document.getText().replace(/{{[^}]*}}/g, (s) => encodeWithTemplateMarkers(s));
         const root = yp.safeLoad(fakeText);
         const syms: vscode.SymbolInformation[] = [];
@@ -33,11 +33,6 @@ function encodeWithTemplateMarkers(s: string): string {
     return s.replace(/{{/g, ENCODE_TEMPLATE_START)
             .replace(/}}/g, ENCODE_TEMPLATE_END)
             .replace(/"/g, ENCODE_TEMPLATE_QUOTE);
-}
-
-function hasEncodedTemplateMarkers(s: string): boolean {
-    return (s.startsWith(ENCODE_TEMPLATE_START) && s.endsWith(ENCODE_TEMPLATE_END))
-        || (s.startsWith('"' + ENCODE_TEMPLATE_START) && s.endsWith(ENCODE_TEMPLATE_END + '"'));
 }
 
 export interface FoundKeyPath {

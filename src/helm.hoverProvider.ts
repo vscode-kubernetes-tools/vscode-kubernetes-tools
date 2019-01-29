@@ -17,7 +17,7 @@ export class HelmTemplateHoverProvider implements vscode.HoverProvider {
         this.resmap = rs.all();
     }
 
-    public provideHover(doc: vscode.TextDocument, pos: vscode.Position, tok: vscode.CancellationToken): vscode.ProviderResult<vscode.Hover> {
+    public provideHover(doc: vscode.TextDocument, pos: vscode.Position, _token: vscode.CancellationToken): vscode.ProviderResult<vscode.Hover> {
         const wordRange = doc.getWordRangeAtPosition(pos);
         const word = wordRange ? doc.getText(wordRange) : "";
         if (word === "") {

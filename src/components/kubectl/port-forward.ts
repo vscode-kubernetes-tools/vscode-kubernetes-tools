@@ -8,7 +8,7 @@ import { QuickPickOptions } from 'vscode';
 import * as portFinder from 'portfinder';
 import { succeeded } from '../../errorable';
 import * as kubectlUtils from '../../kubectlUtils';
-import { KubernetesExplorer, ResourceNode } from '../../explorer';
+import { ResourceNode } from '../../explorer';
 
 const PORT_FORWARD_TERMINAL = 'kubectl port-forward';
 const MAX_PORT_COUNT = 65535;

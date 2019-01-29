@@ -213,7 +213,7 @@ export class DebugSession implements IDebugSession {
     }
 
     private async pickupAndInstallDebugProvider(baseImage?: string): Promise<IDebugProvider | undefined> {
-        const debugProvider: IDebugProvider = await providerRegistry.getDebugProvider();
+        const debugProvider: IDebugProvider = await providerRegistry.getDebugProvider(baseImage);
         if (!debugProvider) {
             return undefined;
         } else if (!await debugProvider.isDebuggerInstalled()) {
@@ -357,7 +357,7 @@ export class DebugSession implements IDebugSession {
                 kubeChannel.showOutput(`${data}`, "port-forward");
             });
 
-            proxyProcess.on('close', async (code) => {
+            proxyProcess.on('close', async (_code) => {
                 if (!isProxyReady) {
                     reject("Cannot setup port-forward.");
                     return;

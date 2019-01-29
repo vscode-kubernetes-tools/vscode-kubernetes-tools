@@ -47,7 +47,7 @@ export class DraftRuntime extends EventEmitter {
 		host.showInformationMessage(`attaching debugger`);
 
 		vscode.debug.startDebugging(undefined, config['original-debug']);
-		vscode.debug.onDidTerminateDebugSession((e) => {
+		vscode.debug.onDidTerminateDebugSession((_e) => {
 			this.killConnect();
 			output.dispose();
 		});
@@ -73,7 +73,7 @@ function createProcess(cmd: string, args: string[], output: OutputChannel): Chil
 }
 
 async function waitForProcessToExit(proc: ChildProcess): Promise<void> {
-	return new Promise<void>((resolve, reject) => {
+	return new Promise<void>((resolve) => {
 		proc.addListener('message', (message) => { console.log(message); });
 		proc.addListener('close', (code, signal) => { console.log(`Code: ${code}, Signal: ${signal}`); });
 		proc.addListener('disconnect', () => console.log('disconnected'));
@@ -94,7 +94,7 @@ async function waitConnectionReady(proc: ChildProcess, config: vscode.DebugConfi
 			}
 		});
 
-		proc.on('close', async (code) => {
+		proc.on('close', async (_code) => {
 			if (!isConnectionReady) {
 				reject('Cannot connect.');
 			}

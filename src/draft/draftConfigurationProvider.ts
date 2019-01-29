@@ -8,7 +8,7 @@ export class DraftConfigurationProvider implements DebugConfigurationProvider {
     constructor() {
     }
 
-    resolveDebugConfiguration(folder: WorkspaceFolder | undefined, config: DebugConfiguration, token?: CancellationToken): ProviderResult<DebugConfiguration> {
+    resolveDebugConfiguration(_folder: WorkspaceFolder | undefined, config: DebugConfiguration, _token?: CancellationToken): ProviderResult<DebugConfiguration> {
         if (!this.server) {
             this.server = Net.createServer((socket) => {
                 const session = new DraftDebugSession();

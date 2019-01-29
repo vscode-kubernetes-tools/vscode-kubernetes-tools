@@ -14,7 +14,7 @@
         "triple-equals": true,
         "prefer-const": true,
         "prefer-for-of": true,
-        "variable-name": [true, "ban-keywords", "check-format"],
+        "variable-name": [true, "ban-keywords", "check-format", "allow-leading-underscore"],
         "switch-final-break": [true, "always"],
         "prefer-template": [true, "allow-single-concat"],
         "semicolon": [true, "always"],
