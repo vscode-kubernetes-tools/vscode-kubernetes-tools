@@ -79,12 +79,20 @@ function findHomeDir(): string | null {
 
 // TODO: end remove
 
-export async function readSwagger(): Promise<any> {
+export interface SwaggerModel {
+    readonly definitions: any[];
+}
+
+export async function readSwagger(): Promise<SwaggerModel | undefined> {
     return readSwaggerCore(await loadKubeconfig());
 }
 
-function readSwaggerCore(kc: kubernetes.KubeConfig): Promise<any> {
-    const uri = `${kc.getCurrentCluster().server}/swagger.json`;
+function readSwaggerCore(kc: kubernetes.KubeConfig): Promise<SwaggerModel | undefined> {
+    const currentCluster = kc.getCurrentCluster();
+    if (!currentCluster) {
+        return new Promise((resolve) => resolve(undefined));
+    }
+    const uri = `${currentCluster.server}/swagger.json`;
     const opts: request.Options = {
         url: uri,
     };
@@ -110,15 +118,18 @@ function readSwaggerCore(kc: kubernetes.KubeConfig): Promise<any> {
     });
 }
 
-export function readExplanation(swagger: any, fieldsPath: string) {
+export function readExplanation(swagger: SwaggerModel, fieldsPath: string) {
     const fields = fieldsPath.split('.');
-    const kindName = fields.shift();
+    const kindName = fields.shift()!;
     const kindDef = findKindModel(swagger, kindName);
+    if (!kindDef) {
+        return `No explanation available for ${fieldsPath}`;
+    }
     const text = chaseFieldPath(swagger, kindDef, kindName, fields);
     return text;
 }
 
-function findKindModel(swagger: any, kindName: string): TypeModel {
+function findKindModel(swagger: SwaggerModel, kindName: string): TypeModel | undefined {
     // TODO: use apiVersion (e.g. v1, extensions/v1beta1) to help locate these
     const v1def = findProperty(swagger.definitions, 'v1.' + kindName);
     const v1beta1def = findProperty(swagger.definitions, 'v1beta1.' + kindName);
@@ -213,7 +224,7 @@ function chaseFieldPath(swagger: any, currentProperty: TypeModel, currentPropert
                 if (fields.length === 0) {
                     return formatComplex(currentPropertyName, currentProperty.description, currentPropertyTypeInfo.description, typeRefProperties);
                 } else {
-                    const nextField = fields.shift();
+                    const nextField = fields.shift()!;
                     const nextProperty = findProperty(typeRefProperties, nextField);
                     if (nextProperty) {
                         return chaseFieldPath(swagger, nextProperty, nextField, fields);
@@ -234,7 +245,7 @@ function chaseFieldPath(swagger: any, currentProperty: TypeModel, currentPropert
             if (fields.length === 0) {
                 return formatComplex(currentPropertyName, currentProperty.description, undefined, properties);
             } else {
-                const nextField = fields.shift();
+                const nextField = fields.shift()!;
                 const nextProperty = findProperty(properties, nextField);
                 if (nextProperty) {
                     return chaseFieldPath(swagger, nextProperty, nextField, fields);
@@ -254,13 +265,13 @@ function explainError(header: string, error: string) {
 
 function singularizeVersionedName(name: string) {
     const bits = name.split('.');
-    let lastBit = bits.pop();
+    let lastBit = bits.pop()!;
     lastBit = pluralize.singular(lastBit);
     bits.push(lastBit);
     return bits.join('.');
 }
 
-function findProperty(obj: any, name: string): TypeModel {
+function findProperty(obj: any, name: string): TypeModel | undefined {
     const n = name.toLowerCase();
     for (const p in obj) {
         const pinfo = obj[p];

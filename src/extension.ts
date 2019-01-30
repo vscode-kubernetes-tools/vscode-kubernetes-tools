@@ -74,7 +74,7 @@ import { linters } from './components/lint/linters';
 import { runClusterWizard } from './components/clusterprovider/clusterproviderserver';
 
 let explainActive = false;
-let swaggerSpecPromise: Promise<any> | null = null;
+let swaggerSpecPromise: Promise<explainer.SwaggerModel | undefined> | null = null;
 
 const kubernetesDiagnostics = vscode.languages.createDiagnosticCollection("Kubernetes");
 
@@ -481,7 +481,9 @@ async function explain(obj: any, field: string): Promise<string | null> {
 
         swaggerSpecPromise.then(
             (s) => {
-                resolve(explainer.readExplanation(s, ref));
+                if (s) {
+                    resolve(explainer.readExplanation(s, ref));
+                }
             },
             (err) => {
                 vscode.window.showErrorMessage(`Explain failed: ${err}`);
