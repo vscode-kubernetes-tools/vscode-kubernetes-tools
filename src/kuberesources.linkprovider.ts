@@ -78,7 +78,7 @@ function parentKey(node: yl.YamlNode): string | undefined {
         return undefined;
     }
     if (parent.parent && yl.isMapping(parent.parent)) {
-        const parentPair = parent.parent.mappings.find((mi) => mi.value === parent);
+        const parentPair = parent.parent.mappings.find((mi) => mi.value === parent)!;  // safe because we are looking for our own mapping
         const parentKey = key(parentPair);
         if (parentKey) {
             return parentKey;
@@ -176,7 +176,10 @@ function k8sKind(document: vscode.TextDocument): string {
     return k8sid.substring(0, kindSepIndex);
 }
 
-function k8sKindFromManifestKind(manifestKind: string): string | undefined {
+function k8sKindFromManifestKind(manifestKind: string | undefined): string | undefined {
+    if (!manifestKind) {
+        return undefined;
+    }
     const resourceKind = kuberesources.findKind(manifestKind);
     return resourceKind ? resourceKind.abbreviation : undefined;
 }

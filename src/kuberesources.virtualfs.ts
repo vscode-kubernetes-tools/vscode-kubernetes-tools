@@ -13,7 +13,7 @@ export const K8S_RESOURCE_SCHEME = "k8smsx";
 export const KUBECTL_RESOURCE_AUTHORITY = "loadkubernetescore";
 export const HELM_RESOURCE_AUTHORITY = "helmget";
 
-export function kubefsUri(namespace: string | null, value: string, outputFormat: string): Uri {
+export function kubefsUri(namespace: string | null | undefined /* TODO: rationalise null and undefined */, value: string, outputFormat: string): Uri {
     const docname = `${value.replace('/', '-')}.${outputFormat}`;
     const nonce = new Date().getTime();
     const nsquery = namespace ? `ns=${namespace}&` : '';
