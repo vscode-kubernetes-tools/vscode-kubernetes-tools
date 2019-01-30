@@ -604,6 +604,9 @@ export function insertRequirement() {
         prompt: "Chart",
         placeHolder: "stable/redis",
     }).then((val) => {
+        if (!val) {
+            return;
+        }
         const req = searchForChart(val);
         if (!req) {
             vscode.window.showErrorMessage(`Chart ${ val } not found`);

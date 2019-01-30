@@ -1241,7 +1241,7 @@ function execKubernetes() {
 async function terminalKubernetes(explorerNode?: explorer.ResourceNode) {
     if (explorerNode) {
         const namespace = explorerNode.namespace;
-        const podSummary = { name: explorerNode.id, namespace: namespace };
+        const podSummary = { name: explorerNode.id, namespace: namespace || undefined };  // TODO: rationalise null and undefined
         const container = await selectContainerForPod(podSummary);
         if (container) {
             // For those images (e.g. built from Busybox) where bash may not be installed by default, use sh instead.
