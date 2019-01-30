@@ -313,7 +313,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<extens
     });
 
     // On editor change, refresh the Helm YAML preview
-    vscode.window.onDidChangeActiveTextEditor((_e: vscode.TextEditor) => {
+    vscode.window.onDidChangeActiveTextEditor((_e: vscode.TextEditor | undefined) => {
         if (!editorIsActive()) {
             return;
         }
@@ -325,7 +325,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<extens
         previewProvider.update(u);
     });
 
-    vscode.debug.onDidChangeActiveDebugSession((e: vscode.DebugSession)=> {
+    vscode.debug.onDidChangeActiveDebugSession((e: vscode.DebugSession | undefined)=> {
         if (e !== undefined) {
             // keep a copy of the initial Draft debug session
             if (e.name.indexOf('Draft') >= 0) {
@@ -369,7 +369,7 @@ interface Syntax {
     findParent(document: vscode.TextDocument, line: number): number;
 }
 
-function provideHover(document: vscode.TextDocument, position: vscode.Position, _token: vscode.CancellationToken, syntax: Syntax): Promise<vscode.Hover> {
+function provideHover(document: vscode.TextDocument, position: vscode.Position, _token: vscode.CancellationToken, syntax: Syntax): Promise<vscode.Hover | null> {
     return new Promise(async (resolve, reject) => {
         if (!explainActive) {
             resolve(null);
@@ -409,14 +409,14 @@ function provideHover(document: vscode.TextDocument, position: vscode.Position, 
         }
 
         explain(obj, field).then(
-            (msg: string) => resolve(new vscode.Hover(msg)),
+            (msg) => resolve(msg ? new vscode.Hover(msg) : null),
             (err: any) => reject(err)
         );
     });
 
 }
 
-function provideHoverJson(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): Promise<vscode.Hover> {
+function provideHoverJson(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): Promise<vscode.Hover | null> {
     const syntax: Syntax = {
         parse: (text) => JSON.parse(text),
         findParent: (document, parentLine) => findParentJson(document, parentLine - 1)
@@ -425,7 +425,7 @@ function provideHoverJson(document: vscode.TextDocument, position: vscode.Positi
     return provideHover(document, position, token, syntax);
 }
 
-function provideHoverYaml(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): Promise<vscode.Hover> {
+function provideHoverYaml(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): Promise<vscode.Hover | null> {
     const syntax: Syntax = {
         parse: (text) => yaml.safeLoad(text),
         findParent: (document, parentLine) => findParentYaml(document, parentLine)
@@ -890,18 +890,22 @@ function buildPushThenExec(fn: (name: string, image: string) => void): void {
         vscode.window.withProgress({ location: vscode.ProgressLocation.Window }, async (p) => {
             p.report({ message: "Docker Building..." });
             const buildResult = await shell.exec(`docker build -t ${image} .`);
-            if (buildResult.code === 0) {
+            if (buildResult && buildResult.code === 0) {
                 vscode.window.showInformationMessage(image + ' built.');
                 p.report({ message: "Docker Pushing..." });
                 const pushResult = await shell.exec('docker push ' + image);
-                if (pushResult.code === 0) {
+                if (pushResult && pushResult.code === 0) {
                     vscode.window.showInformationMessage(image + ' pushed.');
                     fn(name, image);
+                } else if (!pushResult) {
+                    vscode.window.showErrorMessage(`Docker Push failed; unable to call Docker.`);
                 } else {
                     const diagnostic = diagnosePushError(pushResult.code, pushResult.stderr);
                     vscode.window.showErrorMessage(`${diagnostic} See Output window for docker push error message.`);
                     kubeChannel.showOutput(pushResult.stderr, 'Docker');
                 }
+            } else if (!buildResult) {
+                vscode.window.showErrorMessage(`Docker Build failed; unable to call Docker.`);
             } else {
                 vscode.window.showErrorMessage('Image build failed. See Output window for details.');
                 kubeChannel.showOutput(buildResult.stderr, 'Docker');
@@ -1166,11 +1170,19 @@ async function describeKubernetes(explorerNode?: explorer.ResourceNode) {
     if (explorerNode) {
         const nsarg = explorerNode.namespace ? `--namespace ${explorerNode.namespace}` : '';
         const result = await kubectl.invokeAsync(`describe ${explorerNode.resourceId} ${nsarg}`);
-        DescribePanel.createOrShow(result.stdout, explorerNode.resourceId);
+        if (result && result.code === 0) {
+            DescribePanel.createOrShow(result.stdout, explorerNode.resourceId);
+        } else {
+            await vscode.window.showErrorMessage(`Describe failed: ${result ? result.stderr : "Unable to call kubectl"}`);
+        }
     } else {
         findKindNameOrPrompt(kuberesources.commonKinds, 'describe', { nameOptional: true }, async (value) => {
             const result = await kubectl.invokeAsync(`describe ${value}`);
-            DescribePanel.createOrShow(result.stdout, value);
+            if (result && result.code === 0) {
+                DescribePanel.createOrShow(result.stdout, value);
+            } else {
+                await vscode.window.showErrorMessage(`Describe failed: ${result ? result.stderr : "Unable to call kubectl"}`);
+            }
         });
     }
 }
@@ -1291,7 +1303,7 @@ function execTerminalOnContainer(podName: string, podNamespace: string | undefin
 async function isBashOnContainer(podName: string, podNamespace: string | undefined, containerName: string | undefined): Promise<boolean> {
     const nsarg = podNamespace ? `--namespace ${podNamespace}` : '';
     const result = await kubectl.invokeAsync(`exec ${podName} ${nsarg} -c ${containerName} -- ls -la /bin/bash`);
-    return !result.code;
+    return !!result && result.code === 0;
 }
 
 async function suggestedShellForContainer(podName: string, podNamespace: string | undefined, containerName: string | undefined): Promise<string> {
@@ -1335,9 +1347,9 @@ async function syncKubernetes(): Promise<void> {
     }
 }
 
-async function reportDeleteResult(resourceId: string, shellResult: ShellResult) {
-    if (shellResult.code !== 0) {
-        await vscode.window.showErrorMessage(`Failed to delete resource '${resourceId}': ${shellResult.stderr}`);
+async function reportDeleteResult(resourceId: string, shellResult: ShellResult | undefined) {
+    if (!shellResult || shellResult.code !== 0) {
+        await vscode.window.showErrorMessage(`Failed to delete resource '${resourceId}': ${shellResult ? shellResult.stderr : "Unable to call kubectl"}`);
         return;
     }
     await vscode.window.showInformationMessage(shellResult.stdout);
@@ -1350,7 +1362,7 @@ async function deleteKubernetes(delMode: KubernetesDeleteMode, explorerNode?: ex
 
     if (explorerNode) {
         const answer = await vscode.window.showWarningMessage(`Do you want to delete the resource '${explorerNode.resourceId}'?`, ...deleteMessageItems);
-        if (answer.isCloseAffordance) {
+        if (!answer || answer.isCloseAffordance) {
             return;
         }
         const nsarg = explorerNode.namespace ? `--namespace ${explorerNode.namespace}` : '';
@@ -1524,7 +1536,7 @@ function diffKubernetesCore(callback: (r: DiffResult) => void): void {
 
         kubectl.invoke(` get -o ${fileFormat} ${kindName}`, (result, stdout, stderr) => {
             if (result === 1 && stderr.indexOf('NotFound') >= 0) {
-                callback({ result: DiffResultKind.NoClusterResource, resourceName: kindName });
+                callback({ result: DiffResultKind.NoClusterResource, resourceName: kindName || undefined });  // TODO: rationalise our nulls and undefineds
                 return;
             }
             else if (result !== 0) {
@@ -1573,7 +1585,7 @@ const debugKubernetes = async () => {
 const debugAttachKubernetes = async (explorerNode: explorer.ResourceNode) => {
     const workspaceFolder = await showWorkspaceFolderPick();
     if (workspaceFolder) {
-        new DebugSession(kubectl).attach(workspaceFolder, explorerNode ? explorerNode.id : null, explorerNode ? explorerNode.namespace : undefined);
+        new DebugSession(kubectl).attach(workspaceFolder, explorerNode ? explorerNode.id : undefined, explorerNode ? explorerNode.namespace || undefined : undefined);  // TODO: rationalise the nulls and undefineds
     }
 };
 
@@ -1600,8 +1612,8 @@ const doDebug = async (name: string, image: string, cmd: string) => {
 
     const sr = await kubectl.invokeAsync(runCmd);
 
-    if (sr.code !== 0) {
-        vscode.window.showErrorMessage('Failed to start debug container: ' + sr.stderr);
+    if (!sr || sr.code !== 0) {
+        vscode.window.showErrorMessage('Failed to start debug container: ' + (sr ? sr.stderr : "Unable to run kubectl"));
         return;
     }
 
@@ -1770,11 +1782,11 @@ async function useContextKubernetes(explorerNode: explorer.KubernetesObject) {
     const contextObj = explorerNode.metadata as kubectlUtils.KubectlContext;
     const targetContext = contextObj.contextName;
     const shellResult = await kubectl.invokeAsync(`config use-context ${targetContext}`);
-    if (shellResult.code === 0) {
+    if (shellResult && shellResult.code === 0) {
         telemetry.invalidateClusterType(targetContext);
         refreshExplorer();
     } else {
-        vscode.window.showErrorMessage(`Failed to set '${targetContext}' as current cluster: ${shellResult.stderr}`);
+        vscode.window.showErrorMessage(`Failed to set '${targetContext}' as current cluster: ${shellResult ? shellResult.stderr : "Unable to run kubectl"}`);
     }
 }
 
@@ -1789,7 +1801,7 @@ async function deleteContextKubernetes(explorerNode: explorer.KubernetesObject) 
     }
     const contextObj = explorerNode.metadata as kubectlUtils.KubectlContext;
     const answer = await vscode.window.showWarningMessage(`Do you want to delete the cluster '${contextObj.contextName}' from the kubeconfig?`, ...deleteMessageItems);
-    if (answer.isCloseAffordance) {
+    if (!answer || answer.isCloseAffordance) {
         return;
     }
     if (await kubectlUtils.deleteCluster(kubectl, contextObj)) {

@@ -23,7 +23,7 @@ let latestContextName: string | null;
 let cachedClusterType: ClusterType = ClusterType.Unknown;
 const knownClusters: any = {};
 
-export function invalidateClusterType(newContext: string, kubectl?: Kubectl): void {
+export function invalidateClusterType(newContext: string | undefined, kubectl?: Kubectl): void {
     latestContextName = newContext || null;
     cachedClusterType = ClusterType.Unknown;
     if (kubectl) {
