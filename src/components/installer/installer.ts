@@ -175,18 +175,20 @@ async function untar(sourceFile: string, destinationFolder: string, shell: Shell
         if (getUseWsl()) {
             const destination = destinationFolder.replace(/\\/g, '/');
             let result = await shell.exec(`mkdir -p ${destination}`);
-            if (result.code !== 0) {
-                console.log(result.stderr);
-                throw new Error(`Error making directory: ${result.stderr}`);
+            if (!result || result.code !== 0) {
+                const message = result ? result.stderr : "Unable to run mkdir";
+                console.log(message);
+                throw new Error(`Error making directory: ${message}`);
             }
             const drive = sourceFile[0].toLowerCase();
             const filePath = sourceFile.substring(2).replace(/\\/g, '/');
             const fileName = `/mnt/${drive}/${filePath}`;
             const cmd = `tar -C ${destination} -xf ${fileName}`;
             result = await shell.exec(cmd);
-            if (result.code !== 0) {
-                console.log(result.stderr);
-                throw new Error(`Error unpacking: ${result.stderr}`);
+            if (!result || result.code !== 0) {
+                const message = result ? result.stderr : "Unable to run tar";
+                console.log(message);
+                throw new Error(`Error unpacking: ${message}`);
             }
             return { succeeded: true, result: null };
         }

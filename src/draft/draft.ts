@@ -76,7 +76,7 @@ async function checkPresent(context: Context, mode: CheckPresentMode): Promise<b
 async function packs(context: Context): Promise<string[] | undefined> {
     if (await checkPresent(context, CheckPresentMode.Alert)) {
         const dpResult = await context.shell.exec(`"${context.binPath}" pack list`);
-        if (dpResult.code === 0) {
+        if (dpResult && dpResult.code === 0) {
             // Packs may be of the form path/to/the/actual/name
             // We also may have spurious ones under github.com/Azure/draft/{cmd|pkg}
             const packs = dpResult.stdout.split('\n')
@@ -98,7 +98,7 @@ async function invokeCreate(context: Context, appName: string, pack: string | un
         const packOpt = pack ? ` -p ${pack}` : '';
         const cmd = `create -a ${appName} ${packOpt} "${path}"`;
         const result = await context.shell.exec(`"${context.binPath}" ${cmd}`);
-        if (result.code === 0 && result.stdout.indexOf('chart directory charts/ already exists') >= 0) {
+        if (result && result.code === 0 && result.stdout.indexOf('chart directory charts/ already exists') >= 0) {
             const draftManifestFile = syspath.join(path, 'draft.toml');
             const hasDraftManifest = context.fs.existsSync(draftManifestFile);
             if (!hasDraftManifest) {
@@ -136,10 +136,10 @@ async function up(context: Context): Promise<void> {
 async function version(context: Context): Promise<Errorable<string>> {
     if (await checkPresent(context, CheckPresentMode.Alert)) {
         const result = await context.shell.exec(`"${context.binPath}" version`);
-        if (result.code === 0) {
+        if (result && result.code === 0) {
             return { succeeded: true, result: result.stdout.trim() };
         }
-        return { succeeded: false, error: [ result.stdout ] };
+        return { succeeded: false, error: [ result ? result.stderr : "Unable to run Draft" ] };
     }
     return { succeeded: false, error: [ '' ] };  // already alerted
 }

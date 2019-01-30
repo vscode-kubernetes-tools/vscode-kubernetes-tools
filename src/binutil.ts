@@ -99,7 +99,7 @@ export async function checkForBinary(context: BinCheckContext, bin: string | und
         context.binFound = context.fs.existsSync(bin);
     } else {
         const sr = await context.shell.exec(`ls ${bin}`);
-        context.binFound = (sr && sr.code === 0);
+        context.binFound = (!!sr && sr.code === 0);
     }
     if (context.binFound) {
         context.binPath = bin;

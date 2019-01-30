@@ -175,5 +175,7 @@ const onStreamData = (data: string) => {
 
     // Maybe we've bound to the port already outside of the extension?
     vscode.window.showErrorMessage("Could not start the Kubernetes Dashboard. Is it already running?");
-    terminal.dispose();
+    if (terminal) {
+        terminal.dispose();
+    }
 };
