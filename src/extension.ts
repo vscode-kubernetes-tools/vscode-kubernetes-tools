@@ -119,7 +119,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<extens
 
     const treeProvider = explorer.create(kubectl, host);
     const helmRepoTreeProvider = helmRepoExplorer.create(host);
-    const resourceDocProvider = new KubernetesResourceVirtualFileSystemProvider(kubectl, host, vscode.workspace.rootPath);
+    const resourceDocProvider = new KubernetesResourceVirtualFileSystemProvider(kubectl, host);
     const resourceLinkProvider = new KubernetesResourceLinkProvider();
     const previewProvider = new HelmTemplatePreviewDocumentProvider();
     const inspectProvider = new HelmInspectDocumentProvider();
@@ -269,14 +269,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<extens
     await minikubeclusterprovider.init(clusterProviderRegistry, { shell: shell, minikube: minikube });
     // On save, refresh the Helm YAML preview.
     vscode.workspace.onDidSaveTextDocument((e: vscode.TextDocument) => {
-        if (!editorIsActive()) {
+        const activeTextEditor = vscode.window.activeTextEditor;
+        if (!activeTextEditor) {
             if (helm.hasPreviewBeenShown()) {
                 logger.helm.log("WARNING: No active editor during save. Helm preview was not updated.");
             }
             return;
         }
-        if (e === vscode.window.activeTextEditor.document) {
-            const doc = vscode.window.activeTextEditor.document;
+        if (e === activeTextEditor.document) {
+            const doc = activeTextEditor.document;
             if (doc.uri.scheme !== "file") {
                 return;
             }
@@ -314,10 +315,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<extens
 
     // On editor change, refresh the Helm YAML preview
     vscode.window.onDidChangeActiveTextEditor((_e: vscode.TextEditor | undefined) => {
-        if (!editorIsActive()) {
+        const activeTextEditor = vscode.window.activeTextEditor;
+        if (!activeTextEditor) {
             return;
         }
-        const doc = vscode.window.activeTextEditor.document;
+        const doc = activeTextEditor.document;
         if (doc.uri.scheme !== "file") {
             return;
         }
@@ -751,6 +753,11 @@ function findVersion() {
 }
 
 function findVersionInternal(fn: (text: string) => void): void {
+    if (!vscode.workspace.rootPath) {
+        vscode.window.showErrorMessage("This command requires a single open folder.");
+        return;
+    }
+
     // No .git dir, use 'latest'
     // TODO: use 'git rev-parse' to detect upstream directories
     if (!fs.existsSync(path.join(vscode.workspace.rootPath, '.git'))) {
@@ -1891,7 +1898,16 @@ enum DraftCreateResult {
 }
 
 async function execDraftCreateApp(appName: string, pack?: string): Promise<void> {
-    const dcResult = await draft.create(appName, pack, vscode.workspace.rootPath);
+    const folder = await showWorkspaceFolderPick();
+    if (!folder) {
+        return;
+    }
+
+    const dcResult = await draft.create(appName, pack, folder.uri.fsPath);
+    if (!dcResult) {
+        host.showErrorMessage(`Unable to run Draft`);
+        return;
+    }
 
     switch (draftCreateResult(dcResult, !!pack)) {
         case DraftCreateResult.Succeeded:
@@ -1940,11 +1956,6 @@ async function execDraftUp() {
     }
 
     await draft.up();
-}
-
-function editorIsActive(): boolean {
-    // force type coercion
-    return (vscode.window.activeTextEditor) ? true : false;
 }
 
 async function helmConvertToTemplate(arg?: any) {

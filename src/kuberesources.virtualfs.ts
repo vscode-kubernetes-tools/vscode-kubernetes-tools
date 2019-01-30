@@ -22,7 +22,7 @@ export function kubefsUri(namespace: string | null | undefined /* TODO: rational
 }
 
 export class KubernetesResourceVirtualFileSystemProvider implements FileSystemProvider {
-    constructor(private readonly kubectl: Kubectl, private readonly host: Host, private readonly rootPath: string) { }
+    constructor(private readonly kubectl: Kubectl, private readonly host: Host) { }
 
     private readonly onDidChangeFileEmitter: EventEmitter<FileChangeEvent[]> = new EventEmitter<FileChangeEvent[]>();
 
@@ -93,9 +93,19 @@ export class KubernetesResourceVirtualFileSystemProvider implements FileSystemPr
     }
 
     writeFile(uri: Uri, content: Uint8Array, _options: { create: boolean, overwrite: boolean }): void | Thenable<void> {
+        return this.saveAsync(uri, content);  // TODO: respect options
+    }
+
+    private async saveAsync(uri: Uri, content: Uint8Array): Promise<void> {
         // This assumes no pathing in the URI - if this changes, we'll need to
         // create subdirectories.
-        const fspath = path.join(this.rootPath, uri.fsPath);
+        // TODO: not loving prompting as part of the write when it should really be part of a separate
+        // 'save' workflow - but needs must, I think
+        const rootPath = await this.host.selectRootFolder();
+        if (!rootPath) {
+            return;
+        }
+        const fspath = path.join(rootPath, uri.fsPath);
         fs.writeFileSync(fspath, content);
     }
 
