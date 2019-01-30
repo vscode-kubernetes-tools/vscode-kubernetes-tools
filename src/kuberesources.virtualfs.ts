@@ -71,15 +71,16 @@ export class KubernetesResourceVirtualFileSystemProvider implements FileSystemPr
 
         const sr = await this.execLoadResource(resourceAuthority, ns, value, outputFormat);
 
-        if (sr.code !== 0) {
-            this.host.showErrorMessage('Get command failed: ' + sr.stderr);
-            throw sr.stderr;
+        if (!sr || sr.code !== 0) {
+            const message = sr ? sr.stderr : "Unable to run command line tool";
+            this.host.showErrorMessage('Get command failed: ' + message);
+            throw message;
         }
 
         return sr.stdout;
     }
 
-    async execLoadResource(resourceAuthority: string, ns: string | undefined, value: string, outputFormat: string): Promise<ShellResult> {
+    async execLoadResource(resourceAuthority: string, ns: string | undefined, value: string, outputFormat: string): Promise<ShellResult | undefined> {
         switch (resourceAuthority) {
             case KUBECTL_RESOURCE_AUTHORITY:
                 const nsarg = ns ? `--namespace ${ns}` : '';

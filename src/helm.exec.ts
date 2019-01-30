@@ -145,8 +145,8 @@ export async function helmCreateCore(prompt: string, sampleName: string): Promis
 
     const sr = await helmExecAsync(`create "${fullpath}"`);
 
-    if (sr.code !== 0) {
-        return { succeeded: false, error: [ sr.stderr ] };
+    if (!sr || sr.code !== 0) {
+        return { succeeded: false, error: [ sr ? sr.stderr : "Unable to run Helm" ] };
     }
 
     return { succeeded: true, result: { name: name, path: fullpath } };
@@ -286,8 +286,8 @@ async function helmFetchCore(chartId: string, version: string | undefined): Prom
 
     const versionArg = version ? `--version ${version}` : '';
     const sr = await helmExecAsync(`fetch ${chartId} --untar ${versionArg} -d "${projectFolder.uri.fsPath}"`);
-    if (sr.code !== 0) {
-        await vscode.window.showErrorMessage(`Helm fetch failed: ${sr.stderr}`);
+    if (!sr || sr.code !== 0) {
+        await vscode.window.showErrorMessage(`Helm fetch failed: ${sr ? sr.stderr : "Unable to run Helm"}`);
         return;
     }
     await vscode.window.showInformationMessage(`Fetched ${chartId}`);
@@ -312,9 +312,10 @@ async function helmInstallCore(kubectl: Kubectl, chartId: string, version: strin
     const nsArg = ns ? `--namespace ${ns}` : '';
     const versionArg = version ? `--version ${version}` : '';
     const sr = await helmExecAsync(`install ${chartId} ${versionArg} ${nsArg}`);
-    if (sr.code !== 0) {
-        logger.log(sr.stderr);
-        await vscode.window.showErrorMessage(`Helm install failed: ${sr.stderr}`);
+    if (!sr || sr.code !== 0) {
+        const message = sr ? sr.stderr : "Unable to run Helm";
+        logger.log(message);
+        await vscode.window.showErrorMessage(`Helm install failed: ${message}`);
         return;
     }
     const releaseName = extractReleaseName(sr.stdout);
@@ -358,17 +359,17 @@ export async function helmDependenciesCore(chartId: string, version: string | un
     const tempDirObj = tmp.dirSync({ prefix: "vsk-fetchfordeps-", unsafeCleanup: true });
     const versionArg = version ? `--version ${version}` : '';
     const fsr = await helmExecAsync(`fetch ${chartId} ${versionArg} -d "${tempDirObj.name}"`);
-    if (fsr.code !== 0) {
+    if (!fsr || fsr.code !== 0) {
         tempDirObj.removeCallback();
-        return { succeeded: false, error: [`Helm fetch failed: ${fsr.stderr}`] };
+        return { succeeded: false, error: [`Helm fetch failed: ${fsr ? fsr.stderr : "Unable to run Helm"}`] };
     }
 
     const tempDirFiles = sh.ls(tempDirObj.name);
     const chartPath = filepath.join(tempDirObj.name, tempDirFiles[0]);  // should be the only thing in the directory
     try {
         const dsr = await helmExecAsync(`dep list "${chartPath}"`);
-        if (dsr.code !== 0) {
-            return { succeeded: false, error: [`Helm dependency list failed: ${dsr.stderr}`] };
+        if (!dsr || dsr.code !== 0) {
+            return { succeeded: false, error: [`Helm dependency list failed: ${dsr ? dsr.stderr : "Unable to run Helm"}`] };
         }
         const lines = dsr.stdout.split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
         if (lines.length === 1) {
@@ -495,14 +496,18 @@ export function helmExec(args: string, fn: ExecCallback) {
     const bin = configuredBin ? `"${configuredBin}"` : "helm";
     const cmd = `${bin} ${args}`;
     const promise = sh.exec(cmd);
-    promise.then((res: ShellResult) => {
-        fn(res.code, res.stdout, res.stderr);
+    promise.then((res: ShellResult | undefined) => {
+        if (res) {
+            fn(res.code, res.stdout, res.stderr);
+        } else {
+            console.log('exec failed: unable to run Helm');
+        }
     }, (err) => {
         console.log(`exec failed! (${err})`);
     });
 }
 
-export async function helmExecAsync(args: string): Promise<ShellResult> {
+export async function helmExecAsync(args: string): Promise<ShellResult | undefined> {
     // TODO: deduplicate with helmExec
     if (!ensureHelm(EnsureMode.Alert)) {
         return { code: -1, stdout: "", stderr: "" };
@@ -525,11 +530,11 @@ export async function helmListAll(namespace?: string): Promise<Errorable<{ [key:
 
     do {
         const nsarg = namespace ? `--namespace ${namespace}` : "";
-        const offsetarg = offset ? `--offset ${offset}` : "";
+        const offsetarg: string = offset ? `--offset ${offset}` : "";
         const sr = await helmExecAsync(`list --max 0 ${nsarg} ${offsetarg}`);
 
-        if (sr.code !== 0) {
-            return { succeeded: false, error: [ sr.stderr ] };
+        if (!sr || sr.code !== 0) {
+            return { succeeded: false, error: [ sr ? sr.stderr : "Unable to run Helm" ] };
         }
 
         const lines = sr.stdout.split('\n')
@@ -537,7 +542,7 @@ export async function helmListAll(namespace?: string): Promise<Errorable<{ [key:
                                .filter((l) => l.length > 0);
         if (lines.length > 0) {
             if (lines[0].startsWith(HELM_PAGING_PREFIX)) {
-                const pagingInfo = lines.shift();
+                const pagingInfo = lines.shift()!;  // safe because we have checked the length
                 offset = pagingInfo.substring(HELM_PAGING_PREFIX.length).trim();
             } else {
                 offset = null;

@@ -12,8 +12,7 @@ export class KubernetesResourceLinkProvider implements vscode.DocumentLinkProvid
         const sourceKind = k8sKind(document);
         const yaml = yl.yamlLocator.getYamlDocuments(document);
         const leaves: yl.YamlNode[] = getLeafNodes(yaml);
-        const links = leaves.map((l) => getLink(document, sourceKind, l))
-                            .filter((l) => !!l);
+        const links = leaves.choose((l) => getLink(document, sourceKind, l));
         return links;
     }
 }

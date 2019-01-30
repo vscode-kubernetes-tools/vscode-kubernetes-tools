@@ -1,7 +1,7 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import { Shell, ShellResult } from '../../../shell';
+import { Shell } from '../../../shell';
 import { Host } from '../../../host';
 import { FS } from '../../../fs';
 import * as binutil from '../../../binutil';

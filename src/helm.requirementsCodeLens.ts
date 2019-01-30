@@ -10,7 +10,7 @@ export class HelmRequirementsCodeLensProvider implements vscode.CodeLensProvider
         const i = doc.getText().indexOf("dependencies:");
         const start = doc.positionAt(i);
         const range = doc.getWordRangeAtPosition(start);
-        if (range.isEmpty) {
+        if (!range || range.isEmpty) {
             return [];
         }
 
