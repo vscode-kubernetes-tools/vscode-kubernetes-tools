@@ -3,9 +3,11 @@ import { Kubectl } from './kubectl';
 
 export function telemetrise(command: string, kubectl: Kubectl, callback: (...args: any[]) => any): (...args: any[]) => any {
     return (a) => {
-        clusterType(kubectl).then((ct) =>
-            reporter.sendTelemetryEvent("command", { command: command, clusterType: ct })
-        );
+        clusterType(kubectl).then((ct) => {
+            if (reporter) {
+                reporter.sendTelemetryEvent("command", { command: command, clusterType: ct });
+            }
+        });
         return callback(a);
     };
 }
@@ -67,7 +69,7 @@ async function loadCachedClusterType(kubectl: Kubectl) {
 async function inferCurrentClusterType(kubectl: Kubectl): Promise<ClusterType> {
     if (!latestContextName) {
         const ctxsr = await kubectl.invokeAsync('config current-context');
-        if (ctxsr.code === 0) {
+        if (ctxsr && ctxsr.code === 0) {
             latestContextName = ctxsr.stdout.trim();
         } else {
             return ClusterType.Other;  // something is terribly wrong; we don't want to retry
@@ -79,7 +81,7 @@ async function inferCurrentClusterType(kubectl: Kubectl): Promise<ClusterType> {
     }
 
     const cisr = await kubectl.invokeAsync('cluster-info');
-    if (cisr.code !== 0) {
+    if (!cisr || cisr.code !== 0) {
         return ClusterType.Unknown;
     }
     const masterInfos = cisr.stdout.split('\n')
@@ -96,7 +98,7 @@ async function inferCurrentClusterType(kubectl: Kubectl): Promise<ClusterType> {
 
     if (latestContextName) {
         const gcsr = await kubectl.invokeAsync(`config get-contexts ${latestContextName}`);
-        if (gcsr.code === 0) {
+        if (gcsr && gcsr.code === 0) {
             if (gcsr.stdout.indexOf('minikube') >= 0) {
                 return ClusterType.Minikube;  // It's pretty heuristic, so don't spend time parsing the table
             }

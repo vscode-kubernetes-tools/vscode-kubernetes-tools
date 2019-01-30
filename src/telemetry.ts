@@ -1,12 +1,12 @@
 import TelemetryReporter from 'vscode-extension-telemetry';
 import vscode = require('vscode');
 
-export let reporter: TelemetryReporter;
+export let reporter: TelemetryReporter | undefined;
 
 export class Reporter extends vscode.Disposable {
 
     constructor(ctx: vscode.ExtensionContext) {
-        super(() => reporter.dispose());
+        super(() => { if (reporter) { reporter.dispose(); } });
         const packageInfo = getPackageInfo(ctx);
         reporter = packageInfo && new TelemetryReporter(packageInfo.name, packageInfo.version, packageInfo.aiKey);
 
