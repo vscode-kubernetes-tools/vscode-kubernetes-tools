@@ -406,15 +406,28 @@ export function pickChart(fn: (chartPath: string) => void) {
             default:
                 // TODO: This would be so much cooler if the QuickPick parsed the Chart.yaml
                 // and showed the chart name instead of the path.
-                const paths = matches.map((item) =>
-                    filepath.relative(vscode.workspace.rootPath, filepath.dirname(item.fsPath)) || "."
+                const pathPicks = matches.map((item) =>
+                    quickPickForChart(item)
                 );
-                vscode.window.showQuickPick(paths).then((picked) => {
-                    fn(filepath.join(vscode.workspace.rootPath, picked));
+                vscode.window.showQuickPick(pathPicks).then((picked) => {
+                    if (picked) {
+                        fn(picked.chartDir);
+                    }
                 });
                 return;
         }
     });
+}
+
+function quickPickForChart(chartUri: vscode.Uri): vscode.QuickPickItem & { readonly chartDir: string } {
+    const chartDir = filepath.dirname(chartUri.fsPath);
+    const displayName = vscode.workspace.rootPath ?
+        filepath.relative(vscode.workspace.rootPath, chartDir) :
+        chartDir;
+    return {
+        label: displayName || ".",
+        chartDir: chartDir
+    };
 }
 
 class Chart {
@@ -461,9 +474,7 @@ export function pickChartForFile(file: string, options: PickChartUIOptions, fn: 
                         return;
                     }
 
-                    paths.push(
-                        filepath.relative(vscode.workspace.rootPath, filepath.dirname(item.fsPath))
-                    );
+                    paths.push(dirname);
                 });
 
                 if (paths.length === 0) {
@@ -475,7 +486,7 @@ export function pickChartForFile(file: string, options: PickChartUIOptions, fn: 
 
                 // For now, let's go with the top-most path (umbrella chart)
                 if (paths.length >= 1) {
-                    fn(filepath.join(vscode.workspace.rootPath, paths[0]));
+                    fn(paths[0]);
                     return;
                 }
                 return;
