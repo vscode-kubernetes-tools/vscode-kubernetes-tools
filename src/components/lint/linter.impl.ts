@@ -14,7 +14,7 @@ export function expose(impl: LinterImpl): Linter {
 
 export interface Syntax {
     load(text: string): any[];
-    symbolise(document: vscode.TextDocument): Promise<vscode.SymbolInformation[]>;
+    symbolise(document: vscode.TextDocument): Promise<vscode.SymbolInformation[] | null | undefined>;
 }
 
 class StandardLinter implements Linter {
@@ -41,12 +41,12 @@ class StandardLinter implements Linter {
     }
 }
 
-const jsonSyntax = {
+const jsonSyntax: Syntax = {
     load(text: string) { return [JSON.parse(text)]; },
     async symbolise(document: vscode.TextDocument) { return await jsonSymboliser.provideDocumentSymbols(document, new vscode.CancellationTokenSource().token); }
 };
 
-const yamlSyntax = {
+const yamlSyntax: Syntax = {
     load(text: string) { return yaml.safeLoadAll(text); },
     async symbolise(document: vscode.TextDocument) { return await jsonalikeYamlSymboliser.provideDocumentSymbols(document, new vscode.CancellationTokenSource().token); }
 };
