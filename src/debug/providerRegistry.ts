@@ -7,7 +7,7 @@ const supportedProviders: IDebugProvider[] = [
     new JavaDebugProvider()
 ];
 
-async function showProviderPick(): Promise<IDebugProvider> {
+async function showProviderPick(): Promise<IDebugProvider | undefined> {
     const providerItems = supportedProviders.map((provider) => {
         return {
             label: provider.getDebuggerType(),
@@ -16,14 +16,14 @@ async function showProviderPick(): Promise<IDebugProvider> {
         };
     });
 
-    const pickedProvider = await vscode.window.showQuickPick(<vscode.QuickPickItem[]> providerItems, { placeHolder: "Select the environment" });
+    const pickedProvider = await vscode.window.showQuickPick(providerItems, { placeHolder: "Select the environment" });
     if (!pickedProvider) {
-        return null;
+        return undefined;
     }
-    return (<any> pickedProvider).provider;
+    return pickedProvider.provider;
 }
 
-export async function getDebugProvider(baseImage?: string): Promise<IDebugProvider> {
+export async function getDebugProvider(baseImage?: string): Promise<IDebugProvider | undefined> {
     let debugProvider = null;
     if (baseImage) {
         debugProvider = supportedProviders.find((provider) => provider.isSupportedImage(baseImage));
@@ -38,6 +38,6 @@ export function getSupportedDebuggerTypes(): string[] {
     return supportedProviders.map((provider) => provider.getDebuggerType());
 }
 
-export function getDebugProviderOfType(debuggerType: string): IDebugProvider {
+export function getDebugProviderOfType(debuggerType: string): IDebugProvider | undefined {
     return supportedProviders.find((debugProvider) => debugProvider.getDebuggerType() === debuggerType);
 }

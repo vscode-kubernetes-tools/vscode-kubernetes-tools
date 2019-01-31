@@ -43,7 +43,10 @@ export class JavaDebugProvider implements IDebugProvider {
             hostName: "localhost",
             port
         };
-        const currentFolder = vscode.workspace.workspaceFolders.find((folder) => folder.name === path.basename(workspaceFolder));
+        const currentFolder = (vscode.workspace.workspaceFolders || []).find((folder) => folder.name === path.basename(workspaceFolder));
+        if (!currentFolder) {
+            return false;  // shouldn't happen as workspaceFolder should be one of the workspaceFolders
+        }
         return await vscode.debug.startDebugging(currentFolder, debugConfiguration);
     }
 
@@ -58,7 +61,7 @@ export class JavaDebugProvider implements IDebugProvider {
 
     public async resolvePortsFromFile(dockerfile: IDockerfile, env: Dictionary<string>): Promise<PortInfo | undefined> {
         let rawDebugPortInfo: string;
-        let rawAppPortInfo: string;
+        let rawAppPortInfo: string | undefined;
 
         // Resolve the debug port.
         const matches = dockerfile.searchLaunchArgs(javaDebugOptsRegExp);
@@ -89,13 +92,13 @@ export class JavaDebugProvider implements IDebugProvider {
         };
     }
 
-    public async resolvePortsFromContainer(kubectl: Kubectl, pod: string, podNamespace: string | undefined, container: string): Promise<PortInfo> {
-        let rawDebugPortInfo: string;
+    public async resolvePortsFromContainer(kubectl: Kubectl, pod: string, podNamespace: string | undefined, container: string): Promise<PortInfo | undefined> {
+        let rawDebugPortInfo: string | undefined;
         const commandLines = await debugUtils.getCommandsOfProcesses(kubectl, pod, podNamespace, container);
         for (const commandLine of commandLines) {
             // java -Djava.security.egd=file:/dev/./urandom -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=1044,quiet=y -jar target/app.jar
             const matches = commandLine.match(fullJavaDebugOptsRegExp);
-            if (extensionUtils.isNonEmptyArray(matches)) {
+            if (matches && matches.length > 0) {
                 const addresses = matches[2].split("=")[1].split(":");
                 rawDebugPortInfo = addresses[addresses.length - 1];
                 break;
@@ -104,6 +107,10 @@ export class JavaDebugProvider implements IDebugProvider {
 
         if (!rawDebugPortInfo) {
             rawDebugPortInfo = await debugUtils.promptForDebugPort(defaultJavaDebugPort);
+        }
+
+        if (!rawDebugPortInfo) {
+            return undefined;
         }
 
         return {
