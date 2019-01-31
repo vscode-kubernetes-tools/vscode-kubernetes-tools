@@ -391,9 +391,10 @@ async function changeResourceFromUri(uri: vscode.Uri, kubectl: Kubectl, command:
     }
     const path = vscode.workspace.asRelativePath(uri);
     const result = await kubectl.invokeAsync(`${command} -f "${path}"`);
-    if (result.code !== 0) {
-        vscode.window.showErrorMessage(`Error ${verbParticiple} resource: ${result.stderr}`);
-        kubeChannel.showOutput(result.stderr, `Error ${verbParticiple} resource (${result.code})`);
+    if (!result || result.code !== 0) {
+        const message = result ? result.stderr : "Unable to run kubectl";
+        vscode.window.showErrorMessage(`Error ${verbParticiple} resource: ${message}`);
+        kubeChannel.showOutput(message, `Error ${verbParticiple} resource (${result ? result.code : 'program not found'})`);
     } else {
         vscode.window.showInformationMessage(`Resource ${path} ${verbPast}.`);
     }
