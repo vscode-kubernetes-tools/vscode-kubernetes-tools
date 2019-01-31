@@ -142,6 +142,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<extens
         registerCommand('extension.vsKubernetesCreate',
             () => maybeRunKubernetesCommandForActiveWindow('create', "Kubernetes Creating...")
         ),
+        registerCommand('extension.vsKubernetesCreateFile',
+            (uri: vscode.Uri) => kubectlUtils.createResourceFromUri(uri, kubectl)),
+        registerCommand('extension.vsKubernetesDeleteUri',
+            (uri: vscode.Uri) => kubectlUtils.deleteResourceFromUri(uri, kubectl)),
+        registerCommand('extension.vsKubernetesApplyFile',
+            (uri: vscode.Uri) => kubectlUtils.applyResourceFromUri(uri, kubectl)),
         registerCommand('extension.vsKubernetesDelete', (explorerNode: explorer.ResourceNode) => { deleteKubernetes(KubernetesDeleteMode.Graceful, explorerNode); }),
         registerCommand('extension.vsKubernetesDeleteNow', (explorerNode: explorer.ResourceNode) => { deleteKubernetes(KubernetesDeleteMode.Now, explorerNode); }),
         registerCommand('extension.vsKubernetesApply', applyKubernetes),
