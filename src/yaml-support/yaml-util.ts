@@ -54,7 +54,7 @@ export function loadJson(file: string): any {
  *                  eg:  kubernetes://schema/io.k8s.kubernetes.pkg.apis.extensions.v1beta1.
  *  httpingresspath, the uri is converted to low case.
  */
-export function makeKubernetesUri(ids: string | string[]): string {
+export function makeKubernetesUri(ids: string | string[]): string | undefined {
     if (!ids) {
         throw new Error("'id' is required for constructing a schema uri.");
     }
@@ -73,17 +73,18 @@ export function makeKubernetesUri(ids: string | string[]): string {
 }
 
 // create a $ref schema for kubernetes manifest
-export function makeRefOnKubernetes(id: string): { $ref: string } {
-    return { $ref: makeKubernetesUri(id) };
+export function makeRefOnKubernetes(id: string): { $ref: string } | undefined {
+    const uri = makeKubernetesUri(id);
+    return uri ? { $ref: uri } : undefined;
 }
 
 // extract id, apiVersion, kind from x-kubernetes-group-version-kind node in schema
-export function parseKubernetesGroupVersionKind(groupKindNodeItem: any): {id: string, apiVersion: string, kind: string} {
+export function parseKubernetesGroupVersionKind(groupKindNodeItem: any): {id: string, apiVersion: string, kind: string} | undefined {
     const group = getStringValue(groupKindNodeItem, 'group', StringComparison.OrdinalIgnoreCase);
     const version = getStringValue(groupKindNodeItem, 'version', StringComparison.OrdinalIgnoreCase);
     const apiVersion = group ? `${group}/${version}`: version;
     const kind = getStringValue(groupKindNodeItem, 'kind', StringComparison.OrdinalIgnoreCase);
-    return { id: apiVersion + GROUP_VERSION_KIND_SEPARATOR + kind, apiVersion, kind };
+    return apiVersion && kind ? { id: apiVersion + GROUP_VERSION_KIND_SEPARATOR + kind, apiVersion, kind } : undefined;
 }
 
 // test whether two strings are equal ignore case
@@ -98,7 +99,7 @@ export function equalIgnoreCase(a: string, b: string): boolean {
 //      key2: value2
 //
 export function getYamlMappingValue(mapRootNode: YamlMap, key: string,
-                                    ignoreCase: StringComparison = StringComparison.Ordinal): string {
+                                    ignoreCase: StringComparison = StringComparison.Ordinal): string | undefined {
     // TODO, unwrap quotes
     if (!key) {
         return undefined;

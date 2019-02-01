@@ -15,14 +15,15 @@ import { shell } from "../shell";
 
 import { DockerfileParser } from "../docker/dockerfileParser";
 import * as dockerUtils from "../docker/dockerUtils";
-import { isPod, Pod, KubernetesCollection, Container } from "../kuberesources.objectmodel";
+import { Pod, KubernetesCollection, Container } from "../kuberesources.objectmodel";
 import * as config from "../components/config/config";
 import { Dictionary } from "../utils/dictionary";
+import { definedOf } from "../utils/array";
 
 const debugCommandDocumentationUrl = "https://github.com/Azure/vscode-kubernetes-tools/blob/master/debug-on-kubernetes.md";
 
 interface ProxyResult {
-    readonly proxyProcess: ChildProcess;
+    readonly proxyProcess: ChildProcess | undefined;
     readonly proxyDebugPort: number;
     readonly proxyAppPort: number;
 }
@@ -33,7 +34,7 @@ export interface IDebugSession {
 }
 
 export class DebugSession implements IDebugSession {
-    private debugProvider: IDebugProvider;
+    private debugProvider: IDebugProvider | undefined;
 
     constructor(private readonly kubectl: Kubectl) {
     }
@@ -60,7 +61,7 @@ export class DebugSession implements IDebugSession {
         }
         const dockerfile = new DockerfileParser().parse(dockerfilePath);
         if (debugProvider) {
-            this.debugProvider = (await debugProvider.isDebuggerInstalled())? debugProvider : null;
+            this.debugProvider = (await debugProvider.isDebuggerInstalled()) ? debugProvider : undefined;
         } else {
             this.debugProvider = await this.pickupAndInstallDebugProvider(dockerfile.getBaseImage());
         }
@@ -69,9 +70,14 @@ export class DebugSession implements IDebugSession {
         }
 
         const cwd = workspaceFolder.uri.fsPath;
-        const imagePrefix = vscode.workspace.getConfiguration().get("vsdocker.imageUser", null);
+        const imagePrefix = vscode.workspace.getConfiguration().get<string | null>("vsdocker.imageUser", null);
         const containerEnv = Dictionary.of<string>();
         const portInfo = await this.debugProvider.resolvePortsFromFile(dockerfile, containerEnv);
+
+        if (!imagePrefix) {
+            await vscode.window.showErrorMessage("No Docker image prefix set for image push. Please set 'vsdocker.imageUser' in your Kubernetes extension settings.");
+            return;
+        }
         if (!portInfo || !portInfo.debugPort || !portInfo.appPort) {
             await this.openInBrowser("Cannot resolve debug/application port from Dockerfile. See the documentation for how to use this command.", debugCommandDocumentationUrl);
             return;
@@ -87,7 +93,8 @@ export class DebugSession implements IDebugSession {
 
                 // Run docker image in k8s container.
                 p.report({ message: "Running Docker image on Kubernetes..."});
-                appName = await this.runAsDeployment(imageName, [portInfo.appPort, portInfo.debugPort], containerEnv);
+                const exposedPorts = definedOf(portInfo.appPort, portInfo.debugPort);
+                appName = await this.runAsDeployment(imageName, exposedPorts, containerEnv);
 
                 // Find the running debug pod.
                 p.report({ message: "Finding the debug pod..."});
@@ -101,8 +108,12 @@ export class DebugSession implements IDebugSession {
                 p.report({ message: "Setting up port forwarding..."});
                 const proxyResult = await this.setupPortForward(podName, undefined, portInfo.debugPort, portInfo.appPort);
 
+                if (!proxyResult.proxyProcess) {
+                    return;  // No port forwarding, so can't debug
+                }
+
                 // Start debug session.
-                p.report({ message: `Starting ${this.debugProvider.getDebuggerType()} debug session...`});
+                p.report({ message: `Starting ${this.debugProvider!.getDebuggerType()} debug session...`});  // safe because checked outside the lambda
                 await this.startDebugSession(appName, cwd, proxyResult);
             } catch (error) {
                 vscode.window.showErrorMessage(error);
@@ -126,66 +137,24 @@ export class DebugSession implements IDebugSession {
             return;
         }
 
+        const targetPodInfo = await this.getPodTarget(pod, podNamespace);
+        if (!targetPodInfo) {
+            return;
+        }
+
+        const { targetPod, targetPodNS, containers } = targetPodInfo;
+
         // Select the image type to attach.
         this.debugProvider = await this.pickupAndInstallDebugProvider();
         if (!this.debugProvider) {
             return;
         }
 
-        // Select the target pod to attach.
-        let targetPod = pod,
-            targetPodNS = podNamespace,
-            targetContainer: string | undefined = undefined,
-            containers: Container[] = [];
-
-        const resource = pod ?
-                            await kubectlUtils.getResourceAsJson<Pod>(this.kubectl, `pod/${pod}`, podNamespace) :
-                            await kubectlUtils.getResourceAsJson<KubernetesCollection<Pod>>(this.kubectl, "pods");
-        if (!resource) {
-            return;
-        }
-
-        if (isPod(resource)) {
-            containers = resource.spec.containers;
-        } else {
-            const podPickItems = resource.items.map((pod) => {
-                return {
-                    label: `${pod.metadata.name} (${pod.spec.nodeName})`,
-                    description: "pod",
-                    name: pod.metadata.name,
-                    namespace: pod.metadata.namespace,
-                    containers: pod.spec.containers
-                };
-            });
-
-            const selectedPod = await vscode.window.showQuickPick(podPickItems, { placeHolder: `Please select a pod to attach` });
-            if (!selectedPod) {
-                return;
-            }
-
-            targetPod = selectedPod.name;
-            targetPodNS = selectedPod.namespace;
-            containers = selectedPod.containers;
-        }
-
         // Select the target container to attach.
         // TODO: consolidate with container selection in extension.ts.
-        if (containers.length > 1) {
-            const containerPickItems = containers.map((container) => {
-                return {
-                    label: container.name,
-                    description: '',
-                    detail: container.image,
-                    name: container.name
-                };
-            });
-
-            const selectedContainer = await vscode.window.showQuickPick(containerPickItems, { placeHolder: "Please select a container to attach" });
-            if (!selectedContainer) {
-                return;
-            }
-
-            targetContainer = selectedContainer.name;
+        const targetContainer = await this.pickContainer(containers);
+        if (!targetContainer) {
+            return;
         }
 
         // Find the debug port to attach.
@@ -201,9 +170,13 @@ export class DebugSession implements IDebugSession {
                 p.report({ message: "Setting up port forwarding..."});
                 const proxyResult = await this.setupPortForward(targetPod, targetPodNS, portInfo.debugPort);
 
+                if (!proxyResult.proxyProcess) {
+                    return;  // No port forwarding, so can't debug
+                }
+
                 // Start debug session.
-                p.report({ message: `Starting ${this.debugProvider.getDebuggerType()} debug session...`});
-                await this.startDebugSession(null, workspaceFolder.uri.fsPath, proxyResult);
+                p.report({ message: `Starting ${this.debugProvider!.getDebuggerType()} debug session...`});  // safe because checked outside lambda
+                await this.startDebugSession(undefined, workspaceFolder.uri.fsPath, proxyResult);
             } catch (error) {
                 vscode.window.showErrorMessage(error);
                 kubeChannel.showOutput(`Debug on Kubernetes failed. The errors were: ${error}.`);
@@ -212,8 +185,76 @@ export class DebugSession implements IDebugSession {
         });
     }
 
+    async getPodTarget(pod?: string, podNamespace?: string) {
+        // Select the target pod to attach.
+        let targetPod = pod,
+            targetPodNS = podNamespace,
+            containers: Container[] = [];
+
+        if (targetPod) {
+            const resource = await kubectlUtils.getResourceAsJson<Pod>(this.kubectl, `pod/${pod}`, podNamespace);
+            if (!resource) {
+                return undefined;
+            }
+
+            containers = resource.spec.containers;
+
+            return { targetPod, targetPodNS, containers };
+        }
+
+        const resource =  await kubectlUtils.getResourceAsJson<KubernetesCollection<Pod>>(this.kubectl, "pods");
+        if (!resource) {
+            return;
+        }
+
+        const podPickItems = resource.items.map((pod) => {
+            return {
+                label: `${pod.metadata.name} (${pod.spec.nodeName})`,
+                description: "pod",
+                name: pod.metadata.name,
+                namespace: pod.metadata.namespace,
+                containers: pod.spec.containers
+            };
+        });
+
+        const selectedPod = await vscode.window.showQuickPick(podPickItems, { placeHolder: `Please select a pod to attach` });
+        if (!selectedPod) {
+            return;
+        }
+
+        targetPod = selectedPod.name;
+        targetPodNS = selectedPod.namespace;
+        containers = selectedPod.containers;
+        return { targetPod, targetPodNS, containers };
+    }
+
+    async pickContainer(containers: Container[]): Promise<string | undefined> {
+        if (containers.length === 0) {
+            return undefined;
+        }
+        if (containers.length === 1) {
+            return containers[1].name;
+        }
+
+        const containerPickItems = containers.map((container) => {
+            return {
+                label: container.name,
+                description: '',
+                detail: container.image,
+                name: container.name
+            };
+        });
+
+        const selectedContainer = await vscode.window.showQuickPick(containerPickItems, { placeHolder: "Please select a container to attach" });
+        if (!selectedContainer) {
+            return undefined;
+        }
+
+        return selectedContainer.name;
+    }
+
     private async pickupAndInstallDebugProvider(baseImage?: string): Promise<IDebugProvider | undefined> {
-        const debugProvider: IDebugProvider = await providerRegistry.getDebugProvider(baseImage);
+        const debugProvider = await providerRegistry.getDebugProvider(baseImage);
         if (!debugProvider) {
             return undefined;
         } else if (!await debugProvider.isDebuggerInstalled()) {
@@ -267,6 +308,12 @@ export class DebugSession implements IDebugSession {
     private async setupPortForward(podName: string, podNamespace: string | undefined, debugPort: number, appPort?: number): Promise<ProxyResult> {
         kubeChannel.showOutput(`Setting up port forwarding on pod ${podName}...`, "Set up port forwarding");
         const proxyResult = await this.createPortForward(this.kubectl, podName, podNamespace, debugPort, appPort);
+
+        if (!proxyResult.proxyProcess) {
+            kubeChannel.showOutput("Unable to launch kubectl for port forwarding");
+            return proxyResult;
+        }
+
         const appPortStr = appPort ? `${proxyResult.proxyAppPort}:${appPort}` : "";
         kubeChannel.showOutput(`Created port-forward ${proxyResult.proxyDebugPort}:${debugPort} ${appPortStr}`);
 
@@ -278,11 +325,13 @@ export class DebugSession implements IDebugSession {
         return proxyResult;
     }
 
-    private async startDebugSession(appName: string, cwd: string, proxyResult: ProxyResult): Promise<void> {
+    private async startDebugSession(appName: string | undefined, cwd: string, proxyResult: ProxyResult): Promise<void> {
         kubeChannel.showOutput("Starting debug session...", "Start debug session");
         const sessionName = appName || `${Date.now()}`;
         await this.startDebugging(cwd, sessionName, proxyResult.proxyDebugPort, proxyResult.proxyAppPort, async () => {
-            proxyResult.proxyProcess.kill();
+            if (proxyResult.proxyProcess) {
+                proxyResult.proxyProcess.kill();
+            }
             if (appName) {
                 kubeChannel.showOutput("The debug session exited.");
                 await this.promptForCleanup(`deployment/${appName}`);
@@ -307,8 +356,8 @@ export class DebugSession implements IDebugSession {
     private async cleanupResource(resourceId: string): Promise<void> {
         kubeChannel.showOutput(`Starting to clean up debug resource...`, "Cleanup debug resource");
         const deleteResult = await this.kubectl.invokeAsync(`delete ${resourceId}`);
-        if (deleteResult.code !== 0) {
-            kubeChannel.showOutput(`Kubectl command failed: ${deleteResult.stderr}`);
+        if (!deleteResult || deleteResult.code !== 0) {
+            kubeChannel.showOutput(`Kubectl command failed: ${deleteResult ? deleteResult.stderr : "Unable to run kubectl"}`);
             return;
         } else {
             kubeChannel.showOutput(`Resource ${resourceId} is removed successfully.`);
@@ -388,6 +437,11 @@ export class DebugSession implements IDebugSession {
                 await onTerminateCallback();
             }
         }));
+
+        if (!this.debugProvider) {
+            console.warn("INTERNAL ERROR: DebugSession.debugProvider was expected to be assigned before starting debugging");
+            return false;
+        }
 
         const success = await this.debugProvider.startDebugging(workspaceFolder, sessionName, proxyDebugPort);
         if (!success) {

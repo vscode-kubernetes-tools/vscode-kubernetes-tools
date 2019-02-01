@@ -30,10 +30,17 @@ export class DraftRuntime extends EventEmitter {
 		if (!isPresent) {
 			host.showInformationMessage("Draft is not installed!");
 			return;
-		}
+        }
 
-		if (!this.draft.isFolderMapped(vscode.workspace.rootPath)) {
-			host.showErrorMessage("This folder does not contain a Draft app. Run draft create first!");
+        const debugFolders = vscode.workspace.workspaceFolders;
+        if (!debugFolders || debugFolders.length === 0) {
+            host.showErrorMessage("This command reauires an open folder.");
+            return;
+        }
+
+        const hasDraftApp = debugFolders.some((f) => this.draft.isFolderMapped(f.uri.fsPath));
+		if (!hasDraftApp) {
+			host.showErrorMessage("This folder or workspace does not contain a Draft app. Run draft create first!");
 			return;
 		}
 

@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 
-export async function showWorkspaceFolderPick(): Promise<vscode.WorkspaceFolder> {
+export async function showWorkspaceFolderPick(): Promise<vscode.WorkspaceFolder | undefined> {
     if (!vscode.workspace.workspaceFolders) {
         vscode.window.showErrorMessage('This command requires an open folder.');
         return undefined;

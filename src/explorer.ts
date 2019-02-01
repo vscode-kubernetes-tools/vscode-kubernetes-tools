@@ -155,12 +155,15 @@ class KubernetesContextNode implements KubernetesObject {
         treeItem.contextValue = this.clusterType;
         treeItem.iconPath = this.icon;
 
-        if (!this.metadata.active) {
+        if (!this.metadata || !this.metadata.active) {
             treeItem.collapsibleState = vscode.TreeItemCollapsibleState.None;
             treeItem.contextValue += ".inactive";
         }
 
-        treeItem.tooltip = `${this.metadata.contextName}\nCluster: ${this.metadata.clusterName}`;
+        if (this.metadata) {
+            treeItem.tooltip = `${this.metadata.contextName}\nCluster: ${this.metadata.clusterName}`;
+        }
+
         return treeItem;
     }
 }

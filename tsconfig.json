@@ -16,6 +16,7 @@
         "noUnusedParameters": true,
         "noImplicitAny": true,
         "strictFunctionTypes": true,
+        "strictNullChecks": true,
         "noImplicitThis": true
     },
     "exclude": [

@@ -32,7 +32,7 @@ export async function toTempFile(sourceUrl: string): Promise<Errorable<string>> 
     return { succeeded: false, error: downloadResult.error };
 }
 
-export async function to(sourceUrl: string, destinationFile: string): Promise<Errorable<void>> {
+export async function to(sourceUrl: string, destinationFile: string): Promise<Errorable<null>> {
     ensureDownloadFunc();
     try {
         await download(sourceUrl, path.dirname(destinationFile), { filename: path.basename(destinationFile) });

@@ -87,7 +87,8 @@ function home(): string {
     }
     return process.env['HOME'] ||
         concatIfBoth(process.env['HOMEDRIVE'], process.env['HOMEPATH']) ||
-        process.env['USERPROFILE'];
+        process.env['USERPROFILE'] ||
+        '';
 }
 
 function combinePath(basePath: string, relativePath: string) {
@@ -220,4 +221,11 @@ function ls(path: string): string[] {
         return result.stdout.trim().split('\n');
     }
     return shelljs.ls(path);
+}
+
+export function shellMessage(sr: ShellResult | undefined, invocationFailureMessage: string): string {
+    if (!sr) {
+        return invocationFailureMessage;
+    }
+    return sr.code === 0 ? sr.stdout : sr.stderr;
 }

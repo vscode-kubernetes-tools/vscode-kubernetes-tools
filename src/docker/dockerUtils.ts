@@ -104,7 +104,7 @@ export async function resolveKubernetesDockerEnv(kubectl: Kubectl): Promise<{}> 
 async function dockerApiVersion(): Promise<string> {
     const defaultDockerVersion = "1.23";
     const versionResult = await shell.exec(`docker version --format "{{.Client.APIVersion}}"`);
-    if (versionResult.code === 0) {
+    if (versionResult && versionResult.code === 0) {
         return versionResult.stdout.trim();
     }
     return defaultDockerVersion;

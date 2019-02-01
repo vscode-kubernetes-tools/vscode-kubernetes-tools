@@ -39,16 +39,16 @@ export interface HelmRepoChartVersion extends HelmObject {
     readonly version: string;
 }
 
-export function isHelmRepo(o: HelmObject): o is HelmRepo {
-    return o && o.kind === RepoExplorerObjectKind.Repo;
+export function isHelmRepo(o: HelmObject | null | undefined): o is HelmRepo {
+    return !!o && o.kind === RepoExplorerObjectKind.Repo;
 }
 
-export function isHelmRepoChart(o: HelmObject): o is HelmRepoChart {
-    return o && o.kind === RepoExplorerObjectKind.Chart;
+export function isHelmRepoChart(o: HelmObject | null | undefined): o is HelmRepoChart {
+    return !!o && o.kind === RepoExplorerObjectKind.Chart;
 }
 
-export function isHelmRepoChartVersion(o: HelmObject): o is HelmRepoChartVersion {
-    return o && o.kind === RepoExplorerObjectKind.ChartVersion;
+export function isHelmRepoChartVersion(o: HelmObject | null | undefined): o is HelmRepoChartVersion {
+    return !!o && o.kind === RepoExplorerObjectKind.ChartVersion;
 }
 
 export class HelmRepoExplorer implements vscode.TreeDataProvider<HelmObject> {
@@ -194,8 +194,8 @@ class HelmRepoChartVersionImpl implements HelmRepoChartVersion {
 async function listHelmRepos(): Promise<Errorable<HelmRepoImpl[]>> {
     const sr = await helm.helmExecAsync("repo list");
     // TODO: prompt to run 'helm init' here if needed...
-    if (sr.code !== 0) {
-        return { succeeded: false, error: [sr.stderr] };
+    if (!sr || sr.code !== 0) {
+        return { succeeded: false, error: [sr ? sr.stderr : "Unable to run Helm"] };
     }
 
     const repos = sr.stdout.split('\n')
@@ -209,8 +209,8 @@ async function listHelmRepos(): Promise<Errorable<HelmRepoImpl[]>> {
 
 async function listHelmRepoCharts(repoName: string): Promise<Errorable<HelmRepoChartImpl[]>> {
     const sr = await helm.helmExecAsync(`search ${repoName}/ -l`);
-    if (sr.code !== 0) {
-        return { succeeded: false, error: [ sr.stderr ]};
+    if (!sr || sr.code !== 0) {
+        return { succeeded: false, error: [ sr ? sr.stderr : "Unable to run Helm" ]};
     }
 
     const lines = sr.stdout.split('\n')

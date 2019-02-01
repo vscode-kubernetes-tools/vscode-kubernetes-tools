@@ -79,7 +79,7 @@ function alertNoBin(host: Host, binName: string, failureReason: CheckPresentFail
     }
 }
 
-export async function checkForBinary(context: BinCheckContext, bin: string, binName: string, inferFailedMessage: string, configuredFileMissingMessage: string, alertOnFail: boolean): Promise<boolean> {
+export async function checkForBinary(context: BinCheckContext, bin: string | undefined, binName: string, inferFailedMessage: string, configuredFileMissingMessage: string, alertOnFail: boolean): Promise<boolean> {
     if (!bin) {
         const fb = await findBinary(context.shell, binName);
 
@@ -99,7 +99,7 @@ export async function checkForBinary(context: BinCheckContext, bin: string, binN
         context.binFound = context.fs.existsSync(bin);
     } else {
         const sr = await context.shell.exec(`ls ${bin}`);
-        context.binFound = sr.code === 0;
+        context.binFound = (!!sr && sr.code === 0);
     }
     if (context.binFound) {
         context.binPath = bin;

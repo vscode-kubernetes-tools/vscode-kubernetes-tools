@@ -65,7 +65,7 @@ function findKey(key: string, sis: vscode.SymbolInformation[]): vscode.SymbolInf
 }
 
 function outermost(sis: vscode.SymbolInformation[]): vscode.SymbolInformation {
-    return _.maxBy(sis, (s) => containmentChain(s, sis));
+    return _.maxBy(sis, (s) => containmentChain(s, sis))!;  // safe because sis wil not be empty
 }
 
 export function containmentChain(s: vscode.SymbolInformation, sis: vscode.SymbolInformation[]): vscode.SymbolInformation[] {

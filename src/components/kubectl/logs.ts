@@ -37,7 +37,7 @@ async function getLogsForExplorerPod(
     displayMode: LogsDisplayMode
 ) {
     const namespace = explorerNode.namespace;
-    const podSummary = { name: explorerNode.id, namespace: namespace };
+    const podSummary = { name: explorerNode.id, namespace: namespace || undefined };  // TODO: rationalise null and undefined
 
     return await getLogsForPod(kubectl, podSummary, displayMode);
 }
