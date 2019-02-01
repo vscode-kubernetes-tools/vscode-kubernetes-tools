@@ -137,7 +137,7 @@ export class DebugSession implements IDebugSession {
             return;
         }
 
-        const targetPodInfo = await this.podme(pod, podNamespace);
+        const targetPodInfo = await this.getPodTarget(pod, podNamespace);
         if (!targetPodInfo) {
             return;
         }
@@ -185,7 +185,7 @@ export class DebugSession implements IDebugSession {
         });
     }
 
-    async podme(pod?: string, podNamespace?: string) {
+    async getPodTarget(pod?: string, podNamespace?: string) {
         // Select the target pod to attach.
         let targetPod = pod,
             targetPodNS = podNamespace,
