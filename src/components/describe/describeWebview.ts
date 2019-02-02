@@ -1,73 +1,27 @@
 import * as vscode from 'vscode';
 import { Dictionary } from '../../utils/dictionary';
+import { WebPanel } from '../webpanel/webpanel';
 
-export class DescribePanel {
+export class DescribePanel extends WebPanel {
     public static readonly viewType = 'vscodeKubernetesDescribe';
-    public static currentPanels = Dictionary.of<DescribePanel>();
-
-    private disposables: vscode.Disposable[] = [];
-    private content: string;
-    private resource: string;
+    public static currentPanels = new Map<string, DescribePanel>();
 
     public static createOrShow(content: string, resource: string) {
-        const column = vscode.window.activeTextEditor ? vscode.window.activeTextEditor.viewColumn : undefined;
-
-        // If we already have a panel, show it.
-        const currentPanel = DescribePanel.currentPanels[resource];
-        if (currentPanel) {
-            currentPanel.setInfo(content, resource);
-            currentPanel.update();
-            currentPanel.panel.reveal(column);
-            return;
-        }
-        const panel = vscode.window.createWebviewPanel(DescribePanel.viewType, "Kubernetes Describe", column || vscode.ViewColumn.One, {
-            enableScripts: false,
-
-            // And restrict the webview to only loading content from our extension's `media` directory.
-            localResourceRoots: [
-            ]
-        });
-
-        DescribePanel.currentPanels[resource] = new DescribePanel(panel, content, resource);
+        const fn = (panel: vscode.WebviewPanel, content: string, resource: string): DescribePanel => {
+            return new DescribePanel(panel, content, resource);
+        };
+        WebPanel.createOrShowInternal<DescribePanel>(content, resource, DescribePanel.viewType, "Kubernetes Describe", DescribePanel.currentPanels, fn);
     }
 
     private constructor(
-        private readonly panel: vscode.WebviewPanel,
+        panel: vscode.WebviewPanel,
         content: string,
         resource: string
     ) {
-        this.content = content;
-        this.resource = resource;
-
-        this.update();
-        this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
-
-        this.panel.onDidChangeViewState((_e: any) => {
-            if (this.panel.visible) {
-                this.update();
-            }
-        }, null, this.disposables);
+        super(panel, content, resource, DescribePanel.currentPanels);
     }
 
-    public setInfo(content: string, resource: string) {
-        this.content = content;
-        this.resource = resource;
-    }
-
-    public dispose() {
-        delete DescribePanel.currentPanels[this.resource];
-
-        this.panel.dispose();
-
-        while (this.disposables.length) {
-            const x = this.disposables.pop();
-            if (x) {
-                x.dispose();
-            }
-        }
-    }
-
-    private update() {
+    protected update() {
         this.panel.title = `Kubernetes describe ${this.resource}`;
         this.panel.webview.html = `
     <!doctype html>

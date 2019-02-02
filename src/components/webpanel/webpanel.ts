@@ -1,0 +1,70 @@
+import * as vscode from 'vscode';
+
+export abstract class WebPanel {
+    private disposables: vscode.Disposable[] = [];
+    protected content: string;
+    protected resource: string;
+
+    protected static createOrShowInternal<T extends WebPanel>(content: string, resource: string, viewType: string, title: string, currentPanels: Map<string, T>, fn: (p: vscode.WebviewPanel, content: string, resource: string) => T): T {
+        const column = vscode.window.activeTextEditor ? vscode.window.activeTextEditor.viewColumn : undefined;
+
+        // If we already have a panel, show it.
+        const currentPanel = currentPanels[resource];
+        if (currentPanel) {
+            currentPanel.setInfo(content, resource);
+            currentPanel.update();
+            currentPanel.panel.reveal(column);
+            return;
+        }
+        const panel = vscode.window.createWebviewPanel(viewType, title, column || vscode.ViewColumn.One, {
+            enableScripts: true,
+
+            // And restrict the webview to only loading content from our extension's `media` directory.
+            localResourceRoots: [
+            ]
+        });
+        const result = fn(panel, content, resource);
+        currentPanels[resource] = result;
+        return result;
+    }
+
+    protected constructor(
+        protected readonly panel: vscode.WebviewPanel,
+        content: string,
+        resource: string,
+        currentPanels: Map<string, WebPanel>
+    ) {
+        this.content = content;
+        this.resource = resource;
+
+        this.update();
+        this.panel.onDidDispose(() => this.dispose(currentPanels), null, this.disposables);
+
+        this.panel.onDidChangeViewState((e: any) => {
+            if (this.panel.visible) {
+                this.update();
+            }
+        }, null, this.disposables);
+    }
+
+    public setInfo(content: string, resource: string) {
+        this.content = content;
+        this.resource = resource;
+        this.update();
+    }
+
+    protected dispose<T extends WebPanel>(currentPanels: Map<string, T>) {
+        delete currentPanels[this.resource];
+
+        this.panel.dispose();
+
+        while (this.disposables.length) {
+            const x = this.disposables.pop();
+            if (x) {
+                x.dispose();
+            }
+        }
+    }
+
+    protected abstract update();
+}

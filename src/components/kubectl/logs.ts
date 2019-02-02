@@ -60,13 +60,13 @@ async function getLogsForPod(kubectl: Kubectl, podSummary: PodSummary, displayMo
         return;
     }
 
-    getLogsForContainer(kubectl, podSummary, container.name, displayMode);
+    await getLogsForContainer(kubectl, podSummary, container.name, displayMode);
 }
 
 /**
  * Gets the logs for a container in a provided pod, in a provided namespace, in a provided container.
  */
-function getLogsForContainer(
+async function getLogsForContainer(
     kubectl: Kubectl,
     podSummary: PodSummary,
     containerName: string | undefined,
@@ -89,14 +89,16 @@ function getLogsForContainer(
     }
 
     const resource = `${podSummary.namespace}/${podSummary.name}`;
-    const panel = LogsPanel.createOrShow('TODO', 'Loading \u25CC', resource);
+    const panel = LogsPanel.createOrShow('Loading \u25CC', resource);
 
-    kubectl.invokeAsync(cmd).then(
-        (result: ShellResult) => {
-            panel.setInfo(result.stdout, resource);
-        }, (err: any) => {
-            vscode.window.showErrorMessage(err);
-        });
+    try {
+        console.log('executing ' + cmd);
+        const result = await kubectl.invokeAsync(cmd);
+        console.log('got: ' + result.stdout);
+        panel.setInfo(result.stdout, resource);
+    } catch (err) {
+        vscode.window.showErrorMessage(`Error reading logs ${err}`);
+    }
 }
 
 /**

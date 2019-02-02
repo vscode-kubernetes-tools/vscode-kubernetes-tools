@@ -1,76 +1,26 @@
-import * as path from 'path';
 import * as vscode from 'vscode';
+import { WebPanel } from '../webpanel/webpanel';
 
-export class LogsPanel {
+export class LogsPanel extends WebPanel {
     public static readonly viewType = 'vscodeKubernetesLogs';
-    public static currentPanels = [];
+    public static currentPanels = new Map<string, LogsPanel>();
 
-    private disposables: vscode.Disposable[] = [];
-    private content: string;
-    private resource: string;
-
-    public static createOrShow(extensionPath: string, content: string, resource: string): LogsPanel {
-        const column = vscode.window.activeTextEditor ? vscode.window.activeTextEditor.viewColumn : undefined;
-
-        // If we already have a panel, show it.
-        const currentPanel = LogsPanel.currentPanels[resource];
-        if (currentPanel) {
-            currentPanel.setInfo(content, resource);
-            currentPanel.update();
-            currentPanel.panel.reveal(column);
-            return currentPanel;
-        }
-        const panel = vscode.window.createWebviewPanel(LogsPanel.viewType, "Kubernetes Logs", column || vscode.ViewColumn.One, {
-            enableScripts: true,
-
-            // And restrict the webview to only loading content from our extension's `media` directory.
-            localResourceRoots: [
-            ],
-        });
-
-        const result = new LogsPanel(panel, content, resource);
-        LogsPanel.currentPanels[resource] = result;
-        return result;
+    public static createOrShow(content: string, resource: string): LogsPanel {
+        const fn = (panel: vscode.WebviewPanel, content: string, resource: string): LogsPanel => {
+            return new LogsPanel(panel, content, resource);
+        };
+        return WebPanel.createOrShowInternal<LogsPanel>(content, resource, LogsPanel.viewType, "Kubernetes Logs", LogsPanel.currentPanels, fn);
     }
 
     private constructor(
-        private readonly panel: vscode.WebviewPanel,
+        panel: vscode.WebviewPanel,
         content: string,
         resource: string
     ) {
-        this.content = content;
-        this.resource = resource;
-
-        this.update();
-        this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
-
-        this.panel.onDidChangeViewState((e: any) => {
-            if (this.panel.visible) {
-                this.update();
-            }
-        }, null, this.disposables);
+        super(panel, content, resource, LogsPanel.currentPanels);
     }
 
-    public setInfo(content: string, resource: string) {
-        this.content = content;
-        this.resource = resource;
-        this.update();
-    }
-
-    public dispose() {
-        delete LogsPanel.currentPanels[this.resource];
-
-        this.panel.dispose();
-
-        while (this.disposables.length) {
-            const x = this.disposables.pop();
-            if (x) {
-                x.dispose();
-            }
-        }
-    }
-
-    private update() {
+    protected update() {
         this.panel.title = `Kubernetes logs ${this.resource}`;
         this.panel.webview.html = `
         <!doctype html>
