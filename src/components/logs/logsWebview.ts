@@ -21,7 +21,7 @@ export class LogsPanel extends WebPanel {
     }
 
     protected update() {
-        this.panel.title = `Kubernetes logs ${this.resource}`;
+        this.panel.title = `Logs - ${this.resource}`;
         this.panel.webview.html = `
         <!doctype html>
         <html>
@@ -36,8 +36,9 @@ export class LogsPanel extends WebPanel {
         <body>
             <div style='position: absolute; top: 15px; left: 75%'>
                 <select id='mode' style='margin-bottom: 5px' onchange='eval()'>
-                    <option value='include'>Show Matches</option>
-                    <option value='exclude'>Hide Matches</option>
+                    <option value='all'>Show full logs</option>
+                    <option value='include'>Show matches</option>
+                    <option value='exclude'>Hide matches</option>
                     <option value='after'>Show logs after match</option>
                     <option value='before'>Show logs before match</option>
                 </select>
@@ -55,6 +56,9 @@ export class LogsPanel extends WebPanel {
                     var mode = $('#mode').val();
                     var regex = new RegExp(regexp);
                     switch (mode) {
+                        case 'all':
+                            content = orig;
+                            break;
                         case 'include':
                             content = orig.filter((line) => regex.test(line));
                             break;

@@ -89,7 +89,7 @@ async function getLogsForContainer(
     }
 
     const resource = `${podSummary.namespace}/${podSummary.name}`;
-    const panel = LogsPanel.createOrShow('Loading \u25CC', resource);
+    const panel = LogsPanel.createOrShow('Loading...', resource);
 
     try {
         console.log('executing ' + cmd);
