@@ -34,15 +34,17 @@ export class LogsPanel extends WebPanel {
                 crossorigin="anonymous"></script>
         </head>
         <body>
-            <div style='position: absolute; top: 15px; left: 75%'>
-                <select id='mode' style='margin-bottom: 5px' onchange='eval()'>
-                    <option value='all'>Show full logs</option>
-                    <option value='include'>Show matches</option>
-                    <option value='exclude'>Hide matches</option>
-                    <option value='after'>Show logs after match</option>
-                    <option value='before'>Show logs before match</option>
+            <div style='position: absolute; top: 15px; left: 2%; width: 100%'>
+                <span style='position: absolute; left: 0%'>Show log entries</span>
+                <select id='mode' style='margin-bottom: 5px; position: absolute; left: 110px' onchange='eval()'>
+                    <option value='all'>all</option>
+                    <option value='include'>that match</option>
+                    <option value='exclude'>that don't match</option>
+                    <option value='after'>after match</option>
+                    <option value='before'>before match</option>
                 </select>
-                <input type='text' id='regexp' onkeyup='eval()' placeholder='Regular Expression Filter' size='25'/>
+                <span style='position: absolute; left: 240px'>Match expression</span>
+                <input style='left:350px; position: absolute' type='text' id='regexp' onkeyup='eval()' placeholder='Filter' size='25'/>
             </div>
             <div style='margin-top: 35px'>
                 <div id='content' style="overflow-y: scroll; width: 100%; height: 100%"></div>
@@ -67,8 +69,7 @@ export class LogsPanel extends WebPanel {
                             break;
                         case 'before':
                             content = [];
-                            for (var i = 0; i < orig.length; i++) {
-                                var line = orig[i];
+                            for (const line of orig) {
                                 if (regex.test(line)) {
                                     break;
                                 }
@@ -76,13 +77,9 @@ export class LogsPanel extends WebPanel {
                             }
                             break;
                         case 'after':
-                            var i = 0;
-                            for (; i < orig.length; i++) {
-                                var line = orig[i];
-                                if (regex.test(line)) {
-                                    break;
-                                }
-                            }
+                            const i = orig.findIndex((line) => {
+                                return regex.test(line)
+                            });
                             content = orig.slice(i+1);
                             break;
                     }

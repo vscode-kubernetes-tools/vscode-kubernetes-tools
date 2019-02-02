@@ -92,10 +92,12 @@ async function getLogsForContainer(
     const panel = LogsPanel.createOrShow('Loading...', resource);
 
     try {
-        console.log('executing ' + cmd);
         const result = await kubectl.invokeAsync(cmd);
-        console.log('got: ' + result.stdout);
-        panel.setInfo(result.stdout, resource);
+        if (result.code !== 0) {
+            vscode.window.showErrorMessage(`Error reading logs: ${result.stderr}`);
+        } else {
+            panel.setInfo(result.stdout, resource);
+        }
     } catch (err) {
         vscode.window.showErrorMessage(`Error reading logs ${err}`);
     }
