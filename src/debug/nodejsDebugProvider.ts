@@ -5,9 +5,7 @@ import { IDebugProvider, PortInfo } from "./debugProvider";
 import { suggestedShellForContainer } from '../utils/container-shell';
 import * as config from '../components/config/config';
 import { Kubectl } from "../kubectl";
-import { IDockerfile } from "../docker/parser";
 import { kubeChannel } from "../kubeChannel";
-import { Dictionary } from "../utils/dictionary";
 
 const debuggerType = 'nodejs';
 
@@ -42,11 +40,11 @@ export class NodejsDebugProvider implements IDebugProvider {
         return await vscode.debug.startDebugging(currentFolder, debugConfiguration);
     }
 
-    isSupportedImage(baseImage: string): boolean {
+    isSupportedImage(): boolean { 
         return false;
     }
 
-    public async resolvePortsFromFile(dockerfile: IDockerfile, env: Dictionary<string>): Promise<PortInfo | undefined> {
+    public async resolvePortsFromFile(): Promise<PortInfo | undefined> {
         return undefined;
     }
 
