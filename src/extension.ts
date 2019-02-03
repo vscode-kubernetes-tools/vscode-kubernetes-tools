@@ -1308,22 +1308,6 @@ function execTerminalOnContainer(podName: string, podNamespace: string | undefin
     kubectl.runAsTerminal(terminalExecCmd, terminalName);
 }
 
-<<<<<<< HEAD
-=======
-async function isBashOnContainer(podName: string, podNamespace: string | undefined, containerName: string | undefined): Promise<boolean> {
-    const nsarg = podNamespace ? `--namespace ${podNamespace}` : '';
-    const result = await kubectl.invokeAsync(`exec ${podName} ${nsarg} -c ${containerName} -- ls -la /bin/bash`);
-    return !!result && result.code === 0;
-}
-
-async function suggestedShellForContainer(podName: string, podNamespace: string | undefined, containerName: string | undefined): Promise<string> {
-    if (await isBashOnContainer(podName, podNamespace, containerName)) {
-        return 'bash';
-    }
-    return 'sh';
-}
-
->>>>>>> upstream/master
 async function syncKubernetes(): Promise<void> {
     const pod = await selectPod(PodSelectionScope.App, PodSelectionFallback.None);
     if (!pod) {

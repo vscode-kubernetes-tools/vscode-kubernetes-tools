@@ -17,19 +17,11 @@ async function showProviderPick(): Promise<IDebugProvider | undefined> {
         };
     });
 
-<<<<<<< HEAD
-    const pickedProvider = await vscode.window.showQuickPick(<vscode.QuickPickItem[]>providerItems, { placeHolder: "Select the environment" });
-=======
     const pickedProvider = await vscode.window.showQuickPick(providerItems, { placeHolder: "Select the environment" });
->>>>>>> upstream/master
     if (!pickedProvider) {
         return undefined;
     }
-<<<<<<< HEAD
-    return (<any>pickedProvider).provider;
-=======
     return pickedProvider.provider;
->>>>>>> upstream/master
 }
 
 export async function getDebugProvider(baseImage?: string): Promise<IDebugProvider | undefined> {
