@@ -51,7 +51,7 @@ import { logsKubernetes, LogsDisplayMode } from './components/kubectl/logs';
 import { Errorable, failed, succeeded } from './errorable';
 import { Git } from './components/git/git';
 import { DebugSession } from './debug/debugSession';
-import { suggestedShellForContainer } from './utils';
+import { suggestedShellForContainer } from './utils/container-shell';
 import { getDebugProviderOfType, getSupportedDebuggerTypes } from './debug/providerRegistry';
 import * as config from './components/config/config';
 

@@ -189,7 +189,7 @@
                         },
                         "vs-kubernetes.nodejs-remote-root": {
                             "type": "string",
-                            "description": "User specified root location of the source code in the container."
+                            "description": "The root location of the source code in the container."
                         },
                         "vs-kubernetes.nodejs-debug-port": {
                             "type": "number",

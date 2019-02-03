@@ -2,7 +2,7 @@ import * as path from "path";
 import * as vscode from "vscode";
 
 import { IDebugProvider, PortInfo } from "./debugProvider";
-import { suggestedShellForContainer } from '../utils';
+import { suggestedShellForContainer } from '../utils/container-shell';
 import * as config from '../components/config/config';
 import { Kubectl } from "../kubectl";
 import { IDockerfile } from "../docker/parser";
@@ -58,7 +58,7 @@ export class NodejsDebugProvider implements IDebugProvider {
             return undefined;
         }
         this.remoteRoot = await this.tryGetRemoteRoot(kubectl, pod, podNamespace, container);
-        const rawDebugPortInfo = config.getNodejsDebugPort() || '9229';
+        const rawDebugPortInfo = config.getNodejsDebugPort() || 9229;
         return {
             debugPort: Number(rawDebugPortInfo)
         };
