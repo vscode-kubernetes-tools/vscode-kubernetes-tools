@@ -71,7 +71,7 @@ export class NodejsDebugProvider implements IDebugProvider {
         const containerCommand = container? `-c ${container}` : '';
         const execCmd = `exec ${pod} ${nsarg} ${containerCommand} -- ${this.shell} -c 'kill -s USR1 1'`;
         const execResult = await kubectl.invokeAsync(execCmd);
-        return (execResult != undefined && execResult.code === 0);
+        return (execResult !== undefined && execResult.code === 0);
     }
 
     async tryGetRemoteRoot(kubectl: Kubectl, podName: string, podNamespace: string | undefined, containerName: string | undefined): Promise<string | undefined> {
@@ -81,7 +81,7 @@ export class NodejsDebugProvider implements IDebugProvider {
             const containerCommand = containerName? `-c ${containerName}` : '';
             const execCmd = `exec ${podName} ${nsarg} ${containerCommand} -- ${this.shell} -c 'readlink /proc/1/cwd'`;
             const execResult = await kubectl.invokeAsync(execCmd);
-            if (execResult != undefined && execResult.code === 0) {
+            if (execResult !== undefined && execResult.code === 0) {
                 const remoteRoot = execResult.stdout.replace(/(\r\n|\n|\r)/gm, '');
                 kubeChannel.showOutput(`Got remote root from container: ${remoteRoot}`);
                 return remoteRoot;
