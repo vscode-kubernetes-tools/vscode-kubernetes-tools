@@ -40,7 +40,7 @@ export class NodejsDebugProvider implements IDebugProvider {
         return await vscode.debug.startDebugging(currentFolder, debugConfiguration);
     }
 
-    isSupportedImage(): boolean { 
+    isSupportedImage(): boolean {
         return false;
     }
 
