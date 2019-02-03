@@ -1,21 +1,18 @@
 import * as path from "path";
 import * as vscode from "vscode";
-import { ChildProcess } from "child_process";
 
 import { IDebugProvider, PortInfo } from "./debugProvider";
-import { suggestedShellForContainer } from './debugUtils';
+import { suggestedShellForContainer } from '../utils';
 import * as config from '../components/config/config';
 import { Kubectl } from "../kubectl";
 import { IDockerfile } from "../docker/parser";
 import { kubeChannel } from "../kubeChannel";
+import { Dictionary } from "../utils/dictionary";
 
-interface ExecResult {
-    readonly proxyProcess: ChildProcess;
-}
 const debuggerType = 'nodejs';
 
 export class NodejsDebugProvider implements IDebugProvider {
-    remoteRoot: string;
+    remoteRoot: string | undefined;
     shell: string;
 
     public getDebuggerType(): string {
@@ -41,7 +38,7 @@ export class NodejsDebugProvider implements IDebugProvider {
         if (this.remoteRoot) {
             debugConfiguration['remoteRoot'] = this.remoteRoot;
         }
-        const currentFolder = vscode.workspace.workspaceFolders.find((folder) => folder.name === path.basename(workspaceFolder));
+        const currentFolder = (vscode.workspace.workspaceFolders || []).find((folder) => folder.name === path.basename(workspaceFolder));
         return await vscode.debug.startDebugging(currentFolder, debugConfiguration);
     }
 
@@ -49,11 +46,11 @@ export class NodejsDebugProvider implements IDebugProvider {
         return false;
     }
 
-    resolvePortsFromFile(dockerfile: IDockerfile, env: {}): Promise<PortInfo> {
+    public async resolvePortsFromFile(dockerfile: IDockerfile, env: Dictionary<string>): Promise<PortInfo | undefined> {
         return undefined;
     }
 
-    public async resolvePortsFromContainer(kubectl: Kubectl, pod: string, podNamespace: string, container: string): Promise<PortInfo> {
+    public async resolvePortsFromContainer(kubectl: Kubectl, pod: string, podNamespace: string, container: string): Promise<PortInfo | undefined> {
         this.shell = await suggestedShellForContainer(kubectl, pod, podNamespace, container);
         const inspectModeResult = await this.setNodeInspectMode(kubectl, pod, podNamespace, container);
         if (!inspectModeResult) {
@@ -67,22 +64,24 @@ export class NodejsDebugProvider implements IDebugProvider {
         };
     }
 
-    async setNodeInspectMode(kubectl: Kubectl, pod: string, podNamespace: string, container: string): Promise<Boolean> {
+    async setNodeInspectMode(kubectl: Kubectl, pod: string, podNamespace: string, container: string): Promise<boolean> {
         kubeChannel.showOutput('Switching node to debug mode in container');
         const nsarg = podNamespace ? `--namespace ${podNamespace}` : '';
         // sending SIGUSR1 to a Node.js process will set it in debug (inspect) mode. See https://nodejs.org/en/docs/guides/debugging-getting-started/#enable-inspector
-        const execCmd = `exec ${pod} ${nsarg} ${container ? "-c ${selectedContainer}" : ""} -- ${this.shell} -c 'kill -SIGUSR1 1'`;
+        const containerCommand = container? `-c ${container}` : '';
+        const execCmd = `exec ${pod} ${nsarg} ${containerCommand} -- ${this.shell} -c 'kill -s USR1 1'`;
         const execResult = await kubectl.invokeAsync(execCmd);
-        return execResult.code === 0;
+        return (execResult != undefined && execResult.code === 0);
     }
 
-    async tryGetRemoteRoot(kubectl: Kubectl, podName: string, podNamespace: string | undefined, containerName: string | undefined): Promise<string> {
+    async tryGetRemoteRoot(kubectl: Kubectl, podName: string, podNamespace: string | undefined, containerName: string | undefined): Promise<string | undefined> {
         if (config.getNodejsAutoDetectRemoteRoot()) {
             kubeChannel.showOutput("Trying to detect remote root.");
             const nsarg = podNamespace ? `--namespace ${podNamespace}` : '';
-            const execCmd = `exec ${podName} ${nsarg} ${containerName ? "-c ${selectedContainer}" : ""} -- ${this.shell} -c 'readlink /proc/1/cwd'`;
+            const containerCommand = containerName? `-c ${containerName}` : '';
+            const execCmd = `exec ${podName} ${nsarg} ${containerCommand} -- ${this.shell} -c 'readlink /proc/1/cwd'`;
             const execResult = await kubectl.invokeAsync(execCmd);
-            if (execResult.code === 0) {
+            if (execResult != undefined && execResult.code === 0) {
                 const remoteRoot = execResult.stdout.replace(/(\r\n|\n|\r)/gm, '');
                 kubeChannel.showOutput(`Got remote root from container: ${remoteRoot}`);
                 return remoteRoot;

@@ -233,7 +233,7 @@ export class DebugSession implements IDebugSession {
             return undefined;
         }
         if (containers.length === 1) {
-            return containers[1].name;
+            return containers[0].name;
         }
 
         const containerPickItems = containers.map((container) => {

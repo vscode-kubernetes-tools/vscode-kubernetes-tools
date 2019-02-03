@@ -60,7 +60,8 @@ export async function promptForAppPort(ports: string[], defaultPort: string, env
 export async function getCommandsOfProcesses(kubectl: Kubectl, pod: string, podNamespace: string | undefined, container: string): Promise<string[]> {
     const commandLines: string[] = [];
     const nsarg = podNamespace ? `--namespace ${podNamespace}` : '';
-    const execCmd = `exec ${pod} ${nsarg} ${container ? "-c ${selectedContainer}" : ""} -- ps -ef`;
+    const containerCommand = container ? `-c ${container}` : '';
+    const execCmd = `exec ${pod} ${nsarg} ${containerCommand} -- ps -ef`;
     const execResult = await kubectl.invokeAsync(execCmd);
     if (execResult && execResult.code === 0) {
         /**
@@ -83,17 +84,4 @@ export async function getCommandsOfProcesses(kubectl: Kubectl, pod: string, podN
     }
 
     return commandLines;
-}
-
-const isBashOnContainer = async (kubectl: Kubectl, podName: string, podNamespace: string | undefined, containerName: string | undefined): Promise<boolean> => {
-    const nsarg = podNamespace ? `--namespace ${podNamespace}` : '';
-    const result = await kubectl.invokeAsync(`exec ${podName} ${nsarg} ${containerName ? "-c ${selectedContainer}" : ""} -- ls -la /bin/bash`);
-    return !result.code;
-};
-
-export async function suggestedShellForContainer(kubectl: Kubectl, podName: string, podNamespace: string | undefined, containerName: string | undefined): Promise<string> {
-    if (await isBashOnContainer(kubectl, podName, podNamespace, containerName)) {
-        return 'bash';
-    }
-    return 'sh';
 }
