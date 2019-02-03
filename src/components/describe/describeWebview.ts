@@ -42,7 +42,7 @@ export class DescribePanel {
         this.update();
         this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
 
-        this.panel.onDidChangeViewState((e: any) => {
+        this.panel.onDidChangeViewState((_e: any) => {
             if (this.panel.visible) {
                 this.update();
             }

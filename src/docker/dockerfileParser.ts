@@ -55,10 +55,10 @@ class Dockerfile implements IDockerfile {
         this.dockerfile = new RawDockerfile(this.dockerfilePath);
     }
 
-    getBaseImage(): string {
+    getBaseImage(): string | undefined {
         const fromEntries = this.dockerfile.getCommandsOfType("from");
         if (fromEntries.length === 0) {
-            return;
+            return undefined;
         }
         const baseImageTag = String(fromEntries[0].args);
         const baseImageNameParts = baseImageTag.split("/");

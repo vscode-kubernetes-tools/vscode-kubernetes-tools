@@ -1,13 +1,14 @@
 import * as vscode from 'vscode';
 import { shellEnvironment } from './shell';
+import { showWorkspaceFolderPick } from './hostutils';
 
 export interface Host {
-    showErrorMessage(message: string, ...items: string[]): Thenable<string>;
-    showWarningMessage(message: string, ...items: string[]): Thenable<string>;
-    showInformationMessage(message: string, ...items: string[]): Thenable<string>;
-    showInputBox(options: vscode.InputBoxOptions, token?: vscode.CancellationToken): Thenable<string>;
-    showQuickPick(items: string[], options: vscode.QuickPickOptions): Thenable<string>;
-    showQuickPick<T extends vscode.QuickPickItem>(items: T[], options: vscode.QuickPickOptions): Thenable<T>;
+    showErrorMessage(message: string, ...items: string[]): Thenable<string | undefined>;
+    showWarningMessage(message: string, ...items: string[]): Thenable<string | undefined>;
+    showInformationMessage(message: string, ...items: string[]): Thenable<string | undefined>;
+    showInputBox(options: vscode.InputBoxOptions, token?: vscode.CancellationToken): Thenable<string | undefined>;
+    showQuickPick(items: string[], options: vscode.QuickPickOptions): Thenable<string | undefined>;
+    showQuickPick<T extends vscode.QuickPickItem>(items: T[], options: vscode.QuickPickOptions): Thenable<T | undefined>;
     withProgress<R>(task: (progress: vscode.Progress<{ message?: string; }>) => Thenable<R>): Thenable<R>;
     getConfiguration(key: string): any;
     createTerminal(name?: string, shellPath?: string, shellArgs?: string[]): vscode.Terminal;
@@ -16,6 +17,7 @@ export interface Host {
     activeDocument(): vscode.TextDocument | undefined;
     showDocument(uri: vscode.Uri): Promise<vscode.TextDocument>;
     readDocument(uri: vscode.Uri): Promise<vscode.TextDocument>;
+    selectRootFolder(): Promise<string | undefined>;
 }
 
 export const host: Host = {
@@ -31,30 +33,31 @@ export const host: Host = {
     showInputBox : showInputBox,
     activeDocument : activeDocument,
     showDocument : showDocument,
-    readDocument : readDocument
+    readDocument : readDocument,
+    selectRootFolder : selectRootFolder
 };
 
-function showInputBox(options: vscode.InputBoxOptions, token?: vscode.CancellationToken): Thenable<string> {
+function showInputBox(options: vscode.InputBoxOptions, token?: vscode.CancellationToken): Thenable<string | undefined> {
     return vscode.window.showInputBox(options, token);
 }
 
-function showErrorMessage(message: string, ...items: string[]): Thenable<string> {
+function showErrorMessage(message: string, ...items: string[]): Thenable<string | undefined> {
     return vscode.window.showErrorMessage(message, ...items);
 }
 
-function showWarningMessage(message: string, ...items: string[]): Thenable<string> {
+function showWarningMessage(message: string, ...items: string[]): Thenable<string | undefined> {
     return vscode.window.showWarningMessage(message, ...items);
 }
 
-function showInformationMessage(message: string, ...items: string[]): Thenable<string> {
+function showInformationMessage(message: string, ...items: string[]): Thenable<string | undefined> {
     return vscode.window.showInformationMessage(message, ...items);
 }
 
-function showQuickPickStr(items: string[], options?: vscode.QuickPickOptions): Thenable<string> {
+function showQuickPickStr(items: string[], options?: vscode.QuickPickOptions): Thenable<string | undefined> {
     return vscode.window.showQuickPick(items, options);
 }
 
-function showQuickPickT<T extends vscode.QuickPickItem>(items: T[], options?: vscode.QuickPickOptions): Thenable<T> {
+function showQuickPickT<T extends vscode.QuickPickItem>(items: T[], options?: vscode.QuickPickOptions): Thenable<T | undefined> {
     return vscode.window.showQuickPick(items, options);
 }
 
@@ -119,4 +122,16 @@ async function showDocument(uri: vscode.Uri): Promise<vscode.TextDocument> {
 
 async function readDocument(uri: vscode.Uri): Promise<vscode.TextDocument> {
     return await vscode.workspace.openTextDocument(uri);
+}
+
+async function selectRootFolder(): Promise<string | undefined> {
+    const folder = await showWorkspaceFolderPick();
+    if (!folder) {
+        return undefined;
+    }
+    if (folder.uri.scheme !== 'file') {
+        vscode.window.showErrorMessage("This command requires a filesystem folder");  // TODO: make it not
+        return undefined;
+    }
+    return folder.uri.fsPath;
 }

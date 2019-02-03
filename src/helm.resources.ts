@@ -26,7 +26,7 @@ export class Resources {
             // Return the default set.
             return this.v1();
         }
-        const kversion = _.last(schemaDirContents);
+        const kversion = _.last(schemaDirContents)!;
         console.log("Loading schema for version " + kversion);
 
         // Inside of the schemaDir, there are some top-level copies of the schemata.

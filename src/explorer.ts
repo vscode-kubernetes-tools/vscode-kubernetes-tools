@@ -9,7 +9,7 @@ import * as kuberesources from './kuberesources';
 import { failed } from './errorable';
 import * as helmexec from './helm.exec';
 import { Pod, CRD } from './kuberesources.objectmodel';
-import { K8S_RESOURCE_SCHEME, KUBECTL_RESOURCE_AUTHORITY, kubefsUri } from './kuberesources.virtualfs';
+import { kubefsUri } from './kuberesources.virtualfs';
 import { affectsUs } from './components/config/config';
 
 const KUBERNETES_CLUSTER = "vsKubernetes.cluster";
@@ -117,7 +117,7 @@ class DummyObject implements KubernetesObject {
         return treeItem;
     }
 
-    getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<KubernetesObject[]> {
+    getChildren(_kubectl: Kubectl, _host: Host): vscode.ProviderResult<KubernetesObject[]> {
         return [];
     }
 }
@@ -135,7 +135,7 @@ class KubernetesContextNode implements KubernetesObject {
         return KUBERNETES_CLUSTER;
     }
 
-    getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<KubernetesObject[]> {
+    getChildren(_kubectl: Kubectl, _host: Host): vscode.ProviderResult<KubernetesObject[]> {
         return [
             new KubernetesNamespaceFolder(),
             new KubernetesNodeFolder(),
@@ -155,12 +155,15 @@ class KubernetesContextNode implements KubernetesObject {
         treeItem.contextValue = this.clusterType;
         treeItem.iconPath = this.icon;
 
-        if (!this.metadata.active) {
+        if (!this.metadata || !this.metadata.active) {
             treeItem.collapsibleState = vscode.TreeItemCollapsibleState.None;
             treeItem.contextValue += ".inactive";
         }
 
-        treeItem.tooltip = `${this.metadata.contextName}\nCluster: ${this.metadata.clusterName}`;
+        if (this.metadata) {
+            treeItem.tooltip = `${this.metadata.contextName}\nCluster: ${this.metadata.clusterName}`;
+        }
+
         return treeItem;
     }
 }
@@ -193,7 +196,7 @@ class KubernetesWorkloadFolder extends KubernetesFolder {
         super("workload", "Workloads");
     }
 
-    getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<KubernetesObject[]> {
+    getChildren(_kubectl: Kubectl, _host: Host): vscode.ProviderResult<KubernetesObject[]> {
         return [
             new KubernetesSelectsPodsFolder(kuberesources.allKinds.deployment),
             new KubernetesSelectsPodsFolder(kuberesources.allKinds.statefulSet),
@@ -210,7 +213,7 @@ class KubernetesConfigFolder extends KubernetesFolder {
         super("config", "Configuration");
     }
 
-    getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<KubernetesObject[]> {
+    getChildren(_kubectl: Kubectl, _host: Host): vscode.ProviderResult<KubernetesObject[]> {
         return [
             new KubernetesDataHolderFolder(kuberesources.allKinds.configMap),
             new KubernetesDataHolderFolder(kuberesources.allKinds.secret)
@@ -223,7 +226,7 @@ class KubernetesNetworkFolder extends KubernetesFolder {
         super("network", "Network");
     }
 
-    getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<KubernetesObject[]> {
+    getChildren(_kubectl: Kubectl, _host: Host): vscode.ProviderResult<KubernetesObject[]> {
         return [
             new KubernetesSelectsPodsFolder(kuberesources.allKinds.service),
             new KubernetesResourceFolder(kuberesources.allKinds.endpoint),
@@ -237,7 +240,7 @@ class KubernetesStorageFolder extends KubernetesFolder {
         super("storage", "Storage");
     }
 
-    getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<KubernetesObject[]> {
+    getChildren(_kubectl: Kubectl, _host: Host): vscode.ProviderResult<KubernetesObject[]> {
         return [
             new KubernetesResourceFolder(kuberesources.allKinds.persistentVolume),
             new KubernetesResourceFolder(kuberesources.allKinds.persistentVolumeClaim),
@@ -285,7 +288,7 @@ class KubernetesResource implements KubernetesObject, ResourceNode {
         return kubefsUri(this.namespace, this.resourceId, outputFormat);
     }
 
-    async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
+    async getChildren(kubectl: Kubectl, _host: Host): Promise<KubernetesObject[]> {
         if (this.kind !== kuberesources.allKinds.pod) {
             return [];
         }
@@ -338,7 +341,7 @@ class KubernetesNodeFolder extends KubernetesResourceFolder {
         super(kuberesources.allKinds.node);
     }
 
-    async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
+    async getChildren(kubectl: Kubectl, _host: Host): Promise<KubernetesObject[]> {
         const nodes = await kubectlUtils.getGlobalResources(kubectl, 'nodes');
         return nodes.map((node) => new KubernetesNodeResource(node.metadata.name, node));
     }
@@ -355,7 +358,7 @@ class KubernetesNodeResource extends KubernetesResource {
         return treeItem;
     }
 
-    async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
+    async getChildren(kubectl: Kubectl, _host: Host): Promise<KubernetesObject[]> {
         const pods = await kubectlUtils.getPods(kubectl, null, 'all');
         const filteredPods = pods.filter((p) => `node/${p.nodeName}` === this.resourceId);
         return filteredPods.map((p) => new KubernetesResource(kuberesources.allKinds.pod, p.name, p));
@@ -367,7 +370,7 @@ class KubernetesNamespaceFolder extends KubernetesResourceFolder {
         super(kuberesources.allKinds.namespace);
     }
 
-    async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
+    async getChildren(kubectl: Kubectl, _host: Host): Promise<KubernetesObject[]> {
         const namespaces = await kubectlUtils.getNamespaces(kubectl);
         return namespaces.map((ns) => new KubernetesNamespaceResource(this.kind, ns.name, ns));
     }
@@ -395,7 +398,7 @@ class KubernetesSelectsPodsFolder extends KubernetesResourceFolder {
         super(kind);
     }
 
-    async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
+    async getChildren(kubectl: Kubectl, _host: Host): Promise<KubernetesObject[]> {
         const objects = await kubectlUtils.getResourceWithSelector(this.kind.abbreviation, kubectl);
         return objects.map((obj) => new KubernetesSelectorResource(this.kind, obj.name, obj, obj.selector));
     }
@@ -406,7 +409,7 @@ class KubernetesCRDFolder extends KubernetesFolder {
         super(kuberesources.allKinds.crd.abbreviation, kuberesources.allKinds.crd.pluralDisplayName);
     }
 
-    async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
+    async getChildren(kubectl: Kubectl, _host: Host): Promise<KubernetesObject[]> {
         const objects = await kubectlUtils.getCRDTypes(kubectl);
         return objects.map((obj) => new KubernetesResourceFolder(this.customResourceKind(obj)));
     }
@@ -439,7 +442,7 @@ class KubernetesSelectorResource extends KubernetesResource {
         return treeItem;
     }
 
-    async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
+    async getChildren(kubectl: Kubectl, _host: Host): Promise<KubernetesObject[]> {
         if (!this.selector) {
             return [];
         }
@@ -453,7 +456,7 @@ class KubernetesDataHolderFolder extends KubernetesResourceFolder {
         super(kind);
     }
 
-    async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
+    async getChildren(kubectl: Kubectl, _host: Host): Promise<KubernetesObject[]> {
         const namespaces = await kubectlUtils.getDataHolders(this.kind.abbreviation, kubectl);
         return namespaces.map((cm) => new KubernetesDataHolderResource(this.kind, cm.metadata.name, cm, cm.data));
     }
@@ -475,7 +478,7 @@ export class KubernetesDataHolderResource extends KubernetesResource {
         return treeItem;
     }
 
-    async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
+    async getChildren(_kubectl: Kubectl, _host: Host): Promise<KubernetesObject[]> {
         if (!this.configData || this.configData.length === 0) {
             return [];
         }
@@ -499,7 +502,7 @@ export class KubernetesFileObject implements KubernetesObject {
         return treeItem;
     }
 
-    getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<KubernetesObject[]> {
+    getChildren(_kubectl: Kubectl, _host: Host): vscode.ProviderResult<KubernetesObject[]> {
         return [];
     }
 }
@@ -511,7 +514,7 @@ class HelmReleaseResource implements KubernetesObject {
         this.id = "helmrelease:" + name;
     }
 
-    getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<KubernetesObject[]> {
+    getChildren(_kubectl: Kubectl, _host: Host): vscode.ProviderResult<KubernetesObject[]> {
         return [];
     }
 
@@ -533,7 +536,7 @@ class HelmReleasesFolder extends KubernetesFolder {
         super("Helm Release", "Helm Releases", "vsKubernetes.nonResourceFolder");
     }
 
-    async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
+    async getChildren(kubectl: Kubectl, _host: Host): Promise<KubernetesObject[]> {
         if (!helmexec.ensureHelm(helmexec.EnsureMode.Silent)) {
             return [new DummyObject("Helm client is not installed")];
         }

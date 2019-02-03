@@ -3,7 +3,7 @@ import * as vscode from "vscode";
 import { Kubectl } from "../kubectl";
 import { Dictionary } from "../utils/dictionary";
 
-async function promptForPort(promptMessage: string, defaultPort: string): Promise<string> {
+async function promptForPort(promptMessage: string, defaultPort: string): Promise<string | undefined> {
     const input = await vscode.window.showInputBox({
         prompt: promptMessage,
         placeHolder: defaultPort,
@@ -13,12 +13,12 @@ async function promptForPort(promptMessage: string, defaultPort: string): Promis
     return input && input.trim();
 }
 
-export async function promptForDebugPort(defaultPort: string): Promise<string> {
+export async function promptForDebugPort(defaultPort: string): Promise<string | undefined> {
     return await promptForPort("Please specify debug port exposed for debugging", defaultPort);
 }
 
-export async function promptForAppPort(ports: string[], defaultPort: string, env: Dictionary<string>): Promise<string> {
-    let rawAppPortInfo: string;
+export async function promptForAppPort(ports: string[], defaultPort: string, env: Dictionary<string>): Promise<string | undefined> {
+    let rawAppPortInfo: string | undefined;
     if (ports.length === 0) {
         return await promptForPort("What port does your application listen on?", defaultPort);
     } if (ports.length === 1) {
@@ -27,17 +27,22 @@ export async function promptForAppPort(ports: string[], defaultPort: string, env
         rawAppPortInfo = await vscode.window.showQuickPick(ports, { placeHolder: "Choose the port your app listens on." });
     }
 
-    // If the choosed port is a variable, then need set it in environment variables.
+    if (!rawAppPortInfo) {
+        return undefined;
+    }
+
+    // If the chosen port is a variable, then need set it in environment variables.
     const portRegExp = /\$\{?(\w+)\}?/;
-    if (portRegExp.test(rawAppPortInfo)) {
-        const varName = rawAppPortInfo.match(portRegExp)[1];
+    const portRegExpMatch = rawAppPortInfo.match(portRegExp);
+    if (portRegExpMatch && portRegExpMatch.length > 0) {
+        const varName = portRegExpMatch[1];
         if (rawAppPortInfo.trim() === `$${varName}` || rawAppPortInfo.trim() === `\${${varName}}`) {
             const defaultAppPort = "50006"; // Configure an unusual port number for the variable.
             env[varName] = defaultAppPort;
             rawAppPortInfo = defaultAppPort;
         } else {
             vscode.window.showErrorMessage(`Invalid port variable ${rawAppPortInfo} in the docker file.`);
-            return;
+            return undefined;
         }
     }
 
@@ -57,7 +62,7 @@ export async function getCommandsOfProcesses(kubectl: Kubectl, pod: string, podN
     const nsarg = podNamespace ? `--namespace ${podNamespace}` : '';
     const execCmd = `exec ${pod} ${nsarg} ${container ? "-c ${selectedContainer}" : ""} -- ps -ef`;
     const execResult = await kubectl.invokeAsync(execCmd);
-    if (execResult.code === 0) {
+    if (execResult && execResult.code === 0) {
         /**
          * PID   USER     TIME   COMMAND
          *  1    root     2:09   java -Djava.security.egd=file:/dev/./urandom -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=1044,quiet=y -jar target/app.jar

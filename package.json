@@ -2,7 +2,7 @@
     "name": "vscode-kubernetes-tools",
     "displayName": "Kubernetes",
     "description": "Develop, deploy and debug Kubernetes applications",
-    "version": "0.1.15",
+    "version": "0.1.16",
     "preview": true,
     "publisher": "ms-kubernetes-tools",
     "engines": {
@@ -24,9 +24,12 @@
     "icon": "images/k8s-logo.png",
     "activationEvents": [
         "onCommand:extension.vsKubernetesCreate",
+        "onCommand:extension.vsKubernetesCreateFile",
         "onCommand:extension.vsKubernetesDelete",
         "onCommand:extension.vsKubernetesDeleteNow",
+        "onCommand:extension.vsKubernetesDeleteUri",
         "onCommand:extension.vsKubernetesApply",
+        "onCommand:extension.vsKubernetesApplyFile",
         "onCommand:extension.vsKubernetesExplain",
         "onCommand:extension.vsKubernetesLoad",
         "onCommand:extension.vsKubernetesGet",
@@ -199,6 +202,10 @@
                         "disable-linters": {
                             "type": "array",
                             "description": "List of linters by name to disable"
+                        },
+                        "resource-commands-on-files": {
+                            "type": "boolean",
+                            "description": "If true, show Kubernetes resource commands on file context menu for all YAML files"
                         }
                     },
                     "default": {
@@ -251,6 +258,24 @@
                     "when": "resourceFilename == requirements.yaml",
                     "command": "extension.helmDepUp",
                     "group": "2_helm@99"
+                },
+                {
+                    "title": "Create Kubernetes resource",
+                    "when": "resourceLangId == yaml && config.vs-kubernetes.resource-commands-on-files",
+                    "command": "extension.vsKubernetesCreateFile",
+                    "group": "2_k8s_1"
+                },
+                {
+                    "title": "Apply Kubernetes resource",
+                    "when": "resourceLangId == yaml && config.vs-kubernetes.resource-commands-on-files",
+                    "command": "extension.vsKubernetesApplyFile",
+                    "group": "2_k8s_2"
+                },
+                {
+                    "title": "Delete Kubernetes resource",
+                    "when": "resourceLangId == yaml && config.vs-kubernetes.resource-commands-on-files",
+                    "command": "extension.vsKubernetesDeleteUri",
+                    "group": "2_k8s_3"
                 },
                 {
                     "when": "",
@@ -614,6 +639,18 @@
             ],
             "commandPalette": [
                 {
+                    "command": "extension.vsKubernetesApplyFile",
+                    "when": "filesExplorerFocus"
+                },
+                {
+                    "command": "extension.vsKubernetesCreateFile",
+                    "when": "filesExplorerFocus"
+                },
+                {
+                    "command": "extension.vsKubernetesDeleteUri",
+                    "when": "filesExplorerFocus"
+                },
+                {
                     "command": "extension.vsKubernetesRefreshExplorer",
                     "when": "view == extension.vsKubernetesExplorer"
                 },
@@ -674,6 +711,11 @@
                 "category": "Kubernetes"
             },
             {
+                "command": "extension.vsKubernetesCreateFile",
+                "title": "Create Kubernetes resource",
+                "category": "Kubernetes"
+            },
+            {
                 "command": "extension.vsKubernetesDelete",
                 "title": "Delete",
                 "category": "Kubernetes"
@@ -684,8 +726,18 @@
                 "category": "Kubernetes"
             },
             {
+                "command": "extension.vsKubernetesDeleteUri",
+                "title": "Delete Kubernetes resource",
+                "category": "Kubernetes"
+            },
+            {
                 "command": "extension.vsKubernetesApply",
                 "title": "Apply",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesApplyFile",
+                "title": "Apply Kubernetes resource",
                 "category": "Kubernetes"
             },
             {

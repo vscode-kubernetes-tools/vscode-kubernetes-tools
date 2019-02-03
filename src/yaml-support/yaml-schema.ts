@@ -26,7 +26,7 @@ export interface KubernetesSchema {
 // 2. the requestSchemaContent api  will give the parameter uri returned by the first api, and ask for the json content(after stringify) of
 // the schema
 declare type YamlSchemaContributor = (schema: string,
-                                       requestSchema: (resource: string) => string,
+                                       requestSchema: (resource: string) => string | undefined,
                                        requestSchemaContent: (uri: string) => string) => void;
 
 class KubernetesSchemaHolder {
@@ -77,7 +77,7 @@ class KubernetesSchemaHolder {
     }
 
     // get kubernetes schema by the key
-    public lookup(key: string): KubernetesSchema {
+    public lookup(key: string): KubernetesSchema | undefined {
         return key ? this.definitions[key.toLowerCase()] : undefined;
     }
 
@@ -186,7 +186,7 @@ export async function registerYamlSchemaSupport(): Promise<void> {
 }
 
 // see docs from YamlSchemaContributor
-function requestYamlSchemaUriCallback(resource: string): string {
+function requestYamlSchemaUriCallback(resource: string): string | undefined {
     const textEditor = vscode.window.visibleTextEditors.find((editor) => editor.document.uri.toString() === resource);
     if (textEditor) {
         const yamlDocs = yamlLocator.getYamlDocuments(textEditor.document);
@@ -206,10 +206,11 @@ function requestYamlSchemaUriCallback(resource: string): string {
         });
         return util.makeKubernetesUri(choices);
     }
+    return undefined;
 }
 
 // see docs from YamlSchemaContributor
-function requestYamlSchemaContentCallback(uri: string): string {
+function requestYamlSchemaContentCallback(uri: string): string | undefined {
     const parsedUri = Uri.parse(uri);
     if (parsedUri.scheme !== KUBERNETES_SCHEMA) {
         return undefined;
@@ -224,7 +225,7 @@ function requestYamlSchemaContentCallback(uri: string): string {
     const manifestType = parsedUri.path.slice(1);
     // if it is a multiple choice, make an 'oneof' schema.
     if (manifestType.includes('+')) {
-        const manifestRefList = manifestType.split('+').map(util.makeRefOnKubernetes);
+        const manifestRefList = manifestType.split('+').choose(util.makeRefOnKubernetes);
         // yaml language server supports schemaSequence at
         // https://github.com/redhat-developer/yaml-language-server/pull/81
         return JSON.stringify({ schemaSequence: manifestRefList });
@@ -266,7 +267,12 @@ function getManifestStyleSchemas(originalSchema: any): KubernetesSchema[] {
     delete originalSchema[KUBERNETES_GROUP_VERSION_KIND];
 
     groupKindNode.forEach((groupKindNode: any) => {
-        const { id, apiVersion, kind } = util.parseKubernetesGroupVersionKind(groupKindNode);
+        const gvk = util.parseKubernetesGroupVersionKind(groupKindNode);
+        if (!gvk) {
+            return;
+        }
+
+        const { id, apiVersion, kind } = gvk;
 
         // a direct kubernetes manifest has two reference keys: id && name
         // id: apiVersion + kind
@@ -293,17 +299,17 @@ function getNameInDefinitions ($ref: string): string {
 }
 
 // find redhat.vscode-yaml extension and try to activate it to get the yaml contributor
-async function activateYamlExtension(): Promise<{registerContributor: YamlSchemaContributor}> {
-    const ext: vscode.Extension<any> = vscode.extensions.getExtension(VSCODE_YAML_EXTENSION_ID);
+async function activateYamlExtension(): Promise<{registerContributor: YamlSchemaContributor} | undefined> {
+    const ext = vscode.extensions.getExtension(VSCODE_YAML_EXTENSION_ID);
     if (!ext) {
         vscode.window.showWarningMessage('Please install \'YAML Support by Red Hat\' via the Extensions pane.');
-        return;
+        return undefined;
     }
     const yamlPlugin = await ext.activate();
 
     if (!yamlPlugin || !yamlPlugin.registerContributor) {
         vscode.window.showWarningMessage('The installed Red Hat YAML extension doesn\'t support Kubernetes Intellisense. Please upgrade \'YAML Support by Red Hat\' via the Extensions pane.');
-        return;
+        return undefined;
     }
 
     if (ext.packageJSON.version && !semver.gte(ext.packageJSON.version, '0.0.15')) {

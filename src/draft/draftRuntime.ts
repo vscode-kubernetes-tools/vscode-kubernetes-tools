@@ -30,10 +30,17 @@ export class DraftRuntime extends EventEmitter {
 		if (!isPresent) {
 			host.showInformationMessage("Draft is not installed!");
 			return;
-		}
+        }
 
-		if (!this.draft.isFolderMapped(vscode.workspace.rootPath)) {
-			host.showErrorMessage("This folder does not contain a Draft app. Run draft create first!");
+        const debugFolders = vscode.workspace.workspaceFolders;
+        if (!debugFolders || debugFolders.length === 0) {
+            host.showErrorMessage("This command reauires an open folder.");
+            return;
+        }
+
+        const hasDraftApp = debugFolders.some((f) => this.draft.isFolderMapped(f.uri.fsPath));
+		if (!hasDraftApp) {
+			host.showErrorMessage("This folder or workspace does not contain a Draft app. Run draft create first!");
 			return;
 		}
 
@@ -47,7 +54,7 @@ export class DraftRuntime extends EventEmitter {
 		host.showInformationMessage(`attaching debugger`);
 
 		vscode.debug.startDebugging(undefined, config['original-debug']);
-		vscode.debug.onDidTerminateDebugSession((e) => {
+		vscode.debug.onDidTerminateDebugSession((_e) => {
 			this.killConnect();
 			output.dispose();
 		});
@@ -73,7 +80,7 @@ function createProcess(cmd: string, args: string[], output: OutputChannel): Chil
 }
 
 async function waitForProcessToExit(proc: ChildProcess): Promise<void> {
-	return new Promise<void>((resolve, reject) => {
+	return new Promise<void>((resolve) => {
 		proc.addListener('message', (message) => { console.log(message); });
 		proc.addListener('close', (code, signal) => { console.log(`Code: ${code}, Signal: ${signal}`); });
 		proc.addListener('disconnect', () => console.log('disconnected'));
@@ -94,7 +101,7 @@ async function waitConnectionReady(proc: ChildProcess, config: vscode.DebugConfi
 			}
 		});
 
-		proc.on('close', async (code) => {
+		proc.on('close', async (_code) => {
 			if (!isConnectionReady) {
 				reject('Cannot connect.');
 			}
@@ -124,7 +131,8 @@ function canAttachDebugger(data: string, config: vscode.DebugConfiguration): boo
 			}
 			break;
 		}
-	}
+    }
+    return false;
 }
 
 function subscribeToDataEvent(readable: Readable, outputChannel: OutputChannel): void {

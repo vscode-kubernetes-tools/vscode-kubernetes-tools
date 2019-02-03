@@ -14,10 +14,14 @@ function subscriber(action: clusterproviderregistry.ClusterProviderAction): Subs
         onStep(w: Wizard, m: any): void {
             const clusterType: string = m.clusterType;
             if (m[SENDING_STEP_KEY] === SELECT_CLUSTER_TYPE) {
-                reporter.sendTelemetryEvent("cloudselection", { action: action, clusterType: clusterType });
+                if (reporter) {
+                    reporter.sendTelemetryEvent("cloudselection", { action: action, clusterType: clusterType });
+                }
             }
             const cp = clusterproviderregistry.get().list().find((cp) => cp.id === clusterType);
-            cp.next(w, action, m);
+            if (cp) {
+                cp.next(w, action, m);
+            }
         }
     };
 }

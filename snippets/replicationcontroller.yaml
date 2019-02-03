@@ -19,5 +19,5 @@ body: |2
         containers:
           - name: ${1:myapp}
             image: ${3:<Image>}
-            port:
+            ports:
               - containerPort: ${4:<Port>}

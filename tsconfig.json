@@ -9,7 +9,15 @@
         ],
         "sourceMap": true,
         "rootDir": ".",
-        "noImplicitAny": true
+        "alwaysStrict": true,
+        "noFallthroughCasesInSwitch": true,
+        "noImplicitReturns": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+        "noImplicitAny": true,
+        "strictFunctionTypes": true,
+        "strictNullChecks": true,
+        "noImplicitThis": true
     },
     "exclude": [
         "node_modules",

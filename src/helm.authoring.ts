@@ -167,7 +167,7 @@ async function createChart(context: Context): Promise<Chart | undefined> {
 
     if (failed(createResult)) {
         context.host.showErrorMessage(createResult.error[0]);
-        return;
+        return undefined;
     }
 
     return createResult.result;
@@ -294,7 +294,7 @@ function findCreatableKeyPathBySuffixing(keyPath: string[], ast: vscode.SymbolIn
     return findCreatableKeyPathBySuffixing(keyPath, ast, suffix + 1);
 }
 
-function addToYaml(document: vscode.TextDocument, ast: vscode.SymbolInformation[], parent: vscode.SymbolInformation, keys: string[], value: string): ValueInsertion {
+function addToYaml(document: vscode.TextDocument, ast: vscode.SymbolInformation[], parent: vscode.SymbolInformation | undefined, keys: string[], value: string): ValueInsertion {
     const eol = document.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n';
     if (parent) {
         // TODO: do we need to handle the possibility of a parent node without any child nodes?
@@ -307,10 +307,10 @@ function addToYaml(document: vscode.TextDocument, ast: vscode.SymbolInformation[
     }
 }
 
-function firstChild(document: vscode.TextDocument, parent: vscode.SymbolInformation, ast: vscode.SymbolInformation[]): vscode.SymbolInformation | undefined {
+function firstChild(document: vscode.TextDocument, parent: vscode.SymbolInformation | undefined, ast: vscode.SymbolInformation[]): vscode.SymbolInformation | undefined {
     const isDescendant = parent ?
         (n: vscode.SymbolInformation) => parent.location.range.contains(n.location.range) :
-        (n: vscode.SymbolInformation) => true;
+        (_n: vscode.SymbolInformation) => true;
     const linearPos = (p: vscode.Position) => document.offsetAt(p);
 
     return _.chain(ast)
@@ -322,7 +322,7 @@ function firstChild(document: vscode.TextDocument, parent: vscode.SymbolInformat
             .value();
 }
 
-function insertBefore(document: vscode.TextDocument, element: vscode.SymbolInformation, keys: string[], value: string, eol: string): ValueInsertion {
+function insertBefore(document: vscode.TextDocument, element: vscode.SymbolInformation | undefined, keys: string[], value: string, eol: string): ValueInsertion {
     const insertAt = element ? lineStart(element.location.range.start) : document.positionAt(0);
     const indent = indentLevel(element);
     const text = makeTree(indent, keys, value, eol);
@@ -334,8 +334,8 @@ function lineStart(pos: vscode.Position): vscode.Position {
     return new vscode.Position(pos.line, 0);
 }
 
-function indentLevel(element: vscode.SymbolInformation): number {
-    return element.location.range.start.character;
+function indentLevel(element: vscode.SymbolInformation | undefined): number {
+    return element ? element.location.range.start.character : 0;
 }
 
 function makeTree(indentLevel: number, keys: string[], value: string, eol: string): string {

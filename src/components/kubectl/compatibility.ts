@@ -1,4 +1,3 @@
-import { ShellResult } from '../../shell';
 import { Errorable, failed } from '../../errorable';
 
 interface CompatibilityGuaranteed {

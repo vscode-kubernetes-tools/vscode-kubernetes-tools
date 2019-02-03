@@ -15,9 +15,9 @@ export interface Kubectl {
     checkPresent(errorMessageMode: CheckPresentMessageMode): Promise<boolean>;
     invoke(command: string, handler?: ShellHandler): Promise<void>;
     invokeWithProgress(command: string, progressMessage: string, handler?: ShellHandler): Promise<void>;
-    invokeAsync(command: string, stdin?: string): Promise<ShellResult>;
-    invokeAsyncWithProgress(command: string, progressMessage: string): Promise<ShellResult>;
-    spawnAsChild(command: string[]): Promise<ChildProcess>;
+    invokeAsync(command: string, stdin?: string): Promise<ShellResult | undefined>;
+    invokeAsyncWithProgress(command: string, progressMessage: string): Promise<ShellResult | undefined>;
+    spawnAsChild(command: string[]): Promise<ChildProcess | undefined>;
     /**
      * Invoke a kubectl command in Terminal.
      * @param command the subcommand to run.
@@ -46,7 +46,7 @@ class KubectlImpl implements Kubectl {
     }
 
     private readonly context: Context;
-    private sharedTerminal: Terminal;
+    private sharedTerminal: Terminal | null = null;
 
     checkPresent(errorMessageMode: CheckPresentMessageMode): Promise<boolean> {
         return checkPresent(this.context, errorMessageMode);
@@ -57,22 +57,22 @@ class KubectlImpl implements Kubectl {
     invokeWithProgress(command: string, progressMessage: string, handler?: ShellHandler): Promise<void> {
         return invokeWithProgress(this.context, command, progressMessage, handler);
     }
-    invokeAsync(command: string, stdin?: string): Promise<ShellResult> {
+    invokeAsync(command: string, stdin?: string): Promise<ShellResult | undefined> {
         return invokeAsync(this.context, command, stdin);
     }
-    invokeAsyncWithProgress(command: string, progressMessage: string): Promise<ShellResult> {
+    invokeAsyncWithProgress(command: string, progressMessage: string): Promise<ShellResult | undefined> {
         return invokeAsyncWithProgress(this.context, command, progressMessage);
     }
-    spawnAsChild(command: string[]): Promise<ChildProcess> {
+    spawnAsChild(command: string[]): Promise<ChildProcess | undefined> {
         return spawnAsChild(this.context, command);
     }
     async invokeInNewTerminal(command: string, terminalName: string, onClose?: (e: Terminal) => any, pipeTo?: string): Promise<Disposable> {
         const terminal = this.context.host.createTerminal(terminalName);
-        const disposable = onClose ? this.context.host.onDidCloseTerminal(onClose) : null;
+        const disposable = onClose ? this.context.host.onDidCloseTerminal(onClose) : new Disposable(() => {});
         await invokeInTerminal(this.context, command, pipeTo, terminal);
         return disposable;
     }
-    invokeInSharedTerminal(command: string, terminalName?: string): Promise<void> {
+    invokeInSharedTerminal(command: string): Promise<void> {
         const terminal = this.getSharedTerminal();
         return invokeInTerminal(this.context, command, undefined, terminal);
     }
@@ -151,7 +151,7 @@ async function invoke(context: Context, command: string, handler?: ShellHandler)
 
 async function invokeWithProgress(context: Context, command: string, progressMessage: string, handler?: ShellHandler): Promise<void> {
     return context.host.withProgress((p) => {
-        return new Promise<void>((resolve, reject) => {
+        return new Promise<void>((resolve) => {
             p.report({ message: progressMessage });
             kubectlInternal(context, command, (code, stdout, stderr) => {
                 resolve();
@@ -161,12 +161,12 @@ async function invokeWithProgress(context: Context, command: string, progressMes
     });
 }
 
-async function invokeAsync(context: Context, command: string, stdin?: string): Promise<ShellResult> {
+async function invokeAsync(context: Context, command: string, stdin?: string): Promise<ShellResult | undefined> {
     if (await checkPresent(context, CheckPresentMessageMode.Command)) {
         const bin = baseKubectlPath(context);
         const cmd = `${bin} ${command}`;
         const sr = await context.shell.exec(cmd, stdin);
-        if (sr.code !== 0) {
+        if (sr && sr.code !== 0) {
             checkPossibleIncompatibility(context);
         }
         return sr;
@@ -190,17 +190,18 @@ async function checkPossibleIncompatibility(context: Context): Promise<void> {
     }
 }
 
-async function invokeAsyncWithProgress(context: Context, command: string, progressMessage: string): Promise<ShellResult> {
+async function invokeAsyncWithProgress(context: Context, command: string, progressMessage: string): Promise<ShellResult | undefined> {
     return context.host.withProgress(async (p) => {
         p.report({ message: progressMessage });
         return await invokeAsync(context, command);
     });
 }
 
-async function spawnAsChild(context: Context, command: string[]): Promise<ChildProcess> {
+async function spawnAsChild(context: Context, command: string[]): Promise<ChildProcess | undefined> {
     if (await checkPresent(context, CheckPresentMessageMode.Command)) {
         return spawnChildProcess(path(context), command, context.shell.execOpts());
     }
+    return undefined;
 }
 
 async function invokeInTerminal(context: Context, command: string, pipeTo: string | undefined, terminal: Terminal): Promise<void> {
@@ -234,7 +235,10 @@ async function kubectlInternal(context: Context, command: string, handler: Shell
     if (await checkPresent(context, CheckPresentMessageMode.Command)) {
         const bin = baseKubectlPath(context);
         const cmd = `${bin} ${command}`;
-        context.shell.exec(cmd, null).then(({code, stdout, stderr}) => handler(code, stdout, stderr));
+        const sr = await context.shell.exec(cmd);
+        if (sr) {
+            handler(sr.code, sr.stdout, sr.stderr);
+        }
     }
 }
 
@@ -261,6 +265,10 @@ function baseKubectlPath(context: Context): string {
 
 async function asLines(context: Context, command: string): Promise<Errorable<string[]>> {
     const shellResult = await invokeAsync(context, command);
+    if (!shellResult) {
+        return { succeeded: false, error: [`Unable to run command (${command})`] };
+    }
+
     if (shellResult.code === 0) {
         let lines = shellResult.stdout.split('\n');
         lines.shift();
@@ -273,6 +281,10 @@ async function asLines(context: Context, command: string): Promise<Errorable<str
 
 async function fromLines(context: Context, command: string): Promise<Errorable<{ [key: string]: string }[]>> {
     const shellResult = await invokeAsync(context, command);
+    if (!shellResult) {
+        return { succeeded: false, error: [`Unable to run command (${command})`] };
+    }
+
     if (shellResult.code === 0) {
         let lines = shellResult.stdout.split('\n');
         lines = lines.filter((l) => l.length > 0);
@@ -284,6 +296,10 @@ async function fromLines(context: Context, command: string): Promise<Errorable<{
 
 async function asJson<T>(context: Context, command: string): Promise<Errorable<T>> {
     const shellResult = await invokeAsync(context, command);
+    if (!shellResult) {
+        return { succeeded: false, error: [`Unable to run command (${command})`] };
+    }
+
     if (shellResult.code === 0) {
         return { succeeded: true, result: JSON.parse(shellResult.stdout.trim()) as T };
 

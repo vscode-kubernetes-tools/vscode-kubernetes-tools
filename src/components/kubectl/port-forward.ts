@@ -8,7 +8,7 @@ import { QuickPickOptions } from 'vscode';
 import * as portFinder from 'portfinder';
 import { succeeded } from '../../errorable';
 import * as kubectlUtils from '../../kubectlUtils';
-import { KubernetesExplorer, ResourceNode } from '../../explorer';
+import { ResourceNode } from '../../explorer';
 
 const PORT_FORWARD_TERMINAL = 'kubectl port-forward';
 const MAX_PORT_COUNT = 65535;
@@ -102,7 +102,7 @@ export async function portForwardKubernetes (kubectl: Kubectl, explorerNode?: an
  * @returns An array of PortMapping objects.
  */
 async function promptForPort (): Promise<PortMapping[]> {
-    let portString: string;
+    let portString: string | undefined;
 
     try {
         portString = await host.showInputBox(<QuickPickOptions>{
@@ -122,6 +122,9 @@ async function promptForPort (): Promise<PortMapping[]> {
         host.showErrorMessage("Could not validate on input port");
     }
 
+    if (!portString) {
+        return [];
+    }
     return buildPortMapping(portString);
 }
 
@@ -130,7 +133,7 @@ async function promptForPort (): Promise<PortMapping[]> {
  * @param portMapping The portMapping string captured from an input field
  * @returns A ValidationResult object describing the first error found.
  */
-function validatePortMapping (portMapping: string): ValidationResult {
+function validatePortMapping (portMapping: string): ValidationResult | undefined {
     const portPairs = portMapping.split(' ');
     const validationResults: ValidationResult[] = portPairs.map(validatePortPair);
 
@@ -263,7 +266,7 @@ export async function portForwardToPod (kubectl: Kubectl, podName: string, portM
     );
 
     kubectl.invokeInNewTerminal(`port-forward ${podName} ${portPairStrings.join(' ')} -n ${usedNamespace}`, PORT_FORWARD_TERMINAL);
-    return usedPortMappings.map((usedPortPair) => usedPortPair.localPort );
+    return usedPortMappings.choose((usedPortPair) => usedPortPair.localPort );
 }
 
 /**

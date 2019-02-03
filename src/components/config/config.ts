@@ -53,7 +53,7 @@ async function addValueToConfigArrayAtScope(configKey: string, value: string, sc
 type ConfigUpdater<T> = (configKey: string, value: T, scope: vscode.ConfigurationTarget, valueAtScope: any, createIfNotExist: boolean) => Promise<void>;
 
 async function atAllConfigScopes<T>(fn: ConfigUpdater<T>, configKey: string, value: T): Promise<void> {
-    const config = vscode.workspace.getConfiguration().inspect(EXTENSION_CONFIG_KEY);
+    const config = vscode.workspace.getConfiguration().inspect(EXTENSION_CONFIG_KEY)!;
     await fn(configKey, value, vscode.ConfigurationTarget.Global, config.globalValue, true);
     await fn(configKey, value, vscode.ConfigurationTarget.Workspace, config.workspaceValue, false);
     await fn(configKey, value, vscode.ConfigurationTarget.WorkspaceFolder, config.workspaceFolderValue, false);

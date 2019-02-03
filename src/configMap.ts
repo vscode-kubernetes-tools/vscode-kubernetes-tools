@@ -13,7 +13,7 @@ export const uriScheme: string = 'k8sviewfiledata';
 export class ConfigMapTextProvider implements vscode.TextDocumentContentProvider {
     constructor(readonly kubectl: Kubectl) { }
 
-    provideTextDocumentContent(uri: vscode.Uri, token: vscode.CancellationToken): vscode.ProviderResult<string> {
+    provideTextDocumentContent(uri: vscode.Uri, _token: vscode.CancellationToken): vscode.ProviderResult<string> {
         const parts = uri.path.split('/');
         const b: Buffer = new Buffer(parts[1], 'base64');
         return b.toString();
@@ -51,7 +51,7 @@ export async function deleteKubernetesConfigFile(kubectl: Kubectl, obj: Kubernet
         return;
     }
     const result = await vscode.window.showWarningMessage(`Are you sure you want to delete ${obj.id}? This can not be undone`, ...deleteMessageItems);
-    if (result.title !== deleteMessageItems[0].title) {
+    if (!result || result.title !== deleteMessageItems[0].title) {
         return;
     }
     const currentNS = await currentNamespace(kubectl);
@@ -63,8 +63,8 @@ export async function deleteKubernetesConfigFile(kubectl: Kubectl, obj: Kubernet
     dataHolder.data = removeKey(dataHolder.data, obj.id);
     const out = JSON.stringify(dataHolder);
     const shellRes = await kubectl.invokeAsync(`replace -f - --namespace=${currentNS}`, out);
-    if (shellRes.code !== 0) {
-        vscode.window.showErrorMessage('Failed to delete file: ' + shellRes.stderr);
+    if (!shellRes || shellRes.code !== 0) {
+        vscode.window.showErrorMessage('Failed to delete file: ' + (shellRes ? shellRes.stderr : "Unable to run kubectl"));
         return;
     }
     explorer.refresh();
@@ -92,7 +92,7 @@ export async function addKubernetesConfigFile(kubectl: Kubectl, obj: KubernetesD
             const fileName = basename(filePath);
             if (dataHolder.data[fileName]) {
                 const response = await vscode.window.showWarningMessage(`Are you sure you want to overwrite '${fileName}'? This can not be undone`, ...overwriteMessageItems);
-                if (response.title !== overwriteMessageItems[0].title) {
+                if (!response || response.title !== overwriteMessageItems[0].title) {
                     return;
                 }
             }
@@ -106,8 +106,8 @@ export async function addKubernetesConfigFile(kubectl: Kubectl, obj: KubernetesD
         });
         const out = JSON.stringify(dataHolder);
         const shellRes = await kubectl.invokeAsync(`replace -f - --namespace=${currentNS}`, out);
-        if (shellRes.code !== 0) {
-            vscode.window.showErrorMessage('Failed to add file(s) to resource ${obj.id}: ' + shellRes.stderr);
+        if (!shellRes || shellRes.code !== 0) {
+            vscode.window.showErrorMessage('Failed to add file(s) to resource ${obj.id}: ' + (shellRes ? shellRes.stderr : "Unable to run kubectl"));
             return;
         }
         explorer.refresh();

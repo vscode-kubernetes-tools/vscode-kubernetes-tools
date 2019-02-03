@@ -106,21 +106,33 @@ export function formStyles(): string {
 `;
 }
 
-export function fromShellExitCodeAndStandardError(sr: ShellResult): Errorable<Diagnostic> {
+export function fromShellExitCodeAndStandardError(sr: ShellResult | undefined, invocationFailureMessage: string): Errorable<Diagnostic> {
+    if (!sr) {
+        return { succeeded: false, error: [invocationFailureMessage] };
+    }
+
     if (sr.code === 0 && !sr.stderr) {
         return { succeeded: true, result: { value: sr.stderr } };
     }
     return { succeeded: false, error: [ sr.stderr ] };
 }
 
-export function fromShellExitCodeOnly(sr: ShellResult): Errorable<Diagnostic> {
+export function fromShellExitCodeOnly(sr: ShellResult | undefined, invocationFailureMessage: string): Errorable<Diagnostic> {
+    if (!sr) {
+        return { succeeded: false, error: [invocationFailureMessage] };
+    }
+
     if (sr.code === 0) {
         return { succeeded: true, result: { value: sr.stderr } };
     }
     return { succeeded: false, error: [ sr.stderr ] };
 }
 
-export function fromShellJson<T>(sr: ShellResult, processor?: (raw: any) => T): Errorable<T> {
+export function fromShellJson<T>(sr: ShellResult | undefined, invocationFailureMessage: string, processor?: (raw: any) => T): Errorable<T> {
+    if (!sr) {
+        return { succeeded: false, error: [invocationFailureMessage] };
+    }
+
     if (sr.code === 0 && !sr.stderr) {
         const raw: any = JSON.parse(sr.stdout);
         const result = processor ? processor(raw) : (raw as T);

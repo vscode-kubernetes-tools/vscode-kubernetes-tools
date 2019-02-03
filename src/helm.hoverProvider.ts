@@ -17,7 +17,7 @@ export class HelmTemplateHoverProvider implements vscode.HoverProvider {
         this.resmap = rs.all();
     }
 
-    public provideHover(doc: vscode.TextDocument, pos: vscode.Position, tok: vscode.CancellationToken): vscode.ProviderResult<vscode.Hover> {
+    public provideHover(doc: vscode.TextDocument, pos: vscode.Position, _token: vscode.CancellationToken): vscode.ProviderResult<vscode.Hover> {
         const wordRange = doc.getWordRangeAtPosition(pos);
         const word = wordRange ? doc.getText(wordRange) : "";
         if (word === "") {
@@ -46,7 +46,7 @@ export class HelmTemplateHoverProvider implements vscode.HoverProvider {
                 //  app: metadata
 
                 if (!isPositionInKey(doc, pos)) {
-                    return;
+                    return undefined;
                 }
             } catch (ex) {
                 // ignore since the editing yaml may not be able to parse
@@ -77,6 +77,7 @@ export class HelmTemplateHoverProvider implements vscode.HoverProvider {
                 return [{language: "helm", value: `{{ ${ item.detail } }}`}, `${ item.documentation }`];
             }
         }
+        return [];
     }
 
     private inActionVal(doc: vscode.TextDocument, pos: vscode.Position, word: string): boolean {
@@ -91,12 +92,15 @@ export class HelmTemplateHoverProvider implements vscode.HoverProvider {
                 return [{language: "helm", value: `{{ ${ item.detail } }}`}, `${ item.documentation }`];
             }
         }
+        return [];
     }
+
     private findResourceDef(word: string): vscode.MarkedString[] | string {
         for (const item of this.resmap) {
             if (item.label === word) {
                 return [{language: "helm", value: `${ item.detail }`}, `${ item.documentation }`];
             }
         }
+        return [];
     }
 }

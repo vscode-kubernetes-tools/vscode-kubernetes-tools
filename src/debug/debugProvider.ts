@@ -43,7 +43,7 @@ export interface IDebugProvider {
      * @param env the environment variables defined by the docker file.
      * @return the resolved debug port info.
      */
-    resolvePortsFromFile(dockerfile: IDockerfile, env: Dictionary<string>): Promise<PortInfo>;
+    resolvePortsFromFile(dockerfile: IDockerfile, env: Dictionary<string>): Promise<PortInfo | undefined>;
 
     /**
      * Resolve the debug port info from the container's shell environment.
@@ -53,5 +53,5 @@ export interface IDebugProvider {
      * @param container the container id.
      * @return the resolved port info.
      */
-    resolvePortsFromContainer(kubectl: Kubectl, pod: string, podNamespace: string | undefined, container: string): Promise<PortInfo>;
+    resolvePortsFromContainer(kubectl: Kubectl, pod: string, podNamespace: string | undefined, container: string): Promise<PortInfo | undefined>;
 }

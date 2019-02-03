@@ -45,22 +45,24 @@ export class HelmTemplateCompletionProvider implements vscode.CompletionItemProv
         });
     }
 
-    public provideCompletionItems(doc: vscode.TextDocument, pos: vscode.Position) {
+    public provideCompletionItems(doc: vscode.TextDocument, pos: vscode.Position): vscode.CompletionList | vscode.CompletionItem[] {
         // If the preceding character is a '.', we kick it into dot resolution mode.
         // Otherwise, we go with function completion.
         const wordPos = doc.getWordRangeAtPosition(pos);
-        const word = doc.getText(wordPos);
+        if (!wordPos) {
+            return [];
+        }
         const line = doc.lineAt(pos.line).text;
         const lineUntil = line.substr(0, wordPos.start.character);
 
         if (lineUntil.endsWith(".")) {
-            return this.dotCompletionItems(doc, pos, word, lineUntil);
+            return this.dotCompletionItems(lineUntil);
         }
 
         return new vscode.CompletionList((new FuncMap).all());
     }
 
-    dotCompletionItems(doc: vscode.TextDocument, pos: vscode.Position, word: string, lineUntil: string): vscode.CompletionItem[] {
+    dotCompletionItems(lineUntil: string): vscode.CompletionItem[] {
         if (lineUntil.endsWith(" .")) {
             return this.funcmap.helmVals();
         } else if (lineUntil.endsWith(".Release.")) {
@@ -73,7 +75,7 @@ export class HelmTemplateCompletionProvider implements vscode.CompletionItemProv
             return this.funcmap.capabilitiesVals();
         } else if (lineUntil.endsWith(".Values.")) {
             if (!_.isPlainObject(this.valuesCache)) {
-                return;
+                return [];
             }
             const keys = _.keys(this.valuesCache);
             const res = keys.map((key) =>
@@ -85,7 +87,7 @@ export class HelmTemplateCompletionProvider implements vscode.CompletionItemProv
             // If we get here, we inspect the string to see if we are at some point in a
             // .Values.SOMETHING. expansion. We recurse through the values file to see
             // if there are any autocomplete options there.
-            let reExecResult: RegExpExecArray | undefined = undefined;
+            let reExecResult: RegExpExecArray | null = null;
             try {
                 reExecResult = this.valuesMatcher.exec(lineUntil);
             } catch (err) {

@@ -1,4 +1,4 @@
-import { Uri, FileSystemProvider, FileType, FileStat, FileChangeEvent, Event, EventEmitter, Disposable, workspace } from 'vscode';
+import { Uri, FileSystemProvider, FileType, FileStat, FileChangeEvent, Event, EventEmitter, Disposable } from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as querystring from 'querystring';
@@ -13,7 +13,7 @@ export const K8S_RESOURCE_SCHEME = "k8smsx";
 export const KUBECTL_RESOURCE_AUTHORITY = "loadkubernetescore";
 export const HELM_RESOURCE_AUTHORITY = "helmget";
 
-export function kubefsUri(namespace: string | null, value: string, outputFormat: string): Uri {
+export function kubefsUri(namespace: string | null | undefined /* TODO: rationalise null and undefined */, value: string, outputFormat: string): Uri {
     const docname = `${value.replace('/', '-')}.${outputFormat}`;
     const nonce = new Date().getTime();
     const nsquery = namespace ? `ns=${namespace}&` : '';
@@ -22,20 +22,20 @@ export function kubefsUri(namespace: string | null, value: string, outputFormat:
 }
 
 export class KubernetesResourceVirtualFileSystemProvider implements FileSystemProvider {
-    constructor(private readonly kubectl: Kubectl, private readonly host: Host, private readonly rootPath: string) { }
+    constructor(private readonly kubectl: Kubectl, private readonly host: Host) { }
 
     private readonly onDidChangeFileEmitter: EventEmitter<FileChangeEvent[]> = new EventEmitter<FileChangeEvent[]>();
 
     onDidChangeFile: Event<FileChangeEvent[]> = this.onDidChangeFileEmitter.event;
 
-    watch(uri: Uri, options: { recursive: boolean; excludes: string[] }): Disposable {
+    watch(_uri: Uri, _options: { recursive: boolean; excludes: string[] }): Disposable {
         // It would be quite neat to implement this to watch for changes
         // in the cluster and update the doc accordingly.  But that is very
         // definitely a future enhancement thing!
         return new Disposable(() => {});
     }
 
-    stat(uri: Uri): FileStat {
+    stat(_uri: Uri): FileStat {
         return {
             type: FileType.File,
             ctime: 0,
@@ -44,11 +44,11 @@ export class KubernetesResourceVirtualFileSystemProvider implements FileSystemPr
         };
     }
 
-    readDirectory(uri: Uri): [string, FileType][] | Thenable<[string, FileType][]> {
+    readDirectory(_uri: Uri): [string, FileType][] | Thenable<[string, FileType][]> {
         return [];
     }
 
-    createDirectory(uri: Uri): void | Thenable<void> {
+    createDirectory(_uri: Uri): void | Thenable<void> {
         // no-op
     }
 
@@ -71,15 +71,16 @@ export class KubernetesResourceVirtualFileSystemProvider implements FileSystemPr
 
         const sr = await this.execLoadResource(resourceAuthority, ns, value, outputFormat);
 
-        if (sr.code !== 0) {
-            this.host.showErrorMessage('Get command failed: ' + sr.stderr);
-            throw sr.stderr;
+        if (!sr || sr.code !== 0) {
+            const message = sr ? sr.stderr : "Unable to run command line tool";
+            this.host.showErrorMessage('Get command failed: ' + message);
+            throw message;
         }
 
         return sr.stdout;
     }
 
-    async execLoadResource(resourceAuthority: string, ns: string | undefined, value: string, outputFormat: string): Promise<ShellResult> {
+    async execLoadResource(resourceAuthority: string, ns: string | undefined, value: string, outputFormat: string): Promise<ShellResult | undefined> {
         switch (resourceAuthority) {
             case KUBECTL_RESOURCE_AUTHORITY:
                 const nsarg = ns ? `--namespace ${ns}` : '';
@@ -91,18 +92,28 @@ export class KubernetesResourceVirtualFileSystemProvider implements FileSystemPr
         }
     }
 
-    writeFile(uri: Uri, content: Uint8Array, options: { create: boolean, overwrite: boolean }): void | Thenable<void> {
+    writeFile(uri: Uri, content: Uint8Array, _options: { create: boolean, overwrite: boolean }): void | Thenable<void> {
+        return this.saveAsync(uri, content);  // TODO: respect options
+    }
+
+    private async saveAsync(uri: Uri, content: Uint8Array): Promise<void> {
         // This assumes no pathing in the URI - if this changes, we'll need to
         // create subdirectories.
-        const fspath = path.join(this.rootPath, uri.fsPath);
+        // TODO: not loving prompting as part of the write when it should really be part of a separate
+        // 'save' workflow - but needs must, I think
+        const rootPath = await this.host.selectRootFolder();
+        if (!rootPath) {
+            return;
+        }
+        const fspath = path.join(rootPath, uri.fsPath);
         fs.writeFileSync(fspath, content);
     }
 
-    delete(uri: Uri, options: { recursive: boolean }): void | Thenable<void> {
+    delete(_uri: Uri, _options: { recursive: boolean }): void | Thenable<void> {
         // no-op
     }
 
-    rename(oldUri: Uri, newUri: Uri, options: { overwrite: boolean }): void | Thenable<void> {
+    rename(_oldUri: Uri, _newUri: Uri, _options: { overwrite: boolean }): void | Thenable<void> {
         // no-op
     }
 }

@@ -23,7 +23,7 @@ export interface Shell {
     combinePath(basePath: string, relativePath: string): string;
     fileUri(filePath: string): vscode.Uri;
     execOpts(): any;
-    exec(cmd: string, stdin?: string): Promise<ShellResult>;
+    exec(cmd: string, stdin?: string): Promise<ShellResult | undefined>;
     execCore(cmd: string, opts: any, stdin?: string): Promise<ShellResult>;
     unquotedPath(path: string): string;
     which(bin: string): string | null;
@@ -87,7 +87,8 @@ function home(): string {
     }
     return process.env['HOME'] ||
         concatIfBoth(process.env['HOMEDRIVE'], process.env['HOMEPATH']) ||
-        process.env['USERPROFILE'];
+        process.env['USERPROFILE'] ||
+        '';
 }
 
 function combinePath(basePath: string, relativePath: string) {
@@ -124,16 +125,17 @@ function execOpts(): any {
     return opts;
 }
 
-async function exec(cmd: string, stdin?: string): Promise<ShellResult> {
+async function exec(cmd: string, stdin?: string): Promise<ShellResult | undefined> {
     try {
         return await execCore(cmd, execOpts(), stdin);
     } catch (ex) {
         vscode.window.showErrorMessage(ex);
+        return undefined;
     }
 }
 
 function execCore(cmd: string, opts: any, stdin?: string): Promise<ShellResult> {
-    return new Promise<ShellResult>((resolve, reject) => {
+    return new Promise<ShellResult>((resolve) => {
         if (getUseWsl()) {
             cmd = 'wsl ' + cmd;
         }
@@ -219,4 +221,11 @@ function ls(path: string): string[] {
         return result.stdout.trim().split('\n');
     }
     return shelljs.ls(path);
+}
+
+export function shellMessage(sr: ShellResult | undefined, invocationFailureMessage: string): string {
+    if (!sr) {
+        return invocationFailureMessage;
+    }
+    return sr.code === 0 ? sr.stdout : sr.stderr;
 }

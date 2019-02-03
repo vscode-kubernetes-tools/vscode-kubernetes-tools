@@ -6,7 +6,6 @@ import * as kuberesources from '../../kuberesources';
 import { ResourceNode } from '../../explorer';
 import * as yaml from 'js-yaml';
 import * as kubectlUtils from '../../kubectlUtils';
-import { host } from '../../host';
 
 export enum LogsDisplayMode {
     Show,
@@ -38,7 +37,7 @@ async function getLogsForExplorerPod(
     displayMode: LogsDisplayMode
 ) {
     const namespace = explorerNode.namespace;
-    const podSummary = { name: explorerNode.id, namespace: namespace };
+    const podSummary = { name: explorerNode.id, namespace: namespace || undefined };  // TODO: rationalise null and undefined
 
     return await getLogsForPod(kubectl, podSummary, displayMode);
 }

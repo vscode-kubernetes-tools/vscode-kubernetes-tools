@@ -7,7 +7,7 @@ export class HelmDocumentSymbolProvider implements vscode.DocumentSymbolProvider
         return this.provideDocumentSymbolsImpl(document, token);
     }
 
-    async provideDocumentSymbolsImpl(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.SymbolInformation[]> {
+    async provideDocumentSymbolsImpl(document: vscode.TextDocument, _token: vscode.CancellationToken): Promise<vscode.SymbolInformation[]> {
         const fakeText = document.getText().replace(/{{[^}]*}}/g, (s) => encodeWithTemplateMarkers(s));
         const root = yp.safeLoad(fakeText);
         const syms: vscode.SymbolInformation[] = [];
@@ -70,7 +70,7 @@ function findKey(key: string, sis: vscode.SymbolInformation[]): vscode.SymbolInf
 }
 
 function outermost(sis: vscode.SymbolInformation[]): vscode.SymbolInformation {
-    return _.maxBy(sis, (s) => containmentChain(s, sis));
+    return _.maxBy(sis, (s) => containmentChain(s, sis))!;  // safe because sis will not be empty
 }
 
 export function containmentChain(s: vscode.SymbolInformation, sis: vscode.SymbolInformation[]): vscode.SymbolInformation[] {
@@ -113,7 +113,6 @@ function symbolInfo(node: yp.YAMLNode, containerName: string, d: vscode.TextDocu
         case yp.Kind.INCLUDE_REF:
             return new vscode.SymbolInformation(`INCLUDE_REF`, vscode.SymbolKind.Variable, containerName, loc);
         case yp.Kind.MAP:
-            const m = node as yp.YamlMap;
             return new vscode.SymbolInformation(`{map}`, vscode.SymbolKind.Variable, containerName, loc);
         case yp.Kind.MAPPING:
             const mp = node as yp.YAMLMapping;
@@ -127,7 +126,6 @@ function symbolInfo(node: yp.YAMLNode, containerName: string, d: vscode.TextDocu
             const symbolKind = isTemplateExpr ? vscode.SymbolKind.Object : vscode.SymbolKind.Constant;
             return new vscode.SymbolInformation(realValue, symbolKind, containerName, loc);
         case yp.Kind.SEQ:
-            const s = node as yp.YAMLSequence;
             return new vscode.SymbolInformation(`[seq]`, vscode.SymbolKind.Variable, containerName, loc);
     }
     return new vscode.SymbolInformation(`###_YAML_UNEXPECTED_###`, vscode.SymbolKind.Variable, containerName, loc);
