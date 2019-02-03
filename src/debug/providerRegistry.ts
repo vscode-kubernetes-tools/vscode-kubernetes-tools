@@ -2,9 +2,10 @@ import * as vscode from "vscode";
 
 import { IDebugProvider } from "./debugProvider";
 import { JavaDebugProvider } from "./javaDebugProvider";
-
+import { NodejsDebugProvider } from "./nodejsDebugProvider";
 const supportedProviders: IDebugProvider[] = [
-    new JavaDebugProvider()
+    new JavaDebugProvider(),
+    new NodejsDebugProvider()
 ];
 
 async function showProviderPick(): Promise<IDebugProvider | undefined> {

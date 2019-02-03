@@ -51,6 +51,7 @@ import { logsKubernetes, LogsDisplayMode } from './components/kubectl/logs';
 import { Errorable, failed, succeeded } from './errorable';
 import { Git } from './components/git/git';
 import { DebugSession } from './debug/debugSession';
+import { suggestedShellForContainer } from './utils/container-shell';
 import { getDebugProviderOfType, getSupportedDebuggerTypes } from './debug/providerRegistry';
 import * as config from './components/config/config';
 
@@ -1252,7 +1253,7 @@ async function terminalKubernetes(explorerNode?: explorer.ResourceNode) {
         const container = await selectContainerForPod(podSummary);
         if (container) {
             // For those images (e.g. built from Busybox) where bash may not be installed by default, use sh instead.
-            const suggestedShell = await suggestedShellForContainer(podSummary.name, podSummary.namespace, container.name);
+            const suggestedShell = await suggestedShellForContainer(kubectl, podSummary.name, podSummary.namespace, container.name);
             execTerminalOnContainer(podSummary.name, podSummary.namespace, container.name, suggestedShell);
         }
     } else {
@@ -1305,19 +1306,6 @@ function execTerminalOnContainer(podName: string, podNamespace: string | undefin
     terminalExecCmd.push('--', terminalCmd);
     const terminalName = `${terminalCmd} on ${podName}` + (containerName ? `/${containerName}`: '');
     kubectl.runAsTerminal(terminalExecCmd, terminalName);
-}
-
-async function isBashOnContainer(podName: string, podNamespace: string | undefined, containerName: string | undefined): Promise<boolean> {
-    const nsarg = podNamespace ? `--namespace ${podNamespace}` : '';
-    const result = await kubectl.invokeAsync(`exec ${podName} ${nsarg} -c ${containerName} -- ls -la /bin/bash`);
-    return !!result && result.code === 0;
-}
-
-async function suggestedShellForContainer(podName: string, podNamespace: string | undefined, containerName: string | undefined): Promise<string> {
-    if (await isBashOnContainer(podName, podNamespace, containerName)) {
-        return 'bash';
-    }
-    return 'sh';
 }
 
 async function syncKubernetes(): Promise<void> {

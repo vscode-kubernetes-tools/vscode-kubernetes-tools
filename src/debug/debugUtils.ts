@@ -60,7 +60,8 @@ export async function promptForAppPort(ports: string[], defaultPort: string, env
 export async function getCommandsOfProcesses(kubectl: Kubectl, pod: string, podNamespace: string | undefined, container: string): Promise<string[]> {
     const commandLines: string[] = [];
     const nsarg = podNamespace ? `--namespace ${podNamespace}` : '';
-    const execCmd = `exec ${pod} ${nsarg} ${container ? "-c ${selectedContainer}" : ""} -- ps -ef`;
+    const containerCommand = container ? `-c ${container}` : '';
+    const execCmd = `exec ${pod} ${nsarg} ${containerCommand} -- ps -ef`;
     const execResult = await kubectl.invokeAsync(execCmd);
     if (execResult && execResult.code === 0) {
         /**
