@@ -9,12 +9,12 @@ export abstract class WebPanel {
         const column = vscode.window.activeTextEditor ? vscode.window.activeTextEditor.viewColumn : undefined;
 
         // If we already have a panel, show it.
-        const currentPanel = currentPanels[resource];
+        const currentPanel = currentPanels.get(resource);
         if (currentPanel) {
             currentPanel.setInfo(content, resource);
             currentPanel.update();
             currentPanel.panel.reveal(column);
-            return;
+            return currentPanel;
         }
         const panel = vscode.window.createWebviewPanel(viewType, title, column || vscode.ViewColumn.One, {
             enableScripts: true,
@@ -24,7 +24,7 @@ export abstract class WebPanel {
             ]
         });
         const result = fn(panel, content, resource);
-        currentPanels[resource] = result;
+        currentPanels.set(resource, result);
         return result;
     }
 
@@ -40,7 +40,7 @@ export abstract class WebPanel {
         this.update();
         this.panel.onDidDispose(() => this.dispose(currentPanels), null, this.disposables);
 
-        this.panel.onDidChangeViewState((e: any) => {
+        this.panel.onDidChangeViewState(() => {
             if (this.panel.visible) {
                 this.update();
             }
@@ -54,7 +54,7 @@ export abstract class WebPanel {
     }
 
     protected dispose<T extends WebPanel>(currentPanels: Map<string, T>) {
-        delete currentPanels[this.resource];
+        currentPanels.delete(this.resource);
 
         this.panel.dispose();
 
@@ -66,5 +66,5 @@ export abstract class WebPanel {
         }
     }
 
-    protected abstract update();
+    protected abstract update(): void;
 }

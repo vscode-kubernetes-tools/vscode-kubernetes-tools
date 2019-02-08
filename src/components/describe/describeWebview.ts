@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import { Dictionary } from '../../utils/dictionary';
 import { WebPanel } from '../webpanel/webpanel';
 
 export class DescribePanel extends WebPanel {

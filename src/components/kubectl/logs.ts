@@ -6,9 +6,7 @@ import * as kuberesources from '../../kuberesources';
 import { ResourceNode } from '../../explorer';
 import * as yaml from 'js-yaml';
 import * as kubectlUtils from '../../kubectlUtils';
-import { host } from '../../host';
 import { LogsPanel } from '../../components/logs/logsWebview';
-import { ShellResult } from '../../shell';
 
 export enum LogsDisplayMode {
     Show,
@@ -93,8 +91,8 @@ async function getLogsForContainer(
 
     try {
         const result = await kubectl.invokeAsync(cmd);
-        if (result.code !== 0) {
-            vscode.window.showErrorMessage(`Error reading logs: ${result.stderr}`);
+        if (!result || result.code !== 0) {
+            vscode.window.showErrorMessage(`Error reading logs: ${result ? result.stderr : undefined}`);
         } else {
             panel.setInfo(result.stdout, resource);
         }

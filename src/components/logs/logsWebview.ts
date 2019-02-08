@@ -34,7 +34,7 @@ export class LogsPanel extends WebPanel {
                 crossorigin="anonymous"></script>
         </head>
         <body>
-            <div style='position: absolute; top: 15px; left: 2%; width: 100%'>
+            <div style='position: fixed; top: 15px; left: 2%; width: 100%'>
                 <span style='position: absolute; left: 0%'>Show log entries</span>
                 <select id='mode' style='margin-bottom: 5px; position: absolute; left: 110px' onchange='eval()'>
                     <option value='all'>all</option>
