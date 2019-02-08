@@ -105,6 +105,11 @@ export async function getContexts(kubectl: Kubectl): Promise<KubectlContext[]> {
     });
 }
 
+export async function getCurrentContext(kubectl: Kubectl): Promise<KubectlContext | undefined> {
+    const contexts = await getContexts(kubectl);
+    return contexts.find((c) => c.active);
+}
+
 export async function deleteCluster(kubectl: Kubectl, context: KubectlContext): Promise<boolean> {
     const deleteClusterResult = await kubectl.invokeAsyncWithProgress(`config delete-cluster ${context.clusterName}`, "Deleting cluster...");
     if (!deleteClusterResult || deleteClusterResult.code !== 0) {

@@ -1054,6 +1054,7 @@
         "docker-file-parser": "^1.0.3",
         "dockerfile-parse": "^0.2.0",
         "download": "^6.2.5",
+        "fast-sha256": "^1.1.0",
         "fuzzysearch": "^1.0.3",
         "graceful-fs": "^4.1.11",
         "js-yaml": "^3.8.2",
