@@ -28,10 +28,6 @@ export class LogsPanel extends WebPanel {
         <head>
             <meta charset="UTF-8">
             <title>Kubernetes logs ${this.resource}</title>
-            <script
-                src="https://code.jquery.com/jquery-3.3.1.min.js"
-                integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
-                crossorigin="anonymous"></script>
         </head>
         <body>
             <div style='position: fixed; top: 15px; left: 2%; width: 100%'>
@@ -47,15 +43,36 @@ export class LogsPanel extends WebPanel {
                 <input style='left:350px; position: absolute' type='text' id='regexp' onkeyup='eval()' placeholder='Filter' size='25'/>
             </div>
             <div style='margin-top: 35px'>
-                <div id='content' style="overflow-y: scroll; width: 100%; height: 100%"></div>
+                <div style="overflow-y: scroll; width: 100%; height: 100%">
+                  <code>
+                    <pre id='content'>
+                    </pre>
+                  </code>
+                </div>
             </div>
             <script>
+              var lastMode = '';
+              var lastRegexp = '';
+              var renderNonce = 0;
+
               var orig = \`${this.content}\`.split('\\n');
+
               var eval = () => {
-                var regexp = $('#regexp').val().trim();
-                // TODO: This could really be improved to avoid the double loop and list construction.
+                setTimeout(evalInternal, 0);
+              };
+              var evalInternal = () => {
+                // We use this to abort renders in progress if a new render starts
+                renderNonce = Math.random();
+                var currentNonce = renderNonce;
+
+                var regexp = document.getElementById('regexp').value;
+                var mode = document.getElementById('mode').value;
+                if (lastMode == mode && lastRegexp == regexp) {
+                    return;
+                }
+                lastRegexp = regexp;
+                lastMode = mode;
                 if (regexp.length > 0) {
-                    var mode = $('#mode').val();
                     var regex = new RegExp(regexp);
                     switch (mode) {
                         case 'all':
@@ -86,7 +103,30 @@ export class LogsPanel extends WebPanel {
                 } else {
                     content = orig;
                 }
-                $('#content').html('<code><pre>' + content.join('\\n') + '</pre></code>');
+
+                var elt = document.getElementById('content');
+                elt.textContent = '';
+
+                // This is probably seems more complicated than necessary.
+                // However, rendering large blocks of text are _slow_ and kill the UI thread.
+                // So we split it up into manageable chunks to keep the UX lively.
+                // Of course the trouble is then we could interleave multiple different filters.
+                // So we use the random nonce to detect and pre-empt previous renders.
+                var ix = 0;
+                const step = 1000;
+                var fn = () => {
+                    if (renderNonce != currentNonce) {
+                        return;
+                    }
+                    if (ix >= content.length) {
+                        return;
+                    }
+                    var end = Math.min(content.length, ix + step);
+                    elt.appendChild(document.createTextNode(content.slice(ix, end).join('\\n')));
+                    ix += step;
+                    setTimeout(fn, 0);
+                }
+                fn();
               };
               eval();
             </script>
