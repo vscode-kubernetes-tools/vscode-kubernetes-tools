@@ -4,21 +4,22 @@ import * as sha256 from 'fast-sha256';
 import * as download from '../download/download';
 import { shell, Shell, Platform } from "../../shell";
 import { Dictionary } from '../../utils/dictionary';
-import { fs, FS } from '../../fs';
+import { fs } from '../../fs';
 import { Kubectl } from '../../kubectl';
 import { getCurrentContext } from '../../kubectlUtils';
 import { succeeded } from '../../errorable';
+import { FileBacked } from '../../utils/filebacked';
+import { getActiveKubeconfig } from '../config/config';
 
 const AUTO_VERSION_CACHE_FILE = getCachePath();
+const AUTO_VERSION_CACHE = new FileBacked<ClusterVersionCache>(fs, AUTO_VERSION_CACHE_FILE, defaultClusterVersionCache);
 
 interface ClusterVersionCache {
     readonly derivedFromKubeconfig: string | undefined;
     readonly versions: Dictionary<string>;
 }
 
-let AUTO_VERSION_CACHE: ClusterVersionCache | undefined;
-
-export async function ensureSuitableKubectl(kubectl: Kubectl /* TODO: chicken my eggs */, shell: Shell): Promise<string | undefined> {
+export async function ensureSuitableKubectl(kubectl: Kubectl, shell: Shell): Promise<string | undefined> {
     const context = await getCurrentContext(kubectl);
     if (!context) {
         return undefined;
@@ -74,39 +75,15 @@ function kubectlVersionPath(shell: Shell, serverVersion: string): string | undef
     return path.join(getBasePath(), serverVersion, binPath);
 }
 
-async function readCache(): Promise<ClusterVersionCache> {
-    if (!AUTO_VERSION_CACHE) {
-        AUTO_VERSION_CACHE = await readCacheFromFile();
-    }
-    if (!isCacheCurrent()) {
-        AUTO_VERSION_CACHE = { derivedFromKubeconfig: undefined, versions: {} };
-    }
-    return AUTO_VERSION_CACHE;
-}
-
-async function readCacheFromFile(): Promise<ClusterVersionCache> {
-    if (fs.existsAsync(AUTO_VERSION_CACHE_FILE)) {
-        return { derivedFromKubeconfig: undefined, versions: {} };
-    }
-    const cacheText = await fs.readTextFile(AUTO_VERSION_CACHE_FILE);
-    return JSON.parse(cacheText);
-}
-
-async function writeCache(): Promise<void> {
-    if (AUTO_VERSION_CACHE) {
-        const text = JSON.stringify(AUTO_VERSION_CACHE, undefined, 2);
-        await fs.writeTextFile(AUTO_VERSION_CACHE_FILE, text);
-    }
-}
-
-async function isCacheCurrent(): Promise<boolean> {
-    if (!await fs.existsAsync(KUBECONFIG_FILE)) {
+async function isCacheForCurrentKubeconfig(): Promise<boolean> {
+    const kubeconfigFile = getActiveKubeconfig() || process.env['KUBECONFIG'] || path.join(shell.home(), '.kube/kubeconfig');
+    if (!await fs.existsAsync(kubeconfigFile)) {
         return false;
     }
-    const kubeconfig = await fs.readFileAsync(KUBECONFIG_FILE);
+    const kubeconfig = await fs.readFileAsync(kubeconfigFile);
     const kubeconfigHash = sha256.hash(kubeconfig);
     const kubeconfigHashText = hashToString(kubeconfigHash);
-    const cacheKubeconfigHashText = AUTO_VERSION_CACHE!.derivedFromKubeconfig;
+    const cacheKubeconfigHashText = (await AUTO_VERSION_CACHE.get()).derivedFromKubeconfig;
     return kubeconfigHashText === cacheKubeconfigHashText;
 }
 
@@ -115,7 +92,10 @@ function hashToString(hash: Uint8Array): string {
 }
 
 async function getServerVersion(kubectl: Kubectl, context: string): Promise<string | undefined> {
-    const cachedVersions = await readCache();
+    if (!(await isCacheForCurrentKubeconfig())) {
+        await AUTO_VERSION_CACHE.invalidate();
+    }
+    const cachedVersions = await AUTO_VERSION_CACHE.get();
     if (cachedVersions.versions[context]) {
         return cachedVersions.versions[context];
     }
@@ -125,7 +105,7 @@ async function getServerVersion(kubectl: Kubectl, context: string): Promise<stri
         if (versionInfo && versionInfo.serverVersion) {
             const serverVersion: string = versionInfo.serverVersion.gitVersion;
             cachedVersions.versions[context] = serverVersion;
-            await writeCache();
+            await AUTO_VERSION_CACHE.update(cachedVersions);
             return serverVersion;
         }
     }
@@ -157,31 +137,6 @@ function formatBin(tool: string, platform: Platform): string | null {
     return toolPath;
 }
 
-class FileBacked<T> {
-    private value: T | undefined;
-
-    constructor(
-        private readonly fs: FS,
-        private readonly filename: string,
-        private readonly defaultValue: () => T)
-        {}
-
-    async read(): Promise<T> {
-        if (this.value) {
-            return this.value;
-        }
-        if (this.fs.existsAsync(this.filename)) {
-            const text = await this.fs.readTextFile(this.filename);
-            this.value = JSON.parse(text);
-            return this.value!;
-        }
-        await this.update(this.defaultValue());
-        return this.value!;
-    }
-
-    async update(value: T): Promise<void> {
-        this.value = value;
-        const text = JSON.stringify(this.value, undefined, 2);
-        await this.fs.writeTextFile(this.filename, text);
-    }
+function defaultClusterVersionCache(): ClusterVersionCache {
+    return { derivedFromKubeconfig: undefined, versions: {} };
 }

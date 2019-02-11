@@ -36,13 +36,22 @@ interface Context {
     readonly fs: FS;
     readonly shell: Shell;
     readonly installDependenciesCallback: () => void;
+    readonly pathfinder: (() => Promise<string>) | undefined;
     binFound: boolean;
     binPath: string;
 }
 
 class KubectlImpl implements Kubectl {
     constructor(host: Host, fs: FS, shell: Shell, installDependenciesCallback: () => void, kubectlFound: boolean) {
-        this.context = { host : host, fs : fs, shell : shell, installDependenciesCallback : installDependenciesCallback, binFound : kubectlFound, binPath : 'kubectl' };
+        this.context = {
+            host : host,
+            fs : fs,
+            shell : shell,
+            installDependenciesCallback : installDependenciesCallback,
+            pathfinder: undefined,
+            binFound : kubectlFound,
+            binPath : 'kubectl'
+        };
     }
 
     private readonly context: Context;
@@ -118,7 +127,7 @@ export enum CheckPresentMessageMode {
 }
 
 async function checkPresent(context: Context, errorMessageMode: CheckPresentMessageMode): Promise<boolean> {
-    if (context.binFound) {
+    if (context.binFound || context.pathfinder) {
         return true;
     }
 
@@ -163,7 +172,7 @@ async function invokeWithProgress(context: Context, command: string, progressMes
 
 async function invokeAsync(context: Context, command: string, stdin?: string): Promise<ShellResult | undefined> {
     if (await checkPresent(context, CheckPresentMessageMode.Command)) {
-        const bin = baseKubectlPath(context);
+        const bin = await baseKubectlPath(context);
         const cmd = `${bin} ${command}`;
         const sr = await context.shell.exec(cmd, stdin);
         if (sr && sr.code !== 0) {
@@ -199,7 +208,7 @@ async function invokeAsyncWithProgress(context: Context, command: string, progre
 
 async function spawnAsChild(context: Context, command: string[]): Promise<ChildProcess | undefined> {
     if (await checkPresent(context, CheckPresentMessageMode.Command)) {
-        return spawnChildProcess(path(context), command, context.shell.execOpts());
+        return spawnChildProcess(await path(context), command, context.shell.execOpts());
     }
     return undefined;
 }
@@ -219,7 +228,7 @@ async function invokeInTerminal(context: Context, command: string, pipeTo: strin
 
 async function runAsTerminal(context: Context, command: string[], terminalName: string): Promise<void> {
     if (await checkPresent(context, CheckPresentMessageMode.Command)) {
-        let execPath = path(context);
+        let execPath = await path(context);
         const cmd = command;
         if (getUseWsl()) {
             cmd.unshift(execPath);
@@ -233,7 +242,7 @@ async function runAsTerminal(context: Context, command: string[], terminalName: 
 
 async function kubectlInternal(context: Context, command: string, handler: ShellHandler): Promise<void> {
     if (await checkPresent(context, CheckPresentMessageMode.Command)) {
-        const bin = baseKubectlPath(context);
+        const bin = await baseKubectlPath(context);
         const cmd = `${bin} ${command}`;
         const sr = await context.shell.exec(cmd);
         if (sr) {
@@ -255,7 +264,10 @@ function kubectlDone(context: Context): ShellHandler {
     };
 }
 
-function baseKubectlPath(context: Context): string {
+async function baseKubectlPath(context: Context): Promise<string> {
+    if (context.pathfinder) {
+        return await context.pathfinder();
+    }
     let bin = getToolPath(context.host, context.shell, 'kubectl');
     if (!bin) {
         bin = 'kubectl';
@@ -307,7 +319,7 @@ async function asJson<T>(context: Context, command: string): Promise<Errorable<T
     return { succeeded: false, error: [ shellResult.stderr ] };
 }
 
-function path(context: Context): string {
-    const bin = baseKubectlPath(context);
+async function path(context: Context): Promise<string> {
+    const bin = await baseKubectlPath(context);
     return binutil.execPath(context.shell, bin);
 }
