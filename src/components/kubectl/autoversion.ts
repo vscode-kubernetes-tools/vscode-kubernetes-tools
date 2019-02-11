@@ -80,6 +80,11 @@ async function readCache(): Promise<ClusterVersionCache> {
     return JSON.parse(cacheText);
 }
 
+async function writeCache(cache: ClusterVersionCache): Promise<void> {
+    const text = JSON.stringify(cache, undefined, 2);
+    await fs.writeTextFile(AUTO_VERSION_CACHE_FILE, text);
+}
+
 async function isCacheCurrent(): Promise<boolean> {
     if (!await fs.existsAsync(KUBECONFIG_FILE)) {
         return false;
@@ -104,9 +109,12 @@ async function getServerVersion(kubectl: Kubectl, context: string): Promise<stri
     const sr = await kubectl.invokeAsync('version -o json');
     if (sr && sr.code === 0) {
         const versionInfo = JSON.parse(sr.stdout);
-        const serverVersion: string = versionInfo.serverVersion.gitVersion;
-        // TODO: write it to the cache
-        return serverVersion;
+        if (versionInfo && versionInfo.serverVersion) {
+            const serverVersion: string = versionInfo.serverVersion.gitVersion;
+            cachedVersions.versions[context] = serverVersion;
+            await writeCache(cachedVersions);
+            return serverVersion;
+        }
     }
     return undefined;
 }
