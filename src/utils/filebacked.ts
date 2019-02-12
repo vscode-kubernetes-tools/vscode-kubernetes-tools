@@ -13,7 +13,7 @@ export class FileBacked<T> {
         if (this.value) {
             return this.value;
         }
-        if (this.fs.existsAsync(this.filename)) {
+        if (await this.fs.existsAsync(this.filename)) {
             const text = await this.fs.readTextFile(this.filename);
             this.value = JSON.parse(text);
             return this.value!;
@@ -26,10 +26,5 @@ export class FileBacked<T> {
         this.value = value;
         const text = JSON.stringify(this.value, undefined, 2);
         await this.fs.writeTextFile(this.filename, text);
-    }
-
-    async invalidate(): Promise<void> {
-        const value = this.defaultValue();
-        await this.update(value);
     }
 }

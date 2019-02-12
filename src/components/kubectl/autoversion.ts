@@ -10,6 +10,8 @@ import { getCurrentContext } from '../../kubectlUtils';
 import { succeeded } from '../../errorable';
 import { FileBacked } from '../../utils/filebacked';
 import { getActiveKubeconfig } from '../config/config';
+import { Host } from '../../host';
+import { mkdirpAsync } from '../../utils/mkdirp';
 
 const AUTO_VERSION_CACHE_FILE = getCachePath();
 const AUTO_VERSION_CACHE = new FileBacked<ClusterVersionCache>(fs, AUTO_VERSION_CACHE_FILE, defaultClusterVersionCache);
@@ -19,7 +21,10 @@ interface ClusterVersionCache {
     readonly versions: Dictionary<string>;
 }
 
-export async function ensureSuitableKubectl(kubectl: Kubectl, shell: Shell): Promise<string | undefined> {
+export async function ensureSuitableKubectl(kubectl: Kubectl, shell: Shell, host: Host): Promise<string | undefined> {
+    if (!(await fs.existsAsync(getBasePath()))) {
+        await mkdirpAsync(getBasePath());
+    }
     const context = await getCurrentContext(kubectl);
     if (!context) {
         return undefined;
@@ -29,7 +34,7 @@ export async function ensureSuitableKubectl(kubectl: Kubectl, shell: Shell): Pro
         return undefined;
     }
     if (!(await gotKubectlVersion(shell, serverVersion))) {
-        const downloaded = await downloadKubectlVersion(shell, serverVersion);
+        const downloaded = await downloadKubectlVersion(shell, host, serverVersion);
         if (!downloaded) {
             return undefined;
         }
@@ -54,7 +59,7 @@ async function gotKubectlVersion(shell: Shell, serverVersion: string): Promise<b
 }
 
 // TODO: deduplicate with installer.ts
-async function downloadKubectlVersion(shell: Shell, serverVersion: string): Promise<boolean> {
+async function downloadKubectlVersion(shell: Shell, host: Host, serverVersion: string): Promise<boolean> {
     const binPath = kubectlVersionPath(shell, serverVersion);
     if (!binPath) {
         return false;
@@ -62,7 +67,9 @@ async function downloadKubectlVersion(shell: Shell, serverVersion: string): Prom
     const os = platformUrlString(shell.platform())!;
     const binFile = (shell.isUnix()) ? 'kubectl' : 'kubectl.exe';
     const kubectlUrl = `https://storage.googleapis.com/kubernetes-release/release/${serverVersion}/bin/${os}/amd64/${binFile}`;
-    const downloadResult = await download.to(kubectlUrl, binPath);
+    const downloadResult = await host.longRunning(`Downloading kubectl ${serverVersion}`, () =>
+        download.to(kubectlUrl, binPath)
+    );
     return succeeded(downloadResult);
 }
 
@@ -75,16 +82,26 @@ function kubectlVersionPath(shell: Shell, serverVersion: string): string | undef
     return path.join(getBasePath(), serverVersion, binPath);
 }
 
-async function isCacheForCurrentKubeconfig(): Promise<boolean> {
-    const kubeconfigFile = getActiveKubeconfig() || process.env['KUBECONFIG'] || path.join(shell.home(), '.kube/kubeconfig');
-    if (!await fs.existsAsync(kubeconfigFile)) {
-        return false;
+async function ensureCacheIsForCurrentKubeconfig(): Promise<void> {
+    const kubeconfigHashText = await getKubeconfigPathHash();
+    if (!kubeconfigHashText) {
+        AUTO_VERSION_CACHE.update({ derivedFromKubeconfig: undefined, versions: {} });
+        return;
     }
-    const kubeconfig = await fs.readFileAsync(kubeconfigFile);
-    const kubeconfigHash = sha256.hash(kubeconfig);
-    const kubeconfigHashText = hashToString(kubeconfigHash);
     const cacheKubeconfigHashText = (await AUTO_VERSION_CACHE.get()).derivedFromKubeconfig;
-    return kubeconfigHashText === cacheKubeconfigHashText;
+    if (kubeconfigHashText !== cacheKubeconfigHashText) {
+        AUTO_VERSION_CACHE.update({ derivedFromKubeconfig: kubeconfigHashText, versions: {} });
+    }
+}
+
+async function getKubeconfigPathHash(): Promise<string | undefined> {
+    const kubeconfigPath = getActiveKubeconfig() || process.env['KUBECONFIG'] || path.join(shell.home(), '.kube/config');
+    if (!await fs.existsAsync(kubeconfigPath)) {
+        return undefined;
+    }
+    const kubeconfigPathHash = sha256.hash(Buffer.from(kubeconfigPath));
+    const kubeconfigHashText = hashToString(kubeconfigPathHash);
+    return kubeconfigHashText;
 }
 
 function hashToString(hash: Uint8Array): string {
@@ -92,9 +109,7 @@ function hashToString(hash: Uint8Array): string {
 }
 
 async function getServerVersion(kubectl: Kubectl, context: string): Promise<string | undefined> {
-    if (!(await isCacheForCurrentKubeconfig())) {
-        await AUTO_VERSION_CACHE.invalidate();
-    }
+    await ensureCacheIsForCurrentKubeconfig();
     const cachedVersions = await AUTO_VERSION_CACHE.get();
     if (cachedVersions.versions[context]) {
         return cachedVersions.versions[context];

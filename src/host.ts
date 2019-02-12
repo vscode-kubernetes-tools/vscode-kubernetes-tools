@@ -18,6 +18,7 @@ export interface Host {
     showDocument(uri: vscode.Uri): Promise<vscode.TextDocument>;
     readDocument(uri: vscode.Uri): Promise<vscode.TextDocument>;
     selectRootFolder(): Promise<string | undefined>;
+    longRunning<T>(title: string, action: () => Promise<T>): Promise<T>;
 }
 
 export const host: Host = {
@@ -34,7 +35,8 @@ export const host: Host = {
     activeDocument : activeDocument,
     showDocument : showDocument,
     readDocument : readDocument,
-    selectRootFolder : selectRootFolder
+    selectRootFolder : selectRootFolder,
+    longRunning : longRunning
 };
 
 function showInputBox(options: vscode.InputBoxOptions, token?: vscode.CancellationToken): Thenable<string | undefined> {
@@ -134,4 +136,12 @@ async function selectRootFolder(): Promise<string | undefined> {
         return undefined;
     }
     return folder.uri.fsPath;
+}
+
+async function longRunning<T>(title: string, action: () => Promise<T>): Promise<T> {
+    const options = {
+        location: vscode.ProgressLocation.Notification,
+        title: title
+    };
+    return await vscode.window.withProgress(options, (_) => action());
 }

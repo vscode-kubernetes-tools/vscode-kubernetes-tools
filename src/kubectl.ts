@@ -8,6 +8,7 @@ import { Errorable } from './errorable';
 import { parseLineOutput } from './outputUtils';
 import * as compatibility from './components/kubectl/compatibility';
 import { getToolPath, affectsUs, getUseWsl } from './components/config/config';
+import { ensureSuitableKubectl } from './components/kubectl/autoversion';
 
 const KUBECTL_OUTPUT_COLUMN_SEPARATOR = /\s+/g;
 
@@ -42,13 +43,13 @@ interface Context {
 }
 
 class KubectlImpl implements Kubectl {
-    constructor(host: Host, fs: FS, shell: Shell, installDependenciesCallback: () => void, kubectlFound: boolean) {
+    constructor(host: Host, fs: FS, shell: Shell, installDependenciesCallback: () => void, pathfinder: (() => Promise<string>) | undefined, kubectlFound: boolean) {
         this.context = {
             host : host,
             fs : fs,
             shell : shell,
             installDependenciesCallback : installDependenciesCallback,
-            pathfinder: undefined,
+            pathfinder: pathfinder,
             binFound : kubectlFound,
             binPath : 'kubectl'
         };
@@ -116,8 +117,14 @@ class KubectlImpl implements Kubectl {
     }
 }
 
-export function create(host: Host, fs: FS, shell: Shell, installDependenciesCallback: () => void): Kubectl {
-    return new KubectlImpl(host, fs, shell, installDependenciesCallback, false);
+export function createNaive(host: Host, fs: FS, shell: Shell, installDependenciesCallback: () => void): Kubectl {
+    return new KubectlImpl(host, fs, shell, installDependenciesCallback, undefined, false);
+}
+
+export function createAutoVersioned(host: Host, fs: FS, shell: Shell, installDependenciesCallback: () => void): Kubectl {
+    const kcnaive = createNaive(host, fs, shell, installDependenciesCallback);
+    const pathfinder = async () => (await ensureSuitableKubectl(kcnaive, shell, host)) || 'kubectl';
+    return new KubectlImpl(host, fs, shell, installDependenciesCallback, pathfinder, false);
 }
 
 export enum CheckPresentMessageMode {

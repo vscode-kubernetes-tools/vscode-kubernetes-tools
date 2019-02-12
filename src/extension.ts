@@ -28,7 +28,7 @@ import { useNamespaceKubernetes } from './components/kubectl/namespace';
 import { EventDisplayMode, getEvents } from './components/kubectl/events';
 import * as docker from './docker';
 import { kubeChannel } from './kubeChannel';
-import { CheckPresentMessageMode, create as kubectlCreate } from './kubectl';
+import { CheckPresentMessageMode, createAutoVersioned as kubectlCreate } from './kubectl';
 import * as kubectlUtils from './kubectlUtils';
 import * as explorer from './explorer';
 import * as helmRepoExplorer from './helm.repoExplorer';
