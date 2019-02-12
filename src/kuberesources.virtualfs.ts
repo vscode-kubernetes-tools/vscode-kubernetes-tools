@@ -65,8 +65,8 @@ export class KubernetesResourceVirtualFileSystemProvider implements FileSystemPr
         const query = querystring.parse(uri.query);
 
         const outputFormat = config.getOutputFormat();
-        const value = query.value;
-        const ns = query.ns;
+        const value = query.value as string;
+        const ns = query.ns as string | undefined;
         const resourceAuthority = uri.authority;
 
         const sr = await this.execLoadResource(resourceAuthority, ns, value, outputFormat);

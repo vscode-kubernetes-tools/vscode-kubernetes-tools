@@ -17,7 +17,7 @@ export class DraftConfigurationProvider implements DebugConfigurationProvider {
                 session.start(<NodeJS.ReadableStream>socket, socket);
             }).listen(0);
         }
-        config.debugServer = this.server.address().port;
+        config.debugServer = extractPort(this.server.address());
 
         return config;
     }
@@ -27,4 +27,8 @@ export class DraftConfigurationProvider implements DebugConfigurationProvider {
             this.server.close();
         }
     }
+}
+
+function extractPort(address: string | Net.AddressInfo): number {
+    return (address as Net.AddressInfo).port;  // always an AddressInfo unless listening on a pipe or Unix domain socket
 }
