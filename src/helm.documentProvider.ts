@@ -114,7 +114,7 @@ export class HelmTemplatePreviewDocumentProvider implements vscode.TextDocumentC
             // First, we need to get the top-most chart:
             exec.pickChartForFile(tpl, { warnIfNoCharts: true }, (chartPath) => {
                 // We need the relative path for 'helm template'
-                if (!fs.statSync(chartPath).isDirectory) {
+                if (!fs.statSync(chartPath).isDirectory()) {
                     chartPath = filepath.dirname(chartPath);
                 }
                 const reltpl = filepath.relative(chartPath, tpl);
