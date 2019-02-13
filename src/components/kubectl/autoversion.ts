@@ -2,7 +2,7 @@ import * as path from 'path';
 import * as sha256 from 'fast-sha256';
 
 import * as download from '../download/download';
-import { shell, Shell, Platform } from "../../shell";
+import { Shell, shell } from "../../shell";
 import { Dictionary } from '../../utils/dictionary';
 import { fs } from '../../fs';
 import { Kubectl } from '../../kubectl';
@@ -12,8 +12,9 @@ import { FileBacked } from '../../utils/filebacked';
 import { getActiveKubeconfig } from '../config/config';
 import { Host } from '../../host';
 import { mkdirpAsync } from '../../utils/mkdirp';
+import { platformUrlString, formatBin } from '../installer/installationlayout';
 
-const AUTO_VERSION_CACHE_FILE = getCachePath();
+const AUTO_VERSION_CACHE_FILE = getCachePath(shell);  // TODO: awkward that we're using a hardwired shell here but parameterising it elsewhere
 const AUTO_VERSION_CACHE = new FileBacked<ClusterVersionCache>(fs, AUTO_VERSION_CACHE_FILE, defaultClusterVersionCache);
 
 interface ClusterVersionCache {
@@ -22,8 +23,8 @@ interface ClusterVersionCache {
 }
 
 export async function ensureSuitableKubectl(kubectl: Kubectl, shell: Shell, host: Host): Promise<string | undefined> {
-    if (!(await fs.existsAsync(getBasePath()))) {
-        await mkdirpAsync(getBasePath());
+    if (!(await fs.existsAsync(getBasePath(shell)))) {
+        await mkdirpAsync(getBasePath(shell));
     }
     const context = await getCurrentContext(kubectl);
     if (!context) {
@@ -42,12 +43,12 @@ export async function ensureSuitableKubectl(kubectl: Kubectl, shell: Shell, host
     return kubectlVersionPath(shell, serverVersion);
 }
 
-function getBasePath(): string {
+function getBasePath(shell: Shell): string {
     return path.join(shell.home(), `.vs-kubernetes/tools/kubectl/autoversion`);
 }
 
-function getCachePath(): string {
-    return path.join(getBasePath(), `cache.json`);
+function getCachePath(shell: Shell): string {
+    return path.join(getBasePath(shell), `cache.json`);
 }
 
 async function gotKubectlVersion(shell: Shell, serverVersion: string): Promise<boolean> {
@@ -81,7 +82,7 @@ function kubectlVersionPath(shell: Shell, serverVersion: string): string | undef
     if (!binPath) {
         return undefined;  // should never happen
     }
-    return path.join(getBasePath(), serverVersion, binPath);
+    return path.join(getBasePath(shell), serverVersion, binPath);
 }
 
 async function ensureCacheIsForCurrentKubeconfig(): Promise<void> {
@@ -127,31 +128,6 @@ async function getServerVersion(kubectl: Kubectl, context: string): Promise<stri
         }
     }
     return undefined;
-}
-
-// TODO: deduplicate from installer.ts
-function platformUrlString(platform: Platform, supported?: Platform[]): string | null {
-    if (supported && supported.indexOf(platform) < 0) {
-        return null;
-    }
-    switch (platform) {
-        case Platform.Windows: return 'windows';
-        case Platform.MacOS: return 'darwin';
-        case Platform.Linux: return 'linux';
-        default: return null;
-    }
-}
-
-function formatBin(tool: string, platform: Platform): string | null {
-    const platformString = platformUrlString(platform);
-    if (!platformString) {
-        return null;
-    }
-    const toolPath = `${platformString}-amd64/${tool}`;
-    if (platform === Platform.Windows) {
-        return toolPath + '.exe';
-    }
-    return toolPath;
 }
 
 function defaultClusterVersionCache(): ClusterVersionCache {
