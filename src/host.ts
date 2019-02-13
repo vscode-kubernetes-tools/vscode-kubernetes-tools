@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { shellEnvironment } from './shell';
 import { showWorkspaceFolderPick } from './hostutils';
+import { Dictionary } from './utils/dictionary';
 
 export interface Host {
     showErrorMessage(message: string, ...items: string[]): Thenable<string | undefined>;
@@ -18,7 +19,7 @@ export interface Host {
     showDocument(uri: vscode.Uri): Promise<vscode.TextDocument>;
     readDocument(uri: vscode.Uri): Promise<vscode.TextDocument>;
     selectRootFolder(): Promise<string | undefined>;
-    longRunning<T>(title: string, action: () => Promise<T>): Promise<T>;
+    longRunning<T>(uiOptions: string | LongRunningUIOptions, action: () => Promise<T>): Promise<T>;
 }
 
 export const host: Host = {
@@ -38,6 +39,11 @@ export const host: Host = {
     selectRootFolder : selectRootFolder,
     longRunning : longRunning
 };
+
+export interface LongRunningUIOptions {
+    readonly title: string;
+    readonly operationKey?: string;
+}
 
 function showInputBox(options: vscode.InputBoxOptions, token?: vscode.CancellationToken): Thenable<string | undefined> {
     return vscode.window.showInputBox(options, token);
@@ -138,10 +144,43 @@ async function selectRootFolder(): Promise<string | undefined> {
     return folder.uri.fsPath;
 }
 
-async function longRunning<T>(title: string, action: () => Promise<T>): Promise<T> {
+const ACTIVE_LONG_RUNNING_OPERATIONS = Dictionary.of<boolean>();
+
+async function longRunning<T>(uiOptions: string | LongRunningUIOptions, action: () => Promise<T>): Promise<T> {
+    const uiOptionsObj = uiOptionsObjectOf(uiOptions);
     const options = {
         location: vscode.ProgressLocation.Notification,
-        title: title
+        title: uiOptionsObj.title
     };
-    return await vscode.window.withProgress(options, (_) => action());
+    return await underLongRunningOperationKeyGuard(uiOptionsObj.operationKey, async (alreadyShowingUI) =>
+        alreadyShowingUI ?
+            await action() :
+            await vscode.window.withProgress(options, (_) => action())
+    );
+}
+
+async function underLongRunningOperationKeyGuard<T>(operationKey: string | undefined, action: (alreadyShowingUI: boolean) => Promise<T>): Promise<T> {
+    const alreadyShowingUI = !!operationKey && (ACTIVE_LONG_RUNNING_OPERATIONS[operationKey] || false);
+    if (operationKey) {
+        ACTIVE_LONG_RUNNING_OPERATIONS[operationKey] = true;
+    }
+    try {
+        const result = await action(alreadyShowingUI);
+        return result;
+    } finally {
+        if (operationKey) {
+            delete ACTIVE_LONG_RUNNING_OPERATIONS[operationKey];
+        }
+    }
+}
+
+function uiOptionsObjectOf(uiOptions: string | LongRunningUIOptions): LongRunningUIOptions {
+    if (isLongRunningUIOptions(uiOptions)) {
+        return uiOptions;
+    }
+    return { title: uiOptions };
+}
+
+function isLongRunningUIOptions(obj: string | LongRunningUIOptions): obj is LongRunningUIOptions {
+    return !!((obj as LongRunningUIOptions).title);
 }

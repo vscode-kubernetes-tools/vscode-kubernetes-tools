@@ -67,8 +67,10 @@ async function downloadKubectlVersion(shell: Shell, host: Host, serverVersion: s
     const os = platformUrlString(shell.platform())!;
     const binFile = (shell.isUnix()) ? 'kubectl' : 'kubectl.exe';
     const kubectlUrl = `https://storage.googleapis.com/kubernetes-release/release/${serverVersion}/bin/${os}/amd64/${binFile}`;
-    const downloadResult = await host.longRunning(`Downloading kubectl ${serverVersion}`, () =>
-        download.to(kubectlUrl, binPath)
+    // TODO: this feels a bit ugly and over-complicated - should perhaps be up to download.once to manage
+    // showing the progress UI so we don't need all the operationKey mess
+    const downloadResult = await host.longRunning({ title: `Downloading kubectl ${serverVersion}`, operationKey: binPath }, () =>
+        download.once(kubectlUrl, binPath)
     );
     return succeeded(downloadResult);
 }
