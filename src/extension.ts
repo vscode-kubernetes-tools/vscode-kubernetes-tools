@@ -28,7 +28,7 @@ import { useNamespaceKubernetes } from './components/kubectl/namespace';
 import { EventDisplayMode, getEvents } from './components/kubectl/events';
 import * as docker from './docker';
 import { kubeChannel } from './kubeChannel';
-import { CheckPresentMessageMode, createAutoVersioned as kubectlCreate } from './kubectl';
+import { CheckPresentMessageMode, create as kubectlCreate } from './kubectl';
 import * as kubectlUtils from './kubectlUtils';
 import * as explorer from './explorer';
 import * as helmRepoExplorer from './helm.repoExplorer';
@@ -81,7 +81,7 @@ let swaggerSpecPromise: Promise<explainer.SwaggerModel | undefined> | null = nul
 
 const kubernetesDiagnostics = vscode.languages.createDiagnosticCollection("Kubernetes");
 
-const kubectl = kubectlCreate(host, fs, shell, installDependencies);
+const kubectl = kubectlCreate(config.getKubectlVersioning(), host, fs, shell, installDependencies);
 const draft = draftCreate(host, fs, shell, installDependencies);
 const minikube = minikubeCreate(host, fs, shell, installDependencies);
 const clusterProviderRegistry = clusterproviderregistry.get();

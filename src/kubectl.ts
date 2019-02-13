@@ -7,7 +7,7 @@ import * as binutil from './binutil';
 import { Errorable } from './errorable';
 import { parseLineOutput } from './outputUtils';
 import * as compatibility from './components/kubectl/compatibility';
-import { getToolPath, affectsUs, getUseWsl } from './components/config/config';
+import { getToolPath, affectsUs, getUseWsl, KubectlVersioning } from './components/config/config';
 import { ensureSuitableKubectl } from './components/kubectl/autoversion';
 
 const KUBECTL_OUTPUT_COLUMN_SEPARATOR = /\s+/g;
@@ -117,13 +117,20 @@ class KubectlImpl implements Kubectl {
     }
 }
 
-export function createNaive(host: Host, fs: FS, shell: Shell, installDependenciesCallback: () => void): Kubectl {
+export function create(versioning: KubectlVersioning, host: Host, fs: FS, shell: Shell, installDependenciesCallback: () => void): Kubectl {
+    if (versioning === KubectlVersioning.Infer) {
+        return createAutoVersioned(host, fs, shell, installDependenciesCallback);
+    }
+    return createSingleVersion(host, fs, shell, installDependenciesCallback);
+}
+
+function createSingleVersion(host: Host, fs: FS, shell: Shell, installDependenciesCallback: () => void): Kubectl {
     return new KubectlImpl(host, fs, shell, installDependenciesCallback, undefined, false);
 }
 
-export function createAutoVersioned(host: Host, fs: FS, shell: Shell, installDependenciesCallback: () => void): Kubectl {
-    const kcnaive = createNaive(host, fs, shell, installDependenciesCallback);
-    const pathfinder = async () => (await ensureSuitableKubectl(kcnaive, shell, host)) || 'kubectl';
+function createAutoVersioned(host: Host, fs: FS, shell: Shell, installDependenciesCallback: () => void): Kubectl {
+    const bootstrapper = createSingleVersion(host, fs, shell, installDependenciesCallback);
+    const pathfinder = async () => (await ensureSuitableKubectl(bootstrapper, shell, host)) || 'kubectl';
     return new KubectlImpl(host, fs, shell, installDependenciesCallback, pathfinder, false);
 }
 
