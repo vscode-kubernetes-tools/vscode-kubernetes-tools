@@ -42,7 +42,7 @@ export class LogsPanel extends WebPanel {
                 <span style='position: absolute; left: 240px'>Match expression</span>
                 <input style='left:350px; position: absolute' type='text' id='regexp' onkeyup='eval()' placeholder='Filter' size='25'/>
             </div>
-            <div style='margin-top: 35px'>
+            <div style='position: absolute; top: 55px; bottom: 10px; overflow-y: scroll'>
                 <div style="overflow-y: scroll; width: 100%; height: 100%">
                   <code>
                     <pre id='content'>
