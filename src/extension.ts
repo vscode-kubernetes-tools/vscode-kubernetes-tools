@@ -73,6 +73,7 @@ import { HelmDocumentSymbolProvider } from './helm.symbolProvider';
 import { findParentYaml } from './yaml-support/yaml-navigation';
 import { linters } from './components/lint/linters';
 import { runClusterWizard } from './components/clusterprovider/clusterproviderserver';
+import { timestampText } from './utils/naming';
 
 let explainActive = false;
 let swaggerSpecPromise: Promise<explainer.SwaggerModel | undefined> | null = null;
@@ -2011,9 +2012,25 @@ async function kubernetesLint(document: vscode.TextDocument): Promise<void> {
 
 async function cronJobRunNow(target?: any): Promise<void> {
     const name = await resourceNameFromTarget(target, 'CronJob to run now');
-    if (name) {
-        await vscode.window.showInformationMessage(`CRON ME TILL I CREAK: ${name}`);
+    if (!name) {
+        return;
     }
+
+    const proposedJobName = `${name}-${timestampText()}`;
+    const jobName = await vscode.window.showInputBox({ prompt: "Choose a name for the job", value: proposedJobName });
+    if (!jobName) {
+        return;
+    }
+
+    const nsarg = await kubectlUtils.currentNamespaceArg(kubectl);
+    const sr = await kubectl.invokeAsync(`create job ${jobName} ${nsarg} --from=cronjob/${name}`);
+
+    if (!sr || sr.code !== 0) {
+        vscode.window.showErrorMessage(`Error creating job: ${sr ? sr.stderr : 'Unable to run kubectl'}`);
+        return;
+    }
+
+    vscode.window.showInformationMessage(`Created job ${jobName}`);  // TODO: consider adding button to open logs or something
 }
 
 async function resourceNameFromTarget(target: string | explorer.ResourceNode | undefined, pickPrompt: string): Promise<string | undefined> {
