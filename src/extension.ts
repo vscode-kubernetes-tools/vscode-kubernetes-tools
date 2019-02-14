@@ -74,6 +74,7 @@ import { findParentYaml } from './yaml-support/yaml-navigation';
 import { linters } from './components/lint/linters';
 import { runClusterWizard } from './components/clusterprovider/clusterproviderserver';
 import { timestampText } from './utils/naming';
+import { ContainerContainer } from './utils/containercontainer';
 
 let explainActive = false;
 let swaggerSpecPromise: Promise<explainer.SwaggerModel | undefined> | null = null;
@@ -1091,18 +1092,18 @@ function parseName(line: string): string {
     return line.split(' ')[0];
 }
 
-async function getContainers(pod: PodSummary): Promise<Container[] | undefined> {
+async function getContainers(resource: ContainerContainer): Promise<Container[] | undefined> {
     const q = shell.isWindows() ? `'` : `"`;
     const lit = (l: string) => `{${q}${l}${q}}`;
-    const query = `${lit("NAME\\tIMAGE\\n")}{range .spec.containers[*]}{.name}${lit("\\t")}{.image}${lit("\\n")}{end}`;
+    const query = `${lit("NAME\\tIMAGE\\n")}{range ${resource.containersQueryPath}.containers[*]}{.name}${lit("\\t")}{.image}${lit("\\n")}{end}`;
     const queryArg = shell.isWindows() ? `"${query}"` : `'${query}'`;
-    let cmd = `get pod/${pod.name} -o jsonpath=${queryArg}`;
-    if (pod.namespace && pod.namespace.length > 0) {
-        cmd += ' --namespace=' + pod.namespace;
+    let cmd = `get ${resource.kindName} -o jsonpath=${queryArg}`;
+    if (resource.namespace && resource.namespace.length > 0) {
+        cmd += ' --namespace=' + resource.namespace;
     }
     const containers = await kubectl.asLines(cmd);
     if (failed(containers)) {
-        vscode.window.showErrorMessage("Failed to get containers in pod: " + containers.error[0]);
+        vscode.window.showErrorMessage("Failed to get containers in resource: " + containers.error[0]);
         return undefined;
     }
 
@@ -1214,11 +1215,16 @@ function summary(pod: Pod): PodSummary {
 }
 
 export async function selectContainerForPod(pod: PodSummary): Promise<Container | null> {
-    if (!pod) {
+    const resource = ContainerContainer.fromPod(pod);
+    return selectContainerForResource(resource);
+}
+
+export async function selectContainerForResource(resource: ContainerContainer): Promise<Container | null> {
+    if (!resource) {
         return null;
     }
 
-    const containers = (pod.spec && pod.spec.containers) ? pod.spec.containers : await getContainers(pod);
+    const containers = (resource.containers) ? resource.containers : await getContainers(resource);
 
     if (!containers) {
         return null;
