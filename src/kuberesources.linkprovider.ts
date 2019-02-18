@@ -171,7 +171,7 @@ function getLinkUriFromPVC(node: yl.YamlMappingItem): vscode.Uri | undefined {
 
 function k8sKind(document: vscode.TextDocument): string {
     const query = querystring.parse(document.uri.query);
-    const k8sid: string = query.value;
+    const k8sid = query.value as string;
     const kindSepIndex = k8sid.indexOf('/');
     return k8sid.substring(0, kindSepIndex);
 }

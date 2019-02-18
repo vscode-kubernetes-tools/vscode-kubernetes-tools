@@ -165,7 +165,7 @@ async function installFromTar(sourceUrl: string, destinationFolder: string, exec
     }
     await addPathToConfig(configKey, executableFullPath);
 
-    await fs.unlink(tarfile);
+    fs.unlinkSync(tarfile);
 
     return { succeeded: true, result: null };
 }

@@ -5,7 +5,7 @@ export interface FS {
     readFile(filename: string, encoding: string, callback: (err: NodeJS.ErrnoException, data: string) => void): void;
     readFileSync(filename: string, encoding: string): string;
     readFileToBufferSync(filename: string): Buffer;
-    writeFile(filename: string, data: any, callback?: (err: NodeJS.ErrnoException) => void): void;
+    writeFile(filename: string, data: any, callback: (err: NodeJS.ErrnoException) => void): void;
     writeFileSync(filename: string, data: any): void;
     dirSync(path: string): string[];
     unlinkAsync(path: string): Promise<void>;

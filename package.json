@@ -6,7 +6,7 @@
     "preview": true,
     "publisher": "ms-kubernetes-tools",
     "engines": {
-        "vscode": "^1.23.0"
+        "vscode": "^1.31.0"
     },
     "license": "MIT",
     "categories": [
@@ -1231,7 +1231,7 @@
     },
     "devDependencies": {
         "@types/mocha": "^2.2.32",
-        "@types/node": "^6.0.40",
+        "@types/node": "^10.2.0",
         "@types/request": "^2.48.1",
         "gulp": "^4.0.0",
         "gulp-tslint": "^8.1.2",
