@@ -284,7 +284,7 @@ function renderConfigurationResult(configureResult: ActionResult<azure.Configure
     const configResult = result.result;
     const clusterServiceString = result.result.clusterType === "aks" ? "Azure Kubernetes Service" : "Azure Container Service";
 
-    reporter.sendTelemetryEvent("clusterregistration", { result: configureResult.result.succeeded ? "success" : "failure", clusterType: configResult.clusterType });
+    reporter.sendTelemetryEvent("clusterregistration", { result: (configResult.gotCli && configResult.gotCredentials) ? "success" : "failure", clusterType: configResult.clusterType });
 
     const pathMessage = configResult.cliOnDefaultPath ? '' :
         '<p>This location is not on your system PATH. Add this directory to your path, or set the VS Code <b>vs-kubernetes.kubectl-path</b> config setting.</p>';
