@@ -256,7 +256,7 @@ See the [change log](CHANGELOG.md).
 This extension collects telemetry data to help us build a better experience for building applications with Kubernetes and VS Code. We only collect the following data:
 
 * Which commands are executed, and whether they are executed against an Azure, Minikube or other type of cluster.
-* For the `Create Cluster` and `Add Existing Cluster` commands, the cluster type selected and the execution result(success/failure).
+* For the `Create Cluster` and `Add Existing Cluster` commands, the cluster type selected and the execution result (success/failure).
 
 We do not collect any information about image names, paths, etc. We collect cluster type information only if the cluster is Azure or Minikube. The extension respects the `telemetry.enableTelemetry` setting which you can learn more about in our [FAQ](https://code.visualstudio.com/docs/supporting/faq#_how-to-disable-telemetry-reporting).
 
