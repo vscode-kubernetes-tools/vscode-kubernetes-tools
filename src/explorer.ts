@@ -1,7 +1,6 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 
-import { Failed } from './errorable';
 import { Kubectl } from './kubectl';
 import * as kubectlUtils from './kubectlUtils';
 import { Host } from './host';
@@ -304,7 +303,7 @@ class KubernetesResource implements KubernetesObject, ResourceNode {
                 new DummyObject(pod.status.podIP),
             ];
         } else {
-            return [ new DummyObject("Error", (<Failed>result).error[0]) ];
+            return [ new DummyObject("Error", result.error[0]) ];
         }
     }
 
@@ -315,21 +314,19 @@ class KubernetesResource implements KubernetesObject, ResourceNode {
             title: "Load",
             arguments: [this]
         };
-        treeItem.contextValue = `vsKubernetes.resource`;
-        if (this.kind === kuberesources.allKinds.pod ||
-            this.kind === kuberesources.allKinds.secret ||
-            this.kind === kuberesources.allKinds.configMap) {
-            treeItem.contextValue = `vsKubernetes.resource.${this.kind.abbreviation}`;
-            if (this.kind === kuberesources.allKinds.pod && this.metadata && this.metadata.status) {
-                treeItem.iconPath = getIconForPodStatus(this.metadata.status.toLowerCase());
-            }
-        }
+        treeItem.contextValue = `vsKubernetes.resource.${this.kind.abbreviation}`;
+
         if (this.namespace) {
             treeItem.tooltip = `Namespace: ${this.namespace}`;  // TODO: show only if in non-current namespace?
         }
+
         if (this.kind === kuberesources.allKinds.pod) {
             treeItem.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
+            if (this.metadata && this.metadata.status) {
+                treeItem.iconPath = getIconForPodStatus(this.metadata.status.toLowerCase());
+            }
         }
+
         return treeItem;
     }
 }

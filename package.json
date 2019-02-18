@@ -318,58 +318,28 @@
             "view/item/context": [
                 {
                     "command": "extension.vsKubernetesUseContext",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.cluster.inactive",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /^vsKubernetes\\.\\w*cluster\\.inactive$/i",
                     "group": "0@1"
                 },
                 {
                     "command": "extension.vsKubernetesDeleteContext",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.cluster.inactive",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /^vsKubernetes\\.\\w*cluster.*$/i",
                     "group": "0@2"
                 },
                 {
                     "command": "extension.vsKubernetesCopy",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.cluster.inactive",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /^vsKubernetes\\.\\w*cluster.*$/i",
                     "group": "1"
                 },
                 {
                     "command": "extension.vsKubernetesClusterInfo",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.cluster",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /^vsKubernetes\\.\\w*cluster$/i",
                     "group": "0@1"
                 },
                 {
                     "command": "extension.vsKubernetesDashboard",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.cluster",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /^vsKubernetes\\.\\w*cluster$/i",
                     "group": "0@3"
-                },
-                {
-                    "command": "extension.vsKubernetesDeleteContext",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.cluster",
-                    "group": "0@2"
-                },
-                {
-                    "command": "extension.vsKubernetesCopy",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.cluster",
-                    "group": "1"
-                },
-                {
-                    "command": "extension.vsKubernetesUseContext",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.minikubeCluster.inactive",
-                    "group": "0@4"
-                },
-                {
-                    "command": "extension.vsKubernetesClusterInfo",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.minikubeCluster",
-                    "group": "0@1"
-                },
-                {
-                    "command": "extension.vsKubernetesDashboard",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.minikubeCluster",
-                    "group": "0@3"
-                },
-                {
-                    "command": "extension.vsKubernetesDeleteContext",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.minikubeCluster",
-                    "group": "0@2"
                 },
                 {
                     "command": "extension.vsMinikubeStop",
@@ -385,11 +355,6 @@
                     "command": "extension.vsMinikubeStatus",
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.minikubeCluster",
                     "group": "2@3"
-                },
-                {
-                    "command": "extension.vsKubernetesCopy",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.minikubeCluster",
-                    "group": "1"
                 },
                 {
                     "command": "extension.vsKubernetesUseNamespace",
@@ -408,12 +373,7 @@
                 },
                 {
                     "command": "extension.vsKubernetesCopy",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.namespace.inactive",
-                    "group": "1"
-                },
-                {
-                    "command": "extension.vsKubernetesCopy",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.namespace",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /^vsKubernetes\\.resource.*$/i",
                     "group": "1"
                 },
                 {
@@ -424,52 +384,27 @@
                 {
                     "command": "extension.vsKubernetesLoad",
                     "group": "0",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource"
-                },
-                {
-                    "command": "extension.vsKubernetesCopy",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource",
-                    "group": "1"
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /^vsKubernetes\\.resource(?!\\.namespace).*$/i"
                 },
                 {
                     "command": "extension.vsKubernetesGet",
                     "group": "2@1",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource"
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /^vsKubernetes\\.resource(?!\\.namespace).*$/i"
                 },
                 {
                     "command": "extension.vsKubernetesDelete",
                     "group": "2@2",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource"
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /^vsKubernetes\\.resource(?!\\.namespace).*$/i"
                 },
                 {
                     "command": "extension.vsKubernetesDescribe",
                     "group": "3",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource"
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /^vsKubernetes\\.resource(?!\\.namespace).*$/i"
                 },
                 {
                     "command": "extension.helmConvertToTemplate",
                     "group": "2",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource"
-                },
-                {
-                    "command": "extension.vsKubernetesLoad",
-                    "group": "0",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
-                },
-                {
-                    "command": "extension.vsKubernetesCopy",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod",
-                    "group": "1"
-                },
-                {
-                    "command": "extension.vsKubernetesGet",
-                    "group": "2@1",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
-                },
-                {
-                    "command": "extension.vsKubernetesDelete",
-                    "group": "2@2",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
+                    "when": "view == extension.vsKubernetesExplorer && viewItem == viewItem =~ /^vsKubernetes\\.resource(?!\\.namespace).*$/i"
                 },
                 {
                     "command": "extension.vsKubernetesDeleteNow",
@@ -492,16 +427,6 @@
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
                 },
                 {
-                    "command": "extension.vsKubernetesDescribe",
-                    "group": "3",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
-                },
-                {
-                    "command": "extension.helmConvertToTemplate",
-                    "group": "2",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
-                },
-                {
                     "command": "extension.vsKubernetesShowLogs",
                     "group": "3",
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
@@ -512,69 +437,9 @@
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
                 },
                 {
-                    "command": "extension.vsKubernetesLoad",
-                    "group": "0",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.configmap"
-                },
-                {
-                    "command": "extension.vsKubernetesCopy",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.configmap",
-                    "group": "1"
-                },
-                {
-                    "command": "extension.vsKubernetesGet",
-                    "group": "2@1",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.configmap"
-                },
-                {
-                    "command": "extension.vsKubernetesDelete",
-                    "group": "2@2",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.configmap"
-                },
-                {
-                    "command": "extension.vsKubernetesDescribe",
-                    "group": "3",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.configmap"
-                },
-                {
-                    "command": "extension.helmConvertToTemplate",
-                    "group": "2",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.configmap"
-                },
-                {
                     "command": "extension.vsKubernetesAddFile",
                     "group": "3",
                     "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.configmap"
-                },
-                {
-                    "command": "extension.vsKubernetesLoad",
-                    "group": "0",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.secret"
-                },
-                {
-                    "command": "extension.vsKubernetesCopy",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.secret",
-                    "group": "1"
-                },
-                {
-                    "command": "extension.vsKubernetesGet",
-                    "group": "2@1",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.secret"
-                },
-                {
-                    "command": "extension.helmConvertToTemplate",
-                    "group": "2",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.secret"
-                },
-                {
-                    "command": "extension.vsKubernetesDelete",
-                    "group": "2@2",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.secret"
-                },
-                {
-                    "command": "extension.vsKubernetesDescribe",
-                    "group": "3",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.secret"
                 },
                 {
                     "command": "extension.vsKubernetesAddFile",
@@ -589,52 +454,27 @@
                 {
                     "command": "extension.helmFetch",
                     "group": "1",
-                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem == vsKubernetes.chart"
-                },
-                {
-                    "command": "extension.helmFetch",
-                    "group": "1",
-                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem == vsKubernetes.chartversion"
+                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem =~ /^vsKubernetes\\.((chart)|(chartversion))$/i"
                 },
                 {
                     "command": "extension.helmInstall",
                     "group": "2",
-                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem == vsKubernetes.chart"
-                },
-                {
-                    "command": "extension.helmInstall",
-                    "group": "2",
-                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem == vsKubernetes.chartversion"
+                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem =~ /^vsKubernetes\\.((chart)|(chartversion))$/i"
                 },
                 {
                     "command": "extension.helmDependencies",
                     "group": "0@3",
-                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem == vsKubernetes.chart"
-                },
-                {
-                    "command": "extension.helmDependencies",
-                    "group": "0@3",
-                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem == vsKubernetes.chartversion"
+                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem =~ /^vsKubernetes\\.((chart)|(chartversion))$/i"
                 },
                 {
                     "command": "extension.helmInspectChart",
                     "group": "0@1",
-                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem == vsKubernetes.chart"
-                },
-                {
-                    "command": "extension.helmInspectChart",
-                    "group": "0@1",
-                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem == vsKubernetes.chartversion"
+                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem =~ /^vsKubernetes\\.((chart)|(chartversion))$/i"
                 },
                 {
                     "command": "extension.helmInspectValues",
                     "group": "0@2",
-                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem == vsKubernetes.chart"
-                },
-                {
-                    "command": "extension.helmInspectValues",
-                    "group": "0@2",
-                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem == vsKubernetes.chartversion"
+                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem =~ /^vsKubernetes\\.((chart)|(chartversion))$/i"
                 }
             ],
             "commandPalette": [
