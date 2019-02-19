@@ -51,7 +51,7 @@ export function createWizard(tabTitle: string, formId: string, s: Subscriber): W
     }
     </script>`;
 
-    const html = `<div id='wvcontent__' />${nextScript}`;
+    const html = `<html><body><div id='wvcontent__' />${nextScript}</body></html>`;
 
     const w = vscode.window.createWebviewPanel('vsk8s-dialog', tabTitle, vscode.ViewColumn.Active, {
         retainContextWhenHidden: true,
