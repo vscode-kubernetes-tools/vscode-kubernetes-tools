@@ -85,7 +85,7 @@ async function azureCliVersion(context: Context): Promise<string | null> {
     if (!sr || sr.code !== 0 || sr.stderr) {
         return null;
     } else {
-        const versionMatches = /azure-cli \(([^)]+)\)/.exec(sr.stdout);
+        const versionMatches = /azure-cli\s+\(?([0-9.]+)\)?/.exec(sr.stdout);
         if (versionMatches === null || versionMatches.length < 2) {
             return null;
         }
