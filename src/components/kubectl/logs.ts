@@ -6,6 +6,7 @@ import * as kuberesources from '../../kuberesources';
 import { ResourceNode } from '../../explorer';
 import * as yaml from 'js-yaml';
 import * as kubectlUtils from '../../kubectlUtils';
+import { LogsPanel } from '../../components/logs/logsWebview';
 
 export enum LogsDisplayMode {
     Show,
@@ -57,13 +58,13 @@ async function getLogsForPod(kubectl: Kubectl, podSummary: PodSummary, displayMo
         return;
     }
 
-    getLogsForContainer(kubectl, podSummary, container.name, displayMode);
+    await getLogsForContainer(kubectl, podSummary, container.name, displayMode);
 }
 
 /**
  * Gets the logs for a container in a provided pod, in a provided namespace, in a provided container.
  */
-function getLogsForContainer(
+async function getLogsForContainer(
     kubectl: Kubectl,
     podSummary: PodSummary,
     containerName: string | undefined,
@@ -85,7 +86,19 @@ function getLogsForContainer(
         return;
     }
 
-    kubectl.invokeInSharedTerminal(cmd);
+    const resource = `${podSummary.namespace}/${podSummary.name}`;
+    const panel = LogsPanel.createOrShow('Loading...', resource);
+
+    try {
+        const result = await kubectl.invokeAsync(cmd);
+        if (!result || result.code !== 0) {
+            vscode.window.showErrorMessage(`Error reading logs: ${result ? result.stderr : undefined}`);
+        } else {
+            panel.setInfo(result.stdout, resource);
+        }
+    } catch (err) {
+        vscode.window.showErrorMessage(`Error reading logs ${err}`);
+    }
 }
 
 /**
