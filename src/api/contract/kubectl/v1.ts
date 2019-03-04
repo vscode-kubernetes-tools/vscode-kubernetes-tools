@@ -1,5 +1,5 @@
 // This module is contractual and should not be changed after release.
-// It should be in sync with vscode-kubernetes-tools-api/ts/clusterprovider/v1.ts
+// It should be in sync with vscode-kubernetes-tools-api/ts/kubectl/v1.ts
 // at all times.
 
 export interface KubectlV1 {
