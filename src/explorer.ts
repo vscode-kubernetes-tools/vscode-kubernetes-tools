@@ -14,6 +14,8 @@ import { affectsUs } from './components/config/config';
 const KUBERNETES_CLUSTER = "vsKubernetes.cluster";
 const MINIKUBE_CLUSTER = "vsKubernetes.minikubeCluster";
 
+export const KUBERNETES_EXPLORER_NODE_CATEGORY = 'kubernetes-explorer-node';
+
 export function create(kubectl: Kubectl, host: Host): KubernetesExplorer {
     return new KubernetesExplorer(kubectl, host);
 }
@@ -43,6 +45,7 @@ function getIconForPodStatus(status: string): vscode.Uri {
 }
 
 export interface KubernetesObject {
+    readonly nodeCategory: 'kubernetes-explorer-node';
     readonly id: string;
     readonly metadata?: any;
     getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<KubernetesObject[]>;
@@ -100,12 +103,17 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObj
     }
 }
 
+class KubernetesExplorerNodeImpl {
+    readonly nodeCategory = KUBERNETES_EXPLORER_NODE_CATEGORY;
+}
+
 /**
  * Dummy object will be displayed as a placeholder in the tree explorer. Cannot be expanded and has no action menus on it.
  * For example, display an "Error" dummy node when failing to get children of expandable parent.
  */
-class DummyObject implements KubernetesObject {
+class DummyObject extends KubernetesExplorerNodeImpl implements KubernetesObject {
     constructor(readonly id: string, readonly diagnostic?: string) {
+        super();
     }
 
     getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
@@ -121,9 +129,10 @@ class DummyObject implements KubernetesObject {
     }
 }
 
-class KubernetesContextNode implements KubernetesObject {
+class KubernetesContextNode extends KubernetesExplorerNodeImpl implements KubernetesObject {
 
     constructor(readonly id: string, readonly metadata?: kubectlUtils.KubectlContext) {
+        super();
     }
 
     get icon(): vscode.Uri {
@@ -175,8 +184,9 @@ class MiniKubeContextNode extends KubernetesContextNode {
     }
 }
 
-abstract class KubernetesFolder implements KubernetesObject {
+abstract class KubernetesFolder extends KubernetesExplorerNodeImpl implements KubernetesObject {
     constructor(readonly id: string, readonly displayName: string, readonly contextValue?: string) {
+        super();
     }
 
     abstract getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<KubernetesObject[]>;
@@ -270,10 +280,11 @@ class KubernetesResourceFolder extends KubernetesFolder {
     }
 }
 
-class KubernetesResource implements KubernetesObject, ResourceNode {
+class KubernetesResource extends KubernetesExplorerNodeImpl implements KubernetesObject, ResourceNode {
     readonly resourceId: string;
 
     constructor(readonly kind: kuberesources.ResourceKind, readonly id: string, readonly metadata?: any) {
+        super();
         this.resourceId = `${kind.abbreviation}/${id}`;
     }
 
@@ -482,8 +493,9 @@ export class KubernetesDataHolderResource extends KubernetesResource {
     }
 }
 
-export class KubernetesFileObject implements KubernetesObject {
+export class KubernetesFileObject extends KubernetesExplorerNodeImpl implements KubernetesObject {
     constructor(readonly configData: any, readonly id: string, readonly resource: string, readonly parentName: string) {
+        super();
     }
 
     getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
@@ -502,10 +514,11 @@ export class KubernetesFileObject implements KubernetesObject {
     }
 }
 
-class HelmReleaseResource implements KubernetesObject {
+class HelmReleaseResource extends KubernetesExplorerNodeImpl implements KubernetesObject {
     readonly id: string;
 
     constructor(readonly name: string, readonly status: string) {
+        super();
         this.id = "helmrelease:" + name;
     }
 

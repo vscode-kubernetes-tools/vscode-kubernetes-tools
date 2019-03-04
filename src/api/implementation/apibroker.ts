@@ -2,6 +2,7 @@ import { APIBroker, API } from "../contract/api";
 import { versionUnknown } from "./apiutils";
 import * as clusterprovider from "./clusterprovider/versions";
 import * as kubectl from "./kubectl/versions";
+import * as commandTargets from "./command-targets/versions";
 import { ClusterProviderRegistry } from "../../components/clusterprovider/clusterproviderregistry";
 import { Kubectl } from "../../kubectl";
 
@@ -11,6 +12,7 @@ export function apiBroker(clusterProviderRegistry: ClusterProviderRegistry, kube
             switch (component) {
                 case "clusterprovider": return clusterprovider.apiVersion(clusterProviderRegistry, version);
                 case "kubectl": return kubectl.apiVersion(kubectlImpl, version);
+                case "commandtargets": return commandTargets.apiVersion(version);
                 default: return versionUnknown;
             }
         },
