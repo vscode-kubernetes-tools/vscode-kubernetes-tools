@@ -16,6 +16,15 @@ const MINIKUBE_CLUSTER = "vsKubernetes.minikubeCluster";
 
 export const KUBERNETES_EXPLORER_NODE_CATEGORY = 'kubernetes-explorer-node';
 
+export type KubernetesExplorerNodeType =
+    'error' |
+    'context' |
+    'folder.resource' |
+    'folder.grouping' |
+    'resource' |
+    'configitem' |
+    'helm.release';
+
 export function create(kubectl: Kubectl, host: Host): KubernetesExplorer {
     return new KubernetesExplorer(kubectl, host);
 }
@@ -46,6 +55,7 @@ function getIconForPodStatus(status: string): vscode.Uri {
 
 export interface KubernetesObject {
     readonly nodeCategory: 'kubernetes-explorer-node';
+    readonly nodeType: KubernetesExplorerNodeType;
     readonly id: string;
     readonly metadata?: any;
     getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<KubernetesObject[]>;
@@ -53,6 +63,7 @@ export interface KubernetesObject {
 }
 
 export interface ResourceNode {
+    readonly kind: kuberesources.ResourceKind;
     readonly id: string;
     readonly resourceId: string;
     uri(outputFormat: string): vscode.Uri;
@@ -60,7 +71,7 @@ export interface ResourceNode {
 }
 
 export function isKubernetesExplorerResourceNode(obj: any): obj is ResourceNode {
-    return obj && obj.id && obj.resourceId;
+    return obj && obj.nodeCategory === KUBERNETES_EXPLORER_NODE_CATEGORY && obj.id && obj.resourceId;
 }
 
 export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObject> {
@@ -105,6 +116,7 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObj
 
 class KubernetesExplorerNodeImpl {
     readonly nodeCategory = KUBERNETES_EXPLORER_NODE_CATEGORY;
+    constructor(readonly nodeType: KubernetesExplorerNodeType) {}
 }
 
 /**
@@ -113,7 +125,7 @@ class KubernetesExplorerNodeImpl {
  */
 class DummyObject extends KubernetesExplorerNodeImpl implements KubernetesObject {
     constructor(readonly id: string, readonly diagnostic?: string) {
-        super();
+        super('error');
     }
 
     getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
@@ -132,7 +144,7 @@ class DummyObject extends KubernetesExplorerNodeImpl implements KubernetesObject
 class KubernetesContextNode extends KubernetesExplorerNodeImpl implements KubernetesObject {
 
     constructor(readonly id: string, readonly metadata?: kubectlUtils.KubectlContext) {
-        super();
+        super('context');
     }
 
     get icon(): vscode.Uri {
@@ -185,8 +197,8 @@ class MiniKubeContextNode extends KubernetesContextNode {
 }
 
 abstract class KubernetesFolder extends KubernetesExplorerNodeImpl implements KubernetesObject {
-    constructor(readonly id: string, readonly displayName: string, readonly contextValue?: string) {
-        super();
+    constructor(readonly nodeType: KubernetesExplorerNodeType, readonly id: string, readonly displayName: string, readonly contextValue?: string) {
+        super(nodeType);
     }
 
     abstract getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<KubernetesObject[]>;
@@ -200,7 +212,7 @@ abstract class KubernetesFolder extends KubernetesExplorerNodeImpl implements Ku
 
 class KubernetesWorkloadFolder extends KubernetesFolder {
     constructor() {
-        super("workload", "Workloads");
+        super("folder.grouping", "workload", "Workloads");
     }
 
     getChildren(_kubectl: Kubectl, _host: Host): vscode.ProviderResult<KubernetesObject[]> {
@@ -217,7 +229,7 @@ class KubernetesWorkloadFolder extends KubernetesFolder {
 
 class KubernetesConfigFolder extends KubernetesFolder {
     constructor() {
-        super("config", "Configuration");
+        super("folder.grouping", "config", "Configuration");
     }
 
     getChildren(_kubectl: Kubectl, _host: Host): vscode.ProviderResult<KubernetesObject[]> {
@@ -230,7 +242,7 @@ class KubernetesConfigFolder extends KubernetesFolder {
 
 class KubernetesNetworkFolder extends KubernetesFolder {
     constructor() {
-        super("network", "Network");
+        super("folder.grouping", "network", "Network");
     }
 
     getChildren(_kubectl: Kubectl, _host: Host): vscode.ProviderResult<KubernetesObject[]> {
@@ -244,7 +256,7 @@ class KubernetesNetworkFolder extends KubernetesFolder {
 
 class KubernetesStorageFolder extends KubernetesFolder {
     constructor() {
-        super("storage", "Storage");
+        super("folder.grouping", "storage", "Storage");
     }
 
     getChildren(_kubectl: Kubectl, _host: Host): vscode.ProviderResult<KubernetesObject[]> {
@@ -258,7 +270,7 @@ class KubernetesStorageFolder extends KubernetesFolder {
 
 class KubernetesResourceFolder extends KubernetesFolder {
     constructor(readonly kind: kuberesources.ResourceKind) {
-        super(kind.abbreviation, kind.pluralDisplayName, "vsKubernetes.kind");
+        super("folder.resource", kind.abbreviation, kind.pluralDisplayName, "vsKubernetes.kind");
     }
 
     async getChildren(kubectl: Kubectl, host: Host): Promise<KubernetesObject[]> {
@@ -284,7 +296,7 @@ class KubernetesResource extends KubernetesExplorerNodeImpl implements Kubernete
     readonly resourceId: string;
 
     constructor(readonly kind: kuberesources.ResourceKind, readonly id: string, readonly metadata?: any) {
-        super();
+        super("resource");
         this.resourceId = `${kind.abbreviation}/${id}`;
     }
 
@@ -412,7 +424,7 @@ class KubernetesSelectsPodsFolder extends KubernetesResourceFolder {
 
 class KubernetesCRDFolder extends KubernetesFolder {
     constructor() {
-        super(kuberesources.allKinds.crd.abbreviation, kuberesources.allKinds.crd.pluralDisplayName);
+        super("folder.grouping", kuberesources.allKinds.crd.abbreviation, kuberesources.allKinds.crd.pluralDisplayName);
     }
 
     async getChildren(kubectl: Kubectl, _host: Host): Promise<KubernetesObject[]> {
@@ -495,7 +507,7 @@ export class KubernetesDataHolderResource extends KubernetesResource {
 
 export class KubernetesFileObject extends KubernetesExplorerNodeImpl implements KubernetesObject {
     constructor(readonly configData: any, readonly id: string, readonly resource: string, readonly parentName: string) {
-        super();
+        super("configitem");
     }
 
     getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
@@ -518,7 +530,7 @@ class HelmReleaseResource extends KubernetesExplorerNodeImpl implements Kubernet
     readonly id: string;
 
     constructor(readonly name: string, readonly status: string) {
-        super();
+        super("helm.release");
         this.id = "helmrelease:" + name;
     }
 
@@ -541,7 +553,7 @@ class HelmReleaseResource extends KubernetesExplorerNodeImpl implements Kubernet
 
 class HelmReleasesFolder extends KubernetesFolder {
     constructor() {
-        super("Helm Release", "Helm Releases", "vsKubernetes.nonResourceFolder");
+        super("folder.grouping", "Helm Release", "Helm Releases", "vsKubernetes.nonResourceFolder");  // TODO: folder.grouping is not quite right... but...
     }
 
     async getChildren(kubectl: Kubectl, _host: Host): Promise<KubernetesObject[]> {

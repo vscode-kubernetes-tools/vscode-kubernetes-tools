@@ -1,5 +1,5 @@
 import { CommandTargetsV1 } from "../../contract/command-targets/v1";
-import { KUBERNETES_EXPLORER_NODE_CATEGORY, KubernetesObject } from "../../../explorer";
+import { KUBERNETES_EXPLORER_NODE_CATEGORY, KubernetesObject, ResourceNode } from "../../../explorer";
 import { HELM_EXPLORER_NODE_CATEGORY } from "../../../helm.repoExplorer";
 
 export function impl(): CommandTargetsV1 {
@@ -15,7 +15,7 @@ class CommandTargetsV1Impl implements CommandTargetsV1 {
             const node = target as KubernetesObject;
             return {
                 targetType: 'kubernetes-explorer-node',
-                id: node.id
+                node: adaptKubernetesExplorerNode(node)
             };
         }
         if (target.nodeCategory === HELM_EXPLORER_NODE_CATEGORY) {
@@ -26,4 +26,33 @@ class CommandTargetsV1Impl implements CommandTargetsV1 {
         }
         return undefined;
     }
+}
+
+function adaptKubernetesExplorerNode(node: KubernetesObject): CommandTargetsV1.KubernetesExplorerNode {
+    switch (node.nodeType) {
+        case 'error':
+            return { nodeType: 'error' };
+        case 'context':
+            return { nodeType: 'context', name: node.id };
+        case 'folder.grouping':
+            return { nodeType: 'folder.grouping' };
+        case 'folder.resource':
+            return { nodeType: 'folder.resource', resourceKind: node.id };
+        case 'resource':
+            return adaptKubernetesExplorerResourceNode(node as (KubernetesObject & ResourceNode));
+        case 'configitem':
+            return { nodeType: 'configitem', name: node.id };
+        case 'helm.release':
+            return { nodeType: 'helm.release', name: node.id };
+    }
+}
+
+function adaptKubernetesExplorerResourceNode(node: KubernetesObject & ResourceNode): CommandTargetsV1.KubernetesExplorerResourceNode {
+    return {
+        nodeType: 'resource',
+        metadata: node.metadata,
+        name: node.id,
+        resourceKind: node.kind,
+        namespace: node.namespace
+    };
 }
