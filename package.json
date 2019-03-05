@@ -430,12 +430,12 @@
                 {
                     "command": "extension.vsKubernetesShowLogs",
                     "group": "3",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /^vsKubernetes\\.resource\\.(pod|job)$/"
                 },
                 {
                     "command": "extension.vsKubernetesFollowLogs",
                     "group": "3",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /^vsKubernetes\\.resource\\.(pod|job)$/"
                 },
                 {
                     "command": "extension.vsKubernetesCronJobRunNow",

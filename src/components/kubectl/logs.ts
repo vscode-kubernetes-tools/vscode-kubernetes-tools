@@ -1,12 +1,13 @@
 import * as vscode from 'vscode';
 import { Kubectl } from '../../kubectl';
-import { selectContainerForPod, PodSummary, quickPickKindName } from '../../extension';
+import { PodSummary, quickPickKindName, selectContainerForResource } from '../../extension';
 import { isPod } from '../../kuberesources.objectmodel';
 import * as kuberesources from '../../kuberesources';
 import { ResourceNode } from '../../explorer';
 import * as yaml from 'js-yaml';
 import * as kubectlUtils from '../../kubectlUtils';
 import { LogsPanel } from '../../components/logs/logsWebview';
+import { ContainerContainer } from '../../utils/containercontainer';
 
 export enum LogsDisplayMode {
     Show,
@@ -23,7 +24,7 @@ export async function logsKubernetes(
     displayMode: LogsDisplayMode
 ) {
     if (explorerNode) {
-        return await getLogsForExplorerPod(kubectl, explorerNode, displayMode);
+        return await getLogsForExplorerNode(kubectl, explorerNode, displayMode);
     }
 
     return logsForPod(kubectl, displayMode);
@@ -32,33 +33,45 @@ export async function logsKubernetes(
 /**
  * Fetch logs from a Pod, when selected from the Explorer.
  */
-async function getLogsForExplorerPod(
+async function getLogsForExplorerNode(
     kubectl: Kubectl,
     explorerNode: ResourceNode,
     displayMode: LogsDisplayMode
 ) {
-    const namespace = explorerNode.namespace;
-    const podSummary = { name: explorerNode.id, namespace: namespace || undefined };  // TODO: rationalise null and undefined
+    const resource = ContainerContainer.fromNode(explorerNode);
+    if (!resource) {
+        return;
+    }
 
-    return await getLogsForPod(kubectl, podSummary, displayMode);
+    return await getLogsForResource(kubectl, resource, displayMode);
 }
 
 /**
  * Fetches logs for a pod. If there are more than one containers,
  * prompts the user for which container to fetch logs for.
  */
-async function getLogsForPod(kubectl: Kubectl, podSummary: PodSummary, displayMode: LogsDisplayMode) {
-    if (!podSummary) {
-        vscode.window.showErrorMessage('Can\'t find a pod!');
+async function getLogsForPod(kubectl: Kubectl, pod: PodSummary, displayMode: LogsDisplayMode) {
+    const resource = {
+        kindName: `pod/${pod.name}`,
+        namespace: pod.namespace,
+        containers: pod.spec ? pod.spec.containers : undefined,
+        containersQueryPath: '.spec'
+    };
+    return getLogsForResource(kubectl, resource, displayMode);
+}
+
+async function getLogsForResource(kubectl: Kubectl, resource: ContainerContainer, displayMode: LogsDisplayMode) {
+    if (!resource) {
+        vscode.window.showErrorMessage('Can\'t find the resource to get logs from!');
         return;
     }
 
-    const container = await selectContainerForPod(podSummary);
+    const container = await selectContainerForResource(resource);
     if (!container) {
         return;
     }
 
-    await getLogsForContainer(kubectl, podSummary, container.name, displayMode);
+    await getLogsForContainer(kubectl, resource, container.name, displayMode);
 }
 
 /**
@@ -66,14 +79,14 @@ async function getLogsForPod(kubectl: Kubectl, podSummary: PodSummary, displayMo
  */
 async function getLogsForContainer(
     kubectl: Kubectl,
-    podSummary: PodSummary,
+    resource: ContainerContainer,
     containerName: string | undefined,
     displayMode: LogsDisplayMode
 ) {
-    let cmd = `logs ${podSummary.name}`;
+    let cmd = `logs ${resource.kindName}`;
 
-    if (podSummary.namespace) {
-        cmd = `${cmd} --namespace=${podSummary.namespace}`;
+    if (resource.namespace) {
+        cmd = `${cmd} --namespace=${resource.namespace}`;
     }
 
     if (containerName) {
@@ -82,19 +95,18 @@ async function getLogsForContainer(
 
     if (displayMode === LogsDisplayMode.Follow) {
         cmd = `${cmd} -f`;
-        kubectl.invokeInNewTerminal(cmd, `${podSummary.name}-${containerName}`);
+        kubectl.invokeInNewTerminal(cmd, `${resource.kindName}-${containerName}`);
         return;
     }
 
-    const resource = `${podSummary.namespace}/${podSummary.name}`;
-    const panel = LogsPanel.createOrShow('Loading...', resource);
+    const panel = LogsPanel.createOrShow('Loading...', resource.kindName);
 
     try {
         const result = await kubectl.invokeAsync(cmd);
         if (!result || result.code !== 0) {
             vscode.window.showErrorMessage(`Error reading logs: ${result ? result.stderr : undefined}`);
         } else {
-            panel.setInfo(result.stdout, resource);
+            panel.setInfo(result.stdout, resource.kindName);
         }
     } catch (err) {
         vscode.window.showErrorMessage(`Error reading logs ${err}`);
