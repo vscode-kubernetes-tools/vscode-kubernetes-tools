@@ -1,5 +1,5 @@
 import { CommandTargetsV1 } from "../../contract/command-targets/v1";
-import { KUBERNETES_EXPLORER_NODE_CATEGORY, KubernetesObject, ResourceNode } from "../../../explorer";
+import { KUBERNETES_EXPLORER_NODE_CATEGORY, KubernetesObject, ResourceNode, ResourceFolder } from "../../../explorer";
 import { HELM_EXPLORER_NODE_CATEGORY } from "../../../helm.repoExplorer";
 
 export function impl(): CommandTargetsV1 {
@@ -37,7 +37,7 @@ function adaptKubernetesExplorerNode(node: KubernetesObject): CommandTargetsV1.K
         case 'folder.grouping':
             return { nodeType: 'folder.grouping' };
         case 'folder.resource':
-            return { nodeType: 'folder.resource', resourceKind: node.id };
+            return { nodeType: 'folder.resource', resourceKind: (node as KubernetesObject & ResourceFolder).kind };
         case 'resource':
             return adaptKubernetesExplorerResourceNode(node as (KubernetesObject & ResourceNode));
         case 'configitem':

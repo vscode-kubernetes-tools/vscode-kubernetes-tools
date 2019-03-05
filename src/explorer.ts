@@ -70,6 +70,10 @@ export interface ResourceNode {
     namespace: string | null;
 }
 
+export interface ResourceFolder {
+    readonly kind: kuberesources.ResourceKind;
+}
+
 export function isKubernetesExplorerResourceNode(obj: any): obj is ResourceNode {
     return obj && obj.nodeCategory === KUBERNETES_EXPLORER_NODE_CATEGORY && obj.id && obj.resourceId;
 }
@@ -268,7 +272,7 @@ class KubernetesStorageFolder extends KubernetesFolder {
     }
 }
 
-class KubernetesResourceFolder extends KubernetesFolder {
+class KubernetesResourceFolder extends KubernetesFolder implements ResourceFolder {
     constructor(readonly kind: kuberesources.ResourceKind) {
         super("folder.resource", kind.abbreviation, kind.pluralDisplayName, "vsKubernetes.kind");
     }

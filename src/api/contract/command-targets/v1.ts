@@ -31,7 +31,7 @@ export namespace CommandTargetsV1 {
 
     export interface KubernetesExplorerResourceFolderNode {
         readonly nodeType: 'folder.resource';
-        readonly resourceKind: string;
+        readonly resourceKind: ResourceKind;
     }
 
     export interface KubernetesExplorerContextNode {
