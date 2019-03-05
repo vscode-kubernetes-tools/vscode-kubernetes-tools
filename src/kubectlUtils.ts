@@ -251,6 +251,14 @@ export async function currentNamespace(kubectl: Kubectl): Promise<string> {
     return currentContext.context.namespace || "default";
 }
 
+export async function currentNamespaceArg(kubectl: Kubectl): Promise<string> {
+    const ns = await currentNamespace(kubectl);
+    if (ns.length === 0) {
+        return '';
+    }
+    return `--namespace ${ns}`;
+}
+
 export async function switchNamespace(kubectl: Kubectl, namespace: string): Promise<boolean> {
     const shellResult = await kubectl.invokeAsync("config current-context");
     if (!shellResult || shellResult.code !== 0) {

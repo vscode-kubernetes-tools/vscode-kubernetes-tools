@@ -73,6 +73,7 @@ import { HelmDocumentSymbolProvider } from './helm.symbolProvider';
 import { findParentYaml } from './yaml-support/yaml-navigation';
 import { linters } from './components/lint/linters';
 import { runClusterWizard } from './components/clusterprovider/clusterproviderserver';
+import { timestampText } from './utils/naming';
 
 let explainActive = false;
 let swaggerSpecPromise: Promise<explainer.SwaggerModel | undefined> | null = null;
@@ -196,6 +197,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<extens
         registerCommand('extension.vsKubernetesAddFile', (explorerNode: explorer.KubernetesDataHolderResource) => { addKubernetesConfigFile(kubectl, explorerNode, treeProvider); }),
         registerCommand('extension.vsKubernetesShowEvents', (explorerNode: explorer.ResourceNode) => { getEvents(kubectl, EventDisplayMode.Show, explorerNode); }),
         registerCommand('extension.vsKubernetesFollowEvents', (explorerNode: explorer.ResourceNode) => { getEvents(kubectl, EventDisplayMode.Follow, explorerNode); }),
+        registerCommand('extension.vsKubernetesCronJobRunNow', cronJobRunNow),
         // Commands - Helm
         registerCommand('extension.helmVersion', helmexec.helmVersion),
         registerCommand('extension.helmTemplate', helmexec.helmTemplate),
@@ -2006,4 +2008,58 @@ async function kubernetesLint(document: vscode.TextDocument): Promise<void> {
     const linterResults = await Promise.all(linterPromises);
     const diagnostics = ([] as vscode.Diagnostic[]).concat(...linterResults);
     kubernetesDiagnostics.set(document.uri, diagnostics);
+}
+
+async function cronJobRunNow(target?: any): Promise<void> {
+    const name = await resourceNameFromTarget(target, 'CronJob to run now');
+    if (!name) {
+        return;
+    }
+
+    const proposedJobName = `${name}-${timestampText()}`;
+    const jobName = await vscode.window.showInputBox({ prompt: "Choose a name for the job", value: proposedJobName });
+    if (!jobName) {
+        return;
+    }
+
+    const nsarg = await kubectlUtils.currentNamespaceArg(kubectl);
+    const sr = await kubectl.invokeAsync(`create job ${jobName} ${nsarg} --from=cronjob/${name}`);
+
+    if (!sr || sr.code !== 0) {
+        vscode.window.showErrorMessage(`Error creating job: ${sr ? sr.stderr : 'Unable to run kubectl'}`);
+        return;
+    }
+
+    vscode.window.showInformationMessage(`Created job ${jobName}`);  // TODO: consider adding button to open logs or something
+}
+
+async function resourceNameFromTarget(target: string | explorer.ResourceNode | undefined, pickPrompt: string): Promise<string | undefined> {
+    if (!target) {
+        // TODO: consider if we have a suitable resource open
+        const resourceKind = kuberesources.allKinds['cronjob'];
+        return await pickResourceName(resourceKind, pickPrompt);
+    }
+
+    if (explorer.isKubernetesExplorerResourceNode(target)) {
+        return target.id;
+    }
+
+    return target;
+}
+
+async function pickResourceName(resourceKind: kuberesources.ResourceKind, prompt: string): Promise<string | undefined> {
+    const sr = await kubectl.invokeAsync(`get ${resourceKind.abbreviation}`);
+    if (!sr || sr.code !== 0) {
+        vscode.window.showErrorMessage(sr ? sr.stderr : `Unable to list resources of type ${resourceKind.displayName}`);
+        return undefined;
+    }
+
+    const names = parseNamesFromKubectlLines(sr.stdout);
+    if (names.length === 0) {
+        vscode.window.showInformationMessage(`No resources of type ${resourceKind.displayName} in cluster`);
+        return undefined;
+    }
+
+    const result = await vscode.window.showQuickPick(names, { placeHolder: prompt });
+    return result;
 }
