@@ -105,29 +105,27 @@ export async function getContexts(kubectl: Kubectl): Promise<KubectlContext[]> {
     });
 }
 
-export async function deleteCluster(kubectl: Kubectl, cluster: KubectlContext): Promise<boolean> {
-    const deleteClusterResult = await kubectl.invokeAsyncWithProgress(`config delete-cluster ${cluster.clusterName}`, "Deleting cluster...");
+export async function deleteCluster(kubectl: Kubectl, context: KubectlContext): Promise<boolean> {
+    const deleteClusterResult = await kubectl.invokeAsyncWithProgress(`config delete-cluster ${context.clusterName}`, "Deleting cluster...");
     if (!deleteClusterResult || deleteClusterResult.code !== 0) {
-        kubeChannel.showOutput(`Failed to delete the specified cluster ${cluster.clusterName} from the kubeconfig: ${deleteClusterResult ? deleteClusterResult.stderr : "Unable to run kubectl"}`, `Delete ${cluster.contextName}`);
-        vscode.window.showErrorMessage(`Delete ${cluster.contextName} failed. See Output window for more details.`);
-        return false;
+        kubeChannel.showOutput(`Failed to remove the underlying cluster for context ${context.clusterName} from the kubeconfig: ${deleteClusterResult ? deleteClusterResult.stderr : "Unable to run kubectl"}`, `Delete ${context.contextName}`);
+        vscode.window.showWarningMessage(`Failed to remove the underlying cluster for context ${context.contextName}. See Output window for more details.`);
     }
 
-    const deleteUserResult = await kubectl.invokeAsyncWithProgress(`config unset users.${cluster.userName}`, "Deleting user...");
+    const deleteUserResult = await kubectl.invokeAsyncWithProgress(`config unset users.${context.userName}`, "Deleting user...");
     if (!deleteUserResult || deleteUserResult.code !== 0) {
-        kubeChannel.showOutput(`Failed to delete user info for context ${cluster.contextName} from the kubeconfig: ${deleteUserResult ? deleteUserResult.stderr : "Unable to run kubectl"}`);
-        vscode.window.showErrorMessage(`Delete ${cluster.contextName} Failed. See Output window for more details.`);
-        return false;
+        kubeChannel.showOutput(`Failed to remove the underlying user for context ${context.contextName} from the kubeconfig: ${deleteUserResult ? deleteUserResult.stderr : "Unable to run kubectl"}`);
+        vscode.window.showWarningMessage(`Failed to remove the underlying user for context ${context.contextName}. See Output window for more details.`);
     }
 
-    const deleteContextResult = await kubectl.invokeAsyncWithProgress(`config delete-context ${cluster.contextName}`, "Deleting context...");
+    const deleteContextResult = await kubectl.invokeAsyncWithProgress(`config delete-context ${context.contextName}`, "Deleting context...");
     if (!deleteContextResult || deleteContextResult.code !== 0) {
-        kubeChannel.showOutput(`Failed to delete the specified cluster's context ${cluster.contextName} from the kubeconfig: ${deleteContextResult ? deleteContextResult.stderr : "Unable to run kubectl"}`);
-        vscode.window.showErrorMessage(`Delete ${cluster.contextName} Failed. See Output window for more details.`);
+        kubeChannel.showOutput(`Failed to delete the specified cluster's context ${context.contextName} from the kubeconfig: ${deleteContextResult ? deleteContextResult.stderr : "Unable to run kubectl"}`);
+        vscode.window.showErrorMessage(`Delete ${context.contextName} failed. See Output window for more details.`);
         return false;
     }
 
-    vscode.window.showInformationMessage(`Deleted context '${cluster.contextName}' and associated data from the kubeconfig.`);
+    vscode.window.showInformationMessage(`Deleted context '${context.contextName}' and associated data from the kubeconfig.`);
     return true;
 }
 
