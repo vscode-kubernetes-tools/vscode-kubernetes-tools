@@ -8,6 +8,7 @@ import * as tar from 'tar';
 import { Shell, Platform } from '../../shell';
 import { Errorable, failed } from '../../errorable';
 import { addPathToConfig, toolPathBaseKey, getUseWsl } from '../config/config';
+import { platformUrlString, formatBin } from './installationlayout';
 
 export async function installKubectl(shell: Shell): Promise<Errorable<null>> {
     const tool = 'kubectl';
@@ -116,30 +117,6 @@ async function installToolFromTar(tool: string, urlTemplate: string, shell: Shel
 
 function getInstallFolder(shell: Shell, tool: string): string {
     return path.join(shell.home(), `.vs-kubernetes/tools/${tool}`);
-}
-
-function platformUrlString(platform: Platform, supported?: Platform[]): string | null {
-    if (supported && supported.indexOf(platform) < 0) {
-        return null;
-    }
-    switch (platform) {
-        case Platform.Windows: return 'windows';
-        case Platform.MacOS: return 'darwin';
-        case Platform.Linux: return 'linux';
-        default: return null;
-    }
-}
-
-function formatBin(tool: string, platform: Platform): string | null {
-    const platformString = platformUrlString(platform);
-    if (!platformString) {
-        return null;
-    }
-    const toolPath = `${platformString}-amd64/${tool}`;
-    if (platform === Platform.Windows) {
-        return toolPath + '.exe';
-    }
-    return toolPath;
 }
 
 async function installFromTar(sourceUrl: string, destinationFolder: string, executablePath: string, configKey: string, shell: Shell): Promise<Errorable<null>> {

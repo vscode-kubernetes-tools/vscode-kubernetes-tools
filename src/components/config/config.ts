@@ -5,6 +5,12 @@ import { Shell, Platform } from '../../shell';
 const EXTENSION_CONFIG_KEY = "vs-kubernetes";
 const KUBECONFIG_PATH_KEY = "vs-kubernetes.kubeconfig";
 const KNOWN_KUBECONFIGS_KEY = "vs-kubernetes.knownKubeconfigs";
+const KUBECTL_VERSIONING_KEY = "vs-kubernetes.kubectlVersioning";
+
+export enum KubectlVersioning {
+    UserProvided = 1,
+    Infer = 2,
+}
 
 export async function addPathToConfig(configKey: string, value: string): Promise<void> {
     await setConfigValue(configKey, value);
@@ -112,6 +118,14 @@ function osKeyString(os: Platform): string | null {
         case Platform.Linux: return 'linux';
         default: return null;
     }
+}
+
+export function getKubectlVersioning(): KubectlVersioning {
+    const configValue = vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)[KUBECTL_VERSIONING_KEY];
+    if (configValue === "infer") {
+        return KubectlVersioning.Infer;
+    }
+    return KubectlVersioning.UserProvided;
 }
 
 // Auto cleanup on debug terminate

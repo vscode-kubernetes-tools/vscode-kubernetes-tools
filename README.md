@@ -193,6 +193,7 @@ Minikube tools to be installed and available on your PATH.
        * `vs-kubernetes.helm-path` - File path to the helm binary. Note this is the binary file itself, not just the directory containing the file. On Windows, this must contain the `.exe` extension.
        * `vs-kubernetes.draft-path` - File path to the draft binary. Note this is the binary file itself, not just the directory containing the file. On Windows, this must contain the `.exe` extension.
        * `vs-kubernetes.minikube-path` - File path to the minikube binary. Note this is the binary file itself, not just the directory containing the file. On Windows, this must contain the `.exe` extension.
+       * `vs-kubernetes.kubectlVersioning` - By default, the extension uses the `kubectl` binary you provide on the system PATH or in the `vs-kubernetes.kubectl-path` configuration setting. If you set this setting to `infer`, then for each cluster the extension will attempt to identify the cluster version and download a compatible `kubectl` binary.  This improves compatibility if you have multiple Kubernetes versions in play, but may be slower.  **IMPORTANT:** Even if this setting is `infer`, you need a 'bootstrap' copy of `kubectl` on your PATH or at the `vs-kubernetes.kubectl-path` location - we need this to find out the server version so we know which version of `kubectl` to download!  Also note that this setting is checked only when the extension loads; if you change it, you must reload the extension.
        * `vs-kubernetes.kubeconfig` - File path to the kubeconfig file you want to use. This overrides both the default kubeconfig and the KUBECONFIG environment variable.
        * `vs-kubernetes.knownKubeconfigs` - An array of file paths of kubeconfig files that you want to be able to quickly switch between using the Set Kubeconfig command.
        * `vs-kubernetes.autoCleanupOnDebugTerminate` - The flag to control whether to auto cleanup the created deployment and associated pod by the command "Kubernetes: Debug (Launch)". The cleanup action occurs when it failed to start debug session or debug session terminated. If not specified, the extension will prompt for whether to clean up or not. You might choose not to clean up if you wanted to view pod logs, etc.
@@ -288,3 +289,6 @@ For technical information about contributing, see [CONTRIBUTING.md](CONTRIBUTING
 
 This extension was born from the `vs-kubernetes` extension by @brendandburns and
 the `vs-helm` extension by @technosophos.
+
+The 'infer `kubectl` version' feature was inspired by @jakepearson's `k` utility
+(https://github.com/jakepearson/k), and some parts of the design were based on his implementation.

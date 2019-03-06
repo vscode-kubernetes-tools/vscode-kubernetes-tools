@@ -81,7 +81,7 @@ let swaggerSpecPromise: Promise<explainer.SwaggerModel | undefined> | null = nul
 
 const kubernetesDiagnostics = vscode.languages.createDiagnosticCollection("Kubernetes");
 
-const kubectl = kubectlCreate(host, fs, shell, installDependencies);
+const kubectl = kubectlCreate(config.getKubectlVersioning(), host, fs, shell, installDependencies);
 const draft = draftCreate(host, fs, shell, installDependencies);
 const minikube = minikubeCreate(host, fs, shell, installDependencies);
 const clusterProviderRegistry = clusterproviderregistry.get();

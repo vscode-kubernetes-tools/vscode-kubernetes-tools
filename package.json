@@ -164,6 +164,11 @@
                             "type": "string",
                             "description": "File path to a minikube binary."
                         },
+                        "vs-kubernetes.kubectlVersioning": {
+                            "type": "string",
+                            "enum": ["user-provided", "infer"],
+                            "description": "Whether to use the kubectl binary you provide ('user-provided'), or to automatically download the right version of kubectl for each cluster ('infer')."
+                        },
                         "vs-kubernetes.kubeconfig": {
                             "type": "string",
                             "description": "File path to the kubeconfig file."
@@ -215,6 +220,7 @@
                         "vs-kubernetes.helm-path": "",
                         "vs-kubernetes.draft-path": "",
                         "vs-kubernetes.minikube-path": "",
+                        "vs-kubernetes.kubectlVersioning": "user-provided",
                         "vs-kubernetes.outputFormat": "yaml",
                         "vs-kubernetes.kubeconfig": "",
                         "vs-kubernetes.knownKubeconfigs": [],
@@ -1054,6 +1060,7 @@
         "docker-file-parser": "^1.0.3",
         "dockerfile-parse": "^0.2.0",
         "download": "^6.2.5",
+        "fast-sha256": "^1.1.0",
         "fuzzysearch": "^1.0.3",
         "graceful-fs": "^4.1.11",
         "js-yaml": "^3.8.2",
