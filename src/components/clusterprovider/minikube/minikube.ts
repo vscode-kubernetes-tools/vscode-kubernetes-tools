@@ -84,7 +84,10 @@ class MinikubeImpl implements Minikube {
 }
 
 async function minikubeUpgradeAvailable(context: Context): Promise<void> {
-    if (!await checkPresent(context, CheckPresentMode.Silent)) {
+
+    const checkForUpgrade = vscode.workspace.getConfiguration().get("vsminikube.checkForUpgrade");
+
+    if (!await checkPresent(context, CheckPresentMode.Silent) || !checkForUpgrade) {
         // not installed, no upgrade.
         return;
     }

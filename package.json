@@ -2,7 +2,7 @@
     "name": "vscode-kubernetes-tools",
     "displayName": "Kubernetes",
     "description": "Develop, deploy and debug Kubernetes applications",
-    "version": "0.1.16",
+    "version": "0.1.17",
     "preview": true,
     "publisher": "ms-kubernetes-tools",
     "engines": {
@@ -234,6 +234,11 @@
                     "type": "string",
                     "default": null,
                     "description": "Image prefix for docker images ie 'docker.io/brendanburns'"
+                },
+                "vsminikube.checkForUpgrade": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Check if update is available for minikube?"
                 }
             }
         },
