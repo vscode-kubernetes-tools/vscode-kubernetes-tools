@@ -25,7 +25,8 @@ export type KubernetesExplorerNodeType =
     'folder.grouping' |
     'resource' |
     'configitem' |
-    'helm.release';
+    'helm.release' |
+    'extension';
 
 export function create(kubectl: Kubectl, host: Host): KubernetesExplorer {
     return new KubernetesExplorer(kubectl, host);

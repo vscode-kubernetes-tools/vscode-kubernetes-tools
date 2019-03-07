@@ -44,6 +44,8 @@ function adaptKubernetesExplorerNode(node: KubernetesObject): CommandTargetsV1.K
             return { nodeType: 'configitem', name: node.id };
         case 'helm.release':
             return { nodeType: 'helm.release', name: node.id };
+        case 'extension':
+            return { nodeType: 'extension' };
     }
 }
 

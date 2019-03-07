@@ -53,6 +53,10 @@ export namespace CommandTargetsV1 {
         readonly name: string;
     }
 
+    export interface KubernetesExplorerExtensionNode {
+        readonly nodeType: 'extension';
+    }
+
     export type KubernetesExplorerNode =
         KubernetesExplorerResourceNode |
         KubernetesExplorerGroupingFolderNode |
@@ -60,7 +64,8 @@ export namespace CommandTargetsV1 {
         KubernetesExplorerContextNode |
         KubernetesExplorerConfigDataItemNode |
         KubernetesExplorerErrorNode |
-        KubernetesExplorerHelmReleaseNode;
+        KubernetesExplorerHelmReleaseNode |
+        KubernetesExplorerExtensionNode;
 
     export type CommandTarget = KubernetesExplorerNodeTarget | HelmExplorerNodeTarget;
 
