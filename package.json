@@ -181,6 +181,10 @@
                             "type": "boolean",
                             "description": "Once the debug session is terminated, automatically clean up the created Deployment and associated Pod by the command \"Kubernetes: Debug (Launch)\"."
                         },
+                        "vs-kubernetes.checkForMinikubeUpgrade": {
+                            "type": "boolean",
+                            "description": "Notify on startup if update is available for minikube"
+                        },
                         "vs-kubernetes.outputFormat": {
                             "enum": [
                                 "json",
@@ -227,18 +231,14 @@
                         "vs-kubernetes.autoCleanupOnDebugTerminate": false,
                         "vs-kubernetes.nodejs-autodetect-remote-root": true,
                         "vs-kubernetes.nodejs-remote-root": "",
-                        "vs-kubernetes.nodejs-debug-port": 9229
+                        "vs-kubernetes.nodejs-debug-port": 9229,
+                        "vs-kubernetes.checkForMinikubeUpgrade": true
                     }
                 },
                 "vsdocker.imageUser": {
                     "type": "string",
                     "default": null,
                     "description": "Image prefix for docker images ie 'docker.io/brendanburns'"
-                },
-                "vsminikube.checkForUpgrade": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Notify on startup if update is available for minikube"
                 }
             }
         },

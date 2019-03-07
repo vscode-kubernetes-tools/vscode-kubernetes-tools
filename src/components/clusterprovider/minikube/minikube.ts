@@ -7,7 +7,7 @@ import { FS } from '../../../fs';
 import * as binutil from '../../../binutil';
 import { Errorable, failed } from '../../../errorable';
 import { fromShellExitCodeOnly, Diagnostic } from '../../../wizard';
-import { getToolPath } from '../../config/config';
+import { getToolPath, getCheckForMinikubeUpgrade } from '../../config/config';
 import { installMinikube } from '../../installer/installer';
 
 export class MinikubeInfo {
@@ -85,10 +85,8 @@ class MinikubeImpl implements Minikube {
 
 async function minikubeUpgradeAvailable(context: Context): Promise<void> {
 
-    const checkForUpgrade = vscode.workspace.getConfiguration().get("vsminikube.checkForUpgrade");
-
-    if (!await checkPresent(context, CheckPresentMode.Silent) || !checkForUpgrade) {
-        // not installed, no upgrade.
+    const performUpgradeCheck = await checkPresent(context, CheckPresentMode.Silent) && getCheckForMinikubeUpgrade()
+    if (!performUpgradeCheck) {
         return;
     }
 
