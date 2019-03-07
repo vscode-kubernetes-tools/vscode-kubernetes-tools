@@ -63,14 +63,6 @@ for your cluster to run it. To do this, add the following to your VS Code prefer
 
 where `<your-image-prefix-here>` is something like `docker.io/brendanburns`.
 
-```javascript
-{
-  "vsminikube.checkForUpgrade": true",
-}
-```
-
-Whether extensions should check if updates for minikube are available.
-
 **That's it!  You're good to go.**
 
 ## Working with kubeconfigs
