@@ -10,6 +10,8 @@ import * as helmexec from './helm.exec';
 import { Pod, CRD } from './kuberesources.objectmodel';
 import { kubefsUri } from './kuberesources.virtualfs';
 import { affectsUs } from './components/config/config';
+import { ExplorerExtender, ExplorerExtendable } from './explorer.extension';
+import * as providerResult from './utils/providerresult';
 
 const KUBERNETES_CLUSTER = "vsKubernetes.cluster";
 const MINIKUBE_CLUSTER = "vsKubernetes.minikubeCluster";
@@ -78,9 +80,11 @@ export function isKubernetesExplorerResourceNode(obj: any): obj is ResourceNode 
     return obj && obj.nodeCategory === KUBERNETES_EXPLORER_NODE_CATEGORY && obj.id && obj.resourceId;
 }
 
-export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObject> {
+export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObject>, ExplorerExtendable<KubernetesObject> {
     private onDidChangeTreeDataEmitter: vscode.EventEmitter<KubernetesObject | undefined> = new vscode.EventEmitter<KubernetesObject | undefined>();
     readonly onDidChangeTreeData: vscode.Event<KubernetesObject | undefined> = this.onDidChangeTreeDataEmitter.event;
+
+    private readonly extenders = Array.of<ExplorerExtender<KubernetesObject>>();
 
     constructor(private readonly kubectl: Kubectl, private readonly host: Host) {
         host.onDidChangeConfiguration((change) => {
@@ -95,6 +99,14 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObj
     }
 
     getChildren(parent?: KubernetesObject): vscode.ProviderResult<KubernetesObject[]> {
+        const baseChildren = this.getChildrenBase(parent);
+        const contributedChildren = this.extenders
+                                        .filter((e) => e.contributesChildren(parent))
+                                        .map((e) => e.getChildren(parent));
+        return providerResult.append(baseChildren, ...contributedChildren);
+    }
+
+    private getChildrenBase(parent?: KubernetesObject): vscode.ProviderResult<KubernetesObject[]> {
         if (parent) {
             return parent.getChildren(this.kubectl, this.host);
         }
@@ -103,6 +115,10 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObj
 
     refresh(): void {
         this.onDidChangeTreeDataEmitter.fire();
+    }
+
+    register(extender: ExplorerExtender<KubernetesObject>): void {
+        this.extenders.push(extender);
     }
 
     private async getClusters(): Promise<KubernetesObject[]> {
