@@ -181,10 +181,6 @@
                             "type": "boolean",
                             "description": "Once the debug session is terminated, automatically clean up the created Deployment and associated Pod by the command \"Kubernetes: Debug (Launch)\"."
                         },
-                        "vs-kubernetes.checkForMinikubeUpgrade": {
-                            "type": "boolean",
-                            "description": "Notify on startup if update is available for minikube"
-                        },
                         "vs-kubernetes.outputFormat": {
                             "enum": [
                                 "json",
@@ -204,6 +200,10 @@
                         "vs-kubernetes.nodejs-debug-port": {
                             "type": "number",
                             "description": "Remote debugging port for nodejs. Usually 9229."
+                        },
+                        "checkForMinikubeUpgrade": {
+                            "type": "boolean",
+                            "description": "Notify on startup if update is available for minikube"
                         },
                         "disable-lint": {
                             "type": "boolean",
@@ -232,7 +232,7 @@
                         "vs-kubernetes.nodejs-autodetect-remote-root": true,
                         "vs-kubernetes.nodejs-remote-root": "",
                         "vs-kubernetes.nodejs-debug-port": 9229,
-                        "vs-kubernetes.checkForMinikubeUpgrade": true
+                        "checkForMinikubeUpgrade": true
                     }
                 },
                 "vsdocker.imageUser": {

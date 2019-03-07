@@ -149,7 +149,7 @@ export function getUseWsl(): boolean {
 }
 
 // minikube check upgrade
-const  MK_CHECK_UPGRADE_KEY = 'vs-kubernetes.checkForMinikubeUpgrade';
+const  MK_CHECK_UPGRADE_KEY = 'checkForMinikubeUpgrade';
 
 export function getCheckForMinikubeUpgrade(): boolean {
     return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)[MK_CHECK_UPGRADE_KEY];
