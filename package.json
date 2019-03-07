@@ -2,7 +2,7 @@
     "name": "vscode-kubernetes-tools",
     "displayName": "Kubernetes",
     "description": "Develop, deploy and debug Kubernetes applications",
-    "version": "0.1.17",
+    "version": "0.1.16",
     "preview": true,
     "publisher": "ms-kubernetes-tools",
     "engines": {
@@ -238,7 +238,7 @@
                 "vsminikube.checkForUpgrade": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Check if update is available for minikube?"
+                    "description": "Notify on startup if update is available for minikube"
                 }
             }
         },
