@@ -10,8 +10,10 @@ import * as helmexec from './helm.exec';
 import { Pod, CRD } from './kuberesources.objectmodel';
 import { kubefsUri } from './kuberesources.virtualfs';
 import { affectsUs } from './components/config/config';
-import { ExplorerExtender, ExplorerExtendable } from './explorer.extension';
+import { ExplorerExtender } from './explorer.extension';
 import * as providerResult from './utils/providerresult';
+import { sleep } from './sleep';
+import { refreshExplorer } from './components/clusterprovider/common/explorer';
 
 const KUBERNETES_CLUSTER = "vsKubernetes.cluster";
 const MINIKUBE_CLUSTER = "vsKubernetes.minikubeCluster";
@@ -81,7 +83,7 @@ export function isKubernetesExplorerResourceNode(obj: any): obj is ResourceNode 
     return obj && obj.nodeCategory === KUBERNETES_EXPLORER_NODE_CATEGORY && obj.id && obj.resourceId;
 }
 
-export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObject>, ExplorerExtendable<KubernetesObject> {
+export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObject> {
     private onDidChangeTreeDataEmitter: vscode.EventEmitter<KubernetesObject | undefined> = new vscode.EventEmitter<KubernetesObject | undefined>();
     readonly onDidChangeTreeData: vscode.Event<KubernetesObject | undefined> = this.onDidChangeTreeDataEmitter.event;
 
@@ -120,6 +122,22 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObj
 
     register(extender: ExplorerExtender<KubernetesObject>): void {
         this.extenders.push(extender);
+        // In the case where an extender contributes at top level (sibling to cluster nodes),
+        // the tree view can populate before the extender has time to register.  So in this
+        // case we need to kick off a refresh.  But... it turns out that if we just fire the
+        // change event, VS Code goes 'oh well I'm just drawing the thing now so I'll be
+        // picking up the change, no need to repopulate a second time.'  Even with a delay
+        // there's a race condition.  But it seems that if we pipe it through the refresh
+        // *command* (as refreshExplorer does) then it seems to work... ON MY MACHINE TM anyway.
+        //
+        // This is a pretty niche case, so I'm not too worried if this isn't perfect.
+        //
+        // TODO: VS Code now doesn't require a reload on extension install.  Do we need
+        // to listen for the extension install event and refresh, in case an extension
+        // attempts to contribute while the tree view is already open?
+        if (extender.contributesChildren(undefined)) {
+            sleep(50).then(() => refreshExplorer());
+        }
     }
 
     private async getClusters(): Promise<KubernetesObject[]> {

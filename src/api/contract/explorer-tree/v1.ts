@@ -8,6 +8,7 @@ import { CommandTargetsV1 } from "../command-targets/v1";
 
 export interface ExplorerTreeV1 {
     registerNodeContributor(nodeContributor: ExplorerTreeV1.NodeContributor): void;
+    refresh(): void;
 }
 
 export namespace ExplorerTreeV1 {

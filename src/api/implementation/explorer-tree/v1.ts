@@ -1,22 +1,26 @@
 import * as vscode from 'vscode';
 
 import { ExplorerTreeV1 } from "../../contract/explorer-tree/v1";
-import { ExplorerExtendable, ExplorerExtender } from "../../../explorer.extension";
-import { KubernetesObject, ResourceFolder, ResourceNode } from "../../../explorer";
+import { ExplorerExtender } from "../../../explorer.extension";
+import { KubernetesObject, ResourceFolder, ResourceNode, KubernetesExplorer } from "../../../explorer";
 import { CommandTargetsV1 } from "../../contract/command-targets/v1";
 import { Kubectl } from "../../../kubectl";
 import { Host } from "../../../host";
 
-export function impl(explorer: ExplorerExtendable<KubernetesObject>): ExplorerTreeV1 {
+export function impl(explorer: KubernetesExplorer): ExplorerTreeV1 {
     return new ExplorerTreeV1Impl(explorer);
 }
 
 class ExplorerTreeV1Impl implements ExplorerTreeV1 {
-    constructor(private readonly explorer: ExplorerExtendable<KubernetesObject>) {}
+    constructor(private readonly explorer: KubernetesExplorer) {}
 
     registerNodeContributor(nodeContributor: ExplorerTreeV1.NodeContributor): void {
         const adapted = adaptToExplorerExtension(nodeContributor);
         this.explorer.register(adapted);
+    }
+
+    refresh(): void {
+        this.explorer.refresh();
     }
 }
 
