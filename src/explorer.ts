@@ -98,7 +98,15 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObj
     }
 
     getTreeItem(element: KubernetesObject): vscode.TreeItem | Thenable<vscode.TreeItem> {
-        return element.getTreeItem();
+        const treeItem = element.getTreeItem();
+        // TODO: we need to allow people to distinguish active from inactive cluster nodes,
+        // and if someone expands an inactive cluster because it has been extended, they
+        // should NOT get all the folder nodes.
+        return providerResult.transform(treeItem, (ti) => {
+            if (ti.collapsibleState === vscode.TreeItemCollapsibleState.None && this.extenders.some((e) => e.contributesChildren(element))) {
+                ti.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
+            }
+        });
     }
 
     getChildren(parent?: KubernetesObject): vscode.ProviderResult<KubernetesObject[]> {
