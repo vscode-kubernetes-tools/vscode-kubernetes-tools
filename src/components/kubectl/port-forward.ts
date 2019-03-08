@@ -105,34 +105,46 @@ export async function portForwardKubernetes (kubectl: Kubectl, explorerNode?: an
 }
 
 /**
+ * Given a JSON representation of a Pod, extract the ports to suggest to the user for
+ * for port forwarding.
+ */
+function extractPodPorts(podJson: string): string | undefined {
+    const pod = JSON.parse(podJson) as kubernetes.V1Pod;
+    const containers = pod.spec.containers;
+    const ports = Array.of<number>();
+    containers.forEach((container) => {
+        if (container.ports) {
+            const containerPorts = container.ports.map((port) => port.containerPort);
+            ports.push(...containerPorts);
+        }
+    });
+    if (ports.length > 0) {
+        const portPairs = ports.map((port) => `${port}:${port}`);
+        return portPairs.join(' ');
+    }
+    return;
+}
+
+/**
  * Prompts the user on what port to port-forward to, and validates numeric input.
  * @returns An array of PortMapping objects.
  */
 async function promptForPort (kubectl?: Kubectl, podName?: string, namespace?: string): Promise<PortMapping[]> {
     let portString: string | undefined;
-    let defaultValue = undefined;
+    let defaultValue: string | undefined = undefined;
     if (podName && kubectl) {
         const ns = namespace || 'default';
         try {
             const result = await kubectl.invokeAsync(`get pods ${podName} --namespace ${ns} -o json`);
-            if (result && result.code === 0) {
-                const pod = JSON.parse(result.stdout) as kubernetes.V1Pod;
-                const containers = pod.spec.containers;
-                const ports = [] as number[];
-                containers.forEach((container: kubernetes.V1Container) => {
-                    if (container.ports) {
-                        container.ports.forEach((port: kubernetes.V1ContainerPort) => {
-                            ports.push(port.containerPort);
-                        });
-                    }
-                });
-                if (ports.length > 0) {
-                    const portPairs = ports.map((port) => `${port}:${port}`);
-                    defaultValue = portPairs.join(' ');
+            if (result) {
+                if (result.code === 0) {
+                    defaultValue = extractPodPorts(result.stdout);
+                } else {
+                    console.log(`Error getting ports: ${result.stderr}`);
                 }
             }
         } catch (err) {
-            host.showErrorMessage(`Error getting pod ports: ${err}`);
+            console.log(err);
         }
     }
 
