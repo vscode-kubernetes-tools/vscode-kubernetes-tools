@@ -135,6 +135,9 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObj
         // TODO: VS Code now doesn't require a reload on extension install.  Do we need
         // to listen for the extension install event and refresh, in case an extension
         // attempts to contribute while the tree view is already open?
+        //
+        // TODO: we need to check collapsibleStates in case someone adds child nodes to a
+        // parent which currently has CollapsibleState.None.
         if (extender.contributesChildren(undefined)) {
             sleep(50).then(() => refreshExplorer());
         }
