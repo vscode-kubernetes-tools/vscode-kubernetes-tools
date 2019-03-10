@@ -155,7 +155,6 @@ export function getCheckForMinikubeUpgrade(): boolean {
     return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)[MK_CHECK_UPGRADE_KEY];
 }
 
-
 // Other bits and bobs
 
 export function getOutputFormat(): string {

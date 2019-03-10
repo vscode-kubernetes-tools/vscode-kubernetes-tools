@@ -85,7 +85,7 @@ class MinikubeImpl implements Minikube {
 
 async function minikubeUpgradeAvailable(context: Context): Promise<void> {
 
-    const performUpgradeCheck = await checkPresent(context, CheckPresentMode.Silent) && getCheckForMinikubeUpgrade()
+    const performUpgradeCheck = await checkPresent(context, CheckPresentMode.Silent) && getCheckForMinikubeUpgrade();
     if (!performUpgradeCheck) {
         return;
     }
