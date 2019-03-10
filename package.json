@@ -201,6 +201,10 @@
                             "type": "number",
                             "description": "Remote debugging port for nodejs. Usually 9229."
                         },
+                        "checkForMinikubeUpgrade": {
+                            "type": "boolean",
+                            "description": "Notify on startup if update is available for minikube"
+                        },
                         "disable-lint": {
                             "type": "boolean",
                             "description": "Disable all linting of Kubernetes files"
@@ -227,7 +231,8 @@
                         "vs-kubernetes.autoCleanupOnDebugTerminate": false,
                         "vs-kubernetes.nodejs-autodetect-remote-root": true,
                         "vs-kubernetes.nodejs-remote-root": "",
-                        "vs-kubernetes.nodejs-debug-port": 9229
+                        "vs-kubernetes.nodejs-debug-port": 9229,
+                        "checkForMinikubeUpgrade": true
                     }
                 },
                 "vsdocker.imageUser": {

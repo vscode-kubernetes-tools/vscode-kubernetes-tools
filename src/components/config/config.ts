@@ -148,6 +148,13 @@ export function getUseWsl(): boolean {
     return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)[USE_WSL_KEY];
 }
 
+// minikube check upgrade
+const  MK_CHECK_UPGRADE_KEY = 'checkForMinikubeUpgrade';
+
+export function getCheckForMinikubeUpgrade(): boolean {
+    return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)[MK_CHECK_UPGRADE_KEY];
+}
+
 // Other bits and bobs
 
 export function getOutputFormat(): string {

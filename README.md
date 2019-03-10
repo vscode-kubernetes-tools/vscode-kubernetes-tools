@@ -199,6 +199,7 @@ Minikube tools to be installed and available on your PATH.
        * `vs-kubernetes.autoCleanupOnDebugTerminate` - The flag to control whether to auto cleanup the created deployment and associated pod by the command "Kubernetes: Debug (Launch)". The cleanup action occurs when it failed to start debug session or debug session terminated. If not specified, the extension will prompt for whether to clean up or not. You might choose not to clean up if you wanted to view pod logs, etc.
        * `vs-kubernetes.outputFormat` - The output format that you prefer to view Kubernetes manifests in. One of "yaml" or "json". Defaults to "yaml".
    * `vsdocker.imageUser` - Image prefix for docker images e.g. 'docker.io/brendanburns'
+   * `checkForMinikubeUpgrade` - On extension startup, notify if a minikube upgrade is available. Defaults to true.
    * `disable-lint` - Disable all linting of Kubernetes files
    * `disable-linters` - Disable specific linters by name
 
