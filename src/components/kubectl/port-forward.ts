@@ -10,6 +10,8 @@ import { succeeded } from '../../errorable';
 import * as kubectlUtils from '../../kubectlUtils';
 import { ResourceNode } from '../../explorer';
 
+import * as kubernetes from '@kubernetes/client-node';
+
 const PORT_FORWARD_TERMINAL = 'kubectl port-forward';
 const MAX_PORT_COUNT = 65535;
 
@@ -46,9 +48,11 @@ export async function portForwardKubernetes (kubectl: Kubectl, explorerNode?: an
         // The port forward option only appears on pod level workloads in the tree view.
         const resourceNode = explorerNode as ResourceNode;
         const podName = resourceNode.id;
-        const portMapping = await promptForPort();
         const namespace = resourceNode.namespace || await kubectlUtils.currentNamespace(kubectl);
-        portForwardToPod(kubectl, podName, portMapping, namespace);
+        const portMapping = await promptForPort(kubectl, podName, namespace);
+        if (portMapping.length !== 0) {
+            portForwardToPod(kubectl, podName, portMapping, namespace);
+        }
         return;
     } else {
         let portForwardablePods: PortForwardFindPodsResult;
@@ -67,8 +71,10 @@ export async function portForwardKubernetes (kubectl: Kubectl, explorerNode?: an
         if (isFindResultFromDocument(portForwardablePods)) {
             // The pod is described by the open document. Skip asking which pod to use and go straight to port-forward.
             const podSelection = portForwardablePods.pod;
-            const portMapping = await promptForPort();
-            portForwardToPod(kubectl, podSelection, portMapping, portForwardablePods.namespace);
+            const portMapping = await promptForPort(kubectl, podSelection, portForwardablePods.namespace);
+            if (portMapping.length !== 0) {
+                portForwardToPod(kubectl, podSelection, portMapping, portForwardablePods.namespace);
+            }
             return;
         }
 
@@ -90,23 +96,62 @@ export async function portForwardKubernetes (kubectl: Kubectl, explorerNode?: an
             host.showErrorMessage("Error while selecting pod for port-forward");
             return;
         }
-
-        const portMapping = await promptForPort();
         const namespace = await kubectlUtils.currentNamespace(kubectl);
-        portForwardToPod(kubectl, podSelection, portMapping, namespace);
+        const portMapping = await promptForPort(kubectl, podSelection, namespace);
+        if (portMapping.length !== 0) {
+            portForwardToPod(kubectl, podSelection, portMapping, namespace);
+        }
     }
+}
+
+/**
+ * Given a JSON representation of a Pod, extract the ports to suggest to the user for
+ * for port forwarding.
+ */
+function extractPodPorts(podJson: string): string | undefined {
+    const pod = JSON.parse(podJson) as kubernetes.V1Pod;
+    const containers = pod.spec.containers;
+    const ports = Array.of<number>();
+    containers.forEach((container) => {
+        if (container.ports) {
+            const containerPorts = container.ports.map((port) => port.containerPort);
+            ports.push(...containerPorts);
+        }
+    });
+    if (ports.length > 0) {
+        const portPairs = ports.map((port) => `${port}:${port}`);
+        return portPairs.join(' ');
+    }
+    return;
 }
 
 /**
  * Prompts the user on what port to port-forward to, and validates numeric input.
  * @returns An array of PortMapping objects.
  */
-async function promptForPort (): Promise<PortMapping[]> {
+async function promptForPort (kubectl?: Kubectl, podName?: string, namespace?: string): Promise<PortMapping[]> {
     let portString: string | undefined;
+    let defaultValue: string | undefined = undefined;
+    if (podName && kubectl) {
+        const ns = namespace || 'default';
+        try {
+            const result = await kubectl.invokeAsync(`get pods ${podName} --namespace ${ns} -o json`);
+            if (result) {
+                if (result.code === 0) {
+                    defaultValue = extractPodPorts(result.stdout);
+                } else {
+                    console.log(`Error getting ports: ${result.stderr}`);
+                }
+            }
+        } catch (err) {
+            console.log(err);
+        }
+    }
 
     try {
         portString = await host.showInputBox(<QuickPickOptions>{
-            placeHolder: "ex: 8888:5000 8889:5001",
+            placeHolder: 'ex: 8888:5000 8889:5001',
+            value: defaultValue,
             prompt: `Port mappings in the format LOCAL:REMOTE. Separate multiple port mappings with spaces.`,
             validateInput: (portMapping: string) => {
                 const validatedPortMapping = validatePortMapping(portMapping);
