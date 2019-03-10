@@ -1,7 +1,7 @@
 # Adding Cloud or Cluster Types to the Cluster Wizard
 
-The Kubernetes extension provides the Add Existing Cluster command to add a
-Kubernetes cluster to your kubeconfig, and the Create Cluster command to create a
+The Kubernetes extension provides the `Add Existing Cluster` command to add a
+Kubernetes cluster to your kubeconfig, and the `Create Cluster` command to create a
 new Kubernetes cluster to work with.  Out of the box, these commands support
 Azure Kubernetes Service clusters and the Minikube local cluster.  You can extend
 them with other cluster types (e.g. Amazon EKS) using the Cluster Provider API.
@@ -52,8 +52,8 @@ The `id` must be a string that uniquely identifies the cluster provider amongst 
 registered cluster providers.  It is not shown to end users.  Users instead choose your
 cluster type using the `displayName`, which the Kubernetes extension shows in the cluster
 type drop down at the start of the wizard.  Your provider is only shown for the actions
-(commands) listed in its `supportedActions` array: `configure` for Add Existing Cluster
-and/or `create` for Create Command.
+(commands) listed in its `supportedActions` array: `configure` for `Add Existing Cluster`
+and/or `create` for `Create Cluster`.
 
 For example:
 
@@ -143,7 +143,7 @@ a call to `next` - do not need to follow this convention.)
   and whose value is the cluster provider's `id` property.
 * The form must contain _all_ information that you want to keep.  You cannot store state
   in the provider between pages - you _must_ pass it from page to page.  (For example,
-  if you first page asks for a region ID and your second page for a name, then
+  if your first page asks for a region ID and your second page for a name, then
   the form on the second page should contain a hidden element that preserves the
   region ID.)
 * The form should contain enough information for the `next` method to work out where
@@ -248,18 +248,18 @@ for details.
 
 ## Registering the cluster provider
 
-In order to be displayed in the Add Existing Cluster or Create Cluster wizard, a cluster
+In order to be displayed in the `Add Existing Cluster` or `Create Cluster` wizard, a cluster
 provider must be _registered_ with the Kubernetes extension.  This is the responsibility
 of the VS Code extension that hosts the cluster provider.  To do this, the extension must:
 
-* Activate in response to the Add Existing Cluster and/or Create Cluster commands
+* Activate in response to the `Add Existing Cluster` and/or `Create Cluster` commands
 * Request the Kubernetes extension's Cluster Provider API
 * Call the `register` method for each cluster provider it wants to display
 
 ### Activating the cluster provider extension
 
-Your extension needs to activate in response to the Add Existing Cluster and/or Create
-Cluster commands, so that it can register its cluster provider(s) before the wizard is
+Your extension needs to activate in response to the `Add Existing Cluster` and/or `Create Cluster`
+commands, so that it can register its cluster provider(s) before the wizard is
 displayed.  To do this, your `package.json` must include the following activation events:
 
 ```json
