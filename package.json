@@ -2,7 +2,7 @@
     "name": "vscode-kubernetes-tools",
     "displayName": "Kubernetes",
     "description": "Develop, deploy and debug Kubernetes applications",
-    "version": "0.1.16",
+    "version": "0.1.17",
     "preview": true,
     "publisher": "ms-kubernetes-tools",
     "engines": {
@@ -166,7 +166,10 @@
                         },
                         "vs-kubernetes.kubectlVersioning": {
                             "type": "string",
-                            "enum": ["user-provided", "infer"],
+                            "enum": [
+                                "user-provided",
+                                "infer"
+                            ],
                             "description": "Whether to use the kubectl binary you provide ('user-provided'), or to automatically download the right version of kubectl for each cluster ('infer')."
                         },
                         "vs-kubernetes.kubeconfig": {

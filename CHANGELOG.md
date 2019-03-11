@@ -1,5 +1,24 @@
 # Change Log
 
+## 0.1.17
+
+* Added Node.js debug provider
+* The extension can now automatically use (and download if necessary) the right version of
+  `kubectl` for each cluster you use (currently opt-in via `kubectlVersioning` config setting)
+* You can now right-click a YAML file to create, apply or delete the corresponding
+  Kubernetes resource. To avoid cluttering the right-click menu for all YAML files,
+  this is opt-in via the `resource-commands-on-files` config setting.
+* Show Logs now displays logs in a custom view with filtering commands
+* Option to suppress the notification to upgrade Minikube
+* Improved logic for inferring debug ports from the container spec
+* Fixed typo in ReplicationController snippet
+* Fixed duplicate Services and Ingress folders in tree
+* Fixed bug registering or creating Azure clusters if Azure CLI was 2.0.58 or above
+* Telemetry now includes whether `Add Existing Cluster` and `Create Cluster` commands
+  succeeded or failed
+
+Thanks to contributors Mitchell Amihod, Brendan Burns, Hanxiao Liu, Vladimir Shaikovskii and yehiyam.
+
 ## 0.1.16
 
 * Fixed looping if `kubectl version` returned an error
