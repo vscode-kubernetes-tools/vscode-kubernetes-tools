@@ -154,6 +154,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
             (uri: vscode.Uri) => kubectlUtils.applyResourceFromUri(uri, kubectl)),
         registerCommand('extension.vsKubernetesDelete', (explorerNode: explorer.ResourceNode) => { deleteKubernetes(KubernetesDeleteMode.Graceful, explorerNode); }),
         registerCommand('extension.vsKubernetesDeleteNow', (explorerNode: explorer.ResourceNode) => { deleteKubernetes(KubernetesDeleteMode.Now, explorerNode); }),
+        registerCommand('extension.vsKubernetesDescribe.Refresh', DescribePanel.refreshCommand),
         registerCommand('extension.vsKubernetesApply', applyKubernetes),
         registerCommand('extension.vsKubernetesExplain', explainActiveWindow),
         registerCommand('extension.vsKubernetesLoad', loadKubernetes),
@@ -1178,17 +1179,25 @@ function getPorts() {
 async function describeKubernetes(explorerNode?: explorer.ResourceNode) {
     if (explorerNode) {
         const nsarg = explorerNode.namespace ? `--namespace ${explorerNode.namespace}` : '';
-        const result = await kubectl.invokeAsync(`describe ${explorerNode.resourceId} ${nsarg}`);
+        const cmd = `describe ${explorerNode.resourceId} ${nsarg}`;
+        const result = await kubectl.invokeAsync(cmd);
+        const refresh = (): Promise<ShellResult | undefined> => {
+            return kubectl.invokeAsync(cmd);
+        };
         if (result && result.code === 0) {
-            DescribePanel.createOrShow(result.stdout, explorerNode.resourceId);
+            DescribePanel.createOrShow(result.stdout, explorerNode.resourceId, refresh);
         } else {
             await vscode.window.showErrorMessage(`Describe failed: ${result ? result.stderr : "Unable to call kubectl"}`);
         }
     } else {
         findKindNameOrPrompt(kuberesources.commonKinds, 'describe', { nameOptional: true }, async (value) => {
-            const result = await kubectl.invokeAsync(`describe ${value}`);
+            const cmd = `describe ${value}`;
+            const refresh = (): Promise<ShellResult | undefined> => {
+                return kubectl.invokeAsync(cmd);
+            };
+            const result = await kubectl.invokeAsync(cmd);
             if (result && result.code === 0) {
-                DescribePanel.createOrShow(result.stdout, value);
+                DescribePanel.createOrShow(result.stdout, value, refresh);
             } else {
                 await vscode.window.showErrorMessage(`Describe failed: ${result ? result.stderr : "Unable to call kubectl"}`);
             }

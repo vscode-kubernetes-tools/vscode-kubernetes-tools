@@ -28,6 +28,7 @@
         "onCommand:extension.vsKubernetesDelete",
         "onCommand:extension.vsKubernetesDeleteNow",
         "onCommand:extension.vsKubernetesDeleteUri",
+        "onCommand:extension.vsKubernetesDescribe.Refresh",
         "onCommand:extension.vsKubernetesApply",
         "onCommand:extension.vsKubernetesApplyFile",
         "onCommand:extension.vsKubernetesExplain",
@@ -267,6 +268,12 @@
             ]
         },
         "menus": {
+            "editor/title": [
+                {
+                    "command": "extension.vsKubernetesDescribe.Refresh",
+                    "when": "vscodeKubernetesDescribeContext"
+                }
+            ],
             "explorer/context": [
                 {
                     "title": "Update Dependencies",
@@ -565,6 +572,11 @@
             ]
         },
         "commands": [
+            {
+                "command": "extension.vsKubernetesDescribe.Refresh",
+                "title": "Refresh",
+                "category": "Kubernetes"
+            },
             {
                 "command": "extension.vsKubernetesCreate",
                 "title": "Create",
@@ -907,6 +919,14 @@
                 "title": "Show Dependencies",
                 "description": "List the dependencies of a Helm chart",
                 "category": "Helm"
+            }
+        ],
+        "keybindings": [
+			{
+				"command": "extension.vsKubernetesDescribe.Refresh",
+				"key": "shift+ctrl+r",
+				"mac": "shift+cmd+r",
+				"when": "vscodeKubernetesDescribeContext"
             }
         ],
         "languages": [
