@@ -74,7 +74,7 @@ async function downloadKubectlVersion(shell: Shell, host: Host, serverVersion: s
         download.once(kubectlUrl, binPath)
     );
     if (shell.isUnix()) {
-        await fs.chmod(binPath, '0777');
+        await fs.chmod(binPath, '0755');
     }
     return succeeded(downloadResult);
 }
