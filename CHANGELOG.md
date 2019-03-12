@@ -1,5 +1,9 @@
 # Change Log
 
+## 0.1.18
+
+* Fixed automatic versions of `kubectl` not being executable on Mac or Linux
+
 ## 0.1.17
 
 * Added Node.js debug provider
