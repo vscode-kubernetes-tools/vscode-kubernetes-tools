@@ -73,6 +73,9 @@ async function downloadKubectlVersion(shell: Shell, host: Host, serverVersion: s
     const downloadResult = await host.longRunning({ title: `Downloading kubectl ${serverVersion}`, operationKey: binPath }, () =>
         download.once(kubectlUrl, binPath)
     );
+    if (shell.isUnix()) {
+        await fs.chmod(binPath, '0755');
+    }
     return succeeded(downloadResult);
 }
 
