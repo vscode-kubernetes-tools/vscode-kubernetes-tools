@@ -2,6 +2,7 @@ import * as sysfs from 'fs';
 import { promisify } from 'util';
 
 export interface FS {
+    chmod(path: string, mode: string | number): Promise<void>;
     existsSync(path: string | Buffer): boolean;
     readFile(filename: string, encoding: string, callback: (err: NodeJS.ErrnoException, data: string) => void): void;
     readTextFile(path: string): Promise<string>;
@@ -19,6 +20,9 @@ export interface FS {
 }
 
 export const fs: FS = {
+    chmod: promisify(
+        (path: string, mode: string | number, cb: (err: NodeJS.ErrnoException) => void) =>
+          sysfs.chmod(path, mode, cb)),
     existsSync: (path) => sysfs.existsSync(path),
     readFile: (filename, encoding, callback) => sysfs.readFile(filename, encoding, callback),
     readTextFile: promisify(
