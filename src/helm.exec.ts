@@ -234,7 +234,7 @@ export function helmGet(resourceNode: explorer.ResourceNode) {
 }
 
 export function helmfsUri(releaseName: string): vscode.Uri {
-    const docname = `helmrelease-${releaseName}.txt`;
+    const docname = `helmrelease-${releaseName}.yaml`;
     const nonce = new Date().getTime();
     const uri = `${K8S_RESOURCE_SCHEME}://${HELM_RESOURCE_AUTHORITY}/${docname}?value=${releaseName}&_=${nonce}`;
     return vscode.Uri.parse(uri);
