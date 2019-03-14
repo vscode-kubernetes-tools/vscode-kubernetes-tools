@@ -13,7 +13,8 @@ a particular version of the component API. Versioned interfaces are immutable, a
 versions should continue to work even after a new version is available, though old versions
 may eventually be retired.
 
-The easiest way to get an interface is to use the [vscode-kubernetes-tools-api NPM package](https://link/tba).
+The easiest way to get an interface is to use the [vscode-kubernetes-tools-api NPM
+package](https://www.npmjs.com/package/vscode-kubernetes-tools-api).
 Using this, you can request interfaces via convenient accessors:
 
 ```javascript

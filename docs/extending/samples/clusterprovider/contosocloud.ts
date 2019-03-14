@@ -1,4 +1,8 @@
 /*
+
+// This file is currently commented out to avoid causing spurious warnings for the
+// extension.  It will in time be moved to a samples repo.
+
 import * as vscode from 'vscode';
 import * as k8s from 'vscode-kubernetes-tools-api';
 import { ClusterProviderV1 as cp } from 'vscode-kubernetes-tools-api';
