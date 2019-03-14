@@ -44,7 +44,6 @@ import { HelmTemplatePreviewDocumentProvider, HelmInspectDocumentProvider, HelmD
 import { HelmTemplateCompletionProvider } from './helm.completionProvider';
 import { Reporter } from './telemetry';
 import * as telemetry from './telemetry-helper';
-import * as extensionapi from './extension.api';
 import { dashboardKubernetes } from './components/kubectl/dashboard';
 import { portForwardKubernetes } from './components/kubectl/port-forward';
 import { logsKubernetes, LogsDisplayMode } from './components/kubectl/logs';
@@ -75,6 +74,8 @@ import { linters } from './components/lint/linters';
 import { runClusterWizard } from './components/clusterprovider/clusterproviderserver';
 import { timestampText } from './utils/naming';
 import { ContainerContainer } from './utils/containercontainer';
+import { APIBroker } from './api/contract/api';
+import { apiBroker } from './api/implementation/apibroker';
 
 let explainActive = false;
 let swaggerSpecPromise: Promise<explainer.SwaggerModel | undefined> | null = null;
@@ -117,7 +118,7 @@ export const HELM_TPL_MODE: vscode.DocumentFilter = { language: "helm", scheme: 
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
-export async function activate(context: vscode.ExtensionContext): Promise<extensionapi.ExtensionAPI> {
+export async function activate(context: vscode.ExtensionContext): Promise<APIBroker> {
     kubectl.checkPresent(CheckPresentMessageMode.Activation);
 
     const treeProvider = explorer.create(kubectl, host);
@@ -352,10 +353,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<extens
     await registerYamlSchemaSupport();
 
     vscode.workspace.registerTextDocumentContentProvider(configmaps.uriScheme, configMapProvider);
-    return {
-        apiVersion: '0.1',
-        clusterProviderRegistry: clusterProviderRegistry
-    };
+    return apiBroker(clusterProviderRegistry, kubectl);
 }
 
 // this method is called when your extension is deactivated

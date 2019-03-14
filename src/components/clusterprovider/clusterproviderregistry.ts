@@ -11,7 +11,7 @@ export interface ClusterProvider {
 
 export interface ClusterProviderRegistry {
     register(clusterProvider: ClusterProvider): void;
-    list(): Array<ClusterProvider>;
+    list(): ReadonlyArray<ClusterProvider>;
 }
 
 class RegistryImpl implements ClusterProviderRegistry {
@@ -22,7 +22,7 @@ class RegistryImpl implements ClusterProviderRegistry {
         this.providers.push(clusterProvider);
     }
 
-    public list(): Array<ClusterProvider> {
+    public list(): ReadonlyArray<ClusterProvider> {
         let copy = new Array<ClusterProvider>();
         copy = copy.concat(this.providers);
         return copy;
