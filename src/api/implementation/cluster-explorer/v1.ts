@@ -1,20 +1,31 @@
 import * as vscode from 'vscode';
 
-import { ExplorerTreeV1 } from "../../contract/explorer-tree/v1";
+import { ClusterExplorerV1 } from "../../contract/cluster-explorer/v1";
 import { ExplorerExtender } from "../../../explorer.extension";
-import { KubernetesObject, ResourceFolder, ResourceNode, KubernetesExplorer } from "../../../explorer";
-import { CommandTargetsV1 } from "../../contract/command-targets/v1";
+import { KUBERNETES_EXPLORER_NODE_CATEGORY, KubernetesObject, ResourceFolder, ResourceNode, KubernetesExplorer } from "../../../explorer";
 import { Kubectl } from "../../../kubectl";
 import { Host } from "../../../host";
 
-export function impl(explorer: KubernetesExplorer): ExplorerTreeV1 {
-    return new ExplorerTreeV1Impl(explorer);
+export function impl(explorer: KubernetesExplorer): ClusterExplorerV1 {
+    return new ClusterExplorerV1Impl(explorer);
 }
 
-class ExplorerTreeV1Impl implements ExplorerTreeV1 {
+class ClusterExplorerV1Impl implements ClusterExplorerV1 {
     constructor(private readonly explorer: KubernetesExplorer) {}
 
-    registerNodeContributor(nodeContributor: ExplorerTreeV1.NodeContributor): void {
+    resolveCommandTarget(target?: any): ClusterExplorerV1.ClusterExplorerNode | undefined {
+        if (!target) {
+            return undefined;
+        }
+        if (target.nodeCategory === KUBERNETES_EXPLORER_NODE_CATEGORY) {
+            const implNode = target as KubernetesObject;
+            const apiNode = adaptKubernetesExplorerNode(implNode);
+            return apiNode;
+        }
+        return undefined;
+    }
+
+    registerNodeContributor(nodeContributor: ClusterExplorerV1.NodeContributor): void {
         const adapted = adaptToExplorerExtension(nodeContributor);
         this.explorer.register(adapted);
     }
@@ -24,12 +35,12 @@ class ExplorerTreeV1Impl implements ExplorerTreeV1 {
     }
 }
 
-function adaptToExplorerExtension(nodeContributor: ExplorerTreeV1.NodeContributor): ExplorerExtender<KubernetesObject> {
+function adaptToExplorerExtension(nodeContributor: ClusterExplorerV1.NodeContributor): ExplorerExtender<KubernetesObject> {
     return new NodeContributorAdapter(nodeContributor);
 }
 
 class NodeContributorAdapter implements ExplorerExtender<KubernetesObject> {
-    constructor(private readonly impl: ExplorerTreeV1.NodeContributor) {}
+    constructor(private readonly impl: ClusterExplorerV1.NodeContributor) {}
     contributesChildren(parent?: KubernetesObject | undefined): boolean {
         const parentNode = parent ? adaptKubernetesExplorerNode(parent) : undefined;
         return this.impl.contributesChildren(parentNode);
@@ -37,11 +48,11 @@ class NodeContributorAdapter implements ExplorerExtender<KubernetesObject> {
     async getChildren(parent?: KubernetesObject | undefined): Promise<KubernetesObject[]> {
         const parentNode = parent ? adaptKubernetesExplorerNode(parent) : undefined;
         const children = await this.impl.getChildren(parentNode);
-        return children.map(objectulise);
+        return children.map(internalNodeOf);
     }
 }
 
-function adaptKubernetesExplorerNode(node: KubernetesObject): CommandTargetsV1.KubernetesExplorerNode {
+function adaptKubernetesExplorerNode(node: KubernetesObject): ClusterExplorerV1.ClusterExplorerNode {
     switch (node.nodeType) {
         case 'error':
             return { nodeType: 'error' };
@@ -62,7 +73,7 @@ function adaptKubernetesExplorerNode(node: KubernetesObject): CommandTargetsV1.K
     }
 }
 
-function adaptKubernetesExplorerResourceNode(node: KubernetesObject & ResourceNode): CommandTargetsV1.KubernetesExplorerResourceNode {
+function adaptKubernetesExplorerResourceNode(node: KubernetesObject & ResourceNode): ClusterExplorerV1.ClusterExplorerResourceNode {
     return {
         nodeType: 'resource',
         metadata: node.metadata,
@@ -72,19 +83,19 @@ function adaptKubernetesExplorerResourceNode(node: KubernetesObject & ResourceNo
     };
 }
 
-function objectulise(node: ExplorerTreeV1.Node): KubernetesObject {
-    return new Objectulisation(node);
+function internalNodeOf(node: ClusterExplorerV1.Node): KubernetesObject {
+    return new ContributedNode(node);
 }
 
-class Objectulisation implements KubernetesObject {
+class ContributedNode implements KubernetesObject {
     readonly nodeCategory = 'kubernetes-explorer-node';
     readonly nodeType = 'extension';
     readonly id = 'dummy';
 
-    constructor(readonly impl: ExplorerTreeV1.Node) {}
+    constructor(private readonly impl: ClusterExplorerV1.Node) {}
 
     async getChildren(_kubectl: Kubectl, _host: Host): Promise<KubernetesObject[]> {
-        return (await this.impl.getChildren()).map((n) => objectulise(n));
+        return (await this.impl.getChildren()).map((n) => internalNodeOf(n));
     }
     getTreeItem(): vscode.TreeItem {
         return this.impl.getTreeItem();
