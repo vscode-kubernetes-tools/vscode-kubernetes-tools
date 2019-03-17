@@ -77,9 +77,9 @@ passes the cluster explorer node object as an argument to the command handler.  
 should treat this object as undocumented and opaque.**  To find out which resource (or other
 object) the user clicked, use the Command Targets API to _resolve_ the argument, as follows:
 
-* Request the Kubernetes extension's Command Targets API
-* Call the `resolve` method passing the opaque object that Code passed to your command handler
-* If the object resolves, use the `targetType` and `node.nodeType` attributes to determine the
+* Request the Kubernetes extension's Cluster Explorer API
+* Call the `resolveCommandTarget` method passing the opaque object that Code passed to your command handler
+* If the object resolves, use `nodeType` attribute to determine the
   type of node, and appropriate properties to obtain type-specific information such as
   context name, resource ID, etc.  See the NPM package for the different node schemas.
 
@@ -88,19 +88,18 @@ the command handler needs to distinguish which was clicked and obtain the name.
 
 ```javascript
 function onTop(target?: any) {
-    const commandTargets = await k8s.extension.commandTargets.v1;
-    const commandTarget = commandTargets.resolve(target);
+    const clusterExplorer = await k8s.extension.clusterExplorer.v1;
+    const commandTarget = clusterExplorer.resolveCommandTarget(target);
 
-    if (commandTarget && commandTarget.targetType === 'kubernetes-explorer-node') {
-        const node = commandTarget.node;
-        if (node.nodeType === 'resource') {
-            if (node.resourceKind.manifestKind === 'Pod') {
-                const podNamespace = node.namespace || 'default';
-                const podName = node.name;
+    if (commandTarget) {
+        if (commandTarget.nodeType === 'resource') {
+            if (commandTarget.resourceKind.manifestKind === 'Pod') {
+                const podNamespace = commandTarget.namespace || 'default';
+                const podName = commandTarget.name;
                 runTopPodCommand(podNamespace, podName);
                 return;
-            } else if (node.resourceKind.manifestKind === 'Node') {
-                const nodeName = node.name;
+            } else if (commandTarget.resourceKind.manifestKind === 'Node') {
+                const nodeName = commandTarget.name;
                 runTopNodeCommand(nodeName);
                 return;
             }
@@ -117,8 +116,8 @@ function onTop(target?: any) {
 }
 ```
 
-**NOTE:** The Command Targets API only resolves command targets from the Kubernetes extension
-tree view.  If your command also appears in other places, `resolve` will return `undefined` for
+**NOTE:** The Cluster Explorer API only resolves command targets from the Kubernetes extension
+Clusters tree view.  If your command also appears in other places, `resolveCommandTarget` will return `undefined` for
 those cases and it's up to you to work out the target and extract the data you need.
 For example, if you display your command both on Kubernetes resources and on YAML files
 in the file explorer, the latter will pass a `vscode.Uri` to the command handler, which
@@ -130,9 +129,9 @@ function onReticulate(target?: any) {
     if (!target) {
         // From command palette - e.g. prompt or default
     }
-    const k8sTarget = commandTargets.resolve(target);
+    const k8sTarget = clusterExplorer.resolveCommandTarget(target);
     if (k8sTarget) {
-        // From Kubernetes extension - use resolved object to determine node
+        // From Cluster Explorer tree view - use resolved object to determine actual target
     }
     // Neither of the above - it must be from the file explorer
     const uriTarget = target as vscode.Uri;

@@ -60,3 +60,10 @@ snippet. In terms of the TypeScript typings from the NPM package, `activate` ret
   Add Existing Cluster and Create Cluster commands
   * ID: `clusterprovider`
   * Versions: `v1`
+* [Kubectl API](kubectl.md) - used for invoking the `kubectl` CLI consistently with the core
+  extension commands and features
+  * ID: `kubectl`
+  * Versions: `v1`
+* [Cluster Explorer API](clusterexplorer.md) - used for working with the existing Clusters tree
+  * ID: `clusterexplorer`
+  * Versions: `v1`
