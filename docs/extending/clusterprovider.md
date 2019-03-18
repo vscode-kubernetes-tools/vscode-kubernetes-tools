@@ -34,7 +34,7 @@ their hosting extension need to do; the rest of this article goes into detail.
 ## Implementing the cluster provider
 
 A cluster provider must implement the following interface.  (For documentation purposes
-the interface is written, in TypeScript terms but any JavaScript object that provides
+the interface is written in TypeScript terms but any JavaScript object that provides
 the specified properties and methods will do.)
 
 ```javascript
