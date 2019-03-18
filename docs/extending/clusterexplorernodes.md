@@ -1,4 +1,4 @@
-# Adding Nodes to Cluster Explorer
+# Adding Nodes to the Cluster Explorer
 
 You can use the Cluster Explorer API to add new nodes to the Kubernetes extension's
 Clusters tree.  For example, you might do this when you have a tool such as a
@@ -64,27 +64,116 @@ as we talk about implementing the methods.
 
 ### Implementing `contributesChildren`
 
-Typically, in this
-  method you'll just look at the type and properties of the parent node, and return
-  `true` if this is the place (or one of the places) that you contribute do.  You should
-  _not_, in this method, contact the cluster or any other external resource.  You _don't_
-  need to check here whether there are any actual nodes to add - only whether this is a
-  place where you _would_ add them.  The Kubernetes extension calls `contributesChildren` to:
-  * Determine if it should show a parent node as expandable when it might normally not be.
-  * Determine if it should call the more expensive `getChildren` operation when computing the\
-    set of child nodes.
+The Kubernetes extension calls `contributesChildren` to:
+* Determine if it should show a parent node as expandable when it might normally not be.
+* Determine if it should call the more expensive `getChildren` operation when computing the\
+  set of child nodes.
+
+In `contributesChildren`, you should assess only "is this the (or a) place in the tree
+where I might want to display nodes?"  If so, return `true`; otherwise, return `false`.
+
+Typically, in this method you'll just look at the type and properties of the parent
+node.  You should _not_, in this method, contact the cluster or any other external resource.
+You _don't_ need to check here whether there are any actual nodes to add - only whether this is a
+place where you _might be interested_ in adding them.  For example, suppose your extension
+applies to services, and displays the details of any cloud native load balancers associated
+with load-balanced services.  The only place you are interested in adding nodes is under
+service resources.  So `contributesChildren` should check for that, but does _not_ need to
+check whether there are any load balancers associated with the service:
+
+```javascript
+class LoadBalancerNodeContributor {
+    contributesChildren(parent: ClusterExplorerNode | undefined): boolean {
+        return parent && parent.nodeType === 'resource' && parent.resourceKind.manifestKind === 'Service';
+    }
+}
+```
 
 ### Implementing `getChildren`
 
-The Kubernetes extension only
-  calls `getChildren` if `contributesChildren` has returned `true` for this parent.
-  `getChildren` is where you perform any cluster or other I/O activity to gather the data
-  for the nodes you want to add.
+The Kubernetes extension calls `getChildren` when the user expands a parent for which `contributesChildren`
+has returned `true`.  `getChildren` is where you perform any cluster or other I/O activity
+to gather the data for the nodes you want to add.  You must return a promise which resolves to
+an array whose items conform to the following interface:
 
+```javascript
+interface Node {
+    getChildren(): Promise<Node[]>;
+    getTreeItem(): vscode.TreeItem;
+}
+```
 
-### Implementing the node objects
+Your node object should implement `getTreeItem` to return a Visual Studio Code TreeItem instance
+specifying how it would like to be displayed (e.g. label, tooltip, whether it's expandable).
+If the node has children, it should implement `getChildren` to calculate those; otherwise, it can
+simply return the promise of an empty array.
 
+Revisiting the example of displaying cloud native load balancers under load-balanced services:
 
+```javascript
+class LoadBalancerNodeContributor {
+    async getChildren(parent: ClusterExplorerNode | undefined): Promise<Node[]> {
+        if (parent && parent.nodeType === 'resource' && parent.resourceKind.manifestKind === 'Service') {
+            const serviceName = parent.name;
+            const serviceNamespace = parent.namespace || 'default';
+            const loadBalancers = await listLoadBalancersForService(serviceNamespace, serviceName, CLOUD_CREDENTIALS);
+            return loadBalancers.map((lb) => new LoadBalancerNode(lb));
+        }
+        return [];
+    }
+}
+
+class LoadBalancerNode implements Node {
+    constructor(private readonly lb: CloudLoadBalancer) {}
+    async getChildren(): Promise<Node[]> {
+        return [];  // no children in this case
+    }
+    getTreeItem(): vscode.TreeItem {
+        const treeItem = new vscode.TreeItem(this.lb.ID, vscode.TreeItemCollapsibleState.None);
+        treeItem.tooltip = this.lb.IPAddress;
+        return treeItem;
+    }
+}
+```
+
+It's quite possible that, when you look at the state of the cluster and the world, you find
+you don't want to display any nodes after all, even though you returned `true` from
+`contributesChildren`.  That's okay!  `contributesChildren` says only "I'm interested in
+this location," not "I promise there will be nodes here."  Just return an empty array from
+`getChildren` in this case.
+
+### Implementing node hierarchies
+
+The node contributor's `getChildren` is responsible only for returning the first level of nodes
+you want to inject into the tree.  If you want to inject a multi-level hierarchy, then these
+initial nodes are responsible for returning their own children.  The node contributor won't
+be called again for these.  ### TODO: OR WILL IT? ###
+
+Let's extend the load balancer example to show multiple IP addresses as child nodes of the load
+balancer:
+
+```javascript
+class LoadBalancerNode implements Node {
+    constructor(private readonly lb: CloudLoadBalancer) {}
+    async getChildren(): Promise<Node[]> {
+        const addresses = await lb.queryIPAddresses(CLOUD_CREDENTIALS);
+        return addresses.map((a) => new LoadBalancerAddressNode(a));
+    }
+    getTreeItem(): vscode.TreeItem {
+        return new vscode.TreeItem(this.lb.ID, vscode.TreeItemCollapsibleState.Expandable);
+    }
+}
+
+class LoadBalancerAddressNode implements Node {
+    constructor(private readonly address: string) {}
+    async getChildren(): Promise<Node[]> {
+        return [];
+    }
+    getTreeItem(): vscode.TreeItem {
+        return new vscode.TreeItem(this.address, vscode.TreeItemCollapsibleState.None);
+    }
+}
+```
 
 ## Registering the node contributor
 
@@ -109,3 +198,29 @@ displayed.  To do this, your `package.json` must include the following activatio
 ```
 
 Depending on your extension you may have other activation events as well.
+
+### Registering cluster providers with the Kubernetes extension
+
+In your extension's `activate` function, you must register your node contributor(s) using the
+Kubernetes extension API.  The following sample shows how to do this using the NPM
+helper package; if you don't use the helper then the process of requesting the API is
+more manual but the registration is the same.
+
+```javascript
+import * as k8s from 'vscode-kubernetes-tools-api';
+
+const LOAD_BALANCER_NODE_CONTRIBUTOR = new LoadBalancerNodeContributor();
+
+export async function activate(context: vscode.ExtensionContext) {
+    const explorer = await k8s.extension.clusterExplorer.v1;
+
+    if (!explorer.available) {
+        console.log("Unable to register node contributor: " + explorer.reason);
+        return;
+    }
+
+    explorer.api.registerNodeContributor(LOAD_BALANCER_NODE_CONTRIBUTOR);
+}
+```
+
+Your new cluster explorer nodes are now ready for testing!
