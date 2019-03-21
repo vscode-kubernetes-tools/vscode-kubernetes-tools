@@ -9,6 +9,8 @@ import { Errorable, failed } from './errorable';
 import { parseLineOutput } from './outputUtils';
 import { affectsUs } from './components/config/config';
 
+export const HELM_EXPLORER_NODE_CATEGORY = 'helm-explorer-node';
+
 export function create(host: Host): HelmRepoExplorer {
     return new HelmRepoExplorer(host);
 }
@@ -21,6 +23,7 @@ export enum RepoExplorerObjectKind {
 }
 
 export interface HelmObject {
+    readonly nodeCategory: 'helm-explorer-node';
     readonly kind: RepoExplorerObjectKind;
     getChildren(): Promise<HelmObject[]>;
     getTreeItem(): vscode.TreeItem;
@@ -89,8 +92,14 @@ export class HelmRepoExplorer implements vscode.TreeDataProvider<HelmObject> {
     }
 }
 
-class HelmError implements HelmObject {
-    constructor(private readonly text: string, private readonly detail: string) {}
+class HelmExplorerNodeImpl {
+    readonly nodeCategory = HELM_EXPLORER_NODE_CATEGORY;
+}
+
+class HelmError extends HelmExplorerNodeImpl implements HelmObject {
+    constructor(private readonly text: string, private readonly detail: string) {
+        super();
+    }
 
     get kind() { return RepoExplorerObjectKind.Error; }
 
@@ -105,8 +114,10 @@ class HelmError implements HelmObject {
     }
 }
 
-class HelmRepoImpl implements HelmRepo {
-    constructor(readonly name: string) {}
+class HelmRepoImpl extends HelmExplorerNodeImpl implements HelmRepo {
+    constructor(readonly name: string) {
+        super();
+    }
 
     get kind() { return RepoExplorerObjectKind.Repo; }
 
@@ -129,11 +140,12 @@ class HelmRepoImpl implements HelmRepo {
     }
 }
 
-class HelmRepoChartImpl implements HelmRepoChart {
+class HelmRepoChartImpl extends HelmExplorerNodeImpl implements HelmRepoChart {
     private readonly versions: HelmRepoChartVersionImpl[];
     private readonly name: string;
 
     constructor(repoName: string, readonly id: string, content: { [key: string]: string }[]) {
+        super();
         this.versions = content.map((e) => new HelmRepoChartVersionImpl(
             id,
             e['chart version'],
@@ -156,13 +168,15 @@ class HelmRepoChartImpl implements HelmRepoChart {
     }
 }
 
-class HelmRepoChartVersionImpl implements HelmRepoChartVersion {
+class HelmRepoChartVersionImpl extends HelmExplorerNodeImpl implements HelmRepoChartVersion {
     constructor(
         readonly id: string,
         readonly version: string,
         private readonly appVersion: string | undefined,
         private readonly description: string | undefined
-    ) {}
+    ) {
+        super();
+    }
 
     get kind() { return RepoExplorerObjectKind.ChartVersion; }
 
