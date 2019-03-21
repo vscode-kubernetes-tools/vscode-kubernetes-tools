@@ -5,6 +5,7 @@ import { ExplorerExtender } from "../../../explorer.extension";
 import { KUBERNETES_EXPLORER_NODE_CATEGORY, KubernetesObject, ResourceFolder, ResourceNode, KubernetesExplorer } from "../../../explorer";
 import { Kubectl } from "../../../kubectl";
 import { Host } from "../../../host";
+import { KubectlContext } from '../../../kubectlUtils';
 
 export function impl(explorer: KubernetesExplorer): ClusterExplorerV1 {
     return new ClusterExplorerV1Impl(explorer);
@@ -57,7 +58,9 @@ function adaptKubernetesExplorerNode(node: KubernetesObject): ClusterExplorerV1.
         case 'error':
             return { nodeType: 'error' };
         case 'context':
-            return { nodeType: 'context', name: node.id };
+            return (node.metadata as KubectlContext).active ?
+                { nodeType: 'context', name: node.id } :
+                { nodeType: 'context.inactive', name: node.id };
         case 'folder.grouping':
             return { nodeType: 'folder.grouping' };
         case 'folder.resource':

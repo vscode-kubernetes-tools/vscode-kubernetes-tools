@@ -43,6 +43,17 @@ export namespace ClusterExplorerV1 {
         readonly name: string;
     }
 
+    // NOTE: It may seem odd to surface inactive contexts as a different node type,
+    // rather than a property on CEContextNode. The reason is the adding nodes
+    // scenario - typically authors want to add nodes *only* under the active context.
+    // With a property, forgetting to check would result in incorrect behaviour in the
+    // common case. This way, the common case works naturally and they need to opt in
+    // to say 'no I really do want to add nodes to inactive clusters too'.
+    export interface ClusterExplorerInactiveContextNode {
+        readonly nodeType: 'context.inactive';
+        readonly name: string;
+    }
+
     export interface ClusterExplorerConfigDataItemNode {
         readonly nodeType: 'configitem';
         readonly name: string;
@@ -66,6 +77,7 @@ export namespace ClusterExplorerV1 {
         ClusterExplorerGroupingFolderNode |
         ClusterExplorerResourceFolderNode |
         ClusterExplorerContextNode |
+        ClusterExplorerInactiveContextNode |
         ClusterExplorerConfigDataItemNode |
         ClusterExplorerErrorNode |
         ClusterExplorerHelmReleaseNode |

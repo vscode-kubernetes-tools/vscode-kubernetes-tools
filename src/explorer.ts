@@ -153,7 +153,7 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObj
 
     private async getClusters(): Promise<KubernetesObject[]> {
         const contexts = await kubectlUtils.getContexts(this.kubectl);
-        return contexts.map((context): KubernetesContextNode => {
+        return contexts.map((context) => {
             // TODO: this is slightly hacky...
             if (context.contextName === 'minikube') {
                 return new MiniKubeContextNode(context.contextName, context);
@@ -193,7 +193,7 @@ class DummyObject extends KubernetesExplorerNodeImpl implements KubernetesObject
 
 class KubernetesContextNode extends KubernetesExplorerNodeImpl implements KubernetesObject {
 
-    constructor(readonly id: string, readonly metadata?: kubectlUtils.KubectlContext) {
+    constructor(readonly id: string, readonly metadata: kubectlUtils.KubectlContext) {
         super('context');
     }
 
@@ -206,16 +206,19 @@ class KubernetesContextNode extends KubernetesExplorerNodeImpl implements Kubern
     }
 
     getChildren(_kubectl: Kubectl, _host: Host): vscode.ProviderResult<KubernetesObject[]> {
-        return [
-            new KubernetesNamespaceFolder(),
-            new KubernetesNodeFolder(),
-            new KubernetesWorkloadFolder(),
-            new KubernetesNetworkFolder(),
-            new KubernetesStorageFolder(),
-            new KubernetesConfigFolder(),
-            new KubernetesCRDFolder(),
-            new HelmReleasesFolder(),
-        ];
+        if (this.metadata.active) {
+            return [
+                new KubernetesNamespaceFolder(),
+                new KubernetesNodeFolder(),
+                new KubernetesWorkloadFolder(),
+                new KubernetesNetworkFolder(),
+                new KubernetesStorageFolder(),
+                new KubernetesConfigFolder(),
+                new KubernetesCRDFolder(),
+                new HelmReleasesFolder(),
+            ];
+        }
+        return [];
     }
 
     getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
