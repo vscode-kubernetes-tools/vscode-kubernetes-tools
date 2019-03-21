@@ -1052,7 +1052,6 @@
         "@types/mkdirp": "^0.5.2",
         "@types/opn": "^5.1.0",
         "@types/pluralize": "^0.0.29",
-        "@types/request": "^2.48.1",
         "@types/restify": "^5.0.7",
         "@types/semver": "^5.5.0",
         "@types/shelljs": "^0.7.8",
