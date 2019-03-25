@@ -25,7 +25,7 @@ export class DescribePanel extends WebPanel {
         panel: vscode.WebviewPanel,
         content: string,
         resource: string,
-        readonly refresh: () => Promise<ShellResult | undefined>
+        private readonly refresh: () => Promise<ShellResult | undefined>
     ) {
         super(panel, content, resource, DescribePanel.currentPanels);
 
