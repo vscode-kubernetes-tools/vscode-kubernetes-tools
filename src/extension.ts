@@ -13,7 +13,7 @@ import { fs } from './fs';
 import * as yaml from 'js-yaml';
 import dockerfileParse = require('dockerfile-parse');
 import * as tmp from 'tmp';
-import * as clipboard from 'clipboardy';
+import * as clipboard from './components/platform/clipboard';
 import { pullAll } from 'lodash';
 
 // Internal dependencies
@@ -1810,8 +1810,8 @@ async function deleteContextKubernetes(explorerNode: explorer.KubernetesObject) 
     }
 }
 
-function copyKubernetes(explorerNode: explorer.KubernetesObject) {
-    clipboard.writeSync(explorerNode.id);
+async function copyKubernetes(explorerNode: explorer.KubernetesObject) {
+    clipboard.write(explorerNode.id);
 }
 
 // TODO: having to export this is untidy - unpick dependencies and move

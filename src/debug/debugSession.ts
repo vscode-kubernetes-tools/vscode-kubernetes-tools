@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import * as fs from "fs";
-import opn = require('opn');
+import * as browser from "../components/platform/browser";
 import * as path from "path";
 import * as portfinder from "portfinder";
 import { ChildProcess } from "child_process";
@@ -454,7 +454,7 @@ export class DebugSession implements IDebugSession {
     private async openInBrowser(errorMessage: string, link: string): Promise<void> {
         const answer = await vscode.window.showErrorMessage(errorMessage, "Open in Browser");
         if (answer === "Open in Browser") {
-            opn(link);
+            browser.open(link);
         }
     }
 }

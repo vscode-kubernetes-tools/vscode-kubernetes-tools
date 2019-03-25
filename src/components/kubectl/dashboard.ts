@@ -1,7 +1,7 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import opn = require('opn');
+import * as browser from '../platform/browser';
 
 import { createReadStream } from 'fs';
 import { resolve } from 'path';
@@ -85,7 +85,7 @@ async function openDashboardForAKSCluster (kubectl: Kubectl): Promise<void> {
     const boundPort = await portForwardToPod(kubectl, dashboardPod, portMapping, 'kube-system');
 
     setTimeout(() => {
-        opn(`http://localhost:${boundPort[0]}`);
+        browser.open(`http://localhost:${boundPort[0]}`);
     }, 2500);
     return;
 }
@@ -109,7 +109,7 @@ export async function dashboardKubernetes (kubectl: Kubectl): Promise<void> {
 
     // If we've already got a terminal instance, just open the dashboard.
     if (terminal) {
-        opn(KUBE_DASHBOARD_URL);
+        browser.open(KUBE_DASHBOARD_URL);
         return;
     }
 
@@ -166,7 +166,7 @@ const onStreamData = (data: string) => {
     if (data.startsWith("Starting to serve")) {
         // Let the proxy warm up a bit… otherwise we might hit a browser's error page.
         setTimeout(() => {
-            opn(KUBE_DASHBOARD_URL);
+            browser.open(KUBE_DASHBOARD_URL);
         }, 2500);
 
         vscode.window.showInformationMessage(`Kubernetes Dashboard running at ${KUBE_DASHBOARD_URL}`);
