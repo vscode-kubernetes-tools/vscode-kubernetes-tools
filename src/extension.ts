@@ -1181,9 +1181,7 @@ async function describeKubernetes(explorerNode?: explorer.ResourceNode) {
         const nsarg = explorerNode.namespace ? `--namespace ${explorerNode.namespace}` : '';
         const cmd = `describe ${explorerNode.resourceId} ${nsarg}`;
         const result = await kubectl.invokeAsync(cmd);
-        const refresh = (): Promise<ShellResult | undefined> => {
-            return kubectl.invokeAsync(cmd);
-        };
+        const refresh = (): Promise<ShellResult | undefined> => kubectl.invokeAsync(cmd);
         if (result && result.code === 0) {
             DescribePanel.createOrShow(result.stdout, explorerNode.resourceId, refresh);
         } else {

@@ -50,7 +50,7 @@ export class DescribePanel extends WebPanel {
         );
     }
 
-    protected async doRefresh() {
+    private async doRefresh() {
         const result = await this.refresh();
         if (!result) {
             vscode.window.showErrorMessage('Error refreshing!');
@@ -76,41 +76,21 @@ export class DescribePanel extends WebPanel {
         <title>Kubernetes describe ${this.resource}</title>
         <script>
             const vscode = acquireVsCodeApi();
-            const requestRefresh = () => {
-                vscode.postMessage({
-                    command: 'refresh'
-                });
-            };
 
             window.addEventListener('message', event => {
                 const message = event.data;
                 switch (message.command) {
                     case 'content':
-                        console.log('refresh');
                         const elt = document.getElementById('content');
                         elt.innerText = message.content;
                 }
             });
-
-            const automaticRefresh = () => {
-                const elt = document.getElementById('refresh');
-                const val = parseInt(elt.value);
-                if (val > 0) {
-                    setTimeout(() => {
-                        requestRefresh();
-                        automaticRefresh();
-                    }, val * 1000);
-                }
-            };
         </script>
     </head>
     <body>
         <code>
             <pre id='content'>${this.content}</pre>
         </code>
-        <script>
-            automaticRefresh();
-        </script>
     </body>
     </html>`;
     }
