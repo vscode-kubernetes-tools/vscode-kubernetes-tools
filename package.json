@@ -506,6 +506,10 @@
             ],
             "commandPalette": [
                 {
+                    "command": "extension.vsKubernetesDebounceActivation",
+                    "when": "context == thiscontextdoesnotexist7603253285"
+                },
+                {
                     "command": "extension.vsKubernetesApplyFile",
                     "when": "filesExplorerFocus"
                 },
@@ -572,6 +576,11 @@
             ]
         },
         "commands": [
+            {
+                "command": "extension.vsKubernetesDebounceActivation",
+                "title": "Debounce Activation",
+                "category": "Kubernetes"
+            },
             {
                 "command": "extension.vsKubernetesDescribe.Refresh",
                 "title": "Refresh",
