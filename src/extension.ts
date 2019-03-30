@@ -76,6 +76,7 @@ import { timestampText } from './utils/naming';
 import { ContainerContainer } from './utils/containercontainer';
 import { APIBroker } from './api/contract/api';
 import { apiBroker } from './api/implementation/apibroker';
+import { sleep } from './sleep';
 
 let explainActive = false;
 let swaggerSpecPromise: Promise<explainer.SwaggerModel | undefined> | null = null;
@@ -224,6 +225,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.draftVersion', execDraftVersion),
         registerCommand('extension.draftCreate', execDraftCreate),
         registerCommand('extension.draftUp', execDraftUp),
+
+        // Commands - special no-op command for debouncing concurrent activations
+        vscode.commands.registerCommand('extension.vsKubernetesDebounceActivation', () => {}),
 
         // Draft debug configuration provider
         vscode.debug.registerDebugConfigurationProvider('draft', draftDebugProvider),
@@ -1743,11 +1747,32 @@ function removeDebugKubernetes() {
     });
 }
 
+// There is a possible race condition if this extension and another
+// extension both activate in response to the same command - the other
+// extension does not get the chance to intervene in the command
+// until after our internal state has settled by when it is too late.
+// (See issue raised at https://github.com/Microsoft/vscode/issues/71471.)
+//
+// It seems we can work around this by forcing VS Code to pump a
+// command before we dive into whatever we want to do.  This little
+// kludge does that.
+let needsActivationDebouncing = true;
+
+async function debounceActivation(): Promise<void> {
+    if (needsActivationDebouncing) {
+        await sleep(50);
+        await vscode.commands.executeCommand('extension.vsKubernetesDebounceActivation');
+        needsActivationDebouncing = false;
+    }
+}
+
 async function configureFromClusterKubernetes() {
+    await debounceActivation();
     runClusterWizard('Add Existing Cluster', 'configure');
 }
 
 async function createClusterKubernetes() {
+    await debounceActivation();
     runClusterWizard('Create Kubernetes Cluster', 'create');
 }
 
