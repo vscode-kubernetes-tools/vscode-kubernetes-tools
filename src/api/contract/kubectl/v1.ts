@@ -2,8 +2,11 @@
 // It should be in sync with vscode-kubernetes-tools-api/ts/kubectl/v1.ts
 // at all times.
 
+import * as vscode from 'vscode';
+
 export interface KubectlV1 {
     invokeCommand(command: string): Promise<KubectlV1.ShellResult | undefined>;
+    portForward(podName: string, podNamespace: string | undefined, localPort: number, remotePort: number): Promise<vscode.Disposable | undefined>;
 }
 
 export namespace KubectlV1 {
