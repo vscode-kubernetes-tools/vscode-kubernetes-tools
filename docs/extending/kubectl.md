@@ -39,3 +39,33 @@ async function cordonNode(nodeId: string) {
     await vscode.window.showInformationMessage(`${nodeId} has been cordoned`);
 }
 ```
+
+## Port forwarding
+
+When you need to connect to programs running on pods that are not exposed as external
+services, you can use the `kubectl port-forward`
+command.  However, the `invokeCommand` API, which waits for `kubectl` to exit before
+returning, isn't a good fit for this command.  The extension therefore provides a special
+API for port forwarding.  This runs `kubectl port-forward` in the background, and returns
+a `vscode.Disposable` that you can use to terminate port forwarding.
+
+The following example shows how to access a tool running in the cluster, which exposes its
+functionality via port 80 on its pod.
+
+```javascript
+// assume we have successfully obtained the Kubectl API
+const session = await kubectl.portForward('useful-tool-pod-name', 'default', 9001, 80);
+if (!session) {
+    // forwarding failed
+    await vscode.window.showErrorMessage("Can't access UsefulTool on cluster");
+    return;
+}
+
+try {
+    const usefulToolUrl = 'http://localhost:9001';  // the forwarded port
+    await accessUsefulTool(usefulToolUrl);
+} finally {
+    // tear down port forwarding
+    session.dispose();
+}
+```

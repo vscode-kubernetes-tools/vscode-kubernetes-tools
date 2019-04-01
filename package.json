@@ -2,7 +2,7 @@
     "name": "vscode-kubernetes-tools",
     "displayName": "Kubernetes",
     "description": "Develop, deploy and debug Kubernetes applications",
-    "version": "0.1.19+preview1",
+    "version": "0.1.19+preview2",
     "preview": true,
     "publisher": "ms-kubernetes-tools",
     "engines": {
