@@ -28,7 +28,10 @@ import * as k8s from 'vscode-kubernetes-tools-api';
 
 async function cordonNode(nodeId: string) {
     const kubectl = await k8s.extension.kubectl.v1;
-    const result = await kubectl.invokeCommand(`cordon ${nodeId}`);
+    if (!kubectl.available) {
+        return;
+    }
+    const result = await kubectl.api.invokeCommand(`cordon ${nodeId}`);
 
     if (!result || result.code !== 0) {
         const errorMessage = result ? result.stderr : 'Unable to invoke kubectl';
