@@ -8,6 +8,7 @@ import { HELM_OUTPUT_COLUMN_SEPARATOR } from './helm';
 import { Errorable, failed } from './errorable';
 import { parseLineOutput } from './outputUtils';
 import { affectsUs } from './components/config/config';
+import { Dictionary } from './utils/dictionary';
 
 export const HELM_EXPLORER_NODE_CATEGORY = 'helm-explorer-node';
 
@@ -230,11 +231,36 @@ async function listHelmRepoCharts(repoName: string): Promise<Errorable<HelmRepoC
     const lines = sr.stdout.split('\n')
                            .map((l) => l.trim())
                            .filter((l) => l.length > 0);
-    const entries = parseLineOutput(lines, HELM_OUTPUT_COLUMN_SEPARATOR);
+    const rawEntries = parseLineOutput(lines, HELM_OUTPUT_COLUMN_SEPARATOR);
+
+    // Charts can embed newlines in their descriptions. We need to merge
+    // 'entries' that are actually continuations with their 'parents.'
+    const entries = mergeContinuationEntries(rawEntries);
+
     const charts = _.chain(entries)
                     .groupBy((e) => e.name)
                     .toPairs()
                     .map((p) => new HelmRepoChartImpl(repoName, p[0], p[1]))
                     .value();
     return { succeeded: true, result: charts };
+}
+
+function mergeContinuationEntries(entries: Dictionary<string>[]): Dictionary<string>[] {
+    const result = Array.of<Dictionary<string>>();
+    for (const entry of entries) {
+        if (Object.keys(entry).length === 1) {
+            // It's a continuation - merge it with the last entry that wasn't a continuation
+            mergeEntry(result[result.length - 1], entry);
+        } else {
+            // It's a new entry - push it
+            result.push(entry);
+        }
+    }
+    return result;
+}
+
+function mergeEntry(mergeInto: Dictionary<string>, mergeFrom: Dictionary<string>): void {
+    // Because we trim the output lines, continuation descriptions land in
+    // the 'name' field
+    mergeInto['description'] = `${mergeInto['description'].trim()} ${mergeFrom['name']}`;
 }
