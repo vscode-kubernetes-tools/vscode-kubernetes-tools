@@ -43,6 +43,19 @@ the type of node that you want to display on.  You can display on multiple types
 of node using multiple entries, or a `when` clause that matches all the desired
 types.
 
+| Node type | nodeType string | TypeScript interface | Sample `when` clause|
+|-----------|-----------------|----------------------|---------------------|
+| Active cluster   | `context` | ClusterExplorerContextNode | `viewItem =~ /vsKubernetes\.\w*cluster/i` |
+| Inactive cluster | `context.inactive` | ClusterExplorerInactiveContextNode | `viewItem =~ /vsKubernetes\.\w*cluster\.inactive/i` |
+| Resource         | `resource` | ClusterExplorerResourceNode | `viewItem =~ /vsKubernetes\.resource\.pod/i` |
+| Resource folder  | `folder.resource` | ClusterExplorerResourceFolderNode | `viewItem =~ /vsKubernetes\.kind/i` |
+| Grouping folder  | `folder.grouping` | ClusterExplorerGroupingFolderNode | Varies by folder |
+| Config data item | `configitem` | ClusterExplorerConfigDataItemNode | `viewItem =~ /vsKubernetes\.file/i` |
+| Helm release     | `helm.release` | ClusterExplorerHelmReleaseNode | `viewItem =~ /vsKubernetes\.helmrelease/i` |
+
+**NOTE:** When writing `when` clauses in `package.json`, remember to escape backslashes.
+For example, to display a command on pods, write `"when": "viewItem =~ /vsKubernetes\\.resource\\.pod/i"`
+
 **IMPORTANT:** Although we document the item context names from the current version
 of the extension, it's possible that these will change over time, and Code doesn't
 give us a way to version them.  We therefore strongly recommend using regular
