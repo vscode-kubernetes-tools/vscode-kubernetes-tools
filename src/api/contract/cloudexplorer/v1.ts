@@ -11,7 +11,7 @@ export interface CloudExplorerV1 {
 
 export namespace CloudExplorerV1 {
     export interface CloudProvider {
-        readonly name: string;
+        readonly cloudName: string;
         readonly treeDataProvider: vscode.TreeDataProvider<any>;
     }
 }

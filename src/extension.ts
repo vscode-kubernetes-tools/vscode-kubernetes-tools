@@ -362,7 +362,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
     await registerYamlSchemaSupport();
 
     vscode.workspace.registerTextDocumentContentProvider(configmaps.uriScheme, configMapProvider);
-    return apiBroker(clusterProviderRegistry, kubectl, treeProvider);
+    return apiBroker(clusterProviderRegistry, kubectl, treeProvider, cloudExplorer);
 }
 
 // this method is called when your extension is deactivated
