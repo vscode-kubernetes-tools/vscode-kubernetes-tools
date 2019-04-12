@@ -2,7 +2,7 @@
     "name": "vscode-kubernetes-tools",
     "displayName": "Kubernetes",
     "description": "Develop, deploy and debug Kubernetes applications",
-    "version": "0.1.19+preview3",
+    "version": "0.1.19+preview4",
     "preview": true,
     "publisher": "ms-kubernetes-tools",
     "engines": {
@@ -82,6 +82,7 @@
         "onCommand:extension.draftUp",
         "onView:extension.vsKubernetesExplorer",
         "onView:extension.vsKubernetesHelmRepoExplorer",
+        "onView:kubernetes.cloudExplorer",
         "onLanguage:helm",
         "onLanguage:yaml",
         "onFileSystem:k8smsx",
@@ -255,7 +256,12 @@
                 {
                     "id": "extension.vsKubernetesHelmRepoExplorer",
                     "name": "Helm Repos"
+                },
+                {
+                    "id": "kubernetes.cloudExplorer",
+                    "name": "Clouds"
                 }
+
             ]
         },
         "viewsContainers": {
@@ -334,6 +340,11 @@
                 {
                     "command": "extension.vsKubernetesRefreshHelmRepoExplorer",
                     "when": "view == extension.vsKubernetesHelmRepoExplorer",
+                    "group": "navigation"
+                },
+                {
+                    "command": "extension.vsKubernetesRefreshCloudExplorer",
+                    "when": "view == kubernetes.cloudExplorer",
                     "group": "navigation"
                 }
             ],
@@ -528,6 +539,10 @@
                 {
                     "command": "extension.vsKubernetesRefreshHelmRepoExplorer",
                     "when": "view == extension.vsKubernetesHelmRepoExplorer"
+                },
+                {
+                    "command": "extension.vsKubernetesRefreshCloudExplorer",
+                    "when": "view == kubernetes.cloudExplorer"
                 },
                 {
                     "command": "extension.vsKubernetesUseContext",
@@ -928,6 +943,15 @@
                 "title": "Show Dependencies",
                 "description": "List the dependencies of a Helm chart",
                 "category": "Helm"
+            },
+            {
+                "command": "extension.vsKubernetesRefreshCloudExplorer",
+                "title": "Refresh",
+                "category": "Kubernetes",
+                "icon": {
+                    "light": "images/light/refresh.svg",
+                    "dark": "images/dark/refresh.svg"
+                }
             }
         ],
         "keybindings": [
