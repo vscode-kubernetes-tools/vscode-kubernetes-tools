@@ -19,7 +19,7 @@ export class CloudExplorer implements vscode.TreeDataProvider<CloudExplorerTreeN
 
     getChildren(element?: CloudExplorerTreeNode | undefined): vscode.ProviderResult<CloudExplorerTreeNode[]> {
         if (!element) {
-            return this.providers.map((p) => ({ nodeType: 'cloud', provider: p }));
+            return this.providers.map(asCloudNode);
         }
         if (element.nodeType === 'cloud') {
             const children = element.provider.treeDataProvider.getChildren(element);
@@ -53,6 +53,14 @@ interface CloudExplorerContributedNode {
 
 type CloudExplorerTreeNode = CloudExplorerCloudNode | CloudExplorerContributedNode;
 
+function asCloudNode(provider: CloudExplorerProvider): CloudExplorerCloudNode {
+    return { nodeType: 'cloud', provider: provider };
+}
+
 function asContributed(elements: vscode.ProviderResult<any[]>, provider: CloudExplorerProvider): vscode.ProviderResult<CloudExplorerContributedNode[]> {
-    return providerResult.map(elements, (e) => ({ nodeType: 'contributed', provider: provider, value: e }));
+    return providerResult.map(elements, (e) => asContributedNode(e, provider));
+}
+
+function asContributedNode(element: any, provider: CloudExplorerProvider): CloudExplorerContributedNode {
+    return { nodeType: 'contributed', provider: provider, value: element };
 }
