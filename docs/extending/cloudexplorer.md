@@ -116,7 +116,14 @@ async function getKubeconfigYaml(cluster: AzureClusterTreeNode): Promise<string 
 Your TreeDataProvider can define contexts on its tree items, enabling you to contribute your
 own commands to those items.  For the most part this works in the normal way, using the
 `contributes.menus.view/item/context` section of `package.json`, and with the command target
-passed to the command handler.  However, the Kubernetes extension encapsulates command targets
+passed to the command handler.  Your tree data provider defines your viewItem contexts in
+its `getTreeItem` implementation, just as in a normal tree view.
+
+You can also attach commands to the top-level cloud entries, using a `when` clause with
+the viewItem context matching `/kubernetes\.cloudExplorer\.cloud\.`_cloudName_`/i`.  Remember to escape the
+backslashes in `package.json`, e.g. `"when": "viewItem =~ /kubernetes\\.cloudExplorer\\.cloud\\.contoso/i`.
+
+To distinguish the built-in and contributed nodes, the Kubernetes extension encapsulates command targets
 in Cloud Explorer, and your command handlers must resolve these to determine what resource
 the command was invoked on.
 
