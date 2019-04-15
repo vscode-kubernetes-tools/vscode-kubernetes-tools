@@ -15,20 +15,27 @@ export class CloudExplorer implements vscode.TreeDataProvider<CloudExplorerTreeN
             // TODO: unique context so providers can add commands to them
             return new vscode.TreeItem(element.provider.cloudName, vscode.TreeItemCollapsibleState.Collapsed);
         }
+        if (element.nodeType === 'message') {
+            return new vscode.TreeItem(element.text, vscode.TreeItemCollapsibleState.Collapsed);
+        }
         return element.provider.treeDataProvider.getTreeItem(element.value);
     }
 
     getChildren(element?: CloudExplorerTreeNode | undefined): vscode.ProviderResult<CloudExplorerTreeNode[]> {
         if (!element) {
-            // TODO: if no providers registered, display a message
+            if (this.providers.length === 0) {
+                return [ { nodeType: 'message', text: 'Install a cloud provider from the marketplace to get started' } ];
+            }
             return this.providers.map(asCloudNode);
         }
         if (element.nodeType === 'cloud') {
             const children = element.provider.treeDataProvider.getChildren(undefined);
             return asContributed(children, element.provider);
-        } else {
+        } else if (element.nodeType === 'contributed') {
             const children = element.provider.treeDataProvider.getChildren(element.value);
             return asContributed(children, element.provider);
+        } else {
+            return [];
         }
     }
 
@@ -53,7 +60,12 @@ export interface CloudExplorerContributedNode {
     readonly value: any;
 }
 
-export type CloudExplorerTreeNode = CloudExplorerCloudNode | CloudExplorerContributedNode;
+export interface CloudExplorerMessageNode {
+    readonly nodeType: 'message';
+    readonly text: string;
+}
+
+export type CloudExplorerTreeNode = CloudExplorerCloudNode | CloudExplorerContributedNode | CloudExplorerMessageNode;
 
 function asCloudNode(provider: CloudExplorerProvider): CloudExplorerCloudNode {
     return { nodeType: 'cloud', provider: provider };
