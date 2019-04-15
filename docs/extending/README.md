@@ -64,6 +64,13 @@ snippet. In terms of the TypeScript typings from the NPM package, `activate` ret
   extension commands and features
   * ID: `kubectl`
   * Versions: `v1`
-* [Cluster Explorer API](clusterexplorer.md) - used for working with the existing Clusters tree
+* [Helm API](helm.md) - used for invoking the `helm` CLI consistently with the core
+  extension commands and features
+  * ID: `kubectl`
+  * Versions: `v1`
+* [Cluster Explorer API](clusterexplorer.md) - used for working with the Clusters tree
   * ID: `clusterexplorer`
+  * Versions: `v1`
+* [Cloud Explorer API](cloudexplorer.md) - used for working with the Clouds tree
+  * ID: `cloudexplorer`
   * Versions: `v1`

@@ -12,6 +12,7 @@ export class CloudExplorer implements vscode.TreeDataProvider<CloudExplorerTreeN
 
     getTreeItem(element: CloudExplorerTreeNode): vscode.TreeItem | Thenable<vscode.TreeItem> {
         if (element.nodeType === 'cloud') {
+            // TODO: unique context so providers can add commands to them
             return new vscode.TreeItem(element.provider.cloudName, vscode.TreeItemCollapsibleState.Collapsed);
         }
         return element.provider.treeDataProvider.getTreeItem(element.value);
@@ -19,10 +20,11 @@ export class CloudExplorer implements vscode.TreeDataProvider<CloudExplorerTreeN
 
     getChildren(element?: CloudExplorerTreeNode | undefined): vscode.ProviderResult<CloudExplorerTreeNode[]> {
         if (!element) {
+            // TODO: if no providers registered, display a message
             return this.providers.map(asCloudNode);
         }
         if (element.nodeType === 'cloud') {
-            const children = element.provider.treeDataProvider.getChildren(element);
+            const children = element.provider.treeDataProvider.getChildren(undefined);
             return asContributed(children, element.provider);
         } else {
             const children = element.provider.treeDataProvider.getChildren(element.value);
