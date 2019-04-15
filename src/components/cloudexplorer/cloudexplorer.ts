@@ -17,7 +17,7 @@ export class CloudExplorer implements vscode.TreeDataProvider<CloudExplorerTreeN
             return treeItem;
         }
         if (element.nodeType === 'message') {
-            return new vscode.TreeItem(element.text, vscode.TreeItemCollapsibleState.Collapsed);
+            return new vscode.TreeItem(element.text, vscode.TreeItemCollapsibleState.None);
         }
         return element.provider.treeDataProvider.getTreeItem(element.value);
     }
