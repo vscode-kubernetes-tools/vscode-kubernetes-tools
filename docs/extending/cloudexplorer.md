@@ -117,7 +117,7 @@ _TODO: check and document behaviour if users define their own commands on their 
 
 In order to be displayed in Cloud Explorer, a cloud
 provider must be _registered_ with the Kubernetes extension.  This is the responsibility
-of the VS Code extension that hosts the cluster provider.  To do this, the extension must:
+of the VS Code extension that hosts the cloud provider.  To do this, the extension must:
 
 * Activate in response to the `kubernetes.cloudExplorer` view
 * Request the Kubernetes extension's Cloud Provider API
@@ -126,7 +126,7 @@ of the VS Code extension that hosts the cluster provider.  To do this, the exten
 ### Activating the cloud provider extension
 
 Your extension needs to activate in response to the `kubernetes.cloudExplorer`
-commands, so that it can register its cloud provider(s) before the wizard is
+commands, so that it can register its cloud provider(s) before the tree is
 displayed.  To do this, your `package.json` must include the following activation event:
 
 ```json
