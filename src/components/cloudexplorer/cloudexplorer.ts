@@ -12,8 +12,9 @@ export class CloudExplorer implements vscode.TreeDataProvider<CloudExplorerTreeN
 
     getTreeItem(element: CloudExplorerTreeNode): vscode.TreeItem | Thenable<vscode.TreeItem> {
         if (element.nodeType === 'cloud') {
-            // TODO: unique context so providers can add commands to them
-            return new vscode.TreeItem(element.provider.cloudName, vscode.TreeItemCollapsibleState.Collapsed);
+            const treeItem = new vscode.TreeItem(element.provider.cloudName, vscode.TreeItemCollapsibleState.Collapsed);
+            treeItem.contextValue = `kubernetes.cloudExplorer.cloud.${element.provider.cloudName}`;
+            return treeItem;
         }
         if (element.nodeType === 'message') {
             return new vscode.TreeItem(element.text, vscode.TreeItemCollapsibleState.Collapsed);
