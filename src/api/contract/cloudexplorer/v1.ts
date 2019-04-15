@@ -6,6 +6,7 @@ import * as vscode from 'vscode';
 
 export interface CloudExplorerV1 {
     registerCloudProvider(cloudProvider: CloudExplorerV1.CloudProvider): void;
+    resolveCommandTarget(target?: any): CloudExplorerV1.CloudExplorerNode | undefined;
     refresh(): void;
 }
 
@@ -15,4 +16,17 @@ export namespace CloudExplorerV1 {
         readonly treeDataProvider: vscode.TreeDataProvider<any>;
         getKubeconfigYaml(cluster: any): Promise<string | undefined>;
     }
+
+    export interface CloudExplorerCloudNode {
+        readonly nodeType: 'cloud';
+        readonly cloudName: string;
+    }
+
+    export interface CloudExplorerResourceNode {
+        readonly nodeType: 'resource';
+        readonly cloudName: string;
+        readonly cloudResource: any;
+    }
+
+    export type CloudExplorerNode = CloudExplorerCloudNode | CloudExplorerResourceNode;
 }

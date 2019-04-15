@@ -62,7 +62,7 @@ Note that when `getChildren` is called for your first-level tree nodes, the pare
 argument will be `undefined` as for a normal TreeDataProvider, _even though there is actually
 a parent node_ (provided by the Kubernetes extension).
 
-### Commands for your tree nodes
+### Supporting standard commands on cloud Kubernetes clusters
 
 The Kubernetes extension provides standard implementations for the `Merge into Kubeconfig` and
 `Save Kubeconfig` commands.  To opt into these, include the string `kubernetes.providesKubeconfig`
@@ -100,7 +100,7 @@ async function getKubeconfigYaml(cluster: AzureClusterTreeNode): Promise<string 
 
     try {
         // Interact with the cloud to get the kubeconfig YAML - this is specific to the Azure sample
-        const client = new ContainerServiceClient(target.session.credentials, target.subscription.subscriptionId!);
+        const client = new ContainerServiceClient(cluster.session.credentials, cluster.subscription.subscriptionId!);
         const accessProfile = await client.managedClusters.getAccessProfile(resourceGroupName, name, 'clusterUser');
         const kubeconfig = accessProfile.kubeConfig!.toString();
         return kubeconfig;
@@ -111,7 +111,66 @@ async function getKubeconfigYaml(cluster: AzureClusterTreeNode): Promise<string 
 }
 ```
 
-_TODO: check and document behaviour if users define their own commands on their tree nodes (because we wrap them)_
+### Implementing your own commands for cloud resources
+
+Your TreeDataProvider can define contexts on its tree items, enabling you to contribute your
+own commands to those items.  For the most part this works in the normal way, using the
+`contributes.menus.view/item/context` section of `package.json`, and with the command target
+passed to the command handler.  However, the Kubernetes extension encapsulates command targets
+in Cloud Explorer, and your command handlers must resolve these to determine what resource
+the command was invoked on.
+
+To do this, use the `resolveCommandTarget` method of the Cloud Explorer API.  If the command
+target is _not_ a Cloud Explorer node, this returns `undefined`.  Otherwise, it returns either:
+
+* For top level (cloud name) nodes, an object with a `nodeType` of `cloud` and a `cloudName`
+  of the cloud name.
+* For other nodes (those defined by your TreeDataProvider), an object with a `nodeType` of `resource`,
+  a `cloudName` of the cloud name and a `cloudResource` property containing the object originally
+  returned by your TreeDataProvider.
+
+Here is an example of resolving a command target.  In this case, we imagine offering a Delete Kubernetes
+Service command on Azure clusters.
+
+```javascript
+// package.json
+{
+    // ...
+    "contributes": {
+        "menus": {
+            "view/item/context": [
+                {
+                    "command": "aks.deleteAKSService",
+                    "when": "viewItem =~ /aks\\.cluster/i"
+                }
+            ]
+        }
+    }
+}
+
+// extension.ts
+async function onDeleteService(target?: any): Promise<void> {
+    const cloudExplorer = await k8s.extension.cloudExplorer.v1;
+    if (!cloudExplorer.available) {
+        vscode.window.showErrorMessage(cloudExplorer.reason);
+        return;
+    }
+    const commandTarget = cloudExplorer.api.resolveCommandTarget(target);
+    if (!commandTarget) {
+        // invoked from somewhere other than Cloud Explorer - deal with it if
+        // this is intended functionality
+        return;
+    }
+    if (commandTarget.nodeType === 'resource') {
+        const cluster: AzureClusterTreeNode = commandTarget.cloudResource;
+        // cluster is now the object originally created by your TreeDataProvider
+        const { resourceGroupName, name } = parseResource(cluster.armId);
+        const client = new ContainerServiceClient(cluster.session.credentials, cluster.subscription.subscriptionId!);
+        await client.managedClusters.delete(resourceGroupName, name);
+    }
+}
+```
+
 
 ## Registering the cloud provider
 
