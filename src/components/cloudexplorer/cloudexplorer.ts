@@ -40,18 +40,18 @@ export class CloudExplorer implements vscode.TreeDataProvider<CloudExplorerTreeN
     }
 }
 
-interface CloudExplorerCloudNode {
+export interface CloudExplorerCloudNode {
     readonly nodeType: 'cloud';
     readonly provider: CloudExplorerProvider;
 }
 
-interface CloudExplorerContributedNode {
+export interface CloudExplorerContributedNode {
     readonly nodeType: 'contributed';
     readonly provider: CloudExplorerProvider;
     readonly value: any;
 }
 
-type CloudExplorerTreeNode = CloudExplorerCloudNode | CloudExplorerContributedNode;
+export type CloudExplorerTreeNode = CloudExplorerCloudNode | CloudExplorerContributedNode;
 
 function asCloudNode(provider: CloudExplorerProvider): CloudExplorerCloudNode {
     return { nodeType: 'cloud', provider: provider };

@@ -77,7 +77,8 @@ import { ContainerContainer } from './utils/containercontainer';
 import { APIBroker } from './api/contract/api';
 import { apiBroker } from './api/implementation/apibroker';
 import { sleep } from './sleep';
-import { CloudExplorer } from './components/cloudexplorer/cloudexplorer';
+import { CloudExplorer, CloudExplorerTreeNode } from './components/cloudexplorer/cloudexplorer';
+import { mergeToKubeconfig } from './components/kubectl/kubeconfig';
 
 let explainActive = false;
 let swaggerSpecPromise: Promise<explainer.SwaggerModel | undefined> | null = null;
@@ -228,6 +229,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.draftVersion', execDraftVersion),
         registerCommand('extension.draftCreate', execDraftCreate),
         registerCommand('extension.draftUp', execDraftUp),
+
+        // Commands - API
+        registerCommand('kubernetes.cloudExplorer.mergeIntoKubeconfig', kubernetesMergeIntoKubeconfig),
+        registerCommand('kubernetes.cloudExplorer.saveKubeconfig', kubernetesSaveKubeconfig),
 
         // Commands - special no-op command for debouncing concurrent activations
         vscode.commands.registerCommand('extension.vsKubernetesDebounceActivation', () => {}),
@@ -2102,4 +2107,47 @@ async function pickResourceName(resourceKind: kuberesources.ResourceKind, prompt
 
     const result = await vscode.window.showQuickPick(names, { placeHolder: prompt });
     return result;
+}
+
+async function kubernetesMergeIntoKubeconfig(target?: CloudExplorerTreeNode): Promise<void> {
+    const newConfigText = await kubeconfigFromTreeNode(target);
+    if (!newConfigText) {
+        return;
+    }
+
+    await mergeToKubeconfig(newConfigText);
+}
+
+async function kubernetesSaveKubeconfig(target?: CloudExplorerTreeNode): Promise<void> {
+    const newConfigText = await kubeconfigFromTreeNode(target);
+    if (!newConfigText) {
+        return;
+    }
+    const kubeconfigFile = await vscode.window.showSaveDialog({});
+    if (!kubeconfigFile) {
+        return;
+    }
+    if (kubeconfigFile.scheme !== 'file') {
+        vscode.window.showErrorMessage('Can only save to the file system');
+        return;
+    }
+
+    const kcfile = kubeconfigFile.fsPath;
+    if (await fs.existsAsync(kcfile)) {
+        vscode.window.showErrorMessage('File already exists');  // TODO: offer overwrite option
+        return;
+    }
+
+    await fs.writeTextFile(kubeconfigFile.fsPath, newConfigText);
+    // TODO: add to known kubeconfigs array in settings?
+    vscode.window.showInformationMessage(`Configuration saved to ${kcfile}`);
+}
+
+async function kubeconfigFromTreeNode(target?: CloudExplorerTreeNode): Promise<string | undefined> {
+    if (!target || target.nodeType !== 'contributed') {
+        await vscode.window.showErrorMessage('This command requires a cluster to be selected in Cloud Explorer');
+        return undefined;
+    }
+    const kubeconfigYaml = await target.provider.getKubeconfigYaml(target.value);
+    return kubeconfigYaml;
 }
