@@ -3,19 +3,22 @@ import { versionUnknown } from "./apiutils";
 import * as clusterprovider from "./clusterprovider/versions";
 import * as kubectl from "./kubectl/versions";
 import * as helm from "./helm/versions";
-import * as clusterExplorer from "./cluster-explorer/versions";
+import * as clusterexplorer from "./cluster-explorer/versions";
+import * as cloudexplorer from "./cloudexplorer/versions";
 import { ClusterProviderRegistry } from "../../components/clusterprovider/clusterproviderregistry";
 import { Kubectl } from "../../kubectl";
 import { KubernetesExplorer } from "../../explorer";
+import { CloudExplorer } from "../../components/cloudexplorer/cloudexplorer";
 
-export function apiBroker(clusterProviderRegistry: ClusterProviderRegistry, kubectlImpl: Kubectl, explorer: KubernetesExplorer): APIBroker {
+export function apiBroker(clusterProviderRegistry: ClusterProviderRegistry, kubectlImpl: Kubectl, explorer: KubernetesExplorer, cloudExplorer: CloudExplorer): APIBroker {
     return {
         get(component: string, version: string): API<any> {
             switch (component) {
                 case "clusterprovider": return clusterprovider.apiVersion(clusterProviderRegistry, version);
                 case "kubectl": return kubectl.apiVersion(kubectlImpl, version);
                 case "helm": return helm.apiVersion(version);
-                case "clusterexplorer": return clusterExplorer.apiVersion(explorer, version);
+                case "clusterexplorer": return clusterexplorer.apiVersion(explorer, version);
+                case "cloudexplorer": return cloudexplorer.apiVersion(cloudExplorer, version);
                 default: return versionUnknown;
             }
         },

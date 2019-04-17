@@ -7,6 +7,7 @@ export interface FS {
     readFile(filename: string, encoding: string, callback: (err: NodeJS.ErrnoException, data: string) => void): void;
     readTextFile(path: string): Promise<string>;
     readFileAsync(filename: string): Promise<Buffer>;
+    renameAsync(oldName: string, newName: string): Promise<void>;
     readFileSync(filename: string, encoding: string): string;
     readFileToBufferSync(filename: string): Buffer;
     writeFile(filename: string, data: any, callback: (err: NodeJS.ErrnoException) => void): void;
@@ -33,6 +34,9 @@ export const fs: FS = {
           sysfs.readFile(path, null, cb)),
     readFileSync: (filename, encoding) => sysfs.readFileSync(filename, encoding),
     readFileToBufferSync: (filename) => sysfs.readFileSync(filename),
+    renameAsync: promisify(
+        (oldName: string, newName: string, cb: (err: NodeJS.ErrnoException) => void) =>
+            sysfs.rename(oldName, newName, cb)),
     writeFile: (filename, data, callback) => sysfs.writeFile(filename, data, callback),
     writeTextFile: promisify(
         (filename: string, data: string, callback: (err: NodeJS.ErrnoException) => void) => sysfs.writeFile(filename, data, callback)),

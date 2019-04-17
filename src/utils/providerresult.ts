@@ -16,6 +16,16 @@ export function transform<T>(obj: T | Thenable<T>, f: (t: T) => void): T | Thena
     return obj;
 }
 
+export function map<T, U>(source: vscode.ProviderResult<T[]>, f: (t: T) => U): U[] | vscode.ProviderResult<U[]> {
+    if (isThenable(source)) {
+        return mapThenable(source, f);
+    }
+    if (!source) {
+        return source;
+    }
+    return source.map(f);
+}
+
 function isThenable<T>(r: vscode.ProviderResult<T>): r is Thenable<T | null | undefined> {
     return !!((r as Thenable<T>).then);
 }
@@ -37,4 +47,12 @@ async function appendSyncAsync<T>(first: T[] | null | undefined, ...rest: Thenab
 async function transformThenable<T>(obj: Thenable<T>, f: (t: T) => void): Promise<T> {
     f(await obj);
     return obj;
+}
+
+async function mapThenable<T, U>(obj: Thenable<T[] | null | undefined>, f: (t: T) => U): Promise<U[] | null | undefined> {
+    const sequence = await obj;
+    if (!sequence) {
+        return sequence;
+    }
+    return sequence.map(f);
 }

@@ -2,7 +2,7 @@
     "name": "vscode-kubernetes-tools",
     "displayName": "Kubernetes",
     "description": "Develop, deploy and debug Kubernetes applications",
-    "version": "0.1.19+preview3",
+    "version": "0.1.19+preview4",
     "preview": true,
     "publisher": "ms-kubernetes-tools",
     "engines": {
@@ -82,6 +82,9 @@
         "onCommand:extension.draftUp",
         "onView:extension.vsKubernetesExplorer",
         "onView:extension.vsKubernetesHelmRepoExplorer",
+        "onView:kubernetes.cloudExplorer",
+        "onCommand:kubernetes.cloudExplorer.mergeIntoKubeconfig",
+        "onCommand:kubernetes.cloudExplorer.saveKubeconfig",
         "onLanguage:helm",
         "onLanguage:yaml",
         "onFileSystem:k8smsx",
@@ -255,7 +258,12 @@
                 {
                     "id": "extension.vsKubernetesHelmRepoExplorer",
                     "name": "Helm Repos"
+                },
+                {
+                    "id": "kubernetes.cloudExplorer",
+                    "name": "Clouds"
                 }
+
             ]
         },
         "viewsContainers": {
@@ -334,6 +342,11 @@
                 {
                     "command": "extension.vsKubernetesRefreshHelmRepoExplorer",
                     "when": "view == extension.vsKubernetesHelmRepoExplorer",
+                    "group": "navigation"
+                },
+                {
+                    "command": "extension.vsKubernetesRefreshCloudExplorer",
+                    "when": "view == kubernetes.cloudExplorer",
                     "group": "navigation"
                 }
             ],
@@ -502,6 +515,16 @@
                     "command": "extension.helmInspectValues",
                     "group": "0@2",
                     "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem =~ /^vsKubernetes\\.((chart)|(chartversion))$/i"
+                },
+                {
+                    "command": "kubernetes.cloudExplorer.mergeIntoKubeconfig",
+                    "group": "7",
+                    "when": "view == kubernetes.cloudExplorer && viewItem =~ /kubernetes\\.providesKubeconfig/i"
+                },
+                {
+                    "command": "kubernetes.cloudExplorer.saveKubeconfig",
+                    "group": "7",
+                    "when": "view == kubernetes.cloudExplorer && viewItem =~ /kubernetes\\.providesKubeconfig/i"
                 }
             ],
             "commandPalette": [
@@ -528,6 +551,10 @@
                 {
                     "command": "extension.vsKubernetesRefreshHelmRepoExplorer",
                     "when": "view == extension.vsKubernetesHelmRepoExplorer"
+                },
+                {
+                    "command": "extension.vsKubernetesRefreshCloudExplorer",
+                    "when": "view == kubernetes.cloudExplorer"
                 },
                 {
                     "command": "extension.vsKubernetesUseContext",
@@ -572,6 +599,14 @@
                 {
                     "command": "extension.helmInspectChart",
                     "when": "view === extension.vsKubernetesHelmRepoExplorer"
+                },
+                {
+                    "command": "kubernetes.cloudExplorer.mergeIntoKubeconfig",
+                    "when": ""
+                },
+                {
+                    "command": "kubernetes.cloudExplorer.saveKubeconfig",
+                    "when": ""
                 }
             ]
         },
@@ -928,6 +963,25 @@
                 "title": "Show Dependencies",
                 "description": "List the dependencies of a Helm chart",
                 "category": "Helm"
+            },
+            {
+                "command": "extension.vsKubernetesRefreshCloudExplorer",
+                "title": "Refresh",
+                "category": "Kubernetes",
+                "icon": {
+                    "light": "images/light/refresh.svg",
+                    "dark": "images/dark/refresh.svg"
+                }
+            },
+            {
+                "command": "kubernetes.cloudExplorer.mergeIntoKubeconfig",
+                "title": "Merge into Kubeconfig",
+                "description": "Merge the cluster's kubeconfig into your existing kubeconfig"
+            },
+            {
+                "command": "kubernetes.cloudExplorer.saveKubeconfig",
+                "title": "Save Kubeconfig",
+                "description": "Save the cluster's kubeconfig as a kubeconfig file"
             }
         ],
         "keybindings": [
