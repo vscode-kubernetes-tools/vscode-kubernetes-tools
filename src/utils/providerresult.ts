@@ -16,6 +16,18 @@ export function transform<T>(obj: T | Thenable<T>, f: (t: T) => void): T | Thena
     return obj;
 }
 
+export function transformPossiblyAsync<T>(obj: T | Thenable<T>, f: (t: T) => true | Thenable<true>): T | Thenable<T> {
+    if (isThenableStrict(obj)) {
+        return transformPossiblyAsyncThenable(obj, f);
+    }
+    const transformer = f(obj);
+    if (transformer === true) {
+        return obj;
+    } else {
+        return whenReady(transformer, obj);
+    }
+}
+
 export function map<T, U>(source: vscode.ProviderResult<T[]>, f: (t: T) => U): U[] | vscode.ProviderResult<U[]> {
     if (isThenable(source)) {
         return mapThenable(source, f);
@@ -49,10 +61,24 @@ async function transformThenable<T>(obj: Thenable<T>, f: (t: T) => void): Promis
     return obj;
 }
 
+async function transformPossiblyAsyncThenable<T>(obj: Thenable<T>, f: (t: T) => true | Thenable<true>): Promise<T> {
+    const transformer = f(await obj);
+    if (transformer === true) {
+        return obj;
+    } else {
+        return whenReady(transformer, obj);
+    }
+}
+
 async function mapThenable<T, U>(obj: Thenable<T[] | null | undefined>, f: (t: T) => U): Promise<U[] | null | undefined> {
     const sequence = await obj;
     if (!sequence) {
         return sequence;
     }
     return sequence.map(f);
+}
+
+async function whenReady<T>(w: Thenable<true>, obj: T): Promise<T> {
+    await w;
+    return obj;
 }

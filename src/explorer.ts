@@ -10,7 +10,7 @@ import * as helmexec from './helm.exec';
 import { Pod, CRD } from './kuberesources.objectmodel';
 import { kubefsUri } from './kuberesources.virtualfs';
 import { affectsUs } from './components/config/config';
-import { ExplorerExtender } from './explorer.extension';
+import { ExplorerExtender, ExplorerUICustomizer } from './explorer.extension';
 import * as providerResult from './utils/providerresult';
 import { sleep } from './sleep';
 import { refreshExplorer } from './components/clusterprovider/common/explorer';
@@ -88,6 +88,7 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObj
     readonly onDidChangeTreeData: vscode.Event<KubernetesObject | undefined> = this.onDidChangeTreeDataEmitter.event;
 
     private readonly extenders = Array.of<ExplorerExtender<KubernetesObject>>();
+    private readonly customisers = Array.of<ExplorerUICustomizer<KubernetesObject>>();
 
     constructor(private readonly kubectl: Kubectl, private readonly host: Host) {
         host.onDidChangeConfiguration((change) => {
@@ -102,12 +103,18 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObj
         // TODO: we need to allow people to distinguish active from inactive cluster nodes,
         // and if someone expands an inactive cluster because it has been extended, they
         // should NOT get all the folder nodes.
-        return providerResult.transform(treeItem, (ti) => {
+        const treeItem2 = providerResult.transform(treeItem, (ti) => {
             if (ti.collapsibleState === vscode.TreeItemCollapsibleState.None && this.extenders.some((e) => e.contributesChildren(element))) {
                 ti.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
             }
         });
-    }
+
+        let treeItem3 = treeItem2;
+        for (const c of this.customisers) {
+            treeItem3 = providerResult.transformPossiblyAsync(treeItem2, (ti) => c.customize(element, ti));
+        }
+        return treeItem3;
+}
 
     getChildren(parent?: KubernetesObject): vscode.ProviderResult<KubernetesObject[]> {
         const baseChildren = this.getChildrenBase(parent);
@@ -128,7 +135,7 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObj
         this.onDidChangeTreeDataEmitter.fire();
     }
 
-    register(extender: ExplorerExtender<KubernetesObject>): void {
+    registerExtender(extender: ExplorerExtender<KubernetesObject>): void {
         this.extenders.push(extender);
         // In the case where an extender contributes at top level (sibling to cluster nodes),
         // the tree view can populate before the extender has time to register.  So in this
@@ -149,6 +156,11 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<KubernetesObj
         if (extender.contributesChildren(undefined)) {
             sleep(50).then(() => refreshExplorer());
         }
+    }
+
+    registerUICustomiser(customiser: ExplorerUICustomizer<KubernetesObject>): void {
+        this.customisers.push(customiser);
+        sleep(50).then(() => refreshExplorer());
     }
 
     private async getClusters(): Promise<KubernetesObject[]> {
