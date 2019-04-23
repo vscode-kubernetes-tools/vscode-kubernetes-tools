@@ -199,7 +199,7 @@ displayed.  To do this, your `package.json` must include the following activatio
 
 Depending on your extension you may have other activation events as well.
 
-### Registering cluster providers with the Kubernetes extension
+### Registering node contributors with the Kubernetes extension
 
 In your extension's `activate` function, you must register your node contributor(s) using the
 Kubernetes extension API.  The following sample shows how to do this using the NPM
