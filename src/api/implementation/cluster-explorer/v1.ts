@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 
 import { ClusterExplorerV1 } from "../../contract/cluster-explorer/v1";
-import { ExplorerExtender } from "../../../explorer.extension";
+import { ExplorerExtender, ExplorerUICustomizer } from "../../../explorer.extension";
 import { KUBERNETES_EXPLORER_NODE_CATEGORY, KubernetesObject, ResourceFolder, ResourceNode, KubernetesExplorer } from "../../../explorer";
 import { Kubectl } from "../../../kubectl";
 import { Host } from "../../../host";
@@ -28,7 +28,12 @@ class ClusterExplorerV1Impl implements ClusterExplorerV1 {
 
     registerNodeContributor(nodeContributor: ClusterExplorerV1.NodeContributor): void {
         const adapted = adaptToExplorerExtension(nodeContributor);
-        this.explorer.register(adapted);
+        this.explorer.registerExtender(adapted);
+    }
+
+    registerNodeUICustomizer(nodeUICustomizer: ClusterExplorerV1.NodeUICustomizer): void {
+        const adapted = adaptToExplorerUICustomizer(nodeUICustomizer);
+        this.explorer.registerUICustomiser(adapted);
     }
 
     refresh(): void {
@@ -38,6 +43,10 @@ class ClusterExplorerV1Impl implements ClusterExplorerV1 {
 
 function adaptToExplorerExtension(nodeContributor: ClusterExplorerV1.NodeContributor): ExplorerExtender<KubernetesObject> {
     return new NodeContributorAdapter(nodeContributor);
+}
+
+function adaptToExplorerUICustomizer(nodeUICustomizer: ClusterExplorerV1.NodeUICustomizer): ExplorerUICustomizer<KubernetesObject> {
+    return new NodeUICustomizerAdapter(nodeUICustomizer);
 }
 
 class NodeContributorAdapter implements ExplorerExtender<KubernetesObject> {
@@ -51,6 +60,22 @@ class NodeContributorAdapter implements ExplorerExtender<KubernetesObject> {
         const children = await this.impl.getChildren(parentNode);
         return children.map(internalNodeOf);
     }
+}
+
+class NodeUICustomizerAdapter implements ExplorerUICustomizer<KubernetesObject> {
+    constructor(private readonly impl: ClusterExplorerV1.NodeUICustomizer) {}
+    customize(element: KubernetesObject, treeItem: vscode.TreeItem): true | Thenable<true> {
+        const waiter = this.impl.customize(adaptKubernetesExplorerNode(element), treeItem);
+        if (waiter) {
+            return waitFor(waiter);
+        }
+        return true;
+    }
+}
+
+async function waitFor(waiter: Thenable<void>): Promise<true> {
+    await waiter;
+    return true;
 }
 
 function adaptKubernetesExplorerNode(node: KubernetesObject): ClusterExplorerV1.ClusterExplorerNode {
