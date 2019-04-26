@@ -1,9 +1,10 @@
 # Visual Studio Code Kubernetes Tools
 [![Build Status](https://travis-ci.org/Azure/vscode-kubernetes-tools.svg?branch=master)](https://travis-ci.org/Azure/vscode-kubernetes-tools)
 
-The extension for developers building applications to run in Kubernetes clusters.
+The extension for developers building applications to run in Kubernetes clusters 
+and for DevOps staff troubleshooting Kubernetes applications.
+
 Works with any Kubernetes anywhere (Azure, Minikube, AWS, GCP and more!).
-Enables support for DevOps staff troubleshooting Kubernetes applications.
 
 Features include:
 
