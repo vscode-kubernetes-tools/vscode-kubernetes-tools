@@ -353,168 +353,168 @@
             "view/item/context": [
                 {
                     "command": "extension.vsKubernetesUseContext",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /^vsKubernetes\\.\\w*cluster\\.inactive$/i",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.\\w*cluster\\.inactive/i",
                     "group": "0@1"
                 },
                 {
                     "command": "extension.vsKubernetesDeleteContext",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /^vsKubernetes\\.\\w*cluster.*$/i",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.\\w*cluster.*/i",
                     "group": "0@2"
                 },
                 {
                     "command": "extension.vsKubernetesCopy",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /^vsKubernetes\\.\\w*cluster.*$/i",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.\\w*cluster.*/i",
                     "group": "1"
                 },
                 {
                     "command": "extension.vsKubernetesClusterInfo",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /^vsKubernetes\\.\\w*cluster$/i",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.\\w*cluster/i",
                     "group": "0@1"
                 },
                 {
                     "command": "extension.vsKubernetesDashboard",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /^vsKubernetes\\.\\w*cluster$/i",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.\\w*cluster/i",
                     "group": "0@3"
                 },
                 {
                     "command": "extension.vsMinikubeStop",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.minikubeCluster",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.minikubeCluster/i",
                     "group": "2@1"
                 },
                 {
                     "command": "extension.vsMinikubeStart",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.minikubeCluster",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.minikubeCluster/i",
                     "group": "2@0"
                 },
                 {
                     "command": "extension.vsMinikubeStatus",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.minikubeCluster",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.minikubeCluster/i",
                     "group": "2@3"
                 },
                 {
                     "command": "extension.vsKubernetesUseNamespace",
                     "group": "0",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.namespace.inactive"
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.namespace\\.inactive/i"
                 },
                 {
                     "command": "extension.vsKubernetesShowEvents",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.namespace",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.namespace/",
                     "group": "1"
                 },
                 {
                     "command": "extension.vsKubernetesFollowEvents",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.namespace",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.namespace/",
                     "group": "1"
                 },
                 {
                     "command": "extension.vsKubernetesCopy",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /^vsKubernetes\\.resource.*$/i",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\./i",
                     "group": "1"
                 },
                 {
                     "command": "extension.vsKubernetesGet",
                     "group": "1@1",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.kind"
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.kind/i"
                 },
                 {
                     "command": "extension.vsKubernetesLoad",
                     "group": "0",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /^vsKubernetes\\.resource(?!\\.namespace).*$/i"
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource(?!\\.namespace).*/i"
                 },
                 {
                     "command": "extension.vsKubernetesGet",
                     "group": "2@1",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /^vsKubernetes\\.resource(?!\\.namespace).*$/i"
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource(?!\\.namespace).*/i"
                 },
                 {
                     "command": "extension.vsKubernetesDelete",
                     "group": "2@2",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /^vsKubernetes\\.resource(?!\\.namespace).*$/i"
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource(?!\\.namespace).*/i"
                 },
                 {
                     "command": "extension.vsKubernetesDescribe",
                     "group": "3",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /^vsKubernetes\\.resource(?!\\.namespace).*$/i"
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource(?!\\.namespace).*/i"
                 },
                 {
                     "command": "extension.helmConvertToTemplate",
                     "group": "2",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == viewItem =~ /^vsKubernetes\\.resource(?!\\.namespace).*$/i"
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource(?!\\.namespace).*/i"
                 },
                 {
                     "command": "extension.vsKubernetesDeleteNow",
                     "group": "2@3",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.pod/i"
                 },
                 {
                     "command": "extension.vsKubernetesTerminal",
                     "group": "2@4",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.pod/i"
                 },
                 {
                     "command": "extension.vsKubernetesDebugAttach",
                     "group": "2@5",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.pod/i"
                 },
                 {
                     "command": "extension.vsKubernetesPortForward",
                     "group": "2@6",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.pod"
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.pod/i"
                 },
                 {
                     "command": "extension.vsKubernetesShowLogs",
                     "group": "3",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /^vsKubernetes\\.resource\\.(pod|job)$/"
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.(pod|job)/i"
                 },
                 {
                     "command": "extension.vsKubernetesFollowLogs",
                     "group": "3",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /^vsKubernetes\\.resource\\.(pod|job)$/"
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.(pod|job)/i"
                 },
                 {
                     "command": "extension.vsKubernetesCronJobRunNow",
                     "group": "3",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.cronjob"
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.cronjob/i"
                 },
                 {
                     "command": "extension.vsKubernetesAddFile",
                     "group": "3",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.configmap"
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.configmap/i"
                 },
                 {
                     "command": "extension.vsKubernetesAddFile",
                     "group": "3",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.resource.secret"
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.secret/i"
                 },
                 {
                     "command": "extension.vsKubernetesDeleteFile",
                     "group": "3",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem == vsKubernetes.file"
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.file/i"
                 },
                 {
                     "command": "extension.helmFetch",
                     "group": "1",
-                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem =~ /^vsKubernetes\\.((chart)|(chartversion))$/i"
+                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem =~ /vsKubernetes\\.((chart)|(chartversion))/i"
                 },
                 {
                     "command": "extension.helmInstall",
                     "group": "2",
-                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem =~ /^vsKubernetes\\.((chart)|(chartversion))$/i"
+                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem =~ /vsKubernetes\\.((chart)|(chartversion))/i"
                 },
                 {
                     "command": "extension.helmDependencies",
                     "group": "0@3",
-                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem =~ /^vsKubernetes\\.((chart)|(chartversion))$/i"
+                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem =~ /vsKubernetes\\.((chart)|(chartversion))/i"
                 },
                 {
                     "command": "extension.helmInspectChart",
                     "group": "0@1",
-                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem =~ /^vsKubernetes\\.((chart)|(chartversion))$/i"
+                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem =~ /vsKubernetes\\.((chart)|(chartversion))/i"
                 },
                 {
                     "command": "extension.helmInspectValues",
                     "group": "0@2",
-                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem =~ /^vsKubernetes\\.((chart)|(chartversion))$/i"
+                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem =~ /vsKubernetes\\.((chart)|(chartversion))/i"
                 },
                 {
                     "command": "kubernetes.cloudExplorer.mergeIntoKubeconfig",
