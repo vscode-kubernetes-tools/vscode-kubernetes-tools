@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 
 import { ClusterExplorerV1 } from "../../contract/cluster-explorer/v1";
 import { ExplorerExtender, ExplorerUICustomizer } from "../../../explorer.extension";
-import { KUBERNETES_EXPLORER_NODE_CATEGORY, KubernetesObject, ResourceFolder, ResourceNode, KubernetesExplorer, CustomResourceFolderContributor, CustomGroupingFolderContributor } from "../../../explorer";
+import { KUBERNETES_EXPLORER_NODE_CATEGORY, KubernetesObject, ResourceFolder, ResourceNode, KubernetesExplorer, CustomResourceFolderNodeSource, CustomGroupingFolderNodeSource, NodeSetImpl } from "../../../explorer";
 import { Kubectl } from "../../../kubectl";
 import { Host } from "../../../host";
 import { KubectlContext } from '../../../kubectlUtils';
@@ -47,13 +47,6 @@ class ClusterExplorerV1Impl implements ClusterExplorerV1 {
     refresh(): void {
         this.explorer.refresh();
     }
-}
-
-const SOOPER_SEKRIT_CONTRIBUTOR_KIND_TAG = '4a4bc473-a8c6-4b1e-973f-22327f99cea8';
-
-interface BuiltInNodeContributor {
-    readonly [SOOPER_SEKRIT_CONTRIBUTOR_KIND_TAG]: true;
-    readonly impl: ExplorerExtender<KubernetesObject>;
 }
 
 function adaptToExplorerExtension(nodeContributor: ClusterExplorerV1.NodeContributor): ExplorerExtender<KubernetesObject> {
@@ -130,7 +123,19 @@ function adaptKubernetesExplorerResourceNode(node: KubernetesObject & ResourceNo
 }
 
 function internalNodeOf(node: ClusterExplorerV1.Node): KubernetesObject {
+    if ((node as unknown as BuiltInNode)[SOOPER_SEKRIT_NODE_KIND_TAG]) {
+        return (node as unknown as BuiltInNode).impl;
+    }
     return new ContributedNode(node);
+}
+
+function builtInNodeOf(inode: KubernetesObject): ClusterExplorerV1.Node & BuiltInNode {
+    return {
+        async getChildren() { return []; },
+        getTreeItem() { return new vscode.TreeItem('foo'); },
+        [SOOPER_SEKRIT_NODE_KIND_TAG]: true,
+        impl: inode
+    };
 }
 
 class ContributedNode implements KubernetesObject {
@@ -148,22 +153,48 @@ class ContributedNode implements KubernetesObject {
     }
 }
 
-function resourceFolderContributor(parentFolder: string | undefined, displayName: string, pluralDisplayName: string, manifestKind: string, abbreviation: string): ClusterExplorerV1.NodeContributor & BuiltInNodeContributor {
-    const explorerExtender = new CustomResourceFolderContributor(parentFolder, new ResourceKind(displayName, pluralDisplayName, manifestKind, abbreviation));
+function resourceFolderContributor(displayName: string, pluralDisplayName: string, manifestKind: string, abbreviation: string): ClusterExplorerV1.NodeSet {
+    const nodeSource = new CustomResourceFolderNodeSource(new ResourceKind(displayName, pluralDisplayName, manifestKind, abbreviation));
+    return nodeSetOf(nodeSource);
+}
+
+function groupingFolderContributor(displayName: string, contextValue: string | undefined, ...children: ClusterExplorerV1.NodeSet[]): ClusterExplorerV1.NodeSet {
+    const nodeSource = new CustomGroupingFolderNodeSource(displayName, contextValue, children.map(nodeSetImplOf));
+    return nodeSetOf(nodeSource);
+}
+
+function nodeSetOf(nodeSource: NodeSetImpl): ClusterExplorerV1.NodeSet {
     return {
-        contributesChildren(_parent) { return false; },
-        async getChildren(_parent) { return []; },
-        [SOOPER_SEKRIT_CONTRIBUTOR_KIND_TAG]: true,
-        impl: explorerExtender
+        at(parent: string | undefined) { const ee = nodeSource.at(parent); return builtInContributor(ee); },
+        async nodes() { return (await nodeSource.nodes()).map(builtInNodeOf); }
     };
 }
 
-function groupingFolderContributor(parentFolder: string | undefined, displayName: string, contextValue: string | undefined, children: () => Promise<ClusterExplorerV1.Node[]>): ClusterExplorerV1.NodeContributor & BuiltInNodeContributor {
-    const explorerExtender = new CustomGroupingFolderContributor(parentFolder, displayName, contextValue, async () => (await children()).map(internalNodeOf));
+function nodeSetImplOf(nodeSet: ClusterExplorerV1.NodeSet): NodeSetImpl {
+    return {
+        at(parent: string | undefined) { return adaptToExplorerExtension(nodeSet.at(parent)); },
+        async nodes() { return (await nodeSet.nodes()).map(internalNodeOf); }
+    };
+}
+
+function builtInContributor(ee: ExplorerExtender<KubernetesObject>): ClusterExplorerV1.NodeContributor & BuiltInNodeContributor {
     return {
         contributesChildren(_parent) { return false; },
         async getChildren(_parent) { return []; },
         [SOOPER_SEKRIT_CONTRIBUTOR_KIND_TAG]: true,
-        impl: explorerExtender
+        impl: ee
     };
+}
+
+const SOOPER_SEKRIT_CONTRIBUTOR_KIND_TAG = '4a4bc473-a8c6-4b1e-973f-22327f99cea8';
+const SOOPER_SEKRIT_NODE_KIND_TAG = '4a4bc473-a8c6-4b1e-973f-22327f99cea9';
+
+interface BuiltInNodeContributor {
+    readonly [SOOPER_SEKRIT_CONTRIBUTOR_KIND_TAG]: true;
+    readonly impl: ExplorerExtender<KubernetesObject>;
+}
+
+interface BuiltInNode {
+    readonly [SOOPER_SEKRIT_NODE_KIND_TAG]: true;
+    readonly impl: KubernetesObject;
 }

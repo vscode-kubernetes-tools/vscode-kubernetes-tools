@@ -94,8 +94,13 @@ export namespace ClusterExplorerV1 {
         readonly abbreviation: string;
     }
 
+    export interface NodeSet {
+        at(parentFolder: string | undefined): NodeContributor;
+        nodes(): Promise<Node[]>;
+    }
+
     export interface NodeContributors {
-        resourceFolder(parentFolder: string | undefined, displayName: string, pluralDisplayName: string, manifestKind: string, abbreviation: string): NodeContributor;
-        groupingFolder(parentFolder: string | undefined, displayName: string, contextValue: string | undefined, children: () => Promise<Node[]>): NodeContributor;
+        resourceFolder(displayName: string, pluralDisplayName: string, manifestKind: string, abbreviation: string): NodeSet;
+        groupingFolder(displayName: string, contextValue: string | undefined, ...children: NodeSet[]): NodeSet;
     }
 }
