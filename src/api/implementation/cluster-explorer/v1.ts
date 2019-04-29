@@ -2,10 +2,11 @@ import * as vscode from 'vscode';
 
 import { ClusterExplorerV1 } from "../../contract/cluster-explorer/v1";
 import { ExplorerExtender, ExplorerUICustomizer } from "../../../explorer.extension";
-import { KUBERNETES_EXPLORER_NODE_CATEGORY, KubernetesObject, ResourceFolder, ResourceNode, KubernetesExplorer } from "../../../explorer";
+import { KUBERNETES_EXPLORER_NODE_CATEGORY, KubernetesObject, ResourceFolder, ResourceNode, KubernetesExplorer, CustomResourceFolderContributor, CustomGroupingFolderContributor } from "../../../explorer";
 import { Kubectl } from "../../../kubectl";
 import { Host } from "../../../host";
 import { KubectlContext } from '../../../kubectlUtils';
+import { ResourceKind } from '../../../kuberesources';
 
 export function impl(explorer: KubernetesExplorer): ClusterExplorerV1 {
     return new ClusterExplorerV1Impl(explorer);
@@ -36,12 +37,29 @@ class ClusterExplorerV1Impl implements ClusterExplorerV1 {
         this.explorer.registerUICustomiser(adapted);
     }
 
+    get nodeContributors(): ClusterExplorerV1.NodeContributors {
+        return {
+            resourceFolder: resourceFolderContributor,
+            groupingFolder: groupingFolderContributor
+        };
+    }
+
     refresh(): void {
         this.explorer.refresh();
     }
 }
 
+const SOOPER_SEKRIT_CONTRIBUTOR_KIND_TAG = '4a4bc473-a8c6-4b1e-973f-22327f99cea8';
+
+interface BuiltInNodeContributor {
+    readonly [SOOPER_SEKRIT_CONTRIBUTOR_KIND_TAG]: true;
+    readonly impl: ExplorerExtender<KubernetesObject>;
+}
+
 function adaptToExplorerExtension(nodeContributor: ClusterExplorerV1.NodeContributor): ExplorerExtender<KubernetesObject> {
+    if ((<any>nodeContributor)[SOOPER_SEKRIT_CONTRIBUTOR_KIND_TAG] === true) {
+        return (nodeContributor as unknown as BuiltInNodeContributor).impl;
+    }
     return new NodeContributorAdapter(nodeContributor);
 }
 
@@ -128,4 +146,24 @@ class ContributedNode implements KubernetesObject {
     getTreeItem(): vscode.TreeItem {
         return this.impl.getTreeItem();
     }
+}
+
+function resourceFolderContributor(parentFolder: string | undefined, displayName: string, pluralDisplayName: string, manifestKind: string, abbreviation: string): ClusterExplorerV1.NodeContributor & BuiltInNodeContributor {
+    const explorerExtender = new CustomResourceFolderContributor(parentFolder, new ResourceKind(displayName, pluralDisplayName, manifestKind, abbreviation));
+    return {
+        contributesChildren(_parent) { return false; },
+        async getChildren(_parent) { return []; },
+        [SOOPER_SEKRIT_CONTRIBUTOR_KIND_TAG]: true,
+        impl: explorerExtender
+    };
+}
+
+function groupingFolderContributor(parentFolder: string | undefined, displayName: string, contextValue: string | undefined, children: () => Promise<ClusterExplorerV1.Node[]>): ClusterExplorerV1.NodeContributor & BuiltInNodeContributor {
+    const explorerExtender = new CustomGroupingFolderContributor(parentFolder, displayName, contextValue, async () => (await children()).map(internalNodeOf));
+    return {
+        contributesChildren(_parent) { return false; },
+        async getChildren(_parent) { return []; },
+        [SOOPER_SEKRIT_CONTRIBUTOR_KIND_TAG]: true,
+        impl: explorerExtender
+    };
 }

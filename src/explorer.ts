@@ -637,3 +637,53 @@ class HelmReleasesFolder extends KubernetesFolder {
         return releases.result.map((r) => new HelmReleaseResource(r.name, r.status));
     }
 }
+
+export class CustomResourceFolderContributor implements ExplorerExtender<KubernetesObject> {
+    constructor(private readonly under: string | undefined, private readonly resourceKind: kuberesources.ResourceKind) {}
+
+    contributesChildren(parent?: KubernetesObject | undefined): boolean {
+        if (!parent) {
+            return false;
+        }
+        if (this.under) {
+            return parent.nodeType === 'folder.grouping' && parent.id === this.under;  // TODO: needs to be display name really
+        }
+        return parent.nodeType === 'context' /* && parent.isActive */;
+    }
+
+    async getChildren(_parent?: KubernetesObject | undefined): Promise<KubernetesObject[]> {
+        return [new KubernetesResourceFolder(this.resourceKind)];
+    }
+}
+
+export class CustomGroupingFolderContributor implements ExplorerExtender<KubernetesObject> {
+    constructor(
+        private readonly under: string | undefined,
+        private readonly displayName: string,
+        private readonly contextValue: string | undefined,
+        private readonly children: () => Promise<KubernetesObject[]>) {}
+
+    contributesChildren(parent?: KubernetesObject | undefined): boolean {
+        if (!parent) {
+            return false;
+        }
+        if (this.under) {
+            return parent.nodeType === 'folder.grouping' && parent.id === this.under;  // TODO: needs to be display name really
+        }
+        return parent.nodeType === 'context' /* && parent.isActive */;
+    }
+
+    async getChildren(_parent?: KubernetesObject | undefined): Promise<KubernetesObject[]> {
+        return [new CustomGroupingFolder(this.displayName, this.contextValue, this.children)];
+    }
+}
+
+class CustomGroupingFolder extends KubernetesFolder {
+    constructor(displayName: string, contextValue: string | undefined, private readonly children: () => Promise<KubernetesObject[]>) {
+        super('folder.grouping', 'folder.grouping.custom', displayName, contextValue);
+    }
+
+    getChildren(_kubectl: Kubectl, _host: Host): vscode.ProviderResult<KubernetesObject[]> {
+        return this.children();
+    }
+}

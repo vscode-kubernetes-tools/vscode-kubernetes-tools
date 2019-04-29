@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 export interface ClusterExplorerV1 {
     resolveCommandTarget(target?: any): ClusterExplorerV1.ClusterExplorerNode | undefined;
     registerNodeContributor(nodeContributor: ClusterExplorerV1.NodeContributor): void;
+    readonly nodeContributors: ClusterExplorerV1.NodeContributors;
     registerNodeUICustomizer(nodeUICustomizer: ClusterExplorerV1.NodeUICustomizer): void;
     refresh(): void;
 }
@@ -91,5 +92,10 @@ export namespace ClusterExplorerV1 {
     export interface ResourceKind {
         readonly manifestKind: string;
         readonly abbreviation: string;
+    }
+
+    export interface NodeContributors {
+        resourceFolder(parentFolder: string | undefined, displayName: string, pluralDisplayName: string, manifestKind: string, abbreviation: string): NodeContributor;
+        groupingFolder(parentFolder: string | undefined, displayName: string, contextValue: string | undefined, children: () => Promise<Node[]>): NodeContributor;
     }
 }
