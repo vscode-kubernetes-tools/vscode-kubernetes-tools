@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 
 import { ClusterExplorerV1 } from "../../contract/cluster-explorer/v1";
 import { ExplorerExtender, ExplorerUICustomizer } from "../../../explorer.extension";
-import { KUBERNETES_EXPLORER_NODE_CATEGORY, KubernetesObject, ResourceFolder, ResourceNode, KubernetesExplorer, CustomResourceFolderNodeSource, CustomGroupingFolderNodeSource, NodeSetImpl } from "../../../explorer";
+import { KUBERNETES_EXPLORER_NODE_CATEGORY, KubernetesObject, ResourceFolder, ResourceNode, KubernetesExplorer, CustomResourceFolderNodeSource, CustomGroupingFolderNodeSource, NodeSourceImpl } from "../../../explorer";
 import { Kubectl } from "../../../kubectl";
 import { Host } from "../../../host";
 import { KubectlContext } from '../../../kubectlUtils';
@@ -37,7 +37,7 @@ class ClusterExplorerV1Impl implements ClusterExplorerV1 {
         this.explorer.registerUICustomiser(adapted);
     }
 
-    get nodeContributors(): ClusterExplorerV1.NodeContributors {
+    get nodeSources(): ClusterExplorerV1.NodeSources {
         return {
             resourceFolder: resourceFolderContributor,
             groupingFolder: groupingFolderContributor
@@ -130,28 +130,28 @@ class ContributedNode implements KubernetesObject {
     }
 }
 
-function resourceFolderContributor(displayName: string, pluralDisplayName: string, manifestKind: string, abbreviation: string): ClusterExplorerV1.NodeSet {
+function resourceFolderContributor(displayName: string, pluralDisplayName: string, manifestKind: string, abbreviation: string): ClusterExplorerV1.NodeSource {
     const nodeSource = new CustomResourceFolderNodeSource(new ResourceKind(displayName, pluralDisplayName, manifestKind, abbreviation));
-    return apiNodeSetOf(nodeSource);
+    return apiNodeSourceOf(nodeSource);
 }
 
-function groupingFolderContributor(displayName: string, contextValue: string | undefined, ...children: ClusterExplorerV1.NodeSet[]): ClusterExplorerV1.NodeSet {
-    const nodeSource = new CustomGroupingFolderNodeSource(displayName, contextValue, children.map(internalNodeSetOf));
-    return apiNodeSetOf(nodeSource);
+function groupingFolderContributor(displayName: string, contextValue: string | undefined, ...children: ClusterExplorerV1.NodeSource[]): ClusterExplorerV1.NodeSource {
+    const nodeSource = new CustomGroupingFolderNodeSource(displayName, contextValue, children.map(internalNodeSourceOf));
+    return apiNodeSourceOf(nodeSource);
 }
 
 const BUILT_IN_CONTRIBUTOR_KIND_TAG = 'nativeextender-4a4bc473-a8c6-4b1e-973f-22327f99cea8';
 const BUILT_IN_NODE_KIND_TAG = 'nativek8sobject-5be3c876-3683-44cd-a400-7763d2c4302a';
-const BUILT_IN_NODE_SET_KIND_TAG = 'nativenodeset-aa0c30a9-bf1d-444a-a147-7823edcc7c04';
+const BUILT_IN_NODE_SOURCE_KIND_TAG = 'nativenodesource-aa0c30a9-bf1d-444a-a147-7823edcc7c04';
 
 interface BuiltInNodeContributor {
     readonly [BUILT_IN_CONTRIBUTOR_KIND_TAG]: true;
     readonly impl: ExplorerExtender<KubernetesObject>;
 }
 
-interface BuiltInNodeSet {
-    readonly [BUILT_IN_NODE_SET_KIND_TAG]: true;
-    readonly impl: NodeSetImpl;
+interface BuiltInNodeSource {
+    readonly [BUILT_IN_NODE_SOURCE_KIND_TAG]: true;
+    readonly impl: NodeSourceImpl;
 }
 
 interface BuiltInNode {
@@ -159,18 +159,18 @@ interface BuiltInNode {
     readonly impl: KubernetesObject;
 }
 
-function apiNodeSetOf(nodeSet: NodeSetImpl): ClusterExplorerV1.NodeSet & BuiltInNodeSet {
+function apiNodeSourceOf(nodeSet: NodeSourceImpl): ClusterExplorerV1.NodeSource & BuiltInNodeSource {
     return {
         at(parent: string | undefined) { const ee = nodeSet.at(parent); return apiNodeContributorOf(ee); },
         async nodes() { return (await nodeSet.nodes()).map(apiNodeOf); },
-        [BUILT_IN_NODE_SET_KIND_TAG]: true,
+        [BUILT_IN_NODE_SOURCE_KIND_TAG]: true,
         impl: nodeSet
     };
 }
 
-function internalNodeSetOf(nodeSet: ClusterExplorerV1.NodeSet): NodeSetImpl {
-    if ((<any>nodeSet)[BUILT_IN_NODE_SET_KIND_TAG]) {
-        return (nodeSet as unknown as BuiltInNodeSet).impl;
+function internalNodeSourceOf(nodeSet: ClusterExplorerV1.NodeSource): NodeSourceImpl {
+    if ((<any>nodeSet)[BUILT_IN_NODE_SOURCE_KIND_TAG]) {
+        return (nodeSet as unknown as BuiltInNodeSource).impl;
     }
     return {
         at(parent: string | undefined) { return internalNodeContributorOf(nodeSet.at(parent)); },

@@ -14,6 +14,7 @@ import { ExplorerExtender, ExplorerUICustomizer } from './explorer.extension';
 import * as providerResult from './utils/providerresult';
 import { sleep } from './sleep';
 import { refreshExplorer } from './components/clusterprovider/common/explorer';
+import { flatten } from './utils/array';
 
 const KUBERNETES_CLUSTER = "vsKubernetes.cluster";
 const MINIKUBE_CLUSTER = "vsKubernetes.minikubeCluster";
@@ -638,16 +639,16 @@ class HelmReleasesFolder extends KubernetesFolder {
     }
 }
 
-export interface NodeSetImpl {
+export interface NodeSourceImpl {
     at(parent: string | undefined): ExplorerExtender<KubernetesObject>;
     nodes(): Promise<KubernetesObject[]>;
 }
 
-export class CustomResourceFolderNodeSource implements NodeSetImpl {
+export class CustomResourceFolderNodeSource implements NodeSourceImpl {
     constructor(private readonly resourceKind: kuberesources.ResourceKind) {}
 
     at(parent: string | undefined): ExplorerExtender<KubernetesObject> {
-        return new ContributedNodeSetExtender(parent, this);
+        return new ContributedNodeSourceExtender(parent, this);
     }
 
     async nodes(): Promise<KubernetesObject[]> {
@@ -655,8 +656,23 @@ export class CustomResourceFolderNodeSource implements NodeSetImpl {
     }
 }
 
-export class ContributedNodeSetExtender implements ExplorerExtender<KubernetesObject> {
-    constructor(private readonly under: string | undefined, private readonly nodeSource: NodeSetImpl) {}
+export class CustomGroupingFolderNodeSource implements NodeSourceImpl {
+    constructor(
+        private readonly displayName: string,
+        private readonly contextValue: string | undefined,
+        private readonly children: NodeSourceImpl[]) {}
+
+    at(parent: string | undefined): ExplorerExtender<KubernetesObject> {
+        return new ContributedNodeSourceExtender(parent, this);
+    }
+
+    async nodes(): Promise<KubernetesObject[]> {
+        return [new CustomGroupingFolder(this.displayName, this.contextValue, this.children)];
+    }
+}
+
+export class ContributedNodeSourceExtender implements ExplorerExtender<KubernetesObject> {
+    constructor(private readonly under: string | undefined, private readonly nodeSource: NodeSourceImpl) {}
 
     contributesChildren(parent?: KubernetesObject | undefined): boolean {
         if (!parent) {
@@ -673,23 +689,8 @@ export class ContributedNodeSetExtender implements ExplorerExtender<KubernetesOb
     }
 }
 
-export class CustomGroupingFolderNodeSource implements NodeSetImpl {
-    constructor(
-        private readonly displayName: string,
-        private readonly contextValue: string | undefined,
-        private readonly children: NodeSetImpl[]) {}
-
-    at(parent: string | undefined): ExplorerExtender<KubernetesObject> {
-        return new ContributedNodeSetExtender(parent, this);
-    }
-
-    async nodes(): Promise<KubernetesObject[]> {
-        return [new CustomGroupingFolder(this.displayName, this.contextValue, this.children)];
-    }
-}
-
 class CustomGroupingFolder extends KubernetesFolder {
-    constructor(displayName: string, contextValue: string | undefined, private readonly children: NodeSetImpl[]) {
+    constructor(displayName: string, contextValue: string | undefined, private readonly children: NodeSourceImpl[]) {
         super('folder.grouping', 'folder.grouping.custom', displayName, contextValue);
     }
 
@@ -698,10 +699,9 @@ class CustomGroupingFolder extends KubernetesFolder {
     }
 
     private async getChildrenImpl(): Promise<KubernetesObject[]> {
-        const result = Array.of<KubernetesObject>();
-        for (const c of this.children) {
-            result.push(...(await c.nodes()));
-        }
-        return result;
+        const allNodesPromise = Promise.all(this.children.map((c) => c.nodes()));
+        const nodeArrays = await allNodesPromise;
+        const nodes = flatten(...nodeArrays);
+        return nodes;
     }
 }
