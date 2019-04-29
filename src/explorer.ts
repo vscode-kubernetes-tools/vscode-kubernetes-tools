@@ -679,9 +679,9 @@ export class ContributedNodeSourceExtender implements ExplorerExtender<Kubernete
             return false;
         }
         if (this.under) {
-            return parent.nodeType === 'folder.grouping' && parent.id === this.under;  // TODO: needs to be display name really
+            return parent.nodeType === 'folder.grouping' && (parent as KubernetesFolder).displayName === this.under;
         }
-        return parent.nodeType === 'context' /* && parent.isActive */;
+        return parent.nodeType === 'context' && (parent as KubernetesContextNode).metadata.active;
     }
 
     getChildren(_parent?: KubernetesObject | undefined): Promise<KubernetesObject[]> {
