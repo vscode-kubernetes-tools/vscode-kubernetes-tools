@@ -195,7 +195,7 @@ The `at` method may specify an existing grouping folder (specified by display na
 
 For example, to display network policies under the Network folder:
 
-```
+```javascript
 clusterExplorer.api.registerNodeContributor(
     clusterExplorer.api.nodeSources.resourceFolder("Network Policy", "Network Policies", "NetworkPolicy", "netpol").at("Network")
 );
@@ -203,7 +203,7 @@ clusterExplorer.api.registerNodeContributor(
 
 Or to display a Security grouping folder directly under the context, and display folders for roles and so on under it:
 
-```
+```javascript
 clusterExplorer.api.registerNodeContributor(
     clusterExplorer.api.nodeSources.groupingFolder("Security", undefined,
         clusterExplorer.api.nodeSources.resourceFolder("Role", "Roles", "Role", "roles"),
@@ -211,6 +211,24 @@ clusterExplorer.api.registerNodeContributor(
         clusterExplorer.api.nodeSources.resourceFolder("Cluster Role", "Cluster Roles", "ClusterRole", "clusterroles"),
         clusterExplorer.api.nodeSources.resourceFolder("Cluster Role Binding", "Cluster Role Bindings", "ClusterRoleBinding", "clusterrolebindings")
 ).at(undefined));
+```
+
+You can also use the `if` method to conditionally display nodes:
+
+```javascript
+clusterExplorer.api.registerNodeContributor(
+    clusterExplorer.api.nodeSources.resourceFolder("Contoso Backup", "Contoso Backups", "ContosoBackup", "contosobackups")
+        .if(isContosoBackupOperatorInstalled)
+        .at("Storage")
+);
+
+async function isContosoBackupOperatorInstalled(): Promise<boolean> {
+    const sr = await kubectl.api.invokeCommand('get crd');
+    if (!sr || sr.code !== 0) {
+        return false;
+    }
+    return sr.stdout.includes("backup.k8soperators.contoso.com");  // Naive check to keep example simple!
+}
 ```
 
 ## Registering the node contributor
