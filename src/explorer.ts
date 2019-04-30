@@ -639,16 +639,19 @@ class HelmReleasesFolder extends KubernetesFolder {
     }
 }
 
-export interface NodeSourceImpl {
-    at(parent: string | undefined): ExplorerExtender<KubernetesObject>;
-    nodes(): Promise<KubernetesObject[]>;
-}
-
-export class CustomResourceFolderNodeSource implements NodeSourceImpl {
-    constructor(private readonly resourceKind: kuberesources.ResourceKind) {}
-
+export abstract class NodeSourceImpl {
     at(parent: string | undefined): ExplorerExtender<KubernetesObject> {
         return new ContributedNodeSourceExtender(parent, this);
+    }
+    if(condition: () => boolean | Thenable<boolean>): NodeSourceImpl {
+        return new ConditionalNodeSource(this, condition);
+    }
+    abstract nodes(): Promise<KubernetesObject[]>;
+}
+
+export class CustomResourceFolderNodeSource extends NodeSourceImpl {
+    constructor(private readonly resourceKind: kuberesources.ResourceKind) {
+        super();
     }
 
     async nodes(): Promise<KubernetesObject[]> {
@@ -656,18 +659,30 @@ export class CustomResourceFolderNodeSource implements NodeSourceImpl {
     }
 }
 
-export class CustomGroupingFolderNodeSource implements NodeSourceImpl {
+export class CustomGroupingFolderNodeSource extends NodeSourceImpl {
     constructor(
         private readonly displayName: string,
         private readonly contextValue: string | undefined,
-        private readonly children: NodeSourceImpl[]) {}
-
-    at(parent: string | undefined): ExplorerExtender<KubernetesObject> {
-        return new ContributedNodeSourceExtender(parent, this);
+        private readonly children: NodeSourceImpl[]
+    ) {
+        super();
     }
 
     async nodes(): Promise<KubernetesObject[]> {
         return [new CustomGroupingFolder(this.displayName, this.contextValue, this.children)];
+    }
+}
+
+class ConditionalNodeSource extends NodeSourceImpl {
+    constructor(private readonly impl: NodeSourceImpl, private readonly condition: () => boolean | Thenable<boolean>) {
+        super();
+    }
+
+    async nodes(): Promise<KubernetesObject[]> {
+        if (await this.condition()) {
+            return this.impl.nodes();
+        }
+        return [];
     }
 }
 

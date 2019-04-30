@@ -162,6 +162,7 @@ interface BuiltInNode {
 function apiNodeSourceOf(nodeSet: NodeSourceImpl): ClusterExplorerV1.NodeSource & BuiltInNodeSource {
     return {
         at(parent: string | undefined) { const ee = nodeSet.at(parent); return apiNodeContributorOf(ee); },
+        if(condition: () => boolean | Thenable<boolean>) { return apiNodeSourceOf(nodeSet.if(condition)); },
         async nodes() { return (await nodeSet.nodes()).map(apiNodeOf); },
         [BUILT_IN_NODE_SOURCE_KIND_TAG]: true,
         impl: nodeSet
@@ -174,6 +175,7 @@ function internalNodeSourceOf(nodeSet: ClusterExplorerV1.NodeSource): NodeSource
     }
     return {
         at(parent: string | undefined) { return internalNodeContributorOf(nodeSet.at(parent)); },
+        if(condition: () => boolean | Thenable<boolean>) { return internalNodeSourceOf(nodeSet).if(condition); },
         async nodes() { return (await nodeSet.nodes()).map(internalNodeOf); }
     };
 }

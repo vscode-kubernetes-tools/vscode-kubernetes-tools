@@ -96,6 +96,7 @@ export namespace ClusterExplorerV1 {
 
     export interface NodeSource {
         at(parentFolder: string | undefined): NodeContributor;
+        if(condition: () => boolean | Thenable<boolean>): NodeSource;
         nodes(): Promise<Node[]>;
     }
 
