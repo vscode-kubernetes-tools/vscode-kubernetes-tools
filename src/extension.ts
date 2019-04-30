@@ -53,6 +53,7 @@ import { DebugSession } from './debug/debugSession';
 import { suggestedShellForContainer } from './utils/container-shell';
 import { getDebugProviderOfType, getSupportedDebuggerTypes } from './debug/providerRegistry';
 import * as config from './components/config/config';
+import * as browser from './components/platform/browser';
 
 import { registerYamlSchemaSupport } from './yaml-support/yaml-schema';
 import * as clusterproviderregistry from './components/clusterprovider/clusterproviderregistry';
@@ -233,6 +234,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         // Commands - API
         registerCommand('kubernetes.cloudExplorer.mergeIntoKubeconfig', kubernetesMergeIntoKubeconfig),
         registerCommand('kubernetes.cloudExplorer.saveKubeconfig', kubernetesSaveKubeconfig),
+        registerCommand('kubernetes.cloudExplorer.findProviders', kubernetesFindCloudProviders),
 
         // Commands - special no-op command for debouncing concurrent activations
         vscode.commands.registerCommand('extension.vsKubernetesDebounceActivation', () => {}),
@@ -2150,4 +2152,9 @@ async function kubeconfigFromTreeNode(target?: CloudExplorerTreeNode): Promise<s
     }
     const kubeconfigYaml = await target.provider.getKubeconfigYaml(target.value);
     return kubeconfigYaml;
+}
+
+function kubernetesFindCloudProviders() {
+    const searchUrl = 'https://marketplace.visualstudio.com/search?term=kubernetes-extension-cloud-provider&target=VSCode&category=All%20categories&sortBy=Relevance';
+    browser.open(searchUrl);
 }

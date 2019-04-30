@@ -25,6 +25,7 @@ your cloud providers and their hosting extension need to do; the rest of this ar
 |----------------------|----------------------------------------------------------------------|
 | Your extension       | Activate when Cloud Explorer is displayed                            |
 |                      | Register cloud providers with Kubernetes extension                   |
+|                      | Tag itself as a cloud provider in the Visual Studio Marketplace      |
 | Cloud provider       | Implement the cloud provider interface                               |
 |                      | Provide metadata for the Cloud Explorer top level                    |
 |                      | Display cloud resources in tree format                               |
@@ -229,6 +230,22 @@ export async function activate(context: vscode.ExtensionContext) {
 }
 ```
 
-Your cluster provider is now ready for testing!
+Your cloud provider is now ready for testing!
 
+## Tagging your cloud provider extension
 
+The Cloud Explorer has a link for users to find cloud providers on the Visual Studio
+Marketplace.  If you'd like to appear in this link, please tag your extension
+with the keyword `kubernetes-extension-cloud-provider` in `package.json`.
+For example:
+
+```json
+{
+    "keywords": [
+        "kubernetes",
+        "contoso",
+        "megafloof",
+        "kubernetes-extension-cloud-provider"
+    ]
+}
+```
