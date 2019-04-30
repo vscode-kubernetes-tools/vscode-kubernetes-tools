@@ -175,6 +175,42 @@ class LoadBalancerAddressNode implements Node {
 }
 ```
 
+### Built-in node contributors
+
+In some cases you do not need completely custom behaviour - you just want something that works
+like the built-in tree nodes.  You can use the API to create your own _resource folders_
+and _grouping folders_ using the `nodeSources` property.
+
+A _resource folder_ is a folder which displays a single Kubernetes resource type, such as
+a Services or Pods folder.
+
+A _grouping folder_ is a folder which contains other folders, such as the Storage folder
+which contains resource folders for Persistent Volumes, Persistent Volume Claims and
+Storage Classes.
+
+To use a built-in node contributor, call the appropriate `nodeSources` method to create
+a `NodeSource`, then use its `at` method to specify where to attach to the tree.
+For example, to display network policies under the Network folder:
+
+```
+clusterExplorer.api.registerNodeContributor(
+    clusterExplorer.api.nodeSources.resourceFolder("Network Policy", "Network Policies", "NetworkPolicy", "netpol").at("Network")
+);
+```
+
+Or to display a Security grouping folder directly under the context, and display folders for roles and so on under it:
+
+```
+clusterExplorer.api.registerNodeContributor(
+    clusterExplorer.api.nodeSources.groupingFolder("Security", undefined,
+        clusterExplorer.api.nodeSources.resourceFolder("Role", "Roles", "Role", "roles"),
+        clusterExplorer.api.nodeSources.resourceFolder("Role Binding", "Role Bindings", "RoleBinding", "rolebindings"),
+        clusterExplorer.api.nodeSources.resourceFolder("Cluster Role", "Cluster Roles", "ClusterRole", "clusterroles"),
+        clusterExplorer.api.nodeSources.resourceFolder("Cluster Role Binding", "Cluster Role Bindings", "ClusterRoleBinding", "clusterrolebindings"),
+    ).at(undefined);
+);
+```
+
 ## Registering the node contributor
 
 In order to have nodes displayed in the cluster explorer, a node contributor must be _registered_
