@@ -14,6 +14,7 @@ import { ExplorerExtender, ExplorerUICustomizer } from './explorer.extension';
 import * as providerResult from './utils/providerresult';
 import { sleep } from './sleep';
 import { refreshExplorer } from './components/clusterprovider/common/explorer';
+import { flatten } from './utils/array';
 
 const KUBERNETES_CLUSTER = "vsKubernetes.cluster";
 const MINIKUBE_CLUSTER = "vsKubernetes.minikubeCluster";
@@ -635,5 +636,87 @@ class HelmReleasesFolder extends KubernetesFolder {
         }
 
         return releases.result.map((r) => new HelmReleaseResource(r.name, r.status));
+    }
+}
+
+export abstract class NodeSourceImpl {
+    at(parent: string | undefined): ExplorerExtender<KubernetesObject> {
+        return new ContributedNodeSourceExtender(parent, this);
+    }
+    if(condition: () => boolean | Thenable<boolean>): NodeSourceImpl {
+        return new ConditionalNodeSource(this, condition);
+    }
+    abstract nodes(): Promise<KubernetesObject[]>;
+}
+
+export class CustomResourceFolderNodeSource extends NodeSourceImpl {
+    constructor(private readonly resourceKind: kuberesources.ResourceKind) {
+        super();
+    }
+
+    async nodes(): Promise<KubernetesObject[]> {
+        return [new KubernetesResourceFolder(this.resourceKind)];
+    }
+}
+
+export class CustomGroupingFolderNodeSource extends NodeSourceImpl {
+    constructor(
+        private readonly displayName: string,
+        private readonly contextValue: string | undefined,
+        private readonly children: NodeSourceImpl[]
+    ) {
+        super();
+    }
+
+    async nodes(): Promise<KubernetesObject[]> {
+        return [new CustomGroupingFolder(this.displayName, this.contextValue, this.children)];
+    }
+}
+
+class ConditionalNodeSource extends NodeSourceImpl {
+    constructor(private readonly impl: NodeSourceImpl, private readonly condition: () => boolean | Thenable<boolean>) {
+        super();
+    }
+
+    async nodes(): Promise<KubernetesObject[]> {
+        if (await this.condition()) {
+            return this.impl.nodes();
+        }
+        return [];
+    }
+}
+
+export class ContributedNodeSourceExtender implements ExplorerExtender<KubernetesObject> {
+    constructor(private readonly under: string | undefined, private readonly nodeSource: NodeSourceImpl) {}
+
+    contributesChildren(parent?: KubernetesObject | undefined): boolean {
+        if (!parent) {
+            return false;
+        }
+        if (this.under) {
+            return parent.nodeType === 'folder.grouping' && (parent as KubernetesFolder).displayName === this.under;
+        }
+        return parent.nodeType === 'context' && (parent as KubernetesContextNode).metadata.active;
+    }
+
+    getChildren(_parent?: KubernetesObject | undefined): Promise<KubernetesObject[]> {
+        return this.nodeSource.nodes();
+    }
+}
+
+class CustomGroupingFolder extends KubernetesFolder {
+    constructor(displayName: string, contextValue: string | undefined, private readonly children: NodeSourceImpl[]) {
+        super('folder.grouping', 'folder.grouping.custom', displayName, contextValue);
+    }
+
+    getChildren(_kubectl: Kubectl, _host: Host): vscode.ProviderResult<KubernetesObject[]> {
+        return this.getChildrenImpl();
+    }
+
+    private async getChildrenImpl(): Promise<KubernetesObject[]> {
+        const allNodesPromise = Promise.all(this.children.map((c) => c.nodes()));
+        const nodeArrays = await allNodesPromise;
+        const nodes = flatten(...nodeArrays);
+        return nodes;
     }
 }
