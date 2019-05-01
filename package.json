@@ -91,6 +91,7 @@
         "onView:kubernetes.cloudExplorer",
         "onCommand:kubernetes.cloudExplorer.mergeIntoKubeconfig",
         "onCommand:kubernetes.cloudExplorer.saveKubeconfig",
+        "onCommand:kubernetes.cloudExplorer.findProviders",
         "onLanguage:helm",
         "onLanguage:yaml",
         "onFileSystem:k8smsx",
@@ -354,6 +355,11 @@
                     "command": "extension.vsKubernetesRefreshCloudExplorer",
                     "when": "view == kubernetes.cloudExplorer",
                     "group": "navigation"
+                },
+                {
+                    "command": "kubernetes.cloudExplorer.findProviders",
+                    "when": "view == kubernetes.cloudExplorer",
+                    "group": "1"
                 }
             ],
             "view/item/context": [
@@ -531,6 +537,11 @@
                     "command": "kubernetes.cloudExplorer.saveKubeconfig",
                     "group": "7",
                     "when": "view == kubernetes.cloudExplorer && viewItem =~ /kubernetes\\.providesKubeconfig/i"
+                },
+                {
+                    "command": "kubernetes.cloudExplorer.findProviders",
+                    "when": "view == kubernetes.cloudExplorer && viewItem == kubernetes.noProviders",
+                    "group": "1"
                 }
             ],
             "commandPalette": [
@@ -988,6 +999,11 @@
                 "command": "kubernetes.cloudExplorer.saveKubeconfig",
                 "title": "Save Kubeconfig",
                 "description": "Save the cluster's kubeconfig as a kubeconfig file"
+            },
+            {
+                "command": "kubernetes.cloudExplorer.findProviders",
+                "title": "Find Cloud Providers on Marketplace",
+                "description": "Find extensions that add clouds to the Cloud Explorer"
             }
         ],
         "keybindings": [

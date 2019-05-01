@@ -17,7 +17,11 @@ export class CloudExplorer implements vscode.TreeDataProvider<CloudExplorerTreeN
             return treeItem;
         }
         if (element.nodeType === 'message') {
-            return new vscode.TreeItem(element.text, vscode.TreeItemCollapsibleState.None);
+            const treeItem = new vscode.TreeItem(element.text, vscode.TreeItemCollapsibleState.None);
+            if (element.reason === 'no-providers') {
+                treeItem.command = { title: 'Find Cloud Providers on Marketplace', command: 'kubernetes.cloudExplorer.findProviders' };
+            }
+            return treeItem;
         }
         return element.provider.treeDataProvider.getTreeItem(element.value);
     }
@@ -25,7 +29,7 @@ export class CloudExplorer implements vscode.TreeDataProvider<CloudExplorerTreeN
     getChildren(element?: CloudExplorerTreeNode | undefined): vscode.ProviderResult<CloudExplorerTreeNode[]> {
         if (!element) {
             if (this.providers.length === 0) {
-                return [ { nodeType: 'message', text: 'Install a cloud provider from the marketplace to get started' } ];
+                return [ { nodeType: 'message', reason: 'no-providers', text: 'No clouds registered. Click here to install a cloud provider from the marketplace' } ];
             }
             return this.providers.map(asCloudNode);
         }
@@ -64,6 +68,7 @@ export interface CloudExplorerContributedNode {
 export interface CloudExplorerMessageNode {
     readonly nodeType: 'message';
     readonly text: string;
+    readonly reason: 'no-providers';
 }
 
 export type CloudExplorerTreeNode = CloudExplorerCloudNode | CloudExplorerContributedNode | CloudExplorerMessageNode;
