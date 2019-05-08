@@ -72,3 +72,42 @@ try {
     session.dispose();
 }
 ```
+
+### Port forwarding status bar indicator
+
+By default, port forwarding occurs behind the scenes, and it is up to your extension
+to determine when to end the forwarding, either programmatically or by displaying its
+own UI.  If you would like to give the user an indication
+that port forwarding is happening, and allow them to end the forwarding (and thus
+end the `kubectl` process), you can ask for your port-forwarding session to be shown
+in the status bar by passing an options object to `portForward`.  The options object
+should look like this:
+
+```javascript
+{
+    showInUI: {
+        location: 'status-bar'
+    }
+}
+```
+
+You can also provide an optional `description`, which is displayed to help the user
+understand what the port-forward is used for and to distinguish it from other port
+forwarding sessions.  This is recommended as the user may otherwise have to guess
+which sessions they still need and which it is safe to terminate.
+
+Additionally, you can provide an `onCancel` property, which is a function to be
+called back if the user terminates the port forwarding via the UI.  You can
+use this to present UI, clear state associated with the port-forward, etc.
+
+A fully populated options object might look like this:
+
+```javascript
+{
+    showInUI: {
+        location: 'status-bar',
+        description: 'Connection to the linkerd dashboard',
+        onCancel: () => { linkerd.isDashboardPortFowarded(false); }
+    }
+}
+```
