@@ -9,13 +9,14 @@ import { ClusterProviderRegistry } from "../../components/clusterprovider/cluste
 import { Kubectl } from "../../kubectl";
 import { KubernetesExplorer } from "../../explorer";
 import { CloudExplorer } from "../../components/cloudexplorer/cloudexplorer";
+import { PortForwardStatusBarManager } from "../../components/kubectl/port-forward-ui";
 
-export function apiBroker(clusterProviderRegistry: ClusterProviderRegistry, kubectlImpl: Kubectl, explorer: KubernetesExplorer, cloudExplorer: CloudExplorer): APIBroker {
+export function apiBroker(clusterProviderRegistry: ClusterProviderRegistry, kubectlImpl: Kubectl, portForwardStatusBarManager: PortForwardStatusBarManager, explorer: KubernetesExplorer, cloudExplorer: CloudExplorer): APIBroker {
     return {
         get(component: string, version: string): API<any> {
             switch (component) {
                 case "clusterprovider": return clusterprovider.apiVersion(clusterProviderRegistry, version);
-                case "kubectl": return kubectl.apiVersion(kubectlImpl, version);
+                case "kubectl": return kubectl.apiVersion(kubectlImpl, portForwardStatusBarManager, version);
                 case "helm": return helm.apiVersion(version);
                 case "clusterexplorer": return clusterexplorer.apiVersion(explorer, version);
                 case "cloudexplorer": return cloudexplorer.apiVersion(cloudExplorer, version);

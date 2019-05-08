@@ -6,7 +6,7 @@ import * as vscode from 'vscode';
 
 export interface KubectlV1 {
     invokeCommand(command: string): Promise<KubectlV1.ShellResult | undefined>;
-    portForward(podName: string, podNamespace: string | undefined, localPort: number, remotePort: number): Promise<vscode.Disposable | undefined>;
+    portForward(podName: string, podNamespace: string | undefined, localPort: number, remotePort: number, options?: KubectlV1.PortForwardOptions): Promise<vscode.Disposable | undefined>;
 }
 
 export namespace KubectlV1 {
@@ -15,4 +15,20 @@ export namespace KubectlV1 {
         readonly stdout: string;
         readonly stderr: string;
     }
+
+    export interface PortForwardOptions {
+        readonly showInUI?: PortForwardUIOptions;
+    }
+
+    export interface PortForwardNoUIOptions {
+        readonly location: 'none';
+    }
+
+    export interface PortForwardStatusBarUIOptions {
+        readonly location: 'status-bar';
+        readonly description?: string;
+        readonly onCancel?: () => void;
+    }
+
+    export type PortForwardUIOptions = PortForwardNoUIOptions | PortForwardStatusBarUIOptions;
 }
