@@ -42,12 +42,23 @@ export class PortForwardStatusBarManager {
         const items = this.listSessions().map((s) => ({
             label: `local:${s.localPort} -> ${podDisplayName(s)}:${s.remotePort}`,
             description: s.description,
-            terminator: s.terminator
+            session: s
         }));
         const chosen = await vscode.window.showQuickPick(items, { placeHolder: "Choose a port forwarding session to terminate it" });
         if (chosen) {
-            chosen.terminator.dispose();
+            const confirmed = await this.confirmCancel(chosen.session);
+            if (confirmed) {
+                chosen.session.terminator.dispose();
+            }
         }
+    }
+
+    async confirmCancel(session: PortForwardSession): Promise<boolean> {
+        const stopForwarding = 'Stop Forwarding';
+        const description = session.description ? ` (${session.description})` : '';
+        const warning = `This will stop forwarding local port ${session.localPort} to ${podDisplayName(session)}${description}`;
+        const choice = await vscode.window.showWarningMessage(warning, stopForwarding);
+        return (choice === stopForwarding);
     }
 
     private refreshPortForwardStatus() {
