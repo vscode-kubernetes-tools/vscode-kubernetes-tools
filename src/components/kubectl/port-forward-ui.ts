@@ -65,7 +65,7 @@ export class PortForwardStatusBarManager {
         const sessionCount = Object.keys(this.sessions).length;
         if (sessionCount > 0) {
             this.statusBarItem.text = 'Kubectl Port Forwarding';
-            this.statusBarItem.tooltip = `kubectl is currently running ${sessionCount} port forwarding sessions in the background.  Click to view and terminate.`;
+            this.statusBarItem.tooltip = `kubectl is currently running ${sessionCount} port forwarding session(s) in the background.  Click to view and terminate.`;
             this.statusBarItem.command = 'kubernetes.portForwarding.showSessions';
             this.statusBarItem.show();
         } else {
