@@ -211,7 +211,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.vsKubernetesShowEvents', (explorerNode: explorer.ResourceNode) => { getEvents(kubectl, EventDisplayMode.Show, explorerNode); }),
         registerCommand('extension.vsKubernetesFollowEvents', (explorerNode: explorer.ResourceNode) => { getEvents(kubectl, EventDisplayMode.Follow, explorerNode); }),
         registerCommand('extension.vsKubernetesCronJobRunNow', cronJobRunNow),
-        registerCommand('kubernetes.portForwarding.showSessions', showPortForwardingSessions),
+        registerCommand('kubernetes.portForwarding.showSessions', () => portForwardStatusBarManager.showSessions()),
         // Commands - Helm
         registerCommand('extension.helmVersion', helmexec.helmVersion),
         registerCommand('extension.helmTemplate', helmexec.helmTemplate),
@@ -2165,8 +2165,4 @@ async function kubeconfigFromTreeNode(target?: CloudExplorerTreeNode): Promise<s
 function kubernetesFindCloudProviders() {
     const searchUrl = 'https://marketplace.visualstudio.com/search?term=kubernetes-extension-cloud-provider&target=VSCode&category=All%20categories&sortBy=Relevance';
     browser.open(searchUrl);
-}
-
-async function showPortForwardingSessions(): Promise<void> {
-    await vscode.window.showInformationMessage("SHOWING ALL THE SESSIONS WOO");
 }

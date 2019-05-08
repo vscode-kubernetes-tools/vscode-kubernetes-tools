@@ -29,21 +29,23 @@ class KubectlV1Impl implements KubectlV1 {
         const forwarding = await waitForOutput(pfProcess, /Forwarding\s+from\s+127\.0\.0\.1:/);
 
         if (forwarding === WaitForOutputResult.Success) {
-            let removeFromUI: () => void = () => {};
+            const onTerminate = [ () => pfProcess.kill() ];
+            const terminator = { dispose: () => { for (const action of onTerminate) { action(); } } };
             if (options && options.showInUI && options.showInUI.location === 'status-bar') {
                 const session = {
                     podName,
                     podNamespace,
                     localPort,
                     remotePort,
+                    terminator: terminator,
                     description: options.showInUI.description,
                     onCancel: options.showInUI.onCancel
                 };
                 const cookie = this.portForwardStatusBarManager.registerPortForward(session);
-                removeFromUI = () => this.portForwardStatusBarManager.unregisterPortForward(cookie);
+                const removeFromUI = () => this.portForwardStatusBarManager.unregisterPortForward(cookie);
+                onTerminate.push(removeFromUI);
             }
-            const onDispose = () => { pfProcess.kill(); removeFromUI(); };
-            return vscode.Disposable.from({ dispose: onDispose });
+            return vscode.Disposable.from(terminator);
         }
 
         return undefined;

@@ -7,6 +7,7 @@ export interface PortForwardSession {
     readonly podNamespace: string | undefined;
     readonly localPort: number;
     readonly remotePort: number;
+    readonly terminator: vscode.Disposable;
     readonly description: string | undefined;
     readonly onCancel?: () => void;
 }
@@ -37,6 +38,18 @@ export class PortForwardStatusBarManager {
         this.refreshPortForwardStatus();
     }
 
+    async showSessions(): Promise<void> {
+        const items = this.listSessions().map((s) => ({
+            label: `local:${s.localPort} -> ${podDisplayName(s)}:${s.remotePort}`,
+            description: s.description,
+            terminator: s.terminator
+        }));
+        const chosen = await vscode.window.showQuickPick(items, { placeHolder: "Choose a port forwarding session to terminate it" });
+        if (chosen) {
+            chosen.terminator.dispose();
+        }
+    }
+
     private refreshPortForwardStatus() {
         const sessionCount = Object.keys(this.sessions).length;
         if (sessionCount > 0) {
@@ -48,8 +61,19 @@ export class PortForwardStatusBarManager {
             this.statusBarItem.hide();
         }
     }
+
+    private listSessions(): PortForwardSession[] {
+        return Object.keys(this.sessions).map((k) => this.sessions[k]);
+    }
 }
 
 function keyOf(session: PortForwardSession): string {
     return `PFSESSIONKEY/${session.podName}/${session.podNamespace || ''}/${session.localPort}`;
+}
+
+function podDisplayName(session: PortForwardSession): string {
+    if (session.podNamespace) {
+        return `${session.podNamespace}/${session.podName}`;
+    }
+    return session.podName;
 }
