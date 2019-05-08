@@ -80,6 +80,7 @@ import { apiBroker } from './api/implementation/apibroker';
 import { sleep } from './sleep';
 import { CloudExplorer, CloudExplorerTreeNode } from './components/cloudexplorer/cloudexplorer';
 import { mergeToKubeconfig } from './components/kubectl/kubeconfig';
+import { PortForwardStatusBarManager } from './components/kubectl/port-forward-ui';
 
 let explainActive = false;
 let swaggerSpecPromise: Promise<explainer.SwaggerModel | undefined> | null = null;
@@ -142,6 +143,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
 
     const draftDebugProvider = new DraftConfigurationProvider();
     let draftDebugSession: vscode.DebugSession;
+
+    const portForwardStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+    const portForwardStatusBarManager = PortForwardStatusBarManager.init(portForwardStatusBarItem);
 
     minikube.checkUpgradeAvailable();
 
@@ -207,6 +211,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.vsKubernetesShowEvents', (explorerNode: explorer.ResourceNode) => { getEvents(kubectl, EventDisplayMode.Show, explorerNode); }),
         registerCommand('extension.vsKubernetesFollowEvents', (explorerNode: explorer.ResourceNode) => { getEvents(kubectl, EventDisplayMode.Follow, explorerNode); }),
         registerCommand('extension.vsKubernetesCronJobRunNow', cronJobRunNow),
+        registerCommand('kubernetes.portForwarding.showSessions', showPortForwardingSessions),
         // Commands - Helm
         registerCommand('extension.helmVersion', helmexec.helmVersion),
         registerCommand('extension.helmTemplate', helmexec.helmTemplate),
@@ -279,6 +284,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
 
         // Code lenses
         vscode.languages.registerCodeLensProvider(HELM_REQ_MODE, new HelmRequirementsCodeLensProvider()),
+
+        // Status bar
+        portForwardStatusBarItem,
 
         // Telemetry
         registerTelemetry(context)
@@ -369,7 +377,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
     await registerYamlSchemaSupport();
 
     vscode.workspace.registerTextDocumentContentProvider(configmaps.uriScheme, configMapProvider);
-    return apiBroker(clusterProviderRegistry, kubectl, treeProvider, cloudExplorer);
+    return apiBroker(clusterProviderRegistry, kubectl, portForwardStatusBarManager, treeProvider, cloudExplorer);
 }
 
 // this method is called when your extension is deactivated
@@ -2157,4 +2165,8 @@ async function kubeconfigFromTreeNode(target?: CloudExplorerTreeNode): Promise<s
 function kubernetesFindCloudProviders() {
     const searchUrl = 'https://marketplace.visualstudio.com/search?term=kubernetes-extension-cloud-provider&target=VSCode&category=All%20categories&sortBy=Relevance';
     browser.open(searchUrl);
+}
+
+async function showPortForwardingSessions(): Promise<void> {
+    await vscode.window.showInformationMessage("SHOWING ALL THE SESSIONS WOO");
 }

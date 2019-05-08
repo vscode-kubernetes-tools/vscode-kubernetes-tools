@@ -92,6 +92,7 @@
         "onCommand:kubernetes.cloudExplorer.mergeIntoKubeconfig",
         "onCommand:kubernetes.cloudExplorer.saveKubeconfig",
         "onCommand:kubernetes.cloudExplorer.findProviders",
+        "onCommand:kubernetes.portForwarding.showSessions",
         "onLanguage:helm",
         "onLanguage:yaml",
         "onFileSystem:k8smsx",
@@ -624,6 +625,10 @@
                 {
                     "command": "kubernetes.cloudExplorer.saveKubeconfig",
                     "when": ""
+                },
+                {
+                    "command": "kubernetes.portForwarding.showSessions",
+                    "when": ""
                 }
             ]
         },
@@ -1004,6 +1009,11 @@
                 "command": "kubernetes.cloudExplorer.findProviders",
                 "title": "Find Cloud Providers on Marketplace",
                 "description": "Find extensions that add clouds to the Cloud Explorer"
+            },
+            {
+                "command": "kubernetes.portForwarding.showSessions",
+                "title": "Show Port Forwarding Sessions",
+                "category": "Kubernetes"
             }
         ],
         "keybindings": [

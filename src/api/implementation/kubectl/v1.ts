@@ -3,13 +3,14 @@ import * as vscode from 'vscode';
 import { KubectlV1 } from "../../contract/kubectl/v1";
 import { Kubectl } from "../../../kubectl";
 import { ChildProcess } from 'child_process';
+import { PortForwardStatusBarManager } from '../../../components/kubectl/port-forward-ui';
 
-export function impl(kubectl: Kubectl): KubectlV1 {
-    return new KubectlV1Impl(kubectl);
+export function impl(kubectl: Kubectl, portForwardStatusBarManager: PortForwardStatusBarManager): KubectlV1 {
+    return new KubectlV1Impl(kubectl, portForwardStatusBarManager);
 }
 
 class KubectlV1Impl implements KubectlV1 {
-    constructor(private readonly kubectl: Kubectl) {}
+    constructor(private readonly kubectl: Kubectl, private readonly portForwardStatusBarManager: PortForwardStatusBarManager) {}
 
     invokeCommand(command: string): Promise<KubectlV1.ShellResult | undefined> {
         return this.kubectl.invokeAsync(command);
@@ -17,7 +18,7 @@ class KubectlV1Impl implements KubectlV1 {
 
     // TODO: move into core kubectl module
     // And/or convert to invokeBackground API and make portForward a wrapper over that
-    async portForward(podName: string, podNamespace: string | undefined, localPort: number, remotePort: number): Promise<vscode.Disposable | undefined> {
+    async portForward(podName: string, podNamespace: string | undefined, localPort: number, remotePort: number, options: KubectlV1.PortForwardOptions): Promise<vscode.Disposable | undefined> {
         const nsarg = podNamespace ? ['--namespace', podNamespace] : [];
         const cmd = ['port-forward', podName, `${localPort}:${remotePort}`, ...nsarg];
         const pfProcess = await this.kubectl.spawnAsChild(cmd);
@@ -28,7 +29,20 @@ class KubectlV1Impl implements KubectlV1 {
         const forwarding = await waitForOutput(pfProcess, /Forwarding\s+from\s+127\.0\.0\.1:/);
 
         if (forwarding === WaitForOutputResult.Success) {
-            const onDispose = () => { pfProcess.kill(); };
+            let removeFromUI: () => void = () => {};
+            if (options && options.showInUI && options.showInUI.location === 'status-bar') {
+                const session = {
+                    podName,
+                    podNamespace,
+                    localPort,
+                    remotePort,
+                    description: options.showInUI.description,
+                    onCancel: options.showInUI.onCancel
+                };
+                const cookie = this.portForwardStatusBarManager.registerPortForward(session);
+                removeFromUI = () => this.portForwardStatusBarManager.unregisterPortForward(cookie);
+            }
+            const onDispose = () => { pfProcess.kill(); removeFromUI(); };
             return vscode.Disposable.from({ dispose: onDispose });
         }
 
