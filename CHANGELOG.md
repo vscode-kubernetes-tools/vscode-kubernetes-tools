@@ -1,5 +1,22 @@
 # Change Log
 
+## 1.0.0
+
+* We now offer an API for adding your features to the extension!  See the
+  [API documentation](docs/extending/) for more information, and use the
+  [NPM API library](https://www.npmjs.com/package/vscode-kubernetes-tools-api) to
+  easily access it.
+* Describe output now appears in a window instead of the console
+* Updated AKS region list
+* Fix for embedded newlines in chart description
+* Fixes to improve VS Code Remote compatibility
+* Updated some marketplace metadata
+
+Thanks to Brendan Burns.
+
+Thank you also to everyone who has used the preview versions, contributed
+to the code base, or raised issues to suggest features or to let us know about bugs.
+
 ## 0.1.18
 
 * Fixed automatic versions of `kubectl` not being executable on Mac or Linux
