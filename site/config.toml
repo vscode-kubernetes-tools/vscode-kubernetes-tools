@@ -1,0 +1,4 @@
+baseURL = "vscode"
+title = "vscode-kubernetes-tools"
+theme = "vscode"
+languageCode = "en-us"

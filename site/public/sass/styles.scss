@@ -1,0 +1,1111 @@
+
+// SMI import style frameworks
+// ---------------------------------------
+
+$fa-font-path: "../fonts" !default;
+@import "../../../../node_modules/font-awesome/scss/font-awesome.scss";
+@import "paper.scss";
+@import "../../../../node_modules/foundation-sites/scss/normalize.scss";
+//
+// foundation (all)
+// @import "../../../../node_modules/foundation-sites/scss/foundation.scss";
+//
+// foundation (modular)
+@import "../../../../node_modules/foundation-sites/scss/foundation/components/grid.scss";
+@import "../../../../node_modules/foundation-sites/scss/foundation/components/block-grid.scss";
+// @import "../../../../node_modules/foundation-sites/scss/foundation/components/buttons.scss";
+@import "../../../../node_modules/foundation-sites/scss/foundation/components/inline-lists.scss";
+// @import "../../../../node_modules/foundation-sites/scss/foundation/components/top-bar.scss";
+@import "../../../../node_modules/foundation-sites/scss/foundation/components/type.scss";
+@import "../../../../node_modules/foundation-sites/scss/foundation/components/offcanvas.scss";
+@import "../../../../node_modules/foundation-sites/scss/foundation/components/visibility.scss";
+
+
+// CNAB palette
+// ---------------------------------------
+// core colors
+$navy:  #3731AA;
+$red: #E83683;
+$green: #2EC4B6;
+$yellow: #CCFF66;
+// accent colors
+$bluel: #D3DDF7;
+$yellowl: #FFF3E6;
+
+
+// Fonts
+// ---------------------------------------
+@font-face {
+  font-family: 'work_sansregular';
+  src: url('../fonts/worksans-regular-webfont.eot');
+  src: url('../fonts/worksans-regular-webfont.eot?#iefix') format("embedded-opentype"),
+       url('../fonts/worksans-regular-webfont.woff') format('woff'),
+       url('../fonts/worksans-regular-webfont.ttf') format('truetype'),
+       url('../fonts/worksans-regular-webfont.svg#f310d4dccd89e059e79d3b6deebb4725') format('svg');
+  font-style: normal;
+  font-weight: 400;
+}
+
+@font-face {
+  font-family: 'work_sanssemibold';
+  src: url('../fonts/worksans-semibold-webfont.woff2') format('woff2'),
+       url('../fonts/worksans-semibold-webfont.woff') format('woff');
+  font-weight: normal;
+  font-style: 600;
+  letter-spacing: 0.35rem;
+}
+
+$work: 'work_sansregular', 'Helvetica Neue', Helvetica, Arial, Geneva, sans-serif;
+$workbold: 'work_sanssemibold', 'Helvetica Neue', Helvetica, Arial, Geneva, sans-serif;
+
+
+// Mixins
+// ---------------------------------------
+@mixin transition($property:all, $duration:0.3s, $easing:ease-in-out) {
+  transition: $property $duration $easing;
+}
+
+@mixin border-radius($radius1:3px, $radius2:3px) {
+  -webkit-border-radius: $radius1 $radius2 $radius1 $radius2;
+  -moz-border-radius: $radius1 $radius2 $radius1 $radius2;
+  border-radius: $radius1 $radius2 $radius1 $radius2;
+}
+
+@mixin box-shadow($xlength:0, $ylength:2px, $size:0, $color:rgba(30,30,30,0.25)) {
+  -webkit-box-shadow: $xlength $ylength $size $color;
+  -moz-box-shadow: $xlength $ylength $size $color;
+  box-shadow: $xlength $ylength $size $color;
+}
+
+@mixin vertical-align($position: relative) {
+  position: $position;
+  top: 50%;
+  -webkit-transform: translateY(-50%);
+  -ms-transform: translateY(-50%);
+  transform: translateY(-50%);
+}
+
+@mixin corner($corner: 0.5rem, $cornertop: -1rem, $cornerleft: -1rem, $cornerbottom: auto, $cornerright: auto) {
+  width: $corner;
+  height: ($corner * 4);
+  display: inline-block;
+  content: "";
+  background-color: $navy;
+  position: absolute;
+  left: $cornerleft;
+  top: $cornertop;
+  bottom: $cornerbottom;
+  right: $cornerright;
+}
+
+@mixin ripple($color: $navy) {
+  position: relative;
+  display: inline-block;
+  text-align: center;
+  @include transition;
+  
+  &::after {
+    position: absolute; 
+    bottom: -4px;
+    left: 45%;
+    width: 10%;
+    height: 4px;
+    display: inline-block;
+    content: "";
+    opacity: 0;
+    background-color: $color;
+    @include transition;
+  }
+
+  &:hover::after {
+    width: 100%;
+    opacity: 1;
+    left: 0;
+    bottom: 0;
+  }
+}
+
+@mixin wipe($color: $green) {
+  position: relative;
+  display: inline-block;
+  overflow: hidden;
+  @include transition;
+  
+  &::after {
+    position: absolute; 
+    left: -20%;
+    top: 125%;
+    width: 200%;
+    height: 150%;
+    display: inline-block;
+    background-blend-mode: overlay;
+    content: "";
+    opacity: 0;
+    background-color: $color !important;
+    transform: rotate(-15deg);
+    z-index: -10;
+    @include transition;
+  }
+
+  &:hover {
+    color: white;
+    background-color: transparent !important;
+  }
+
+  &:hover::after {
+    opacity: 1;
+    top: 0%;
+    transform: rotate(0deg);
+  }
+}
+
+@mixin button($color: $navy) {
+  box-sizing: border-box;
+  font-family: $workbold;
+  color: $color;
+  width: 15rem;
+  height: 4.5rem;
+  margin: 2rem auto;
+  line-height: 3;
+  padding: 0 2rem;
+  border: 4px solid $color;
+  z-index: 600;
+  background: transparent !important;
+}
+
+
+// CNAB General
+// ---------------------------------------
+html,
+body {
+  height: 100%;
+  overflow-x: hidden;
+}
+
+.off-canvas-wrap{  
+  height: 100%;
+  overflow-y: auto;
+}
+
+html,
+body,
+.off-canvas-wrap,
+.inner-wrap,
+.main,
+.height-full {
+  min-height: 100vh !important;
+}
+
+h1, h2, h3, h4, h5, h6,
+.post-title {
+  font-family: $workbold;
+}
+
+.row-full {
+  max-width: 100%;
+}
+
+.height-full {
+  min-height: 100%;
+}
+
+.corner {
+  &::before{
+    @include corner;
+    z-index: 502;
+  }
+  &::after{
+    @include corner;
+    transform: rotate(90deg);
+    margin: -0.75rem 0 0 0.75rem;
+    z-index: 505;
+  }
+
+  &.corner-br {
+    &::before {
+      @include corner(0.5rem, auto, auto, 1.85rem, 8.35%);
+    }
+    &::after {
+      @include corner(0.5rem, auto, auto, 1.5rem, 8.85%);
+    }
+
+    &::after {
+      margin: 0 0.425rem -0.425rem 0;
+    }
+  }
+}
+
+
+// Typographic Scale
+// ---------------------------------------
+$base-font:  18px;                 // 18 - p
+
+$base-xxxlg: ($base-font * 4.775); // 96
+$base-xxlg:  ($base-font * 2.4);   // 48
+$base-xlg:   ($base-font * 1.8);   // 36 - h3
+$base-lg:    ($base-font * 1.2);   // 24 - h4, p.lead
+$base-sm:    ($base-font * 0.875); // 18 - small
+
+body {
+  line-height: 1.7256;
+  font-size: $base-font;
+  font-family: $work;
+  color: $navy;
+}
+
+h1 {
+  font-size: $base-xxxlg;
+}
+
+h2 {
+  font-size: $base-xxlg;
+}
+
+h3 {
+  font-size: $base-xlg;
+}
+
+h4,
+p.lead,
+.subhead {
+  font-size: $base-lg;
+}
+
+p {
+  font-size: $base-font;
+  padding-right: 7.5%;
+  max-width: 720px;
+}
+
+small {
+  font-size: $base-sm;
+}
+
+
+// CNAB Nav
+// ---------------------------------------
+.header {
+  padding-left: 0;
+  padding-right: 0;
+  min-height: 5rem;
+  position: relative;
+  z-index: 1000;
+  background: white;
+  
+  h1 {
+    margin: 0;
+    padding: 0;
+    line-height: 5rem;
+    @include ripple;
+  }
+ 
+  img.logo {
+    max-height: 75px;
+    max-width: 200px;
+    display: inline-block;
+  }
+
+  nav {
+    ul.menu-desktop {
+
+      li {
+        margin: 0 1rem;
+
+        &:last-child {
+          margin-right: 0;
+        }
+      }
+
+      a {
+        font-family: $workbold;
+        color: $navy;
+        padding: 1.75rem 0rem;
+        margin: 0;
+        @include ripple;
+      }
+
+      .fa {
+        font-size: $base-lg;
+      }
+    }
+  }
+
+  .menu-toggle {
+    float: right;
+    width: 3rem;
+    padding: 2.25rem 1.5rem;
+
+    &::before,
+    &::after {
+      background: $navy;
+    }
+
+  }
+}
+
+// mobile breadcrumb menu
+nav.menu {
+  @include transition;
+}
+
+body.list.noscroll {
+
+  .header .menu-toggle {
+    z-index: 1200;
+  }
+  
+  nav.menu ul {
+    background-color: white;
+    z-index: 1050;
+    margin: 0;
+    list-style: none;
+
+    li {
+      a {
+        font-size: $base-xlg;
+        line-height: 3;
+        color: $navy;
+
+        @include ripple;
+      }
+    }
+  }
+}
+
+
+// CNAB Sections
+// ---------------------------------------
+#intro {
+  border-top: 2px solid rgba(0,0,0,0.05);
+  padding-top: 7.5rem;
+  background: #fff url(../img/intro.svg) no-repeat center 21rem;
+  background-size: 120rem;
+  z-index: -10;
+  min-height: 53rem !important;
+
+  h2 {
+    position: relative;
+    font-size: 3vw;
+    margin-left: -4rem;
+
+    strong {
+      @include wipe($green);
+      color: $navy;
+      background-color: $yellowl;
+      margin: 0 0 1.5rem;
+      padding: 1.25rem 2.5rem;
+      display: inline-block;  
+      z-index: 500;
+    } 
+
+    .corner,
+    .corner-br {
+      margin-left: -2rem;
+    }
+  }
+
+  .subhead {
+    padding: 0 5% 0 1rem;
+    margin: -2rem 0 12rem -2rem;
+  }
+
+  .cnab-logo {
+    position: absolute;
+    top: 24rem;
+    left: 50%;
+    margin-left: 26rem;
+    width: 8rem;
+  }
+
+  .button {
+    @include button;
+    font-size: $base-lg;
+    @include wipe($green);
+
+    &:hover {
+      border: 5px solid $navy;
+    }
+  }
+
+  small {
+    display: block;
+  }
+}
+
+
+#features {
+  background-color: $navy;
+  background: linear-gradient(lighten($navy, 7.5%), darken($navy, 7.5%));
+  padding-top: 9.25rem;
+  padding-bottom: 6.333rem;
+
+  h3, h4, p {
+    color: white;
+  }
+
+  img {
+    margin: 0 2rem 8.25rem;
+
+    &.feature-02 {
+      margin-top: 1rem;
+      margin-bottom: 12rem;
+    }
+  
+    &.feature-03 {
+      margin-top: -2.5rem;
+    }
+  }
+
+  h3 {
+    margin-top: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  p.lead {
+    padding-right: 12.5%;
+  }
+
+  p.bloglink {
+    width: 100%;
+    margin: 0 auto;
+    padding: 0;
+
+    a {
+      color: $yellowl;
+      line-height: 1.825;
+      @include ripple($yellowl);
+    }
+  }
+}
+
+#resources {
+  padding-top: 5.25rem;
+  padding-bottom: 7.5rem;
+
+  h3 {
+    margin-bottom: 4.5rem;
+  }
+
+  .panel {
+    margin-bottom: 2.5rem;
+    background-color: white;
+
+    a {
+      padding: 1.75rem 2rem;
+      border: 4px solid darken($yellowl, 5%);
+      min-height: 12.2rem;
+      display: inline-block;
+      box-sizing: border-box;
+      width: 100%;
+      position: relative;
+      @include transition;
+
+      &:hover {
+        
+        &::after {
+          width: 100%;
+          opacity: 0.25;
+        }
+      }
+
+      &::after {
+        width: 0%;
+        opacity: 0;;
+        height: 100%;
+        @include transition;
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        display: inline-block;
+        content: " ";
+        background-color: $bluel;
+      }
+    }
+
+    h4 {
+      color: $navy;
+      margin-top: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    p {
+      line-height: 1.875;
+      margin-bottom: 0.5rem;
+    }
+
+    &.panel-navy {
+      a {
+        border-color: $navy;
+      }
+      
+      .fa {
+        color: $navy;
+      }
+    }
+
+    &.panel-blue {
+      a {
+        border-color: $bluel;
+      }
+      
+      .fa {
+        color: $navy;
+      }
+    }
+
+    &.panel-yellow {
+      &:hover {
+        border-color: $bluel !important;
+      }
+    }
+
+    &.panel-green {
+      a {
+        border-color: $green;
+      }
+      .fa {
+        color: $green;
+      }
+    }
+
+    &.panel-bundles {
+      a {
+        background: url(../img/screener.png) no-repeat right top ;
+        padding-right: 30%;
+      }
+    }
+
+    &.panel-duffle {
+      img {
+        margin: 0.2rem 3.5rem 0.2rem 1rem;
+      }
+
+      a {
+        padding: 1.2rem 2rem;
+      }
+
+      p {
+        margin: 1.5rem 0;
+      }
+    }
+  }
+
+  h3, p {
+    color: $navy;
+  }
+}
+
+.row#communications {
+  padding-bottom: 10rem;
+  h3, p {
+    color: $navy;
+  }
+
+  h4 {
+    margin: 3.5rem auto 1rem;
+    font-size: 1.25rem;
+    color: $navy;
+  }
+
+  p {
+    font-size: 1.125rem;
+    line-height: 1.925;
+
+    a {
+      @include ripple;
+    }
+  }
+}
+
+#credits {
+  padding-top: 4rem;
+  padding-bottom: 8rem;
+
+  h3 {
+    margin-bottom: 2rem;
+  }
+  
+  h3, p {
+    color: $navy;
+    position: relative;
+  }
+
+  img {
+    max-width: 25%;
+  }
+}
+
+.sep {
+  &::before,
+  &::after {
+    content: " ";
+    display: inline-block;
+    height: 2px;
+    width: 50%;
+    // margin-left: -25%;
+    background: rgba(0,0,0,0.1);
+    top: 1.25rem;
+  }
+}
+
+.sep-sides {
+  &::before,
+  &::after {
+    width: 44%;
+    top: 1.25rem;
+    position: absolute;
+  }
+
+  &::before {
+    left: -10%;
+  }
+
+  &::after {
+    right: -10%;
+  }
+}
+
+#footer {
+  background-color: white;
+  border-top: 2px solid rgba(0,0,0,0.05);
+  position: relative;
+  min-height: 3rem;
+  z-index: 1500;
+
+  .deislabs {
+    width: 5.5rem;
+    height: 7.3rem;
+    display: inline-block;
+    position: absolute;
+    top: -4rem;
+
+    span {
+      background: url(../img/deislabs.svg) no-repeat center bottom;
+      width: 100%;
+      height: 3rem;
+      background-size: contain;
+      display: inline-block;
+      text-indent: -999em;
+      position: absolute;
+      bottom: 0;
+      @include transition;
+    }
+
+    em {
+      width: 3rem;
+      height: 3rem;
+      display: inline-block;
+      position: absolute;
+      background-blend-mode: multiply;
+      mix-blend-mode: multiply;
+      content: " ";
+      @include transition(all, 0.3s, ease-in-out);
+      
+      &.dl-tr {
+        background: url(../img/deislabs-tr.svg) no-repeat 50% 50%;
+        background-size: contain;
+        left: 0;
+        top: 0;
+      }
+
+      &.dl-sq {
+        background: url(../img/deislabs-sq.svg) no-repeat 50% 50%;
+        background-size: contain;
+        right: 0;
+        bottom: 1.8rem;
+      }
+
+      &.dl-ci {
+        background: url(../img/deislabs-ci.svg) no-repeat 50% 50%;
+        background-size: contain;
+        left: 0;
+        bottom: 1.8rem;
+      }
+    }
+
+    a {
+      display: inline-block;
+      width: 5.5rem;
+      height: 7.3rem;
+
+      &:hover {
+        em {
+          &.dl-tr {
+            left: 2.2rem;
+            top: 2.5rem;
+          }
+          &.dl-sq {
+            right: 2.5rem;
+          }
+          &.dl-ci {
+            bottom: 4.2rem;
+          }
+        }
+      }
+    }
+  }
+
+  p {
+    margin: 2rem 0;
+    padding: 0 0 0 6rem;
+  }
+
+  .fa {
+    font-size: $base-lg;
+    color: #333;
+  }
+}
+
+
+// CNAB sub pages
+article.post {
+  .post-content {
+    padding-bottom: 7.5rem;
+    
+    h2 {
+      color: $navy;
+      margin: 4rem 0 1rem;
+    }
+
+    h3 {
+      color: $green;
+      display: inline-block;
+      margin: 1.75rem 0 0.825rem;
+      font-size: 1.2rem;
+      text-transform: uppercase;
+      letter-spacing: 0.125rem;
+    }
+
+    ul {
+      margin: 1.5rem 0 3rem;
+    }
+
+    p {
+      line-height: 1.85;
+    }
+  }
+}
+
+// CNAB Spec docs pages
+.single .docs {
+  margin-top: -60px !important;
+  border-top: 1px solid $green;
+}
+
+.docs-sidebar {
+  position: relative;
+  z-index: 850;
+
+  ul.docs-menu {
+    position: fixed;
+    margin: 0;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    padding-top: 98px;
+    border-right: 1px solid $green;
+    max-width: 420px;
+    min-width: 300px;
+
+    li {
+      a {
+        padding: 1.75rem 1.75rem;
+        line-height: 1.825;
+        font-size: 1.25rem;
+        font-family: $work;
+        color: $navy;
+      }
+    }
+
+    ul {
+      margin: 0;
+      padding-top: 0.5rem;
+      padding-bottom: 1.2rem;
+      
+      li {
+        a {
+          padding: 1.5rem 1.75rem 1.5rem 2.75rem;
+          font-size: 1rem;
+          color: lighten($navy, 5%);
+        }
+      }
+    }
+  }
+}
+
+
+// docs content
+.docs {
+  .post-content {
+    p {
+      margin: 0 0 2rem;
+      line-height: 1.85;
+    }
+
+    ul {
+      margin: 2rem 0;
+    }
+
+    li {
+      line-height: 1.8;
+      font-size: 1.125rem;
+    }
+
+    a {
+      text-decoration: none;
+      color: darken($navy, 5%);
+      @include ripple;
+      font-style: normal;
+      border: none;
+
+      &:before {
+        position: absolute;
+        bottom: 0px;
+        left: 10%;
+        width: 80%;
+        height: 4px;
+        content: "";
+        background-color: lighten($navy, 50%);
+      }
+    }
+
+    code {
+      border: none;
+      background-color: desaturate($yellowl, 20%);
+      font-family: monospace;
+      font-size: 1.125rem;
+      color: desaturate($navy, 10%);
+      font-style: normal;
+      border-radius: 0.25rem;
+    }
+
+    pre {
+      border-radius: 0.5rem;
+      border: none;
+      background-color: desaturate($yellowl, 20%);
+    }
+  }
+}
+
+
+// Media Queries
+// ---------------------------------------
+// mobile
+@media screen and (max-width: 1024px) {
+
+  .row,
+  .row-full {
+    width: 96% !important;
+    padding-left: 2% !important;
+    padding-right: 2% !important;
+
+    .row,
+    .row-full {
+      width: 100% !important;
+      padding-left: 0 !important;
+      padding-right: 0 !important;
+      margin-left: 0 !important;
+      margin-right: 0 !important;
+    }
+  }
+
+  .height-full {
+    min-height: 50vh !important;
+  }
+
+  .small-12 {
+    .small-12 {
+      padding-left: 0 !important;
+      padding-right: 0 !important; 
+    }
+  }
+  
+  #intro {
+    background-image: none;
+    padding-top: 1rem;
+    min-height: 35rem !important;
+    
+    h2 {
+      font-size: $base-xlg;
+      display: inline-block;
+      margin: 4.5rem -1.6rem 2rem -1.6rem;
+      font-size: 6vw;
+      z-index: 500;
+      
+      strong {
+        padding: 1rem 20% 1rem 1.6rem;
+      }
+    }
+
+    p.subhead {
+      font-size: $base-lg;
+      margin: -2rem 0 1rem 0;
+      padding: 0;
+    }
+
+    .cnab-logo {
+      position: absolute;
+      right: 3.5%;
+      left: auto;
+      width: 18vw;
+      top: 3.75rem;
+      bottom: auto;
+      z-index: 850;
+    }
+
+    .button {
+      margin: 2rem 0;
+      position: relative;
+      left: auto;
+      right: auto;
+      width: 100%;
+    }
+  }
+
+  #features {
+    padding-top: 1.5rem;
+    padding-bottom: 2.5rem;
+
+    h3 {
+      font-size: $base-lg;
+      margin: 3rem 0 0.825rem;
+    }
+
+    p.lead {
+      font-size: $base-font;
+      margin: 0;
+    }
+    
+    img {
+      display: none;
+    }
+
+    p.bloglink a {
+      @include button(white);
+      @include wipe;
+      line-height: 3;
+      width: 100%;
+      margin: 2.5rem 0 0.5rem;
+      height: auto;
+    }
+  }
+
+  #resources {
+    padding-top: 2.5rem;
+    padding-bottom: 2.5rem;
+    
+    h3 {
+      font-size: $base-lg;
+      margin-bottom: 3rem;
+    }
+
+    .panel {
+      width: 100%;
+      margin: 0 0 2rem;
+      padding: 0;
+      
+      a {
+        padding: 1rem 1.25rem;
+        min-height: 3rem;
+
+        h4 {
+          margin-bottom: 0.825rem;
+        }
+
+        p {
+          padding-right: 0;
+          line-height: 1.5;
+          font-size: $base-sm;
+
+          .fa {
+            display: none;
+          }
+        }
+      }
+
+      &.panel-bundles {
+        a {
+          background-image: none;
+          padding-right: 1.25rem;
+        }
+      }
+
+      &.panel-duffle {
+        font-size: $base-sm;
+
+        img {
+          float: right;
+          max-width: 12vw;
+          margin: 1.5rem 1.75rem 1.5rem 0.25rem;
+        }
+
+        p.lead {
+          font-size: 3.25vw;
+        }
+
+      }
+    }
+
+  }
+
+  #credits {
+    padding-bottom: 5rem;
+    
+    img {
+      min-width: 150px;
+      margin: 1.5rem 2%;
+    }
+  }
+
+  #footer.row-full {
+    width: 100% !important;
+    padding: 0 !important;
+    min-height: 5rem;
+
+    .deislabs {
+      width: 4.5rem;
+      height: 7rem;
+      margin-left: 4%;
+      top: -4rem;
+      position: absolute;
+
+      a {
+
+        em {
+          width: 2.5rem;
+        }
+      }
+
+      &:hover {
+        em {
+          &.dl-tr {
+            left: auto;
+            right: 0;
+            top: 2.2rem;
+          }
+          &.dl-sq {
+            left: 0;
+            right: auto;
+          }
+          &.dl-ci {
+            bottom: auto;
+            top: 0;
+          }
+        }
+      }
+    }
+
+    p {
+      padding: 0;
+    }
+
+    .fa {
+      margin: 0;
+    }
+  }
+
+  #intro small, .corner {
+    display: none !important;
+  }
+}

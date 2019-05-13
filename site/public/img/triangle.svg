@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1404px" height="321px" viewBox="0 0 1404 321" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 51.3 (57544) - http://www.bohemiancoding.com/sketch -->
+    <title>triangle</title>
+    <desc>Created with Sketch.</desc>
+    <defs>
+        <linearGradient x1="85.3553391%" y1="14.6446609%" x2="14.6446609%" y2="85.3553391%" id="linearGradient-1">
+            <stop stop-color="#86E4DB" offset="0%"></stop>
+            <stop stop-color="#3FD0C3" offset="100%"></stop>
+        </linearGradient>
+        <polygon id="path-2" points="777 0 1554 355.378906 777 710.757812 0 355.378906"></polygon>
+        <linearGradient x1="50%" y1="0%" x2="50%" y2="100%" id="linearGradient-4">
+            <stop stop-color="#FFFFFF" offset="0%"></stop>
+            <stop stop-color="#D8D8D8" stop-opacity="0" offset="100%"></stop>
+        </linearGradient>
+    </defs>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="Full" transform="translate(-216.000000, -590.000000)">
+            <g id="Intro" transform="translate(2.000000, 125.000000)">
+                <g id="triangle" transform="translate(139.000000, 465.000000)">
+                    <mask id="mask-3" fill="white">
+                        <use xlink:href="#path-2"></use>
+                    </mask>
+                    <use id="Rectangle-2" fill="url(#linearGradient-1)" fill-rule="nonzero" xlink:href="#path-2"></use>
+                    <rect id="white-gradient" fill="url(#linearGradient-4)" fill-rule="nonzero" mask="url(#mask-3)" x="57" y="-163" width="1440" height="516"></rect>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>

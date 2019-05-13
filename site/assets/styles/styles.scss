@@ -1,0 +1,78 @@
+// @import 'normalize/normalize';
+@import '60gs/60gs.scss';
+@import './nord/nord.scss';
+
+
+// 60gs grid 'system'
+#header, #footer { grid-column: 1 / 61 }
+#sidebar {  grid-column: 1 / 17 }
+#article { grid-column: 17 / 61 }
+
+.center {
+  text-align: center;
+}
+
+.right {
+  float: right;
+}
+
+.centered {
+  max-width: 72.5%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+// layout
+body,
+html {
+  height: 100%;
+}
+
+body {
+  color: $nord2;
+  font-family: 'Work Sans', sans-serif;
+}
+
+$topHeight: 5rem;
+$bottomHeight: 5rem;
+
+.full-height {
+  min-height: 100vh;
+}
+
+.wrapper {
+  margin-top: -$topHeight;
+  margin-top: -$bottomHeight;
+  padding-top: $topHeight * 2;
+}
+
+header {
+  min-height: $topHeight;
+}
+
+footer {
+  min-height: $bottomHeight;
+}
+
+
+
+// shading
+body {
+  background: $nord6;
+}
+
+header {
+  background: white;
+}
+
+footer {
+  background: $nord4;
+}
+
+
+// intro
+h1 {
+  color: $nord10;
+  font-size: 3rem;
+  font-weight: 400;
+}
