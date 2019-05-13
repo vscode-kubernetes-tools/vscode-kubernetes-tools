@@ -13,10 +13,11 @@
     "url": "https://github.com/azure/vscode-kubernetes-tools/issues"
   },
   "homepage": "https://github.com/azure/vscode-kubernetes-tools#readme",
-  "devDependencies": {
+  "dependencies": {
     "del": "^3.0.0",
     "font-awesome": "^4.7.0",
     "foundation-sites": "~5.5.3",
+    "gulp": "^4.0.2",
     "gulp-autoprefixer": "^6.0.0",
     "gulp-cache": "^1.0.2",
     "gulp-clean-css": "^4.0.0",

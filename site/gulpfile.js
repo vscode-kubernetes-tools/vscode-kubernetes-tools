@@ -28,9 +28,9 @@ gulp.task('default', gulp.series('styles'), function() { });
 
 gulp.task('watch', function () {
 
-  gulp.watch('assets/**/*.scss', gulp.series('styles'));
+  gulp.watch('themes/vscode/static/sass/**/*.scss', gulp.series('styles'));
 
   livereload.listen();
 
-  gulp.watch('assets/**').on('change', livereload.changed);
+  gulp.watch('themes/**').on('change', livereload.changed);
 });
