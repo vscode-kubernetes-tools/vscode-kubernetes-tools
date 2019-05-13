@@ -1,7 +1,7 @@
 
 [build]
 publish = "public"
-command = "hugo -t smi"
+command = "hugo -t vscode"
 
 [context.production.environment]
 HUGO_VERSION = "0.40.3"
