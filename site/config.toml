@@ -1,4 +1,4 @@
-baseURL = "vscode"
+baseURL = "https://flynnduism.github.io/vscode-kubernetes-tools"
 title = "vscode-kubernetes-tools"
 theme = "vscode"
 languageCode = "en-us"

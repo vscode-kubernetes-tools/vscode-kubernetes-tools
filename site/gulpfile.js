@@ -6,7 +6,8 @@ var gulp = require('gulp'),
   livereload = require('gulp-livereload'),
   del = require('del'),
   cssnano = require('gulp-cssnano'),
-  sourcemaps = require('gulp-sourcemaps');
+  sourcemaps = require('gulp-sourcemaps'),
+  ghPages = require('gulp-gh-pages-gift');
 
   sass.compiler = require('node-sass');
 
@@ -22,6 +23,11 @@ gulp.task('styles', function () {
     .pipe(sourcemaps.write('.'))
     .pipe(gulp.dest('themes/vscode/static/css/'))
     // .pipe(gulp.dest('static/css'));
+});
+
+gulp.task('deploy', function(){
+  return gulp.src('./public/**/*')
+    .pipe(ghPages())
 });
 
 gulp.task('default', gulp.series('styles'), function() { });
