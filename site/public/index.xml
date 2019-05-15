@@ -2,22 +2,13 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>vscode-kubernetes-tools</title>
-    <link>https://azure.github.io/vscode-kubernetes-tools/</link>
+    <link>vscode/</link>
     <description>Recent content on vscode-kubernetes-tools</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     
-	<atom:link href="https://azure.github.io/vscode-kubernetes-tools/index.xml" rel="self" type="application/rss+xml" />
+	<atom:link href="vscode/index.xml" rel="self" type="application/rss+xml" />
     
-    
-    <item>
-      <title>index</title>
-      <link>https://azure.github.io/vscode-kubernetes-tools/</link>
-      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-      
-      <guid>https://azure.github.io/vscode-kubernetes-tools/</guid>
-      <description>index</description>
-    </item>
     
   </channel>
 </rss>

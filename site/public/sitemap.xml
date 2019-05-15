@@ -3,21 +3,17 @@
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   
   <url>
-    <loc>https://azure.github.io/vscode-kubernetes-tools/categories/</loc>
+    <loc>vscode/categories/</loc>
     <priority>0</priority>
   </url>
   
   <url>
-    <loc>https://azure.github.io/vscode-kubernetes-tools/tags/</loc>
+    <loc>vscode/tags/</loc>
     <priority>0</priority>
   </url>
   
   <url>
-    <loc>https://azure.github.io/vscode-kubernetes-tools/</loc>
-  </url>
-  
-  <url>
-    <loc>https://azure.github.io/vscode-kubernetes-tools/</loc>
+    <loc>vscode/</loc>
     <priority>0</priority>
   </url>
   

@@ -6,7 +6,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
-  <title>SMI: Service Mesh Interface.</title>
+  <title>Kubernetes Tools for VS Code</title>
 
   
   <meta name="description" content="">
@@ -22,6 +22,7 @@
 
   
   <link href="../css/styles.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro|Source+Sans+Pro:400,700" rel="stylesheet">
 
   
   <link rel="icon" type="image/png" href="static/img/favicon.png">
@@ -29,21 +30,23 @@
   <link rel="apple-touch-icon" sizes="60x60" href="static/img/touch-icon-ipad-76x76.png">
   <link rel="apple-touch-icon" sizes="114x114" href="static/img/touch-icon-iphone-retina-120x120.png">
   <link rel="apple-touch-icon" sizes="144x144" href="static/img/touch-icon-ipad-retina-152x152.png">
-  <link rel="icon" href="https://azure.github.io/vscode-kubernetes-tools/img/favicon.ico">
+  <link rel="icon" href="vscode/img/favicon.ico">
 
 
 <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
   new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
   j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-  })(window,document,'script','dataLayer','GTM-TRTWXG2');</script>
+  })(window,document,'script','dataLayer','GTM-PQWNNZD');</script>
   
 
   
   <meta name="generator" content="Hugo 0.54.0" />
   
-  <link rel="alternate" type="application/atom+xml" href="https://azure.github.io/vscode-kubernetes-tools/index.xml" title="vscode-kubernetes-tools">
+  <link rel="alternate" type="application/atom+xml" href="vscode/index.xml" title="vscode-kubernetes-tools">
   
+
+  <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro|Source+Sans+Pro:400,700" rel="stylesheet">
 </head>
 
 <body class="list">
@@ -51,16 +54,18 @@
     <header class="header row row-full">
       <div class="show-for-large-up large-1 columns"></div>
       <div class="small-6 large-5 columns">
-        <h1 class=""><a href="https://azure.github.io/vscode-kubernetes-tools">
-          SMI
+        <h1 class=""><a href="vscode">
+          Kubernetes Tools
+          <em>for VS Code</em>
         </a></h1>
       </div>
 
       
       <nav class="large-5 columns end">
         <ul class="inline-list right show-for-large-up menu-desktop">
-          <li><a href="https://github.com/deislabs/smi-spec">The Spec</a></li>
-<li><a href="https://github.com/deislabs/smi-spec" target="_blank"><i class="fa fa-github" aria-hidden="true"></i></a></li>
+          <li><a href="#tools">Tools</a></li>
+<li><a href="#api">API</a></li>
+<li><a href="https://github.com/azure/vscode-kubernetes-tools/"><i class="fa fa-github"></i></a></li>
         </ul>
       </nav>
       <div class="show-for-large-up large-1 columns"></div>
@@ -69,8 +74,9 @@
       <button class="menu-toggle hide-for-large-up columns" type="button"></button>
       <nav class="menu">
         <ul>
-          <li><a href="https://github.com/deislabs/smi-spec">The Spec</a></li>
-<li><a href="https://github.com/deislabs/smi-spec" target="_blank"><i class="fa fa-github" aria-hidden="true"></i></a></li>
+          <li><a href="#tools">Tools</a></li>
+<li><a href="#api">API</a></li>
+<li><a href="https://github.com/azure/vscode-kubernetes-tools/"><i class="fa fa-github"></i></a></li>
         </ul>
       </nav>
     </header>
@@ -88,7 +94,7 @@
           </h2>
           <p class="subhead">Not found - <a href="https://cnab.io/">try the homepage</a>?</p>
 
-          <img src="https://azure.github.io/vscode-kubernetes-tools/img/logo.png" title="CNAB" class="cnab-logo" />
+          <img src="vscode/img/logo.png" title="CNAB" class="cnab-logo" />
 
           <div class="text-center">
             <a class="button primary" href="https://github.com/deislabs/cnab-spec">View the spec</a>
@@ -102,20 +108,11 @@
   </main>
   
   <footer class="row row-full" id="footer">
-    <div class="show-for-large-up large-1 columns">&nbsp;</div>
-    <div class="small-9 large-8 columns">
-      <div class="deislabs">
-        <a href="https://github.com/deislabs/">
-          <span>Deis Labs</span>
-          <em class="dl-tr"></em><em class="dl-sq"></em><em class="dl-ci"></em>
-        </a>
-      </div>
-      <p class="show-for-large-up">:  Open Source from Microsoft Azure.</p>&nbsp;
+    
+    <div class="small-3 large-1 small-centered columns">
+      <p><a href="https://github.com/azure/vscode-kubernetes-tools" target="_blank" class="right"><i class="fa fa-github" aria-hidden="true"></i></a></p>
     </div>
-    <div class="small-3 large-1 columns">
-      <p><a href="https://github.com/deislabs/cnab-spec" target="_blank" class="right"><i class="fa fa-github" aria-hidden="true"></i></a></p>
-    </div>
-    <div class="show-for-large-up large-2 columns"></div>
+    
   </footer>
 
   <script type="text/javascript">

@@ -6,7 +6,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
-  <title>SMI: Service Mesh Interface.</title>
+  <title>Kubernetes Tools for VS Code</title>
 
   
   <meta name="description" content="">
@@ -22,6 +22,7 @@
 
   
   <link href="../css/styles.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro|Source+Sans+Pro:400,700" rel="stylesheet">
 
   
   <link rel="icon" type="image/png" href="static/img/favicon.png">
@@ -29,21 +30,23 @@
   <link rel="apple-touch-icon" sizes="60x60" href="static/img/touch-icon-ipad-76x76.png">
   <link rel="apple-touch-icon" sizes="114x114" href="static/img/touch-icon-iphone-retina-120x120.png">
   <link rel="apple-touch-icon" sizes="144x144" href="static/img/touch-icon-ipad-retina-152x152.png">
-  <link rel="icon" href="https://azure.github.io/vscode-kubernetes-tools/img/favicon.ico">
+  <link rel="icon" href="vscode/img/favicon.ico">
 
 
 <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
   new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
   j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-  })(window,document,'script','dataLayer','GTM-TRTWXG2');</script>
+  })(window,document,'script','dataLayer','GTM-PQWNNZD');</script>
   
 
   
   <meta name="generator" content="Hugo 0.54.0" />
   
-  <link rel="alternate" type="application/atom+xml" href="https://azure.github.io/vscode-kubernetes-tools/index.xml" title="vscode-kubernetes-tools">
+  <link rel="alternate" type="application/atom+xml" href="vscode/index.xml" title="vscode-kubernetes-tools">
   
+
+  <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro|Source+Sans+Pro:400,700" rel="stylesheet">
 </head>
 
 <body class="list home">
@@ -51,16 +54,18 @@
     <header class="header row row-full">
       <div class="show-for-large-up large-1 columns"></div>
       <div class="small-6 large-5 columns">
-        <h1 class=""><a href="https://azure.github.io/vscode-kubernetes-tools">
-          SMI
+        <h1 class=""><a href="vscode">
+          Kubernetes Tools
+          <em>for VS Code</em>
         </a></h1>
       </div>
 
       
       <nav class="large-5 columns end">
         <ul class="inline-list right show-for-large-up menu-desktop">
-          <li><a href="https://github.com/deislabs/smi-spec">The Spec</a></li>
-<li><a href="https://github.com/deislabs/smi-spec" target="_blank"><i class="fa fa-github" aria-hidden="true"></i></a></li>
+          <li><a href="#tools">Tools</a></li>
+<li><a href="#api">API</a></li>
+<li><a href="https://github.com/azure/vscode-kubernetes-tools/"><i class="fa fa-github"></i></a></li>
         </ul>
       </nav>
       <div class="show-for-large-up large-1 columns"></div>
@@ -69,8 +74,9 @@
       <button class="menu-toggle hide-for-large-up columns" type="button"></button>
       <nav class="menu">
         <ul>
-          <li><a href="https://github.com/deislabs/smi-spec">The Spec</a></li>
-<li><a href="https://github.com/deislabs/smi-spec" target="_blank"><i class="fa fa-github" aria-hidden="true"></i></a></li>
+          <li><a href="#tools">Tools</a></li>
+<li><a href="#api">API</a></li>
+<li><a href="https://github.com/azure/vscode-kubernetes-tools/"><i class="fa fa-github"></i></a></li>
         </ul>
       </nav>
     </header>
@@ -78,100 +84,60 @@
 
   <main class="main height-full">
 
+<div class="row row-full full-height" id="tools">
+  <div class="small-12 columns">
 
-    <div class="" id="intro">
-      <div class="row row-full">
-        <div class="small-12 large-offset-2 large-8 end columns">
-          <h2>
-            <strong>Service Mesh Interface.</strong>
-            <span class="corner corner-tl"></span><span class="corner corner-br"></span>
-          </h2>
-          <p class="subhead">Lorem Ipsum.</p>
+    <a href="https://marketplace.visualstudio.com/items?itemName=ms-kubernetes-tools.vscode-kubernetes-tools" class="btn primary">Get the Extension</a>
+  
+    <div class="row">
+      <div class="show-for-large-up large-1 columns">&nbsp;</div>
+      <section class="small-6 large-5 columns">
+        <h1>
+          <span class="strike">Infrastructure as code</span><br>
+          Infrastructure in <a href="https://twitter.com/code" target="_blank">@code</a>
+        </h1>
+        
+        
+        <p>The <a href="https://marketplace.visualstudio.com/items?itemName=ms-kubernetes-tools.vscode-kubernetes-tools">Kubernetes Tools</a> extension for VS Code bundles together a whole series of useful Kubernetes tools, making it easy for you to access and manage key parts of your app and microservices without leaving your code.</p>
 
-          <img src="https://azure.github.io/vscode-kubernetes-tools/img/logo.png" title="SMI" class="smi-logo" />
-
-          <div class="text-center">
-            <a class="button primary" href="https://github.com/deislabs/smi-spec">View the spec</a>
-            <small><a href="#features">Scroll down for project info and resources.</a></small>
-          </div>
-          
-        </div>
-      </div>
+        <ul>
+          <li>View and manage Kubernetes clusters</li>
+          <li>Build and run containers from Dockerfiles</li>
+          <li>Intellisense for Kubernetes resources and Helm charts and templates</li>
+          <li>Works with Kubernetes anywhere (Azure, Minikube, AWS, GCP, etc)</li>
+          <li><a href="https://marketplace.visualstudio.com/items?itemName=ms-kubernetes-tools.vscode-kubernetes-tools">...and many more features</a></li>
+        </ul>
+      </section>
+      <section class="small-6 large-6 columns end screenshot-wrapper">
+        <img src="img/code-ext.png" class="screenshot" alt="Screenshot of VS Code with the Kubernetes Tools extension" />
+      </section>
     </div>
+  </div>
+  
 
-    
+</div>
 
-    <div class="row row-full" id="resources">
-      <div class="small-12 large-10 large-centered columns">
-        <h3 class="text-center">Resources:</h3>
+<div class="row row-full full-height" id="api">
+  <section class="small-12 columns full-height section-api">
+    <h1>Kubernetes Tools API</h1>
+    <p class="lead">Add your own custom tools on top.</p>
 
-        <div class="row row-full">
-          <div class="small-12 large-4 columns">
-            <div class="panel panel-spec panel-blue">
-              
-            </div>
-          </div>
-          <div class="small-12 large-8 columns">
-            <div class="panel panel-duffle panel-navy">
-              
-            </div>
-          </div>
-        </div>
+    <p>In building the kubernetes-tools extension, we've extracted a helpful <a href="https://github.com/Azure/vscode-kubernetes-tools-api"><strong>kubernetes-tools-api</strong></a> layer and published it <a href="https://github.com/Azure/vscode-kubernetes-tools-api">here</a>, with the aim of enabling the development of more custom Kubernetes tools.</p>
+  
+    <p>The API is available as an <a href="https://www.npmjs.com/package/vscode-kubernetes-tools-api">NPM package</a>, so you can easily import and build upon it in your own projects!</p>
 
-        <div class="row">
-            <div class="small-12 large-8 columns">
-              <div class="panel panel-bundles panel-green">
-                
-              </div>
-            </div>
-            <div class="small-12 large-4 columns">
-              <div class="panel panel-vscode panel-yellowl">
-                
-              </div>
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </div> 
-    
-
-    <div class="row row-full" id="credits">
-      <div class="small-12 large-10 large-centered columns">
-        <h3 class="text-center sep sep-sides">Brought to you by:</h3>
-
-        <div class="text-center">
-          <a href="https://azure.microsoft.com" target="_blank"><img src="../img/logo-azure.png" /></a>
-          <a href="https://www.docker.com/" target="_blank"><img src="../img/logo-docker.png" /></a>
-          <a href="https://bitnami.com/" target="_blank"><img src="../img/logo-bitnami.png" /></a>
-          <a href="https://www.hashicorp.com/" target="_blank"><img src="../img/logo-hashicorp.png" /></a>
-          <a href="https://www.codefresh.io/" target="_blank"><img src="../img/logo-codefresh.png" /></a>
-
-        </div>
-        <br>
-        <div class="sep"></div>
-      </div>
-    </div>
-
-    
+    <code>npm -i vscode-kubernetes-tools-api</code>
+  </section>
+</div>
 
   </main>
   
   <footer class="row row-full" id="footer">
-    <div class="show-for-large-up large-1 columns">&nbsp;</div>
-    <div class="small-9 large-8 columns">
-      <div class="deislabs">
-        <a href="https://github.com/deislabs/">
-          <span>Deis Labs</span>
-          <em class="dl-tr"></em><em class="dl-sq"></em><em class="dl-ci"></em>
-        </a>
-      </div>
-      <p class="show-for-large-up">:  Open Source from Microsoft Azure.</p>&nbsp;
+    
+    <div class="small-3 large-1 small-centered columns">
+      <p><a href="https://github.com/azure/vscode-kubernetes-tools" target="_blank" class="right"><i class="fa fa-github" aria-hidden="true"></i></a></p>
     </div>
-    <div class="small-3 large-1 columns">
-      <p><a href="https://github.com/deislabs/cnab-spec" target="_blank" class="right"><i class="fa fa-github" aria-hidden="true"></i></a></p>
-    </div>
-    <div class="show-for-large-up large-2 columns"></div>
+    
   </footer>
 
   <script type="text/javascript">

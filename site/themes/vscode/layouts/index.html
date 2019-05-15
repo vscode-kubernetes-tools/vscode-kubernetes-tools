@@ -1,31 +1,48 @@
 {{ partial "header.html" . }}
+<div class="row row-full full-height" id="tools">
+  <div class="small-12 columns">
 
-<article class="col-60 centered full-height wrapper">
-  <section class="hero">
-    <h1>Kubernetes Tools <em>for VS Code</em></h1>
-    <p class="lead">Access an entire ecosystem of tools from right in your IDE.</p>
-  </section>
+    <a href="https://marketplace.visualstudio.com/items?itemName=ms-kubernetes-tools.vscode-kubernetes-tools" class="btn primary">Get the Extension</a>
   
-  <p>Lorem ipsum dolor amet hoodie williamsburg enamel pin microdosing sriracha umami tumblr. Photo booth intelligentsia tattooed fanny pack bitters. Fam meditation distillery shaman tumblr unicorn synth pork belly kale chips sustainable thundercats gluten-free. Roof party glossier vice, wolf tofu green juice yr crucifix gastropub narwhal. Chicharrones blue bottle DIY PBR&B af.</p>
+    <div class="row">
+      <div class="show-for-large-up large-1 columns">&nbsp;</div>
+      <section class="small-6 large-5 columns">
+        <h1>
+          <span class="strike">Infrastructure as code</span><br>
+          Infrastructure in <a href="https://twitter.com/code" target="_blank">@code</a>
+        </h1>
+        <!-- <h2>Access key parts of the Kubernetes ecosystem right inside your code editor.</h2> -->
+        
+        <p>The <a href="https://marketplace.visualstudio.com/items?itemName=ms-kubernetes-tools.vscode-kubernetes-tools">Kubernetes Tools</a> extension for VS Code bundles together a whole series of useful Kubernetes tools, making it easy for you to access and manage key parts of your app and microservices without leaving your code.</p>
 
-  <p>Venmo ramps fashion axe actually cardigan chicharrones kickstarter austin drinking vinegar. Four loko edison bulb salvia next level hot chicken truffaut church-key. Typewriter pabst palo santo tousled, gochujang health goth cray microdosing tbh master cleanse. Bitters meditation squid pork belly fashion axe tumeric cloud bread woke vaporware. Asymmetrical whatever kickstarter raw denim ramps, etsy ethical chambray pitchfork mlkshk cornhole. PBR&B occupy paleo trust fund tofu. Blog prism tofu taxidermy coloring book.</p>
+        <ul>
+          <li>View and manage Kubernetes clusters</li>
+          <li>Build and run containers from Dockerfiles</li>
+          <li>Intellisense for Kubernetes &amp; Helm resources</li>
+          <li>Works anywhere (Azure, Minikube, AWS, GCP, etc)</li>
+          <li><a href="https://marketplace.visualstudio.com/items?itemName=ms-kubernetes-tools.vscode-kubernetes-tools">...and many more features</a></li>
+        </ul>
+      </section>
+      <section class="small-6 large-6 columns end screenshot-wrapper">
+        <img src="img/code-ext.png" class="screenshot" alt="Screenshot of VS Code with the Kubernetes Tools extension" />
+      </section>
+    </div>
+  </div>
+  <!-- <div class="show-for-large-up large-1 columns"></div> -->
 
-  <p>Tattooed master cleanse poke 3 wolf moon shaman. Chambray helvetica flannel, vaporware copper mug marfa irony aesthetic viral tofu seitan tumblr artisan tacos. Hammock biodiesel mumblecore kale chips sartorial, banh mi truffaut kickstarter four dollar toast ennui succulents umami kogi street art listicle. Pork belly meggings williamsburg, chambray umami wayfarers aesthetic bushwick biodiesel affogato. Chillwave jianbing four loko, blue bottle seitan meh trust fund hot chicken normcore echo park forage tote bag butcher.</p>
-</article>
+</div>
 
-<section class="col-60 center">
-  <div class="centered">
+<div class="row row-full full-height" id="api">
+  <section class="small-12 columns full-height section-api">
     <h1>Kubernetes Tools API</h1>
     <p class="lead">Add your own custom tools on top.</p>
-  </div>
-</section>
 
-<div class="col-30">
-  <p>In building the kubernetes-tools extension, we've extracted a helpful <a href="https://github.com/Azure/vscode-kubernetes-tools-api"><strong>kubernetes-tools-api</strong></a> layer and published it <a href="https://github.com/Azure/vscode-kubernetes-tools-api">here</a>, with the aim of enabling the development of more custom Kubernetes tools.</p>
+    <p>In building the kubernetes-tools extension, we've extracted a helpful <a href="https://github.com/Azure/vscode-kubernetes-tools-api"><strong>kubernetes-tools-api</strong></a> layer and published it <a href="https://github.com/Azure/vscode-kubernetes-tools-api">here</a>, with the aim of enabling the development of more custom Kubernetes tools.</p>
   
-  <p>The API is available as an <a href="https://www.npmjs.com/package/vscode-kubernetes-tools-api">NPM package</a>, so you can easily import and build upon it in your own projects!</p>
+    <p>The API is available as an <a href="https://www.npmjs.com/package/vscode-kubernetes-tools-api">NPM package</a>, so you can easily import and build upon it in your own projects!</p>
 
-  <code>npm -i vscode-kubernetes-tools-api</code>
+    <code>npm -i vscode-kubernetes-tools-api</code>
+  </section>
 </div>
 
 {{ partial "footer.html" . }}
