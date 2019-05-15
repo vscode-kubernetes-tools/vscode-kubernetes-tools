@@ -379,14 +379,14 @@ body.list.noscroll {
     position: absolute;
     left: 50%;
     font-size: 1.5rem;
-    min-width: 14rem;
-    margin-left: -7rem;
-    padding: 0.5rem 1.25rem;
+    min-width: 18rem;
+    margin-left: -9rem;
+    padding: 0.75rem 1.25rem;
     border-radius: 0.2rem;
     color: white;
     background: green;
     box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.25);
-    top: 42rem;
+    top: 45rem;
     text-align: center;
     z-index: 250;
     @include wipe(darken(rgba(58,110,222,1), 15%));
