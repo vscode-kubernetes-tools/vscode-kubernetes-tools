@@ -53,7 +53,7 @@
 
     <header class="header row row-full">
       <div class="show-for-large-up large-1 columns"></div>
-      <div class="small-6 large-5 columns">
+      <div class="small-12 large-5 columns">
         <h1 class=""><a href="vscode">
           Kubernetes Tools
           <em>for VS Code</em>
@@ -61,7 +61,7 @@
       </div>
 
       
-      <nav class="large-5 columns end">
+      <nav class="small-12 large-5 columns end">
         <ul class="inline-list right show-for-large-up menu-desktop">
           <li><a href="#tools">Tools</a></li>
 <li><a href="#api">API</a></li>
@@ -91,7 +91,7 @@
   
     <div class="row">
       <div class="show-for-large-up large-1 columns">&nbsp;</div>
-      <section class="small-6 large-5 columns">
+      <section class="small-12 large-5 columns">
         <h1>
           <span class="strike">Infrastructure as code</span><br>
           Infrastructure in <a href="https://twitter.com/code" target="_blank">@code</a>
@@ -103,12 +103,12 @@
         <ul>
           <li>View and manage Kubernetes clusters</li>
           <li>Build and run containers from Dockerfiles</li>
-          <li>Intellisense for Kubernetes resources and Helm charts and templates</li>
-          <li>Works with Kubernetes anywhere (Azure, Minikube, AWS, GCP, etc)</li>
+          <li>Intellisense for Kubernetes &amp; Helm resources</li>
+          <li>Works anywhere (Azure, Minikube, AWS, GCP, etc)</li>
           <li><a href="https://marketplace.visualstudio.com/items?itemName=ms-kubernetes-tools.vscode-kubernetes-tools">...and many more features</a></li>
         </ul>
       </section>
-      <section class="small-6 large-6 columns end screenshot-wrapper">
+      <section class="small-12 large-6 columns end screenshot-wrapper">
         <img src="img/code-ext.png" class="screenshot" alt="Screenshot of VS Code with the Kubernetes Tools extension" />
       </section>
     </div>
@@ -118,9 +118,13 @@
 </div>
 
 <div class="row row-full full-height" id="api">
-  <section class="small-12 columns full-height section-api">
-    <h1>Kubernetes Tools API</h1>
-    <p class="lead">Add your own custom tools on top.</p>
+  <section class="small-12 columns">
+
+    <div class="row">
+        <div class="show-for-large-up large-1 columns">&nbsp;</div>
+        <section class="small-6 large-5 columns">
+          <h1>Kubernetes Tools API</h1>
+          <p class="lead">Add your own custom tools on top of the Kubernetes Tools extension.</p>
 
     <p>In building the kubernetes-tools extension, we've extracted a helpful <a href="https://github.com/Azure/vscode-kubernetes-tools-api"><strong>kubernetes-tools-api</strong></a> layer and published it <a href="https://github.com/Azure/vscode-kubernetes-tools-api">here</a>, with the aim of enabling the development of more custom Kubernetes tools.</p>
   
@@ -134,8 +138,10 @@
   
   <footer class="row row-full" id="footer">
     
-    <div class="small-3 large-1 small-centered columns">
-      <p><a href="https://github.com/azure/vscode-kubernetes-tools" target="_blank" class="right"><i class="fa fa-github" aria-hidden="true"></i></a></p>
+    <div class="small-12 small-centered columns">
+      <p class="text-center"><a href="https://github.com/azure/vscode-kubernetes-tools" target="_blank" class=""><i class="fa fa-github" aria-hidden="true"></i></a></p>
+
+      <p class="text-center"><small>Kubernetes and the Kubernetes logo are trademarks or registered trademarks of The Linux Foundation. in the United States and/or other countries. The Linux Foundation and other parties may also have trademark rights in other terms used herein.</small></p>
     </div>
     
   </footer>

@@ -3,6 +3,10 @@
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   
   <url>
+    <loc>vscode/coming-soon/</loc>
+  </url>
+  
+  <url>
     <loc>vscode/categories/</loc>
     <priority>0</priority>
   </url>

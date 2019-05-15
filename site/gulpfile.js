@@ -21,7 +21,7 @@ gulp.task('styles', function () {
     .pipe(cssnano())
     .pipe(sourcemaps.write('.'))
     .pipe(gulp.dest('themes/vscode/static/css/'))
-    .pipe(gulp.dest('static/css'));
+    // .pipe(gulp.dest('static/css'));
 });
 
 gulp.task('default', gulp.series('styles'), function() { });

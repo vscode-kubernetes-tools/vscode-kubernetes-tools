@@ -20,7 +20,7 @@ $fa-font-path: "../fonts" !default;
 @import "../../../../node_modules/foundation-sites/scss/foundation/components/visibility.scss";
 
 
-// CNAB palette
+// palette
 // ---------------------------------------
 // core colors
 $navy:  #3A6EDE;
@@ -77,7 +77,7 @@ $source-pro: 'Source Sans Pro', sans-serif;
   right: $cornerright;
 }
 
-@mixin ripple($color: $navy) {
+@mixin ripple($color: white) {
   position: relative;
   display: inline-block;
   text-align: center;
@@ -153,7 +153,7 @@ $source-pro: 'Source Sans Pro', sans-serif;
 }
 
 
-// CNAB General
+// General
 // ---------------------------------------
 html,
 body {
@@ -444,8 +444,12 @@ body.list.noscroll {
     background: rgba(64,117,220,0.667);
     padding: 0 0.5rem;
     border-radius: 0.825rem;
-    @include ripple;
     @include transition;
+
+    &:hover {
+      background: rgba(64,177,120,0.5);;
+
+    }
   }
 }
 
@@ -461,146 +465,25 @@ body.list.noscroll {
   position: relative;
   min-height: 4.5rem;
   z-index: 1500;
+  text-align: center;
+  padding-top: 2rem;
 
   p {
-    margin: 2rem 0;
+    margin: 0 auto;
     padding: 0 0 2.25rem;
+    max-width: 75vw;
+  }
+
+  small {
+    font-size: 0.925rem;
+    color: #777;
+    max-width: 90vw;
+    line-height: 0.9;
   }
 
   .fa {
     font-size: $base-lg;
     color: #333;
-  }
-}
-
-
-// CNAB sub pages
-article.post {
-  .post-content {
-    padding-bottom: 7.5rem;
-    
-    h2 {
-      color: $navy;
-      margin: 4rem 0 1rem;
-    }
-
-    h3 {
-      color: $green;
-      display: inline-block;
-      margin: 1.75rem 0 0.825rem;
-      font-size: 1.2rem;
-      text-transform: uppercase;
-      letter-spacing: 0.125rem;
-    }
-
-    ul {
-      margin: 1.5rem 0 3rem;
-    }
-
-    p {
-      line-height: 1.85;
-    }
-  }
-}
-
-// CNAB Spec docs pages
-.single .docs {
-  margin-top: -60px !important;
-  border-top: 1px solid $green;
-}
-
-.docs-sidebar {
-  position: relative;
-  z-index: 850;
-
-  ul.docs-menu {
-    position: fixed;
-    margin: 0;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    padding-top: 98px;
-    border-right: 1px solid $green;
-    max-width: 420px;
-    min-width: 300px;
-
-    li {
-      a {
-        padding: 1.75rem 1.75rem;
-        line-height: 1.825;
-        font-size: 1.25rem;
-        font-family: $source-pro;
-        color: $navy;
-      }
-    }
-
-    ul {
-      margin: 0;
-      padding-top: 0.5rem;
-      padding-bottom: 1.2rem;
-      
-      li {
-        a {
-          padding: 1.5rem 1.75rem 1.5rem 2.75rem;
-          font-size: 1rem;
-          color: lighten($navy, 5%);
-        }
-      }
-    }
-  }
-}
-
-
-// docs content
-.docs {
-  .post-content {
-    p {
-      margin: 0 0 2rem;
-      line-height: 1.85;
-    }
-
-    ul {
-      margin: 2rem 0;
-    }
-
-    li {
-      line-height: 1.8;
-      font-size: 1.125rem;
-    }
-
-    a {
-      text-decoration: none;
-      color: darken($navy, 5%);
-      @include ripple;
-      font-style: normal;
-      border: none;
-
-      &:before {
-        position: absolute;
-        bottom: 0px;
-        left: 10%;
-        width: 80%;
-        height: 4px;
-        content: "";
-        background-color: lighten($navy, 50%);
-      }
-    }
-
-    code {
-      border: none;
-      background-color: desaturate($yellowl, 20%);
-      font-family: source-code;
-      font-size: 1.125rem;
-      color: desaturate($navy, 10%);
-      font-style: normal;
-      border-radius: 0.25rem;
-    }
-
-    pre {
-      border-radius: 0.5rem;
-      border: none;
-      background-color: desaturate($yellowl, 20%);
-    }
   }
 }
 
@@ -612,17 +495,17 @@ article.post {
 
   .row,
   .row-full {
-    width: 96% !important;
-    padding-left: 2% !important;
-    padding-right: 2% !important;
+    width: 100% !important;
+    padding-left: 0% !important;
+    padding-right: 0% !important;
 
     .row,
     .row-full {
-      width: 100% !important;
-      padding-left: 0 !important;
-      padding-right: 0 !important;
-      margin-left: 0 !important;
-      margin-right: 0 !important;
+      width: 96% !important;
+      padding-left: 0% !important;
+      padding-right: 0% !important;
+      margin-left: 2% !important;
+      margin-right: 2% !important;
     }
   }
 
@@ -636,192 +519,16 @@ article.post {
       padding-right: 0 !important; 
     }
   }
-  
-  #intro {
-    background-image: none;
-    padding-top: 1rem;
-    min-height: 35rem !important;
-    
-    h2 {
-      font-size: $base-xlg;
-      display: inline-block;
-      margin: 4.5rem -1.6rem 2rem -1.6rem;
-      font-size: 6vw;
-      z-index: 500;
-      
-      strong {
-        padding: 1rem 20% 1rem 1.6rem;
-      }
-    }
 
-    p.subhead {
-      font-size: $base-lg;
-      margin: -2rem 0 1rem 0;
-      padding: 0;
-    }
-
-    .cnab-logo {
-      position: absolute;
-      right: 3.5%;
-      left: auto;
-      width: 18vw;
-      top: 3.75rem;
-      bottom: auto;
-      z-index: 850;
-    }
-
-    .button {
-      margin: 2rem 0;
-      position: relative;
-      left: auto;
-      right: auto;
-      width: 100%;
-    }
-  }
-
-  #features {
-    padding-top: 1.5rem;
-    padding-bottom: 2.5rem;
-
-    h3 {
-      font-size: $base-lg;
-      margin: 3rem 0 0.825rem;
-    }
-
-    p.lead {
-      font-size: $base-font;
-      margin: 0;
-    }
-    
-    img {
-      display: none;
-    }
-
-    p.bloglink a {
-      @include button(white);
-      @include wipe;
-      line-height: 3;
-      width: 100%;
-      margin: 2.5rem 0 0.5rem;
-      height: auto;
-    }
-  }
-
-  #resources {
-    padding-top: 2.5rem;
-    padding-bottom: 2.5rem;
-    
-    h3 {
-      font-size: $base-lg;
-      margin-bottom: 3rem;
-    }
-
-    .panel {
-      width: 100%;
-      margin: 0 0 2rem;
-      padding: 0;
-      
-      a {
-        padding: 1rem 1.25rem;
-        min-height: 3rem;
-
-        h4 {
-          margin-bottom: 0.825rem;
-        }
-
-        p {
-          padding-right: 0;
-          line-height: 1.5;
-          font-size: $base-sm;
-
-          .fa {
-            display: none;
-          }
-        }
-      }
-
-      &.panel-bundles {
-        a {
-          background-image: none;
-          padding-right: 1.25rem;
-        }
-      }
-
-      &.panel-duffle {
-        font-size: $base-sm;
-
-        img {
-          float: right;
-          max-width: 12vw;
-          margin: 1.5rem 1.75rem 1.5rem 0.25rem;
-        }
-
-        p.lead {
-          font-size: 3.25vw;
-        }
-
-      }
-    }
-
-  }
-
-  #credits {
-    padding-bottom: 5rem;
-    
-    img {
-      min-width: 150px;
-      margin: 1.5rem 2%;
-    }
-  }
-
-  #footer.row-full {
-    width: 100% !important;
-    padding: 0 !important;
-    min-height: 5rem;
-
-    .deislabs {
-      width: 4.5rem;
-      height: 7rem;
-      margin-left: 4%;
-      top: -4rem;
-      position: absolute;
-
-      a {
-
-        em {
-          width: 2.5rem;
-        }
-      }
-
-      &:hover {
-        em {
-          &.dl-tr {
-            left: auto;
-            right: 0;
-            top: 2.2rem;
-          }
-          &.dl-sq {
-            left: 0;
-            right: auto;
-          }
-          &.dl-ci {
-            bottom: auto;
-            top: 0;
-          }
-        }
-      }
+  #tools {
+    h1 {
+      max-width: 90vw;
+      font-size: 5.5vw;
+      left: 0rem;
     }
 
     p {
-      padding: 0;
+      margin-top: 75px;
     }
-
-    .fa {
-      margin: 0;
-    }
-  }
-
-  #intro small, .corner {
-    display: none !important;
   }
 }
