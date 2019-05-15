@@ -189,6 +189,7 @@ h1, h2, h3, h4, h5, h6,
 
 .main {
   min-width: 100%;
+  padding-bottom: 0 !important;
   overflow-x: hidden;
 }
 
@@ -447,10 +448,128 @@ body.list.noscroll {
   }
 }
 
-
 #api {
   padding-top: 9.25rem;
-  padding-bottom: 6.333rem;
+  padding-bottom: 9.25rem;
+  background: linear-gradient(110deg,#fff 20%,#f0f0f0);
+
+  h1 {
+    font-size: 2.5rem;
+    margin: 0;
+    color: $navy;
+    font-family: $source-code;
+  }
+  
+  h2 {
+    font-size: 1.5rem;
+    margin: 1rem 0 4.5rem;
+    color: darken($navy, 25%);
+  }
+
+  p {
+    margin: 1rem 0;
+    color: darken($navy, 25%);
+    font-size: 1.25rem;
+    line-height: 1.636;
+  }
+
+  code {
+    border: none;
+    outline: none;
+    padding: 1rem 2rem;
+    margin: 3rem 0;
+    background: #e0e0e0;
+    color: darken($navy, 25%);
+    display: inline-block;
+    @include wipe(#999);
+    z-index: 150;
+  }
+
+  a {
+    color: darken($navy, 25%);
+    background: rgba(215,215,215,0.2);
+    padding: 0 0.5rem;
+    border-radius: 0.825rem;
+    @include transition;
+
+    &:hover {
+      background: rgba(215,215,215,0.5);
+    }
+  }
+
+  ul {
+    li {
+      a {
+        background-color: transparent;
+      }
+    }
+  }
+
+  aside {
+    background: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 0.5rem 1rem rgba(30,30,30,0.1);
+    margin: 0 0 2.5rem;
+    position: relative;
+
+    &:first-of-type {
+      margin-top: 10.25rem;
+    }
+
+    a {
+      color: darken($navy, 25%);
+      background: transparent;
+      padding: 1.25rem 2rem;
+      display: block;
+
+      &:hover {
+        background: #fff;
+        box-shadow: 0 0 0.25rem $navy;
+
+        .fa {
+          opacity: 1;
+          right: 2rem;
+        }
+      }
+
+      &.btn {
+        color: #777;
+        min-height: 1.75rem;
+        opacity: 0.5;
+      }
+    }
+
+    h3 {
+      margin: 0;
+      padding: 0;
+      line-height: 1.4;
+      font-family: $source-code;
+      font-size: 1.333rem;
+      color: darken($navy, 25%);
+    }
+
+    .fa {
+      position: absolute;
+      right: 4rem;
+      top: 1.75rem;
+      color: lighten($navy, 20%);
+      opacity: 0;
+      @include transition;
+    }
+
+    em {
+      color: $navy;
+      font-style: normal;
+      font-size: 0.925rem;
+    }
+
+    p {
+      color: darken($navy, 25%);
+      font-size: 1.125rem;
+      line-height: 1.4;
+      margin: 1rem 0 0;
+    }
+  }
 }
 
 #footer {
