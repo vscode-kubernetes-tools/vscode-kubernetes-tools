@@ -12,9 +12,7 @@ $fa-font-path: "../fonts" !default;
 // foundation (modular)
 @import "../../../../node_modules/foundation-sites/scss/foundation/components/grid.scss";
 @import "../../../../node_modules/foundation-sites/scss/foundation/components/block-grid.scss";
-// @import "../../../../node_modules/foundation-sites/scss/foundation/components/buttons.scss";
 @import "../../../../node_modules/foundation-sites/scss/foundation/components/inline-lists.scss";
-// @import "../../../../node_modules/foundation-sites/scss/foundation/components/top-bar.scss";
 @import "../../../../node_modules/foundation-sites/scss/foundation/components/type.scss";
 @import "../../../../node_modules/foundation-sites/scss/foundation/components/offcanvas.scss";
 @import "../../../../node_modules/foundation-sites/scss/foundation/components/visibility.scss";
@@ -182,10 +180,6 @@ h1, h2, h3, h4, h5, h6,
 
 .row-full {
   max-width: 100%;
-
-  .row {
-    // max-width: 62.5rem !important;
-  }
 }
 
 .height-full,
