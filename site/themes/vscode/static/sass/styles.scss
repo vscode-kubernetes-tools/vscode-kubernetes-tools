@@ -478,8 +478,8 @@ body.list.noscroll {
     outline: none;
     padding: 1rem 2rem;
     margin: 3rem 0;
-    background: #e0e0e0;
-    color: darken($navy, 25%);
+    background: #F3F3F3 !important;
+    color: darken($navy, 2.5%);
     display: inline-block;
     @include wipe(#999);
     z-index: 150;
@@ -498,7 +498,11 @@ body.list.noscroll {
   }
 
   ul {
+    margin-top: -2rem;
+    
     li {
+      font-size: 1.25rem;
+      line-height: 2;
       a {
         background-color: transparent;
       }
