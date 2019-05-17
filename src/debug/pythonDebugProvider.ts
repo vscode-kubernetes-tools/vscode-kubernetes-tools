@@ -9,7 +9,7 @@ import { Kubectl } from "../kubectl";
 import { kubeChannel } from "../kubeChannel";
 
 const debuggerType = 'python';
-const defaultPythonDebuggerExtensionId = 'ms-python.python'
+const defaultPythonDebuggerExtensionId = 'ms-python.python';
 
 export class PythonDebugProvider implements IDebugProvider {
     remoteRoot: string | undefined;
