@@ -509,6 +509,14 @@ body.list.noscroll {
     }
   }
 
+  h2.text-center {
+    color: #777;
+    opacity: 0.5;
+    font-size: 1.25rem;
+    min-height: 1.75rem;
+    margin: 5rem auto 2rem;
+  }
+
   aside {
     background: white;
     border-radius: 0.5rem;
@@ -517,7 +525,7 @@ body.list.noscroll {
     position: relative;
 
     &:first-of-type {
-      margin-top: 10.25rem;
+      // margin-top: 10.25rem;
     }
 
     a {
