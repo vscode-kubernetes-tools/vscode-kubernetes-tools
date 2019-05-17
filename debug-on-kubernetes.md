@@ -4,11 +4,12 @@ One of the key features of VS Code Kubernetes Extension is its one-click debuggi
 
 ## 1. Supported languages
    * `java` (Required: [Debugger for Java](https://marketplace.visualstudio.com/items?itemName=vscjava.vscode-java-debug) extension)
+   * `python` (Required: [Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python) extension)
    * `node`
 
 ## 2. Commands for debugging
    * `Kubernetes: Debug (Launch)` - Run the current application as a Kubernetes Deployment and attach a debugging session to it (currently works only for Java/Node.js deployments)
-   * `Kubernetes: Debug (Attach)` - Attach a debugging session to an existing Kubernetes Deployment (currently works only for Java deployments)
+   * `Kubernetes: Debug (Attach)` - Attach a debugging session to an existing Kubernetes Deployment (currently works only for Java deployments and Python deployments running `ptvsd`)
 
 ## 3. Extension Settings for debugging
    * `vs-kubernetes` - Parent for Kubernetes-related extension settings
@@ -70,3 +71,9 @@ Here is a GIF showing the full workflow:
 ![attach java debug](https://raw.githubusercontent.com/Azure/vscode-kubernetes-tools/master/images/screenshots/attach-java-debug.gif)
 
 To learn more about the features provided by the VS Code Kubernetes Extension, take a look at the [README](https://github.com/Azure/vscode-kubernetes-tools).
+
+## 5. Python debug prerequisites
+   1. Have [ptvsd](https://pypi.org/project/ptvsd/) installed in your container.
+   2. Either use [`ptvsd.enable_attach()`](https://github.com/microsoft/ptvsd#enabling-debugging) in your code or prepend your entrypont with [the ptvsd command](https://github.com/microsoft/ptvsd#ptvsd-cli-usage).
+
+Currently only attaching to a Python container running ptvsd is supported.
