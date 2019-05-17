@@ -38,10 +38,13 @@ export class PythonDebugProvider implements IDebugProvider {
             hostName: "localhost",
             port
         };
-        if (this.remoteRoot) {
-            debugConfiguration['remoteRoot'] = this.remoteRoot;
-        }
         const currentFolder = (vscode.workspace.workspaceFolders || []).find((folder) => folder.name === path.basename(workspaceFolder));
+        if (currentFolder && this.remoteRoot) {
+            debugConfiguration['pathMappings'] = [{
+                "localRoot": workspaceFolder,
+                "remoteRoot": this.remoteRoot
+            }]
+        }
         return await vscode.debug.startDebugging(currentFolder, debugConfiguration);
     }
 
