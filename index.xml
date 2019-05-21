@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>vscode-kubernetes-tools</title>
+    <link>https://azure.github.io/vscode-kubernetes-tools/</link>
+    <description>Recent content on vscode-kubernetes-tools</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    
+	<atom:link href="https://azure.github.io/vscode-kubernetes-tools/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title></title>
+      <link>https://azure.github.io/vscode-kubernetes-tools/coming-soon/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      
+      <guid>https://azure.github.io/vscode-kubernetes-tools/coming-soon/</guid>
+      <description>Coming soon</description>
+    </item>
+    
+  </channel>
+</rss>

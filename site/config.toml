@@ -1,4 +1,0 @@
-baseURL = "https://azure.github.io/vscode-kubernetes-tools"
-title = "vscode-kubernetes-tools"
-theme = "vscode"
-languageCode = "en-us"
