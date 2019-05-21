@@ -10,3 +10,4 @@ tsconfig.json
 vsc-extension-quickstart.md
 images/screenshots/**
 docs/**
+site/**

@@ -1,0 +1,659 @@
+// import style frameworks
+// ---------------------------------------
+
+$fa-font-path: "../fonts" !default;
+@import "../../../../node_modules/font-awesome/scss/font-awesome.scss";
+@import "paper.scss";
+@import "../../../../node_modules/foundation-sites/scss/normalize.scss";
+//
+// foundation (all)
+// @import "../../../../node_modules/foundation-sites/scss/foundation.scss";
+//
+// foundation (modular)
+@import "../../../../node_modules/foundation-sites/scss/foundation/components/grid.scss";
+@import "../../../../node_modules/foundation-sites/scss/foundation/components/block-grid.scss";
+@import "../../../../node_modules/foundation-sites/scss/foundation/components/inline-lists.scss";
+@import "../../../../node_modules/foundation-sites/scss/foundation/components/type.scss";
+@import "../../../../node_modules/foundation-sites/scss/foundation/components/offcanvas.scss";
+@import "../../../../node_modules/foundation-sites/scss/foundation/components/visibility.scss";
+
+
+// palette
+// ---------------------------------------
+// core colors
+$navy:  #3A6EDE;
+$red: $navy;
+$green: $navy;
+$yellow: $navy;
+// accent colors
+$bluel: $navy;
+$yellowl: $navy;
+
+
+// Fonts
+// ---------------------------------------
+$source-code: 'Source Code Pro',  monospace;
+$source-pro: 'Source Sans Pro', sans-serif;
+
+
+// Mixins
+// ---------------------------------------
+@mixin transition($property:all, $duration:0.3s, $easing:ease-in-out) {
+  transition: $property $duration $easing;
+}
+
+@mixin border-radius($radius1:3px, $radius2:3px) {
+  -webkit-border-radius: $radius1 $radius2 $radius1 $radius2;
+  -moz-border-radius: $radius1 $radius2 $radius1 $radius2;
+  border-radius: $radius1 $radius2 $radius1 $radius2;
+}
+
+@mixin box-shadow($xlength:0, $ylength:2px, $size:0, $color:rgba(30,30,30,0.25)) {
+  -webkit-box-shadow: $xlength $ylength $size $color;
+  -moz-box-shadow: $xlength $ylength $size $color;
+  box-shadow: $xlength $ylength $size $color;
+}
+
+@mixin vertical-align($position: relative) {
+  position: $position;
+  top: 50%;
+  -webkit-transform: translateY(-50%);
+  -ms-transform: translateY(-50%);
+  transform: translateY(-50%);
+}
+
+@mixin corner($corner: 0.5rem, $cornertop: -1rem, $cornerleft: -1rem, $cornerbottom: auto, $cornerright: auto) {
+  width: $corner;
+  height: ($corner * 4);
+  display: inline-block;
+  content: "";
+  background-color: $navy;
+  position: absolute;
+  left: $cornerleft;
+  top: $cornertop;
+  bottom: $cornerbottom;
+  right: $cornerright;
+}
+
+@mixin ripple($color: white) {
+  position: relative;
+  display: inline-block;
+  text-align: center;
+  @include transition;
+  
+  &::after {
+    position: absolute; 
+    bottom: -4px;
+    left: 45%;
+    width: 10%;
+    height: 4px;
+    display: inline-block;
+    content: "";
+    opacity: 0;
+    background-color: $color;
+    @include transition;
+  }
+
+  &:hover::after {
+    width: 100%;
+    opacity: 1;
+    left: 0;
+    bottom: 0;
+  }
+}
+
+@mixin wipe($color: $green) {
+  position: relative;
+  display: inline-block;
+  overflow: hidden;
+  @include transition;
+  
+  &::after {
+    position: absolute; 
+    left: -20%;
+    top: 125%;
+    width: 200%;
+    height: 150%;
+    display: inline-block;
+    background-blend-mode: overlay;
+    content: "";
+    opacity: 0;
+    background-color: $color !important;
+    transform: rotate(-15deg);
+    z-index: -10;
+    @include transition;
+  }
+
+  &:hover {
+    color: white;
+    background-color: transparent !important;
+  }
+
+  &:hover::after {
+    opacity: 1;
+    top: 0%;
+    transform: rotate(0deg);
+  }
+}
+
+@mixin button($color: $navy) {
+  box-sizing: border-box;
+  font-family: $source-code;
+  color: $color;
+  width: 15rem;
+  height: 4.5rem;
+  margin: 2rem auto;
+  line-height: 3;
+  padding: 0 2rem;
+  border: 4px solid $color;
+  z-index: 600;
+  background: transparent !important;
+}
+
+
+// General
+// ---------------------------------------
+html,
+body {
+  height: 100%;
+  overflow-x: hidden;
+}
+
+.off-canvas-wrap{  
+  height: 100%;
+  overflow-y: auto;
+}
+
+html,
+body,
+.off-canvas-wrap,
+.inner-wrap,
+.main,
+.height-full {
+  min-height: 100vh !important;
+}
+
+h1, h2, h3, h4, h5, h6,
+.post-title {
+  font-family: $source-pro;
+}
+
+.row-full {
+  max-width: 100%;
+}
+
+.height-full,
+.full-height {
+  min-height: 100vh;
+}
+
+.main {
+  min-width: 100%;
+  padding-bottom: 0 !important;
+  overflow-x: hidden;
+}
+
+.strike {
+  text-decoration: line-through;
+}
+
+
+// Typographic Scale
+// ---------------------------------------
+$base-font:  18px;                 // 18 - p
+
+$base-xxxlg: ($base-font * 4.775); // 96
+$base-xxlg:  ($base-font * 2.4);   // 48
+$base-xlg:   ($base-font * 1.8);   // 36 - h3
+$base-lg:    ($base-font * 1.2);   // 24 - h4, p.lead
+$base-sm:    ($base-font * 0.875); // 18 - small
+
+body {
+  line-height: 1.7256;
+  font-size: $base-font;
+  font-family: $source-pro;
+  color: $navy;
+}
+
+h1 {
+  font-size: $base-xxxlg;
+}
+
+h2 {
+  font-size: $base-xxlg;
+}
+
+h3 {
+  font-size: $base-xlg;
+}
+
+h4,
+p.lead,
+.subhead {
+  font-size: $base-lg;
+}
+
+p {
+  font-size: $base-font;
+  padding-right: 7.5%;
+  max-width: 720px;
+}
+
+small {
+  font-size: $base-sm;
+}
+
+
+// Nav
+// ---------------------------------------
+.header {
+  padding-left: 0;
+  padding-right: 0;
+  min-height: 5rem;
+  position: fixed;
+  z-index: 1000;
+  background: rgba(64,117,220,0.667);
+  @include transition;
+
+  &:hover {
+    background: rgba(64,117,220,0.85);
+  }
+  
+  h1 {
+    margin: 0;
+    text-align: left;
+    @include ripple;
+    color: white;
+    font-size: 1.5rem;
+    line-height: 1.25;
+    padding: 1rem 0.825rem;
+
+    a {
+      text-align: left;
+      color: white; 
+    }
+
+    em {
+      display: block;
+      font-style: normal;
+      font-size: 0.85rem;
+    }
+  }
+ 
+  img.logo {
+    max-height: 75px;
+    max-width: 200px;
+    display: inline-block;
+  }
+
+  nav {
+    ul.menu-desktop {
+
+      li {
+        margin: 0 1rem;
+
+        &:last-child {
+          margin-right: 0;
+        }
+      }
+
+      a {
+        font-family: $source-pro;
+        color: white;
+        padding: 1.75rem 0rem;
+        margin: 0;
+        @include ripple;
+      }
+
+      .fa {
+        font-size: $base-lg;
+      }
+    }
+  }
+
+  .menu-toggle {
+    float: right;
+    width: 3rem;
+    padding: 2.25rem 1.5rem;
+
+    &::before,
+    &::after {
+      background: $navy;
+    }
+
+  }
+}
+
+// mobile breadcrumb menu
+nav.menu {
+  @include transition;
+}
+
+body.list.noscroll {
+
+  .header .menu-toggle {
+    z-index: 1200;
+  }
+  
+  nav.menu ul {
+    background-color: white;
+    z-index: 1050;
+    margin: 0;
+    list-style: none;
+
+    li {
+      a {
+        font-size: $base-xlg;
+        line-height: 3;
+        color: $navy;
+
+        @include ripple;
+      }
+    }
+  }
+}
+
+
+// Sections
+// ---------------------------------------
+#tools {
+  border-top: 2px solid rgba(0,0,0,0.05);
+  padding-top: 7.5rem;
+  overflow: hidden;
+  background-color: rgba(58,110,222,1);
+  background-image: 
+    url(../img/pipes/pipes.png),
+    linear-gradient(180deg, rgba(58,110,222,1) 0%, rgba(27,112,149,1) 100%);
+  background-repeat: repeat, no-repeat;
+  background-position: 0 0%, 0% 0%;
+  background-blend-mode: multiply, normal;
+  position: relative;
+  min-height: 53rem !important;
+
+  a.btn {
+    position: absolute;
+    left: 50%;
+    font-size: 1.5rem;
+    min-width: 18rem;
+    margin-left: -9rem;
+    padding: 0.75rem 1.25rem;
+    border-radius: 0.2rem;
+    color: white;
+    background: green;
+    box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.25);
+    top: 45rem;
+    text-align: center;
+    z-index: 250;
+    @include wipe(darken(rgba(58,110,222,1), 15%));
+    @include transition;
+  }
+
+  .screenshot-wrapper {
+    min-height: 50rem !important;
+  }
+
+  img.screenshot {
+    position: absolute;
+    left: -3.925rem;
+    min-width: 892px !important;
+    max-width: 350% !important;
+    max-height: 70rem !important;
+    bottom: -21.25rem;
+    z-index: 100;
+  }
+
+  h1 {
+    font-size: 2.5rem;
+    margin: 2rem 0 3.5rem;
+    color: white;
+    font-family: $source-code;
+    position: absolute;
+    top: -3.5rem;
+    left: 0.9375rem;
+    min-width: 620px;
+    z-index: 720;
+  }
+  
+  h2 {
+    font-size: 1.5rem;
+    color: white;
+  }
+
+  p {
+    margin: 195px 0 2rem;
+    color: white;
+    font-size: 1.25rem;
+    line-height: 1.636;
+  }
+
+  ul {
+    li {
+      color: white;
+      font-size: 1.125rem;
+      line-height: 2;
+    }
+  }
+
+  a {
+    color: white;
+    background: rgba(64,117,220,0.667);
+    padding: 0 0.5rem;
+    border-radius: 0.825rem;
+    @include transition;
+
+    &:hover {
+      background: rgba(64,177,120,0.5);;
+
+    }
+  }
+}
+
+#api {
+  padding-top: 9.25rem;
+  padding-bottom: 9.25rem;
+  background: linear-gradient(110deg,#fff 20%,#f0f0f0);
+
+  h1 {
+    font-size: 2.5rem;
+    margin: 0;
+    color: $navy;
+    font-family: $source-code;
+  }
+  
+  h2 {
+    font-size: 1.5rem;
+    margin: 1rem 0 4.5rem;
+    color: darken($navy, 25%);
+  }
+
+  p {
+    margin: 1rem 0;
+    color: darken($navy, 25%);
+    font-size: 1.25rem;
+    line-height: 1.636;
+  }
+
+  code {
+    border: none;
+    outline: none;
+    padding: 1rem 2rem;
+    margin: 3rem 0;
+    background: #F3F3F3 !important;
+    color: darken($navy, 2.5%);
+    display: inline-block;
+    @include wipe(#999);
+    z-index: 150;
+  }
+
+  a {
+    color: darken($navy, 25%);
+    background: rgba(215,215,215,0.2);
+    padding: 0 0.5rem;
+    border-radius: 0.825rem;
+    @include transition;
+
+    &:hover {
+      background: rgba(215,215,215,0.5);
+    }
+  }
+
+  ul {
+    margin-top: -2rem;
+    
+    li {
+      font-size: 1.25rem;
+      line-height: 2;
+      a {
+        background-color: transparent;
+      }
+    }
+  }
+
+  h2.text-center {
+    color: #777;
+    opacity: 0.5;
+    font-size: 1.25rem;
+    min-height: 1.75rem;
+    margin: 4.5rem auto 2rem;
+  }
+
+  aside {
+    background: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 0.5rem 1rem rgba(30,30,30,0.1);
+    margin: 0 0 2.5rem;
+    position: relative;
+
+    &:first-of-type {
+      // margin-top: 10.25rem;
+    }
+
+    a {
+      color: darken($navy, 25%);
+      background: transparent;
+      padding: 1.25rem 2rem;
+      display: block;
+
+      &:hover {
+        background: #fff;
+        box-shadow: 0 0 0.25rem $navy;
+
+        .fa {
+          opacity: 1;
+          right: 2rem;
+        }
+      }
+
+      &.btn {
+        color: #777;
+        min-height: 1.75rem;
+        opacity: 0.5;
+      }
+    }
+
+    h3 {
+      margin: 0;
+      padding: 0;
+      line-height: 1.4;
+      font-family: $source-code;
+      font-size: 1.333rem;
+      color: darken($navy, 25%);
+    }
+
+    .fa {
+      position: absolute;
+      right: 4rem;
+      top: 1.75rem;
+      color: lighten($navy, 20%);
+      opacity: 0;
+      @include transition;
+    }
+
+    em {
+      color: $navy;
+      font-style: normal;
+      font-size: 0.925rem;
+    }
+
+    p {
+      color: darken($navy, 25%);
+      font-size: 1.125rem;
+      line-height: 1.4;
+      margin: 1rem 0 0;
+    }
+  }
+}
+
+#footer {
+  background-color: white;
+  border-top: 2px solid rgba(0,0,0,0.05);
+  position: relative;
+  min-height: 4.5rem;
+  z-index: 1500;
+  text-align: center;
+  padding-top: 2rem;
+
+  p {
+    margin: 0 auto;
+    padding: 0 0 2.25rem;
+    max-width: 75vw;
+  }
+
+  small {
+    font-size: 0.925rem;
+    color: #777;
+    max-width: 90vw;
+    line-height: 0.9;
+  }
+
+  .fa {
+    font-size: $base-lg;
+    color: #333;
+  }
+}
+
+
+// Media Queries
+// ---------------------------------------
+// mobile
+@media screen and (max-width: 1024px) {
+
+  .row,
+  .row-full {
+    width: 100% !important;
+    padding-left: 0% !important;
+    padding-right: 0% !important;
+
+    .row,
+    .row-full {
+      width: 96% !important;
+      padding-left: 0% !important;
+      padding-right: 0% !important;
+      margin-left: 2% !important;
+      margin-right: 2% !important;
+    }
+  }
+
+  .height-full {
+    min-height: 50vh !important;
+  }
+
+  .small-12 {
+    .small-12 {
+      padding-left: 0 !important;
+      padding-right: 0 !important; 
+    }
+  }
+
+  #tools {
+    h1 {
+      max-width: 90vw;
+      font-size: 5.5vw;
+      left: 0rem;
+    }
+
+    p {
+      margin-top: 75px;
+    }
+  }
+}

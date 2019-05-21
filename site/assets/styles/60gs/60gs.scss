@@ -1,0 +1,26 @@
+$num: 60;
+$col: 6;
+
+.grid {
+  display: grid;
+  grid-gap: 10px;
+  grid-template-columns: repeat($num, 1fr);
+}
+
+
+@for $i from 1 through $col {
+
+    .col-#{$num / $i} {
+        grid-column-end: span #{$num / $i};
+    }
+}
+
+/* helper columns */
+.col-50 { grid-column-end: span 50 } /* 1 + 4 columns */
+.col-45 { grid-column-end: span 45 } /* 1 + 3 columns */
+
+@media (max-width: 600px)   {
+      .grid {grid-gap: 10px 0 }
+      .grid > * { grid-column-end: span $num }
+      img{ max-width:100%; height:auto }
+  }
