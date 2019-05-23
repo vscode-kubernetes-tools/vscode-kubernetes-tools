@@ -206,11 +206,11 @@
                         },
                         "vs-kubernetes.nodejs-autodetect-remote-root": {
                             "type": "boolean",
-                            "description": "If true will try to automatically get the root location of the source code in the container."
+                            "description": "If true will try to automatically get the root location of the source code in the container (nodejs)."
                         },
                         "vs-kubernetes.nodejs-remote-root": {
                             "type": "string",
-                            "description": "The root location of the source code in the container."
+                            "description": "The root location of the source code in the container (nodejs)."
                         },
                         "vs-kubernetes.nodejs-debug-port": {
                             "type": "number",
@@ -231,6 +231,18 @@
                         "resource-commands-on-files": {
                             "type": "boolean",
                             "description": "If true, show Kubernetes resource commands on file context menu for all YAML files"
+                        },
+                        "vs-kubernetes.python-autodetect-remote-root": {
+                            "type": "boolean",
+                            "description": "If true will try to automatically get the root location of the source code in the container (Python)."
+                        },
+                        "vs-kubernetes.python-remote-root": {
+                            "type": "string",
+                            "description": "The root location of the source code in the container (Python)."
+                        },
+                        "vs-kubernetes.python-debug-port": {
+                            "type": "number",
+                            "description": "Remote debugging port for Python. Usually 5678."
                         }
                     },
                     "default": {
