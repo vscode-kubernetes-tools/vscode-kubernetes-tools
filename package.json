@@ -474,6 +474,16 @@
                     "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.pod/i"
                 },
                 {
+                    "command": "extension.vsKubernetesPortForward",
+                    "group": "2@6",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.service/i"
+                },
+                {
+                    "command": "extension.vsKubernetesPortForward",
+                    "group": "2@6",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.deployment/i"
+                },
+                {
                     "command": "extension.vsKubernetesShowLogs",
                     "group": "3",
                     "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.(pod|job)/i"
@@ -1213,7 +1223,7 @@
         "@types/mocha": "^2.2.32",
         "@types/node": "^10.2.0",
         "@types/request": "^2.48.1",
-        "gulp": "^4.0.0",
+        "gulp": "^4.0.2",
         "gulp-tslint": "^8.1.2",
         "mocha": "^4.1.0",
         "tslint": "^5.9.1",
