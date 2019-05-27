@@ -1048,6 +1048,12 @@
                 "filenames": [
                     ".helmignore"
                 ]
+            },
+            {
+                "id": "yaml",
+                "filenames": [
+                    "requirements.lock"
+                ]
             }
         ],
         "grammars": [
