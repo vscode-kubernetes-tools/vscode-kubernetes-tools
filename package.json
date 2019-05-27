@@ -1048,6 +1048,12 @@
                     "**/templates/**/*.tpl"
                 ],
                 "configuration": "./language-configuration.json"
+            },
+            {
+                "id": "ignore",
+                "filenames": [
+                    ".helmignore"
+                ]
             }
         ],
         "grammars": [
