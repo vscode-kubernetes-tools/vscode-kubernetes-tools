@@ -96,7 +96,7 @@
         "onLanguage:helm",
         "onLanguage:yaml",
         "onFileSystem:k8smsx",
-        "onDebug"
+        "onDebugResolve:draft"
     ],
     "main": "./out/src/extension",
     "contributes": {
