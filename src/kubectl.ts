@@ -16,7 +16,7 @@ export interface Kubectl {
     checkPresent(errorMessageMode: CheckPresentMessageMode): Promise<boolean>;
     invoke(command: string, handler?: ShellHandler): Promise<void>;
     invokeWithProgress(command: string, progressMessage: string, handler?: ShellHandler): Promise<void>;
-    invokeAsync(command: string, stdin?: string): Promise<ShellResult | undefined>;
+    invokeAsync(command: string, stdin?: string, callback?: (proc: ChildProcess) => void): Promise<ShellResult | undefined>;
     invokeAsyncWithProgress(command: string, progressMessage: string): Promise<ShellResult | undefined>;
     spawnAsChild(command: string[]): Promise<ChildProcess | undefined>;
     /**
@@ -67,8 +67,8 @@ class KubectlImpl implements Kubectl {
     invokeWithProgress(command: string, progressMessage: string, handler?: ShellHandler): Promise<void> {
         return invokeWithProgress(this.context, command, progressMessage, handler);
     }
-    invokeAsync(command: string, stdin?: string): Promise<ShellResult | undefined> {
-        return invokeAsync(this.context, command, stdin);
+    invokeAsync(command: string, stdin?: string, callback?: (proc: ChildProcess) => void): Promise<ShellResult | undefined> {
+        return invokeAsync(this.context, command, stdin, callback);
     }
     invokeAsyncWithProgress(command: string, progressMessage: string): Promise<ShellResult | undefined> {
         return invokeAsyncWithProgress(this.context, command, progressMessage);
@@ -184,11 +184,16 @@ async function invokeWithProgress(context: Context, command: string, progressMes
     });
 }
 
-async function invokeAsync(context: Context, command: string, stdin?: string): Promise<ShellResult | undefined> {
+async function invokeAsync(context: Context, command: string, stdin?: string, callback?: (proc: ChildProcess) => void): Promise<ShellResult | undefined> {
     if (await checkPresent(context, CheckPresentMessageMode.Command)) {
         const bin = await baseKubectlPath(context);
         const cmd = `${bin} ${command}`;
-        const sr = await context.shell.exec(cmd, stdin);
+        let sr: ShellResult | undefined;
+        if (stdin) {
+            sr = await context.shell.exec(cmd, stdin);
+        } else {
+            sr = await context.shell.execStreaming(cmd, callback);
+        }
         if (sr && sr.code !== 0) {
             checkPossibleIncompatibility(context);
         }

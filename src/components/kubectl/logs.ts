@@ -8,6 +8,7 @@ import * as yaml from 'js-yaml';
 import * as kubectlUtils from '../../kubectlUtils';
 import { LogsPanel } from '../../components/logs/logsWebview';
 import { ContainerContainer } from '../../utils/containercontainer';
+import { ChildProcess } from 'child_process';
 
 export enum LogsDisplayMode {
     Show,
@@ -79,34 +80,39 @@ async function getLogsForResource(kubectl: Kubectl, resource: ContainerContainer
  */
 async function getLogsForContainer(
     kubectl: Kubectl,
-    resource: ContainerContainer,
+    containerResource: ContainerContainer,
     containerName: string | undefined,
     displayMode: LogsDisplayMode
 ) {
-    let cmd = `logs ${resource.kindName}`;
+    let cmd = `logs ${containerResource.kindName}`;
 
-    if (resource.namespace) {
-        cmd = `${cmd} --namespace=${resource.namespace}`;
+    if (containerResource.namespace) {
+        cmd = `${cmd} --namespace=${containerResource.namespace}`;
     }
 
     if (containerName) {
         cmd = `${cmd} --container=${containerName}`;
     }
 
+    const resource = `${containerResource.namespace}/${containerResource.kindName}`;
+    const panel = LogsPanel.createOrShow('Loading...', resource);
+
     if (displayMode === LogsDisplayMode.Follow) {
         cmd = `${cmd} -f`;
-        kubectl.invokeInNewTerminal(cmd, `${resource.kindName}-${containerName}`);
+        kubectl.invokeAsync(cmd, undefined, (proc: ChildProcess) => {
+            proc.stdout.on('data', (data: string) => {
+                panel.addContent(data);
+            });
+        });
         return;
     }
-
-    const panel = LogsPanel.createOrShow('Loading...', resource.kindName);
 
     try {
         const result = await kubectl.invokeAsync(cmd);
         if (!result || result.code !== 0) {
             vscode.window.showErrorMessage(`Error reading logs: ${result ? result.stderr : undefined}`);
         } else {
-            panel.setInfo(result.stdout, resource.kindName);
+            panel.setInfo(result.stdout, containerResource.kindName);
         }
     } catch (err) {
         vscode.window.showErrorMessage(`Error reading logs ${err}`);

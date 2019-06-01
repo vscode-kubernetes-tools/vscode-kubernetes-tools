@@ -20,6 +20,14 @@ export class LogsPanel extends WebPanel {
         super(panel, content, resource, LogsPanel.currentPanels);
     }
 
+    public addContent(content: string) {
+        this.content += content;
+        this.panel.webview.postMessage({
+            command: 'content',
+            text: content,
+        });
+    }
+
     protected update() {
         this.panel.title = `Logs - ${this.resource}`;
         this.panel.webview.html = `
@@ -56,6 +64,22 @@ export class LogsPanel extends WebPanel {
               var renderNonce = 0;
 
               var orig = \`${this.content}\`.split('\\n');
+
+              window.addEventListener('message', event => {
+                const message = event.data;
+                switch (message.command) {
+                    case 'content':
+                    const elt = document.getElementById('content');
+                    const text = message.text.split('\\n');
+                    text.forEach((line) => {
+                        if (line.trim() != "" && line.length > 0) {
+                            orig.push(line);
+                        }
+                    });
+                    // TODO: need to apply filters here!
+                    elt.appendChild(document.createTextNode(message.text));
+                }
+              });
 
               var eval = () => {
                 setTimeout(evalInternal, 0);
