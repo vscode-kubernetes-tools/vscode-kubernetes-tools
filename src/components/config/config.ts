@@ -192,3 +192,11 @@ export function getNodejsRemoteRoot(): string {
 export function getNodejsDebugPort(): number | undefined {
     return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.nodejs-debug-port'];
 }
+
+// container image build tool
+
+const PREFER_BUILDAH = "preferBuildah";
+
+export function getPreferBuildah(): string {
+    return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)[PREFER_BUILDAH];
+}

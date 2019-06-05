@@ -231,6 +231,10 @@
                         "resource-commands-on-files": {
                             "type": "boolean",
                             "description": "If true, show Kubernetes resource commands on file context menu for all YAML files"
+                        },
+                        "preferBuildah": {
+                            "type": "boolean",
+                            "description": "Prefer Buildah over Docker if available"
                         }
                     },
                     "default": {

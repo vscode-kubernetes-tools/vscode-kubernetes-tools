@@ -35,11 +35,11 @@ Features include:
 ### Dependencies
 
 The Kubernetes extension may need to invoke the following command line tools, depending on
-which features you use.  You will need `kubectl` at minimum, and `docker` if you plan to
+which features you use.  You will need `kubectl` at minimum, and `docker` or `buildah` if you plan to
 use the extension to build applications rather than only browse.
 
 * `kubectl`
-* `docker`
+* `docker` or `buildah`
 * `helm`
 * `draft`
 
@@ -47,6 +47,7 @@ Optional tools:
 * `az` (Azure CLI - only if using the extension to create or register Azure clusters)
 * `minikube` (only if you want to use it)
 * `git` (only if using the 'sync working copy to repository' feature)
+* `buildah` (can be used as an alternative container image build tool)
 
 We recommend you install these binaries on your system PATH before using the extension.
 If these binaries aren't on your system PATH, then some commands may not work. If the
@@ -56,8 +57,8 @@ install it for you.
 ### Configuration settings for building and running applications
 
 If you want to use the `Kubernetes: Run` and `Kubernetes: Debug` features
-then you need to configure a user and repository for your Docker
-images. This is required because these commands need to `docker push` your application
+then you need to configure a user and repository for your container
+images. This is required because these commands need pushing an image of your application
 for your cluster to run it. To do this, add the following to your VS Code preferences
 (File > Preferences):
 
@@ -204,7 +205,7 @@ Minikube tools to be installed and available on your PATH.
        * `vs-kubernetes.knownKubeconfigs` - An array of file paths of kubeconfig files that you want to be able to quickly switch between using the Set Kubeconfig command.
        * `vs-kubernetes.autoCleanupOnDebugTerminate` - The flag to control whether to auto cleanup the created deployment and associated pod by the command "Kubernetes: Debug (Launch)". The cleanup action occurs when it failed to start debug session or debug session terminated. If not specified, the extension will prompt for whether to clean up or not. You might choose not to clean up if you wanted to view pod logs, etc.
        * `vs-kubernetes.outputFormat` - The output format that you prefer to view Kubernetes manifests in. One of "yaml" or "json". Defaults to "yaml".
-   * `vsdocker.imageUser` - Image prefix for docker images e.g. 'docker.io/brendanburns'
+   * `vsdocker.imageUser` - Image prefix for the container images e.g. 'docker.io/brendanburns'
    * `checkForMinikubeUpgrade` - On extension startup, notify if a minikube upgrade is available. Defaults to true.
    * `disable-lint` - Disable all linting of Kubernetes files
    * `disable-linters` - Disable specific linters by name

@@ -19,6 +19,7 @@ import { Pod, KubernetesCollection, Container } from "../kuberesources.objectmod
 import * as config from "../components/config/config";
 import { Dictionary } from "../utils/dictionary";
 import { definedOf } from "../utils/array";
+import * as imageUtils from "../imageBuild/imageUtils";
 
 const debugCommandDocumentationUrl = "https://github.com/Azure/vscode-kubernetes-tools/blob/master/debug-on-kubernetes.md";
 
@@ -272,7 +273,7 @@ export class DebugSession implements IDebugSession {
             const dockerEnv = await dockerUtils.resolveKubernetesDockerEnv(this.kubectl);
             shellOpts.env = Object.assign({}, shellOpts.env, dockerEnv);
         }
-        const imageName = await dockerUtils.buildAndPushDockerImage(dockerUtils.DockerClient.docker, shellOpts, imagePrefix);
+        const imageName = await imageUtils.buildAndPushImage(shellOpts, imagePrefix);
         kubeChannel.showOutput(`Finished building/pushing Docker image ${imageName}.`);
 
         return imageName;
