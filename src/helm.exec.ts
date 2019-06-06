@@ -6,7 +6,7 @@ import * as YAML from 'yamljs';
 import * as _ from 'lodash';
 import * as tmp from 'tmp';
 import * as extension from './extension';
-import * as explorer from './explorer';
+import * as explorer from './components/clusterexplorer/explorer';
 import * as helmrepoexplorer from './helm.repoExplorer';
 import * as helm from './helm';
 import { showWorkspaceFolderPick } from './hostutils';

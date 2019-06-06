@@ -1,20 +1,20 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 
-import { Kubectl } from './kubectl';
-import * as kubectlUtils from './kubectlUtils';
-import { Host } from './host';
-import * as kuberesources from './kuberesources';
-import { failed } from './errorable';
-import * as helmexec from './helm.exec';
-import { Pod, CRD } from './kuberesources.objectmodel';
-import { kubefsUri } from './kuberesources.virtualfs';
-import { affectsUs } from './components/config/config';
+import { Kubectl } from '../../kubectl';
+import * as kubectlUtils from '../../kubectlUtils';
+import { Host } from '../../host';
+import * as kuberesources from '../../kuberesources';
+import { failed } from '../../errorable';
+import * as helmexec from '../../helm.exec';
+import { Pod, CRD } from '../../kuberesources.objectmodel';
+import { kubefsUri } from '../../kuberesources.virtualfs';
+import { affectsUs } from '../config/config';
 import { ExplorerExtender, ExplorerUICustomizer } from './explorer.extension';
-import * as providerResult from './utils/providerresult';
-import { sleep } from './sleep';
-import { refreshExplorer } from './components/clusterprovider/common/explorer';
-import { flatten } from './utils/array';
+import * as providerResult from '../../utils/providerresult';
+import { sleep } from '../../sleep';
+import { refreshExplorer } from '../clusterprovider/common/explorer';
+import { flatten } from '../../utils/array';
 
 const KUBERNETES_CLUSTER = "vsKubernetes.cluster";
 const MINIKUBE_CLUSTER = "vsKubernetes.minikubeCluster";

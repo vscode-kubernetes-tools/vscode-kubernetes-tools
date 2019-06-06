@@ -4,7 +4,7 @@ import { fs } from './fs';
 import { Kubectl } from './kubectl';
 import { currentNamespace, DataHolder } from './kubectlUtils';
 import { deleteMessageItems, overwriteMessageItems } from './extension';
-import { KubernetesFileObject, KubernetesDataHolderResource, KubernetesExplorer } from './explorer';
+import { KubernetesFileObject, KubernetesDataHolderResource, KubernetesExplorer } from './components/clusterexplorer/explorer';
 import { allKinds } from './kuberesources';
 import { failed } from './errorable';
 

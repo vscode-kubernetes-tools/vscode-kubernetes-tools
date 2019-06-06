@@ -1,5 +1,5 @@
 import { Container } from "../kuberesources.objectmodel";
-import * as explorer from "../explorer";
+import * as explorer from "../components/clusterexplorer/explorer";
 import { PodSummary } from "../extension";
 
 // Represents a Kubernetes resource that contains a collection of (Docker) containers -

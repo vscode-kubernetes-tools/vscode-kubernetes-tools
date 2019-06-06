@@ -9,7 +9,7 @@ import * as portFinder from 'portfinder';
 import { succeeded } from '../../errorable';
 import * as kubectlUtils from '../../kubectlUtils';
 import * as kuberesources from '../../kuberesources';
-import { ResourceNode } from '../../explorer';
+import { ResourceNode } from '../clusterexplorer/explorer';
 
 import * as kubernetes from '@kubernetes/client-node';
 

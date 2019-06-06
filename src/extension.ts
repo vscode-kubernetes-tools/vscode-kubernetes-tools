@@ -30,7 +30,7 @@ import * as docker from './docker';
 import { kubeChannel } from './kubeChannel';
 import { CheckPresentMessageMode, create as kubectlCreate } from './kubectl';
 import * as kubectlUtils from './kubectlUtils';
-import * as explorer from './explorer';
+import * as explorer from './components/clusterexplorer/explorer';
 import * as helmRepoExplorer from './helm.repoExplorer';
 import { create as draftCreate, CheckPresentMode as DraftCheckPresentMode } from './draft/draft';
 import { create as minikubeCreate, CheckPresentMode as MinikubeCheckPresentMode } from './components/clusterprovider/minikube/minikube';

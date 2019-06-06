@@ -3,7 +3,7 @@ import { Kubectl } from '../../kubectl';
 import { PodSummary, quickPickKindName, selectContainerForResource } from '../../extension';
 import { isPod } from '../../kuberesources.objectmodel';
 import * as kuberesources from '../../kuberesources';
-import { ResourceNode } from '../../explorer';
+import { ResourceNode } from '../clusterexplorer/explorer';
 import * as yaml from 'js-yaml';
 import * as kubectlUtils from '../../kubectlUtils';
 import { LogsPanel } from '../../components/logs/logsWebview';

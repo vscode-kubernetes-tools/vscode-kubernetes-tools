@@ -4,7 +4,7 @@ import * as yaml from 'js-yaml';
 import * as _ from 'lodash';
 import { FS } from './fs';
 import { Host } from './host';
-import { ResourceNode, isKubernetesExplorerResourceNode } from './explorer';
+import { ResourceNode, isKubernetesExplorerResourceNode } from './components/clusterexplorer/explorer';
 import { helmCreateCore } from './helm.exec';
 import { failed, Errorable } from './errorable';
 import { symbolAt, containmentChain, findKeyPath, FoundKeyPath } from './helm.symbolProvider';

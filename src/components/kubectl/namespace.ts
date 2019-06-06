@@ -3,7 +3,7 @@ import { promptKindName } from '../../extension';
 import { host } from '../../host';
 import * as kubectlUtils from '../../kubectlUtils';
 import * as kuberesources from '../../kuberesources';
-import * as explorer from '../../explorer';
+import * as explorer from '../clusterexplorer/explorer';
 import { Kubectl } from '../../kubectl';
 
 export async function useNamespaceKubernetes(kubectl: Kubectl, explorerNode: explorer.KubernetesObject) {
