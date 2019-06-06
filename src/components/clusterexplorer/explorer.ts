@@ -15,7 +15,7 @@ import * as providerResult from '../../utils/providerresult';
 import { sleep } from '../../sleep';
 import { refreshExplorer } from '../clusterprovider/common/explorer';
 import { flatten } from '../../utils/array';
-import { ClusterExplorerNode } from './node';
+import { ClusterExplorerNode, KubernetesExplorerNodeImpl } from './node';
 
 const KUBERNETES_CLUSTER = "vsKubernetes.cluster";
 const MINIKUBE_CLUSTER = "vsKubernetes.minikubeCluster";
@@ -167,11 +167,6 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
             return new KubernetesContextNode(context.contextName, context);
         });
     }
-}
-
-class KubernetesExplorerNodeImpl {
-    readonly nodeCategory = KUBERNETES_EXPLORER_NODE_CATEGORY;
-    constructor(readonly nodeType: KubernetesExplorerNodeType) {}
 }
 
 /**
