@@ -5,7 +5,8 @@ import * as kuberesources from '../../kuberesources';
 import { Host } from '../../host';
 import { ClusterExplorerNode } from './node';
 import { FolderNode } from './node.folder';
-import { KubernetesSelectsPodsFolder, KubernetesResourceFolder, KubernetesDataHolderFolder } from './explorer';
+import { KubernetesSelectsPodsFolder, KubernetesDataHolderFolder } from './explorer';
+import { ResourceFolderNode } from "./node.folder.resource";
 
 export class WorkloadsGroupingFolderNode extends FolderNode {
     constructor() {
@@ -16,9 +17,9 @@ export class WorkloadsGroupingFolderNode extends FolderNode {
             new KubernetesSelectsPodsFolder(kuberesources.allKinds.deployment),
             new KubernetesSelectsPodsFolder(kuberesources.allKinds.statefulSet),
             new KubernetesSelectsPodsFolder(kuberesources.allKinds.daemonSet),
-            new KubernetesResourceFolder(kuberesources.allKinds.job),
-            new KubernetesResourceFolder(kuberesources.allKinds.cronjob),
-            new KubernetesResourceFolder(kuberesources.allKinds.pod),
+            new ResourceFolderNode(kuberesources.allKinds.job),
+            new ResourceFolderNode(kuberesources.allKinds.cronjob),
+            new ResourceFolderNode(kuberesources.allKinds.pod),
         ];
     }
 }
@@ -42,8 +43,8 @@ export class NetworkGroupingFolderNode extends FolderNode {
     getChildren(_kubectl: Kubectl, _host: Host): vscode.ProviderResult<ClusterExplorerNode[]> {
         return [
             new KubernetesSelectsPodsFolder(kuberesources.allKinds.service),
-            new KubernetesResourceFolder(kuberesources.allKinds.endpoint),
-            new KubernetesResourceFolder(kuberesources.allKinds.ingress),
+            new ResourceFolderNode(kuberesources.allKinds.endpoint),
+            new ResourceFolderNode(kuberesources.allKinds.ingress),
         ];
     }
 }
@@ -54,9 +55,9 @@ export class StorageGroupingFolderNode extends FolderNode {
     }
     getChildren(_kubectl: Kubectl, _host: Host): vscode.ProviderResult<ClusterExplorerNode[]> {
         return [
-            new KubernetesResourceFolder(kuberesources.allKinds.persistentVolume),
-            new KubernetesResourceFolder(kuberesources.allKinds.persistentVolumeClaim),
-            new KubernetesResourceFolder(kuberesources.allKinds.storageClass),
+            new ResourceFolderNode(kuberesources.allKinds.persistentVolume),
+            new ResourceFolderNode(kuberesources.allKinds.persistentVolumeClaim),
+            new ResourceFolderNode(kuberesources.allKinds.storageClass),
         ];
     }
 }
