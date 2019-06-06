@@ -5,7 +5,8 @@ import { Kubectl } from '../../kubectl';
 import * as kubectlUtils from '../../kubectlUtils';
 import { Host } from '../../host';
 import { ClusterExplorerNode, KubernetesExplorerNodeImpl } from './node';
-import { KUBERNETES_CLUSTER, KubernetesNamespaceFolder, KubernetesNodeFolder, KubernetesWorkloadFolder, KubernetesNetworkFolder, KubernetesStorageFolder, KubernetesConfigFolder, KubernetesCRDFolder, HelmReleasesFolder, MINIKUBE_CLUSTER } from './explorer';
+import { KUBERNETES_CLUSTER, KubernetesNamespaceFolder, KubernetesNodeFolder, KubernetesCRDFolder, HelmReleasesFolder, MINIKUBE_CLUSTER } from './explorer';
+import { WorkloadsGroupingFolderNode, NetworkGroupingFolderNode, StorageGroupingFolderNode, ConfigurationGroupingFolderNode } from "./node.folder.grouping";
 
 export class ContextNode extends KubernetesExplorerNodeImpl implements ClusterExplorerNode {
     constructor(readonly id: string, readonly metadata: kubectlUtils.KubectlContext) {
@@ -22,10 +23,10 @@ export class ContextNode extends KubernetesExplorerNodeImpl implements ClusterEx
             return [
                 new KubernetesNamespaceFolder(),
                 new KubernetesNodeFolder(),
-                new KubernetesWorkloadFolder(),
-                new KubernetesNetworkFolder(),
-                new KubernetesStorageFolder(),
-                new KubernetesConfigFolder(),
+                new WorkloadsGroupingFolderNode(),
+                new NetworkGroupingFolderNode(),
+                new StorageGroupingFolderNode(),
+                new ConfigurationGroupingFolderNode(),
                 new KubernetesCRDFolder(),
                 new HelmReleasesFolder(),
             ];
