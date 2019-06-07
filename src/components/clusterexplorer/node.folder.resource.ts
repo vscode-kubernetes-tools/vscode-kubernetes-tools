@@ -6,7 +6,7 @@ import { failed } from '../../errorable';
 import { ClusterExplorerNode, ClusterExplorerResourceFolderNode } from './node';
 import { ErrorNode } from './node.error';
 import { FolderNode } from './node.folder';
-import { ResourceNode } from './node.resource';
+import { ResourceNode, PodSelectingResourceNode } from './node.resource';
 
 export class ResourceFolderNode extends FolderNode implements ClusterExplorerResourceFolderNode {
     constructor(readonly kind: kuberesources.ResourceKind) {
@@ -29,5 +29,16 @@ export class ResourceFolderNode extends FolderNode implements ClusterExplorerRes
             const bits = line.split(' ');
             return new ResourceNode(this.kind, bits[0]);
         });
+    }
+}
+
+export class PodSelectingResourceFolderNode extends ResourceFolderNode {
+    constructor(readonly kind: kuberesources.ResourceKind) {
+        super(kind);
+    }
+
+    async getChildren(kubectl: Kubectl, _host: Host): Promise<ClusterExplorerNode[]> {
+        const objects = await kubectlUtils.getResourceWithSelector(this.kind.abbreviation, kubectl);
+        return objects.map((obj) => new PodSelectingResourceNode(this.kind, obj.name, obj, obj.selector));
     }
 }

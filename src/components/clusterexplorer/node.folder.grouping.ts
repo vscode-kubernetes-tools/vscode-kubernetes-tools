@@ -5,9 +5,8 @@ import * as kuberesources from '../../kuberesources';
 import { Host } from '../../host';
 import { ClusterExplorerNode, ClusterExplorerGroupingFolderNode } from './node';
 import { FolderNode } from './node.folder';
-import { KubernetesSelectsPodsFolder } from './explorer';
 import { ConfigurationResourceFolder } from "./node.folder.configurationresources";
-import { ResourceFolderNode } from "./node.folder.resource";
+import { ResourceFolderNode, PodSelectingResourceFolderNode } from "./node.folder.resource";
 
 export abstract class GroupingFolderNode extends FolderNode implements ClusterExplorerGroupingFolderNode {
     constructor(nodeType: 'folder.grouping', id: string, displayName: string, contextValue?: string) {
@@ -22,9 +21,9 @@ export class WorkloadsGroupingFolderNode extends GroupingFolderNode {
     }
     getChildren(_kubectl: Kubectl, _host: Host): vscode.ProviderResult<ClusterExplorerNode[]> {
         return [
-            new KubernetesSelectsPodsFolder(kuberesources.allKinds.deployment),
-            new KubernetesSelectsPodsFolder(kuberesources.allKinds.statefulSet),
-            new KubernetesSelectsPodsFolder(kuberesources.allKinds.daemonSet),
+            new PodSelectingResourceFolderNode(kuberesources.allKinds.deployment),
+            new PodSelectingResourceFolderNode(kuberesources.allKinds.statefulSet),
+            new PodSelectingResourceFolderNode(kuberesources.allKinds.daemonSet),
             new ResourceFolderNode(kuberesources.allKinds.job),
             new ResourceFolderNode(kuberesources.allKinds.cronjob),
             new ResourceFolderNode(kuberesources.allKinds.pod),
@@ -50,7 +49,7 @@ export class NetworkGroupingFolderNode extends GroupingFolderNode {
     }
     getChildren(_kubectl: Kubectl, _host: Host): vscode.ProviderResult<ClusterExplorerNode[]> {
         return [
-            new KubernetesSelectsPodsFolder(kuberesources.allKinds.service),
+            new PodSelectingResourceFolderNode(kuberesources.allKinds.service),
             new ResourceFolderNode(kuberesources.allKinds.endpoint),
             new ResourceFolderNode(kuberesources.allKinds.ingress),
         ];

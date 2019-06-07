@@ -3,7 +3,6 @@ import * as vscode from 'vscode';
 import { Kubectl } from '../../kubectl';
 import * as kubectlUtils from '../../kubectlUtils';
 import { Host } from '../../host';
-import * as kuberesources from '../../kuberesources';
 import { affectsUs } from '../config/config';
 import { ExplorerExtender, ExplorerUICustomizer } from './explorer.extension';
 import * as providerResult from '../../utils/providerresult';
@@ -11,8 +10,6 @@ import { sleep } from '../../sleep';
 import { refreshExplorer } from '../clusterprovider/common/explorer';
 import { ClusterExplorerNode, ClusterExplorerResourceNode } from './node';
 import { MiniKubeContextNode, ContextNode } from './node.context';
-import { ResourceNode } from './node.resource';
-import { ResourceFolderNode } from './node.folder.resource';
 
 export const KUBERNETES_EXPLORER_NODE_CATEGORY = 'kubernetes-explorer-node';
 
@@ -130,38 +127,5 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
 
             return new ContextNode(context.contextName, context);
         });
-    }
-}
-
-export class KubernetesSelectsPodsFolder extends ResourceFolderNode {
-    constructor(readonly kind: kuberesources.ResourceKind) {
-        super(kind);
-    }
-
-    async getChildren(kubectl: Kubectl, _host: Host): Promise<ClusterExplorerNode[]> {
-        const objects = await kubectlUtils.getResourceWithSelector(this.kind.abbreviation, kubectl);
-        return objects.map((obj) => new KubernetesSelectorResource(this.kind, obj.name, obj, obj.selector));
-    }
-}
-
-class KubernetesSelectorResource extends ResourceNode {
-    readonly selector?: any;
-    constructor(readonly kind: kuberesources.ResourceKind, readonly name: string, readonly metadata?: any, readonly labelSelector?: any) {
-        super(kind, name, metadata);
-        this.selector = labelSelector;
-    }
-
-    async getTreeItem(): Promise<vscode.TreeItem> {
-        const treeItem = await super.getTreeItem();
-        treeItem.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
-        return treeItem;
-    }
-
-    async getChildren(kubectl: Kubectl, _host: Host): Promise<ClusterExplorerNode[]> {
-        if (!this.selector) {
-            return [];
-        }
-        const pods = await kubectlUtils.getPods(kubectl, this.selector);
-        return pods.map((p) => new ResourceNode(kuberesources.allKinds.pod, p.name, p));
     }
 }

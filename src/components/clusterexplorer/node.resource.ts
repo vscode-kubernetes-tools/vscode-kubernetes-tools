@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 
 import { Kubectl } from '../../kubectl';
+import * as kubectlUtils from '../../kubectlUtils';
 import { Host } from '../../host';
 import * as kuberesources from '../../kuberesources';
 import { Pod } from '../../kuberesources.objectmodel';
@@ -62,6 +63,28 @@ export class ResourceNode extends ClusterExplorerNodeImpl implements ClusterExpl
             }
         }
         return treeItem;
+    }
+}
+
+export class PodSelectingResourceNode extends ResourceNode {
+    readonly selector?: any;
+    constructor(readonly kind: kuberesources.ResourceKind, readonly name: string, readonly metadata?: any, readonly labelSelector?: any) {
+        super(kind, name, metadata);
+        this.selector = labelSelector;
+    }
+
+    async getTreeItem(): Promise<vscode.TreeItem> {
+        const treeItem = await super.getTreeItem();
+        treeItem.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
+        return treeItem;
+    }
+
+    async getChildren(kubectl: Kubectl, _host: Host): Promise<ClusterExplorerNode[]> {
+        if (!this.selector) {
+            return [];
+        }
+        const pods = await kubectlUtils.getPods(kubectl, this.selector);
+        return pods.map((p) => new ResourceNode(kuberesources.allKinds.pod, p.name, p));
     }
 }
 
