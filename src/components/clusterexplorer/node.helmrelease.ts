@@ -1,11 +1,11 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 
 import { Kubectl } from '../../kubectl';
 import { Host } from '../../host';
-import { ClusterExplorerNode, KubernetesExplorerNodeImpl, ClusterExplorerHelmReleaseNode } from './node';
-import { getIconForHelmRelease } from './explorer';
+import { ClusterExplorerNode, ClusterExplorerNodeImpl, ClusterExplorerHelmReleaseNode } from './node';
 
-export class HelmReleaseNode extends KubernetesExplorerNodeImpl implements ClusterExplorerHelmReleaseNode {
+export class HelmReleaseNode extends ClusterExplorerNodeImpl implements ClusterExplorerHelmReleaseNode {
     constructor(readonly releaseName: string, readonly status: string) {
         super("helm.release");
     }
@@ -23,5 +23,13 @@ export class HelmReleaseNode extends KubernetesExplorerNodeImpl implements Clust
         treeItem.contextValue = "vsKubernetes.helmRelease";
         treeItem.iconPath = getIconForHelmRelease(this.status.toLowerCase());
         return treeItem;
+    }
+}
+
+function getIconForHelmRelease(status: string): vscode.Uri {
+    if (status === "deployed") {
+        return vscode.Uri.file(path.join(__dirname, "../../images/helmDeployed.svg"));
+    } else {
+        return vscode.Uri.file(path.join(__dirname, "../../images/helmFailed.svg"));
     }
 }

@@ -1,15 +1,15 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 
 import { Kubectl } from '../../kubectl';
 import { Host } from '../../host';
 import * as kuberesources from '../../kuberesources';
 import { Pod } from '../../kuberesources.objectmodel';
 import { kubefsUri } from '../../kuberesources.virtualfs';
-import { ClusterExplorerNode, KubernetesExplorerNodeImpl, ClusterExplorerResourceNodeItf } from './node';
+import { ClusterExplorerNode, ClusterExplorerNodeImpl, ClusterExplorerResourceNode } from './node';
 import { ErrorNode } from './node.error';
-import { getIconForPodStatus } from './explorer';
 
-export class ClusterExplorerResourceNode extends KubernetesExplorerNodeImpl implements ClusterExplorerResourceNodeItf {
+export class ResourceNode extends ClusterExplorerNodeImpl implements ClusterExplorerResourceNode {
     readonly kindName: string;
     readonly nodeType = 'resource';
     constructor(readonly kind: kuberesources.ResourceKind, readonly name: string, readonly metadata?: any) {
@@ -62,5 +62,13 @@ export class ClusterExplorerResourceNode extends KubernetesExplorerNodeImpl impl
             }
         }
         return treeItem;
+    }
+}
+
+export function getIconForPodStatus(status: string): vscode.Uri {
+    if (status === "running" || status === "completed") {
+        return vscode.Uri.file(path.join(__dirname, "../../images/runningPod.svg"));
+    } else {
+        return vscode.Uri.file(path.join(__dirname, "../../images/errorPod.svg"));
     }
 }

@@ -5,7 +5,8 @@ import * as kuberesources from '../../kuberesources';
 import { Host } from '../../host';
 import { ClusterExplorerNode, ClusterExplorerGroupingFolderNode } from './node';
 import { FolderNode } from './node.folder';
-import { KubernetesSelectsPodsFolder, KubernetesDataHolderFolder } from './explorer';
+import { KubernetesSelectsPodsFolder } from './explorer';
+import { ConfigurationResourceFolder } from "./node.folder.configurationresources";
 import { ResourceFolderNode } from "./node.folder.resource";
 
 export abstract class GroupingFolderNode extends FolderNode implements ClusterExplorerGroupingFolderNode {
@@ -37,8 +38,8 @@ export class ConfigurationGroupingFolderNode extends GroupingFolderNode {
     }
     getChildren(_kubectl: Kubectl, _host: Host): vscode.ProviderResult<ClusterExplorerNode[]> {
         return [
-            new KubernetesDataHolderFolder(kuberesources.allKinds.configMap),
-            new KubernetesDataHolderFolder(kuberesources.allKinds.secret)
+            new ConfigurationResourceFolder(kuberesources.allKinds.configMap),
+            new ConfigurationResourceFolder(kuberesources.allKinds.secret)
         ];
     }
 }

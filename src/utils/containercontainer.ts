@@ -1,6 +1,6 @@
 import { Container } from "../kuberesources.objectmodel";
 import { PodSummary } from "../extension";
-import { ClusterExplorerResourceNodeItf } from "../components/clusterexplorer/node";
+import { ClusterExplorerResourceNode } from "../components/clusterexplorer/node";
 
 // Represents a Kubernetes resource that contains a collection of (Docker) containers -
 // specifically a pod or a job.
@@ -15,7 +15,7 @@ export interface ContainerContainer {
 
 export module ContainerContainer {
 
-    export function fromNode(explorerNode: ClusterExplorerResourceNodeItf): ContainerContainer | undefined {
+    export function fromNode(explorerNode: ClusterExplorerResourceNode): ContainerContainer | undefined {
         const queryPath = containersQueryPath(explorerNode);
         if (!queryPath) {
             return undefined;
@@ -32,7 +32,7 @@ export module ContainerContainer {
         };
     }
 
-    function containersQueryPath(explorerNode: ClusterExplorerResourceNodeItf): string | undefined {
+    function containersQueryPath(explorerNode: ClusterExplorerResourceNode): string | undefined {
         const kind = explorerNode.kind.abbreviation;
         switch (kind) {
             case 'pod': return '.spec';

@@ -4,10 +4,10 @@ import { Kubectl } from '../../kubectl';
 import { Host } from '../../host';
 import * as kuberesources from '../../kuberesources';
 import { ClusterExplorerNode } from './node';
-import { ClusterExplorerResourceNode } from './node.resource';
+import { ResourceNode } from './node.resource';
 import { ConfigurationValueNode } from './node.configurationvalue';
 
-export class ConfigurationResourceNode extends ClusterExplorerResourceNode {
+export class ConfigurationResourceNode extends ResourceNode {
     readonly configData: any;
     constructor(readonly kind: kuberesources.ResourceKind, readonly name: string, readonly metadata?: any, readonly data?: any) {
         super(kind, name, metadata);

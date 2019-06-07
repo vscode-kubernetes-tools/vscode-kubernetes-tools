@@ -2,13 +2,13 @@ import * as vscode from 'vscode';
 
 import { Kubectl } from '../../kubectl';
 import { Host } from '../../host';
-import { ClusterExplorerNode, KubernetesExplorerNodeImpl, ClusterExplorerErrorNode } from './node';
+import { ClusterExplorerNode, ClusterExplorerNodeImpl, ClusterExplorerErrorNode } from './node';
 
 /**
  * Dummy object will be displayed as a placeholder in the tree explorer. Cannot be expanded and has no action menus on it.
  * For example, display an "Error" dummy node when failing to get children of expandable parent.
  */
-export class ErrorNode extends KubernetesExplorerNodeImpl implements ClusterExplorerErrorNode {
+export class ErrorNode extends ClusterExplorerNodeImpl implements ClusterExplorerErrorNode {
     constructor(readonly id: string, readonly diagnostic?: string) {
         super('error');
     }

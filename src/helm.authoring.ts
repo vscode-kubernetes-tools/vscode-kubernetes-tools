@@ -8,7 +8,7 @@ import { isKubernetesExplorerResourceNode } from './components/clusterexplorer/e
 import { helmCreateCore } from './helm.exec';
 import { failed, Errorable } from './errorable';
 import { symbolAt, containmentChain, findKeyPath, FoundKeyPath } from './helm.symbolProvider';
-import { ClusterExplorerResourceNodeItf } from './components/clusterexplorer/node';
+import { ClusterExplorerResourceNode } from './components/clusterexplorer/node';
 
 interface Context {
     readonly fs: FS;
@@ -21,7 +21,7 @@ interface Chart {
     path: string;
 }
 
-export async function convertToTemplate(fs: FS, host: Host, projectPath: string, target: vscode.Uri | ClusterExplorerResourceNodeItf | undefined): Promise<void> {
+export async function convertToTemplate(fs: FS, host: Host, projectPath: string, target: vscode.Uri | ClusterExplorerResourceNode | undefined): Promise<void> {
     const context = { fs, host, projectPath };
     const activeDocument = host.activeDocument();
     if (isKubernetesExplorerResourceNode(target)) {

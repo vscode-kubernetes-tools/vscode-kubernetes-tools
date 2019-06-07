@@ -1,9 +1,9 @@
 import * as vscode from 'vscode';
 
 import * as kuberesources from '../../kuberesources';
-import { ClusterExplorerResourceNode } from './node.resource';
+import { ResourceNode } from './node.resource';
 
-export class NamespaceResourceNode extends ClusterExplorerResourceNode {
+export class NamespaceResourceNode extends ResourceNode {
     constructor(readonly kind: kuberesources.ResourceKind, readonly name: string, readonly metadata?: any) {
         super(kind, name, metadata);
     }

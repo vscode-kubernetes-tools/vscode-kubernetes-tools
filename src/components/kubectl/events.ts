@@ -1,13 +1,13 @@
 import { Kubectl } from '../../kubectl';
 import * as kubectlUtils from '../../kubectlUtils';
-import { ClusterExplorerResourceNodeItf } from '../clusterexplorer/node';
+import { ClusterExplorerResourceNode } from '../clusterexplorer/node';
 
 export enum EventDisplayMode {
     Show,
     Follow
 }
 
-export async function getEvents(kubectl: Kubectl, displayMode: EventDisplayMode, explorerNode?: ClusterExplorerResourceNodeItf) {
+export async function getEvents(kubectl: Kubectl, displayMode: EventDisplayMode, explorerNode?: ClusterExplorerResourceNode) {
     let eventsNS;
 
     if (explorerNode) {

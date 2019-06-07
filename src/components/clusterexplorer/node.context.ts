@@ -4,13 +4,15 @@ import * as path from 'path';
 import { Kubectl } from '../../kubectl';
 import * as kubectlUtils from '../../kubectlUtils';
 import { Host } from '../../host';
-import { ClusterExplorerNode, KubernetesExplorerNodeImpl, ClusterExplorerContextNode } from './node';
-import { KUBERNETES_CLUSTER, KubernetesNamespaceFolder, KubernetesNodeFolder, MINIKUBE_CLUSTER } from './explorer';
+import { ClusterExplorerNode, ClusterExplorerNodeImpl, ClusterExplorerContextNode } from './node';
+import { KUBERNETES_CLUSTER, MINIKUBE_CLUSTER } from './explorer';
+import { NamespacesFolder } from "./node.folder.namespaces";
+import { NodesFolder } from "./node.folder.nodes";
 import { HelmReleasesFolder } from "./node.folder.helmreleases";
 import { CRDTypesFolderNode } from "./node.folder.crdtypes";
 import { WorkloadsGroupingFolderNode, NetworkGroupingFolderNode, StorageGroupingFolderNode, ConfigurationGroupingFolderNode } from "./node.folder.grouping";
 
-export class ContextNode extends KubernetesExplorerNodeImpl implements ClusterExplorerContextNode {
+export class ContextNode extends ClusterExplorerNodeImpl implements ClusterExplorerContextNode {
     constructor(readonly contextName: string, readonly kubectlContext: kubectlUtils.KubectlContext) {
         super('context');
     }
@@ -24,8 +26,8 @@ export class ContextNode extends KubernetesExplorerNodeImpl implements ClusterEx
     getChildren(_kubectl: Kubectl, _host: Host): vscode.ProviderResult<ClusterExplorerNode[]> {
         if (this.kubectlContext.active) {
             return [
-                new KubernetesNamespaceFolder(),
-                new KubernetesNodeFolder(),
+                new NamespacesFolder(),
+                new NodesFolder(),
                 new WorkloadsGroupingFolderNode(),
                 new NetworkGroupingFolderNode(),
                 new StorageGroupingFolderNode(),

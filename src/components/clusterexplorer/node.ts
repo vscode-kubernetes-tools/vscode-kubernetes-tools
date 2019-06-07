@@ -34,7 +34,7 @@ export interface ClusterExplorerErrorNode extends ClusterExplorerNodeBase {
     readonly nodeType: 'error';
 }
 
-export interface ClusterExplorerResourceNodeItf extends ClusterExplorerNodeBase {
+export interface ClusterExplorerResourceNode extends ClusterExplorerNodeBase {
     readonly nodeType: 'resource';
     readonly name: string;
     readonly namespace: string | null;
@@ -66,12 +66,12 @@ export type ClusterExplorerNode =
     ClusterExplorerContextNode |
     ClusterExplorerResourceFolderNode |
     ClusterExplorerGroupingFolderNode |
-    ClusterExplorerResourceNodeItf |
+    ClusterExplorerResourceNode |
     ClusterExplorerConfigurationValueNode |
     ClusterExplorerHelmReleaseNode |
     ClusterExplorerCustomNode;
 
-export class KubernetesExplorerNodeImpl {
+export class ClusterExplorerNodeImpl {
     readonly nodeCategory = KUBERNETES_EXPLORER_NODE_CATEGORY;
     constructor(readonly nodeType: KubernetesExplorerNodeType) {}
 }

@@ -4,7 +4,7 @@ import { ClusterExplorerV1 } from "../../contract/cluster-explorer/v1";
 import { ExplorerExtender, ExplorerUICustomizer } from "../../../components/clusterexplorer/explorer.extension";
 import { KUBERNETES_EXPLORER_NODE_CATEGORY, KubernetesExplorer } from "../../../components/clusterexplorer/explorer";
 import { CustomResourceFolderNodeSource, CustomGroupingFolderNodeSource, NodeSourceImpl } from "../../../components/clusterexplorer/extension.nodesources";
-import { ClusterExplorerNode, ClusterExplorerResourceNodeItf } from "../../../components/clusterexplorer/node";
+import { ClusterExplorerNode, ClusterExplorerResourceNode } from "../../../components/clusterexplorer/node";
 import { ResourceKind } from '../../../kuberesources';
 import { CustomNode } from './ContributedNode';
 
@@ -105,7 +105,7 @@ function adaptKubernetesExplorerNode(node: ClusterExplorerNode): ClusterExplorer
     }
 }
 
-function adaptKubernetesExplorerResourceNode(node: ClusterExplorerResourceNodeItf): ClusterExplorerV1.ClusterExplorerResourceNode {
+function adaptKubernetesExplorerResourceNode(node: ClusterExplorerResourceNode): ClusterExplorerV1.ClusterExplorerResourceNode {
     return {
         nodeType: 'resource',
         metadata: node.metadata,

@@ -2,10 +2,10 @@ import * as vscode from 'vscode';
 
 import { Kubectl } from '../../kubectl';
 import { Host } from '../../host';
-import { ClusterExplorerNode, KubernetesExplorerNodeImpl, ClusterExplorerConfigurationValueNode } from './node';
+import { ClusterExplorerNode, ClusterExplorerNodeImpl, ClusterExplorerConfigurationValueNode } from './node';
 import { ResourceKind } from '../../kuberesources';
 
-export class ConfigurationValueNode extends KubernetesExplorerNodeImpl implements ClusterExplorerConfigurationValueNode {
+export class ConfigurationValueNode extends ClusterExplorerNodeImpl implements ClusterExplorerConfigurationValueNode {
     constructor(readonly configData: any, readonly key: string, readonly parentKind: ResourceKind, readonly parentName: string) {
         super("configitem");
     }

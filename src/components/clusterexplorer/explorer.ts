@@ -1,4 +1,3 @@
-import * as path from 'path';
 import * as vscode from 'vscode';
 
 import { Kubectl } from '../../kubectl';
@@ -10,13 +9,10 @@ import { ExplorerExtender, ExplorerUICustomizer } from './explorer.extension';
 import * as providerResult from '../../utils/providerresult';
 import { sleep } from '../../sleep';
 import { refreshExplorer } from '../clusterprovider/common/explorer';
-import { ClusterExplorerNode, ClusterExplorerResourceNodeItf } from './node';
+import { ClusterExplorerNode, ClusterExplorerResourceNode } from './node';
 import { MiniKubeContextNode, ContextNode } from './node.context';
-import { ClusterExplorerResourceNode } from './node.resource';
+import { ResourceNode } from './node.resource';
 import { ResourceFolderNode } from './node.folder.resource';
-import { NodeClusterExplorerNode } from './node.resource.node';
-import { NamespaceResourceNode } from './node.resource.namespace';
-import { ConfigurationResourceNode } from './node.resource.configuration';
 
 export const KUBERNETES_CLUSTER = "vsKubernetes.cluster";
 export const MINIKUBE_CLUSTER = "vsKubernetes.minikubeCluster";
@@ -37,43 +33,15 @@ export function create(kubectl: Kubectl, host: Host): KubernetesExplorer {
     return new KubernetesExplorer(kubectl, host);
 }
 
-export function createKubernetesResourceFolder(kind: kuberesources.ResourceKind): ClusterExplorerNode {
-    return new ResourceFolderNode(kind);
-}
-
-export function createKubernetesResource(kind: kuberesources.ResourceKind, id: string, metadata?: any): ClusterExplorerNode {
-    return new ClusterExplorerResourceNode(kind, id, metadata);
-}
-
-export function getIconForHelmRelease(status: string): vscode.Uri {
-    if (status === "deployed") {
-        return vscode.Uri.file(path.join(__dirname, "../../images/helmDeployed.svg"));
-    } else {
-        return vscode.Uri.file(path.join(__dirname, "../../images/helmFailed.svg"));
-    }
-}
-
-export function getIconForPodStatus(status: string): vscode.Uri {
-    if (status === "running" || status === "completed") {
-        return vscode.Uri.file(path.join(__dirname, "../../images/runningPod.svg"));
-    } else {
-        return vscode.Uri.file(path.join(__dirname, "../../images/errorPod.svg"));
-    }
-}
-
-// export interface ResourceNode {
-//     readonly kind: kuberesources.ResourceKind;
-//     readonly name: string;
-//     readonly resourceId: string;
-//     uri(outputFormat: string): vscode.Uri;
-//     namespace: string | null;
+// export function createKubernetesResourceFolder(kind: kuberesources.ResourceKind): ClusterExplorerNode {
+//     return new ResourceFolderNode(kind);
 // }
 
-// export interface ResourceFolder {
-//     readonly kind: kuberesources.ResourceKind;
+// export function createKubernetesResource(kind: kuberesources.ResourceKind, id: string, metadata?: any): ClusterExplorerNode {
+//     return new ResourceNode(kind, id, metadata);
 // }
 
-export function isKubernetesExplorerResourceNode(obj: any): obj is ClusterExplorerResourceNodeItf {
+export function isKubernetesExplorerResourceNode(obj: any): obj is ClusterExplorerResourceNode {
     return obj && obj.nodeCategory === KUBERNETES_EXPLORER_NODE_CATEGORY && obj.nodeType === 'resource';
 }
 
@@ -170,28 +138,6 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
     }
 }
 
-export class KubernetesNodeFolder extends ResourceFolderNode {
-    constructor() {
-        super(kuberesources.allKinds.node);
-    }
-
-    async getChildren(kubectl: Kubectl, _host: Host): Promise<ClusterExplorerNode[]> {
-        const nodes = await kubectlUtils.getGlobalResources(kubectl, 'nodes');
-        return nodes.map((node) => new NodeClusterExplorerNode(node.metadata.name, node));
-    }
-}
-
-export class KubernetesNamespaceFolder extends ResourceFolderNode {
-    constructor() {
-        super(kuberesources.allKinds.namespace);
-    }
-
-    async getChildren(kubectl: Kubectl, _host: Host): Promise<ClusterExplorerNode[]> {
-        const namespaces = await kubectlUtils.getNamespaces(kubectl);
-        return namespaces.map((ns) => new NamespaceResourceNode(this.kind, ns.name, ns));
-    }
-}
-
 export class KubernetesSelectsPodsFolder extends ResourceFolderNode {
     constructor(readonly kind: kuberesources.ResourceKind) {
         super(kind);
@@ -203,7 +149,7 @@ export class KubernetesSelectsPodsFolder extends ResourceFolderNode {
     }
 }
 
-class KubernetesSelectorResource extends ClusterExplorerResourceNode {
+class KubernetesSelectorResource extends ResourceNode {
     readonly selector?: any;
     constructor(readonly kind: kuberesources.ResourceKind, readonly name: string, readonly metadata?: any, readonly labelSelector?: any) {
         super(kind, name, metadata);
@@ -221,17 +167,6 @@ class KubernetesSelectorResource extends ClusterExplorerResourceNode {
             return [];
         }
         const pods = await kubectlUtils.getPods(kubectl, this.selector);
-        return pods.map((p) => new ClusterExplorerResourceNode(kuberesources.allKinds.pod, p.name, p));
-    }
-}
-
-export class KubernetesDataHolderFolder extends ResourceFolderNode {
-    constructor(kind: kuberesources.ResourceKind) {
-        super(kind);
-    }
-
-    async getChildren(kubectl: Kubectl, _host: Host): Promise<ClusterExplorerNode[]> {
-        const namespaces = await kubectlUtils.getDataHolders(this.kind.abbreviation, kubectl);
-        return namespaces.map((cm) => new ConfigurationResourceNode(this.kind, cm.metadata.name, cm, cm.data));
+        return pods.map((p) => new ResourceNode(kuberesources.allKinds.pod, p.name, p));
     }
 }
