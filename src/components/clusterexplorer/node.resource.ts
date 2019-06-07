@@ -90,8 +90,8 @@ export class PodSelectingResourceNode extends ResourceNode {
 
 function getIconForPodStatus(status: string): vscode.Uri {
     if (status === "running" || status === "completed") {
-        return vscode.Uri.file(path.join(__dirname, "../../images/runningPod.svg"));
+        return vscode.Uri.file(path.join(__dirname, "../../../../images/runningPod.svg"));
     } else {
-        return vscode.Uri.file(path.join(__dirname, "../../images/errorPod.svg"));
+        return vscode.Uri.file(path.join(__dirname, "../../../../images/errorPod.svg"));
     }
 }

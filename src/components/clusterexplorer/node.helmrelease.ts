@@ -28,8 +28,8 @@ export class HelmReleaseNode extends ClusterExplorerNodeImpl implements ClusterE
 
 function getIconForHelmRelease(status: string): vscode.Uri {
     if (status === "deployed") {
-        return vscode.Uri.file(path.join(__dirname, "../../images/helmDeployed.svg"));
+        return vscode.Uri.file(path.join(__dirname, "../../../../images/helmDeployed.svg"));
     } else {
-        return vscode.Uri.file(path.join(__dirname, "../../images/helmFailed.svg"));
+        return vscode.Uri.file(path.join(__dirname, "../../../../images/helmFailed.svg"));
     }
 }

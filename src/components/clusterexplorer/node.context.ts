@@ -20,7 +20,7 @@ export class ContextNode extends ClusterExplorerNodeImpl implements ClusterExplo
     }
     readonly nodeType = 'context';
     get icon(): vscode.Uri {
-        return vscode.Uri.file(path.join(__dirname, "../../images/k8s-logo.png"));
+        return vscode.Uri.file(path.join(__dirname, "../../../../images/k8s-logo.png"));
     }
     get clusterType(): string {
         return KUBERNETES_CLUSTER;
@@ -56,7 +56,7 @@ export class ContextNode extends ClusterExplorerNodeImpl implements ClusterExplo
 }
 export class MiniKubeContextNode extends ContextNode {
     get icon(): vscode.Uri {
-        return vscode.Uri.file(path.join(__dirname, "../../images/minikube-logo.png"));
+        return vscode.Uri.file(path.join(__dirname, "../../../../images/minikube-logo.png"));
     }
     get clusterType(): string {
         return MINIKUBE_CLUSTER;
