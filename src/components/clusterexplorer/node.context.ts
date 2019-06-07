@@ -4,14 +4,17 @@ import * as path from 'path';
 import { Kubectl } from '../../kubectl';
 import * as kubectlUtils from '../../kubectlUtils';
 import { Host } from '../../host';
-import { ClusterExplorerNode, KubernetesExplorerNodeImpl } from './node';
-import { KUBERNETES_CLUSTER, KubernetesNamespaceFolder, KubernetesNodeFolder, KubernetesCRDFolder, HelmReleasesFolder, MINIKUBE_CLUSTER } from './explorer';
+import { ClusterExplorerNode, KubernetesExplorerNodeImpl, ClusterExplorerContextNode } from './node';
+import { KUBERNETES_CLUSTER, KubernetesNamespaceFolder, KubernetesNodeFolder, MINIKUBE_CLUSTER } from './explorer';
+import { HelmReleasesFolder } from "./node.folder.helmreleases";
+import { CRDTypesFolderNode } from "./node.folder.crdtypes";
 import { WorkloadsGroupingFolderNode, NetworkGroupingFolderNode, StorageGroupingFolderNode, ConfigurationGroupingFolderNode } from "./node.folder.grouping";
 
-export class ContextNode extends KubernetesExplorerNodeImpl implements ClusterExplorerNode {
-    constructor(readonly id: string, readonly metadata: kubectlUtils.KubectlContext) {
+export class ContextNode extends KubernetesExplorerNodeImpl implements ClusterExplorerContextNode {
+    constructor(readonly contextName: string, readonly kubectlContext: kubectlUtils.KubectlContext) {
         super('context');
     }
+    readonly nodeType = 'context';
     get icon(): vscode.Uri {
         return vscode.Uri.file(path.join(__dirname, "../../images/k8s-logo.png"));
     }
@@ -19,7 +22,7 @@ export class ContextNode extends KubernetesExplorerNodeImpl implements ClusterEx
         return KUBERNETES_CLUSTER;
     }
     getChildren(_kubectl: Kubectl, _host: Host): vscode.ProviderResult<ClusterExplorerNode[]> {
-        if (this.metadata.active) {
+        if (this.kubectlContext.active) {
             return [
                 new KubernetesNamespaceFolder(),
                 new KubernetesNodeFolder(),
@@ -27,22 +30,22 @@ export class ContextNode extends KubernetesExplorerNodeImpl implements ClusterEx
                 new NetworkGroupingFolderNode(),
                 new StorageGroupingFolderNode(),
                 new ConfigurationGroupingFolderNode(),
-                new KubernetesCRDFolder(),
+                new CRDTypesFolderNode(),
                 new HelmReleasesFolder(),
             ];
         }
         return [];
     }
     getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
-        const treeItem = new vscode.TreeItem(this.id, vscode.TreeItemCollapsibleState.Collapsed);
+        const treeItem = new vscode.TreeItem(this.contextName, vscode.TreeItemCollapsibleState.Collapsed);
         treeItem.contextValue = this.clusterType;
         treeItem.iconPath = this.icon;
-        if (!this.metadata || !this.metadata.active) {
+        if (!this.kubectlContext || !this.kubectlContext.active) {
             treeItem.collapsibleState = vscode.TreeItemCollapsibleState.None;
             treeItem.contextValue += ".inactive";
         }
-        if (this.metadata) {
-            treeItem.tooltip = `${this.metadata.contextName}\nCluster: ${this.metadata.clusterName}`;
+        if (this.kubectlContext) {
+            treeItem.tooltip = `${this.kubectlContext.contextName}\nCluster: ${this.kubectlContext.clusterName}`;
         }
         return treeItem;
     }

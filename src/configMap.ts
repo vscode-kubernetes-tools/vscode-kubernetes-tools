@@ -2,11 +2,14 @@ import * as vscode from 'vscode';
 import { basename } from 'path';
 import { fs } from './fs';
 import { Kubectl } from './kubectl';
+import * as kuberesources from './kuberesources';
 import { currentNamespace, DataHolder } from './kubectlUtils';
 import { deleteMessageItems, overwriteMessageItems } from './extension';
-import { KubernetesFileObject, KubernetesDataHolderResource, KubernetesExplorer } from './components/clusterexplorer/explorer';
+import { KubernetesExplorer } from './components/clusterexplorer/explorer';
+import { ConfigurationResourceNode } from "./components/clusterexplorer/node.resource.configuration";
 import { allKinds } from './kuberesources';
 import { failed } from './errorable';
+import { ClusterExplorerConfigurationValueNode } from './components/clusterexplorer/node';
 
 export const uriScheme: string = 'k8sviewfiledata';
 
@@ -20,12 +23,12 @@ export class ConfigMapTextProvider implements vscode.TextDocumentContentProvider
     }
 }
 
-export function loadConfigMapData(obj: KubernetesFileObject) {
-    let encodedData = obj.configData[obj.id];
-    if (obj.resource === allKinds.configMap.abbreviation) {
-        encodedData = Buffer.from(obj.configData[obj.id]).toString('base64');
+export function loadConfigMapData(obj: ClusterExplorerConfigurationValueNode) {
+    let encodedData = obj.configData[obj.key];
+    if (obj.parentKind.abbreviation === allKinds.configMap.abbreviation) {
+        encodedData = Buffer.from(obj.configData[obj.key]).toString('base64');
     }
-    const uriStr = `${uriScheme}://${obj.resource}/${encodedData}/${obj.id}`;
+    const uriStr = `${uriScheme}://${obj.parentKind.abbreviation}/${encodedData}/${obj.key}`;
     const uri = vscode.Uri.parse(uriStr);
     vscode.workspace.openTextDocument(uri).then(
         (doc) => {
@@ -46,21 +49,21 @@ function removeKey(dictionary: any, keyToDelete: string): any {
     return newData;
 }
 
-export async function deleteKubernetesConfigFile(kubectl: Kubectl, obj: KubernetesFileObject, explorer: KubernetesExplorer) {
+export async function deleteKubernetesConfigFile(kubectl: Kubectl, obj: ClusterExplorerConfigurationValueNode, explorer: KubernetesExplorer) {
     if (!obj) {
         return;
     }
-    const result = await vscode.window.showWarningMessage(`Are you sure you want to delete ${obj.id}? This can not be undone`, ...deleteMessageItems);
+    const result = await vscode.window.showWarningMessage(`Are you sure you want to delete ${obj.key}? This can not be undone`, ...deleteMessageItems);
     if (!result || result.title !== deleteMessageItems[0].title) {
         return;
     }
     const currentNS = await currentNamespace(kubectl);
-    const json = await kubectl.asJson<any>(`get ${obj.resource} ${obj.parentName} --namespace=${currentNS} -o json`);
+    const json = await kubectl.asJson<any>(`get ${obj.parentKind.abbreviation} ${obj.parentName} --namespace=${currentNS} -o json`);
     if (failed(json)) {
         return;
     }
     const dataHolder = json.result;
-    dataHolder.data = removeKey(dataHolder.data, obj.id);
+    dataHolder.data = removeKey(dataHolder.data, obj.key);
     const out = JSON.stringify(dataHolder);
     const shellRes = await kubectl.invokeAsync(`replace -f - --namespace=${currentNS}`, out);
     if (!shellRes || shellRes.code !== 0) {
@@ -68,10 +71,10 @@ export async function deleteKubernetesConfigFile(kubectl: Kubectl, obj: Kubernet
         return;
     }
     explorer.refresh();
-    vscode.window.showInformationMessage(`Data '${obj.id}' deleted from resource.`);
+    vscode.window.showInformationMessage(`Data '${obj.key}' deleted from resource.`);
 }
 
-export async function addKubernetesConfigFile(kubectl: Kubectl, obj: KubernetesDataHolderResource, explorer: KubernetesExplorer) {
+export async function addKubernetesConfigFile(kubectl: Kubectl, obj: ConfigurationResourceNode, explorer: KubernetesExplorer) {
     if (!obj) {
         return;
     }
@@ -82,7 +85,7 @@ export async function addKubernetesConfigFile(kubectl: Kubectl, obj: KubernetesD
     if (fileUris) {
         console.log(fileUris);
         const currentNS = await currentNamespace(kubectl);
-        const dataHolderJson = await kubectl.asJson<DataHolder>(`get ${obj.resource} ${obj.id} --namespace=${currentNS} -o json`);
+        const dataHolderJson = await kubectl.asJson<DataHolder>(`get ${obj.kind.abbreviation} ${obj.name} --namespace=${currentNS} -o json`);
         if (failed(dataHolderJson)) {
             return;
         }
@@ -98,7 +101,7 @@ export async function addKubernetesConfigFile(kubectl: Kubectl, obj: KubernetesD
             }
             // TODO: I really don't like sync calls here...
             const buff = fs.readFileToBufferSync(filePath);
-            if (obj.resource === 'configmap') {
+            if (obj.kind.abbreviation === kuberesources.allKinds.configmap.abbreviation) {
                 dataHolder.data[fileName] = buff.toString();
             } else {
                 dataHolder.data[fileName] = buff.toString('base64');
@@ -111,6 +114,6 @@ export async function addKubernetesConfigFile(kubectl: Kubectl, obj: KubernetesD
             return;
         }
         explorer.refresh();
-        vscode.window.showInformationMessage(`New data added to resource ${obj.id}.`);
+        vscode.window.showInformationMessage(`New data added to resource ${obj.name}.`);
     }
 }

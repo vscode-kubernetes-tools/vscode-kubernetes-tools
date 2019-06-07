@@ -18,7 +18,7 @@ export class NodeClusterExplorerNode extends ClusterExplorerResourceNode {
     }
     async getChildren(kubectl: Kubectl, _host: Host): Promise<ClusterExplorerNode[]> {
         const pods = await kubectlUtils.getPods(kubectl, null, 'all');
-        const filteredPods = pods.filter((p) => `node/${p.nodeName}` === this.resourceId);
+        const filteredPods = pods.filter((p) => `node/${p.nodeName}` === this.kindName);
         return filteredPods.map((p) => new ClusterExplorerResourceNode(kuberesources.allKinds.pod, p.name, p));
     }
 }

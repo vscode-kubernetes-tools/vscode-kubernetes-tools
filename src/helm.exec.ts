@@ -6,7 +6,6 @@ import * as YAML from 'yamljs';
 import * as _ from 'lodash';
 import * as tmp from 'tmp';
 import * as extension from './extension';
-import * as explorer from './components/clusterexplorer/explorer';
 import * as helmrepoexplorer from './helm.repoExplorer';
 import * as helm from './helm';
 import { showWorkspaceFolderPick } from './hostutils';
@@ -21,6 +20,7 @@ import { getToolPath } from './components/config/config';
 import { host } from './host';
 import * as fs from './wsl-fs';
 import { preview } from './utils/preview';
+import { ClusterExplorerNode } from './components/clusterexplorer/node';
 
 export interface PickChartUIOptions {
     readonly warnIfNoCharts: boolean;
@@ -220,11 +220,14 @@ export function helmDryRun() {
     });
 }
 
-export function helmGet(resourceNode: explorer.ResourceNode) {
+export function helmGet(resourceNode?: ClusterExplorerNode) {
     if (!resourceNode) {
         return;
     }
-    const releaseName = resourceNode.id.split(':')[1];
+    if (resourceNode.nodeType !== 'helm.release') {
+        return;
+    }
+    const releaseName = resourceNode.releaseName;
     const uri = helmfsUri(releaseName);
     vscode.workspace.openTextDocument(uri).then((doc) => {
         if (doc) {

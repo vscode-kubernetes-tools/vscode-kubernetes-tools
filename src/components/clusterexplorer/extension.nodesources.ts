@@ -1,14 +1,10 @@
-import * as vscode from 'vscode';
-
-import { Kubectl } from '../../kubectl';
-import { Host } from '../../host';
 import * as kuberesources from '../../kuberesources';
 import { ExplorerExtender } from './explorer.extension';
-import { flatten } from '../../utils/array';
 import { ClusterExplorerNode } from './node';
 import { ContextNode } from './node.context';
 import { FolderNode } from './node.folder';
 import { ResourceFolderNode } from './node.folder.resource';
+import { ContributedGroupingFolderNode } from './node.folder.grouping.custom';
 
 export abstract class NodeSourceImpl {
     at(parent: string | undefined): ExplorerExtender<ClusterExplorerNode> {
@@ -34,7 +30,7 @@ export class CustomGroupingFolderNodeSource extends NodeSourceImpl {
         super();
     }
     async nodes(): Promise<ClusterExplorerNode[]> {
-        return [new CustomGroupingFolder(this.displayName, this.contextValue, this.children)];
+        return [new ContributedGroupingFolderNode(this.displayName, this.contextValue, this.children)];
     }
 }
 
@@ -59,24 +55,9 @@ export class ContributedNodeSourceExtender implements ExplorerExtender<ClusterEx
         if (this.under) {
             return parent.nodeType === 'folder.grouping' && (parent as FolderNode).displayName === this.under;
         }
-        return parent.nodeType === 'context' && (parent as ContextNode).metadata.active;
+        return parent.nodeType === 'context' && (parent as ContextNode).kubectlContext.active;
     }
     getChildren(_parent?: ClusterExplorerNode | undefined): Promise<ClusterExplorerNode[]> {
         return this.nodeSource.nodes();
-    }
-}
-
-class CustomGroupingFolder extends FolderNode {
-    constructor(displayName: string, contextValue: string | undefined, private readonly children: NodeSourceImpl[]) {
-        super('folder.grouping', 'folder.grouping.custom', displayName, contextValue);
-    }
-    getChildren(_kubectl: Kubectl, _host: Host): vscode.ProviderResult<ClusterExplorerNode[]> {
-        return this.getChildrenImpl();
-    }
-    private async getChildrenImpl(): Promise<ClusterExplorerNode[]> {
-        const allNodesPromise = Promise.all(this.children.map((c) => c.nodes()));
-        const nodeArrays = await allNodesPromise;
-        const nodes = flatten(...nodeArrays);
-        return nodes;
     }
 }

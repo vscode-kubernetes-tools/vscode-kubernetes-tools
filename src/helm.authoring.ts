@@ -4,10 +4,11 @@ import * as yaml from 'js-yaml';
 import * as _ from 'lodash';
 import { FS } from './fs';
 import { Host } from './host';
-import { ResourceNode, isKubernetesExplorerResourceNode } from './components/clusterexplorer/explorer';
+import { isKubernetesExplorerResourceNode } from './components/clusterexplorer/explorer';
 import { helmCreateCore } from './helm.exec';
 import { failed, Errorable } from './errorable';
 import { symbolAt, containmentChain, findKeyPath, FoundKeyPath } from './helm.symbolProvider';
+import { ClusterExplorerResourceNodeItf } from './components/clusterexplorer/node';
 
 interface Context {
     readonly fs: FS;
@@ -20,7 +21,7 @@ interface Chart {
     path: string;
 }
 
-export async function convertToTemplate(fs: FS, host: Host, projectPath: string, target: vscode.Uri | ResourceNode | undefined): Promise<void> {
+export async function convertToTemplate(fs: FS, host: Host, projectPath: string, target: vscode.Uri | ClusterExplorerResourceNodeItf | undefined): Promise<void> {
     const context = { fs, host, projectPath };
     const activeDocument = host.activeDocument();
     if (isKubernetesExplorerResourceNode(target)) {

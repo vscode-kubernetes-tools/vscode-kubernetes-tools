@@ -2,13 +2,11 @@ import * as vscode from 'vscode';
 
 import { ClusterExplorerV1 } from "../../contract/cluster-explorer/v1";
 import { ExplorerExtender, ExplorerUICustomizer } from "../../../components/clusterexplorer/explorer.extension";
-import { KUBERNETES_EXPLORER_NODE_CATEGORY, ResourceFolder, ResourceNode, KubernetesExplorer } from "../../../components/clusterexplorer/explorer";
+import { KUBERNETES_EXPLORER_NODE_CATEGORY, KubernetesExplorer } from "../../../components/clusterexplorer/explorer";
 import { CustomResourceFolderNodeSource, CustomGroupingFolderNodeSource, NodeSourceImpl } from "../../../components/clusterexplorer/extension.nodesources";
-import { ClusterExplorerNode } from "../../../components/clusterexplorer/node";
-import { Kubectl } from "../../../kubectl";
-import { Host } from "../../../host";
-import { KubectlContext } from '../../../kubectlUtils';
+import { ClusterExplorerNode, ClusterExplorerResourceNodeItf } from "../../../components/clusterexplorer/node";
 import { ResourceKind } from '../../../kuberesources';
+import { CustomNode } from './ContributedNode';
 
 export function impl(explorer: KubernetesExplorer): ClusterExplorerV1 {
     return new ClusterExplorerV1Impl(explorer);
@@ -89,47 +87,32 @@ function adaptKubernetesExplorerNode(node: ClusterExplorerNode): ClusterExplorer
         case 'error':
             return { nodeType: 'error' };
         case 'context':
-            return (node.metadata as KubectlContext).active ?
-                { nodeType: 'context', name: node.id } :
-                { nodeType: 'context.inactive', name: node.id };
+            return node.kubectlContext.active ?
+                { nodeType: 'context', name: node.contextName } :
+                { nodeType: 'context.inactive', name: node.contextName };
         case 'folder.grouping':
             return { nodeType: 'folder.grouping' };
         case 'folder.resource':
-            return { nodeType: 'folder.resource', resourceKind: (node as ClusterExplorerNode & ResourceFolder).kind };
+            return { nodeType: 'folder.resource', resourceKind: node.kind };
         case 'resource':
-            return adaptKubernetesExplorerResourceNode(node as (ClusterExplorerNode & ResourceNode));
+            return adaptKubernetesExplorerResourceNode(node);
         case 'configitem':
-            return { nodeType: 'configitem', name: node.id };
+            return { nodeType: 'configitem', name: node.key };
         case 'helm.release':
-            return { nodeType: 'helm.release', name: node.id };
+            return { nodeType: 'helm.release', name: node.releaseName };
         case 'extension':
             return { nodeType: 'extension' };
     }
 }
 
-function adaptKubernetesExplorerResourceNode(node: ClusterExplorerNode & ResourceNode): ClusterExplorerV1.ClusterExplorerResourceNode {
+function adaptKubernetesExplorerResourceNode(node: ClusterExplorerResourceNodeItf): ClusterExplorerV1.ClusterExplorerResourceNode {
     return {
         nodeType: 'resource',
         metadata: node.metadata,
-        name: node.id,
+        name: node.name,
         resourceKind: node.kind,
         namespace: node.namespace
     };
-}
-
-class ContributedNode implements ClusterExplorerNode {
-    readonly nodeCategory = 'kubernetes-explorer-node';
-    readonly nodeType = 'extension';
-    readonly id = 'dummy';
-
-    constructor(private readonly impl: ClusterExplorerV1.Node) {}
-
-    async getChildren(_kubectl: Kubectl, _host: Host): Promise<ClusterExplorerNode[]> {
-        return (await this.impl.getChildren()).map((n) => internalNodeOf(n));
-    }
-    getTreeItem(): vscode.TreeItem {
-        return this.impl.getTreeItem();
-    }
 }
 
 function resourceFolderContributor(displayName: string, pluralDisplayName: string, manifestKind: string, abbreviation: string): ClusterExplorerV1.NodeSource {
@@ -198,11 +181,11 @@ function apiNodeContributorOf(ee: ExplorerExtender<ClusterExplorerNode>): Cluste
     };
 }
 
-function internalNodeOf(node: ClusterExplorerV1.Node): ClusterExplorerNode {
+export function internalNodeOf(node: ClusterExplorerV1.Node): ClusterExplorerNode {
     if ((<any>node)[BUILT_IN_NODE_KIND_TAG]) {
         return (node as unknown as BuiltInNode).impl;
     }
-    return new ContributedNode(node);
+    return new CustomNode(node);
 }
 
 function apiNodeOf(node: ClusterExplorerNode): ClusterExplorerV1.Node & BuiltInNode {

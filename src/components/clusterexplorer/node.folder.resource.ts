@@ -3,16 +3,16 @@ import * as kubectlUtils from '../../kubectlUtils';
 import { Host } from '../../host';
 import * as kuberesources from '../../kuberesources';
 import { failed } from '../../errorable';
-import { ClusterExplorerNode } from './node';
+import { ClusterExplorerNode, ClusterExplorerResourceFolderNode } from './node';
 import { ErrorNode } from './node.error';
 import { FolderNode } from './node.folder';
 import { ClusterExplorerResourceNode } from './node.resource';
-import { ResourceFolder } from './explorer';
 
-export class ResourceFolderNode extends FolderNode implements ResourceFolder {
+export class ResourceFolderNode extends FolderNode implements ClusterExplorerResourceFolderNode {
     constructor(readonly kind: kuberesources.ResourceKind) {
         super("folder.resource", kind.abbreviation, kind.pluralDisplayName, "vsKubernetes.kind");
     }
+    readonly nodeType = 'folder.resource';
     async getChildren(kubectl: Kubectl, host: Host): Promise<ClusterExplorerNode[]> {
         if (this.kind === kuberesources.allKinds.pod) {
             const pods = await kubectlUtils.getPods(kubectl, null, null);

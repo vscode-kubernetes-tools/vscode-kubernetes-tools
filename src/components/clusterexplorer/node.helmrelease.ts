@@ -2,20 +2,19 @@ import * as vscode from 'vscode';
 
 import { Kubectl } from '../../kubectl';
 import { Host } from '../../host';
-import { ClusterExplorerNode, KubernetesExplorerNodeImpl } from './node';
+import { ClusterExplorerNode, KubernetesExplorerNodeImpl, ClusterExplorerHelmReleaseNode } from './node';
 import { getIconForHelmRelease } from './explorer';
 
-export class HelmReleaseNode extends KubernetesExplorerNodeImpl implements ClusterExplorerNode {
-    readonly id: string;
-    constructor(readonly name: string, readonly status: string) {
+export class HelmReleaseNode extends KubernetesExplorerNodeImpl implements ClusterExplorerHelmReleaseNode {
+    constructor(readonly releaseName: string, readonly status: string) {
         super("helm.release");
-        this.id = "helmrelease:" + name;
     }
+    readonly nodeType = 'helm.release';
     getChildren(_kubectl: Kubectl, _host: Host): vscode.ProviderResult<ClusterExplorerNode[]> {
         return [];
     }
     getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
-        const treeItem = new vscode.TreeItem(this.name, vscode.TreeItemCollapsibleState.None);
+        const treeItem = new vscode.TreeItem(this.releaseName, vscode.TreeItemCollapsibleState.None);
         treeItem.command = {
             command: "extension.helmGet",
             title: "Get",

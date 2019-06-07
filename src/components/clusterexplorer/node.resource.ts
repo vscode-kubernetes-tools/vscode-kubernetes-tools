@@ -5,21 +5,22 @@ import { Host } from '../../host';
 import * as kuberesources from '../../kuberesources';
 import { Pod } from '../../kuberesources.objectmodel';
 import { kubefsUri } from '../../kuberesources.virtualfs';
-import { ClusterExplorerNode, KubernetesExplorerNodeImpl } from './node';
+import { ClusterExplorerNode, KubernetesExplorerNodeImpl, ClusterExplorerResourceNodeItf } from './node';
 import { ErrorNode } from './node.error';
-import { ResourceNode, getIconForPodStatus } from './explorer';
+import { getIconForPodStatus } from './explorer';
 
-export class ClusterExplorerResourceNode extends KubernetesExplorerNodeImpl implements ClusterExplorerNode, ResourceNode {
-    readonly resourceId: string;
-    constructor(readonly kind: kuberesources.ResourceKind, readonly id: string, readonly metadata?: any) {
+export class ClusterExplorerResourceNode extends KubernetesExplorerNodeImpl implements ClusterExplorerResourceNodeItf {
+    readonly kindName: string;
+    readonly nodeType = 'resource';
+    constructor(readonly kind: kuberesources.ResourceKind, readonly name: string, readonly metadata?: any) {
         super("resource");
-        this.resourceId = `${kind.abbreviation}/${id}`;
+        this.kindName = `${kind.abbreviation}/${name}`;
     }
     get namespace(): string | null {
         return (this.metadata && this.metadata.namespace) ? this.metadata.namespace : null;
     }
     uri(outputFormat: string): vscode.Uri {
-        return kubefsUri(this.namespace, this.resourceId, outputFormat);
+        return kubefsUri(this.namespace, this.kindName, outputFormat);
     }
     async getChildren(kubectl: Kubectl, _host: Host): Promise<ClusterExplorerNode[]> {
         if (this.kind !== kuberesources.allKinds.pod) {
@@ -44,7 +45,7 @@ export class ClusterExplorerResourceNode extends KubernetesExplorerNodeImpl impl
         }
     }
     getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
-        const treeItem = new vscode.TreeItem(this.id, vscode.TreeItemCollapsibleState.None);
+        const treeItem = new vscode.TreeItem(this.name, vscode.TreeItemCollapsibleState.None);
         treeItem.command = {
             command: "extension.vsKubernetesLoad",
             title: "Load",

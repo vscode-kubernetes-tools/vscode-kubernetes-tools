@@ -3,12 +3,19 @@ import * as vscode from 'vscode';
 import { Kubectl } from '../../kubectl';
 import * as kuberesources from '../../kuberesources';
 import { Host } from '../../host';
-import { ClusterExplorerNode } from './node';
+import { ClusterExplorerNode, ClusterExplorerGroupingFolderNode } from './node';
 import { FolderNode } from './node.folder';
 import { KubernetesSelectsPodsFolder, KubernetesDataHolderFolder } from './explorer';
 import { ResourceFolderNode } from "./node.folder.resource";
 
-export class WorkloadsGroupingFolderNode extends FolderNode {
+export abstract class GroupingFolderNode extends FolderNode implements ClusterExplorerGroupingFolderNode {
+    constructor(nodeType: 'folder.grouping', id: string, displayName: string, contextValue?: string) {
+        super(nodeType, id, displayName, contextValue);
+    }
+    readonly nodeType = 'folder.grouping';
+}
+
+export class WorkloadsGroupingFolderNode extends GroupingFolderNode {
     constructor() {
         super("folder.grouping", "workload", "Workloads");
     }
@@ -24,7 +31,7 @@ export class WorkloadsGroupingFolderNode extends FolderNode {
     }
 }
 
-export class ConfigurationGroupingFolderNode extends FolderNode {
+export class ConfigurationGroupingFolderNode extends GroupingFolderNode {
     constructor() {
         super("folder.grouping", "config", "Configuration");
     }
@@ -36,7 +43,7 @@ export class ConfigurationGroupingFolderNode extends FolderNode {
     }
 }
 
-export class NetworkGroupingFolderNode extends FolderNode {
+export class NetworkGroupingFolderNode extends GroupingFolderNode {
     constructor() {
         super("folder.grouping", "network", "Network");
     }
@@ -49,7 +56,7 @@ export class NetworkGroupingFolderNode extends FolderNode {
     }
 }
 
-export class StorageGroupingFolderNode extends FolderNode {
+export class StorageGroupingFolderNode extends GroupingFolderNode {
     constructor() {
         super("folder.grouping", "storage", "Storage");
     }

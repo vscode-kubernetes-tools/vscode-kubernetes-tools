@@ -3,14 +3,14 @@ import { promptKindName } from '../../extension';
 import { host } from '../../host';
 import * as kubectlUtils from '../../kubectlUtils';
 import * as kuberesources from '../../kuberesources';
-import * as explorer from '../clusterexplorer/explorer';
 import { Kubectl } from '../../kubectl';
+import { ClusterExplorerNode } from '../clusterexplorer/node';
 
-export async function useNamespaceKubernetes(kubectl: Kubectl, explorerNode: explorer.KubernetesObject) {
-    if (explorerNode) {
-        if (await kubectlUtils.switchNamespace(kubectl, explorerNode.id)) {
+export async function useNamespaceKubernetes(kubectl: Kubectl, explorerNode: ClusterExplorerNode) {
+    if (explorerNode && explorerNode.nodeType === 'resource') {
+        if (await kubectlUtils.switchNamespace(kubectl, explorerNode.name)) {
             refreshExplorer();
-            host.showInformationMessage(`Switched to namespace ${explorerNode.id}`);
+            host.showInformationMessage(`Switched to namespace ${explorerNode.name}`);
             return;
         }
     }

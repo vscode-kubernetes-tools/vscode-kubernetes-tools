@@ -4,8 +4,8 @@ import * as kuberesources from '../../kuberesources';
 import { ClusterExplorerResourceNode } from './node.resource';
 
 export class NamespaceResourceNode extends ClusterExplorerResourceNode {
-    constructor(readonly kind: kuberesources.ResourceKind, readonly id: string, readonly metadata?: any) {
-        super(kind, id, metadata);
+    constructor(readonly kind: kuberesources.ResourceKind, readonly name: string, readonly metadata?: any) {
+        super(kind, name, metadata);
     }
     async getTreeItem(): Promise<vscode.TreeItem> {
         const treeItem = await super.getTreeItem();
