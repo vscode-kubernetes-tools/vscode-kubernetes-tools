@@ -14,9 +14,6 @@ import { MiniKubeContextNode, ContextNode } from './node.context';
 import { ResourceNode } from './node.resource';
 import { ResourceFolderNode } from './node.folder.resource';
 
-export const KUBERNETES_CLUSTER = "vsKubernetes.cluster";
-export const MINIKUBE_CLUSTER = "vsKubernetes.minikubeCluster";
-
 export const KUBERNETES_EXPLORER_NODE_CATEGORY = 'kubernetes-explorer-node';
 
 export type KubernetesExplorerNodeType =

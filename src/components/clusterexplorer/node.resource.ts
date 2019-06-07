@@ -65,7 +65,7 @@ export class ResourceNode extends ClusterExplorerNodeImpl implements ClusterExpl
     }
 }
 
-export function getIconForPodStatus(status: string): vscode.Uri {
+function getIconForPodStatus(status: string): vscode.Uri {
     if (status === "running" || status === "completed") {
         return vscode.Uri.file(path.join(__dirname, "../../images/runningPod.svg"));
     } else {

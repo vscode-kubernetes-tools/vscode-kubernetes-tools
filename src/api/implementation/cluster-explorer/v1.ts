@@ -3,10 +3,11 @@ import * as vscode from 'vscode';
 import { ClusterExplorerV1 } from "../../contract/cluster-explorer/v1";
 import { ExplorerExtender, ExplorerUICustomizer } from "../../../components/clusterexplorer/explorer.extension";
 import { KUBERNETES_EXPLORER_NODE_CATEGORY, KubernetesExplorer } from "../../../components/clusterexplorer/explorer";
+import { Kubectl } from "../../../kubectl";
+import { Host } from "../../../host";
 import { CustomResourceFolderNodeSource, CustomGroupingFolderNodeSource, NodeSourceImpl } from "../../../components/clusterexplorer/extension.nodesources";
-import { ClusterExplorerNode, ClusterExplorerResourceNode } from "../../../components/clusterexplorer/node";
+import { ClusterExplorerNode, ClusterExplorerResourceNode, ClusterExplorerCustomNode } from "../../../components/clusterexplorer/node";
 import { ResourceKind } from '../../../kuberesources';
-import { CustomNode } from './ContributedNode';
 
 export function impl(explorer: KubernetesExplorer): ClusterExplorerV1 {
     return new ClusterExplorerV1Impl(explorer);
@@ -115,6 +116,21 @@ function adaptKubernetesExplorerResourceNode(node: ClusterExplorerResourceNode):
     };
 }
 
+export class ContributedNode implements ClusterExplorerCustomNode {
+    readonly nodeCategory = 'kubernetes-explorer-node';
+    readonly nodeType = 'extension';
+    readonly id = 'dummy';
+
+    constructor(private readonly impl: ClusterExplorerV1.Node) { }
+
+    async getChildren(_kubectl: Kubectl, _host: Host): Promise<ClusterExplorerNode[]> {
+        return (await this.impl.getChildren()).map((n) => internalNodeOf(n));
+    }
+    getTreeItem(): vscode.TreeItem {
+        return this.impl.getTreeItem();
+    }
+}
+
 function resourceFolderContributor(displayName: string, pluralDisplayName: string, manifestKind: string, abbreviation: string): ClusterExplorerV1.NodeSource {
     const nodeSource = new CustomResourceFolderNodeSource(new ResourceKind(displayName, pluralDisplayName, manifestKind, abbreviation));
     return apiNodeSourceOf(nodeSource);
@@ -185,7 +201,7 @@ export function internalNodeOf(node: ClusterExplorerV1.Node): ClusterExplorerNod
     if ((<any>node)[BUILT_IN_NODE_KIND_TAG]) {
         return (node as unknown as BuiltInNode).impl;
     }
-    return new CustomNode(node);
+    return new ContributedNode(node);
 }
 
 function apiNodeOf(node: ClusterExplorerNode): ClusterExplorerV1.Node & BuiltInNode {

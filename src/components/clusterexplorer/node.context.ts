@@ -5,12 +5,14 @@ import { Kubectl } from '../../kubectl';
 import * as kubectlUtils from '../../kubectlUtils';
 import { Host } from '../../host';
 import { ClusterExplorerNode, ClusterExplorerNodeImpl, ClusterExplorerContextNode } from './node';
-import { KUBERNETES_CLUSTER, MINIKUBE_CLUSTER } from './explorer';
 import { NamespacesFolder } from "./node.folder.namespaces";
 import { NodesFolder } from "./node.folder.nodes";
 import { HelmReleasesFolder } from "./node.folder.helmreleases";
 import { CRDTypesFolderNode } from "./node.folder.crdtypes";
 import { WorkloadsGroupingFolderNode, NetworkGroupingFolderNode, StorageGroupingFolderNode, ConfigurationGroupingFolderNode } from "./node.folder.grouping";
+
+const KUBERNETES_CLUSTER = "vsKubernetes.cluster";
+const MINIKUBE_CLUSTER = "vsKubernetes.minikubeCluster";
 
 export class ContextNode extends ClusterExplorerNodeImpl implements ClusterExplorerContextNode {
     constructor(readonly contextName: string, readonly kubectlContext: kubectlUtils.KubectlContext) {
