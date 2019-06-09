@@ -30,8 +30,8 @@ export interface ClusterExplorerGroupingFolderNode extends ClusterExplorerNodeBa
     readonly nodeType: 'folder.grouping';
 }
 
-export interface ClusterExplorerErrorNode extends ClusterExplorerNodeBase {
-    readonly nodeType: 'error';
+export interface ClusterExplorerMessageNode extends ClusterExplorerNodeBase {
+    readonly nodeType: 'error';  // TODO: should be 'message'
 }
 
 export interface ClusterExplorerResourceNode extends ClusterExplorerNodeBase {
@@ -62,7 +62,7 @@ export interface ClusterExplorerCustomNode extends ClusterExplorerNodeBase {
 }
 
 export type ClusterExplorerNode =
-    ClusterExplorerErrorNode |
+    ClusterExplorerMessageNode |
     ClusterExplorerContextNode |
     ClusterExplorerResourceFolderNode |
     ClusterExplorerGroupingFolderNode |

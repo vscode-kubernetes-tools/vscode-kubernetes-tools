@@ -8,9 +8,16 @@ import * as kuberesources from '../../kuberesources';
 import { Pod } from '../../kuberesources.objectmodel';
 import { kubefsUri } from '../../kuberesources.virtualfs';
 import { ClusterExplorerNode, ClusterExplorerNodeImpl, ClusterExplorerResourceNode } from './node';
-import { ErrorNode } from './node.error';
+import { MessageNode } from './node.message';
 
-export class ResourceNode extends ClusterExplorerNodeImpl implements ClusterExplorerResourceNode {
+export function createResourceNode(kind: kuberesources.ResourceKind, name: string, metadata?: any): ClusterExplorerResourceNode {
+    if (kind.manifestKind === 'Pod') {
+        return new PodResourceNode(name, metadata);
+    }
+    return new SimpleResourceNode(kind, name, metadata);
+}
+
+export abstract class ResourceNode extends ClusterExplorerNodeImpl implements ClusterExplorerResourceNode {
     readonly kindName: string;
     readonly nodeType = 'resource';
     constructor(readonly kind: kuberesources.ResourceKind, readonly name: string, readonly metadata?: any) {
@@ -23,27 +30,8 @@ export class ResourceNode extends ClusterExplorerNodeImpl implements ClusterExpl
     uri(outputFormat: string): vscode.Uri {
         return kubefsUri(this.namespace, this.kindName, outputFormat);
     }
-    async getChildren(kubectl: Kubectl, _host: Host): Promise<ClusterExplorerNode[]> {
-        if (this.kind !== kuberesources.allKinds.pod) {
-            return [];
-        }
-        const result = await kubectl.asJson<Pod>(`get pods ${this.metadata.name} -o json`);
-        if (result.succeeded) {
-            const pod = result.result;
-            let ready = 0;
-            pod.status.containerStatuses.forEach((status) => {
-                if (status.ready) {
-                    ready++;
-                }
-            });
-            return [
-                new ErrorNode(`${pod.status.phase} (${ready}/${pod.status.containerStatuses.length})`),
-                new ErrorNode(pod.status.podIP),
-            ];
-        }
-        else {
-            return [new ErrorNode("Error", result.error[0])];
-        }
+    async getChildren(_kubectl: Kubectl, _host: Host): Promise<ClusterExplorerNode[]> {
+        return [];
     }
     getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
         const treeItem = new vscode.TreeItem(this.name, vscode.TreeItemCollapsibleState.None);
@@ -56,11 +44,44 @@ export class ResourceNode extends ClusterExplorerNodeImpl implements ClusterExpl
         if (this.namespace) {
             treeItem.tooltip = `Namespace: ${this.namespace}`; // TODO: show only if in non-current namespace?
         }
-        if (this.kind === kuberesources.allKinds.pod) {
-            treeItem.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
-            if (this.metadata && this.metadata.status) {
-                treeItem.iconPath = getIconForPodStatus(this.metadata.status.toLowerCase());
-            }
+        return treeItem;
+    }
+}
+
+class SimpleResourceNode extends ResourceNode {
+    constructor(readonly kind: kuberesources.ResourceKind, readonly name: string, readonly metadata?: any) {
+        super(kind, name, metadata);
+    }
+}
+
+class PodResourceNode extends ResourceNode {
+    constructor(readonly name: string, readonly metadata?: any) {
+        super(kuberesources.allKinds.pod, name, metadata);
+    }
+    async getChildren(kubectl: Kubectl, _host: Host): Promise<ClusterExplorerNode[]> {
+        const result = await kubectl.asJson<Pod>(`get pods ${this.metadata.name} -o json`);
+        if (result.succeeded) {
+            const pod = result.result;
+            let ready = 0;
+            pod.status.containerStatuses.forEach((status) => {
+                if (status.ready) {
+                    ready++;
+                }
+            });
+            return [
+                new MessageNode(`${pod.status.phase} (${ready}/${pod.status.containerStatuses.length})`),
+                new MessageNode(pod.status.podIP),
+            ];
+        }
+        else {
+            return [new MessageNode("Error", result.error[0])];
+        }
+    }
+    async getTreeItem(): Promise<vscode.TreeItem> {
+        const treeItem = await super.getTreeItem();
+        treeItem.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
+        if (this.metadata && this.metadata.status) {
+            treeItem.iconPath = getIconForPodStatus(this.metadata.status.toLowerCase());
         }
         return treeItem;
     }
@@ -84,7 +105,7 @@ export class PodSelectingResourceNode extends ResourceNode {
             return [];
         }
         const pods = await kubectlUtils.getPods(kubectl, this.selector);
-        return pods.map((p) => new ResourceNode(kuberesources.allKinds.pod, p.name, p));
+        return pods.map((p) => createResourceNode(kuberesources.allKinds.pod, p.name, p));
     }
 }
 
