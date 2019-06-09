@@ -34,7 +34,8 @@ export abstract class ResourceNode extends ClusterExplorerNodeImpl implements Cl
         return [];
     }
     getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
-        const treeItem = new vscode.TreeItem(this.name, vscode.TreeItemCollapsibleState.None);
+        const collapsibleState = this.isExpandable ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None;
+        const treeItem = new vscode.TreeItem(this.name, collapsibleState);
         treeItem.command = {
             command: "extension.vsKubernetesLoad",
             title: "Load",
@@ -45,6 +46,12 @@ export abstract class ResourceNode extends ClusterExplorerNodeImpl implements Cl
             treeItem.tooltip = `Namespace: ${this.namespace}`; // TODO: show only if in non-current namespace?
         }
         return treeItem;
+    }
+    get isExpandable(): boolean {
+        return false;
+    }
+    get iconPath(): string | undefined {
+        return undefined;
     }
 }
 
@@ -79,11 +86,13 @@ class PodResourceNode extends ResourceNode {
     }
     async getTreeItem(): Promise<vscode.TreeItem> {
         const treeItem = await super.getTreeItem();
-        treeItem.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
         if (this.metadata && this.metadata.status) {
             treeItem.iconPath = getIconForPodStatus(this.metadata.status.toLowerCase());
         }
         return treeItem;
+    }
+    get isExpandable() {
+        return true;
     }
 }
 
@@ -94,18 +103,16 @@ export class PodSelectingResourceNode extends ResourceNode {
         this.selector = labelSelector;
     }
 
-    async getTreeItem(): Promise<vscode.TreeItem> {
-        const treeItem = await super.getTreeItem();
-        treeItem.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
-        return treeItem;
-    }
-
     async getChildren(kubectl: Kubectl, _host: Host): Promise<ClusterExplorerNode[]> {
         if (!this.selector) {
             return [];
         }
         const pods = await kubectlUtils.getPods(kubectl, this.selector);
         return pods.map((p) => createResourceNode(kuberesources.allKinds.pod, p.name, p));
+    }
+
+    get isExpandable() {
+        return true;
     }
 }
 

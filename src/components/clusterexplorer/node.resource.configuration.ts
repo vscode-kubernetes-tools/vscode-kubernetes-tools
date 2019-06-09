@@ -1,5 +1,3 @@
-import * as vscode from 'vscode';
-
 import { Kubectl } from '../../kubectl';
 import { Host } from '../../host';
 import * as kuberesources from '../../kuberesources';
@@ -13,16 +11,15 @@ export class ConfigurationResourceNode extends ResourceNode {
         super(kind, name, metadata);
         this.configData = data;
     }
-    async getTreeItem(): Promise<vscode.TreeItem> {
-        const treeItem = await super.getTreeItem();
-        treeItem.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
-        return treeItem;
-    }
     async getChildren(_kubectl: Kubectl, _host: Host): Promise<ClusterExplorerNode[]> {
         if (!this.configData || this.configData.length === 0) {
             return [];
         }
         const files = Object.keys(this.configData);
         return files.map((f) => new ConfigurationValueNode(this.configData, f, this.kind, this.name));
+    }
+
+    get isExpandable() {
+        return true;
     }
 }
