@@ -6,8 +6,8 @@ import { ObjectMeta } from '../../kuberesources.objectmodel';
 import { NamespaceInfo } from '../../kubectlUtils';
 
 export class NamespaceResourceNode extends ResourceNode {
-    constructor(kind: kuberesources.ResourceKind, name: string, metadata: ObjectMeta | undefined, private readonly nsinfo: NamespaceInfo) {
-        super(kind, name, metadata);
+    constructor(name: string, metadata: ObjectMeta | undefined, private readonly nsinfo: NamespaceInfo) {
+        super(kuberesources.allKinds.namespace, name, metadata);
     }
     async getTreeItem(): Promise<vscode.TreeItem> {
         const treeItem = await super.getTreeItem();

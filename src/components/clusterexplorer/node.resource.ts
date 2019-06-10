@@ -9,6 +9,7 @@ import { Pod, ObjectMeta } from '../../kuberesources.objectmodel';
 import { kubefsUri } from '../../kuberesources.virtualfs';
 import { ClusterExplorerNode, ClusterExplorerNodeImpl, ClusterExplorerResourceNode } from './node';
 import { MessageNode } from './node.message';
+import { resourceNodeCreate } from './resourcenodefactory';
 
 export abstract class ResourceNode extends ClusterExplorerNodeImpl implements ClusterExplorerResourceNode {
     readonly kindName: string;
@@ -104,7 +105,7 @@ export class PodSelectingResourceNode extends ResourceNode {
             return [];
         }
         const pods = await kubectlUtils.getPods(kubectl, this.labelSelector);
-        return pods.map((p) => new PodResourceNode(p.name, p.metadata, p));
+        return pods.map((p) => resourceNodeCreate(kuberesources.allKinds.pod, p.name, p.metadata, p));
     }
 
     get isExpandable() {

@@ -6,7 +6,7 @@ import { failed } from '../../errorable';
 import { ClusterExplorerNode, ClusterExplorerResourceFolderNode } from './node';
 import { MessageNode } from './node.message';
 import { FolderNode } from './node.folder';
-import { PodSelectingResourceNode, PodResourceNode, SimpleResourceNode } from './node.resource';
+import { resourceNodeCreate } from './resourcenodefactory';
 
 export class ResourceFolderNode extends FolderNode implements ClusterExplorerResourceFolderNode {
     constructor(readonly kind: kuberesources.ResourceKind) {
@@ -17,7 +17,7 @@ export class ResourceFolderNode extends FolderNode implements ClusterExplorerRes
         if (this.kind === kuberesources.allKinds.pod) {
             const pods = await kubectlUtils.getPods(kubectl, null, null);
             return pods.map((pod) => {
-                return new PodResourceNode(pod.name, pod.metadata, pod);
+                return resourceNodeCreate(this.kind, pod.name, pod.metadata, pod);
             });
         }
         const childrenLines = await kubectl.asLines(`get ${this.kind.abbreviation}`);
@@ -27,7 +27,7 @@ export class ResourceFolderNode extends FolderNode implements ClusterExplorerRes
         }
         return childrenLines.result.map((line) => {
             const bits = line.split(' ');
-            return new SimpleResourceNode(this.kind, bits[0], undefined);
+            return resourceNodeCreate(this.kind, bits[0], undefined, undefined);
         });
     }
 }
@@ -39,6 +39,6 @@ export class PodSelectingResourceFolderNode extends ResourceFolderNode {
 
     async getChildren(kubectl: Kubectl, _host: Host): Promise<ClusterExplorerNode[]> {
         const objects = await kubectlUtils.getResourceWithSelector(this.kind.abbreviation, kubectl);
-        return objects.map((obj) => new PodSelectingResourceNode(this.kind, obj.name, obj, obj.selector));
+        return objects.map((obj) => resourceNodeCreate(this.kind, obj.name, obj.metadata, obj));
     }
 }

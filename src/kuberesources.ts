@@ -1,34 +1,42 @@
 import * as vscode from 'vscode';
 import { Dictionary } from './utils/dictionary';
 
+interface KindTraits {
+    readonly selectsPods?: boolean;
+    readonly holdsConfigData?: boolean;
+}
+
 export class ResourceKind implements vscode.QuickPickItem {
-    constructor(readonly displayName: string, readonly pluralDisplayName: string, readonly manifestKind: string, readonly abbreviation: string) {
+    constructor(readonly displayName: string, readonly pluralDisplayName: string, readonly manifestKind: string, readonly abbreviation: string, private readonly traits?: KindTraits) {
     }
 
     get label() { return this.displayName; }
     get description() { return ''; }
+
+    get selectsPods() { return !!this.traits && !!this.traits.selectsPods; }
+    get holdsConfigData() { return !!this.traits && !!this.traits.holdsConfigData; }
 }
 
 export const allKinds: Dictionary<ResourceKind> = {
     endpoint: new ResourceKind("Endpoint", "Endpoints", "Endpoint", "endpoints"),
     namespace: new ResourceKind("Namespace", "Namespaces", "Namespace", "namespace"),
     node: new ResourceKind("Node", "Nodes", "Node", "node"),
-    deployment: new ResourceKind("Deployment", "Deployments", "Deployment", "deployment"),
-    daemonSet: new ResourceKind("DaemonSet", "DaemonSets", "DaemonSet", "daemonset"),
+    deployment: new ResourceKind("Deployment", "Deployments", "Deployment", "deployment", { selectsPods: true }),
+    daemonSet: new ResourceKind("DaemonSet", "DaemonSets", "DaemonSet", "daemonset", { selectsPods: true }),
     replicaSet: new ResourceKind("ReplicaSet", "ReplicaSets", "ReplicaSet", "rs"),
     replicationController: new ResourceKind("Replication Controller", "Replication Controllers", "ReplicationController", "rc"),
     job: new ResourceKind("Job", "Jobs", "Job", "job"),
     cronjob: new ResourceKind("CronJob", "CronJobs", "CronJob", "cronjob"),
     pod: new ResourceKind("Pod", "Pods", "Pod", "pod"),
     crd: new ResourceKind("Custom Resource", "Custom Resources", "CustomResourceDefinition", "crd"),
-    service: new ResourceKind("Service", "Services", "Service", "service"),
-    configMap: new ResourceKind("ConfigMap", "Config Maps", "ConfigMap", "configmap"),
-    secret: new ResourceKind("Secret", "Secrets", "Secret", "secret"),
+    service: new ResourceKind("Service", "Services", "Service", "service", { selectsPods: true }),
+    configMap: new ResourceKind("ConfigMap", "Config Maps", "ConfigMap", "configmap", { holdsConfigData: true }),
+    secret: new ResourceKind("Secret", "Secrets", "Secret", "secret", { holdsConfigData: true }),
     ingress: new ResourceKind("Ingress", "Ingress", "Ingress", "ingress"),
     persistentVolume: new ResourceKind("Persistent Volume", "Persistent Volumes", "PersistentVolume", "pv"),
     persistentVolumeClaim: new ResourceKind("Persistent Volume Claim", "Persistent Volume Claims", "PersistentVolumeClaim", "pvc"),
     storageClass: new ResourceKind("Storage Class", "Storage Classes", "StorageClass", "sc"),
-    statefulSet: new ResourceKind("StatefulSet", "StatefulSets", "StatefulSet", "statefulset"),
+    statefulSet: new ResourceKind("StatefulSet", "StatefulSets", "StatefulSet", "statefulset", { selectsPods: true }),
 };
 
 export const commonKinds = [
