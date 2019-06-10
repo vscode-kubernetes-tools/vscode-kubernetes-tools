@@ -128,12 +128,6 @@ export class PodResourceNode extends ResourceNode {
     }
 }
 
-export class PodSelectingResourceNode extends ResourceNode {
-    constructor(kind: kuberesources.ResourceKind, name: string, metadata: ObjectMeta | undefined, labelSelector: any) {
-        super(kind, name, metadata, { labelSelector: labelSelector });
-    }
-}
-
 function getIconForPodStatus(status: string): vscode.Uri {
     if (status === "running" || status === "completed") {
         return vscode.Uri.file(path.join(__dirname, "../../../../images/runningPod.svg"));
