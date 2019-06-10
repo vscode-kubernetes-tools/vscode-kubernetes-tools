@@ -42,6 +42,10 @@ export abstract class ResourceNode extends ClusterExplorerNodeImpl implements Cl
                     const podStatusInfos = await listPodStatusItems(kubectl, this.name, this.namespace);
                     children.push(...podStatusInfos);
                     break;
+                case 'nodepods':
+                    const nodepods = await listNodePods(kubectl, this.kindName);
+                    children.push(...nodepods);
+                    break;
             }
         }
         return children;
@@ -114,6 +118,12 @@ async function listPods(kubectl: Kubectl, labelSelector: any): Promise<ClusterEx
     }
     const pods = await kubectlUtils.getPods(kubectl, labelSelector);
     return pods.map((p) => resourceNodeCreate(kuberesources.allKinds.pod, p.name, p.metadata, { podInfo: p }));
+}
+
+async function listNodePods(kubectl: Kubectl, nodeKindName: string): Promise<ClusterExplorerNode[]> {
+    const pods = await kubectlUtils.getPods(kubectl, null, 'all');
+    const filteredPods = pods.filter((p) => `node/${p.nodeName}` === nodeKindName);
+    return filteredPods.map((p) => resourceNodeCreate(kuberesources.allKinds.pod, p.name, p.metadata, { podInfo: p }));
 }
 
 export class SimpleResourceNode extends ResourceNode {
