@@ -113,7 +113,7 @@ async function listPods(kubectl: Kubectl, labelSelector: any): Promise<ClusterEx
         return [];
     }
     const pods = await kubectlUtils.getPods(kubectl, labelSelector);
-    return pods.map((p) => resourceNodeCreate(kuberesources.allKinds.pod, p.name, p.metadata, p));
+    return pods.map((p) => resourceNodeCreate(kuberesources.allKinds.pod, p.name, p.metadata, { podInfo: p }));
 }
 
 export class SimpleResourceNode extends ResourceNode {

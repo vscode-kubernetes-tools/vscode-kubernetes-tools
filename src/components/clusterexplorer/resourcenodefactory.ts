@@ -2,29 +2,20 @@ import * as vscode from 'vscode';
 
 import * as kubectlUtils from '../../kubectlUtils';
 import * as kuberesources from '../../kuberesources';
-import { ObjectMeta, DataResource, KubernetesResource } from '../../kuberesources.objectmodel';
+import { ObjectMeta, KubernetesResource } from '../../kuberesources.objectmodel';
 import { ClusterExplorerResourceNode } from './node';
 import { NodeClusterExplorerNode } from './node.resource.node';
 import { NamespaceResourceNode } from './node.resource.namespace';
-import { SimpleResourceNode, podIconProvider } from './node.resource';
+import { SimpleResourceNode, podIconProvider, ResourceExtraInfo } from './node.resource';
 
-export function resourceNodeCreate(kind: kuberesources.ResourceKind, name: string, metadata: ObjectMeta | undefined, resource: kubectlUtils.PodInfo | kubectlUtils.NamespaceInfo | DataResource | kubectlUtils.HasSelector | undefined): ClusterExplorerResourceNode {
-    if (kind.manifestKind === 'Pod') {
-        return new SimpleResourceNode(kind, name, metadata, { podInfo: resource as kubectlUtils.PodInfo });
-    }
+export function resourceNodeCreate(kind: kuberesources.ResourceKind, name: string, metadata: ObjectMeta | undefined, extraInfo: ResourceExtraInfo | kubectlUtils.NamespaceInfo /* for now */ | undefined): ClusterExplorerResourceNode {
     if (kind.manifestKind === 'Node') {
         return new NodeClusterExplorerNode(name, metadata);
     }
     if (kind.manifestKind === 'Namespace') {
-        return new NamespaceResourceNode(name, metadata, resource as kubectlUtils.NamespaceInfo);
+        return new NamespaceResourceNode(name, metadata, extraInfo as kubectlUtils.NamespaceInfo);
     }
-    if (kind.holdsConfigData) {
-        return new SimpleResourceNode(kind, name, metadata, { configData: (resource as DataResource).data });
-    }
-    if (kind.selectsPods) {
-        return new SimpleResourceNode(kind, name, metadata, { labelSelector: (resource as kubectlUtils.HasSelector).selector });
-    }
-    return new SimpleResourceNode(kind, name, metadata, undefined);
+    return new SimpleResourceNode(kind, name, metadata, extraInfo as ResourceExtraInfo | undefined);  // TODO: get rid of type assertion
 }
 
 export function getChildSources(kind: kuberesources.ResourceKind): ReadonlyArray<ResourceChildSource> {

@@ -14,7 +14,7 @@ export class NodeClusterExplorerNode extends ResourceNode {
     async getChildren(kubectl: Kubectl, _host: Host): Promise<ClusterExplorerNode[]> {
         const pods = await kubectlUtils.getPods(kubectl, null, 'all');
         const filteredPods = pods.filter((p) => `node/${p.nodeName}` === this.kindName);
-        return filteredPods.map((p) => resourceNodeCreate(kuberesources.allKinds.pod, p.name, p.metadata, p));
+        return filteredPods.map((p) => resourceNodeCreate(kuberesources.allKinds.pod, p.name, p.metadata, { podInfo: p }));
     }
 
     get isExpandable() {

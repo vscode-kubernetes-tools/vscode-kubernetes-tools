@@ -17,7 +17,7 @@ export class ResourceFolderNode extends FolderNode implements ClusterExplorerRes
         if (this.kind === kuberesources.allKinds.pod) {
             const pods = await kubectlUtils.getPods(kubectl, null, null);
             return pods.map((pod) => {
-                return resourceNodeCreate(this.kind, pod.name, pod.metadata, pod);
+                return resourceNodeCreate(this.kind, pod.name, pod.metadata, { podInfo: pod });
             });
         }
         const childrenLines = await kubectl.asLines(`get ${this.kind.abbreviation}`);
@@ -39,6 +39,6 @@ export class PodSelectingResourceFolderNode extends ResourceFolderNode {
 
     async getChildren(kubectl: Kubectl, _host: Host): Promise<ClusterExplorerNode[]> {
         const objects = await kubectlUtils.getResourceWithSelector(this.kind.abbreviation, kubectl);
-        return objects.map((obj) => resourceNodeCreate(this.kind, obj.name, obj.metadata, obj));
+        return objects.map((obj) => resourceNodeCreate(this.kind, obj.name, obj.metadata, { labelSelector: obj.selector }));
     }
 }
