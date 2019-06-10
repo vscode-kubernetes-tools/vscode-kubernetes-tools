@@ -122,12 +122,6 @@ export class SimpleResourceNode extends ResourceNode {
     }
 }
 
-export class PodResourceNode extends ResourceNode {
-    constructor(name: string, metadata: ObjectMeta | undefined, podInfo: kubectlUtils.PodInfo) {
-        super(kuberesources.allKinds.pod, name, metadata, { podInfo: podInfo });
-    }
-}
-
 function getIconForPodStatus(status: string): vscode.Uri {
     if (status === "running" || status === "completed") {
         return vscode.Uri.file(path.join(__dirname, "../../../../images/runningPod.svg"));
