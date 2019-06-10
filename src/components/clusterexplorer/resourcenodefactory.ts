@@ -2,10 +2,11 @@ import * as vscode from 'vscode';
 
 import * as kuberesources from '../../kuberesources';
 import { ObjectMeta, KubernetesResource } from '../../kuberesources.objectmodel';
-import { ClusterExplorerResourceNode } from './node';
-import { SimpleResourceNode, ResourceExtraInfo, ResourceNode } from './node.resource';
+import { ClusterExplorerResourceNode, ClusterExplorerNode } from './node';
+import { SimpleResourceNode, ResourceExtraInfo, ResourceNode, nodePodsChildSource, selectedPodsChildSource, podStatusChildSource, configItemsChildSource } from './node.resource';
 import { namespaceUICustomiser } from './resourcekinds/resourcekind.namespace';
 import { podUICustomiser } from './resourcekinds/resourcekind.pod';
+import { Kubectl } from '../../kubectl';
 
 export function resourceNodeCreate(kind: kuberesources.ResourceKind, name: string, metadata: ObjectMeta | undefined, extraInfo: ResourceExtraInfo | undefined): ClusterExplorerResourceNode {
     return new SimpleResourceNode(kind, name, metadata, extraInfo);
@@ -33,14 +34,14 @@ const NO_CUSTOMISER = {
 
 const specialKinds: ReadonlyArray<ResourceKindUIDescriptor> = [
     { kind: kuberesources.allKinds.namespace /*, lister: namespaceLister */, uiCustomiser: namespaceUICustomiser },
-    { kind: kuberesources.allKinds.node /*, lister: nodeLister */, childSources: ['nodepods'] },
-    { kind: kuberesources.allKinds.deployment, childSources: ['pods'] },
-    { kind: kuberesources.allKinds.daemonSet, childSources: ['pods'] },
-    { kind: kuberesources.allKinds.pod, childSources: ['podstatus'], uiCustomiser: podUICustomiser },
-    { kind: kuberesources.allKinds.service, childSources: ['pods'] },
-    { kind: kuberesources.allKinds.configMap, childSources: ['configdata'] },
-    { kind: kuberesources.allKinds.secret, childSources: ['configdata'] },
-    { kind: kuberesources.allKinds.statefulSet, childSources: ['pods'] },
+    { kind: kuberesources.allKinds.node /*, lister: nodeLister */, childSources: [nodePodsChildSource] },
+    { kind: kuberesources.allKinds.deployment, childSources: [selectedPodsChildSource] },
+    { kind: kuberesources.allKinds.daemonSet, childSources: [selectedPodsChildSource] },
+    { kind: kuberesources.allKinds.pod, childSources: [podStatusChildSource], uiCustomiser: podUICustomiser },
+    { kind: kuberesources.allKinds.service, childSources: [selectedPodsChildSource] },
+    { kind: kuberesources.allKinds.configMap, childSources: [configItemsChildSource] },
+    { kind: kuberesources.allKinds.secret, childSources: [configItemsChildSource] },
+    { kind: kuberesources.allKinds.statefulSet, childSources: [selectedPodsChildSource] },
 ];
 
 interface ResourceKindUIDescriptor {
@@ -58,8 +59,6 @@ export interface ResourceUICustomiser {
     customiseTreeItem(resource: ResourceNode, treeItem: vscode.TreeItem): void;
 }
 
-export type ResourceChildSource =
-    'configdata' |
-    'pods' |
-    'podstatus' |
-    'nodepods';
+export interface ResourceChildSource {
+    children(kubectl: Kubectl, parent: ResourceNode): Promise<ClusterExplorerNode[]>;
+}

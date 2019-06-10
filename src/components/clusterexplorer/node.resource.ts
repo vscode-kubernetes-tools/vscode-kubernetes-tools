@@ -28,24 +28,8 @@ export abstract class ResourceNode extends ClusterExplorerNodeImpl implements Cl
         const childSources = getChildSources(this.kind);
         const children = Array.of<ClusterExplorerNode>();
         for (const source of childSources) {
-            switch (source) {
-                case 'configdata':
-                    const configitems = await listConfigItems(this.kind, this.name, this.extraInfo!.configData);  // TODO: unbang
-                    children.push(...configitems);
-                    break;
-                case 'pods':
-                    const pods = await listPods(kubectl, this.extraInfo!.labelSelector);  // TODO: unbang
-                    children.push(...pods);
-                    break;
-                case 'podstatus':
-                    const podStatusInfos = await listPodStatusItems(kubectl, this.name, this.namespace);
-                    children.push(...podStatusInfos);
-                    break;
-                case 'nodepods':
-                    const nodepods = await listNodePods(kubectl, this.kindName);
-                    children.push(...nodepods);
-                    break;
-            }
+            const sourcedChildren = await source.children(kubectl, this);
+            children.push(...sourcedChildren);
         }
         return children;
     }
@@ -77,48 +61,58 @@ export interface ResourceExtraInfo {
     readonly namespaceInfo?: kubectlUtils.NamespaceInfo;
 }
 
-async function listPodStatusItems(kubectl: Kubectl, podName: string, podNamespace: string | null): Promise<ClusterExplorerNode[]> {
-    const nsarg = podNamespace ? `--namespace=${podNamespace}` : '';  // TODO: still not working!
-    const result = await kubectl.asJson<Pod>(`get pods ${podName} ${nsarg} -o json`);
-    if (result.succeeded) {
-        const pod = result.result;
-        let ready = 0;
-        pod.status.containerStatuses.forEach((status) => {
-            if (status.ready) {
-                ready++;
-            }
-        });
-        return [
-            new MessageNode(`${pod.status.phase} (${ready}/${pod.status.containerStatuses.length})`),
-            new MessageNode(pod.status.podIP),
-        ];
+export const podStatusChildSource = {
+    async children(kubectl: Kubectl, parent: ResourceNode): Promise<ClusterExplorerNode[]> {
+        const nsarg = parent.namespace ? `--namespace=${parent.namespace}` : '';  // TODO: still not working!
+        const result = await kubectl.asJson<Pod>(`get pods ${parent.name} ${nsarg} -o json`);
+        if (result.succeeded) {
+            const pod = result.result;
+            let ready = 0;
+            pod.status.containerStatuses.forEach((status) => {
+                if (status.ready) {
+                    ready++;
+                }
+            });
+            return [
+                new MessageNode(`${pod.status.phase} (${ready}/${pod.status.containerStatuses.length})`),
+                new MessageNode(pod.status.podIP),
+            ];
+        }
+        else {
+            return [new MessageNode("Error", result.error[0])];
+        }
     }
-    else {
-        return [new MessageNode("Error", result.error[0])];
-    }
-}
+};
 
-async function listConfigItems(parentKind: kuberesources.ResourceKind, parentName: string, configData: any): Promise<ClusterExplorerNode[]> {
-    if (!configData || configData.length === 0) {
-        return [];
+export const configItemsChildSource = {
+    async children(_kubectl: Kubectl, parent: ResourceNode): Promise<ClusterExplorerNode[]> {
+        const configData = parent.extraInfo!.configData;  // TODO: unbang
+        if (!configData || configData.length === 0) {
+            return [];
+        }
+        const files = Object.keys(configData);
+        return files.map((f) => new ConfigurationValueNode(configData, f, parent.kind, parent.name));
     }
-    const files = Object.keys(configData);
-    return files.map((f) => new ConfigurationValueNode(configData, f, parentKind, parentName));
-}
+};
 
-async function listPods(kubectl: Kubectl, labelSelector: any): Promise<ClusterExplorerNode[]> {
-    if (!labelSelector) {
-        return [];
+export const selectedPodsChildSource = {
+    async children(kubectl: Kubectl, parent: ResourceNode): Promise<ClusterExplorerNode[]> {
+        const labelSelector = parent.extraInfo!.labelSelector;  // TODO: unbang
+        if (!labelSelector) {
+            return [];
+        }
+        const pods = await kubectlUtils.getPods(kubectl, labelSelector);
+        return pods.map((p) => resourceNodeCreate(kuberesources.allKinds.pod, p.name, p.metadata, { podInfo: p }));
     }
-    const pods = await kubectlUtils.getPods(kubectl, labelSelector);
-    return pods.map((p) => resourceNodeCreate(kuberesources.allKinds.pod, p.name, p.metadata, { podInfo: p }));
-}
+};
 
-async function listNodePods(kubectl: Kubectl, nodeKindName: string): Promise<ClusterExplorerNode[]> {
-    const pods = await kubectlUtils.getPods(kubectl, null, 'all');
-    const filteredPods = pods.filter((p) => `node/${p.nodeName}` === nodeKindName);
-    return filteredPods.map((p) => resourceNodeCreate(kuberesources.allKinds.pod, p.name, p.metadata, { podInfo: p }));
-}
+export const nodePodsChildSource = {
+    async children(kubectl: Kubectl, parent: ResourceNode): Promise<ClusterExplorerNode[]> {
+        const pods = await kubectlUtils.getPods(kubectl, null, 'all');
+        const filteredPods = pods.filter((p) => `node/${p.nodeName}` === parent.kindName);
+        return filteredPods.map((p) => resourceNodeCreate(kuberesources.allKinds.pod, p.name, p.metadata, { podInfo: p }));
+    }
+};
 
 export class SimpleResourceNode extends ResourceNode {
     constructor(kind: kuberesources.ResourceKind, name: string, metadata: ObjectMeta | undefined, extraInfo: ResourceExtraInfo | undefined) {
