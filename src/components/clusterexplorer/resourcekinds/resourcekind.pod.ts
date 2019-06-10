@@ -2,6 +2,10 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 
 import { ResourceNode } from '../node.resource';
+import { Kubectl } from '../../../kubectl';
+import { ClusterExplorerNode } from '../node';
+import { MessageNode } from '../node.message';
+import { Pod } from '../../../kuberesources.objectmodel';
 
 export const podUICustomiser = {
     customiseTreeItem(resource: ResourceNode, treeItem: vscode.TreeItem): void {
@@ -19,3 +23,26 @@ function getIconForPodStatus(status: string): vscode.Uri {
         return vscode.Uri.file(path.join(__dirname, "../../../../../images/errorPod.svg"));
     }
 }
+
+export const podStatusChildSource = {
+    async children(kubectl: Kubectl, parent: ResourceNode): Promise<ClusterExplorerNode[]> {
+        const nsarg = parent.namespace ? `--namespace=${parent.namespace}` : '';  // TODO: still not working!
+        const result = await kubectl.asJson<Pod>(`get pods ${parent.name} ${nsarg} -o json`);
+        if (result.succeeded) {
+            const pod = result.result;
+            let ready = 0;
+            pod.status.containerStatuses.forEach((status) => {
+                if (status.ready) {
+                    ready++;
+                }
+            });
+            return [
+                new MessageNode(`${pod.status.phase} (${ready}/${pod.status.containerStatuses.length})`),
+                new MessageNode(pod.status.podIP),
+            ];
+        }
+        else {
+            return [new MessageNode("Error", result.error[0])];
+        }
+    }
+};

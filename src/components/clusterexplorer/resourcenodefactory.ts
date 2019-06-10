@@ -3,10 +3,13 @@ import * as vscode from 'vscode';
 import * as kuberesources from '../../kuberesources';
 import { ObjectMeta, KubernetesResource } from '../../kuberesources.objectmodel';
 import { ClusterExplorerResourceNode, ClusterExplorerNode } from './node';
-import { SimpleResourceNode, ResourceExtraInfo, ResourceNode, nodePodsChildSource, selectedPodsChildSource, podStatusChildSource, configItemsChildSource } from './node.resource';
+import { SimpleResourceNode, ResourceExtraInfo, ResourceNode } from './node.resource';
 import { namespaceUICustomiser } from './resourcekinds/resourcekind.namespace';
-import { podUICustomiser } from './resourcekinds/resourcekind.pod';
+import { podUICustomiser, podStatusChildSource } from './resourcekinds/resourcekind.pod';
 import { Kubectl } from '../../kubectl';
+import { selectedPodsChildSource } from './resourcekinds/resourcekinds.selectspods';
+import { nodePodsChildSource } from './resourcekinds/resourcekind.node';
+import { configItemsChildSource } from './resourcekinds/resourcekinds.configuration';
 
 export function resourceNodeCreate(kind: kuberesources.ResourceKind, name: string, metadata: ObjectMeta | undefined, extraInfo: ResourceExtraInfo | undefined): ClusterExplorerResourceNode {
     return new SimpleResourceNode(kind, name, metadata, extraInfo);
