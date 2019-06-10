@@ -9,7 +9,12 @@ import { kubefsUri } from '../../kuberesources.virtualfs';
 import { ClusterExplorerNode, ClusterExplorerNodeImpl, ClusterExplorerResourceNode } from './node';
 import { getChildSources, getUICustomiser } from './resourcenodefactory';
 
-export abstract class ResourceNode extends ClusterExplorerNodeImpl implements ClusterExplorerResourceNode {
+export class ResourceNode extends ClusterExplorerNodeImpl implements ClusterExplorerResourceNode {
+
+    static create(kind: kuberesources.ResourceKind, name: string, metadata: ObjectMeta | undefined, extraInfo: ResourceExtraInfo | undefined): ClusterExplorerResourceNode {
+        return new ResourceNode(kind, name, metadata, extraInfo);
+    }
+
     readonly kindName: string;
     readonly nodeType = 'resource';
     constructor(readonly kind: kuberesources.ResourceKind, readonly name: string, readonly metadata: ObjectMeta | undefined, readonly extraInfo: ResourceExtraInfo | undefined) {
@@ -57,10 +62,4 @@ export interface ResourceExtraInfo {
     readonly podInfo?: kubectlUtils.PodInfo;
     readonly labelSelector?: any;
     readonly namespaceInfo?: kubectlUtils.NamespaceInfo;
-}
-
-export class SimpleResourceNode extends ResourceNode {
-    constructor(kind: kuberesources.ResourceKind, name: string, metadata: ObjectMeta | undefined, extraInfo: ResourceExtraInfo | undefined) {
-        super(kind, name, metadata, extraInfo);
-    }
 }

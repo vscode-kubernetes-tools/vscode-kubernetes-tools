@@ -4,7 +4,7 @@ import { Host } from '../../host';
 import * as kuberesources from '../../kuberesources';
 import { ClusterExplorerNode } from './node';
 import { ResourceFolderNode } from './node.folder.resource';
-import { resourceNodeCreate } from './resourcenodefactory';
+import { ResourceNode } from './node.resource';
 
 export class NamespacesFolder extends ResourceFolderNode {
     constructor() {
@@ -12,6 +12,6 @@ export class NamespacesFolder extends ResourceFolderNode {
     }
     async getChildren(kubectl: Kubectl, _host: Host): Promise<ClusterExplorerNode[]> {
         const namespaces = await kubectlUtils.getNamespaces(kubectl);
-        return namespaces.map((ns) => resourceNodeCreate(this.kind, ns.name, ns.metadata, { namespaceInfo: ns }));
+        return namespaces.map((ns) => ResourceNode.create(this.kind, ns.name, ns.metadata, { namespaceInfo: ns }));
     }
 }
