@@ -9,7 +9,7 @@ import { Pod, ObjectMeta } from '../../kuberesources.objectmodel';
 import { kubefsUri } from '../../kuberesources.virtualfs';
 import { ClusterExplorerNode, ClusterExplorerNodeImpl, ClusterExplorerResourceNode } from './node';
 import { MessageNode } from './node.message';
-import { resourceNodeCreate, getChildSources } from './resourcenodefactory';
+import { resourceNodeCreate, getChildSources, getIconProvider } from './resourcenodefactory';
 import { ConfigurationValueNode } from './node.configurationvalue';
 import { ConfigurationResourceNode } from './node.resource.configuration';
 
@@ -66,7 +66,11 @@ export abstract class ResourceNode extends ClusterExplorerNodeImpl implements Cl
         return getChildSources(this.kind).length > 0;
     }
     get iconPath(): vscode.Uri | undefined {
-        return undefined;
+        const iconProvider = getIconProvider(this.kind);
+        if (!iconProvider) {
+            return undefined;
+        }
+        return iconProvider.iconPath(this);
     }
 }
 
@@ -114,14 +118,8 @@ export class SimpleResourceNode extends ResourceNode {
 }
 
 export class PodResourceNode extends ResourceNode {
-    constructor(name: string, metadata: ObjectMeta | undefined, private readonly podInfo: kubectlUtils.PodInfo) {
+    constructor(name: string, metadata: ObjectMeta | undefined, readonly podInfo: kubectlUtils.PodInfo) {
         super(kuberesources.allKinds.pod, name, metadata);
-    }
-    get iconPath() {
-        if (this.podInfo && this.podInfo.status) {
-            return getIconForPodStatus(this.podInfo.status.toLowerCase());
-        }
-        return undefined;
     }
 }
 
@@ -138,3 +136,13 @@ function getIconForPodStatus(status: string): vscode.Uri {
         return vscode.Uri.file(path.join(__dirname, "../../../../images/errorPod.svg"));
     }
 }
+
+export const podIconProvider = {
+    iconPath(resource: ClusterExplorerResourceNode): vscode.Uri | undefined {
+        const podInfo: kubectlUtils.PodInfo = (resource as unknown as PodResourceNode).podInfo;
+        if (podInfo && podInfo.status) {
+            return getIconForPodStatus(podInfo.status.toLowerCase());
+        }
+        return undefined;
+    }
+};
