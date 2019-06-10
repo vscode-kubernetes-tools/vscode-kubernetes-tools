@@ -3,7 +3,9 @@ import * as vscode from 'vscode';
 import * as kuberesources from '../../kuberesources';
 import { ObjectMeta, KubernetesResource } from '../../kuberesources.objectmodel';
 import { ClusterExplorerResourceNode } from './node';
-import { SimpleResourceNode, ResourceExtraInfo, ResourceNode, podUICustomiser, namespaceUICustomiser } from './node.resource';
+import { SimpleResourceNode, ResourceExtraInfo, ResourceNode } from './node.resource';
+import { namespaceUICustomiser } from './resourcekinds/resourcekind.namespace';
+import { podUICustomiser } from './resourcekinds/resourcekind.pod';
 
 export function resourceNodeCreate(kind: kuberesources.ResourceKind, name: string, metadata: ObjectMeta | undefined, extraInfo: ResourceExtraInfo | undefined): ClusterExplorerResourceNode {
     return new SimpleResourceNode(kind, name, metadata, extraInfo);

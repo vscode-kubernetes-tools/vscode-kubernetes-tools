@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import * as path from 'path';
 
 import { Kubectl } from '../../kubectl';
 import * as kubectlUtils from '../../kubectlUtils';
@@ -126,32 +125,3 @@ export class SimpleResourceNode extends ResourceNode {
         super(kind, name, metadata, extraInfo);
     }
 }
-
-function getIconForPodStatus(status: string): vscode.Uri {
-    if (status === "running" || status === "completed") {
-        return vscode.Uri.file(path.join(__dirname, "../../../../images/runningPod.svg"));
-    } else {
-        return vscode.Uri.file(path.join(__dirname, "../../../../images/errorPod.svg"));
-    }
-}
-
-export const podUICustomiser = {
-    customiseTreeItem(resource: ResourceNode, treeItem: vscode.TreeItem): void {
-        const podInfo = resource.extraInfo!.podInfo!;  // TODO: unbang
-        if (podInfo && podInfo.status) {
-            treeItem.iconPath = getIconForPodStatus(podInfo.status.toLowerCase());
-        }
-    }
-};
-
-export const namespaceUICustomiser = {
-    customiseTreeItem(resource: ResourceNode, treeItem: vscode.TreeItem): void {
-        const namespaceInfo = resource.extraInfo!.namespaceInfo!;  // TODO: unbang
-        if (namespaceInfo.active) {
-            treeItem.label = "* " + treeItem.label;
-        }
-        else {
-            treeItem.contextValue += ".inactive";
-        }
-    }
-};
