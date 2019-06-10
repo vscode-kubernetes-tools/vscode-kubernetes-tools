@@ -7,7 +7,7 @@ import * as kuberesources from '../../kuberesources';
 import { ObjectMeta } from '../../kuberesources.objectmodel';
 import { kubefsUri } from '../../kuberesources.virtualfs';
 import { ClusterExplorerNode, ClusterExplorerNodeImpl, ClusterExplorerResourceNode } from './node';
-import { getChildSources, getUICustomiser } from './resourcenodefactory';
+import { getChildSources, getUICustomiser } from './resourceui';
 
 export class ResourceNode extends ClusterExplorerNodeImpl implements ClusterExplorerResourceNode {
 
