@@ -1,6 +1,6 @@
 import * as kubectlUtils from '../../kubectlUtils';
 import * as kuberesources from '../../kuberesources';
-import { ObjectMeta, DataResource } from '../../kuberesources.objectmodel';
+import { ObjectMeta, DataResource, KubernetesResource } from '../../kuberesources.objectmodel';
 import { ClusterExplorerResourceNode } from './node';
 import { NodeClusterExplorerNode } from './node.resource.node';
 import { NamespaceResourceNode } from './node.resource.namespace';
@@ -25,3 +25,38 @@ export function resourceNodeCreate(kind: kuberesources.ResourceKind, name: strin
     }
     return new SimpleResourceNode(kind, name, metadata);
 }
+
+export function getChildSources(kind: kuberesources.ResourceKind): ReadonlyArray<ResourceChildSource> {
+    const descriptor = specialKinds.find((d) => d.kind.manifestKind === kind.manifestKind);
+    if (descriptor) {
+        return descriptor.childSources || [];
+    }
+    return [];
+}
+
+const specialKinds: ReadonlyArray<ResourceKindUIDescriptor> = [
+    { kind: kuberesources.allKinds.namespace /*, lister: namespaceLister */ },
+    { kind: kuberesources.allKinds.node /*, lister: nodeLister */ },
+    { kind: kuberesources.allKinds.deployment, childSources: ['pods'] },
+    { kind: kuberesources.allKinds.daemonSet, childSources: ['pods'] },
+    { kind: kuberesources.allKinds.pod, childSources: ['podstatus'] },
+    { kind: kuberesources.allKinds.service, childSources: ['pods'] },
+    { kind: kuberesources.allKinds.configMap, childSources: ['configdata'] },
+    { kind: kuberesources.allKinds.secret, childSources: ['configdata'] },
+    { kind: kuberesources.allKinds.statefulSet, childSources: ['pods'] },
+];
+
+interface ResourceKindUIDescriptor {
+    readonly kind: kuberesources.ResourceKind;
+    readonly lister?: ResourceLister;
+    readonly childSources?: ReadonlyArray<ResourceChildSource>;
+}
+
+export interface ResourceLister {
+    list(parent: any): ReadonlyArray<KubernetesResource>;
+}
+
+export type ResourceChildSource =
+    'configdata' |
+    'pods' |
+    'podstatus';
