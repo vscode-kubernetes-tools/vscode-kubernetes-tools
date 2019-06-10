@@ -11,7 +11,7 @@ export class ConfigurationResourceFolder extends ResourceFolderNode {
         super(kind);
     }
     async getChildren(kubectl: Kubectl, _host: Host): Promise<ClusterExplorerNode[]> {
-        const namespaces = await kubectlUtils.getDataHolders(this.kind.abbreviation, kubectl);
-        return namespaces.map((cm) => new ConfigurationResourceNode(this.kind, cm.metadata.name, cm, cm.data));
+        const resources = await kubectlUtils.getAsDataResources(this.kind.abbreviation, kubectl);
+        return resources.map((r) => new ConfigurationResourceNode(this.kind, r.metadata.name, r.metadata, r.data));
     }
 }

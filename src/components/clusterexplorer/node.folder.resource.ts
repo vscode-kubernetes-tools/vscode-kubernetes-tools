@@ -6,7 +6,7 @@ import { failed } from '../../errorable';
 import { ClusterExplorerNode, ClusterExplorerResourceFolderNode } from './node';
 import { MessageNode } from './node.message';
 import { FolderNode } from './node.folder';
-import { PodSelectingResourceNode, createResourceNode } from './node.resource';
+import { PodSelectingResourceNode, PodResourceNode, SimpleResourceNode } from './node.resource';
 
 export class ResourceFolderNode extends FolderNode implements ClusterExplorerResourceFolderNode {
     constructor(readonly kind: kuberesources.ResourceKind) {
@@ -17,7 +17,7 @@ export class ResourceFolderNode extends FolderNode implements ClusterExplorerRes
         if (this.kind === kuberesources.allKinds.pod) {
             const pods = await kubectlUtils.getPods(kubectl, null, null);
             return pods.map((pod) => {
-                return createResourceNode(this.kind, pod.name, pod);
+                return new PodResourceNode(pod.name, pod.metadata, pod);
             });
         }
         const childrenLines = await kubectl.asLines(`get ${this.kind.abbreviation}`);
@@ -27,7 +27,7 @@ export class ResourceFolderNode extends FolderNode implements ClusterExplorerRes
         }
         return childrenLines.result.map((line) => {
             const bits = line.split(' ');
-            return createResourceNode(this.kind, bits[0]);
+            return new SimpleResourceNode(this.kind, bits[0], undefined);
         });
     }
 }

@@ -4,10 +4,11 @@ import * as kuberesources from '../../kuberesources';
 import { ClusterExplorerNode } from './node';
 import { ResourceNode } from './node.resource';
 import { ConfigurationValueNode } from './node.configurationvalue';
+import { ObjectMeta } from '../../kuberesources.objectmodel';
 
 export class ConfigurationResourceNode extends ResourceNode {
     readonly configData: any;
-    constructor(readonly kind: kuberesources.ResourceKind, readonly name: string, readonly metadata?: any, readonly data?: any) {
+    constructor(kind: kuberesources.ResourceKind, name: string, metadata: ObjectMeta | undefined, readonly data?: any) {
         super(kind, name, metadata);
         this.configData = data;
     }

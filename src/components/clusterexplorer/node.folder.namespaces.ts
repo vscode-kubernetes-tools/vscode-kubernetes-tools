@@ -12,6 +12,6 @@ export class NamespacesFolder extends ResourceFolderNode {
     }
     async getChildren(kubectl: Kubectl, _host: Host): Promise<ClusterExplorerNode[]> {
         const namespaces = await kubectlUtils.getNamespaces(kubectl);
-        return namespaces.map((ns) => new NamespaceResourceNode(this.kind, ns.name, ns));
+        return namespaces.map((ns) => new NamespaceResourceNode(this.kind, ns.name, ns.metadata, ns));
     }
 }

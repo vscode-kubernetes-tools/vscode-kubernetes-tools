@@ -40,6 +40,7 @@ interface Kubeconfig {
 
 export interface KubernetesObject {
     readonly name: string;
+    readonly metadata: ObjectMeta | undefined;
 }
 
 export interface NamespaceInfo extends KubernetesObject {
@@ -134,15 +135,15 @@ export async function deleteCluster(kubectl: Kubectl, context: KubectlContext): 
     return true;
 }
 
-export async function getDataHolders(resource: string, kubectl: Kubectl): Promise<DataHolder[]> {
+export async function getAsDataResources(resource: string, kubectl: Kubectl): Promise<DataResource[]> {
     const currentNS = await currentNamespace(kubectl);
 
-    const depList = await kubectl.asJson<KubernetesCollection<DataResource>>(`get ${resource} -o json --namespace=${currentNS}`);
-    if (failed(depList)) {
-        vscode.window.showErrorMessage(depList.error[0]);
+    const resources = await kubectl.asJson<KubernetesCollection<DataResource>>(`get ${resource} -o json --namespace=${currentNS}`);
+    if (failed(resources)) {
+        vscode.window.showErrorMessage(resources.error[0]);
         return [];
     }
-    return depList.result.items;
+    return resources.result.items;
 }
 
 export async function getGlobalResources(kubectl: Kubectl, resource: string): Promise<KubernetesResource[]> {
@@ -185,6 +186,7 @@ export async function getNamespaces(kubectl: Kubectl): Promise<NamespaceInfo[]> 
     return ns.result.items.map((item) => {
         return {
             name: item.metadata.name,
+            metadata: item.metadata,
             active: item.metadata.name === currentNS
         };
     });
@@ -201,6 +203,7 @@ export async function getResourceWithSelector(resource: string, kubectl: Kubectl
     return shellResult.result.items.map((item) => {
         return {
             name: item.metadata.name,
+            metadata: item.metadata,
             selector: item.spec.selector
         };
     });
@@ -239,6 +242,7 @@ export async function getPods(kubectl: Kubectl, selector: any, namespace: string
             namespace: item.namespace || ns,
             nodeName: item.node,
             status: item.status,
+            metadata: undefined,
         };
     });
 }

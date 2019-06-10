@@ -5,22 +5,15 @@ import { Kubectl } from '../../kubectl';
 import * as kubectlUtils from '../../kubectlUtils';
 import { Host } from '../../host';
 import * as kuberesources from '../../kuberesources';
-import { Pod } from '../../kuberesources.objectmodel';
+import { Pod, ObjectMeta } from '../../kuberesources.objectmodel';
 import { kubefsUri } from '../../kuberesources.virtualfs';
 import { ClusterExplorerNode, ClusterExplorerNodeImpl, ClusterExplorerResourceNode } from './node';
 import { MessageNode } from './node.message';
 
-export function createResourceNode(kind: kuberesources.ResourceKind, name: string, metadata?: any): ClusterExplorerResourceNode {
-    if (kind.manifestKind === 'Pod') {
-        return new PodResourceNode(name, metadata);
-    }
-    return new SimpleResourceNode(kind, name, metadata);
-}
-
 export abstract class ResourceNode extends ClusterExplorerNodeImpl implements ClusterExplorerResourceNode {
     readonly kindName: string;
     readonly nodeType = 'resource';
-    constructor(readonly kind: kuberesources.ResourceKind, readonly name: string, readonly metadata?: any) {
+    constructor(readonly kind: kuberesources.ResourceKind, readonly name: string, readonly metadata: ObjectMeta | undefined) {
         super("resource");
         this.kindName = `${kind.abbreviation}/${name}`;
     }
@@ -36,6 +29,7 @@ export abstract class ResourceNode extends ClusterExplorerNodeImpl implements Cl
     getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
         const collapsibleState = this.isExpandable ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None;
         const treeItem = new vscode.TreeItem(this.name, collapsibleState);
+        treeItem.iconPath = this.iconPath;
         treeItem.command = {
             command: "extension.vsKubernetesLoad",
             title: "Load",
@@ -50,23 +44,23 @@ export abstract class ResourceNode extends ClusterExplorerNodeImpl implements Cl
     get isExpandable(): boolean {
         return false;
     }
-    get iconPath(): string | undefined {
+    get iconPath(): vscode.Uri | undefined {
         return undefined;
     }
 }
 
-class SimpleResourceNode extends ResourceNode {
-    constructor(readonly kind: kuberesources.ResourceKind, readonly name: string, readonly metadata?: any) {
+export class SimpleResourceNode extends ResourceNode {
+    constructor(kind: kuberesources.ResourceKind, name: string, metadata: ObjectMeta | undefined) {
         super(kind, name, metadata);
     }
 }
 
-class PodResourceNode extends ResourceNode {
-    constructor(readonly name: string, readonly metadata?: any) {
+export class PodResourceNode extends ResourceNode {
+    constructor(name: string, metadata: ObjectMeta | undefined, private readonly podInfo: kubectlUtils.PodInfo) {
         super(kuberesources.allKinds.pod, name, metadata);
     }
     async getChildren(kubectl: Kubectl, _host: Host): Promise<ClusterExplorerNode[]> {
-        const result = await kubectl.asJson<Pod>(`get pods ${this.metadata.name} -o json`);
+        const result = await kubectl.asJson<Pod>(`get pods ${this.name} -o json`);
         if (result.succeeded) {
             const pod = result.result;
             let ready = 0;
@@ -86,29 +80,31 @@ class PodResourceNode extends ResourceNode {
     }
     async getTreeItem(): Promise<vscode.TreeItem> {
         const treeItem = await super.getTreeItem();
-        if (this.metadata && this.metadata.status) {
-            treeItem.iconPath = getIconForPodStatus(this.metadata.status.toLowerCase());
-        }
+
         return treeItem;
     }
     get isExpandable() {
         return true;
     }
+    get iconPath() {
+        if (this.podInfo && this.podInfo.status) {
+            return getIconForPodStatus(this.podInfo.status.toLowerCase());
+        }
+        return undefined;
+    }
 }
 
 export class PodSelectingResourceNode extends ResourceNode {
-    readonly selector?: any;
-    constructor(readonly kind: kuberesources.ResourceKind, readonly name: string, readonly metadata?: any, readonly labelSelector?: any) {
+    constructor(kind: kuberesources.ResourceKind, name: string, metadata: ObjectMeta | undefined, private readonly labelSelector: any) {
         super(kind, name, metadata);
-        this.selector = labelSelector;
     }
 
     async getChildren(kubectl: Kubectl, _host: Host): Promise<ClusterExplorerNode[]> {
-        if (!this.selector) {
+        if (!this.labelSelector) {
             return [];
         }
-        const pods = await kubectlUtils.getPods(kubectl, this.selector);
-        return pods.map((p) => createResourceNode(kuberesources.allKinds.pod, p.name, p));
+        const pods = await kubectlUtils.getPods(kubectl, this.labelSelector);
+        return pods.map((p) => new PodResourceNode(p.name, p.metadata, p));
     }
 
     get isExpandable() {
