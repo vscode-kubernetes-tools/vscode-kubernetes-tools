@@ -81,8 +81,8 @@ import { sleep } from './sleep';
 import { CloudExplorer, CloudExplorerTreeNode } from './components/cloudexplorer/cloudexplorer';
 import { mergeToKubeconfig } from './components/kubectl/kubeconfig';
 import { PortForwardStatusBarManager } from './components/kubectl/port-forward-ui';
-import { getBuildCommand, getPushCommand } from './imageBuild/buildToolsRegistry';
-import { start as startBuildToolsRegistry, currentBuildTool as buildTool } from './imageBuild/buildToolsRegistry';
+import { getBuildCommand, getPushCommand } from './image/imageUtils';
+import { getImageBuildTool } from './components/config/config';
 
 let explainActive = false;
 let swaggerSpecPromise: Promise<explainer.SwaggerModel | undefined> | null = null;
@@ -291,9 +291,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         portForwardStatusBarItem,
 
         // Telemetry
-        registerTelemetry(context),
-
-        startBuildToolsRegistry()
+        registerTelemetry(context)
     ];
 
     telemetry.invalidateClusterType(undefined, kubectl);
@@ -925,28 +923,34 @@ function diagnosePushError(_exitCode: number, error: string): string {
 function buildPushThenExec(fn: (name: string, image: string) => void): void {
     findNameAndImage().then((name, image) => {
         vscode.window.withProgress({ location: vscode.ProgressLocation.Window }, async (p) => {
-            p.report({ message: "Building an image..." });
-            const buildResult = await shell.exec(getBuildCommand(image));
-            if (buildResult && buildResult.code === 0) {
-                vscode.window.showInformationMessage(image + ' built.');
-                p.report({ message: "Pushing the image..." });
-                const pushResult = await shell.exec(getPushCommand(image));
-                if (pushResult && pushResult.code === 0) {
-                    vscode.window.showInformationMessage(image + ' pushed.');
-                    fn(name, image);
-                } else if (!pushResult) {
-                    vscode.window.showErrorMessage(`Image push failed; unable to call ${buildTool}.`);
+            try {
+                p.report({ message: "Building an image..." });
+                const buildTool = getImageBuildTool();
+                const buildResult = await shell.exec(await getBuildCommand(image));
+                if (buildResult && buildResult.code === 0) {
+                    vscode.window.showInformationMessage(image + ' built.');
+                    p.report({ message: "Pushing the image..." });
+                    const pushResult = await shell.exec(await getPushCommand(image));
+                    if (pushResult && pushResult.code === 0) {
+                        vscode.window.showInformationMessage(image + ' pushed.');
+                        fn(name, image);
+                    } else if (!pushResult) {
+                        vscode.window.showErrorMessage(`Image push failed; unable to call ${buildTool}.`);
+                    } else {
+                        const diagnostic = diagnosePushError(pushResult.code, pushResult.stderr);
+                        vscode.window.showErrorMessage(`${diagnostic} See Output window for ${buildTool} push error message.`);
+                        kubeChannel.showOutput(pushResult.stderr, buildTool);
+                    }
+                } else if (!buildResult) {
+                    vscode.window.showErrorMessage(`Image build failed; unable to call ${buildTool}.`);
                 } else {
-                    const diagnostic = diagnosePushError(pushResult.code, pushResult.stderr);
-                    vscode.window.showErrorMessage(`${diagnostic} See Output window for ${buildTool} push error message.`);
-                    kubeChannel.showOutput(pushResult.stderr, buildTool);
+                    vscode.window.showErrorMessage('Image build failed. See Output window for details.');
+                    kubeChannel.showOutput(buildResult.stderr, buildTool);
+                    console.log(buildResult.stderr);
                 }
-            } else if (!buildResult) {
-                vscode.window.showErrorMessage(`Image build failed; unable to call ${buildTool}.`);
-            } else {
-                vscode.window.showErrorMessage('Image build failed. See Output window for details.');
-                kubeChannel.showOutput(buildResult.stderr, buildTool);
-                console.log(buildResult.stderr);
+            } catch (err) {
+                vscode.window.showErrorMessage(err.message);
+                kubeChannel.showOutput(`Failed building/pushing an image: ${err}`);
             }
         });
     });

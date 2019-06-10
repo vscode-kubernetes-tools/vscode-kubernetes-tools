@@ -1,9 +1,9 @@
 import * as path from "path";
 import * as vscode from "vscode";
 
+import { getCurrentBuildTool } from './imageToolRegistry';
 import { kubeChannel } from "../kubeChannel";
 import { shell } from "../shell";
-import { getBuildCommand, getPushCommand } from './buildToolsRegistry';
 
 /**
  * Build the container image first. If imagePrefix is not empty, push the image to remote image registry, too.
@@ -20,6 +20,24 @@ export async function buildAndPushImage(shellOpts: any, imagePrefix?: string): P
         await pushImage(image, shellOpts);
     }
     return image;
+}
+
+/**
+ * Returns a promise that resolves to a command line for building the given image.
+ * Rejects if couldn't get a command line.
+ */
+export async function getBuildCommand(image: string): Promise<string> {
+    const tool = await getCurrentBuildTool();
+    return tool.getBuildCommand(image);
+}
+
+/**
+ * Returns a promise that resolves to a command line for pushing the given image.
+ * Rejects if couldn't get a command line.
+ */
+export async function getPushCommand(image: string): Promise<string> {
+    const tool = await getCurrentBuildTool();
+    return tool.getPushCommand(image);
 }
 
 function sanitiseTag(name: string) {
@@ -48,7 +66,8 @@ async function findVersion(cwd: string): Promise<string> {
 }
 
 async function buildImage(image: string, shellOpts: any): Promise<void> {
-    const result = await shell.execCore(getBuildCommand(image), shellOpts);
+    const buildCommand = await getBuildCommand(image);
+    const result = await shell.execCore(buildCommand, shellOpts);
     if (result.code !== 0) {
         throw new Error(`Image build failed: ${result.stderr}`);
     }
@@ -56,7 +75,8 @@ async function buildImage(image: string, shellOpts: any): Promise<void> {
 }
 
 async function pushImage(image: string, shellOpts: any): Promise<void> {
-    const result = await shell.execCore(getPushCommand(image), shellOpts);
+    const pushCommand = await getPushCommand(image);
+    const result = await shell.execCore(pushCommand, shellOpts);
     if (result.code !== 0) {
         throw new Error(`Image push failed: ${result.stderr}`);
     }

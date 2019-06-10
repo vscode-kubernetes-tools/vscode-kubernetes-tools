@@ -195,8 +195,8 @@ export function getNodejsDebugPort(): number | undefined {
 
 // container image build tool
 
-const PREFER_BUILDAH = "preferBuildah";
+const IMAGE_BUILD_TOOL = "imageBuildTool";
 
-export function getPreferBuildah(): string {
-    return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)[PREFER_BUILDAH];
+export function getImageBuildTool(): string {
+    return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)[IMAGE_BUILD_TOOL];
 }

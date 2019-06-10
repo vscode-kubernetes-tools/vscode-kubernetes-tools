@@ -19,7 +19,7 @@ import { Pod, KubernetesCollection, Container } from "../kuberesources.objectmod
 import * as config from "../components/config/config";
 import { Dictionary } from "../utils/dictionary";
 import { definedOf } from "../utils/array";
-import * as imageUtils from "../imageBuild/imageUtils";
+import * as imageUtils from "../image/imageUtils";
 
 const debugCommandDocumentationUrl = "https://github.com/Azure/vscode-kubernetes-tools/blob/master/debug-on-kubernetes.md";
 
