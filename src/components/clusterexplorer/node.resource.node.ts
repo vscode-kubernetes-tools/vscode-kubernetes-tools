@@ -9,7 +9,7 @@ import { resourceNodeCreate } from './resourcenodefactory';
 
 export class NodeClusterExplorerNode extends ResourceNode {
     constructor(name: string, metadata: ObjectMeta | undefined) {
-        super(kuberesources.allKinds.node, name, metadata);
+        super(kuberesources.allKinds.node, name, metadata, undefined);
     }
     async getChildren(kubectl: Kubectl, _host: Host): Promise<ClusterExplorerNode[]> {
         const pods = await kubectlUtils.getPods(kubectl, null, 'all');

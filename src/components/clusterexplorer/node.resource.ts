@@ -11,12 +11,11 @@ import { ClusterExplorerNode, ClusterExplorerNodeImpl, ClusterExplorerResourceNo
 import { MessageNode } from './node.message';
 import { resourceNodeCreate, getChildSources, getIconProvider } from './resourcenodefactory';
 import { ConfigurationValueNode } from './node.configurationvalue';
-import { ConfigurationResourceNode } from './node.resource.configuration';
 
 export abstract class ResourceNode extends ClusterExplorerNodeImpl implements ClusterExplorerResourceNode {
     readonly kindName: string;
     readonly nodeType = 'resource';
-    constructor(readonly kind: kuberesources.ResourceKind, readonly name: string, readonly metadata: ObjectMeta | undefined) {
+    constructor(readonly kind: kuberesources.ResourceKind, readonly name: string, readonly metadata: ObjectMeta | undefined, readonly extraInfo: ResourceExtraInfo | undefined) {
         super("resource");
         this.kindName = `${kind.abbreviation}/${name}`;
     }
@@ -32,11 +31,11 @@ export abstract class ResourceNode extends ClusterExplorerNodeImpl implements Cl
         for (const source of childSources) {
             switch (source) {
                 case 'configdata':
-                    const configitems = await listConfigItems(this.kind, this.name, (this as unknown as ConfigurationResourceNode).configData);
+                    const configitems = await listConfigItems(this.kind, this.name, this.extraInfo!.configData);  // TODO: unbang
                     children.push(...configitems);
                     break;
                 case 'pods':
-                    const pods = await listPods(kubectl, (this as unknown as PodSelectingResourceNode).labelSelector);
+                    const pods = await listPods(kubectl, this.extraInfo!.labelSelector);  // TODO: unbang
                     children.push(...pods);
                     break;
                 case 'podstatus':
@@ -72,6 +71,12 @@ export abstract class ResourceNode extends ClusterExplorerNodeImpl implements Cl
         }
         return iconProvider.iconPath(this);
     }
+}
+
+export interface ResourceExtraInfo {
+    readonly configData?: any;
+    readonly podInfo?: kubectlUtils.PodInfo;
+    readonly labelSelector?: any;
 }
 
 async function listPodStatusItems(kubectl: Kubectl, podName: string, podNamespace: string | null): Promise<ClusterExplorerNode[]> {
@@ -113,19 +118,19 @@ async function listPods(kubectl: Kubectl, labelSelector: any): Promise<ClusterEx
 
 export class SimpleResourceNode extends ResourceNode {
     constructor(kind: kuberesources.ResourceKind, name: string, metadata: ObjectMeta | undefined) {
-        super(kind, name, metadata);
+        super(kind, name, metadata, undefined);
     }
 }
 
 export class PodResourceNode extends ResourceNode {
-    constructor(name: string, metadata: ObjectMeta | undefined, readonly podInfo: kubectlUtils.PodInfo) {
-        super(kuberesources.allKinds.pod, name, metadata);
+    constructor(name: string, metadata: ObjectMeta | undefined, podInfo: kubectlUtils.PodInfo) {
+        super(kuberesources.allKinds.pod, name, metadata, { podInfo: podInfo });
     }
 }
 
 export class PodSelectingResourceNode extends ResourceNode {
-    constructor(kind: kuberesources.ResourceKind, name: string, metadata: ObjectMeta | undefined, readonly labelSelector: any) {
-        super(kind, name, metadata);
+    constructor(kind: kuberesources.ResourceKind, name: string, metadata: ObjectMeta | undefined, labelSelector: any) {
+        super(kind, name, metadata, { labelSelector: labelSelector });
     }
 }
 
@@ -138,8 +143,8 @@ function getIconForPodStatus(status: string): vscode.Uri {
 }
 
 export const podIconProvider = {
-    iconPath(resource: ClusterExplorerResourceNode): vscode.Uri | undefined {
-        const podInfo: kubectlUtils.PodInfo = (resource as unknown as PodResourceNode).podInfo;
+    iconPath(resource: ResourceNode): vscode.Uri | undefined {
+        const podInfo = resource.extraInfo!.podInfo!;  // TODO: unbang
         if (podInfo && podInfo.status) {
             return getIconForPodStatus(podInfo.status.toLowerCase());
         }
