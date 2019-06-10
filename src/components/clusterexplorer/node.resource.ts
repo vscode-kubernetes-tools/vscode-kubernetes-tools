@@ -9,7 +9,7 @@ import { Pod, ObjectMeta } from '../../kuberesources.objectmodel';
 import { kubefsUri } from '../../kuberesources.virtualfs';
 import { ClusterExplorerNode, ClusterExplorerNodeImpl, ClusterExplorerResourceNode } from './node';
 import { MessageNode } from './node.message';
-import { resourceNodeCreate, getChildSources, getIconProvider } from './resourcenodefactory';
+import { resourceNodeCreate, getChildSources, getUICustomiser } from './resourcenodefactory';
 import { ConfigurationValueNode } from './node.configurationvalue';
 
 export abstract class ResourceNode extends ClusterExplorerNodeImpl implements ClusterExplorerResourceNode {
@@ -53,7 +53,6 @@ export abstract class ResourceNode extends ClusterExplorerNodeImpl implements Cl
     getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
         const collapsibleState = this.isExpandable ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None;
         const treeItem = new vscode.TreeItem(this.name, collapsibleState);
-        treeItem.iconPath = this.iconPath;
         treeItem.command = {
             command: "extension.vsKubernetesLoad",
             title: "Load",
@@ -63,17 +62,12 @@ export abstract class ResourceNode extends ClusterExplorerNodeImpl implements Cl
         if (this.namespace) {
             treeItem.tooltip = `Namespace: ${this.namespace}`; // TODO: show only if in non-current namespace?
         }
+        const uiCustomiser = getUICustomiser(this.kind);
+        uiCustomiser.customiseTreeItem(this, treeItem);
         return treeItem;
     }
     get isExpandable(): boolean {
         return getChildSources(this.kind).length > 0;
-    }
-    get iconPath(): vscode.Uri | undefined {
-        const iconProvider = getIconProvider(this.kind);
-        if (!iconProvider) {
-            return undefined;
-        }
-        return iconProvider.iconPath(this);
     }
 }
 
@@ -81,6 +75,7 @@ export interface ResourceExtraInfo {
     readonly configData?: any;
     readonly podInfo?: kubectlUtils.PodInfo;
     readonly labelSelector?: any;
+    readonly namespaceInfo?: kubectlUtils.NamespaceInfo;
 }
 
 async function listPodStatusItems(kubectl: Kubectl, podName: string, podNamespace: string | null): Promise<ClusterExplorerNode[]> {
@@ -140,12 +135,23 @@ function getIconForPodStatus(status: string): vscode.Uri {
     }
 }
 
-export const podIconProvider = {
-    iconPath(resource: ResourceNode): vscode.Uri | undefined {
+export const podUICustomiser = {
+    customiseTreeItem(resource: ResourceNode, treeItem: vscode.TreeItem): void {
         const podInfo = resource.extraInfo!.podInfo!;  // TODO: unbang
         if (podInfo && podInfo.status) {
-            return getIconForPodStatus(podInfo.status.toLowerCase());
+            treeItem.iconPath = getIconForPodStatus(podInfo.status.toLowerCase());
         }
-        return undefined;
+    }
+};
+
+export const namespaceUICustomiser = {
+    customiseTreeItem(resource: ResourceNode, treeItem: vscode.TreeItem): void {
+        const namespaceInfo = resource.extraInfo!.namespaceInfo!;  // TODO: unbang
+        if (namespaceInfo.active) {
+            treeItem.label = "* " + treeItem.label;
+        }
+        else {
+            treeItem.contextValue += ".inactive";
+        }
     }
 };
