@@ -6,7 +6,6 @@ import { ObjectMeta, DataResource, KubernetesResource } from '../../kuberesource
 import { ClusterExplorerResourceNode } from './node';
 import { NodeClusterExplorerNode } from './node.resource.node';
 import { NamespaceResourceNode } from './node.resource.namespace';
-import { ConfigurationResourceNode } from './node.resource.configuration';
 import { PodResourceNode, PodSelectingResourceNode, SimpleResourceNode, podIconProvider } from './node.resource';
 
 export function resourceNodeCreate(kind: kuberesources.ResourceKind, name: string, metadata: ObjectMeta | undefined, resource: kubectlUtils.PodInfo | kubectlUtils.NamespaceInfo | DataResource | kubectlUtils.HasSelector | undefined): ClusterExplorerResourceNode {
@@ -20,12 +19,12 @@ export function resourceNodeCreate(kind: kuberesources.ResourceKind, name: strin
         return new NamespaceResourceNode(name, metadata, resource as kubectlUtils.NamespaceInfo);
     }
     if (kind.holdsConfigData) {
-        return new ConfigurationResourceNode(kind, name, metadata, (resource as DataResource).data);
+        return new SimpleResourceNode(kind, name, metadata, { configData: (resource as DataResource).data });
     }
     if (kind.selectsPods) {
         return new PodSelectingResourceNode(kind, name, metadata, (resource as kubectlUtils.HasSelector).selector);
     }
-    return new SimpleResourceNode(kind, name, metadata);
+    return new SimpleResourceNode(kind, name, metadata, undefined);
 }
 
 export function getChildSources(kind: kuberesources.ResourceKind): ReadonlyArray<ResourceChildSource> {

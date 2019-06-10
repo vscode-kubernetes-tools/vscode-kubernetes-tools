@@ -117,8 +117,8 @@ async function listPods(kubectl: Kubectl, labelSelector: any): Promise<ClusterEx
 }
 
 export class SimpleResourceNode extends ResourceNode {
-    constructor(kind: kuberesources.ResourceKind, name: string, metadata: ObjectMeta | undefined) {
-        super(kind, name, metadata, undefined);
+    constructor(kind: kuberesources.ResourceKind, name: string, metadata: ObjectMeta | undefined, extraInfo: ResourceExtraInfo | undefined) {
+        super(kind, name, metadata, extraInfo);
     }
 }
 

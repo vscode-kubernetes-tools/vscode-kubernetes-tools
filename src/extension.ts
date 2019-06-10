@@ -84,7 +84,6 @@ import { PortForwardStatusBarManager } from './components/kubectl/port-forward-u
 import { getBuildCommand, getPushCommand } from './image/imageUtils';
 import { getImageBuildTool } from './components/config/config';
 import { ClusterExplorerNode, ClusterExplorerConfigurationValueNode, ClusterExplorerResourceNode } from './components/clusterexplorer/node';
-import { ConfigurationResourceNode } from './components/clusterexplorer/node.resource.configuration';
 
 let explainActive = false;
 let swaggerSpecPromise: Promise<explainer.SwaggerModel | undefined> | null = null;
@@ -210,7 +209,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.vsKubernetesPortForward', (explorerNode: ClusterExplorerResourceNode) => { portForwardKubernetes(kubectl, explorerNode); }),
         registerCommand('extension.vsKubernetesLoadConfigMapData', configmaps.loadConfigMapData),
         registerCommand('extension.vsKubernetesDeleteFile', (explorerNode: ClusterExplorerConfigurationValueNode) => { deleteKubernetesConfigFile(kubectl, explorerNode, treeProvider); }),
-        registerCommand('extension.vsKubernetesAddFile', (explorerNode: ConfigurationResourceNode) => { addKubernetesConfigFile(kubectl, explorerNode, treeProvider); }),
+        registerCommand('extension.vsKubernetesAddFile', (explorerNode: ClusterExplorerResourceNode) => { addKubernetesConfigFile(kubectl, explorerNode, treeProvider); }),
         registerCommand('extension.vsKubernetesShowEvents', (explorerNode: ClusterExplorerResourceNode) => { getEvents(kubectl, EventDisplayMode.Show, explorerNode); }),
         registerCommand('extension.vsKubernetesFollowEvents', (explorerNode: ClusterExplorerResourceNode) => { getEvents(kubectl, EventDisplayMode.Follow, explorerNode); }),
         registerCommand('extension.vsKubernetesCronJobRunNow', cronJobRunNow),

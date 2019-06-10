@@ -6,10 +6,9 @@ import * as kuberesources from './kuberesources';
 import { currentNamespace, DataHolder } from './kubectlUtils';
 import { deleteMessageItems, overwriteMessageItems } from './extension';
 import { KubernetesExplorer } from './components/clusterexplorer/explorer';
-import { ConfigurationResourceNode } from "./components/clusterexplorer/node.resource.configuration";
 import { allKinds } from './kuberesources';
 import { failed } from './errorable';
-import { ClusterExplorerConfigurationValueNode } from './components/clusterexplorer/node';
+import { ClusterExplorerConfigurationValueNode, ClusterExplorerResourceNode } from './components/clusterexplorer/node';
 
 export const uriScheme: string = 'k8sviewfiledata';
 
@@ -74,7 +73,7 @@ export async function deleteKubernetesConfigFile(kubectl: Kubectl, obj: ClusterE
     vscode.window.showInformationMessage(`Data '${obj.key}' deleted from resource.`);
 }
 
-export async function addKubernetesConfigFile(kubectl: Kubectl, obj: ConfigurationResourceNode, explorer: KubernetesExplorer) {
+export async function addKubernetesConfigFile(kubectl: Kubectl, obj: ClusterExplorerResourceNode, explorer: KubernetesExplorer) {
     if (!obj) {
         return;
     }
@@ -101,7 +100,7 @@ export async function addKubernetesConfigFile(kubectl: Kubectl, obj: Configurati
             }
             // TODO: I really don't like sync calls here...
             const buff = fs.readFileToBufferSync(filePath);
-            if (obj.kind.abbreviation === kuberesources.allKinds.configmap.abbreviation) {
+            if (obj.kind.abbreviation === kuberesources.allKinds.configMap.abbreviation) {
                 dataHolder.data[fileName] = buff.toString();
             } else {
                 dataHolder.data[fileName] = buff.toString('base64');
