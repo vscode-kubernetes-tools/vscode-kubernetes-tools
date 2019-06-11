@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import * as kuberesources from '../../kuberesources';
 import { ClusterExplorerNode } from './node';
 import { ResourceNode } from './node.resource';
-import { namespaceUICustomiser } from './resourcekinds/resourcekind.namespace';
+import { namespaceUICustomiser, namespaceLister } from './resourcekinds/resourcekind.namespace';
 import { podUICustomiser, podStatusChildSource, podLister } from './resourcekinds/resourcekind.pod';
 import { Kubectl } from '../../kubectl';
 import { selectedPodsChildSource, hasSelectorLister } from './resourcekinds/resourcekinds.selectspods';
@@ -11,8 +11,8 @@ import { nodePodsChildSource } from './resourcekinds/resourcekind.node';
 import { configItemsChildSource, configResourceLister } from './resourcekinds/resourcekinds.configuration';
 
 const specialKinds: ReadonlyArray<ResourceKindUIDescriptor> = [
-    { kind: kuberesources.allKinds.namespace /*, lister: namespaceLister */, uiCustomiser: namespaceUICustomiser },
-    { kind: kuberesources.allKinds.node /*, lister: nodeLister */, childSources: [nodePodsChildSource] },
+    { kind: kuberesources.allKinds.namespace, lister: namespaceLister, uiCustomiser: namespaceUICustomiser },
+    { kind: kuberesources.allKinds.node, childSources: [nodePodsChildSource] },
     { kind: kuberesources.allKinds.deployment, lister: hasSelectorLister, childSources: [selectedPodsChildSource] },
     { kind: kuberesources.allKinds.daemonSet, lister: hasSelectorLister, childSources: [selectedPodsChildSource] },
     { kind: kuberesources.allKinds.pod, lister: podLister, childSources: [podStatusChildSource], uiCustomiser: podUICustomiser },

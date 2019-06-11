@@ -1,5 +1,4 @@
 import { Kubectl } from '../../kubectl';
-import * as kubectlUtils from '../../kubectlUtils';
 import { Host } from '../../host';
 import * as kuberesources from '../../kuberesources';
 import { failed } from '../../errorable';
