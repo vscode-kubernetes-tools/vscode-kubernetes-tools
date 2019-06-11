@@ -9,7 +9,7 @@ import { podUICustomiser, podStatusChildSource, podLister } from './resourcekind
 import { Kubectl } from '../../kubectl';
 import { selectedPodsChildSource } from './resourcekinds/resourcekinds.selectspods';
 import { nodePodsChildSource } from './resourcekinds/resourcekind.node';
-import { configItemsChildSource } from './resourcekinds/resourcekinds.configuration';
+import { configItemsChildSource, configResourceLister } from './resourcekinds/resourcekinds.configuration';
 
 const specialKinds: ReadonlyArray<ResourceKindUIDescriptor> = [
     { kind: kuberesources.allKinds.namespace /*, lister: namespaceLister */, uiCustomiser: namespaceUICustomiser },
@@ -18,8 +18,8 @@ const specialKinds: ReadonlyArray<ResourceKindUIDescriptor> = [
     { kind: kuberesources.allKinds.daemonSet, childSources: [selectedPodsChildSource] },
     { kind: kuberesources.allKinds.pod, lister: podLister, childSources: [podStatusChildSource], uiCustomiser: podUICustomiser },
     { kind: kuberesources.allKinds.service, childSources: [selectedPodsChildSource] },
-    { kind: kuberesources.allKinds.configMap, childSources: [configItemsChildSource] },
-    { kind: kuberesources.allKinds.secret, childSources: [configItemsChildSource] },
+    { kind: kuberesources.allKinds.configMap, lister: configResourceLister, childSources: [configItemsChildSource] },
+    { kind: kuberesources.allKinds.secret, lister: configResourceLister, childSources: [configItemsChildSource] },
     { kind: kuberesources.allKinds.statefulSet, childSources: [selectedPodsChildSource] },
 ];
 
@@ -66,7 +66,7 @@ export interface ResourceNodeInfo {
 }
 
 export interface ResourceLister {
-    list(kubectl: Kubectl): Promise<ResourceNodeInfo[]>;
+    list(kubectl: Kubectl, kind: kuberesources.ResourceKind): Promise<ResourceNodeInfo[]>;
 }
 
 export interface ResourceUICustomiser {

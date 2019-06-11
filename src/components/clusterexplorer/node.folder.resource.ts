@@ -17,7 +17,7 @@ export abstract class ResourceFolderNode extends FolderNode implements ClusterEx
     async getChildren(kubectl: Kubectl, host: Host): Promise<ClusterExplorerNode[]> {
         const lister = getLister(this.kind);
         if (lister) {
-            const resources = await lister.list(kubectl);
+            const resources = await lister.list(kubectl, this.kind);
             return resources.map((r) => ResourceNode.create(r.kind || this.kind, r.name, r.metadata, r.extraInfo));
         }
         const childrenLines = await kubectl.asLines(`get ${this.kind.abbreviation}`);

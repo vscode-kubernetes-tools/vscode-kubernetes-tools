@@ -8,6 +8,7 @@ import { ClusterExplorerNode } from '../node';
 import { MessageNode } from '../node.message';
 import { Pod } from '../../../kuberesources.objectmodel';
 import { ResourceNodeInfo } from '../resourceui';
+import { ResourceKind } from '../../../kuberesources';
 
 export const podUICustomiser = {
     customiseTreeItem(resource: ResourceNode, treeItem: vscode.TreeItem): void {
@@ -50,7 +51,7 @@ export const podStatusChildSource = {
 };
 
 export const podLister = {
-    async list(kubectl: Kubectl): Promise<ResourceNodeInfo[]> {
+    async list(kubectl: Kubectl, _kind: ResourceKind): Promise<ResourceNodeInfo[]> {
         const pods = await kubectlUtils.getPods(kubectl, null, null);
         return pods.map((pod) => ({
             name: pod.name,
