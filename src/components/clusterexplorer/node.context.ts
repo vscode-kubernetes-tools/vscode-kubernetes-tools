@@ -9,7 +9,7 @@ import { ClusterExplorerNode, ClusterExplorerNodeImpl, ClusterExplorerContextNod
 import { HelmReleasesFolder } from "./node.folder.helmreleases";
 import { CRDTypesFolderNode } from "./node.folder.crdtypes";
 import { WorkloadsGroupingFolderNode, NetworkGroupingFolderNode, StorageGroupingFolderNode, ConfigurationGroupingFolderNode } from "./node.folder.grouping";
-import { resourceFolderNodeCreate } from './resourcefolderfactory';
+import { ResourceFolderNode } from './node.folder.resource';
 
 const KUBERNETES_CLUSTER = "vsKubernetes.cluster";
 const MINIKUBE_CLUSTER = "vsKubernetes.minikubeCluster";
@@ -28,8 +28,8 @@ export class ContextNode extends ClusterExplorerNodeImpl implements ClusterExplo
     getChildren(_kubectl: Kubectl, _host: Host): vscode.ProviderResult<ClusterExplorerNode[]> {
         if (this.kubectlContext.active) {
             return [
-                resourceFolderNodeCreate(kuberesources.allKinds.namespace),
-                resourceFolderNodeCreate(kuberesources.allKinds.node),
+                ResourceFolderNode.create(kuberesources.allKinds.namespace),
+                ResourceFolderNode.create(kuberesources.allKinds.node),
                 new WorkloadsGroupingFolderNode(),
                 new NetworkGroupingFolderNode(),
                 new StorageGroupingFolderNode(),

@@ -8,7 +8,12 @@ import { FolderNode } from './node.folder';
 import { ResourceNode } from './node.resource';
 import { getLister } from './resourceui';
 
-export abstract class ResourceFolderNode extends FolderNode implements ClusterExplorerResourceFolderNode {
+export class ResourceFolderNode extends FolderNode implements ClusterExplorerResourceFolderNode {
+
+    static create(kind: kuberesources.ResourceKind): ResourceFolderNode {
+        return new ResourceFolderNode(kind);
+    }
+
     constructor(readonly kind: kuberesources.ResourceKind) {
         super("folder.resource", kind.abbreviation, kind.pluralDisplayName, "vsKubernetes.kind");
     }
@@ -27,11 +32,5 @@ export abstract class ResourceFolderNode extends FolderNode implements ClusterEx
             const bits = line.split(' ');
             return ResourceNode.create(this.kind, bits[0], undefined, undefined);
         });
-    }
-}
-
-export class SimpleResourceFolderNode extends ResourceFolderNode implements ClusterExplorerResourceFolderNode {
-    constructor(readonly kind: kuberesources.ResourceKind) {
-        super(kind);
     }
 }

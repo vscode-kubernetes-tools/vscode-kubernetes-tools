@@ -3,8 +3,8 @@ import { ExplorerExtender } from './explorer.extension';
 import { ClusterExplorerNode } from './node';
 import { ContextNode } from './node.context';
 import { FolderNode } from './node.folder';
-import { resourceFolderNodeCreate } from './resourcefolderfactory';
 import { ContributedGroupingFolderNode } from './node.folder.grouping.custom';
+import { ResourceFolderNode } from './node.folder.resource';
 
 export abstract class NodeSourceImpl {
     at(parent: string | undefined): ExplorerExtender<ClusterExplorerNode> {
@@ -21,7 +21,7 @@ export class CustomResourceFolderNodeSource extends NodeSourceImpl {
         super();
     }
     async nodes(): Promise<ClusterExplorerNode[]> {
-        return [resourceFolderNodeCreate(this.resourceKind)];
+        return [ResourceFolderNode.create(this.resourceKind)];
     }
 }
 
