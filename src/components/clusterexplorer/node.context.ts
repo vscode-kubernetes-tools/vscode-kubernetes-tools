@@ -8,7 +8,7 @@ import { Host } from '../../host';
 import { ClusterExplorerNode, ClusterExplorerNodeImpl, ClusterExplorerContextNode } from './node';
 import { HelmReleasesFolder } from "./node.folder.helmreleases";
 import { CRDTypesFolderNode } from "./node.folder.crdtypes";
-import { WorkloadsGroupingFolderNode, NetworkGroupingFolderNode, StorageGroupingFolderNode, ConfigurationGroupingFolderNode } from "./node.folder.grouping";
+import { workloadsGroupingFolder, networkGroupingFolder, storageGroupingFolder, configurationGroupingFolder } from "./node.folder.grouping";
 import { ResourceFolderNode } from './node.folder.resource';
 
 const KUBERNETES_CLUSTER = "vsKubernetes.cluster";
@@ -30,10 +30,10 @@ export class ContextNode extends ClusterExplorerNodeImpl implements ClusterExplo
             return [
                 ResourceFolderNode.create(kuberesources.allKinds.namespace),
                 ResourceFolderNode.create(kuberesources.allKinds.node),
-                new WorkloadsGroupingFolderNode(),
-                new NetworkGroupingFolderNode(),
-                new StorageGroupingFolderNode(),
-                new ConfigurationGroupingFolderNode(),
+                workloadsGroupingFolder(),
+                networkGroupingFolder(),
+                storageGroupingFolder(),
+                configurationGroupingFolder(),
                 new CRDTypesFolderNode(),
                 new HelmReleasesFolder(),
             ];
