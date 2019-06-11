@@ -4,7 +4,7 @@ import { Host } from '../../host';
 import * as kuberesources from '../../kuberesources';
 import { CRD } from '../../kuberesources.objectmodel';
 import { ClusterExplorerNode } from './node';
-import { ResourceFolderNode } from './node.folder.resource';
+import { resourceFolderNodeCreate } from './resourcefolderfactory';
 import { GroupingFolderNode } from './node.folder.grouping';
 
 export class CRDTypesFolderNode extends GroupingFolderNode {
@@ -13,7 +13,7 @@ export class CRDTypesFolderNode extends GroupingFolderNode {
     }
     async getChildren(kubectl: Kubectl, _host: Host): Promise<ClusterExplorerNode[]> {
         const objects = await kubectlUtils.getCRDTypes(kubectl);
-        return objects.map((obj) => new ResourceFolderNode(this.customResourceKind(obj)));
+        return objects.map((obj) => resourceFolderNodeCreate(this.customResourceKind(obj)));
     }
     private customResourceKind(crd: CRD): kuberesources.ResourceKind {
         return new kuberesources.ResourceKind(crd.spec.names.singular, crd.spec.names.plural, crd.spec.names.kind, this.safeAbbreviation(crd));

@@ -5,8 +5,7 @@ import * as kuberesources from '../../kuberesources';
 import { Host } from '../../host';
 import { ClusterExplorerNode, ClusterExplorerGroupingFolderNode } from './node';
 import { FolderNode } from './node.folder';
-import { ConfigurationResourceFolder } from "./node.folder.configurationresources";
-import { ResourceFolderNode, PodSelectingResourceFolderNode } from "./node.folder.resource";
+import { resourceFolderNodeCreate } from "./resourcefolderfactory";
 
 export abstract class GroupingFolderNode extends FolderNode implements ClusterExplorerGroupingFolderNode {
     constructor(nodeType: 'folder.grouping', id: string, displayName: string, contextValue?: string) {
@@ -21,12 +20,12 @@ export class WorkloadsGroupingFolderNode extends GroupingFolderNode {
     }
     getChildren(_kubectl: Kubectl, _host: Host): vscode.ProviderResult<ClusterExplorerNode[]> {
         return [
-            new PodSelectingResourceFolderNode(kuberesources.allKinds.deployment),
-            new PodSelectingResourceFolderNode(kuberesources.allKinds.statefulSet),
-            new PodSelectingResourceFolderNode(kuberesources.allKinds.daemonSet),
-            new ResourceFolderNode(kuberesources.allKinds.job),
-            new ResourceFolderNode(kuberesources.allKinds.cronjob),
-            new ResourceFolderNode(kuberesources.allKinds.pod),
+            resourceFolderNodeCreate(kuberesources.allKinds.deployment),
+            resourceFolderNodeCreate(kuberesources.allKinds.statefulSet),
+            resourceFolderNodeCreate(kuberesources.allKinds.daemonSet),
+            resourceFolderNodeCreate(kuberesources.allKinds.job),
+            resourceFolderNodeCreate(kuberesources.allKinds.cronjob),
+            resourceFolderNodeCreate(kuberesources.allKinds.pod),
         ];
     }
 }
@@ -37,8 +36,8 @@ export class ConfigurationGroupingFolderNode extends GroupingFolderNode {
     }
     getChildren(_kubectl: Kubectl, _host: Host): vscode.ProviderResult<ClusterExplorerNode[]> {
         return [
-            new ConfigurationResourceFolder(kuberesources.allKinds.configMap),
-            new ConfigurationResourceFolder(kuberesources.allKinds.secret)
+            resourceFolderNodeCreate(kuberesources.allKinds.configMap),
+            resourceFolderNodeCreate(kuberesources.allKinds.secret)
         ];
     }
 }
@@ -49,9 +48,9 @@ export class NetworkGroupingFolderNode extends GroupingFolderNode {
     }
     getChildren(_kubectl: Kubectl, _host: Host): vscode.ProviderResult<ClusterExplorerNode[]> {
         return [
-            new PodSelectingResourceFolderNode(kuberesources.allKinds.service),
-            new ResourceFolderNode(kuberesources.allKinds.endpoint),
-            new ResourceFolderNode(kuberesources.allKinds.ingress),
+            resourceFolderNodeCreate(kuberesources.allKinds.service),
+            resourceFolderNodeCreate(kuberesources.allKinds.endpoint),
+            resourceFolderNodeCreate(kuberesources.allKinds.ingress),
         ];
     }
 }
@@ -62,9 +61,9 @@ export class StorageGroupingFolderNode extends GroupingFolderNode {
     }
     getChildren(_kubectl: Kubectl, _host: Host): vscode.ProviderResult<ClusterExplorerNode[]> {
         return [
-            new ResourceFolderNode(kuberesources.allKinds.persistentVolume),
-            new ResourceFolderNode(kuberesources.allKinds.persistentVolumeClaim),
-            new ResourceFolderNode(kuberesources.allKinds.storageClass),
+            resourceFolderNodeCreate(kuberesources.allKinds.persistentVolume),
+            resourceFolderNodeCreate(kuberesources.allKinds.persistentVolumeClaim),
+            resourceFolderNodeCreate(kuberesources.allKinds.storageClass),
         ];
     }
 }
