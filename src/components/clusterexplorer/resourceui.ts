@@ -1,26 +1,25 @@
 import * as vscode from 'vscode';
 
 import * as kuberesources from '../../kuberesources';
-import { ObjectMeta } from '../../kuberesources.objectmodel';
 import { ClusterExplorerNode } from './node';
 import { ResourceNode } from './node.resource';
 import { namespaceUICustomiser } from './resourcekinds/resourcekind.namespace';
 import { podUICustomiser, podStatusChildSource, podLister } from './resourcekinds/resourcekind.pod';
 import { Kubectl } from '../../kubectl';
-import { selectedPodsChildSource } from './resourcekinds/resourcekinds.selectspods';
+import { selectedPodsChildSource, hasSelectorLister } from './resourcekinds/resourcekinds.selectspods';
 import { nodePodsChildSource } from './resourcekinds/resourcekind.node';
 import { configItemsChildSource, configResourceLister } from './resourcekinds/resourcekinds.configuration';
 
 const specialKinds: ReadonlyArray<ResourceKindUIDescriptor> = [
     { kind: kuberesources.allKinds.namespace /*, lister: namespaceLister */, uiCustomiser: namespaceUICustomiser },
     { kind: kuberesources.allKinds.node /*, lister: nodeLister */, childSources: [nodePodsChildSource] },
-    { kind: kuberesources.allKinds.deployment, childSources: [selectedPodsChildSource] },
-    { kind: kuberesources.allKinds.daemonSet, childSources: [selectedPodsChildSource] },
+    { kind: kuberesources.allKinds.deployment, lister: hasSelectorLister, childSources: [selectedPodsChildSource] },
+    { kind: kuberesources.allKinds.daemonSet, lister: hasSelectorLister, childSources: [selectedPodsChildSource] },
     { kind: kuberesources.allKinds.pod, lister: podLister, childSources: [podStatusChildSource], uiCustomiser: podUICustomiser },
-    { kind: kuberesources.allKinds.service, childSources: [selectedPodsChildSource] },
+    { kind: kuberesources.allKinds.service, lister: hasSelectorLister, childSources: [selectedPodsChildSource] },
     { kind: kuberesources.allKinds.configMap, lister: configResourceLister, childSources: [configItemsChildSource] },
     { kind: kuberesources.allKinds.secret, lister: configResourceLister, childSources: [configItemsChildSource] },
-    { kind: kuberesources.allKinds.statefulSet, childSources: [selectedPodsChildSource] },
+    { kind: kuberesources.allKinds.statefulSet, lister: hasSelectorLister, childSources: [selectedPodsChildSource] },
 ];
 
 export function getLister(kind: kuberesources.ResourceKind): ResourceLister | undefined {
@@ -58,15 +57,8 @@ interface ResourceKindUIDescriptor {
     readonly uiCustomiser?: ResourceUICustomiser;
 }
 
-export interface ResourceNodeInfo {
-    readonly kind?: kuberesources.ResourceKind;
-    readonly name: string;
-    readonly metadata: ObjectMeta | undefined;
-    readonly extraInfo?: any;
-}
-
 export interface ResourceLister {
-    list(kubectl: Kubectl, kind: kuberesources.ResourceKind): Promise<ResourceNodeInfo[]>;
+    list(kubectl: Kubectl, kind: kuberesources.ResourceKind): Promise<ClusterExplorerNode[]>;
 }
 
 export interface ResourceUICustomiser {

@@ -3,7 +3,6 @@ import * as kubectlUtils from '../../../kubectlUtils';
 import { ResourceNode } from "../node.resource";
 import { ClusterExplorerNode } from "../node";
 import { ConfigurationValueNode } from "../node.configurationvalue";
-import { ResourceNodeInfo } from "../resourceui";
 import { ResourceKind } from "../../../kuberesources";
 
 export const configItemsChildSource = {
@@ -18,8 +17,8 @@ export const configItemsChildSource = {
 };
 
 export const configResourceLister = {
-    async list(kubectl: Kubectl, kind: ResourceKind): Promise<ResourceNodeInfo[]> {
+    async list(kubectl: Kubectl, kind: ResourceKind): Promise<ClusterExplorerNode[]> {
         const resources = await kubectlUtils.getAsDataResources(kind.abbreviation, kubectl);
-        return resources.map((r) => ({ name: r.metadata.name, metadata: r.metadata, extraInfo: { configData: r.data } }));
+        return resources.map((r) => ResourceNode.create(kind, r.metadata.name, r.metadata, { configData: r.data }));
     }
 };

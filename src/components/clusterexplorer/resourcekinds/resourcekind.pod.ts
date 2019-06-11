@@ -7,7 +7,6 @@ import * as kubectlUtils from '../../../kubectlUtils';
 import { ClusterExplorerNode } from '../node';
 import { MessageNode } from '../node.message';
 import { Pod } from '../../../kuberesources.objectmodel';
-import { ResourceNodeInfo } from '../resourceui';
 import { ResourceKind } from '../../../kuberesources';
 
 export const podUICustomiser = {
@@ -51,12 +50,13 @@ export const podStatusChildSource = {
 };
 
 export const podLister = {
-    async list(kubectl: Kubectl, _kind: ResourceKind): Promise<ResourceNodeInfo[]> {
+    async list(kubectl: Kubectl, kind: ResourceKind): Promise<ClusterExplorerNode[]> {
         const pods = await kubectlUtils.getPods(kubectl, null, null);
-        return pods.map((pod) => ({
-            name: pod.name,
-            metadata: pod.metadata,
-            extraInfo: { podInfo: pod }
-        }));
+        return pods.map((pod) => ResourceNode.create(
+            kind,
+            pod.name,
+            pod.metadata,
+            { podInfo: pod }
+        ));
     }
 };
