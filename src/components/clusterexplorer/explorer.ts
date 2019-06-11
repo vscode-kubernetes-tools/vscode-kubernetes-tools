@@ -27,14 +27,6 @@ export function create(kubectl: Kubectl, host: Host): KubernetesExplorer {
     return new KubernetesExplorer(kubectl, host);
 }
 
-// export function createKubernetesResourceFolder(kind: kuberesources.ResourceKind): ClusterExplorerNode {
-//     return new ResourceFolderNode(kind);
-// }
-
-// export function createKubernetesResource(kind: kuberesources.ResourceKind, id: string, metadata?: any): ClusterExplorerNode {
-//     return new ResourceNode(kind, id, metadata);
-// }
-
 export function isKubernetesExplorerResourceNode(obj: any): obj is ClusterExplorerResourceNode {
     return obj && obj.nodeCategory === KUBERNETES_EXPLORER_NODE_CATEGORY && obj.nodeType === 'resource';
 }
