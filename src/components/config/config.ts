@@ -193,6 +193,13 @@ export function getNodejsDebugPort(): number | undefined {
     return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.nodejs-debug-port'];
 }
 
+// container image build tool
+const IMAGE_BUILD_TOOL = "imageBuildTool";
+
+export function getImageBuildTool(): string {
+    return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)[IMAGE_BUILD_TOOL];
+}
+
 // if true will try to automatically get the root location of the source code in the container
 export function getPythonAutoDetectRemoteRoot(): boolean {
     return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.python-autodetect-remote-root'];
