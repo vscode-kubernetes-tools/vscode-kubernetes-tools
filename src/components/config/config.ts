@@ -192,3 +192,18 @@ export function getNodejsRemoteRoot(): string {
 export function getNodejsDebugPort(): number | undefined {
     return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.nodejs-debug-port'];
 }
+
+// if true will try to automatically get the root location of the source code in the container
+export function getPythonAutoDetectRemoteRoot(): boolean {
+    return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.python-autodetect-remote-root'];
+}
+
+// user specified root location of the source code in the container
+export function getPythonRemoteRoot(): string {
+    return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.python-remote-root'];
+}
+
+// remote debugging port for Python. Usually 5678
+export function getPythonDebugPort(): number | undefined {
+    return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.python-debug-port'];
+}
