@@ -17,14 +17,10 @@
     ],
     "keywords": [
         "kubernetes",
-        "k8s",
         "helm",
         "aks",
         "gke",
-        "eks",
-        "aws",
-        "azure",
-        "draft"
+        "aws"
     ],
     "aiKey": "AIF-d9b70cd4-b9f9-4d70-929b-a071c400b217",
     "icon": "images/k8s-logo.png",
@@ -96,7 +92,7 @@
         "onLanguage:helm",
         "onLanguage:yaml",
         "onFileSystem:k8smsx",
-        "onDebug"
+        "onDebugResolve:draft"
     ],
     "main": "./out/src/extension",
     "contributes": {
@@ -206,11 +202,11 @@
                         },
                         "vs-kubernetes.nodejs-autodetect-remote-root": {
                             "type": "boolean",
-                            "description": "If true will try to automatically get the root location of the source code in the container."
+                            "description": "If true will try to automatically get the root location of the source code in the container (nodejs)."
                         },
                         "vs-kubernetes.nodejs-remote-root": {
                             "type": "string",
-                            "description": "The root location of the source code in the container."
+                            "description": "The root location of the source code in the container (nodejs)."
                         },
                         "vs-kubernetes.nodejs-debug-port": {
                             "type": "number",
@@ -239,6 +235,18 @@
                                 "Buildah"
                             ],
                             "description": "Container image build tool. By default, Docker."
+                        },
+                        "vs-kubernetes.python-autodetect-remote-root": {
+                            "type": "boolean",
+                            "description": "If true will try to automatically get the root location of the source code in the container (Python)."
+                        },
+                        "vs-kubernetes.python-remote-root": {
+                            "type": "string",
+                            "description": "The root location of the source code in the container (Python)."
+                        },
+                        "vs-kubernetes.python-debug-port": {
+                            "type": "number",
+                            "description": "Remote debugging port for Python. Usually 5678."
                         }
                     },
                     "default": {
@@ -481,6 +489,16 @@
                     "command": "extension.vsKubernetesPortForward",
                     "group": "2@6",
                     "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.pod/i"
+                },
+                {
+                    "command": "extension.vsKubernetesPortForward",
+                    "group": "2@6",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.service/i"
+                },
+                {
+                    "command": "extension.vsKubernetesPortForward",
+                    "group": "2@6",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.deployment/i"
                 },
                 {
                     "command": "extension.vsKubernetesShowLogs",
@@ -1051,6 +1069,18 @@
                     "**/templates/**/*.tpl"
                 ],
                 "configuration": "./language-configuration.json"
+            },
+            {
+                "id": "ignore",
+                "filenames": [
+                    ".helmignore"
+                ]
+            },
+            {
+                "id": "yaml",
+                "filenames": [
+                    "requirements.lock"
+                ]
             }
         ],
         "grammars": [
@@ -1193,7 +1223,7 @@
         "fast-sha256": "^1.1.0",
         "fuzzysearch": "^1.0.3",
         "graceful-fs": "^4.1.11",
-        "js-yaml": "^3.8.2",
+        "js-yaml": "^3.13.1",
         "lodash": "^4.17.10",
         "mixin-deep": "^1.3.1",
         "mkdirp": "^0.5.1",
@@ -1222,7 +1252,7 @@
         "@types/mocha": "^2.2.32",
         "@types/node": "^10.2.0",
         "@types/request": "^2.48.1",
-        "gulp": "^4.0.0",
+        "gulp": "^4.0.2",
         "gulp-tslint": "^8.1.2",
         "mocha": "^4.1.0",
         "tslint": "^5.9.1",
