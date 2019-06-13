@@ -82,7 +82,7 @@ async function verifyPrerequisitesAsync(context: Context): Promise<string[]> {
 
 async function azureCliVersion(context: Context): Promise<string | null> {
     const sr = await context.shell.exec('az --version');
-    if (!sr || sr.code !== 0 || sr.stderr) {
+    if (!sr || sr.code !== 0) {
         return null;
     } else {
         const versionMatches = /azure-cli\s+\(?([0-9.]+)\)?/.exec(sr.stdout);
