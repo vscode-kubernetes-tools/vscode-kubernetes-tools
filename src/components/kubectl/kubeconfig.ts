@@ -50,7 +50,7 @@ async function mergeInto(existing: Named[], toMerge: Named[]): Promise<void> {
     for (const toMergeEntry of toMerge) {
         if (existing.some((e) => e.name === toMergeEntry.name)) {
             // we have CONFLICT and CONFLICT BUILDS CHARACTER
-            await vscode.window.showWarningMessage(`${toMergeEntry} already exists - skipping`);
+            await vscode.window.showWarningMessage(`${toMergeEntry.name} already exists - skipping`);
             continue;  // TODO: build character
         }
         existing.push(toMergeEntry);
