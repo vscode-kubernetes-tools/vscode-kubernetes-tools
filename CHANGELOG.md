@@ -1,5 +1,21 @@
 # Change Log
 
+## 1.0.1
+
+* Added Buildah as an alternative configuration tool - use the `imageBuildTool`
+  config setting to prefer it.
+* Added basic Python debugging support.  See [the debugging documentation](debug-on-kubernetes.md)
+  for how to set this up.
+* Added port forwarding for services and deployments
+* Added language entries for Helm `requirements.lock` and `.helmignore`
+* Fix for node pods not being displayed under more recent versions of kubectl
+* Fix to detect latest version of Azure CLI
+* Fix for old dependency not playing nicely with other extensions using AWS S3 large file upload
+* Fix for `[object Object]` in Cloud Explorer merge to kubeconfig message
+* We now have [a homepage](https://azure.github.io/vscode-kubernetes-tools/)!
+
+Thanks to Brendan Burns, Ronan Flynn-Curran, Kim Gustyr, Remco Haszing, Bhargav Nookala and Artem Zatsarynnyi.
+
 ## 1.0.0
 
 * We now offer an API for adding your features to the extension!  See the
