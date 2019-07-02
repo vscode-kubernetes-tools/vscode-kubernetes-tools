@@ -11,7 +11,7 @@ import { ResourceKind } from '../../../kuberesources';
 
 export const podUICustomiser = {
     customiseTreeItem(resource: ResourceNode, treeItem: vscode.TreeItem): void {
-        const podInfo = resource.extraInfo!.podInfo!;  // TODO: unbang
+        const podInfo = resource.extraInfo!.podInfo;  // TODO: unbang
         if (podInfo && podInfo.status) {
             treeItem.iconPath = getIconForPodStatus(podInfo.status.toLowerCase());
         }
@@ -28,7 +28,7 @@ function getIconForPodStatus(status: string): vscode.Uri {
 
 export const podStatusChildSource = {
     async children(kubectl: Kubectl, parent: ResourceNode): Promise<ClusterExplorerNode[]> {
-        const nsarg = parent.namespace ? `--namespace=${parent.namespace}` : '';  // TODO: still not working!
+        const nsarg = parent.namespace ? `--namespace=${parent.namespace}` : '';
         const result = await kubectl.asJson<Pod>(`get pods ${parent.name} ${nsarg} -o json`);
         if (result.succeeded) {
             const pod = result.result;

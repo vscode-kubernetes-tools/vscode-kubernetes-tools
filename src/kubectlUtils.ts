@@ -242,7 +242,7 @@ export async function getPods(kubectl: Kubectl, selector: any, namespace: string
             namespace: item.namespace || ns,
             nodeName: item.node,
             status: item.status,
-            metadata: undefined,
+            metadata: { name: item.name, namespace: item.namespace || ns },
         };
     });
 }
