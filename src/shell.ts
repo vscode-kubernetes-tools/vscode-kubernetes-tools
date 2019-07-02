@@ -5,6 +5,7 @@ import * as shelljs from 'shelljs';
 import * as path from 'path';
 import { getActiveKubeconfig, getToolPath, getUseWsl } from './components/config/config';
 import { host } from './host';
+import { ChildProcess } from 'child_process';
 
 export enum Platform {
     Windows,
@@ -24,7 +25,8 @@ export interface Shell {
     fileUri(filePath: string): vscode.Uri;
     execOpts(): any;
     exec(cmd: string, stdin?: string): Promise<ShellResult | undefined>;
-    execCore(cmd: string, opts: any, stdin?: string): Promise<ShellResult>;
+    execStreaming(cmd: string, callback: ((proc: ChildProcess) => void) | undefined): Promise<ShellResult | undefined>;
+    execCore(cmd: string, opts: any, callback?: (proc: ChildProcess) => void, stdin?: string): Promise<ShellResult>;
     unquotedPath(path: string): string;
     which(bin: string): string | null;
     cat(path: string): string;
@@ -40,6 +42,7 @@ export const shell: Shell = {
     fileUri : fileUri,
     execOpts : execOpts,
     exec : exec,
+    execStreaming: execStreaming,
     execCore : execCore,
     unquotedPath : unquotedPath,
     which: which,
@@ -127,14 +130,23 @@ function execOpts(): any {
 
 async function exec(cmd: string, stdin?: string): Promise<ShellResult | undefined> {
     try {
-        return await execCore(cmd, execOpts(), stdin);
+        return await execCore(cmd, execOpts(), null, stdin);
     } catch (ex) {
         vscode.window.showErrorMessage(ex);
         return undefined;
     }
 }
 
-function execCore(cmd: string, opts: any, stdin?: string): Promise<ShellResult> {
+async function execStreaming(cmd: string, callback: (proc: ChildProcess) => void): Promise<ShellResult | undefined> {
+    try {
+        return await execCore(cmd, execOpts(), callback);
+    } catch (ex) {
+        vscode.window.showErrorMessage(ex);
+        return undefined;
+    }
+}
+
+function execCore(cmd: string, opts: any, callback?: ((proc: ChildProcess) => void) | null, stdin?: string): Promise<ShellResult> {
     return new Promise<ShellResult>((resolve) => {
         if (getUseWsl()) {
             cmd = 'wsl ' + cmd;
@@ -142,6 +154,9 @@ function execCore(cmd: string, opts: any, stdin?: string): Promise<ShellResult> 
         const proc = shelljs.exec(cmd, opts, (code, stdout, stderr) => resolve({code : code, stdout : stdout, stderr : stderr}));
         if (stdin) {
             proc.stdin.end(stdin);
+        }
+        if (callback) {
+            callback(proc);
         }
     });
 }
