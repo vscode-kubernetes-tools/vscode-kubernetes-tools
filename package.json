@@ -397,12 +397,12 @@
                 },
                 {
                     "command": "extension.vsKubernetesClusterInfo",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.\\w*cluster/i",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.\\w*cluster($|\\s)/i",
                     "group": "0@1"
                 },
                 {
                     "command": "extension.vsKubernetesDashboard",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.\\w*cluster/i",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.\\w*cluster($|\\s)/i",
                     "group": "0@3"
                 },
                 {
