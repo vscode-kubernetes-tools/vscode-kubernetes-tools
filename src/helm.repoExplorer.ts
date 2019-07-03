@@ -1,4 +1,3 @@
-import * as path from 'path';
 import * as vscode from 'vscode';
 import * as _ from 'lodash';
 
@@ -9,6 +8,7 @@ import { Errorable, failed } from './errorable';
 import { parseLineOutput } from './outputUtils';
 import { affectsUs } from './components/config/config';
 import { Dictionary } from './utils/dictionary';
+import { assetUri } from './assets';
 
 export const HELM_EXPLORER_NODE_CATEGORY = 'helm-explorer-node';
 
@@ -130,8 +130,8 @@ class HelmRepoImpl extends HelmExplorerNodeImpl implements HelmRepo {
     getTreeItem(): vscode.TreeItem {
         const treeItem = new vscode.TreeItem(this.name, vscode.TreeItemCollapsibleState.Collapsed);
         treeItem.iconPath = {
-            light: vscode.Uri.file(path.join(__dirname, "../../images/light/helm-blue-vector.svg")),
-            dark: vscode.Uri.file(path.join(__dirname, "../../images/dark/helm-white-vector.svg")),
+            light: assetUri("images/light/helm-blue-vector.svg"),
+            dark: assetUri("images/dark/helm-white-vector.svg"),
         };
         treeItem.contextValue = 'vsKubernetes.repo';
         return treeItem;

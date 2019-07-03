@@ -98,7 +98,7 @@
         "onFileSystem:k8smsx",
         "onDebugResolve:draft"
     ],
-    "main": "./out/src/extension",
+    "main": "./dist/extension",
     "contributes": {
         "configuration": {
             "type": "object",
@@ -1271,10 +1271,11 @@
         ]
     },
     "scripts": {
-        "vscode:prepublish": "npm run compile",
+        "vscode:prepublish": "webpack --mode production",
         "lint": "eslint -c .eslintrc.js --ext .ts ./src",
-        "compile": "tsc -p ./",
-        "watch": "tsc -watch -p ./",
+        "compile": "webpack --mode none",
+        "watch": "webpack --mode none --watch",
+        "test-compile": "tsc -p ./",
         "postinstall": "node ./node_modules/vscode/bin/install",
         "test": "npm run compile && node ./node_modules/vscode/bin/test"
     },
@@ -1332,7 +1333,7 @@
         "vscode-extension-telemetry": "^0.1.1",
         "vscode-uri": "^1.0.1",
         "yaml-ast-parser": "^0.0.40",
-        "yamljs": "0.2.10"
+        "yamljs": "^0.3.0"
     },
     "devDependencies": {
         "@types/mocha": "^2.2.32",
@@ -1343,12 +1344,16 @@
         "@typescript-eslint/eslint-plugin-tslint": "2.19.2",
         "@typescript-eslint/parser": "^2.19.2",
         "eslint": "^6.8.0",
+        "file-loader": "^4.0.0",
         "gulp": "^4.0.2",
         "gulp-tslint": "^8.1.2",
         "mocha": "^4.1.0",
+        "ts-loader": "^6.0.4",
         "tslint": "^5.18.0",
         "typescript": "^3.5.2",
-        "vscode": "^1.1.21"
+        "vscode": "^1.1.21",
+        "webpack": "^4.35.2",
+        "webpack-cli": "^3.3.5"
     },
     "repository": {
         "type": "git",

@@ -19,8 +19,8 @@ interface IPackageInfo {
     aiKey: string;
 }
 
-function getPackageInfo(context: vscode.ExtensionContext): IPackageInfo | undefined {
-    const extensionPackage = require(context.asAbsolutePath('./package.json'));
+function getPackageInfo(_context: vscode.ExtensionContext): IPackageInfo | undefined {
+    const extensionPackage = require('../package');
     if (extensionPackage) {
         return {
             name: extensionPackage.name,

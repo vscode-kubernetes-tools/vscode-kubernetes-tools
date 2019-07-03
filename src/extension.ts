@@ -1,5 +1,7 @@
 'use strict';
 
+console.log(`EXTENSION.TS TOP: ${(new Date()).toTimeString()}`);
+
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
@@ -86,6 +88,7 @@ import { create as activeContextTrackerCreate } from './components/contextmanage
 import { WatchManager } from './components/kubectl/watch';
 import { ExecResult } from './binutilplusplus';
 import { getCurrentContext } from './kubectlUtils';
+import { setAssetContext } from './assets';
 
 let explainActive = false;
 let swaggerSpecPromise: Promise<explainer.SwaggerModel | undefined> | null = null;
@@ -130,6 +133,10 @@ export const HELM_TPL_MODE: vscode.DocumentFilter = { language: "helm", scheme: 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export async function activate(context: vscode.ExtensionContext): Promise<APIBroker> {
+    console.log(`EXTENSION.TS ACT: ${(new Date()).toTimeString()}`);
+
+    setAssetContext(context);
+
     kubectl.ensurePresent({ warningIfNotPresent: 'Kubectl not found. Many features of the Kubernetes extension will not work.' });
 
     const treeProvider = explorer.create(kubectl, host);
@@ -273,7 +280,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
 
         // Completion providers
         vscode.languages.registerCompletionItemProvider(completionFilter, completionProvider),
-        vscode.languages.registerCompletionItemProvider('yaml', new KubernetesCompletionProvider()),
+        vscode.languages.registerCompletionItemProvider('yaml', new KubernetesCompletionProvider(context)),
 
         // Symbol providers
         vscode.languages.registerDocumentSymbolProvider({ language: 'helm' }, helmSymbolProvider),
@@ -410,9 +417,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
     const currentNS = await kubectlUtils.currentNamespace(kubectl);
     updateStatusBarItem(activeNamespaceStatusBarItem, currentNS, 'Current active namespace', !config.isNamespaceStatusBarDisabled());
 
-    await registerYamlSchemaSupport(activeContextTracker, kubectl);
+    await registerYamlSchemaSupport(context, activeContextTracker, kubectl);
 
     vscode.workspace.registerTextDocumentContentProvider(configmaps.uriScheme, configMapProvider);
+
+    console.log(`EXTENSION.TS BOT: ${(new Date()).toTimeString()}`);
+
     return apiBroker(clusterProviderRegistry, kubectl, portForwardStatusBarManager, treeProvider, cloudExplorer);
 }
 
