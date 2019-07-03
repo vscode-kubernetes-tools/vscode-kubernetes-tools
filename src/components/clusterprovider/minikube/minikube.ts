@@ -116,7 +116,7 @@ async function minikubeUpgradeAvailable(context: Context): Promise<void> {
 }
 
 function extractVersion(line: string): string {
-    const parts = line.split(' ');
+    const parts = line.split(': ');
     return parts[1];
 }
 
@@ -198,13 +198,42 @@ async function stopMinikube(context: Context): Promise<void> {
     });
 }
 
+function getStatusFormatString(currentVersion: string): string {
+    if (currentVersion.startsWith("v0.")) {
+        if (parseInt(currentVersion.split(".")[1]) < 31) {
+            // minikube < 0.31.0 uses this format
+            return `"{{.MinikubeStatus}}","{{.ClusterStatus}}","{{.KubeconfigStatus}}"`;
+        } else {
+            // minikube < 1.0.0 uses this format
+            return `"{{.Host}}",{ "kubelet": "{{.Kubelet}}", "apiserver": "{{.ApiServer}}" },"{{.Kubeconfig}}"`;
+        }
+    }
+
+    // minikube >= 1.0.0 uses this format
+    return `"{{.Host}}",{ "kubelet": "{{.Kubelet}}", "apiserver": "{{.APIServer}}" },"{{.Kubeconfig}}"`;
+}
+
 async function minikubeStatus(context: Context): Promise<MinikubeInfo> {
     if (!await checkPresent(context, CheckPresentMode.Silent)) {
         throw new Error('minikube executable could not be found!');
     }
 
+    const sr = await context.shell.exec(`"${context.binPath}" version`);
+    if (!sr || sr.code !== 0) {
+        throw new Error(`Error checking for minikube version: ${sr ? sr.stderr : 'cannot run minikube'}`);
+    }
+    const lines = sr.stdout.split('\n')
+                           .map((l) => l.trim())
+                           .filter((l) => l.length > 0);
+    if (lines.length !== 1) {
+        throw new Error(`Unexpected output for minikube version check: ${lines}`);
+    }
+    const currentVersion = extractVersion(lines[0]);
+
+    const statusFormatString = getStatusFormatString(currentVersion);
+
     const result = await context.shell.exec(
-        `"${context.binPath}" status --format '["{{.MinikubeStatus}}","{{.ClusterStatus}}","{{.KubeconfigStatus}}"]'`);
+        `"${context.binPath}" status --format '[${statusFormatString}]'`);
     if (result && result.stderr.length === 0) {
         const obj = JSON.parse(result.stdout);
         return {
