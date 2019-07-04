@@ -21,10 +21,15 @@ const config = {
   externals: {
     vscode: 'commonjs vscode', // the vscode-module is created on-the-fly and must be excluded. Add other modules that cannot be webpack'ed, 📖 -> https://webpack.js.org/configuration/externals/
     bufferutil: 'commonjs bufferutil',
+    '../build/Release/bufferutil': 'commonjs ../build/Release/bufferutil',
+    '../build/default/bufferutil': 'commonjs ../build/default/bufferutil',
     validation: 'commonjs validation',
-    jsonpath: 'commonjs jsonpath',
+    '../build/Release/validation': 'commonjs ../build/Release/validation',
+    '../build/default/validation': 'commonjs ../build/default/validation',
+    'spawn-sync': 'commonjs spawn-sync',
+    jsonpath: 'commonjs jsonpath' /*,
     'cross-spawn': 'commonjs cross-spawn',
-    '@kubernetes/client-node': 'commonjs @kubernetes/client-node'
+    '@kubernetes/client-node': 'commonjs @kubernetes/client-node' */
   },
   plugins: [
       new webpack.IgnorePlugin(/^electron$/)

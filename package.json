@@ -1271,7 +1271,7 @@
         ]
     },
     "scripts": {
-        "vscode:prepublish": "webpack --mode production",
+        "vscode:prepublish": "webpack --mode none",
         "lint": "eslint -c .eslintrc.js --ext .ts ./src",
         "compile": "webpack --mode none",
         "watch": "webpack --mode none --watch",
@@ -1297,6 +1297,7 @@
         "@types/uuid": "^3.4.4",
         "@types/websocket": "^0.0.40",
         "@types/yamljs": "^0.2.30",
+        "ajv": "^6.9.1",
         "await-notify": "^1.0.1",
         "clipboardy": "^1.2.3",
         "compare-versions": "^3.1.0",
