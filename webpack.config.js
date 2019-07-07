@@ -27,9 +27,7 @@ const config = {
     '../build/Release/validation': 'commonjs ../build/Release/validation',
     '../build/default/validation': 'commonjs ../build/default/validation',
     'spawn-sync': 'commonjs spawn-sync',
-    jsonpath: 'commonjs jsonpath' /*,
-    'cross-spawn': 'commonjs cross-spawn',
-    '@kubernetes/client-node': 'commonjs @kubernetes/client-node' */
+    'esprima': 'commonjs esprima'
   },
   plugins: [
       new webpack.IgnorePlugin(/^electron$/)
