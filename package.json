@@ -1079,7 +1079,8 @@
             {
                 "id": "yaml",
                 "filenames": [
-                    "requirements.lock"
+                    "requirements.lock",
+                    "**/.kube/config"
                 ]
             }
         ],
