@@ -1,0 +1,165 @@
+{
+  "io.k8s.api.core.v1.AzureDiskVolumeSource": {
+    "cachingMode": [
+      "None",
+      "ReadOnly",
+      "ReadWrite"
+    ],
+    "kind": [
+      "Shared",
+      "Dedicated"
+    ]
+  },
+  "io.k8s.api.core.v1.ComponentCondition": {
+    "status": [
+      "True",
+      "False"
+    ]
+  },
+  "io.k8s.api.core.v1.Container": {
+    "imagePullPolicy": [
+      "Always",
+      "Never"
+    ],
+    "terminationMessagePolicy": [
+      "File"
+    ]
+  },
+  "io.k8s.api.core.v1.ContainerPort": {
+    "protocol": [
+      "TCP",
+      "UDP"
+    ]
+  },
+  "io.k8s.api.core.v1.EndpointPort": {
+    "protocol": [
+      "TCP",
+      "UDP"
+    ]
+  },
+  "io.k8s.api.core.v1.LimitRangeItem": {
+    "type": [
+      "Pod",
+      "Container"
+    ]
+  },
+  "io.k8s.api.core.v1.NodeAddress": {
+    "type": [
+      "Hostname",
+      "ExternalIP",
+      "InternalIP",
+      "ExternalDNS"
+    ]
+  },
+  "io.k8s.api.core.v1.NodeCondition": {
+    "status": [
+      "True",
+      "False"
+    ],
+    "type": [
+      "Ready",
+      "MemoryPressure",
+      "DiskPressure",
+      "PIDPressure"
+    ]
+  },
+  "io.k8s.api.core.v1.PersistentVolumeClaimCondition": {
+    "type": [
+      "Resizing"
+    ]
+  },
+  "io.k8s.api.core.v1.PersistentVolumeClaimSpec": {
+    "volumeMode": [
+      "Block"
+    ]
+  },
+  "io.k8s.api.core.v1.PodCondition": {
+    "status": [
+      "True",
+      "False"
+    ],
+    "type": [
+      "ContainersReady",
+      "Initialized",
+      "Ready"
+    ]
+  },
+  "io.k8s.api.core.v1.PodReadinessGate": {
+    "conditionType": [
+      "ContainersReady",
+      "Initialized",
+      "Ready"
+    ]
+  },
+  "io.k8s.api.core.v1.PodSpec": {
+    "dnsPolicy": [
+      "ClusterFirstWithHostNet",
+      "ClusterFirst",
+      "Default"
+    ],
+    "restartPolicy": [
+      "Always",
+      "OnFailure"
+    ]
+  },
+  "io.k8s.api.core.v1.PodStatus": {
+    "phase": [
+      "Pending",
+      "Running",
+      "Succeeded",
+      "Failed"
+    ],
+    "qosClass": [
+      "Guaranteed",
+      "Burstable"
+    ]
+  },
+  "io.k8s.api.core.v1.ReplicationControllerCondition": {
+    "status": [
+      "True",
+      "False"
+    ]
+  },
+  "io.k8s.api.core.v1.ResourceQuotaSpec": {
+    "scopes": [
+      "Terminating",
+      "NotTerminating",
+      "BestEffort",
+      "NotBestEffort"
+    ]
+  },
+  "io.k8s.api.core.v1.ScopedResourceSelectorRequirement": {
+    "scopeName": [
+      "Terminating",
+      "NotTerminating",
+      "BestEffort",
+      "NotBestEffort"
+    ]
+  },
+  "io.k8s.api.core.v1.ServicePort": {
+    "protocol": [
+      "TCP",
+      "UDP"
+    ]
+  },
+  "io.k8s.api.core.v1.ServiceSpec": {
+    "externalTrafficPolicy": [
+      "Local"
+    ],
+    "sessionAffinity": [
+      "ClientIP"
+    ],
+    "type": [
+      "ClusterIP",
+      "NodePort",
+      "LoadBalancer"
+    ]
+  },
+  "io.k8s.api.core.v1.Toleration": {
+    "effect": [
+      "NoSchedule",
+      "PreferNoSchedule",
+      "NoScheduleNoAdmit"
+    ]
+  }
+}
