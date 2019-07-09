@@ -9,12 +9,10 @@ import { Errorable, failed } from '../../../errorable';
 import { fromShellExitCodeOnly, Diagnostic } from '../../../wizard';
 import { getToolPath, getCheckForMinikubeUpgrade } from '../../config/config';
 import { installMinikube } from '../../installer/installer';
-import * as semver from 'semver';
 
 export class MinikubeInfo {
     readonly running: boolean;
-    readonly cluster: string;
-    readonly kubectl: string;
+    readonly message: string;
 }
 
 export class MinikubeVersionInfo {
@@ -101,8 +99,8 @@ async function getVersionInfo(context: Context): Promise<MinikubeVersionInfo> {
         throw new Error(`Unexpected output for minikube version check: ${lines}`);
     }
 
-    const currentVersion = semver.clean(extractVersion(lines[0]));
-    const availableVersion = semver.clean(extractVersion(lines[0]));
+    const currentVersion = extractVersion(lines[0]);
+    const availableVersion = extractVersion(lines[0]);
 
     if (currentVersion === null || availableVersion === null) {
         throw new Error(`Unable to get version from minikube version check: ${lines}`);
@@ -224,37 +222,22 @@ async function stopMinikube(context: Context): Promise<void> {
     });
 }
 
-function getStatusFormatString(currentVersion: string): string {
-    if (semver.lt(currentVersion, "0.31.0")) {
-        // minikube < 0.31.0 uses this format
-        return `"{{.MinikubeStatus}}","{{.ClusterStatus}}","{{.KubeconfigStatus}}"`;
-    } else if (semver.lt(currentVersion, "1.0.0")) {
-        // minikube < 1.0.0 uses this format
-        return `"{{.Host}}",{ "kubelet": "{{.Kubelet}}", "apiserver": "{{.ApiServer}}" },"{{.Kubeconfig}}"`;
-    }
-
-    // minikube >= 1.0.0 uses this format
-    return `"{{.Host}}",{ "kubelet": "{{.Kubelet}}", "apiserver": "{{.APIServer}}" },"{{.Kubeconfig}}"`;
-}
-
 async function minikubeStatus(context: Context): Promise<MinikubeInfo> {
     if (!await checkPresent(context, CheckPresentMode.Silent)) {
-        throw new Error('minikube executable could not be found!');
+        throw new Error('Minikube executable could not be found!');
     }
 
-    const statusFormatString = getStatusFormatString((await getVersionInfo(context)).currentVersion);
+    const result = await context.shell.exec(`"${context.binPath}" status`);
 
-    const result = await context.shell.exec(
-        `"${context.binPath}" status --format '[${statusFormatString}]'`);
     if (result && result.stderr.length === 0) {
-        const obj = JSON.parse(result.stdout);
+        const hostStatus = result.stdout.split('\n')[0].split(': ')[1].toLowerCase();
         return {
-            running: 'Stopped' !== obj[0],
-            cluster: obj[1],
-            kubectl: obj[2],
+            running: 'stopped' !== hostStatus,
+            message: `${result.stdout}`
+
         } as MinikubeInfo;
     }
-    throw new Error(`failed to get status: ${result ? result.stderr : "Unable to run Minikube"}`);
+    throw new Error(`Failed to get status: ${result ? result.stderr : "Unable to run Minikube"}`);
 }
 
 async function checkPresent(context: Context, mode: CheckPresentMode): Promise<boolean> {

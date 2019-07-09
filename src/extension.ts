@@ -199,8 +199,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.vsMinikubeStatus', async () => {
             try {
                 const status = await minikube.status();
-                const isRunning = status.running ? "running" : "stopped";
-                vscode.window.showInformationMessage(`Minikube is ${isRunning}`);
+                kubeChannel.showOutput(status.message, "Minikube status");
             } catch (err) {
                 vscode.window.showErrorMessage(`Error getting status ${err}`);
             }
