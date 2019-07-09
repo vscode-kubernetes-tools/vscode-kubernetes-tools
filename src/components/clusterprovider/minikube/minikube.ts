@@ -16,6 +16,11 @@ export class MinikubeInfo {
     readonly kubectl: string;
 }
 
+export class MinikubeVersionInfo {
+    readonly currentVersion: string;
+    readonly availableVersion: string;
+}
+
 export class MinikubeOptions {
     readonly vmDriver: string;
     readonly additionalFlags: string;
@@ -83,6 +88,24 @@ class MinikubeImpl implements Minikube {
     }
 }
 
+async function getVersionInfo(context: Context): Promise<MinikubeVersionInfo> {
+    const sr = await context.shell.exec(`"${context.binPath}" update-check`);
+    if (!sr || sr.code !== 0) {
+        throw new Error(`Error checking for minikube updates: ${sr ? sr.stderr : 'cannot run minikube'}`);
+    }
+    const lines = sr.stdout.split('\n')
+                           .map((l) => l.trim())
+                           .filter((l) => l.length > 0);
+    if (lines.length !== 2) {
+        throw new Error(`Unexpected output for minikube version check: ${lines}`);
+    }
+
+    return {
+        currentVersion: extractVersion(lines[0]),
+        availableVersion: extractVersion(lines[1])
+    } as MinikubeVersionInfo;
+}
+
 async function minikubeUpgradeAvailable(context: Context): Promise<void> {
 
     const performUpgradeCheck = await checkPresent(context, CheckPresentMode.Silent) && getCheckForMinikubeUpgrade();
@@ -90,24 +113,12 @@ async function minikubeUpgradeAvailable(context: Context): Promise<void> {
         return;
     }
 
-    const sr = await context.shell.exec(`"${context.binPath}" update-check`);
-    if (!sr || sr.code !== 0) {
-        vscode.window.showErrorMessage(`Error checking for minikube updates: ${sr ? sr.stderr : 'cannot run minikube'}`);
-        return;
-    }
-    const lines = sr.stdout.split('\n')
-                           .map((l) => l.trim())
-                           .filter((l) => l.length > 0);
-    if (lines.length !== 2) {
-        vscode.window.showErrorMessage(`Unexpected output for minikube version check: ${lines}`);
-        return;
-    }
-    const currentVersion = extractVersion(lines[0]);
-    const availableVersion = extractVersion(lines[1]);
-    if (currentVersion !== availableVersion) {
-        const value = await vscode.window.showInformationMessage(`Minikube upgrade available to ${availableVersion}, currently on ${currentVersion}`, 'Install');
+    const versionInfo = await getVersionInfo(context);
+
+    if (versionInfo.currentVersion !== versionInfo.availableVersion) {
+        const value = await vscode.window.showInformationMessage(`Minikube upgrade available to ${versionInfo.availableVersion}, currently on ${versionInfo.currentVersion}`, 'Install');
         if (value === 'Install') {
-            const result = await installMinikube(context.shell, availableVersion);
+            const result = await installMinikube(context.shell, versionInfo.availableVersion);
             if (failed(result)) {
                 vscode.window.showErrorMessage(`Failed to update minikube: ${result.error}`);
             }
@@ -218,19 +229,7 @@ async function minikubeStatus(context: Context): Promise<MinikubeInfo> {
         throw new Error('minikube executable could not be found!');
     }
 
-    const sr = await context.shell.exec(`"${context.binPath}" version`);
-    if (!sr || sr.code !== 0) {
-        throw new Error(`Error checking for minikube version: ${sr ? sr.stderr : 'cannot run minikube'}`);
-    }
-    const lines = sr.stdout.split('\n')
-                           .map((l) => l.trim())
-                           .filter((l) => l.length > 0);
-    if (lines.length !== 1) {
-        throw new Error(`Unexpected output for minikube version check: ${lines}`);
-    }
-    const currentVersion = extractVersion(lines[0]);
-
-    const statusFormatString = getStatusFormatString(currentVersion);
+    const statusFormatString = getStatusFormatString((await getVersionInfo(context)).currentVersion);
 
     const result = await context.shell.exec(
         `"${context.binPath}" status --format '[${statusFormatString}]'`);
