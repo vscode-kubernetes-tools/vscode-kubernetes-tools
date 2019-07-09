@@ -9,6 +9,7 @@ import { Errorable, failed } from '../../../errorable';
 import { fromShellExitCodeOnly, Diagnostic } from '../../../wizard';
 import { getToolPath, getCheckForMinikubeUpgrade } from '../../config/config';
 import { installMinikube } from '../../installer/installer';
+import * as semver from 'semver';
 
 export class MinikubeInfo {
     readonly running: boolean;
@@ -100,9 +101,16 @@ async function getVersionInfo(context: Context): Promise<MinikubeVersionInfo> {
         throw new Error(`Unexpected output for minikube version check: ${lines}`);
     }
 
+    const currentVersion = semver.clean(extractVersion(lines[0]));
+    const availableVersion = semver.clean(extractVersion(lines[0]));
+
+    if (currentVersion === null || availableVersion === null) {
+        throw new Error(`Unable to get version from minikube version check: ${lines}`);
+    }
+
     return {
-        currentVersion: extractVersion(lines[0]),
-        availableVersion: extractVersion(lines[1])
+        currentVersion: currentVersion,
+        availableVersion: availableVersion
     } as MinikubeVersionInfo;
 }
 
@@ -210,14 +218,12 @@ async function stopMinikube(context: Context): Promise<void> {
 }
 
 function getStatusFormatString(currentVersion: string): string {
-    if (currentVersion.startsWith("v0.")) {
-        if (parseInt(currentVersion.split(".")[1]) < 31) {
-            // minikube < 0.31.0 uses this format
-            return `"{{.MinikubeStatus}}","{{.ClusterStatus}}","{{.KubeconfigStatus}}"`;
-        } else {
-            // minikube < 1.0.0 uses this format
-            return `"{{.Host}}",{ "kubelet": "{{.Kubelet}}", "apiserver": "{{.ApiServer}}" },"{{.Kubeconfig}}"`;
-        }
+    if (semver.lt(currentVersion, "0.31.0")) {
+        // minikube < 0.31.0 uses this format
+        return `"{{.MinikubeStatus}}","{{.ClusterStatus}}","{{.KubeconfigStatus}}"`;
+    } else if (semver.lt(currentVersion, "1.0.0")) {
+        // minikube < 1.0.0 uses this format
+        return `"{{.Host}}",{ "kubelet": "{{.Kubelet}}", "apiserver": "{{.ApiServer}}" },"{{.Kubeconfig}}"`;
     }
 
     // minikube >= 1.0.0 uses this format
