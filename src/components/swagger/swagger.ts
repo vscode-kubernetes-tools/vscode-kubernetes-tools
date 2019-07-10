@@ -26,7 +26,6 @@ export async function getClusterSwagger(kubectl: Kubectl): Promise<Errorable<Swa
         try {
             const swaggerText = await fs.readTextFile(swaggerTempFile);
             const swagger = JSON.parse(swaggerText);
-            // TODO: Looks like we need to post-process out the enum definitions per https://github.com/Azure/vscode-kubernetes-tools/pull/243/files
             return { succeeded: true, result: swagger };
         } finally {
             await fs.unlinkAsync(swaggerTempFile);

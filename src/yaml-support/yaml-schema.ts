@@ -5,10 +5,15 @@ import * as vscode from 'vscode';
 import { yamlLocator, YamlMap } from "./yaml-locator";
 import {
     VSCODE_YAML_EXTENSION_ID, KUBERNETES_SCHEMA, KUBERNETES_GROUP_VERSION_KIND, GROUP_VERSION_KIND_SEPARATOR,
-    KUBERNETES_SCHEMA_FILE, KUBERNETES_SCHEMA_ENUM_FILE
+    KUBERNETES_SCHEMA_ENUM_FILE, FALLBACK_SCHEMA_FILE
 } from "./yaml-constant";
 import * as util from "./yaml-util";
 import { formatComplex, formatOne, formatType } from '../schema-formatting';
+import * as swagger from '../components/swagger/swagger';
+import { succeeded } from '../errorable';
+import { Kubectl } from '../kubectl';
+import { ActiveValueTracker } from '../components/contextmanager/active-value-tracker';
+import { BackgroundContextCache } from '../components/contextmanager/background-context-cache';
 
 export interface KubernetesSchema {
     readonly name: string;
@@ -29,15 +34,36 @@ declare type YamlSchemaContributor = (schema: string,
                                        requestSchema: (resource: string) => string | undefined,
                                        requestSchemaContent: (uri: string) => string) => void;
 
-class KubernetesSchemaHolder {
-    // the schema for kubernetes
+class KubernetesClusterSchemaHolder {
     private definitions: { [key: string]: KubernetesSchema; } = {};
-
     private schemaEnums: { [key: string]: { [key: string]: [string[]] }; };
 
-    // load the kubernetes schema and make some modifications to $ref node
-    public loadSchema(schemaFile: string, schemaEnumFile?: string): void {
-        const schemaRaw = util.loadJson(schemaFile);
+    public static async fromActiveCluster(kubectl: Kubectl): Promise<KubernetesClusterSchemaHolder> {
+        const holder = new KubernetesClusterSchemaHolder();
+        await holder.loadSchemaFromActiveCluster(kubectl, KUBERNETES_SCHEMA_ENUM_FILE);
+        return holder;
+    }
+
+    public static fallback(): KubernetesClusterSchemaHolder {
+        const holder = new KubernetesClusterSchemaHolder();
+        const fallbackSchema = util.loadJson(FALLBACK_SCHEMA_FILE);
+        holder.loadSchemaFromRaw(fallbackSchema, KUBERNETES_SCHEMA_ENUM_FILE);
+        return holder;
+    }
+
+    private async loadSchemaFromActiveCluster(kubectl: Kubectl, schemaEnumFile?: string): Promise<void> {
+        const clusterSwagger = await swagger.getClusterSwagger(kubectl);
+        const schemaRaw = succeeded(clusterSwagger) ? this.definitionsObject(clusterSwagger.result) : util.loadJson(FALLBACK_SCHEMA_FILE);
+        this.loadSchemaFromRaw(schemaRaw, schemaEnumFile);
+    }
+
+    private definitionsObject(swagger: any): any {
+        return {
+            definitions: swagger.definitions
+        };
+    }
+
+    private loadSchemaFromRaw(schemaRaw: any, schemaEnumFile?: string): void {
         this.schemaEnums = schemaEnumFile ? util.loadJson(schemaEnumFile) : {};
         const definitions = schemaRaw.definitions;
         for (const name of Object.keys(definitions)) {
@@ -172,10 +198,14 @@ class KubernetesSchemaHolder {
     }
 }
 
-const kubeSchema: KubernetesSchemaHolder = new KubernetesSchemaHolder();
+let schemas: BackgroundContextCache<KubernetesClusterSchemaHolder> | null = null;
 
-export async function registerYamlSchemaSupport(): Promise<void> {
-    kubeSchema.loadSchema(KUBERNETES_SCHEMA_FILE, KUBERNETES_SCHEMA_ENUM_FILE);
+export async function registerYamlSchemaSupport(activeContextTracker: ActiveValueTracker<string | null>, kubectl: Kubectl): Promise<void> {
+    schemas = new BackgroundContextCache(
+        activeContextTracker,
+        () => KubernetesClusterSchemaHolder.fromActiveCluster(kubectl),
+        KubernetesClusterSchemaHolder.fallback());
+
     const yamlPlugin: any = await activateYamlExtension();
     if (!yamlPlugin || !yamlPlugin.registerContributor) {
         // activateYamlExtension has already alerted to users for errors.
@@ -218,6 +248,9 @@ function requestYamlSchemaContentCallback(uri: string): string | undefined {
     if (!parsedUri.path || !parsedUri.path.startsWith('/')) {
         return undefined;
     }
+    if (!schemas) {
+        return undefined;
+    }
 
     // slice(1) to remove the first '/' in schema
     // eg: kubernetes://schema/io.k8s.kubernetes.pkg.apis.extensions.v1beta1.httpingresspath will have
@@ -230,7 +263,7 @@ function requestYamlSchemaContentCallback(uri: string): string | undefined {
         // https://github.com/redhat-developer/yaml-language-server/pull/81
         return JSON.stringify({ schemaSequence: manifestRefList });
     }
-    const schema = kubeSchema.lookup(manifestType);
+    const schema = schemas.active().lookup(manifestType);
 
     // convert it to string since vscode-yaml need the string format
     if (schema) {
