@@ -5,9 +5,10 @@ import * as kubectlUtils from '../../kubectlUtils';
 import * as kuberesources from '../../kuberesources';
 import { Kubectl } from '../../kubectl';
 import { ClusterExplorerNode } from '../clusterexplorer/node';
+import { NODE_TYPES } from '../clusterexplorer/explorer';
 
 export async function useNamespaceKubernetes(kubectl: Kubectl, explorerNode: ClusterExplorerNode) {
-    if (explorerNode && explorerNode.nodeType === 'resource') {
+    if (explorerNode && explorerNode.nodeType === NODE_TYPES.resource) {
         if (await kubectlUtils.switchNamespace(kubectl, explorerNode.name)) {
             refreshExplorer();
             host.showInformationMessage(`Switched to namespace ${explorerNode.name}`);

@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 import { Kubectl } from '../../kubectl';
 import { Host } from '../../host';
 import { ClusterExplorerNode, ClusterExplorerNodeImpl, ClusterExplorerMessageNode } from './node';
+import { NODE_TYPES } from './explorer';
 
 /**
  * Dummy object will be displayed as a placeholder in the tree explorer. Cannot be expanded and has no action menus on it.
@@ -10,9 +11,9 @@ import { ClusterExplorerNode, ClusterExplorerNodeImpl, ClusterExplorerMessageNod
  */
 export class MessageNode extends ClusterExplorerNodeImpl implements ClusterExplorerMessageNode {
     constructor(readonly text: string, readonly diagnostic?: string) {
-        super('error');
+        super(NODE_TYPES.error);
     }
-    readonly nodeType = 'error';
+    readonly nodeType = NODE_TYPES.error;
     getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
         const treeItem = new vscode.TreeItem(this.text, vscode.TreeItemCollapsibleState.None);
         if (this.diagnostic) {

@@ -1,10 +1,9 @@
 import * as kuberesources from '../../kuberesources';
 import { ExplorerExtender } from './explorer.extension';
 import { ClusterExplorerNode } from './node';
-import { ContextNode } from './node.context';
-import { FolderNode } from './node.folder';
 import { ContributedGroupingFolderNode } from './node.folder.grouping.custom';
 import { ResourceFolderNode } from './node.folder.resource';
+import { NODE_TYPES } from './explorer';
 
 export abstract class NodeSourceImpl {
     at(parent: string | undefined): ExplorerExtender<ClusterExplorerNode> {
@@ -53,9 +52,9 @@ export class ContributedNodeSourceExtender implements ExplorerExtender<ClusterEx
             return false;
         }
         if (this.under) {
-            return parent.nodeType === 'folder.grouping' && (parent as FolderNode).displayName === this.under;
+            return parent.nodeType === NODE_TYPES.folder.grouping && parent.displayName === this.under;
         }
-        return parent.nodeType === 'context' && (parent as ContextNode).kubectlContext.active;
+        return parent.nodeType === NODE_TYPES.context && parent.kubectlContext.active;
     }
     getChildren(_parent?: ClusterExplorerNode | undefined): Promise<ClusterExplorerNode[]> {
         return this.nodeSource.nodes();

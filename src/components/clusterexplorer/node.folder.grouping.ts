@@ -6,16 +6,17 @@ import { Host } from '../../host';
 import { ClusterExplorerNode, ClusterExplorerGroupingFolderNode } from './node';
 import { FolderNode } from './node.folder';
 import { ResourceFolderNode } from './node.folder.resource';
+import { NODE_TYPES } from './explorer';
 
 export abstract class GroupingFolderNode extends FolderNode implements ClusterExplorerGroupingFolderNode {
     static of(id: string, displayName: string, ...kinds: kuberesources.ResourceKind[]): GroupingFolderNode {
         return new ResourceKindsGroupingFolder(id, displayName, kinds);
     }
 
-    constructor(nodeType: 'folder.grouping', id: string, displayName: string, contextValue?: string) {
-        super(nodeType, id, displayName, contextValue);
+    constructor(id: string, displayName: string, contextValue?: string) {
+        super(NODE_TYPES.folder.grouping, id, displayName, contextValue);
     }
-    readonly nodeType = 'folder.grouping';
+    readonly nodeType = NODE_TYPES.folder.grouping;
 }
 
 export const workloadsGroupingFolder = () =>

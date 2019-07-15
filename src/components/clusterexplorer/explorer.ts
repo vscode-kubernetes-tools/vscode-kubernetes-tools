@@ -13,15 +13,39 @@ import { MiniKubeContextNode, ContextNode } from './node.context';
 
 export const KUBERNETES_EXPLORER_NODE_CATEGORY = 'kubernetes-explorer-node';
 
+export type KubernetesExplorerNodeTypeError = 'error';
+export type KubernetesExplorerNodeTypeContext = 'context';
+export type KubernetesExplorerNodeTypeResourceFolder = 'folder.resource';
+export type KubernetesExplorerNodeTypeGroupingFolder = 'folder.grouping';
+export type KubernetesExplorerNodeTypeResource = 'resource';
+export type KubernetesExplorerNodeTypeConfigItem = 'configitem';
+export type KubernetesExplorerNodeTypeHelmRelease = 'helm.release';
+export type KubernetesExplorerNodeTypeExtension = 'extension';
+
 export type KubernetesExplorerNodeType =
-    'error' |
-    'context' |
-    'folder.resource' |
-    'folder.grouping' |
-    'resource' |
-    'configitem' |
-    'helm.release' |
-    'extension';
+    KubernetesExplorerNodeTypeError |
+    KubernetesExplorerNodeTypeContext |
+    KubernetesExplorerNodeTypeResourceFolder |
+    KubernetesExplorerNodeTypeGroupingFolder |
+    KubernetesExplorerNodeTypeResource |
+    KubernetesExplorerNodeTypeConfigItem |
+    KubernetesExplorerNodeTypeHelmRelease |
+    KubernetesExplorerNodeTypeExtension;
+
+export const NODE_TYPES = {
+    error: 'error',
+    context: 'context',
+    folder: {
+        resource: 'folder.resource',
+        grouping: 'folder.grouping',
+    },
+    resource: 'resource',
+    configitem: 'configitem',
+    helm: {
+        release: 'helm.release',
+    },
+    extension: 'extension'
+} as const;
 
 export function create(kubectl: Kubectl, host: Host): KubernetesExplorer {
     return new KubernetesExplorer(kubectl, host);

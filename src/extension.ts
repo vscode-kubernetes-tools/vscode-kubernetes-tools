@@ -762,7 +762,7 @@ function exposeKubernetes() {
 }
 
 function kubectlId(explorerNode: ClusterExplorerResourceNode | ClusterExplorerResourceFolderNode) {
-    if (explorerNode.nodeType === 'resource') {
+    if (explorerNode.nodeType === explorer.NODE_TYPES.resource) {
         return explorerNode.kindName;
     }
     return explorerNode.kind.abbreviation;
@@ -772,7 +772,7 @@ function getKubernetes(explorerNode?: any) {
     if (explorerNode) {
         const node = explorerNode as ClusterExplorerResourceNode | ClusterExplorerResourceFolderNode;
         const id = kubectlId(node);
-        const nsarg = (node.nodeType === 'resource' && node.namespace) ? `--namespace ${node.namespace}` : '';
+        const nsarg = (node.nodeType === explorer.NODE_TYPES.resource && node.namespace) ? `--namespace ${node.namespace}` : '';
         kubectl.invokeInSharedTerminal(`get ${id} ${nsarg} -o wide`);
     } else {
         findKindNameOrPrompt(kuberesources.commonKinds, 'get', { nameOptional: true }, (value) => {
@@ -1849,7 +1849,7 @@ async function getKubeconfigSelection(kubeconfig?: string): Promise<string | und
 }
 
 async function useContextKubernetes(explorerNode: ClusterExplorerNode) {
-    if (!explorerNode || explorerNode.nodeType !== 'context') {
+    if (!explorerNode || explorerNode.nodeType !== explorer.NODE_TYPES.context) {
         return;
     }
     const contextObj = explorerNode.kubectlContext;
@@ -1869,7 +1869,7 @@ async function clusterInfoKubernetes(_explorerNode: ClusterExplorerNode) {
 }
 
 async function deleteContextKubernetes(explorerNode: ClusterExplorerNode) {
-    if (!explorerNode || explorerNode.nodeType !== 'context') {
+    if (!explorerNode || explorerNode.nodeType !== explorer.NODE_TYPES.context) {
         return;
     }
     const contextObj = explorerNode.kubectlContext;
@@ -1891,10 +1891,10 @@ async function copyKubernetes(explorerNode: ClusterExplorerNode) {
 
 function copiableName(explorerNode: ClusterExplorerNode): string | undefined {
     switch (explorerNode.nodeType) {
-        case 'context': return explorerNode.contextName;
-        case 'resource': return explorerNode.name;
-        case 'helm.release': return explorerNode.releaseName;
-        case 'configitem': return explorerNode.key;
+        case explorer.NODE_TYPES.context: return explorerNode.contextName;
+        case explorer.NODE_TYPES.resource: return explorerNode.name;
+        case explorer.NODE_TYPES.helm.release: return explorerNode.releaseName;
+        case explorer.NODE_TYPES.configitem: return explorerNode.key;
         default: return undefined;
     }
 }

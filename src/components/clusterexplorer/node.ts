@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 
 import { Kubectl } from '../../kubectl';
 import { Host } from '../../host';
-import { KubernetesExplorerNodeType, KUBERNETES_EXPLORER_NODE_CATEGORY } from './explorer';
+import { KubernetesExplorerNodeType, KUBERNETES_EXPLORER_NODE_CATEGORY, KubernetesExplorerNodeTypeError, KubernetesExplorerNodeTypeContext, KubernetesExplorerNodeTypeResourceFolder, KubernetesExplorerNodeTypeGroupingFolder, KubernetesExplorerNodeTypeResource, KubernetesExplorerNodeTypeConfigItem, KubernetesExplorerNodeTypeHelmRelease, KubernetesExplorerNodeTypeExtension } from './explorer';
 import { KubectlContext } from '../../kubectlUtils';
 import { ResourceKind } from '../../kuberesources';
 import { ObjectMeta } from '../../kuberesources.objectmodel';
@@ -14,26 +14,27 @@ export interface ClusterExplorerNodeBase {
 }
 
 export interface ClusterExplorerContextNode extends ClusterExplorerNodeBase {
-    readonly nodeType: 'context';
+    readonly nodeType: KubernetesExplorerNodeTypeContext;
     readonly kubectlContext: KubectlContext;
     readonly contextName: string;
 }
 
 export interface ClusterExplorerResourceFolderNode extends ClusterExplorerNodeBase {
-    readonly nodeType: 'folder.resource';
+    readonly nodeType: KubernetesExplorerNodeTypeResourceFolder;
     readonly kind: ResourceKind;
 }
 
 export interface ClusterExplorerGroupingFolderNode extends ClusterExplorerNodeBase {
-    readonly nodeType: 'folder.grouping';
+    readonly nodeType: KubernetesExplorerNodeTypeGroupingFolder;
+    readonly displayName: string;
 }
 
 export interface ClusterExplorerMessageNode extends ClusterExplorerNodeBase {
-    readonly nodeType: 'error';  // TODO: should be 'message'
+    readonly nodeType: KubernetesExplorerNodeTypeError;  // TODO: should be 'message'
 }
 
 export interface ClusterExplorerResourceNode extends ClusterExplorerNodeBase {
-    readonly nodeType: 'resource';
+    readonly nodeType: KubernetesExplorerNodeTypeResource;
     readonly name: string;
     readonly namespace: string | null;
     readonly kindName: string;
@@ -43,7 +44,7 @@ export interface ClusterExplorerResourceNode extends ClusterExplorerNodeBase {
 }
 
 export interface ClusterExplorerConfigurationValueNode extends ClusterExplorerNodeBase {
-    readonly nodeType: 'configitem';
+    readonly nodeType: KubernetesExplorerNodeTypeConfigItem;
     readonly key: string;
     readonly configData: any;
     readonly parentKind: ResourceKind;
@@ -51,12 +52,12 @@ export interface ClusterExplorerConfigurationValueNode extends ClusterExplorerNo
 }
 
 export interface ClusterExplorerHelmReleaseNode extends ClusterExplorerNodeBase {
-    readonly nodeType: 'helm.release';
+    readonly nodeType: KubernetesExplorerNodeTypeHelmRelease;
     readonly releaseName: string;
 }
 
 export interface ClusterExplorerCustomNode extends ClusterExplorerNodeBase {
-    readonly nodeType: 'extension';
+    readonly nodeType: KubernetesExplorerNodeTypeExtension;
 }
 
 export type ClusterExplorerNode =

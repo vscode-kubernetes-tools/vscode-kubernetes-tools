@@ -10,7 +10,7 @@ import * as helmexec from '../../helm.exec';
 
 export class HelmReleasesFolder extends GroupingFolderNode /* TODO: not really */ {
     constructor() {
-        super("folder.grouping", "Helm Release", "Helm Releases", "vsKubernetes.nonResourceFolder"); // TODO: folder.grouping is not quite right... but...
+        super("Helm Release", "Helm Releases", "vsKubernetes.nonResourceFolder"); // TODO: folder.grouping is not quite right... but...
     }
     async getChildren(kubectl: Kubectl, _host: Host): Promise<ClusterExplorerNode[]> {
         if (!helmexec.ensureHelm(helmexec.EnsureMode.Silent)) {

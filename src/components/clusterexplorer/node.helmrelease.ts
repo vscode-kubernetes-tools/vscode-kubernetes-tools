@@ -4,12 +4,13 @@ import * as path from 'path';
 import { Kubectl } from '../../kubectl';
 import { Host } from '../../host';
 import { ClusterExplorerNode, ClusterExplorerNodeImpl, ClusterExplorerHelmReleaseNode } from './node';
+import { NODE_TYPES } from './explorer';
 
 export class HelmReleaseNode extends ClusterExplorerNodeImpl implements ClusterExplorerHelmReleaseNode {
     constructor(readonly releaseName: string, readonly status: string) {
-        super("helm.release");
+        super(NODE_TYPES.helm.release);
     }
-    readonly nodeType = 'helm.release';
+    readonly nodeType = NODE_TYPES.helm.release;
     getChildren(_kubectl: Kubectl, _host: Host): vscode.ProviderResult<ClusterExplorerNode[]> {
         return [];
     }

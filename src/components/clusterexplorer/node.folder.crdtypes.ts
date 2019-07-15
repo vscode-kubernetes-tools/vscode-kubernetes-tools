@@ -6,10 +6,11 @@ import { CRD } from '../../kuberesources.objectmodel';
 import { ClusterExplorerNode } from './node';
 import { GroupingFolderNode } from './node.folder.grouping';
 import { ResourceFolderNode } from './node.folder.resource';
+import { NODE_TYPES } from './explorer';
 
 export class CRDTypesFolderNode extends GroupingFolderNode {
     constructor() {
-        super("folder.grouping", kuberesources.allKinds.crd.abbreviation, kuberesources.allKinds.crd.pluralDisplayName);
+        super(NODE_TYPES.folder.grouping, kuberesources.allKinds.crd.abbreviation, kuberesources.allKinds.crd.pluralDisplayName);
     }
     async getChildren(kubectl: Kubectl, _host: Host): Promise<ClusterExplorerNode[]> {
         const objects = await kubectlUtils.getCRDTypes(kubectl);

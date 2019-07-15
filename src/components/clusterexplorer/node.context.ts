@@ -10,15 +10,16 @@ import { HelmReleasesFolder } from "./node.folder.helmreleases";
 import { CRDTypesFolderNode } from "./node.folder.crdtypes";
 import { workloadsGroupingFolder, networkGroupingFolder, storageGroupingFolder, configurationGroupingFolder } from "./node.folder.grouping";
 import { ResourceFolderNode } from './node.folder.resource';
+import { NODE_TYPES } from './explorer';
 
 const KUBERNETES_CLUSTER = "vsKubernetes.cluster";
 const MINIKUBE_CLUSTER = "vsKubernetes.minikubeCluster";
 
 export class ContextNode extends ClusterExplorerNodeImpl implements ClusterExplorerContextNode {
     constructor(readonly contextName: string, readonly kubectlContext: kubectlUtils.KubectlContext) {
-        super('context');
+        super(NODE_TYPES.context);
     }
-    readonly nodeType = 'context';
+    readonly nodeType = NODE_TYPES.context;
     get icon(): vscode.Uri {
         return vscode.Uri.file(path.join(__dirname, "../../../../images/k8s-logo.png"));
     }

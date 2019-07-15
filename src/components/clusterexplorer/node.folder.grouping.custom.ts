@@ -9,7 +9,7 @@ import { GroupingFolderNode } from './node.folder.grouping';
 
 export class ContributedGroupingFolderNode extends GroupingFolderNode {
     constructor(displayName: string, contextValue: string | undefined, private readonly children: NodeSourceImpl[]) {
-        super('folder.grouping', 'folder.grouping.custom', displayName, contextValue);
+        super('folder.grouping.custom', displayName, contextValue);
     }
     getChildren(_kubectl: Kubectl, _host: Host): vscode.ProviderResult<ClusterExplorerNode[]> {
         return this.getChildrenImpl();

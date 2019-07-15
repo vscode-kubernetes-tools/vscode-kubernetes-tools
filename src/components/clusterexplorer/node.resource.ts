@@ -8,6 +8,7 @@ import { ObjectMeta } from '../../kuberesources.objectmodel';
 import { kubefsUri } from '../../kuberesources.virtualfs';
 import { ClusterExplorerNode, ClusterExplorerNodeImpl, ClusterExplorerResourceNode } from './node';
 import { getChildSources, getUICustomiser } from './resourceui';
+import { NODE_TYPES } from './explorer';
 
 export class ResourceNode extends ClusterExplorerNodeImpl implements ClusterExplorerResourceNode {
 
@@ -16,9 +17,9 @@ export class ResourceNode extends ClusterExplorerNodeImpl implements ClusterExpl
     }
 
     readonly kindName: string;
-    readonly nodeType = 'resource';
+    readonly nodeType = NODE_TYPES.resource;
     constructor(readonly kind: kuberesources.ResourceKind, readonly name: string, readonly metadata: ObjectMeta | undefined, readonly extraInfo: ResourceExtraInfo | undefined) {
-        super("resource");
+        super(NODE_TYPES.resource);
         this.kindName = `${kind.abbreviation}/${name}`;
     }
     get namespace(): string | null {

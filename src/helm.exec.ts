@@ -21,6 +21,7 @@ import { host } from './host';
 import * as fs from './wsl-fs';
 import { preview } from './utils/preview';
 import { ClusterExplorerNode } from './components/clusterexplorer/node';
+import { NODE_TYPES } from './components/clusterexplorer/explorer';
 
 export interface PickChartUIOptions {
     readonly warnIfNoCharts: boolean;
@@ -224,7 +225,7 @@ export function helmGet(resourceNode?: ClusterExplorerNode) {
     if (!resourceNode) {
         return;
     }
-    if (resourceNode.nodeType !== 'helm.release') {
+    if (resourceNode.nodeType !== NODE_TYPES.helm.release) {
         return;
     }
     const releaseName = resourceNode.releaseName;
