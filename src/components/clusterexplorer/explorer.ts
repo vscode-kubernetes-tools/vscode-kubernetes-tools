@@ -71,19 +71,19 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
     }
 
     getTreeItem(element: ClusterExplorerNode): vscode.TreeItem | Thenable<vscode.TreeItem> {
-        const treeItem = element.getTreeItem();
+        const baseTreeItem = element.getTreeItem();
 
-        const treeItem2 = providerResult.transform(treeItem, (ti) => {
+        const extensionAwareTreeItem = providerResult.transform(baseTreeItem, (ti) => {
             if (ti.collapsibleState === vscode.TreeItemCollapsibleState.None && this.extenders.some((e) => e.contributesChildren(element))) {
                 ti.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
             }
         });
 
-        let treeItem3 = treeItem2;
+        let customisedTreeItem = extensionAwareTreeItem;
         for (const c of this.customisers) {
-            treeItem3 = providerResult.transformPossiblyAsync(treeItem2, (ti) => c.customize(element, ti));
+            customisedTreeItem = providerResult.transformPossiblyAsync(extensionAwareTreeItem, (ti) => c.customize(element, ti));
         }
-        return treeItem3;
+        return customisedTreeItem;
 }
 
     getChildren(parent?: ClusterExplorerNode): vscode.ProviderResult<ClusterExplorerNode[]> {
@@ -107,6 +107,20 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
 
     registerExtender(extender: ExplorerExtender<ClusterExplorerNode>): void {
         this.extenders.push(extender);
+        if (extender.contributesChildren(undefined)) {
+            this.queueRefresh();
+        }
+        // TODO: VS Code now doesn't require a reload on extension install.  Do we need
+        // to listen for the extension install event and refresh, in case a newly installed
+        // extension registers a contributor while the tree view is already open?
+    }
+
+    registerUICustomiser(customiser: ExplorerUICustomizer<ClusterExplorerNode>): void {
+        this.customisers.push(customiser);
+        this.queueRefresh();
+    }
+
+    queueRefresh(): void {
         // In the case where an extender contributes at top level (sibling to cluster nodes),
         // the tree view can populate before the extender has time to register.  So in this
         // case we need to kick off a refresh.  But... it turns out that if we just fire the
@@ -115,21 +129,11 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         // there's a race condition.  But it seems that if we pipe it through the refresh
         // *command* (as refreshExplorer does) then it seems to work... ON MY MACHINE TM anyway.
         //
-        // This is a pretty niche case, so I'm not too worried if this isn't perfect.
+        // Refresh after registration is also a consideration for customisers, but we don't know
+        // whether they're  interested in the top level so we have to err on the side of caution
+        // and always queue a refresh.
         //
-        // TODO: VS Code now doesn't require a reload on extension install.  Do we need
-        // to listen for the extension install event and refresh, in case an extension
-        // attempts to contribute while the tree view is already open?
-        //
-        // TODO: we need to check collapsibleStates in case someone adds child nodes to a
-        // parent which currently has CollapsibleState.None.
-        if (extender.contributesChildren(undefined)) {
-            sleep(50).then(() => refreshExplorer());
-        }
-    }
-
-    registerUICustomiser(customiser: ExplorerUICustomizer<ClusterExplorerNode>): void {
-        this.customisers.push(customiser);
+        // These are pretty niche cases, so I'm not too worried if they aren't perfect.
         sleep(50).then(() => refreshExplorer());
     }
 
