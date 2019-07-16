@@ -11,6 +11,28 @@ import { refreshExplorer } from '../clusterprovider/common/explorer';
 import { ClusterExplorerNode, ClusterExplorerResourceNode } from './node';
 import { MiniKubeContextNode, ContextNode } from './node.context';
 
+// Each item in the explorer is modelled as a ClusterExplorerNode.  This
+// is a discriminated union, using a nodeType field as its discriminator.
+// This module defines the discriminators and the union type, and contains
+// the top level of the explorer.  Individual modules using the 'node.*.ts'
+// naming convention go on to define individual node types; additionally,
+// 'node.ts' defines interface types which are intended as the primary way for
+// consumers of the explorer to obtain data about nodes.
+//
+// Most node types are pretty self-contained in terms of their behaviour
+// and their display.  The exception is resource nodes which sometimes
+// need to gather additional information, display additional children
+// and customise their display behaviour.  This is done via 'resource kind
+// UI descriptors' in the 'resourceui.ts' file directory.  The ResourceNode
+// type is always instantiated via a factory method which automatically loads
+// the right descriptor for the resource kind; this allows parents that want
+// to display resource children to be agnostic about what information those
+// children need in order to render themselves and their own children.
+//
+// This module also contains the handling for the cross-cutting concern
+// of API extensibility.  It implements extender registration, and takes
+// care of invoking extenders around the delegated calls to node types.
+
 export const KUBERNETES_EXPLORER_NODE_CATEGORY = 'kubernetes-explorer-node';
 
 export type KubernetesExplorerNodeTypeError = 'error';
