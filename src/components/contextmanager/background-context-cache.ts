@@ -10,7 +10,7 @@ export class BackgroundContextCache<T> {
         private readonly getActiveContextValue: () => Promise<T>,
         private readonly fallbackValue: T)
     {
-        this.activeContextTracker.activeChanged(this.onActiveContextChanged);
+        this.activeContextTracker.activeChanged(this.onActiveContextChanged, this);
 
         const activeContext = this.activeContextTracker.active();
         if (activeContext) {
