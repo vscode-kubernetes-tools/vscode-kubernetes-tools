@@ -84,6 +84,7 @@ import { PortForwardStatusBarManager } from './components/kubectl/port-forward-u
 import { getBuildCommand, getPushCommand } from './image/imageUtils';
 import { getImageBuildTool } from './components/config/config';
 import { ClusterExplorerNode, ClusterExplorerConfigurationValueNode, ClusterExplorerResourceNode, ClusterExplorerResourceFolderNode } from './components/clusterexplorer/node';
+import { create as activeContextTrackerCreate } from './components/contextmanager/active-context-tracker';
 
 let explainActive = false;
 let swaggerSpecPromise: Promise<explainer.SwaggerModel | undefined> | null = null;
@@ -96,6 +97,7 @@ const minikube = minikubeCreate(host, fs, shell, installDependencies);
 const clusterProviderRegistry = clusterproviderregistry.get();
 const configMapProvider = new configmaps.ConfigMapTextProvider(kubectl);
 const git = new Git(shell);
+const activeContextTracker = activeContextTrackerCreate(kubectl);
 
 export const overwriteMessageItems: vscode.MessageItem[] = [
     {
@@ -376,7 +378,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
     subscriptions.forEach((element) => {
         context.subscriptions.push(element);
     });
-    await registerYamlSchemaSupport();
+    await registerYamlSchemaSupport(activeContextTracker, kubectl);
 
     vscode.workspace.registerTextDocumentContentProvider(configmaps.uriScheme, configMapProvider);
     return apiBroker(clusterProviderRegistry, kubectl, portForwardStatusBarManager, treeProvider, cloudExplorer);
