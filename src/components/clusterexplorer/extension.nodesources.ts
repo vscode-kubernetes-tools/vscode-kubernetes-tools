@@ -5,6 +5,17 @@ import { ContributedGroupingFolderNode } from './node.folder.grouping.custom';
 import { ResourceFolderNode } from './node.folder.resource';
 import { NODE_TYPES } from './explorer';
 
+// This module contains 'node sources' - built-in ways of creating nodes of
+// *built-in* types (as opposed to the completely custom nodes created by an
+// ExplorerExtender).  Node sources can be consumed and composed through the API
+// to build trees that behave consistently with other folder and resource nodes.
+//
+// The NodeSourceImpl base class provides the common implementation of the API
+// at() and if() methods.  Derived classes implement the nodes() method to
+// provide specific sets of nodes - for example a set containing a single
+// resource folder node (which then has resource nodes under it by virtue
+// of the inherent behaviour of a resource folder).
+
 export abstract class NodeSourceImpl {
     at(parent: string | undefined): ExplorerExtender<ClusterExplorerNode> {
         return new ContributedNodeSourceExtender(parent, this);
