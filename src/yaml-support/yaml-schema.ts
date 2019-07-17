@@ -113,3 +113,12 @@ async function activateYamlExtension(): Promise<{registerContributor: YamlSchema
     }
     return yamlPlugin;
 }
+
+export function updateYAMLSchema() {
+    if (schemas) {
+        schemas.invalidateActive();
+        // There doesn't seem to be a way to get the YAML extension to pick up the update so
+        // for now users would need to close and reopen any affected open documents.  TODO: raise
+        // issue with the RH folks.
+    }
+}

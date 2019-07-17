@@ -67,4 +67,11 @@ export class BackgroundContextCache<T> {
             this.cache.set(activeContextName, value);
         }
     }
+
+    public invalidateActive(): void {
+        const activeContext = this.activeContextTracker.active();
+        if (activeContext) {
+            this.updateCache(activeContext);
+        }
+    }
 }

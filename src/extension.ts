@@ -55,7 +55,7 @@ import { getDebugProviderOfType, getSupportedDebuggerTypes } from './debug/provi
 import * as config from './components/config/config';
 import * as browser from './components/platform/browser';
 
-import { registerYamlSchemaSupport } from './yaml-support/yaml-schema';
+import { registerYamlSchemaSupport, updateYAMLSchema } from './yaml-support/yaml-schema';
 import * as clusterproviderregistry from './components/clusterprovider/clusterproviderregistry';
 import * as azureclusterprovider from './components/clusterprovider/azure/azureclusterprovider';
 import * as minikubeclusterprovider from './components/clusterprovider/minikube/minikubeclusterprovider';
@@ -581,6 +581,11 @@ function maybeRunKubernetesCommandForActiveWindow(command: string, progressMessa
     const resultHandler: ShellHandler | undefined = isKubernetesSyntax ? undefined /* default handling */ :
         (code, stdout, stderr) => {
             if (code === 0 ) {
+                if (command === 'create' || command === 'apply') {
+                    // This is a very crude test - it would be nice to check if we have modified a CRD.
+                    // But the current structure of the code does not support that.
+                    updateYAMLSchema();
+                }
                 vscode.window.showInformationMessage(stdout);
             } else {
                 vscode.window.showErrorMessage(`Kubectl command failed. The open document might not be a valid Kubernetes resource.  Details: ${stderr}`);
