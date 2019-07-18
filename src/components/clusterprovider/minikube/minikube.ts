@@ -121,7 +121,14 @@ async function minikubeUpgradeAvailable(context: Context): Promise<void> {
         return;
     }
 
-    const versionInfo = await getVersionInfo(context);
+    let versionInfo: MinikubeVersionInfo;
+
+    try {
+        versionInfo = await getVersionInfo(context);
+    } catch (err) {
+        vscode.window.showErrorMessage(`Failed to determine minikube version: ${err}`);
+        return;
+    }
 
     if (versionInfo.currentVersion !== versionInfo.availableVersion) {
         const value = await vscode.window.showInformationMessage(`Minikube upgrade available to ${versionInfo.availableVersion}, currently on ${versionInfo.currentVersion}`, 'Install');
