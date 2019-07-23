@@ -1,7 +1,5 @@
 'use strict';
 
-console.log(`EXTENSION.TS TOP: ${(new Date()).toTimeString()}`);
-
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
@@ -133,8 +131,6 @@ export const HELM_TPL_MODE: vscode.DocumentFilter = { language: "helm", scheme: 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export async function activate(context: vscode.ExtensionContext): Promise<APIBroker> {
-    console.log(`EXTENSION.TS ACT: ${(new Date()).toTimeString()}`);
-
     setAssetContext(context);
 
     kubectl.ensurePresent({ warningIfNotPresent: 'Kubectl not found. Many features of the Kubernetes extension will not work.' });
@@ -420,8 +416,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
     await registerYamlSchemaSupport(context, activeContextTracker, kubectl);
 
     vscode.workspace.registerTextDocumentContentProvider(configmaps.uriScheme, configMapProvider);
-
-    console.log(`EXTENSION.TS BOT: ${(new Date()).toTimeString()}`);
 
     return apiBroker(clusterProviderRegistry, kubectl, portForwardStatusBarManager, treeProvider, cloudExplorer);
 }
