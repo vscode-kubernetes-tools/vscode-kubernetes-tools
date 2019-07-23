@@ -19,13 +19,14 @@ const config = {
   externals: {
     vscode: 'commonjs vscode',
     bufferutil: 'commonjs bufferutil',
-    '../build/Release/bufferutil': 'commonjs ../build/Release/bufferutil',
-    '../build/default/bufferutil': 'commonjs ../build/default/bufferutil',
-    validation: 'commonjs validation',
-    '../build/Release/validation': 'commonjs ../build/Release/validation',
-    '../build/default/validation': 'commonjs ../build/default/validation',
+    // '../build/Release/bufferutil': 'commonjs ../build/Release/bufferutil',
+    // '../build/default/bufferutil': 'commonjs ../build/default/bufferutil',
+    // validation: 'commonjs validation',
+    // '../build/Release/validation': 'commonjs ../build/Release/validation',
+    // '../build/default/validation': 'commonjs ../build/default/validation',
     'spawn-sync': 'commonjs spawn-sync',
-    'esprima': 'commonjs esprima'
+    'utf-8-validate': 'commonjs utf-8-validate'
+    // 'esprima': 'commonjs esprima'
   },
   plugins: [
       new webpack.IgnorePlugin(/^electron$/)

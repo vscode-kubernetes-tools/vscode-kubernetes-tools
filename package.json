@@ -1265,15 +1265,14 @@
                             }
                         }
                     }
-                ],
-                "extensions": []
+                ]
             }
         ]
     },
     "scripts": {
-        "vscode:prepublish": "webpack --mode production && node ./tools/ffs.js",
+        "vscode:prepublish": "webpack --mode production",
         "lint": "eslint -c .eslintrc.js --ext .ts ./src",
-        "compile": "webpack --mode none && node ./tools/ffs.js",
+        "compile": "webpack --mode none",
         "watch": "webpack --mode none --watch",
         "test-compile": "tsc -p ./",
         "postinstall": "node ./node_modules/vscode/bin/install",
@@ -1283,7 +1282,7 @@
         "redhat.vscode-yaml"
     ],
     "dependencies": {
-        "@kubernetes/client-node": "0.7.1",
+        "@kubernetes/client-node": "^0.10.2",
         "@types/clipboardy": "^1.1.0",
         "@types/js-yaml": "^3.12.0",
         "@types/lodash": "^4.14.113",
