@@ -14,7 +14,5 @@ site/**
 node_modules/**
 !node_modules/vscode/**
 !node_modules/bufferutil/**
-!node_modules/validation/**
 !node_modules/cross-spawn/**
-!node_modules/jsonpath/**
-!node_modules/esprima/**
+!node_modules/utf-8-validate/**
