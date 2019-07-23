@@ -1,5 +1,17 @@
 # Change Log
 
+## 1.0.2
+
+* The Scale command now appears on the right-click menu of appropriate resources
+* Use webview for Follow Logs command
+* Added `sha1sum` function to Helm template function list
+* We now recognise `.kube/config` as a YAML file
+* Fixed error in Minikube Status
+* Fixed an autocomplete bug in Helm templates
+* Removed an unused dependency that was bulking up the install
+
+Thanks to Brendan Burns, Alex Kreidler, Adam Medzinski and Stefan Prietl.
+
 ## 1.0.1
 
 * Added Buildah as an alternative configuration tool - use the `imageBuildTool`
