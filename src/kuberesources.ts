@@ -43,6 +43,7 @@ export const scaleableKinds = [
     allKinds.replicaSet,
     allKinds.replicationController,
     allKinds.job,
+    allKinds.statefulSet,
 ];
 
 export const exposableKinds = [

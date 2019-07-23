@@ -877,10 +877,16 @@ function _findNameAndImageInternal(fn: (name: string, image: string) => void) {
     });
 }
 
-function scaleKubernetes() {
-    findKindNameOrPrompt(kuberesources.scaleableKinds, 'scale', {}, (kindName) => {
+function scaleKubernetes(target?: any) {
+    if (target) {
+        const treeNode = target as explorer.ResourceNode;
+        const kindName = treeNode.resourceId;
         promptScaleKubernetes(kindName);
-    });
+    } else {
+        findKindNameOrPrompt(kuberesources.scaleableKinds, 'scale', {}, (kindName) => {
+            promptScaleKubernetes(kindName);
+        });
+    }
 }
 
 function promptScaleKubernetes(kindName: string) {
