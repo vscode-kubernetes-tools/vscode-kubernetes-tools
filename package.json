@@ -1271,9 +1271,9 @@
         ]
     },
     "scripts": {
-        "vscode:prepublish": "webpack --mode none && node ./ffs/ffs.js",
+        "vscode:prepublish": "webpack --mode production && node ./tools/ffs.js",
         "lint": "eslint -c .eslintrc.js --ext .ts ./src",
-        "compile": "webpack --mode none && node ./ffs/ffs.js",
+        "compile": "webpack --mode none && node ./tools/ffs.js",
         "watch": "webpack --mode none --watch",
         "test-compile": "tsc -p ./",
         "postinstall": "node ./node_modules/vscode/bin/install",
