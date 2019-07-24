@@ -886,9 +886,8 @@ function _findNameAndImageInternal(fn: (name: string, image: string) => void) {
 }
 
 function scaleKubernetes(target?: any) {
-    if (target) {
-        const treeNode = target as explorer.ResourceNode;
-        const kindName = treeNode.resourceId;
+    if (target && explorer.isKubernetesExplorerResourceNode(target)) {
+        const kindName = target.kindName;
         promptScaleKubernetes(kindName);
     } else {
         findKindNameOrPrompt(kuberesources.scaleableKinds, 'scale', {}, (kindName) => {
