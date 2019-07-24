@@ -31,7 +31,7 @@ export const workloadsGroupingFolder = () =>
 
 class ResourceKindsGroupingFolder extends GroupingFolderNode {
     constructor(id: string, displayName: string, private readonly kinds: kuberesources.ResourceKind[]) {
-        super("folder.grouping", id, displayName);
+        super(id, displayName);
     }
     getChildren(_kubectl: Kubectl, _host: Host): vscode.ProviderResult<ClusterExplorerNode[]> {
         return this.kinds.map((k) => ResourceFolderNode.create(k));
