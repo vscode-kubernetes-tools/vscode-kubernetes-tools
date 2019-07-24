@@ -3,12 +3,12 @@ import { Kubectl } from '../../kubectl';
 import { PodSummary, quickPickKindName, selectContainerForResource } from '../../extension';
 import { isPod } from '../../kuberesources.objectmodel';
 import * as kuberesources from '../../kuberesources';
-import { ResourceNode } from '../../explorer';
 import * as yaml from 'js-yaml';
 import * as kubectlUtils from '../../kubectlUtils';
 import { LogsPanel } from '../../components/logs/logsWebview';
 import { ContainerContainer } from '../../utils/containercontainer';
 import { ChildProcess } from 'child_process';
+import { ClusterExplorerResourceNode } from '../clusterexplorer/node';
 
 export enum LogsDisplayMode {
     Show,
@@ -21,7 +21,7 @@ export enum LogsDisplayMode {
  */
 export async function logsKubernetes(
     kubectl: Kubectl,
-    explorerNode: ResourceNode | undefined,
+    explorerNode: ClusterExplorerResourceNode | undefined,
     displayMode: LogsDisplayMode
 ) {
     if (explorerNode) {
@@ -36,7 +36,7 @@ export async function logsKubernetes(
  */
 async function getLogsForExplorerNode(
     kubectl: Kubectl,
-    explorerNode: ResourceNode,
+    explorerNode: ClusterExplorerResourceNode,
     displayMode: LogsDisplayMode
 ) {
     const resource = ContainerContainer.fromNode(explorerNode);

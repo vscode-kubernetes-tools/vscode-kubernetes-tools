@@ -7,7 +7,7 @@ import * as clusterexplorer from "./cluster-explorer/versions";
 import * as cloudexplorer from "./cloudexplorer/versions";
 import { ClusterProviderRegistry } from "../../components/clusterprovider/clusterproviderregistry";
 import { Kubectl } from "../../kubectl";
-import { KubernetesExplorer } from "../../explorer";
+import { KubernetesExplorer } from "../../components/clusterexplorer/explorer";
 import { CloudExplorer } from "../../components/cloudexplorer/cloudexplorer";
 import { PortForwardStatusBarManager } from "../../components/kubectl/port-forward-ui";
 

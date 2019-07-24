@@ -9,9 +9,9 @@ import * as portFinder from 'portfinder';
 import { succeeded } from '../../errorable';
 import * as kubectlUtils from '../../kubectlUtils';
 import * as kuberesources from '../../kuberesources';
-import { ResourceNode } from '../../explorer';
 
 import * as kubernetes from '@kubernetes/client-node';
+import { ClusterExplorerResourceNode } from '../clusterexplorer/node';
 
 const PORT_FORWARD_TERMINAL = 'kubectl port-forward';
 const MAX_PORT_COUNT = 65535;
@@ -47,17 +47,17 @@ function isFindResultFromDocument(obj: PortForwardFindPodsResult): obj is PodFro
 export async function portForwardKubernetes(kubectl: Kubectl, explorerNode?: any): Promise<void> {
     if (explorerNode) {
         // The port forward option only appears on pod level workloads in the tree view.
-        const resourceNode = explorerNode as ResourceNode;
-        const podName = resourceNode.id;
+        const resourceNode = explorerNode as ClusterExplorerResourceNode;
+        const podName = resourceNode.name;
         const namespace = resourceNode.namespace || await kubectlUtils.currentNamespace(kubectl);
         const portMapping = await promptForPort(kubectl, podName, namespace);
         if (portMapping.length !== 0) {
             if (explorerNode.kind === kuberesources.allKinds.pod) {
                 portForwardToPod(kubectl, podName, portMapping, namespace);
             } else if (explorerNode.kind === kuberesources.allKinds.service) {
-                portForwardToService(kubectl, resourceNode.id, portMapping, namespace);
+                portForwardToService(kubectl, resourceNode.name, portMapping, namespace);
             } else if (explorerNode.kind === kuberesources.allKinds.deployment) {
-                portForwardToDeployment(kubectl, resourceNode.id, portMapping, namespace);
+                portForwardToDeployment(kubectl, resourceNode.name, portMapping, namespace);
             }
         }
         return;
