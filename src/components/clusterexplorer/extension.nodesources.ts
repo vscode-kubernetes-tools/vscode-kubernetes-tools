@@ -51,6 +51,7 @@ export class CustomGroupingFolderNodeSource extends NodeSourceImpl {
 }
 
 export interface ResourcesNodeSourceOptionsImpl {
+    lister?: () => Promise<{ name: string }[]>;
     filter?: (o: ClusterExplorerResourceNode) => boolean;
 }
 
@@ -60,9 +61,16 @@ export class ResourcesNodeSource extends NodeSourceImpl {
     }
     async nodes(kubectl: Kubectl, host: Host): Promise<ClusterExplorerNode[]> {
         // TODO: deduplicate from ResourceFolderNode
-        const lister = getLister(this.resourceKind);  // TODO: provide a way to override this
+        // Yes we do need this because TS doesn't retain inferences about members across lambda boundaries (because JS 'this' is terrible)
+        const lister = this.options ? this.options.lister : undefined;
+        const filter = this.options ? this.options.filter : undefined;
         if (lister) {
-            return await lister.list(kubectl, this.resourceKind);
+            const infos = await lister();
+            return infos.map((i) => ResourceNode.create(this.resourceKind, i.name, undefined, undefined));  // TODO: error handling, etc.
+        }
+        const builtInLister = getLister(this.resourceKind);
+        if (builtInLister) {
+            return await builtInLister.list(kubectl, this.resourceKind);
         }
         const childrenLines = await kubectl.asLines(`get ${this.resourceKind.abbreviation}`);
         if (failed(childrenLines)) {
@@ -73,7 +81,6 @@ export class ResourcesNodeSource extends NodeSourceImpl {
             const bits = line.split(' ');
             return ResourceNode.create(this.resourceKind, bits[0], undefined, undefined);
         });
-        const filter = (this.options && this.options.filter) ? this.options.filter : undefined;  // Yes we do need this because TS doesn't retain inferences about members across lambda boundaries (because JS 'this' is terrible)
         const filtered = filter ? all.filter((cern) => filter(cern)) : all;
         return filtered;
     }

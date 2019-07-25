@@ -152,8 +152,10 @@ function adaptResourcesNodeSourceOptions(source: ClusterExplorerV1.ResourcesNode
     if (!source) {
         return undefined;
     }
+    const lister = source.lister;
     const filter = source.filter;
     return {
+        lister: lister,
         filter: filter ? (cern: ClusterExplorerResourceNode) => filter(adaptKubernetesExplorerResourceNode(cern)) : undefined,
     };
 }

@@ -101,6 +101,7 @@ export namespace ClusterExplorerV1 {
     }
 
     export interface ResourcesNodeSourceOptions {
+        lister?: () => Promise<{ name: string }[]>;
         filter?: (resourceNode: ClusterExplorerResourceNode) => boolean;
     }
 
