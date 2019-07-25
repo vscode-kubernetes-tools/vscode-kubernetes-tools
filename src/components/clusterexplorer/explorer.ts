@@ -112,7 +112,7 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         const baseChildren = this.getChildrenBase(parent);
         const contributedChildren = this.extenders
                                         .filter((e) => e.contributesChildren(parent))
-                                        .map((e) => e.getChildren(parent));
+                                        .map((e) => e.getChildren(this.kubectl, this.host, parent));
         return providerResult.append(baseChildren, ...contributedChildren);
     }
 

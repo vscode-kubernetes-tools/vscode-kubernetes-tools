@@ -5,7 +5,7 @@ import { ExplorerExtender, ExplorerUICustomizer } from "../../../components/clus
 import { KUBERNETES_EXPLORER_NODE_CATEGORY, KubernetesExplorer } from "../../../components/clusterexplorer/explorer";
 import { Kubectl } from "../../../kubectl";
 import { Host } from "../../../host";
-import { CustomResourceFolderNodeSource, CustomGroupingFolderNodeSource, NodeSourceImpl } from "../../../components/clusterexplorer/extension.nodesources";
+import { CustomResourceFolderNodeSource, CustomGroupingFolderNodeSource, NodeSourceImpl, ResourcesNodeSource, ResourcesNodeSourceOptionsImpl } from "../../../components/clusterexplorer/extension.nodesources";
 import { ClusterExplorerNode, ClusterExplorerResourceNode, ClusterExplorerCustomNode } from "../../../components/clusterexplorer/node";
 import { ResourceKind } from '../../../kuberesources';
 
@@ -41,7 +41,8 @@ class ClusterExplorerV1Impl implements ClusterExplorerV1 {
     get nodeSources(): ClusterExplorerV1.NodeSources {
         return {
             resourceFolder: resourceFolderContributor,
-            groupingFolder: groupingFolderContributor
+            groupingFolder: groupingFolderContributor,
+            resources: resourcesNodeSource
         };
     }
 
@@ -60,7 +61,7 @@ class NodeContributorAdapter implements ExplorerExtender<ClusterExplorerNode> {
         const parentNode = parent ? adaptKubernetesExplorerNode(parent) : undefined;
         return this.impl.contributesChildren(parentNode);
     }
-    async getChildren(parent?: ClusterExplorerNode | undefined): Promise<ClusterExplorerNode[]> {
+    async getChildren(_kubectl: Kubectl, _host: Host, parent?: ClusterExplorerNode | undefined): Promise<ClusterExplorerNode[]> {
         const parentNode = parent ? adaptKubernetesExplorerNode(parent) : undefined;
         const children = await this.impl.getChildren(parentNode);
         return children.map(internalNodeOf);
@@ -141,6 +142,22 @@ function groupingFolderContributor(displayName: string, contextValue: string | u
     return apiNodeSourceOf(nodeSource);
 }
 
+function resourcesNodeSource(manifestKind: string, abbreviation: string, options?: ClusterExplorerV1.ResourcesNodeSourceOptions): ClusterExplorerV1.NodeSource {
+    const optionsImpl = adaptResourcesNodeSourceOptions(options);
+    const nodeSource = new ResourcesNodeSource(new ResourceKind(manifestKind, manifestKind, manifestKind, abbreviation), optionsImpl);
+    return apiNodeSourceOf(nodeSource);
+}
+
+function adaptResourcesNodeSourceOptions(source: ClusterExplorerV1.ResourcesNodeSourceOptions | undefined): ResourcesNodeSourceOptionsImpl | undefined {
+    if (!source) {
+        return undefined;
+    }
+    const filter = source.filter;
+    return {
+        filter: filter ? (cern: ClusterExplorerResourceNode) => filter(adaptKubernetesExplorerResourceNode(cern)) : undefined,
+    };
+}
+
 const BUILT_IN_CONTRIBUTOR_KIND_TAG = 'nativeextender-4a4bc473-a8c6-4b1e-973f-22327f99cea8';
 const BUILT_IN_NODE_KIND_TAG = 'nativek8sobject-5be3c876-3683-44cd-a400-7763d2c4302a';
 const BUILT_IN_NODE_SOURCE_KIND_TAG = 'nativenodesource-aa0c30a9-bf1d-444a-a147-7823edcc7c04';
@@ -164,7 +181,7 @@ function apiNodeSourceOf(nodeSet: NodeSourceImpl): ClusterExplorerV1.NodeSource 
     return {
         at(parent: string | undefined) { const ee = nodeSet.at(parent); return apiNodeContributorOf(ee); },
         if(condition: () => boolean | Thenable<boolean>) { return apiNodeSourceOf(nodeSet.if(condition)); },
-        async nodes() { return (await nodeSet.nodes()).map(apiNodeOf); },
+        async nodes() { throw new Error('TODO: please do not call this'); },
         [BUILT_IN_NODE_SOURCE_KIND_TAG]: true,
         impl: nodeSet
     };
@@ -177,7 +194,7 @@ function internalNodeSourceOf(nodeSet: ClusterExplorerV1.NodeSource): NodeSource
     return {
         at(parent: string | undefined) { return internalNodeContributorOf(nodeSet.at(parent)); },
         if(condition: () => boolean | Thenable<boolean>) { return internalNodeSourceOf(nodeSet).if(condition); },
-        async nodes() { return (await nodeSet.nodes()).map(internalNodeOf); }
+        async nodes() { throw new Error('TODO: you should not be creating node sources yourself you naughty people'); }
     };
 }
 
@@ -204,11 +221,11 @@ export function internalNodeOf(node: ClusterExplorerV1.Node): ClusterExplorerNod
     return new ContributedNode(node);
 }
 
-function apiNodeOf(node: ClusterExplorerNode): ClusterExplorerV1.Node & BuiltInNode {
-    return {
-        async getChildren() { throw new Error('apiNodeOf->getChildren: not expected to be called directly'); },
-        getTreeItem() { throw new Error('apiNodeOf->getTreeItem: not expected to be called directly'); },
-        [BUILT_IN_NODE_KIND_TAG]: true,
-        impl: node
-    };
-}
+// function apiNodeOf(node: ClusterExplorerNode): ClusterExplorerV1.Node & BuiltInNode {
+//     return {
+//         async getChildren() { throw new Error('apiNodeOf->getChildren: not expected to be called directly'); },
+//         getTreeItem() { throw new Error('apiNodeOf->getTreeItem: not expected to be called directly'); },
+//         [BUILT_IN_NODE_KIND_TAG]: true,
+//         impl: node
+//     };
+// }

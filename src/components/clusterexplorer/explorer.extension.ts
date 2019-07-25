@@ -1,8 +1,10 @@
 import * as vscode from "vscode";
+import { Kubectl } from "../../kubectl";
+import { Host } from "../../host";
 
 export interface ExplorerExtender<T> {
     contributesChildren(parent?: T): boolean;
-    getChildren(parent?: T): Promise<T[]>;
+    getChildren(kubectl: Kubectl, host: Host, parent?: T): Promise<T[]>;
 }
 
 export interface ExplorerUICustomizer<T> {

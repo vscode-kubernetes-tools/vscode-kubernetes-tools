@@ -1,9 +1,15 @@
 import * as kuberesources from '../../kuberesources';
 import { ExplorerExtender } from './explorer.extension';
-import { ClusterExplorerNode } from './node';
+import { ClusterExplorerNode, ClusterExplorerResourceNode } from './node';
 import { ContributedGroupingFolderNode } from './node.folder.grouping.custom';
 import { ResourceFolderNode } from './node.folder.resource';
 import { NODE_TYPES } from './explorer';
+import { MessageNode } from './node.message';
+import { ResourceNode } from './node.resource';
+import { failed } from '../../errorable';
+import { getLister } from './resourceui';
+import { Kubectl } from '../../kubectl';
+import { Host } from '../../host';
 
 // This module contains 'node sources' - built-in ways of creating nodes of
 // *built-in* types (as opposed to the completely custom nodes created by an
@@ -23,7 +29,7 @@ export abstract class NodeSourceImpl {
     if(condition: () => boolean | Thenable<boolean>): NodeSourceImpl {
         return new ConditionalNodeSource(this, condition);
     }
-    abstract nodes(): Promise<ClusterExplorerNode[]>;
+    abstract nodes(kubectl: Kubectl, host: Host): Promise<ClusterExplorerNode[]>;
 }
 
 export class CustomResourceFolderNodeSource extends NodeSourceImpl {
@@ -44,13 +50,42 @@ export class CustomGroupingFolderNodeSource extends NodeSourceImpl {
     }
 }
 
+export interface ResourcesNodeSourceOptionsImpl {
+    filter?: (o: ClusterExplorerResourceNode) => boolean;
+}
+
+export class ResourcesNodeSource extends NodeSourceImpl {
+    constructor(private readonly resourceKind: kuberesources.ResourceKind, private readonly options: ResourcesNodeSourceOptionsImpl | undefined) {
+        super();
+    }
+    async nodes(kubectl: Kubectl, host: Host): Promise<ClusterExplorerNode[]> {
+        // TODO: deduplicate from ResourceFolderNode
+        const lister = getLister(this.resourceKind);  // TODO: provide a way to override this
+        if (lister) {
+            return await lister.list(kubectl, this.resourceKind);
+        }
+        const childrenLines = await kubectl.asLines(`get ${this.resourceKind.abbreviation}`);
+        if (failed(childrenLines)) {
+            host.showErrorMessage(childrenLines.error[0]);
+            return [new MessageNode("Error", childrenLines.error[0])];
+        }
+        const all = childrenLines.result.map((line) => {
+            const bits = line.split(' ');
+            return ResourceNode.create(this.resourceKind, bits[0], undefined, undefined);
+        });
+        const filter = (this.options && this.options.filter) ? this.options.filter : undefined;  // Yes we do need this because TS doesn't retain inferences about members across lambda boundaries (because JS 'this' is terrible)
+        const filtered = filter ? all.filter((cern) => filter(cern)) : all;
+        return filtered;
+    }
+}
+
 class ConditionalNodeSource extends NodeSourceImpl {
     constructor(private readonly impl: NodeSourceImpl, private readonly condition: () => boolean | Thenable<boolean>) {
         super();
     }
-    async nodes(): Promise<ClusterExplorerNode[]> {
+    async nodes(kubectl: Kubectl, host: Host): Promise<ClusterExplorerNode[]> {
         if (await this.condition()) {
-            return this.impl.nodes();
+            return this.impl.nodes(kubectl, host);
         }
         return [];
     }
@@ -67,7 +102,7 @@ export class ContributedNodeSourceExtender implements ExplorerExtender<ClusterEx
         }
         return parent.nodeType === NODE_TYPES.context && parent.kubectlContext.active;
     }
-    getChildren(_parent?: ClusterExplorerNode | undefined): Promise<ClusterExplorerNode[]> {
-        return this.nodeSource.nodes();
+    getChildren(kubectl: Kubectl, host: Host, _parent?: ClusterExplorerNode | undefined): Promise<ClusterExplorerNode[]> {
+        return this.nodeSource.nodes(kubectl, host);
     }
 }

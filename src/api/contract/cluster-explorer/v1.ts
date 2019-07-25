@@ -100,8 +100,13 @@ export namespace ClusterExplorerV1 {
         nodes(): Promise<Node[]>;
     }
 
+    export interface ResourcesNodeSourceOptions {
+        filter?: (resourceNode: ClusterExplorerResourceNode) => boolean;
+    }
+
     export interface NodeSources {
         resourceFolder(displayName: string, pluralDisplayName: string, manifestKind: string, abbreviation: string): NodeSource;
         groupingFolder(displayName: string, contextValue: string | undefined, ...children: NodeSource[]): NodeSource;
+        resources(manifestKind: string, abbreviation: string, options?: ResourcesNodeSourceOptions): NodeSource;
     }
 }
