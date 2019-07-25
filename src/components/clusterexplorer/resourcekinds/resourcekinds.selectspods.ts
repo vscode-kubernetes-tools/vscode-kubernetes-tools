@@ -11,13 +11,13 @@ export const selectedPodsChildSource = {
             return [];
         }
         const pods = await kubectlUtils.getPods(kubectl, labelSelector);
-        return pods.map((p) => ResourceNode.create(kuberesources.allKinds.pod, p.name, p.metadata, { podInfo: p }));
+        return pods.map((p) => ResourceNode.create(kuberesources.allKinds.pod, p.name, p.metadata, { podInfo: p }, undefined));
     }
 };
 
 export const hasSelectorLister = {
     async list(kubectl: Kubectl, kind: kuberesources.ResourceKind): Promise<ClusterExplorerNode[]> {
         const objects = await kubectlUtils.getResourceWithSelector(kind.abbreviation, kubectl);
-        return objects.map((obj) => ResourceNode.create(kind, obj.name, obj.metadata, { labelSelector: obj.selector }));
+        return objects.map((obj) => ResourceNode.create(kind, obj.name, obj.metadata, { labelSelector: obj.selector }, undefined));
     }
 };

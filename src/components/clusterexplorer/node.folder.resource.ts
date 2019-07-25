@@ -31,7 +31,7 @@ export class ResourceFolderNode extends FolderNode implements ClusterExplorerRes
         }
         return childrenLines.result.map((line) => {
             const bits = line.split(' ');
-            return ResourceNode.create(this.kind, bits[0], undefined, undefined);
+            return ResourceNode.create(this.kind, bits[0], undefined, undefined, undefined);
         });
     }
 }

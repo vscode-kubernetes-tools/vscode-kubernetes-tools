@@ -7,18 +7,18 @@ import * as kuberesources from '../../kuberesources';
 import { ObjectMeta } from '../../kuberesources.objectmodel';
 import { kubefsUri } from '../../kuberesources.virtualfs';
 import { ClusterExplorerNode, ClusterExplorerNodeImpl, ClusterExplorerResourceNode } from './node';
-import { getChildSources, getUICustomiser } from './resourceui';
+import { getChildSources, getUICustomiser, CustomResourceChildSources } from './resourceui';
 import { NODE_TYPES } from './explorer';
 
 export class ResourceNode extends ClusterExplorerNodeImpl implements ClusterExplorerResourceNode {
 
-    static create(kind: kuberesources.ResourceKind, name: string, metadata: ObjectMeta | undefined, extraInfo: ResourceExtraInfo | undefined): ClusterExplorerResourceNode {
-        return new ResourceNode(kind, name, metadata, extraInfo);
+    static create(kind: kuberesources.ResourceKind, name: string, metadata: ObjectMeta | undefined, extraInfo: ResourceExtraInfo | undefined, customChildSources: CustomResourceChildSources | undefined): ClusterExplorerResourceNode {
+        return new ResourceNode(kind, name, metadata, extraInfo, customChildSources);
     }
 
     readonly kindName: string;
     readonly nodeType = NODE_TYPES.resource;
-    constructor(readonly kind: kuberesources.ResourceKind, readonly name: string, readonly metadata: ObjectMeta | undefined, readonly extraInfo: ResourceExtraInfo | undefined) {
+    constructor(readonly kind: kuberesources.ResourceKind, readonly name: string, readonly metadata: ObjectMeta | undefined, readonly extraInfo: ResourceExtraInfo | undefined, readonly customChildSources: CustomResourceChildSources | undefined) {
         super(NODE_TYPES.resource);
         this.kindName = `${kind.abbreviation}/${name}`;
     }
@@ -29,7 +29,10 @@ export class ResourceNode extends ClusterExplorerNodeImpl implements ClusterExpl
         return kubefsUri(this.namespace, this.kindName, outputFormat);
     }
     async getChildren(kubectl: Kubectl, _host: Host): Promise<ClusterExplorerNode[]> {
-        const childSources = getChildSources(this.kind);
+        const includeDefaultChildSources = !this.customChildSources || this.customChildSources.includeDefaultChildSources;
+        const customChildSources = this.customChildSources ? this.customChildSources.customSources : [];
+        const baseChildSources = includeDefaultChildSources ? getChildSources(this.kind) : [];
+        const childSources = baseChildSources.concat(customChildSources);
         const children = Array.of<ClusterExplorerNode>();
         for (const source of childSources) {
             const sourcedChildren = await source.children(kubectl, this);

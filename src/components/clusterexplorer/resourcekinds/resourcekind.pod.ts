@@ -56,7 +56,8 @@ export const podLister = {
             kind,
             pod.name,
             pod.metadata,
-            { podInfo: pod }
+            { podInfo: pod },
+            undefined
         ));
     }
 };

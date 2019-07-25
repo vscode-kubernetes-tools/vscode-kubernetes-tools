@@ -21,6 +21,6 @@ export const namespaceUICustomiser = {
 export const namespaceLister = {
     async list(kubectl: Kubectl, kind: ResourceKind): Promise<ClusterExplorerNode[]> {
         const namespaces = await kubectlUtils.getNamespaces(kubectl);
-        return namespaces.map((ns) => ResourceNode.create(kind, ns.name, ns.metadata, { namespaceInfo: ns }));
+        return namespaces.map((ns) => ResourceNode.create(kind, ns.name, ns.metadata, { namespaceInfo: ns }, undefined));
     }
 };

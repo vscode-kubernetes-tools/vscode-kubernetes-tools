@@ -7,7 +7,7 @@ import { NODE_TYPES } from './explorer';
 import { MessageNode } from './node.message';
 import { ResourceNode } from './node.resource';
 import { failed } from '../../errorable';
-import { getLister } from './resourceui';
+import { getLister, CustomResourceChildSources } from './resourceui';
 import { Kubectl } from '../../kubectl';
 import { Host } from '../../host';
 
@@ -51,8 +51,9 @@ export class CustomGroupingFolderNodeSource extends NodeSourceImpl {
 }
 
 export interface ResourcesNodeSourceOptionsImpl {
-    lister?: () => Promise<{ name: string }[]>;
-    filter?: (o: ClusterExplorerResourceNode) => boolean;
+    readonly lister?: () => Promise<{ name: string }[]>;
+    readonly filter?: (o: ClusterExplorerResourceNode) => boolean;
+    readonly childSources?: CustomResourceChildSources;
 }
 
 export class ResourcesNodeSource extends NodeSourceImpl {
@@ -66,7 +67,7 @@ export class ResourcesNodeSource extends NodeSourceImpl {
         const filter = this.options ? this.options.filter : undefined;
         if (lister) {
             const infos = await lister();
-            return infos.map((i) => ResourceNode.create(this.resourceKind, i.name, undefined, undefined));  // TODO: error handling, etc.
+            return infos.map((i) => ResourceNode.create(this.resourceKind, i.name, undefined, undefined, undefined));  // TODO: error handling, etc.
         }
         const builtInLister = getLister(this.resourceKind);
         if (builtInLister) {
@@ -79,7 +80,7 @@ export class ResourcesNodeSource extends NodeSourceImpl {
         }
         const all = childrenLines.result.map((line) => {
             const bits = line.split(' ');
-            return ResourceNode.create(this.resourceKind, bits[0], undefined, undefined);
+            return ResourceNode.create(this.resourceKind, bits[0], undefined, undefined, undefined);
         });
         const filtered = filter ? all.filter((cern) => filter(cern)) : all;
         return filtered;

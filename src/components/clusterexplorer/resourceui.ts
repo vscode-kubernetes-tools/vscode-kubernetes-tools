@@ -68,3 +68,8 @@ export interface ResourceUICustomiser {
 export interface ResourceChildSource {
     children(kubectl: Kubectl, parent: ResourceNode): Promise<ClusterExplorerNode[]>;
 }
+
+export interface CustomResourceChildSources {
+    readonly includeDefaultChildSources: boolean;
+    readonly customSources: ReadonlyArray<ResourceChildSource>;
+}
