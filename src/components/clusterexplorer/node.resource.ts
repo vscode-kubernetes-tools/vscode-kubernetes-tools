@@ -16,6 +16,11 @@ export class ResourceNode extends ClusterExplorerNodeImpl implements ClusterExpl
         return new ResourceNode(kind, name, metadata, extraInfo, customChildSources);
     }
 
+    static createForCustom(kind: kuberesources.ResourceKind, name: string, customData: any, customChildSources: CustomResourceChildSources | undefined): ClusterExplorerResourceNode {
+        const extraInfo = customData ? { customData } : undefined;
+        return this.create(kind, name, undefined, extraInfo, customChildSources);
+    }
+
     readonly kindName: string;
     readonly nodeType = NODE_TYPES.resource;
     constructor(readonly kind: kuberesources.ResourceKind, readonly name: string, readonly metadata: ObjectMeta | undefined, readonly extraInfo: ResourceExtraInfo | undefined, readonly customChildSources: CustomResourceChildSources | undefined) {

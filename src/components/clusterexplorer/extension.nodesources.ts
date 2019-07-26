@@ -2,12 +2,10 @@ import * as kuberesources from '../../kuberesources';
 import { ExplorerExtender } from './explorer.extension';
 import { ClusterExplorerNode, ClusterExplorerResourceNode } from './node';
 import { ContributedGroupingFolderNode } from './node.folder.grouping.custom';
-import { ResourceFolderNode } from './node.folder.resource';
+import { ResourceFolderNode, ResourceNodeHelper } from './node.folder.resource';
 import { NODE_TYPES } from './explorer';
-import { MessageNode } from './node.message';
 import { ResourceNode } from './node.resource';
-import { failed } from '../../errorable';
-import { getLister } from './resourceui';
+import { ResourceLister } from './resourceui';
 import { Kubectl } from '../../kubectl';
 import { Host } from '../../host';
 
@@ -61,39 +59,30 @@ export class ResourcesNodeSource extends NodeSourceImpl {
         super();
     }
     async nodes(kubectl: Kubectl | undefined, host: Host | undefined): Promise<ClusterExplorerNode[]> {
-        // Yes we do need this because TS doesn't retain inferences about members across lambda boundaries (because JS 'this' is terrible)
-        const lister = this.options ? this.options.lister : undefined;
-        const filter = this.options ? this.options.filter : undefined;
-        const childSources = this.options ? this.options.childSources : undefined;
-        const crcs = childSources ? { includeDefaultChildSources: childSources.includeDefault, customSources: childSources.sources } : undefined;
-
-        // TODO: deduplicate from ResourceFolderNode
-        if (lister) {
-            const infos = await lister();
-            return infos.map((i) => ResourceNode.create(this.resourceKind, i.name, undefined, i.customData ? { customData: i.customData } : undefined, crcs));  // TODO: error handling, etc. - might work better if lister() returns NodeSource[]
-        }
-
         if (!kubectl) {
             throw new Error("Internal error: explorer has no kubectl");
         }
 
-        const builtInLister = getLister(this.resourceKind);
-        if (builtInLister) {
-            return await builtInLister.list(kubectl, this.resourceKind);
-        }
-        const childrenLines = await kubectl.asLines(`get ${this.resourceKind.abbreviation}`);
-        if (failed(childrenLines)) {
-            if (host) {  // There always should be.  But we can't prove this to the compiler, and it's not worth failing if there isn't.
-                host.showErrorMessage(childrenLines.error[0]);
+        const childSources = this.options ? this.options.childSources : undefined;
+        const crcs = childSources ? { includeDefaultChildSources: childSources.includeDefault, customSources: childSources.sources } : undefined;
+
+        const lister = this.options ? this.options.lister : undefined;
+        const listerObj: ResourceLister | undefined = lister ? {
+            async list(_kubectl: Kubectl, kind: kuberesources.ResourceKind) {
+                const infos = await lister();
+                return infos.map((i) => ResourceNode.createForCustom(kind, i.name, i.customData, crcs));
             }
-            return [new MessageNode("Error", childrenLines.error[0])];
-        }
-        const all = childrenLines.result.map((line) => {
-            const bits = line.split(' ');
-            return ResourceNode.create(this.resourceKind, bits[0], undefined, undefined, crcs);
-        });
-        const filtered = filter ? all.filter((cern) => filter(cern)) : all;
-        return filtered;
+        } : undefined;
+
+        const filter = this.options ? this.options.filter : undefined;
+
+        const optionsImpl = {
+            lister: listerObj,
+            filter: filter,
+            childSources: crcs,
+        };
+
+        return await ResourceNodeHelper.getResourceNodes(kubectl, host, this.resourceKind, optionsImpl);
     }
 }
 
