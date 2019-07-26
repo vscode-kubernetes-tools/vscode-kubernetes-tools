@@ -11,20 +11,20 @@ import { NODE_TYPES } from './explorer';
 
 export class ResourceFolderNode extends FolderNode implements ClusterExplorerResourceFolderNode {
 
-    static create(kind: kuberesources.ResourceKind): ResourceFolderNode {
-        return new ResourceFolderNode(kind);
+    static create(kind: kuberesources.ResourceKind, options?: GetResourceNodesOptions): ResourceFolderNode {
+        return new ResourceFolderNode(kind, options || {});
     }
 
-    constructor(readonly kind: kuberesources.ResourceKind) {
+    constructor(readonly kind: kuberesources.ResourceKind, private readonly options: GetResourceNodesOptions) {
         super(NODE_TYPES.folder.resource, kind.abbreviation, kind.pluralDisplayName, "vsKubernetes.kind");
     }
     readonly nodeType = NODE_TYPES.folder.resource;
     async getChildren(kubectl: Kubectl, host: Host): Promise<ClusterExplorerNode[]> {
-        return await ResourceNodeHelper.getResourceNodes(kubectl, host, this.kind, {});
+        return await ResourceNodeHelper.getResourceNodes(kubectl, host, this.kind, this.options);
     }
 }
 
-interface GetResourceNodesOptions {
+export interface GetResourceNodesOptions {
     readonly lister?: ResourceLister;
     readonly filter?: (o: ClusterExplorerResourceNode) => boolean;
     readonly childSources?: CustomResourceChildSources;

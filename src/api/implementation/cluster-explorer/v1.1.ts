@@ -133,8 +133,9 @@ export class ContributedNode implements ClusterExplorerCustomNode {
     }
 }
 
-function resourceFolderContributor(displayName: string, pluralDisplayName: string, manifestKind: string, abbreviation: string): ClusterExplorerV1_1.NodeSource {
-    const nodeSource = new CustomResourceFolderNodeSource(new ResourceKind(displayName, pluralDisplayName, manifestKind, abbreviation));
+function resourceFolderContributor(displayName: string, pluralDisplayName: string, manifestKind: string, abbreviation: string, options?: ClusterExplorerV1_1.ResourcesNodeSourceOptions): ClusterExplorerV1_1.NodeSource {
+    const optionsImpl = adaptResourcesNodeSourceOptions(options);
+    const nodeSource = new CustomResourceFolderNodeSource(new ResourceKind(displayName, pluralDisplayName, manifestKind, abbreviation), optionsImpl);
     return apiNodeSourceOf(nodeSource);
 }
 

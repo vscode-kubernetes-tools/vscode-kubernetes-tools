@@ -2,7 +2,7 @@ import * as kuberesources from '../../kuberesources';
 import { ExplorerExtender } from './explorer.extension';
 import { ClusterExplorerNode, ClusterExplorerResourceNode } from './node';
 import { ContributedGroupingFolderNode } from './node.folder.grouping.custom';
-import { ResourceFolderNode, ResourceNodeHelper } from './node.folder.resource';
+import { ResourceFolderNode, ResourceNodeHelper, GetResourceNodesOptions } from './node.folder.resource';
 import { NODE_TYPES } from './explorer';
 import { ResourceNode } from './node.resource';
 import { ResourceLister } from './resourceui';
@@ -31,11 +31,12 @@ export abstract class NodeSourceImpl {
 }
 
 export class CustomResourceFolderNodeSource extends NodeSourceImpl {
-    constructor(private readonly resourceKind: kuberesources.ResourceKind) {
+    constructor(private readonly resourceKind: kuberesources.ResourceKind, private readonly options: ResourcesNodeSourceOptionsImpl | undefined) {
         super();
     }
     async nodes(_kubectl: Kubectl | undefined, _host: Host | undefined): Promise<ClusterExplorerNode[]> {
-        return [ResourceFolderNode.create(this.resourceKind)];
+        const optionsImpl = adaptOptions(this.options);
+        return [ResourceFolderNode.create(this.resourceKind, optionsImpl)];
     }
 }
 
@@ -63,27 +64,34 @@ export class ResourcesNodeSource extends NodeSourceImpl {
             throw new Error("Internal error: explorer has no kubectl");
         }
 
-        const childSources = this.options ? this.options.childSources : undefined;
-        const crcs = childSources ? { includeDefaultChildSources: childSources.includeDefault, customSources: childSources.sources } : undefined;
-
-        const lister = this.options ? this.options.lister : undefined;
-        const listerObj: ResourceLister | undefined = lister ? {
-            async list(_kubectl: Kubectl, kind: kuberesources.ResourceKind) {
-                const infos = await lister();
-                return infos.map((i) => ResourceNode.createForCustom(kind, i.name, i.customData, crcs));
-            }
-        } : undefined;
-
-        const filter = this.options ? this.options.filter : undefined;
-
-        const optionsImpl = {
-            lister: listerObj,
-            filter: filter,
-            childSources: crcs,
-        };
+        const optionsImpl = adaptOptions(this.options);
 
         return await ResourceNodeHelper.getResourceNodes(kubectl, host, this.resourceKind, optionsImpl);
     }
+
+}
+
+function adaptOptions(options: ResourcesNodeSourceOptionsImpl | undefined): GetResourceNodesOptions {
+    const childSources = options ? options.childSources : undefined;
+    const crcs = childSources ? { includeDefaultChildSources: childSources.includeDefault, customSources: childSources.sources } : undefined;
+
+    const lister = options ? options.lister : undefined;
+    const listerObj: ResourceLister | undefined = lister ? {
+        async list(_kubectl: Kubectl, kind: kuberesources.ResourceKind) {
+            const infos = await lister();
+            return infos.map((i) => ResourceNode.createForCustom(kind, i.name, i.customData, crcs));
+        }
+    } : undefined;
+
+    const filter = options ? options.filter : undefined;
+
+    const optionsImpl = {
+        lister: listerObj,
+        filter: filter,
+        childSources: crcs,
+    };
+
+    return optionsImpl;
 }
 
 class ConditionalNodeSource extends NodeSourceImpl {
