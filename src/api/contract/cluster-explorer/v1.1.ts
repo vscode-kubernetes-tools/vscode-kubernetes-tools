@@ -33,6 +33,7 @@ export namespace ClusterExplorerV1_1 {
         readonly resourceKind: ResourceKind;
         readonly name: string;
         readonly metadata?: any;
+        readonly customData?: any;
     }
 
     export interface ClusterExplorerGroupingFolderNode {
@@ -100,10 +101,20 @@ export namespace ClusterExplorerV1_1 {
         nodes(): Promise<Node[]>;
     }
 
+    export interface ResourcesNodeSourceListResult {
+        readonly name: string;
+        readonly customData?: any;
+    }
+
+    export interface ResourcesNodeSourceChildSources {
+        readonly includeDefault: boolean;
+        readonly sources: ReadonlyArray<(parent: ClusterExplorerResourceNode) => NodeSource>;
+    }
+
     export interface ResourcesNodeSourceOptions {
-        readonly lister?: () => Promise<{ name: string }[]>;
+        readonly lister?: () => Promise<ResourcesNodeSourceListResult[]>;
         readonly filter?: (resourceNode: ClusterExplorerResourceNode) => boolean;
-        readonly childSources?: { readonly includeDefault: boolean; readonly sources: ReadonlyArray</* NodeSource | */((parent: ClusterExplorerResourceNode) => NodeSource)> };
+        readonly childSources?: ResourcesNodeSourceChildSources;
     }
 
     export interface NodeSources {

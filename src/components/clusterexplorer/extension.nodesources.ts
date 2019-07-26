@@ -51,7 +51,7 @@ export class CustomGroupingFolderNodeSource extends NodeSourceImpl {
 }
 
 export interface ResourcesNodeSourceOptionsImpl {
-    readonly lister?: () => Promise<{ name: string }[]>;
+    readonly lister?: () => Promise<{ name: string; customData?: any }[]>;
     readonly filter?: (o: ClusterExplorerResourceNode) => boolean;
     readonly childSources?: { readonly includeDefault: boolean; readonly sources: ReadonlyArray<(parent: ClusterExplorerResourceNode) => NodeSourceImpl> };
 }
@@ -61,10 +61,6 @@ export class ResourcesNodeSource extends NodeSourceImpl {
         super();
     }
     async nodes(kubectl: Kubectl | undefined, host: Host | undefined): Promise<ClusterExplorerNode[]> {
-        if (!kubectl) {
-            throw new Error("Internal error: explorer has no kubectl");
-        }
-
         // Yes we do need this because TS doesn't retain inferences about members across lambda boundaries (because JS 'this' is terrible)
         const lister = this.options ? this.options.lister : undefined;
         const filter = this.options ? this.options.filter : undefined;
@@ -74,8 +70,13 @@ export class ResourcesNodeSource extends NodeSourceImpl {
         // TODO: deduplicate from ResourceFolderNode
         if (lister) {
             const infos = await lister();
-            return infos.map((i) => ResourceNode.create(this.resourceKind, i.name, undefined, undefined, crcs));  // TODO: error handling, etc. - might work better if lister() returns NodeSource[]
+            return infos.map((i) => ResourceNode.create(this.resourceKind, i.name, undefined, i.customData ? { customData: i.customData } : undefined, crcs));  // TODO: error handling, etc. - might work better if lister() returns NodeSource[]
         }
+
+        if (!kubectl) {
+            throw new Error("Internal error: explorer has no kubectl");
+        }
+
         const builtInLister = getLister(this.resourceKind);
         if (builtInLister) {
             return await builtInLister.list(kubectl, this.resourceKind);

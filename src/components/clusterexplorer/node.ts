@@ -40,6 +40,7 @@ export interface ClusterExplorerResourceNode extends ClusterExplorerNodeBase {
     readonly kindName: string;
     readonly metadata: ObjectMeta | undefined;
     readonly kind: ResourceKind;
+    readonly customData: any;
     uri(outputFormat: string): vscode.Uri;
 }
 

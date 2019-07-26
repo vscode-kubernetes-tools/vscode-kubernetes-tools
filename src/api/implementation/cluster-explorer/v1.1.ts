@@ -113,7 +113,8 @@ function adaptKubernetesExplorerResourceNode(node: ClusterExplorerResourceNode):
         metadata: node.metadata,
         name: node.name,
         resourceKind: node.kind,
-        namespace: node.namespace
+        namespace: node.namespace,
+        customData: node.customData,
     };
 }
 
@@ -228,12 +229,3 @@ export function internalNodeOf(node: ClusterExplorerV1_1.Node): ClusterExplorerN
     }
     return new ContributedNode(node);
 }
-
-// function apiNodeOf(node: ClusterExplorerNode): ClusterExplorerV1.Node & BuiltInNode {
-//     return {
-//         async getChildren() { throw new Error('apiNodeOf->getChildren: not expected to be called directly'); },
-//         getTreeItem() { throw new Error('apiNodeOf->getTreeItem: not expected to be called directly'); },
-//         [BUILT_IN_NODE_KIND_TAG]: true,
-//         impl: node
-//     };
-// }

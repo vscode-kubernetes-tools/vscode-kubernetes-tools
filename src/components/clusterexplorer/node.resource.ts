@@ -25,6 +25,12 @@ export class ResourceNode extends ClusterExplorerNodeImpl implements ClusterExpl
     get namespace(): string | null {
         return (this.metadata && this.metadata.namespace) ? this.metadata.namespace : null;
     }
+    get customData(): any {
+        if (this.extraInfo) {
+            return this.extraInfo.customData;
+        }
+        return undefined;
+    }
     uri(outputFormat: string): vscode.Uri {
         return kubefsUri(this.namespace, this.kindName, outputFormat);
     }
@@ -84,4 +90,5 @@ export interface ResourceExtraInfo {
     readonly podInfo?: kubectlUtils.PodInfo;
     readonly labelSelector?: any;
     readonly namespaceInfo?: kubectlUtils.NamespaceInfo;
+    readonly customData?: any;
 }
