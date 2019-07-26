@@ -29,14 +29,14 @@ export abstract class NodeSourceImpl {
     if(condition: () => boolean | Thenable<boolean>): NodeSourceImpl {
         return new ConditionalNodeSource(this, condition);
     }
-    abstract nodes(kubectl: Kubectl, host: Host): Promise<ClusterExplorerNode[]>;
+    abstract nodes(kubectl: Kubectl | undefined, host: Host | undefined): Promise<ClusterExplorerNode[]>;
 }
 
 export class CustomResourceFolderNodeSource extends NodeSourceImpl {
     constructor(private readonly resourceKind: kuberesources.ResourceKind) {
         super();
     }
-    async nodes(): Promise<ClusterExplorerNode[]> {
+    async nodes(_kubectl: Kubectl | undefined, _host: Host | undefined): Promise<ClusterExplorerNode[]> {
         return [ResourceFolderNode.create(this.resourceKind)];
     }
 }
@@ -45,7 +45,7 @@ export class CustomGroupingFolderNodeSource extends NodeSourceImpl {
     constructor(private readonly displayName: string, private readonly contextValue: string | undefined, private readonly children: NodeSourceImpl[]) {
         super();
     }
-    async nodes(): Promise<ClusterExplorerNode[]> {
+    async nodes(_kubectl: Kubectl | undefined, _host: Host | undefined): Promise<ClusterExplorerNode[]> {
         return [new ContributedGroupingFolderNode(this.displayName, this.contextValue, this.children)];
     }
 }
@@ -60,7 +60,11 @@ export class ResourcesNodeSource extends NodeSourceImpl {
     constructor(private readonly resourceKind: kuberesources.ResourceKind, private readonly options: ResourcesNodeSourceOptionsImpl | undefined) {
         super();
     }
-    async nodes(kubectl: Kubectl, host: Host): Promise<ClusterExplorerNode[]> {
+    async nodes(kubectl: Kubectl | undefined, host: Host | undefined): Promise<ClusterExplorerNode[]> {
+        if (!kubectl) {
+            throw new Error("Internal error: explorer has no kubectl");
+        }
+
         // TODO: deduplicate from ResourceFolderNode
         // Yes we do need this because TS doesn't retain inferences about members across lambda boundaries (because JS 'this' is terrible)
         const lister = this.options ? this.options.lister : undefined;
@@ -77,7 +81,9 @@ export class ResourcesNodeSource extends NodeSourceImpl {
         }
         const childrenLines = await kubectl.asLines(`get ${this.resourceKind.abbreviation}`);
         if (failed(childrenLines)) {
-            host.showErrorMessage(childrenLines.error[0]);
+            if (host) {  // There always should be.  But we can't prove this to the compiler, and it's not worth failing if there isn't.
+                host.showErrorMessage(childrenLines.error[0]);
+            }
             return [new MessageNode("Error", childrenLines.error[0])];
         }
         const all = childrenLines.result.map((line) => {
@@ -93,7 +99,7 @@ class ConditionalNodeSource extends NodeSourceImpl {
     constructor(private readonly impl: NodeSourceImpl, private readonly condition: () => boolean | Thenable<boolean>) {
         super();
     }
-    async nodes(kubectl: Kubectl, host: Host): Promise<ClusterExplorerNode[]> {
+    async nodes(kubectl: Kubectl | undefined, host: Host | undefined): Promise<ClusterExplorerNode[]> {
         if (await this.condition()) {
             return this.impl.nodes(kubectl, host);
         }

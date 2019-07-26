@@ -1,21 +1,21 @@
 // This module is contractual and should not be changed after release.
-// It should be in sync with vscode-kubernetes-tools-api/ts/explorer-tree/v1.ts
+// It should be in sync with vscode-kubernetes-tools-api/ts/explorer-tree/v1.1.ts
 // at all times.
 
 import * as vscode from 'vscode';
 
-export interface ClusterExplorerV1 {
-    resolveCommandTarget(target?: any): ClusterExplorerV1.ClusterExplorerNode | undefined;
-    registerNodeContributor(nodeContributor: ClusterExplorerV1.NodeContributor): void;
-    readonly nodeSources: ClusterExplorerV1.NodeSources;
-    registerNodeUICustomizer(nodeUICustomizer: ClusterExplorerV1.NodeUICustomizer): void;
+export interface ClusterExplorerV1_1 {
+    resolveCommandTarget(target?: any): ClusterExplorerV1_1.ClusterExplorerNode | undefined;
+    registerNodeContributor(nodeContributor: ClusterExplorerV1_1.NodeContributor): void;
+    readonly nodeSources: ClusterExplorerV1_1.NodeSources;
+    registerNodeUICustomizer(nodeUICustomizer: ClusterExplorerV1_1.NodeUICustomizer): void;
     refresh(): void;
 }
 
-export namespace ClusterExplorerV1 {
+export namespace ClusterExplorerV1_1 {
     export interface NodeContributor {
-        contributesChildren(parent: ClusterExplorerV1.ClusterExplorerNode | undefined): boolean;
-        getChildren(parent: ClusterExplorerV1.ClusterExplorerNode | undefined): Promise<Node[]>;
+        contributesChildren(parent: ClusterExplorerV1_1.ClusterExplorerNode | undefined): boolean;
+        getChildren(parent: ClusterExplorerV1_1.ClusterExplorerNode | undefined): Promise<Node[]>;
     }
 
     export interface NodeUICustomizer {
@@ -100,8 +100,15 @@ export namespace ClusterExplorerV1 {
         nodes(): Promise<Node[]>;
     }
 
+    export interface ResourcesNodeSourceOptions {
+        readonly lister?: () => Promise<{ name: string }[]>;
+        readonly filter?: (resourceNode: ClusterExplorerResourceNode) => boolean;
+        readonly childSources?: { readonly includeDefault: boolean; readonly sources: ReadonlyArray</* NodeSource | */((parent: ClusterExplorerResourceNode) => NodeSource)> };
+    }
+
     export interface NodeSources {
         resourceFolder(displayName: string, pluralDisplayName: string, manifestKind: string, abbreviation: string): NodeSource;
         groupingFolder(displayName: string, contextValue: string | undefined, ...children: NodeSource[]): NodeSource;
+        resources(manifestKind: string, abbreviation: string, options?: ResourcesNodeSourceOptions): NodeSource;
     }
 }
