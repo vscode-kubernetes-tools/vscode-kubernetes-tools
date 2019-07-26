@@ -65,12 +65,13 @@ export class ResourcesNodeSource extends NodeSourceImpl {
             throw new Error("Internal error: explorer has no kubectl");
         }
 
-        // TODO: deduplicate from ResourceFolderNode
         // Yes we do need this because TS doesn't retain inferences about members across lambda boundaries (because JS 'this' is terrible)
         const lister = this.options ? this.options.lister : undefined;
         const filter = this.options ? this.options.filter : undefined;
         const childSources = this.options ? this.options.childSources : undefined;
         const crcs = childSources ? { includeDefaultChildSources: childSources.includeDefault, customSources: childSources.sources } : undefined;
+
+        // TODO: deduplicate from ResourceFolderNode
         if (lister) {
             const infos = await lister();
             return infos.map((i) => ResourceNode.create(this.resourceKind, i.name, undefined, undefined, crcs));  // TODO: error handling, etc. - might work better if lister() returns NodeSource[]
