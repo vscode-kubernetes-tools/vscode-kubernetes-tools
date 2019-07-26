@@ -9,6 +9,7 @@ import { Kubectl } from '../../kubectl';
 import { selectedPodsChildSource, hasSelectorLister } from './resourcekinds/resourcekinds.selectspods';
 import { nodePodsChildSource } from './resourcekinds/resourcekind.node';
 import { configItemsChildSource, configResourceLister } from './resourcekinds/resourcekinds.configuration';
+import { NodeSourceImpl } from './extension.nodesources';
 
 const specialKinds: ReadonlyArray<ResourceKindUIDescriptor> = [
     { kind: kuberesources.allKinds.namespace, lister: namespaceLister, uiCustomiser: namespaceUICustomiser },
@@ -71,5 +72,5 @@ export interface ResourceChildSource {
 
 export interface CustomResourceChildSources {
     readonly includeDefaultChildSources: boolean;
-    readonly customSources: ReadonlyArray<ResourceChildSource>;
+    readonly customSources: ReadonlyArray<(parent: ResourceNode) => NodeSourceImpl>;
 }

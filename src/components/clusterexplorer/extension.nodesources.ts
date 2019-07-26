@@ -7,7 +7,7 @@ import { NODE_TYPES } from './explorer';
 import { MessageNode } from './node.message';
 import { ResourceNode } from './node.resource';
 import { failed } from '../../errorable';
-import { getLister, CustomResourceChildSources } from './resourceui';
+import { getLister } from './resourceui';
 import { Kubectl } from '../../kubectl';
 import { Host } from '../../host';
 
@@ -53,7 +53,7 @@ export class CustomGroupingFolderNodeSource extends NodeSourceImpl {
 export interface ResourcesNodeSourceOptionsImpl {
     readonly lister?: () => Promise<{ name: string }[]>;
     readonly filter?: (o: ClusterExplorerResourceNode) => boolean;
-    readonly childSources?: CustomResourceChildSources;
+    readonly childSources?: { readonly includeDefault: boolean; readonly sources: ReadonlyArray<(parent: ClusterExplorerResourceNode) => NodeSourceImpl> };
 }
 
 export class ResourcesNodeSource extends NodeSourceImpl {
@@ -65,9 +65,11 @@ export class ResourcesNodeSource extends NodeSourceImpl {
         // Yes we do need this because TS doesn't retain inferences about members across lambda boundaries (because JS 'this' is terrible)
         const lister = this.options ? this.options.lister : undefined;
         const filter = this.options ? this.options.filter : undefined;
+        const childSources = this.options ? this.options.childSources : undefined;
+        const crcs = childSources ? { includeDefaultChildSources: childSources.includeDefault, customSources: childSources.sources } : undefined;
         if (lister) {
             const infos = await lister();
-            return infos.map((i) => ResourceNode.create(this.resourceKind, i.name, undefined, undefined, undefined));  // TODO: error handling, etc.
+            return infos.map((i) => ResourceNode.create(this.resourceKind, i.name, undefined, undefined, crcs));  // TODO: error handling, etc. - might work better if lister() returns NodeSource[]
         }
         const builtInLister = getLister(this.resourceKind);
         if (builtInLister) {
@@ -80,7 +82,7 @@ export class ResourcesNodeSource extends NodeSourceImpl {
         }
         const all = childrenLines.result.map((line) => {
             const bits = line.split(' ');
-            return ResourceNode.create(this.resourceKind, bits[0], undefined, undefined, undefined);
+            return ResourceNode.create(this.resourceKind, bits[0], undefined, undefined, crcs);
         });
         const filtered = filter ? all.filter((cern) => filter(cern)) : all;
         return filtered;

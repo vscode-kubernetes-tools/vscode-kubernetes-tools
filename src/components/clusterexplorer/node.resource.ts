@@ -28,14 +28,16 @@ export class ResourceNode extends ClusterExplorerNodeImpl implements ClusterExpl
     uri(outputFormat: string): vscode.Uri {
         return kubefsUri(this.namespace, this.kindName, outputFormat);
     }
-    async getChildren(kubectl: Kubectl, _host: Host): Promise<ClusterExplorerNode[]> {
-        const includeDefaultChildSources = !this.customChildSources || this.customChildSources.includeDefaultChildSources;
-        const customChildSources = this.customChildSources ? this.customChildSources.customSources : [];
-        const baseChildSources = includeDefaultChildSources ? getChildSources(this.kind) : [];
-        const childSources = baseChildSources.concat(customChildSources);
+    async getChildren(kubectl: Kubectl, host: Host): Promise<ClusterExplorerNode[]> {
+        const defaultChildSources = this.effectiveDefaultChildSources();
+        const customChildSources = this.effectiveCustomChildSources();
         const children = Array.of<ClusterExplorerNode>();
-        for (const source of childSources) {
+        for (const source of defaultChildSources) {
             const sourcedChildren = await source.children(kubectl, this);
+            children.push(...sourcedChildren);
+        }
+        for (const source of customChildSources) {
+            const sourcedChildren = await source(this).nodes(kubectl, host);
             children.push(...sourcedChildren);
         }
         return children;
@@ -57,7 +59,23 @@ export class ResourceNode extends ClusterExplorerNodeImpl implements ClusterExpl
         return treeItem;
     }
     get isExpandable(): boolean {
-        return getChildSources(this.kind).length > 0;
+        return this.effectiveDefaultChildSources().length > 0 ||
+            this.effectiveCustomChildSources().length > 0;
+    }
+    private includeDefaultChildSources(): boolean {
+        return !this.customChildSources || this.customChildSources.includeDefaultChildSources;
+    }
+    private effectiveDefaultChildSources() {
+        if (this.includeDefaultChildSources()) {
+            return getChildSources(this.kind);
+        }
+        return [];
+    }
+    private effectiveCustomChildSources() {
+        if (this.customChildSources) {
+            return this.customChildSources.customSources;
+        }
+        return [];
     }
 }
 

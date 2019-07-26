@@ -154,10 +154,16 @@ function adaptResourcesNodeSourceOptions(source: ClusterExplorerV1.ResourcesNode
     }
     const lister = source.lister;
     const filter = source.filter;
+    const childSources = source.childSources;
     return {
         lister: lister,
         filter: filter ? (cern: ClusterExplorerResourceNode) => filter(adaptKubernetesExplorerResourceNode(cern)) : undefined,
+        childSources: childSources ? { includeDefault: childSources.includeDefault, sources: childSources.sources.map(adaptChildSource) } : undefined,
     };
+}
+
+function adaptChildSource(childSource: (parent: ClusterExplorerV1.ClusterExplorerResourceNode) => ClusterExplorerV1.NodeSource): (parent: ClusterExplorerResourceNode) => NodeSourceImpl {
+    return (parent) => internalNodeSourceOf(childSource(adaptKubernetesExplorerResourceNode(parent)));
 }
 
 const BUILT_IN_CONTRIBUTOR_KIND_TAG = 'nativeextender-4a4bc473-a8c6-4b1e-973f-22327f99cea8';

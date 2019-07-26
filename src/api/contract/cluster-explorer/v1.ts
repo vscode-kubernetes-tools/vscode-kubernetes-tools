@@ -101,8 +101,9 @@ export namespace ClusterExplorerV1 {
     }
 
     export interface ResourcesNodeSourceOptions {
-        lister?: () => Promise<{ name: string }[]>;
-        filter?: (resourceNode: ClusterExplorerResourceNode) => boolean;
+        readonly lister?: () => Promise<{ name: string }[]>;
+        readonly filter?: (resourceNode: ClusterExplorerResourceNode) => boolean;
+        readonly childSources?: { readonly includeDefault: boolean; readonly sources: ReadonlyArray</* NodeSource | */((parent: ClusterExplorerResourceNode) => NodeSource)> };
     }
 
     export interface NodeSources {
