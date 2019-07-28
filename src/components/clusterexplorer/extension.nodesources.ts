@@ -8,6 +8,7 @@ import { ResourceNode } from './node.resource';
 import { ResourceLister } from './resourceui';
 import { Kubectl } from '../../kubectl';
 import { Host } from '../../host';
+import { MessageNode } from './node.message';
 
 // This module contains 'node sources' - built-in ways of creating nodes of
 // *built-in* types (as opposed to the completely custom nodes created by an
@@ -50,7 +51,7 @@ export class CustomGroupingFolderNodeSource extends NodeSourceImpl {
 }
 
 export interface ResourcesNodeSourceOptionsImpl {
-    readonly lister?: () => Promise<{ name: string; customData?: any }[]>;
+    readonly lister?: () => Promise<{ name: string; customData?: any }[] | { errorMessage: string }>;
     readonly filter?: (o: ClusterExplorerResourceNode) => boolean;
     readonly childSources?: { readonly includeDefault: boolean; readonly sources: ReadonlyArray<(parent: ClusterExplorerResourceNode) => NodeSourceImpl> };
 }
@@ -71,6 +72,10 @@ export class ResourcesNodeSource extends NodeSourceImpl {
 
 }
 
+function isErrorMessage(o: any): o is { readonly errorMessage: string } {
+    return !!(o.errorMessage);
+}
+
 function adaptOptions(options: ResourcesNodeSourceOptionsImpl | undefined): GetResourceNodesOptions {
     const childSources = options ? options.childSources : undefined;
     const crcs = childSources ? { includeDefaultChildSources: childSources.includeDefault, customSources: childSources.sources } : undefined;
@@ -79,6 +84,9 @@ function adaptOptions(options: ResourcesNodeSourceOptionsImpl | undefined): GetR
     const listerObj: ResourceLister | undefined = lister ? {
         async list(_kubectl: Kubectl, kind: kuberesources.ResourceKind) {
             const infos = await lister();
+            if (isErrorMessage(infos)) {
+                return [new MessageNode('Error', infos.errorMessage)];
+            }
             return infos.map((i) => ResourceNode.createForCustom(kind, i.name, i.customData, crcs));
         }
     } : undefined;

@@ -111,8 +111,12 @@ export namespace ClusterExplorerV1_1 {
         readonly sources: ReadonlyArray<(parent: ClusterExplorerResourceNode) => NodeSource>;
     }
 
+    export interface ExtensionError {
+        readonly errorMessage: string;
+    }
+
     export interface ResourcesNodeSourceOptions {
-        readonly lister?: () => Promise<ResourcesNodeSourceListResult[]>;
+        readonly lister?: () => Promise<ResourcesNodeSourceListResult[] | ExtensionError>;
         readonly filter?: (resourceNode: ClusterExplorerResourceNode) => boolean;
         readonly childSources?: ResourcesNodeSourceChildSources;
     }
