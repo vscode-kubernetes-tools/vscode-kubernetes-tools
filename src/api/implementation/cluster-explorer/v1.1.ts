@@ -6,12 +6,15 @@ import { KUBERNETES_EXPLORER_NODE_CATEGORY, KubernetesExplorer } from "../../../
 import { Kubectl } from "../../../kubectl";
 import { Host } from "../../../host";
 import { NodeSource } from "../../../components/clusterexplorer/nodesources/nodesources";
-import { ResourcesNodeSourceOptions } from "../../../components/clusterexplorer/nodesources/resource-options";
 import { ResourcesNodeSource } from "../../../components/clusterexplorer/nodesources/resources";
 import { CustomGroupingFolderNodeSource } from "../../../components/clusterexplorer/nodesources/folder.grouping";
 import { CustomResourceFolderNodeSource } from "../../../components/clusterexplorer/nodesources/folder.resource";
 import { ClusterExplorerNode, ClusterExplorerResourceNode, ClusterExplorerCustomNode } from "../../../components/clusterexplorer/node";
 import { ResourceKind } from '../../../kuberesources';
+import { ResourceLister, CustomResourceChildSources } from '../../../components/clusterexplorer/resourceui';
+import { MessageNode } from '../../../components/clusterexplorer/node.message';
+import { ResourceNode } from '../../../components/clusterexplorer/node.resource';
+import { GetResourceNodesOptions } from '../../../components/clusterexplorer/nodesources/resource-options';
 
 export function impl(explorer: KubernetesExplorer): ClusterExplorerV1_1 {
     return new ClusterExplorerV1Impl(explorer);
@@ -154,17 +157,45 @@ function resourcesNodeSource(manifestKind: string, abbreviation: string, options
     return apiNodeSourceOf(nodeSource);
 }
 
-function adaptResourcesNodeSourceOptions(source: ClusterExplorerV1_1.ResourcesNodeSourceOptions | undefined): ResourcesNodeSourceOptions | undefined {
+function adaptResourcesNodeSourceOptions(source: ClusterExplorerV1_1.ResourcesNodeSourceOptions | undefined): GetResourceNodesOptions {
     if (!source) {
-        return undefined;
+        return {};
     }
     const lister = source.lister;
     const filter = source.filter;
     const childSources = source.childSources;
+
+    const adaptedFilter = filter ? (cern: ClusterExplorerResourceNode) => filter(adaptKubernetesExplorerResourceNode(cern)) : undefined;
+    const adaptedChildSources = childSources ? { includeDefaultChildSources: childSources.includeDefault, customSources: childSources.sources.map(adaptChildSource) } : undefined;
+    const adaptedLister = resourceListerOf(lister, adaptedChildSources);
+
     return {
-        lister: lister,
-        filter: filter ? (cern: ClusterExplorerResourceNode) => filter(adaptKubernetesExplorerResourceNode(cern)) : undefined,
-        childSources: childSources ? { includeDefaultChildSources: childSources.includeDefault, customSources: childSources.sources.map(adaptChildSource) } : undefined,
+        lister: adaptedLister,
+        filter: adaptedFilter,
+        childSources: adaptedChildSources,
+    };
+}
+
+function isErrorMessage(o: ClusterExplorerV1_1.ResourceListEntry[] | ClusterExplorerV1_1.ExtensionError): o is ClusterExplorerV1_1.ExtensionError {
+    return !!((o as ClusterExplorerV1_1.ExtensionError).errorMessage);
+}
+
+function resourceListerOf(
+    lister: (() => Promise<ClusterExplorerV1_1.ResourceListEntry[] | ClusterExplorerV1_1.ExtensionError>) | undefined,
+    childSources: CustomResourceChildSources | undefined
+    ): ResourceLister | undefined {
+    if (!lister) {
+        return undefined;
+    }
+
+    return {
+        async list(_kubectl: Kubectl, kind: ResourceKind) {
+            const infos = await lister();
+            if (isErrorMessage(infos)) {
+                return [new MessageNode('Error', infos.errorMessage)];
+            }
+            return infos.map((i) => ResourceNode.createForCustom(kind, i.name, i.customData, childSources));
+        }
     };
 }
 

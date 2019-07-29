@@ -101,7 +101,7 @@ export namespace ClusterExplorerV1_1 {
         nodes(): Promise<Node[]>;
     }
 
-    export interface ResourcesNodeSourceListResult {
+    export interface ResourceListEntry {
         readonly name: string;
         readonly customData?: any;
     }
@@ -116,7 +116,7 @@ export namespace ClusterExplorerV1_1 {
     }
 
     export interface ResourcesNodeSourceOptions {
-        readonly lister?: () => Promise<ResourcesNodeSourceListResult[] | ExtensionError>;
+        readonly lister?: () => Promise<ResourceListEntry[] | ExtensionError>;
         readonly filter?: (resourceNode: ClusterExplorerResourceNode) => boolean;
         readonly childSources?: ResourcesNodeSourceChildSources;
     }

@@ -2,12 +2,13 @@ import { Kubectl } from '../../kubectl';
 import { Host } from '../../host';
 import * as kuberesources from '../../kuberesources';
 import { failed } from '../../errorable';
-import { ClusterExplorerNode, ClusterExplorerResourceFolderNode, ClusterExplorerResourceNode } from './node';
+import { ClusterExplorerNode, ClusterExplorerResourceFolderNode } from './node';
 import { MessageNode } from './node.message';
 import { FolderNode } from './node.folder';
 import { ResourceNode } from './node.resource';
-import { getLister, ResourceLister, CustomResourceChildSources } from './resourceui';
+import { getLister } from './resourceui';
 import { NODE_TYPES } from './explorer';
+import { GetResourceNodesOptions } from './nodesources/resource-options';
 
 export class ResourceFolderNode extends FolderNode implements ClusterExplorerResourceFolderNode {
 
@@ -22,12 +23,6 @@ export class ResourceFolderNode extends FolderNode implements ClusterExplorerRes
     async getChildren(kubectl: Kubectl, host: Host): Promise<ClusterExplorerNode[]> {
         return await ResourceNodeHelper.getResourceNodes(kubectl, host, this.kind, this.options);
     }
-}
-
-export interface GetResourceNodesOptions {
-    readonly lister?: ResourceLister;
-    readonly filter?: (o: ClusterExplorerResourceNode) => boolean;
-    readonly childSources?: CustomResourceChildSources;
 }
 
 export class ResourceNodeHelper {

@@ -4,14 +4,13 @@ import { ResourceFolderNode } from '../node.folder.resource';
 import { Kubectl } from '../../../kubectl';
 import { Host } from '../../../host';
 import { NodeSource } from './nodesources';
-import { ResourcesNodeSourceOptions, adaptOptions } from "./resource-options";
+import { GetResourceNodesOptions } from './resource-options';
 
 export class CustomResourceFolderNodeSource extends NodeSource {
-    constructor(private readonly resourceKind: kuberesources.ResourceKind, private readonly options: ResourcesNodeSourceOptions | undefined) {
+    constructor(private readonly resourceKind: kuberesources.ResourceKind, private readonly options: GetResourceNodesOptions) {
         super();
     }
     async nodes(_kubectl: Kubectl | undefined, _host: Host | undefined): Promise<ClusterExplorerNode[]> {
-        const optionsImpl = adaptOptions(this.options);
-        return [ResourceFolderNode.create(this.resourceKind, optionsImpl)];
+        return [ResourceFolderNode.create(this.resourceKind, this.options)];
     }
 }
