@@ -3,7 +3,6 @@ import { ClusterExplorerNode } from '../node';
 import { NODE_TYPES } from '../explorer';
 import { Kubectl } from '../../../kubectl';
 import { Host } from '../../../host';
-import { ConditionalNodeSource } from './conditional';
 
 // This directory contains 'node sources' - built-in ways of creating nodes of
 // *built-in* types (as opposed to the completely custom nodes created by an
@@ -24,6 +23,18 @@ export abstract class NodeSource {
         return new ConditionalNodeSource(this, condition);
     }
     abstract nodes(kubectl: Kubectl | undefined, host: Host | undefined): Promise<ClusterExplorerNode[]>;
+}
+
+export class ConditionalNodeSource extends NodeSource {
+    constructor(private readonly impl: NodeSource, private readonly condition: () => boolean | Thenable<boolean>) {
+        super();
+    }
+    async nodes(kubectl: Kubectl | undefined, host: Host | undefined): Promise<ClusterExplorerNode[]> {
+        if (await this.condition()) {
+            return this.impl.nodes(kubectl, host);
+        }
+        return [];
+    }
 }
 
 // Joins a NodeSource up to the tree via the usual ExplorerExtender plumbing
