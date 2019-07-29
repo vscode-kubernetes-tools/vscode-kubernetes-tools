@@ -5,7 +5,11 @@ import { ExplorerExtender, ExplorerUICustomizer } from "../../../components/clus
 import { KUBERNETES_EXPLORER_NODE_CATEGORY, KubernetesExplorer } from "../../../components/clusterexplorer/explorer";
 import { Kubectl } from "../../../kubectl";
 import { Host } from "../../../host";
-import { CustomResourceFolderNodeSource, CustomGroupingFolderNodeSource, NodeSourceImpl, ResourcesNodeSource, ResourcesNodeSourceOptionsImpl } from "../../../components/clusterexplorer/extension.nodesources";
+import { NodeSource } from "../../../components/clusterexplorer/nodesources/nodesources";
+import { ResourcesNodeSourceOptions } from "../../../components/clusterexplorer/nodesources/resource-options";
+import { ResourcesNodeSource } from "../../../components/clusterexplorer/nodesources/resources";
+import { CustomGroupingFolderNodeSource } from "../../../components/clusterexplorer/nodesources/folder.grouping";
+import { CustomResourceFolderNodeSource } from "../../../components/clusterexplorer/nodesources/folder.resource";
 import { ClusterExplorerNode, ClusterExplorerResourceNode, ClusterExplorerCustomNode } from "../../../components/clusterexplorer/node";
 import { ResourceKind } from '../../../kuberesources';
 
@@ -150,7 +154,7 @@ function resourcesNodeSource(manifestKind: string, abbreviation: string, options
     return apiNodeSourceOf(nodeSource);
 }
 
-function adaptResourcesNodeSourceOptions(source: ClusterExplorerV1_1.ResourcesNodeSourceOptions | undefined): ResourcesNodeSourceOptionsImpl | undefined {
+function adaptResourcesNodeSourceOptions(source: ClusterExplorerV1_1.ResourcesNodeSourceOptions | undefined): ResourcesNodeSourceOptions | undefined {
     if (!source) {
         return undefined;
     }
@@ -160,11 +164,11 @@ function adaptResourcesNodeSourceOptions(source: ClusterExplorerV1_1.ResourcesNo
     return {
         lister: lister,
         filter: filter ? (cern: ClusterExplorerResourceNode) => filter(adaptKubernetesExplorerResourceNode(cern)) : undefined,
-        childSources: childSources ? { includeDefault: childSources.includeDefault, sources: childSources.sources.map(adaptChildSource) } : undefined,
+        childSources: childSources ? { includeDefaultChildSources: childSources.includeDefault, customSources: childSources.sources.map(adaptChildSource) } : undefined,
     };
 }
 
-function adaptChildSource(childSource: (parent: ClusterExplorerV1_1.ClusterExplorerResourceNode) => ClusterExplorerV1_1.NodeSource): (parent: ClusterExplorerResourceNode) => NodeSourceImpl {
+function adaptChildSource(childSource: (parent: ClusterExplorerV1_1.ClusterExplorerResourceNode) => ClusterExplorerV1_1.NodeSource): (parent: ClusterExplorerResourceNode) => NodeSource {
     return (parent) => internalNodeSourceOf(childSource(adaptKubernetesExplorerResourceNode(parent)));
 }
 
@@ -179,7 +183,7 @@ interface BuiltInNodeContributor {
 
 interface BuiltInNodeSource {
     readonly [BUILT_IN_NODE_SOURCE_KIND_TAG]: true;
-    readonly impl: NodeSourceImpl;
+    readonly impl: NodeSource;
 }
 
 interface BuiltInNode {
@@ -187,7 +191,7 @@ interface BuiltInNode {
     readonly impl: ClusterExplorerNode;
 }
 
-function apiNodeSourceOf(nodeSet: NodeSourceImpl): ClusterExplorerV1_1.NodeSource & BuiltInNodeSource {
+function apiNodeSourceOf(nodeSet: NodeSource): ClusterExplorerV1_1.NodeSource & BuiltInNodeSource {
     return {
         at(parent: string | undefined) { const ee = nodeSet.at(parent); return apiNodeContributorOf(ee); },
         if(condition: () => boolean | Thenable<boolean>) { return apiNodeSourceOf(nodeSet.if(condition)); },
@@ -197,7 +201,7 @@ function apiNodeSourceOf(nodeSet: NodeSourceImpl): ClusterExplorerV1_1.NodeSourc
     };
 }
 
-function internalNodeSourceOf(nodeSet: ClusterExplorerV1_1.NodeSource): NodeSourceImpl {
+function internalNodeSourceOf(nodeSet: ClusterExplorerV1_1.NodeSource): NodeSource {
     if ((<any>nodeSet)[BUILT_IN_NODE_SOURCE_KIND_TAG]) {
         return (nodeSet as unknown as BuiltInNodeSource).impl;
     }

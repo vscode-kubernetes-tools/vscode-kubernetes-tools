@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 
 import * as kuberesources from '../../kuberesources';
-import { ClusterExplorerNode } from './node';
+import { ClusterExplorerNode, ClusterExplorerResourceNode } from './node';
 import { ResourceNode } from './node.resource';
 import { namespaceUICustomiser, namespaceLister } from './resourcekinds/resourcekind.namespace';
 import { podUICustomiser, podStatusChildSource, podLister } from './resourcekinds/resourcekind.pod';
@@ -9,7 +9,7 @@ import { Kubectl } from '../../kubectl';
 import { selectedPodsChildSource, hasSelectorLister } from './resourcekinds/resourcekinds.selectspods';
 import { nodePodsChildSource } from './resourcekinds/resourcekind.node';
 import { configItemsChildSource, configResourceLister } from './resourcekinds/resourcekinds.configuration';
-import { NodeSourceImpl } from './extension.nodesources';
+import { NodeSource } from './nodesources/nodesources';
 
 const specialKinds: ReadonlyArray<ResourceKindUIDescriptor> = [
     { kind: kuberesources.allKinds.namespace, lister: namespaceLister, uiCustomiser: namespaceUICustomiser },
@@ -63,14 +63,14 @@ export interface ResourceLister {
 }
 
 export interface ResourceUICustomiser {
-    customiseTreeItem(resource: ResourceNode, treeItem: vscode.TreeItem): void;
+    customiseTreeItem(resource: ClusterExplorerResourceNode, treeItem: vscode.TreeItem): void;
 }
 
 export interface ResourceChildSource {
-    children(kubectl: Kubectl, parent: ResourceNode): Promise<ClusterExplorerNode[]>;
+    children(kubectl: Kubectl, parent: ClusterExplorerResourceNode): Promise<ClusterExplorerNode[]>;
 }
 
 export interface CustomResourceChildSources {
     readonly includeDefaultChildSources: boolean;
-    readonly customSources: ReadonlyArray<(parent: ResourceNode) => NodeSourceImpl>;
+    readonly customSources: ReadonlyArray<(parent: ClusterExplorerResourceNode) => NodeSource>;
 }

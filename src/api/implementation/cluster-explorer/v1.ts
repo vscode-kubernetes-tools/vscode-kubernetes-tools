@@ -5,7 +5,9 @@ import { ExplorerExtender, ExplorerUICustomizer } from "../../../components/clus
 import { KUBERNETES_EXPLORER_NODE_CATEGORY, KubernetesExplorer } from "../../../components/clusterexplorer/explorer";
 import { Kubectl } from "../../../kubectl";
 import { Host } from "../../../host";
-import { CustomResourceFolderNodeSource, CustomGroupingFolderNodeSource, NodeSourceImpl } from "../../../components/clusterexplorer/extension.nodesources";
+import { NodeSource } from "../../../components/clusterexplorer/nodesources/nodesources";
+import { CustomGroupingFolderNodeSource } from "../../../components/clusterexplorer/nodesources/folder.grouping";
+import { CustomResourceFolderNodeSource } from "../../../components/clusterexplorer/nodesources/folder.resource";
 import { ClusterExplorerNode, ClusterExplorerResourceNode, ClusterExplorerCustomNode } from "../../../components/clusterexplorer/node";
 import { ResourceKind } from '../../../kuberesources';
 
@@ -152,7 +154,7 @@ interface BuiltInNodeContributor {
 
 interface BuiltInNodeSource {
     readonly [BUILT_IN_NODE_SOURCE_KIND_TAG]: true;
-    readonly impl: NodeSourceImpl;
+    readonly impl: NodeSource;
 }
 
 interface BuiltInNode {
@@ -160,7 +162,7 @@ interface BuiltInNode {
     readonly impl: ClusterExplorerNode;
 }
 
-function apiNodeSourceOf(nodeSet: NodeSourceImpl): ClusterExplorerV1.NodeSource & BuiltInNodeSource {
+function apiNodeSourceOf(nodeSet: NodeSource): ClusterExplorerV1.NodeSource & BuiltInNodeSource {
     return {
         at(parent: string | undefined) { const ee = nodeSet.at(parent); return apiNodeContributorOf(ee); },
         if(condition: () => boolean | Thenable<boolean>) { return apiNodeSourceOf(nodeSet.if(condition)); },
@@ -170,7 +172,7 @@ function apiNodeSourceOf(nodeSet: NodeSourceImpl): ClusterExplorerV1.NodeSource 
     };
 }
 
-function internalNodeSourceOf(nodeSet: ClusterExplorerV1.NodeSource): NodeSourceImpl {
+function internalNodeSourceOf(nodeSet: ClusterExplorerV1.NodeSource): NodeSource {
     if ((<any>nodeSet)[BUILT_IN_NODE_SOURCE_KIND_TAG]) {
         return (nodeSet as unknown as BuiltInNodeSource).impl;
     }
