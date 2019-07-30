@@ -75,3 +75,7 @@ export class ClusterExplorerNodeImpl {
     readonly nodeCategory = KUBERNETES_EXPLORER_NODE_CATEGORY;
     constructor(readonly nodeType: KubernetesExplorerNodeType) {}
 }
+
+export function isClusterExplorerNode(o: any): o is ClusterExplorerNode {
+    return o.nodeCategory === KUBERNETES_EXPLORER_NODE_CATEGORY;
+}

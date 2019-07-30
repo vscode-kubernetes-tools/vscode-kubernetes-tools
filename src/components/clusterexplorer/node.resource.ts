@@ -6,7 +6,7 @@ import { Host } from '../../host';
 import * as kuberesources from '../../kuberesources';
 import { ObjectMeta } from '../../kuberesources.objectmodel';
 import { kubefsUri } from '../../kuberesources.virtualfs';
-import { ClusterExplorerNode, ClusterExplorerNodeImpl, ClusterExplorerResourceNode } from './node';
+import { ClusterExplorerNode, ClusterExplorerNodeImpl, ClusterExplorerResourceNode, isClusterExplorerNode } from './node';
 import { getChildSources, getUICustomiser, CustomResourceChildSources } from './resourceui';
 import { NODE_TYPES } from './explorer';
 
@@ -47,9 +47,14 @@ export class ResourceNode extends ClusterExplorerNodeImpl implements ClusterExpl
             const sourcedChildren = await source.children(kubectl, this);
             children.push(...sourcedChildren);
         }
-        for (const source of customChildSources) {
-            const sourcedChildren = await source(this).nodes(kubectl, host);
-            children.push(...sourcedChildren);
+        for (const sourceFunc of customChildSources) {
+            const source = sourceFunc(this);
+            if (isClusterExplorerNode(source)) {
+                children.push(source);
+            } else {
+                const sourcedChildren = await source.nodes(kubectl, host);
+                children.push(...sourcedChildren);
+            }
         }
         return children;
     }

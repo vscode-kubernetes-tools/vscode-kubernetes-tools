@@ -108,7 +108,7 @@ export namespace ClusterExplorerV1_1 {
 
     export interface ResourcesNodeSourceChildSources {
         readonly includeDefault: boolean;
-        readonly sources: ReadonlyArray<(parent: ClusterExplorerResourceNode) => NodeSource>;
+        readonly sources: ReadonlyArray<(parent: ClusterExplorerResourceNode) => (NodeSource | Node)>;
     }
 
     export interface ExtensionError {

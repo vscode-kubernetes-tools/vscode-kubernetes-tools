@@ -72,5 +72,5 @@ export interface ResourceChildSource {
 
 export interface CustomResourceChildSources {
     readonly includeDefaultChildSources: boolean;
-    readonly customSources: ReadonlyArray<(parent: ClusterExplorerResourceNode) => NodeSource>;
+    readonly customSources: ReadonlyArray<(parent: ClusterExplorerResourceNode) => (NodeSource | ClusterExplorerNode)>;
 }

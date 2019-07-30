@@ -199,8 +199,19 @@ function resourceListerOf(
     };
 }
 
-function adaptChildSource(childSource: (parent: ClusterExplorerV1_1.ClusterExplorerResourceNode) => ClusterExplorerV1_1.NodeSource): (parent: ClusterExplorerResourceNode) => NodeSource {
-    return (parent) => internalNodeSourceOf(childSource(adaptKubernetesExplorerResourceNode(parent)));
+function adaptChildSource(childSource: (parent: ClusterExplorerV1_1.ClusterExplorerResourceNode) => (ClusterExplorerV1_1.NodeSource | ClusterExplorerV1_1.Node)): (parent: ClusterExplorerResourceNode) => (NodeSource | ClusterExplorerNode) {
+    return (parent) => {
+        const child = childSource(adaptKubernetesExplorerResourceNode(parent));
+        if (isNodeSource(child)) {
+            return internalNodeSourceOf(child);
+        } else {
+            return internalNodeOf(child);
+        }
+    };
+}
+
+function isNodeSource(o: any): o is ClusterExplorerV1_1.NodeSource {
+    return !!(o[BUILT_IN_NODE_SOURCE_KIND_TAG]);
 }
 
 const BUILT_IN_CONTRIBUTOR_KIND_TAG = 'nativeextender-4a4bc473-a8c6-4b1e-973f-22327f99cea8';
@@ -226,7 +237,7 @@ function apiNodeSourceOf(nodeSet: NodeSource): ClusterExplorerV1_1.NodeSource & 
     return {
         at(parent: string | undefined) { const ee = nodeSet.at(parent); return apiNodeContributorOf(ee); },
         if(condition: () => boolean | Thenable<boolean>) { return apiNodeSourceOf(nodeSet.if(condition)); },
-        async nodes() { throw new Error('TODO: please do not call this'); },
+        async nodes() { throw new Error('NodeSources should be created only through the API'); },
         [BUILT_IN_NODE_SOURCE_KIND_TAG]: true,
         impl: nodeSet
     };
@@ -239,7 +250,7 @@ function internalNodeSourceOf(nodeSet: ClusterExplorerV1_1.NodeSource): NodeSour
     return {
         at(parent: string | undefined) { return internalNodeContributorOf(nodeSet.at(parent)); },
         if(condition: () => boolean | Thenable<boolean>) { return internalNodeSourceOf(nodeSet).if(condition); },
-        async nodes() { throw new Error('TODO: you should not be creating node sources yourself you naughty people'); }
+        async nodes() { throw new Error('NodeSources should be created only through the API'); }
     };
 }
 
