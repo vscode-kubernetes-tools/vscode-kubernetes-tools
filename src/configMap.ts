@@ -17,16 +17,16 @@ export class ConfigMapTextProvider implements vscode.TextDocumentContentProvider
 
     provideTextDocumentContent(uri: vscode.Uri, _token: vscode.CancellationToken): vscode.ProviderResult<string> {
         const parts = uri.path.split('/');
-        const b: Buffer = new Buffer(parts[1], 'base64');
+        const encodedData = parts[1];
+        const b: Buffer = Buffer.from(encodedData, 'hex');
         return b.toString();
     }
 }
 
 export function loadConfigMapData(obj: ClusterExplorerConfigurationValueNode) {
-    let encodedData = obj.configData[obj.key];
-    if (obj.parentKind.abbreviation === allKinds.configMap.abbreviation) {
-        encodedData = Buffer.from(obj.configData[obj.key]).toString('base64');
-    }
+    const rawData = obj.configData[obj.key];
+    const rawDataBuffer: Buffer = getRawData(rawData, obj.parentKind);
+    const encodedData = rawDataBuffer.toString('hex');
     const uriStr = `${uriScheme}://${obj.parentKind.abbreviation}/${encodedData}/${obj.key}`;
     const uri = vscode.Uri.parse(uriStr);
     vscode.workspace.openTextDocument(uri).then(
@@ -36,6 +36,14 @@ export function loadConfigMapData(obj: ClusterExplorerConfigurationValueNode) {
         (error) => {
             vscode.window.showErrorMessage('Error loading data file: ' + error);
         });
+}
+
+function getRawData(data: any, containingResourceKind: kuberesources.ResourceKind): Buffer {
+    if (containingResourceKind.abbreviation === allKinds.configMap.abbreviation) {
+        return Buffer.from(data);
+    } else {
+        return Buffer.from(data, 'base64');
+    }
 }
 
 function removeKey(dictionary: any, keyToDelete: string): any {
