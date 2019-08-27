@@ -55,7 +55,7 @@ import { getDebugProviderOfType, getSupportedDebuggerTypes } from './debug/provi
 import * as config from './components/config/config';
 import * as browser from './components/platform/browser';
 
-import { registerYamlSchemaSupport } from './yaml-support/yaml-schema';
+import { registerYamlSchemaSupport, updateYAMLSchema } from './yaml-support/yaml-schema';
 import * as clusterproviderregistry from './components/clusterprovider/clusterproviderregistry';
 import * as azureclusterprovider from './components/clusterprovider/azure/azureclusterprovider';
 import * as minikubeclusterprovider from './components/clusterprovider/minikube/minikubeclusterprovider';
@@ -84,6 +84,7 @@ import { PortForwardStatusBarManager } from './components/kubectl/port-forward-u
 import { getBuildCommand, getPushCommand } from './image/imageUtils';
 import { getImageBuildTool } from './components/config/config';
 import { ClusterExplorerNode, ClusterExplorerConfigurationValueNode, ClusterExplorerResourceNode, ClusterExplorerResourceFolderNode } from './components/clusterexplorer/node';
+import { create as activeContextTrackerCreate } from './components/contextmanager/active-context-tracker';
 
 let explainActive = false;
 let swaggerSpecPromise: Promise<explainer.SwaggerModel | undefined> | null = null;
@@ -96,6 +97,7 @@ const minikube = minikubeCreate(host, fs, shell, installDependencies);
 const clusterProviderRegistry = clusterproviderregistry.get();
 const configMapProvider = new configmaps.ConfigMapTextProvider(kubectl);
 const git = new Git(shell);
+const activeContextTracker = activeContextTrackerCreate(kubectl);
 
 export const overwriteMessageItems: vscode.MessageItem[] = [
     {
@@ -376,7 +378,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
     subscriptions.forEach((element) => {
         context.subscriptions.push(element);
     });
-    await registerYamlSchemaSupport();
+    await registerYamlSchemaSupport(activeContextTracker, kubectl);
 
     vscode.workspace.registerTextDocumentContentProvider(configmaps.uriScheme, configMapProvider);
     return apiBroker(clusterProviderRegistry, kubectl, portForwardStatusBarManager, treeProvider, cloudExplorer);
@@ -579,6 +581,11 @@ function maybeRunKubernetesCommandForActiveWindow(command: string, progressMessa
     const resultHandler: ShellHandler | undefined = isKubernetesSyntax ? undefined /* default handling */ :
         (code, stdout, stderr) => {
             if (code === 0 ) {
+                if (command === 'create' || command === 'apply') {
+                    // This is a very crude test - it would be nice to check if we have modified a CRD.
+                    // But the current structure of the code does not support that.
+                    updateYAMLSchema();
+                }
                 vscode.window.showInformationMessage(stdout);
             } else {
                 vscode.window.showErrorMessage(`Kubectl command failed. The open document might not be a valid Kubernetes resource.  Details: ${stderr}`);
@@ -1856,6 +1863,7 @@ async function useContextKubernetes(explorerNode: ClusterExplorerNode) {
     const shellResult = await kubectl.invokeAsync(`config use-context ${targetContext}`);
     if (shellResult && shellResult.code === 0) {
         telemetry.invalidateClusterType(targetContext);
+        activeContextTracker.setActive(targetContext);
         refreshExplorer();
     } else {
         vscode.window.showErrorMessage(`Failed to set '${targetContext}' as current cluster: ${shellResult ? shellResult.stderr : "Unable to run kubectl"}`);

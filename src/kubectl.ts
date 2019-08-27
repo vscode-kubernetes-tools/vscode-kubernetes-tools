@@ -9,6 +9,7 @@ import { parseLineOutput } from './outputUtils';
 import * as compatibility from './components/kubectl/compatibility';
 import { getToolPath, affectsUs, getUseWsl, KubectlVersioning } from './components/config/config';
 import { ensureSuitableKubectl } from './components/kubectl/autoversion';
+import { updateYAMLSchema } from './yaml-support/yaml-schema';
 
 const KUBECTL_OUTPUT_COLUMN_SEPARATOR = /\s\s+/g;
 
@@ -279,6 +280,7 @@ function kubectlDone(context: Context): ShellHandler {
             return;
         }
 
+        updateYAMLSchema();  // TODO: I really do not like having this here. Massive separation of concerns red flag plus we lack context to decide whether it's needed. But hard to move without revamping the result handling system.
         context.host.showInformationMessage(stdout);
     };
 }
