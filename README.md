@@ -1,7 +1,7 @@
 # Visual Studio Code Kubernetes Tools
 [![Build Status](https://travis-ci.org/Azure/vscode-kubernetes-tools.svg?branch=master)](https://travis-ci.org/Azure/vscode-kubernetes-tools)
 
-The extension for developers building applications to run in Kubernetes clusters 
+The extension for developers building applications to run in Kubernetes clusters
 and for DevOps staff troubleshooting Kubernetes applications.
 
 Works with any Kubernetes anywhere (Azure, Minikube, AWS, GCP and more!).
@@ -205,6 +205,7 @@ Minikube tools to be installed and available on your PATH.
        * `vs-kubernetes.knownKubeconfigs` - An array of file paths of kubeconfig files that you want to be able to quickly switch between using the Set Kubeconfig command.
        * `vs-kubernetes.autoCleanupOnDebugTerminate` - The flag to control whether to auto cleanup the created deployment and associated pod by the command "Kubernetes: Debug (Launch)". The cleanup action occurs when it failed to start debug session or debug session terminated. If not specified, the extension will prompt for whether to clean up or not. You might choose not to clean up if you wanted to view pod logs, etc.
        * `vs-kubernetes.outputFormat` - The output format that you prefer to view Kubernetes manifests in. One of "yaml" or "json". Defaults to "yaml".
+       * `logsDisplay` - Where and how to display Kubernetes logs.  One of `webview` (display in a filterable HTML view) and `terminal` (run the command in the VS Code terminal)
    * `vsdocker.imageUser` - Image prefix for the container images e.g. 'docker.io/brendanburns'
    * `checkForMinikubeUpgrade` - On extension startup, notify if a minikube upgrade is available. Defaults to true.
    * `disable-lint` - Disable all linting of Kubernetes files
