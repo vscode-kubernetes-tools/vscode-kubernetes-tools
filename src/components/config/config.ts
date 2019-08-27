@@ -12,6 +12,11 @@ export enum KubectlVersioning {
     Infer = 2,
 }
 
+export enum LogsDisplay {
+    Webview = 1,
+    Terminal = 2,
+}
+
 export async function addPathToConfig(configKey: string, value: string): Promise<void> {
     await setConfigValue(configKey, value);
 }
@@ -176,6 +181,11 @@ export function getDisableLint(): boolean {
 export function getDisabledLinters(): string[] {
     const config = vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY);
     return config['disable-linters'] as string[] || [];
+}
+
+export function logsDisplay(): LogsDisplay {
+    const config = vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY);
+    return (config['logsDisplay'] === 'terminal') ? LogsDisplay.Terminal : LogsDisplay.Webview;
 }
 
 // nodejs debugger attach  options

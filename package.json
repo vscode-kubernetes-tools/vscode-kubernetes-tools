@@ -236,6 +236,14 @@
                             ],
                             "description": "Container image build tool. By default, Docker."
                         },
+                        "logsDisplay": {
+                            "type": "string",
+                            "enum": [
+                                "terminal",
+                                "webview"
+                            ],
+                            "description": "Where to display Kubernetes pod logs. Default is webview"
+                        },
                         "vs-kubernetes.python-autodetect-remote-root": {
                             "type": "boolean",
                             "description": "If true will try to automatically get the root location of the source code in the container (Python)."
@@ -264,6 +272,7 @@
                         "vs-kubernetes.nodejs-remote-root": "",
                         "vs-kubernetes.nodejs-debug-port": 9229,
                         "checkForMinikubeUpgrade": true,
+                        "logsDisplay": "webview",
                         "imageBuildTool": "Docker"
                     }
                 },

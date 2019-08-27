@@ -9,6 +9,7 @@ import { LogsPanel } from '../../components/logs/logsWebview';
 import { ContainerContainer } from '../../utils/containercontainer';
 import { ChildProcess } from 'child_process';
 import { ClusterExplorerResourceNode } from '../clusterexplorer/node';
+import { logsDisplay, LogsDisplay } from '../config/config';
 
 export enum LogsDisplayMode {
     Show,
@@ -92,6 +93,20 @@ async function getLogsForContainer(
 
     if (containerName) {
         cmd = `${cmd} --container=${containerName}`;
+    }
+
+    if (displayMode === LogsDisplayMode.Follow) {
+        cmd = `${cmd} -f`;
+    }
+
+    if (logsDisplay() === LogsDisplay.Terminal) {
+        if (displayMode === LogsDisplayMode.Follow) {
+            const title = `Logs: ${containerResource.kindName}${containerName ? ('/' + containerName) : ''}`;
+            kubectl.invokeInNewTerminal(cmd, title);
+        } else {
+            kubectl.invokeInSharedTerminal(cmd);
+        }
+        return;
     }
 
     const resource = `${containerResource.namespace}/${containerResource.kindName}`;
