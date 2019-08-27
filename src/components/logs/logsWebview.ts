@@ -22,10 +22,12 @@ export class LogsPanel extends WebPanel {
 
     public addContent(content: string) {
         this.content += content;
-        this.panel.webview.postMessage({
-            command: 'content',
-            text: content,
-        });
+        if (this.canProcessMessages) {
+            this.panel.webview.postMessage({
+                command: 'content',
+                text: content,
+            });
+        }
     }
 
     protected update() {

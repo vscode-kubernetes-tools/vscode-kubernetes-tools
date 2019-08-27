@@ -4,6 +4,7 @@ export abstract class WebPanel {
     private disposables: vscode.Disposable[] = [];
     protected content: string;
     protected resource: string;
+    private hasLivePanel = true;
 
     protected static createOrShowInternal<T extends WebPanel>(content: string, resource: string, viewType: string, title: string, currentPanels: Map<string, T>, fn: (p: vscode.WebviewPanel, content: string, resource: string) => T): T {
         const column = vscode.window.activeTextEditor ? vscode.window.activeTextEditor.viewColumn : undefined;
@@ -57,6 +58,8 @@ export abstract class WebPanel {
     protected dispose<T extends WebPanel>(currentPanels: Map<string, T>) {
         currentPanels.delete(this.resource);
 
+        this.hasLivePanel = false;
+
         this.panel.dispose();
 
         while (this.disposables.length) {
@@ -65,6 +68,10 @@ export abstract class WebPanel {
                 x.dispose();
             }
         }
+    }
+
+    public get canProcessMessages(): boolean {
+        return this.hasLivePanel;
     }
 
     protected abstract update(): void;
