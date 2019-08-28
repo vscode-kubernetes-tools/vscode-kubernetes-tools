@@ -1,5 +1,11 @@
 # Change Log
 
+## 1.0.3
+
+* The extension will now validate custom resources against CRD schemas where available
+* Added option to send logs to terminal instead of webview
+* Fix occasional truncation when displaying config values
+
 ## 1.0.2
 
 * The Scale command now appears on the right-click menu of appropriate resources
