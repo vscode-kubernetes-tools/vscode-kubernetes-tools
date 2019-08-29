@@ -51,7 +51,11 @@ function requestYamlSchemaUriCallback(resource: string): string | undefined {
                 const apiVersion = util.getYamlMappingValue(topLevelMapping, 'apiVersion');
                 const kind = util.getYamlMappingValue(topLevelMapping, 'kind');
                 if (apiVersion && kind) {
-                    choices.push(apiVersion + GROUP_VERSION_KIND_SEPARATOR + kind);
+                    const qualifiedKind = apiVersion + GROUP_VERSION_KIND_SEPARATOR + kind;
+                    // Check we have a schema here - returning undefined from the schema content callback reports an error
+                    if (schemas && schemas.active().lookup(qualifiedKind)) {
+                        choices.push(qualifiedKind);
+                    }
                 }
             }
         });
