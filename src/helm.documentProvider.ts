@@ -118,7 +118,8 @@ export class HelmTemplatePreviewDocumentProvider implements vscode.TextDocumentC
                     chartPath = filepath.dirname(chartPath);
                 }
                 const reltpl = filepath.relative(chartPath, tpl);
-                exec.helmExec(`template "${chartPath}" --execute "${reltpl}"`, (code, out, err) => {
+                const notesarg = (tpl.toLowerCase().endsWith('notes.txt')) ? '--notes' : '';
+                exec.helmExec(`template "${chartPath}" --execute "${reltpl}" ${notesarg}`, (code, out, err) => {
                     if (code !== 0) {
                         const errorDoc = { title: "Chart Preview", subtitle: "Failed template call", content: err, isErrorOutput: true };
                         resolve(render(errorDoc));
