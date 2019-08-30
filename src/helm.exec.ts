@@ -347,10 +347,12 @@ export async function helmInstall(kubectl: Kubectl, helmObject: helmrepoexplorer
 }
 
 async function helmInstallCore(kubectl: Kubectl, chartId: string, version: string | undefined): Promise<void> {
+    const syntaxVersion = await helmSyntaxVersion();
     const ns = await currentNamespace(kubectl);
     const nsArg = ns ? `--namespace ${ns}` : '';
     const versionArg = version ? `--version ${version}` : '';
-    const sr = await helmExecAsync(`install ${chartId} ${versionArg} ${nsArg}`);
+    const generateNameArg = (syntaxVersion === HelmSyntaxVersion.V3) ? '--generate-name' : '';
+    const sr = await helmExecAsync(`install ${chartId} ${versionArg} ${nsArg} ${generateNameArg}`);
     if (!sr || sr.code !== 0) {
         const message = sr ? sr.stderr : "Unable to run Helm";
         logger.log(message);
