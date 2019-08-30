@@ -223,7 +223,9 @@ async function listHelmRepos(): Promise<Errorable<HelmRepoImpl[]>> {
 }
 
 async function listHelmRepoCharts(repoName: string): Promise<Errorable<HelmRepoChartImpl[]>> {
-    const sr = await helm.helmExecAsync(`search ${repoName}/ -l`);
+    const syntaxVersion = await helm.helmSyntaxVersion();
+    const searchCmd = (syntaxVersion === helm.HelmSyntaxVersion.V3) ? 'search repo' : 'search';
+    const sr = await helm.helmExecAsync(`${searchCmd} ${repoName}/ -l`);
     if (!sr || sr.code !== 0) {
         return { succeeded: false, error: [ sr ? sr.stderr : "Unable to run Helm" ]};
     }

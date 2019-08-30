@@ -43,14 +43,49 @@ interface HelmRepositoriesFile {
 
 // This file contains utilities for executing command line tools, notably Helm.
 
-export function helmVersion() {
-    helmExec("version -c", (code, out, err) => {
-        if (code !== 0) {
-            vscode.window.showErrorMessage(err);
-            return;
+export async function helmVersion() {
+    const syntaxVersion = await helmSyntaxVersion();
+    const versionArgs = (syntaxVersion === HelmSyntaxVersion.V3) ? '' : '-c';
+    const sr = await helmExecAsync(`version ${versionArgs}`);
+    if (!sr) {
+        vscode.window.showErrorMessage('Failed to run Helm');
+        return;
+    }
+    if (sr.code !== 0) {
+        vscode.window.showErrorMessage(sr.stderr);
+        return;
+    }
+    vscode.window.showInformationMessage(sr.stdout);
+}
+
+export enum HelmSyntaxVersion {
+    Unknown = 1,
+    V2 = 2,
+    V3 = 3,
+}
+
+let cachedVersion: HelmSyntaxVersion | undefined = undefined;
+
+export async function helmSyntaxVersion(): Promise<HelmSyntaxVersion> {
+    if (cachedVersion === undefined) {
+        const srHelm2 = await helmExecAsync(`version --short -c`);
+        if (!srHelm2) {
+            // failed to run Helm; do not cache result
+            return HelmSyntaxVersion.Unknown;
         }
-        vscode.window.showInformationMessage(out);
-    });
+
+        if (srHelm2.code === 0 && srHelm2.stdout.indexOf('v2') >= 0) {
+            cachedVersion = HelmSyntaxVersion.V2;
+        } else {
+            const srHelm3 = await helmExecAsync(`version --short`);
+            if (srHelm3 && srHelm3.code === 0 && srHelm3.stdout.indexOf('v3') >= 0) {
+                cachedVersion = HelmSyntaxVersion.V3;
+            } else {
+                return HelmSyntaxVersion.Unknown;
+            }
+        }
+    }
+    return cachedVersion;
 }
 
 // Run a 'helm template' command.
