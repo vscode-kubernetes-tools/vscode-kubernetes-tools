@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
 import * as filepath from 'path';
-import { spawn } from 'child_process';
 import { helm as logger } from './logger';
 import * as YAML from 'yamljs';
 import * as _ from 'lodash';
@@ -13,7 +12,6 @@ import { shell as sh, ShellResult, ExecCallback } from './shell';
 import { K8S_RESOURCE_SCHEME, HELM_RESOURCE_AUTHORITY } from './kuberesources.virtualfs';
 import { Errorable, failed } from './errorable';
 import { parseLineOutput } from './outputUtils';
-import { sleep } from './sleep';
 import { currentNamespace } from './kubectlUtils';
 import { Kubectl } from './kubectl';
 import { getToolPath } from './components/config/config';
@@ -709,20 +707,4 @@ export function searchForChart(name: string): Requirement | undefined {
 export function helmHome(): string {
     const h = sh.home();
     return process.env["HELM_HOME"] || filepath.join(h, '.helm');
-}
-
-export async function helmServe(): Promise<vscode.Disposable> {
-    const configuredBin: string | undefined = getToolPath(host, sh, 'helm');
-    const bin = sh.unquotedPath(configuredBin ? `"${configuredBin}"` : "helm");
-    const process = spawn(bin, [ "serve" ]);
-    let ready = false;
-    process.stdout.on("data", (chunk: string) => {  // TODO: this huge sausage is VERY suspicious
-        if (chunk.indexOf("serving") >= 0) {
-            ready = true;
-        }
-    });
-    while (!ready) {
-        await sleep(100);
-    }
-    return new vscode.Disposable(() => { process.kill(); });
 }
