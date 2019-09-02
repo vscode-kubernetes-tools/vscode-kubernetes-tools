@@ -1,5 +1,11 @@
 # Change Log
 
+## 1.0.4
+
+* Helm 3 compatibility
+* Fixed preview of Helm chart `NOTES.txt` being empty
+* Fixed 'no schema content' error on CRD instances with no schema
+
 ## 1.0.3
 
 * The extension will now validate custom resources against CRD schemas where available
