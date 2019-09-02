@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
 import * as filepath from 'path';
-import { spawn } from 'child_process';
 import { helm as logger } from './logger';
 import * as YAML from 'yamljs';
 import * as _ from 'lodash';
@@ -13,7 +12,6 @@ import { shell as sh, ShellResult, ExecCallback } from './shell';
 import { K8S_RESOURCE_SCHEME, HELM_RESOURCE_AUTHORITY } from './kuberesources.virtualfs';
 import { Errorable, failed } from './errorable';
 import { parseLineOutput } from './outputUtils';
-import { sleep } from './sleep';
 import { currentNamespace } from './kubectlUtils';
 import { Kubectl } from './kubectl';
 import { getToolPath } from './components/config/config';
@@ -43,14 +41,49 @@ interface HelmRepositoriesFile {
 
 // This file contains utilities for executing command line tools, notably Helm.
 
-export function helmVersion() {
-    helmExec("version -c", (code, out, err) => {
-        if (code !== 0) {
-            vscode.window.showErrorMessage(err);
-            return;
+export async function helmVersion() {
+    const syntaxVersion = await helmSyntaxVersion();
+    const versionArgs = (syntaxVersion === HelmSyntaxVersion.V3) ? '' : '-c';
+    const sr = await helmExecAsync(`version ${versionArgs}`);
+    if (!sr) {
+        vscode.window.showErrorMessage('Failed to run Helm');
+        return;
+    }
+    if (sr.code !== 0) {
+        vscode.window.showErrorMessage(sr.stderr);
+        return;
+    }
+    vscode.window.showInformationMessage(sr.stdout);
+}
+
+export enum HelmSyntaxVersion {
+    Unknown = 1,
+    V2 = 2,
+    V3 = 3,
+}
+
+let cachedVersion: HelmSyntaxVersion | undefined = undefined;
+
+export async function helmSyntaxVersion(): Promise<HelmSyntaxVersion> {
+    if (cachedVersion === undefined) {
+        const srHelm2 = await helmExecAsync(`version --short -c`);
+        if (!srHelm2) {
+            // failed to run Helm; do not cache result
+            return HelmSyntaxVersion.Unknown;
         }
-        vscode.window.showInformationMessage(out);
-    });
+
+        if (srHelm2.code === 0 && srHelm2.stdout.indexOf('v2') >= 0) {
+            cachedVersion = HelmSyntaxVersion.V2;
+        } else {
+            const srHelm3 = await helmExecAsync(`version --short`);
+            if (srHelm3 && srHelm3.code === 0 && srHelm3.stdout.indexOf('v3') >= 0) {
+                cachedVersion = HelmSyntaxVersion.V3;
+            } else {
+                return HelmSyntaxVersion.Unknown;
+            }
+        }
+    }
+    return cachedVersion;
 }
 
 // Run a 'helm template' command.
@@ -312,10 +345,12 @@ export async function helmInstall(kubectl: Kubectl, helmObject: helmrepoexplorer
 }
 
 async function helmInstallCore(kubectl: Kubectl, chartId: string, version: string | undefined): Promise<void> {
+    const syntaxVersion = await helmSyntaxVersion();
     const ns = await currentNamespace(kubectl);
     const nsArg = ns ? `--namespace ${ns}` : '';
     const versionArg = version ? `--version ${version}` : '';
-    const sr = await helmExecAsync(`install ${chartId} ${versionArg} ${nsArg}`);
+    const generateNameArg = (syntaxVersion === HelmSyntaxVersion.V3) ? '--generate-name' : '';
+    const sr = await helmExecAsync(`install ${chartId} ${versionArg} ${nsArg} ${generateNameArg}`);
     if (!sr || sr.code !== 0) {
         const message = sr ? sr.stderr : "Unable to run Helm";
         logger.log(message);
@@ -672,20 +707,4 @@ export function searchForChart(name: string): Requirement | undefined {
 export function helmHome(): string {
     const h = sh.home();
     return process.env["HELM_HOME"] || filepath.join(h, '.helm');
-}
-
-export async function helmServe(): Promise<vscode.Disposable> {
-    const configuredBin: string | undefined = getToolPath(host, sh, 'helm');
-    const bin = sh.unquotedPath(configuredBin ? `"${configuredBin}"` : "helm");
-    const process = spawn(bin, [ "serve" ]);
-    let ready = false;
-    process.stdout.on("data", (chunk: string) => {  // TODO: this huge sausage is VERY suspicious
-        if (chunk.indexOf("serving") >= 0) {
-            ready = true;
-        }
-    });
-    while (!ready) {
-        await sleep(100);
-    }
-    return new vscode.Disposable(() => { process.kill(); });
 }
