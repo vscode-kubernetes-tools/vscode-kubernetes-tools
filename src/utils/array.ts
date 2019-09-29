@@ -12,8 +12,13 @@ declare global {
     }
 }
 
+function choose<T, U>(this: T[], fn: (t: T) => U | undefined): U[] {
+    return this.map(fn).filter((u) => u !== undefined).map((u) => u!);
+}
+
 if (!Array.prototype.choose) {
-    Array.prototype.choose = function<T, U>(this: T[], fn: (t: T) => U | undefined): U[] {
-        return this.map(fn).filter((u) => u !== undefined).map((u) => u!);
-    };
+    Object.defineProperty(Array.prototype, 'choose', {
+        enumerable: false,
+        value: choose
+    });
 }
