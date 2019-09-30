@@ -5,6 +5,7 @@ import { ActiveValueTracker } from "./active-value-tracker";
 // current value is time-consuming and best performed asynchronously.
 export class BackgroundContextCache<T> {
     private readonly cache = new Map<string, T>();
+    private readonly activeUpdates = new Map<string, boolean>();
 
     constructor(private readonly activeContextTracker: ActiveValueTracker<string | null>,
         private readonly getActiveContextValue: () => Promise<T>,
@@ -59,12 +60,20 @@ export class BackgroundContextCache<T> {
     }
 
     private async updateCache(activeContextName: string): Promise<void> {
-        const value = await this.getActiveContextValue();
-        // Heuristic check that the active context didn't change while getActiveContextValue
-        // was doing it thing (because it it did then the retrieved value might not be for the
-        // context we thought it was!).
-        if (this.activeContextTracker.active() === activeContextName) {
-            this.cache.set(activeContextName, value);
+        if (this.activeUpdates.get(activeContextName)) {
+            return;
+        }
+        try {
+            this.activeUpdates.set(activeContextName, true);
+            const value = await this.getActiveContextValue();
+            // Heuristic check that the active context didn't change while getActiveContextValue
+            // was doing it thing (because it it did then the retrieved value might not be for the
+            // context we thought it was!).
+            if (this.activeContextTracker.active() === activeContextName) {
+                this.cache.set(activeContextName, value);
+            }
+        } finally {
+            this.activeUpdates.delete(activeContextName);
         }
     }
 

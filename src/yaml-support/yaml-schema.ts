@@ -42,6 +42,10 @@ function requestYamlSchemaUriCallback(resource: string): string | undefined {
     if (textEditor) {
         const yamlDocs = yamlLocator.getYamlDocuments(textEditor.document);
         const choices: string[] = [];
+        const activeSchema = schemas && schemas.active();
+        if (!activeSchema) {
+            return undefined;
+        }
         yamlDocs.forEach((doc) => {
             // if the yaml document contains apiVersion and kind node, it will report it is a kubernetes yaml
             // file
@@ -53,7 +57,7 @@ function requestYamlSchemaUriCallback(resource: string): string | undefined {
                 if (apiVersion && kind) {
                     const qualifiedKind = apiVersion + GROUP_VERSION_KIND_SEPARATOR + kind;
                     // Check we have a schema here - returning undefined from the schema content callback reports an error
-                    if (schemas && schemas.active().lookup(qualifiedKind)) {
+                    if (activeSchema.lookup(qualifiedKind)) {
                         choices.push(qualifiedKind);
                     }
                 }
