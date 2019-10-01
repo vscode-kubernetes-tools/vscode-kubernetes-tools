@@ -14,14 +14,17 @@
         {
             "type": "npm",
             "script": "watch",
-            "problemMatcher": "$tsc-watch",
+            "problemMatcher": [
+                "$ts-webpack",
+                "$ts-webpack-watch"
+            ],
             "isBackground": true,
             "presentation": {
-                "reveal": "never"
-            },
-            "group": {
-                "kind": "build",
-                "isDefault": true
+                "echo": true,
+                "reveal": "never",
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
             }
         },
         {
