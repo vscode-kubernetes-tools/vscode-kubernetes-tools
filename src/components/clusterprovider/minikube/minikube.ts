@@ -100,7 +100,7 @@ async function getVersionInfo(context: Context): Promise<MinikubeVersionInfo> {
     }
 
     const currentVersion = extractVersion(lines[0]);
-    const availableVersion = extractVersion(lines[0]);
+    const availableVersion = extractVersion(lines[1]);
 
     if (currentVersion === null || availableVersion === null) {
         throw new Error(`Unable to get version from minikube version check: ${lines}`);
