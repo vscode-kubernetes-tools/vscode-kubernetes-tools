@@ -4,11 +4,17 @@ import * as download from '../download/download';
 import * as fs from 'fs';
 import mkdirp = require('mkdirp');
 import * as path from 'path';
+import * as unzipper from 'unzipper';
 import * as tar from 'tar';
 import { Shell, Platform } from '../../shell';
 import { Errorable, failed } from '../../errorable';
 import { addPathToConfig, toolPathBaseKey, getUseWsl } from '../config/config';
 import { platformUrlString, formatBin } from './installationlayout';
+
+enum ArchiveKind {
+    Tar,
+    Zip,
+}
 
 export async function installKubectl(shell: Shell): Promise<Errorable<null>> {
     const tool = 'kubectl';
@@ -60,14 +66,16 @@ async function getStableKubectlVersion(): Promise<Errorable<string>> {
 
 export async function installHelm(shell: Shell): Promise<Errorable<null>> {
     const tool = 'helm';
-    const urlTemplate = 'https://storage.googleapis.com/kubernetes-helm/helm-v2.9.1-{os_placeholder}-amd64.tar.gz';
-    return await installToolFromTar(tool, urlTemplate, shell);
+    const fileExtension = shell.isWindows() ? 'zip' : 'tar.gz';
+    const archiveKind = shell.isWindows() ? ArchiveKind.Zip : ArchiveKind.Tar;
+    const urlTemplate = `https://get.helm.sh/helm-v2.14.3-{os_placeholder}-amd64.${fileExtension}`;
+    return await installToolFromArchive(tool, urlTemplate, shell, archiveKind);
 }
 
 export async function installDraft(shell: Shell): Promise<Errorable<null>> {
     const tool = 'draft';
     const urlTemplate = 'https://azuredraft.blob.core.windows.net/draft/draft-v0.15.0-{os_placeholder}-amd64.tar.gz';
-    return await installToolFromTar(tool, urlTemplate, shell);
+    return await installToolFromArchive(tool, urlTemplate, shell, ArchiveKind.Tar);
 }
 
 export async function installMinikube(shell: Shell, version: string | null): Promise<Errorable<null>> {
@@ -103,7 +111,7 @@ export async function installMinikube(shell: Shell, version: string | null): Pro
     return { succeeded: true, result: null };
 }
 
-async function installToolFromTar(tool: string, urlTemplate: string, shell: Shell, supported?: Platform[]): Promise<Errorable<null>> {
+async function installToolFromArchive(tool: string, urlTemplate: string, shell: Shell, archiveKind: ArchiveKind, supported?: Platform[]): Promise<Errorable<null>> {
     const os = platformUrlString(shell.platform(), supported);
     if (!os) {
         return { succeeded: false, error: ['Not supported on this OS'] };
@@ -112,14 +120,14 @@ async function installToolFromTar(tool: string, urlTemplate: string, shell: Shel
     const executable = formatBin(tool, shell.platform())!;  // safe because we have already checked the platform
     const url = urlTemplate.replace('{os_placeholder}', os);
     const configKey = toolPathBaseKey(tool);
-    return installFromTar(url, installFolder, executable, configKey, shell);
+    return installFromArchive(url, installFolder, executable, configKey, shell, archiveKind);
 }
 
 function getInstallFolder(shell: Shell, tool: string): string {
     return path.join(shell.home(), `.vs-kubernetes/tools/${tool}`);
 }
 
-async function installFromTar(sourceUrl: string, destinationFolder: string, executablePath: string, configKey: string, shell: Shell): Promise<Errorable<null>> {
+async function installFromArchive(sourceUrl: string, destinationFolder: string, executablePath: string, configKey: string, shell: Shell, archiveKind: ArchiveKind): Promise<Errorable<null>> {
     // download it
     const downloadResult = await download.toTempFile(sourceUrl);
 
@@ -127,12 +135,12 @@ async function installFromTar(sourceUrl: string, destinationFolder: string, exec
         return { succeeded: false, error: ['Failed to download: error was ' + downloadResult.error[0]] };
     }
 
-    const tarfile = downloadResult.result;
+    const archiveFile = downloadResult.result;
 
-    // untar it
-    const untarResult = await untar(tarfile, destinationFolder, shell);
-    if (failed(untarResult)) {
-        return { succeeded: false, error: ['Failed to unpack: error was ' + untarResult.error[0]] };
+    // unarchive it
+    const unarchiveResult = await unarchive(archiveFile, destinationFolder, shell, archiveKind);
+    if (failed(unarchiveResult)) {
+        return { succeeded: false, error: ['Failed to unpack: error was ' + unarchiveResult.error[0]] };
     }
 
     // add path to config
@@ -142,9 +150,26 @@ async function installFromTar(sourceUrl: string, destinationFolder: string, exec
     }
     await addPathToConfig(configKey, executableFullPath);
 
-    fs.unlinkSync(tarfile);
+    fs.unlinkSync(archiveFile);
 
     return { succeeded: true, result: null };
+}
+
+async function unarchive(sourceFile: string, destinationFolder: string, shell: Shell, archiveKind: ArchiveKind): Promise<Errorable<null>> {
+    if (archiveKind === ArchiveKind.Tar) {
+        return await untar(sourceFile, destinationFolder, shell);
+    } else {
+        return await unzip(sourceFile, destinationFolder);
+    }
+}
+
+function unzip(sourceFile: string, destinationFolder: string): Promise<Errorable<null>> {
+    return new Promise<Errorable<null>>((resolve, _reject) => {
+        const stream = fs.createReadStream(sourceFile)
+                         .pipe(unzipper.Extract({ path: destinationFolder }));
+        stream.on('close', () => resolve({ succeeded: true, result: null }));
+        stream.on('error', (err) => resolve({ succeeded: false, error: [`zip extract failed: ${err}`] }));
+    });
 }
 
 async function untar(sourceFile: string, destinationFolder: string, shell: Shell): Promise<Errorable<null>> {
