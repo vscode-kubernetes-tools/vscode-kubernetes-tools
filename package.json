@@ -1273,7 +1273,7 @@
         "vscode:prepublish": "webpack --mode production",
         "lint": "eslint -c .eslintrc.js --ext .ts ./src",
         "compile": "webpack --mode none",
-        "watch": "webpack --mode none --watch",
+        "watch": "webpack --mode development --watch --info-verbosity verbose",
         "test-compile": "tsc -p ./",
         "postinstall": "node ./node_modules/vscode/bin/install",
         "test": "npm run compile && node ./node_modules/vscode/bin/test"
