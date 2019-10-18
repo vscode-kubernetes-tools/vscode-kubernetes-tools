@@ -926,7 +926,7 @@
             },
             {
                 "command": "extension.helmVersion",
-                "title": "Version (Client)",
+                "title": "Version",
                 "description": "Get the version of the local Helm client.",
                 "category": "Helm"
             },

@@ -242,9 +242,11 @@ function helmInspect(arg: any, s: InspectionStrategy) {
 
 // helmDryRun runs a helm install with --dry-run and --debug set.
 export function helmDryRun() {
-    pickChart((path) => {
+    pickChart(async (path) => {
+        const syntaxVersion = await helmSyntaxVersion();
+        const generateNameArg = (syntaxVersion === HelmSyntaxVersion.V3) ? '--generate-name' : '';
         logger.log("⎈⎈⎈ Installing (dry-run) " + path);
-        helmExec(`install --dry-run --debug "${path}"`, (code, out, err) => {
+        helmExec(`install --dry-run ${generateNameArg} --debug "${path}"`, (code, out, err) => {
             logger.log(out);
             logger.log(err);
             if (code !== 0) {
