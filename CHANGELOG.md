@@ -1,5 +1,16 @@
 # Change Log
 
+## 1.0.5
+
+* Updated Deployment template to more recent Kubernetes API
+* Further Helm 3 compatibility work
+* We now (finally!) download a version of Helm that was not hand carved onto floppy discs by ancient Sumerians
+* Fixed Minikube upgrade check
+* Fixed spawning an inordinate number of `kubectl proxy` processes
+* Fixed polluting the Array prototype which could confuse other extensions
+
+Thanks to Marc Abouchacra and antonyveyre.
+
 ## 1.0.4
 
 * Helm 3 compatibility
