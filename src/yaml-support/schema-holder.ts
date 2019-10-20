@@ -49,6 +49,7 @@ export class KubernetesClusterSchemaHolder {
     private loadSchemaFromRaw(schemaRaw: any, schemaEnumFile?: string): void {
         this.schemaEnums = schemaEnumFile ? util.loadJson(schemaEnumFile) : {};
         const definitions = schemaRaw.definitions;
+        makeSafeIntOrString(definitions);
         for (const name of Object.keys(definitions)) {
             this.saveSchemaWithManifestStyleKeys(name, definitions[name]);
         }
@@ -236,5 +237,24 @@ function getNameInDefinitions ($ref: string): string {
         return $ref.slice(prefix.length);
     } else {
         return prefix;
+    }
+}
+
+function makeSafeIntOrString(definitions: any): void {
+    // We need to tweak the IntOrString schema because the live schema has
+    // it as type 'string' with format 'int-or-string', and this doesn't
+    // play nicely with Red Hat YAML on Mac or Linux - it presents a validation
+    // warning on unquoted integers saying they should be strings. This schema
+    // is more semantically correct and appears to restore the correct behaviour
+    // from RH YAML.
+    const intOrStringDefinition = definitions['io.k8s.apimachinery.pkg.util.intstr.IntOrString'];
+    if (intOrStringDefinition) {
+        if (intOrStringDefinition.type === 'string') {
+            intOrStringDefinition.oneOf = [
+                { type: 'string' },
+                { type: 'integer' }
+            ];
+            delete intOrStringDefinition.type;
+        }
     }
 }
