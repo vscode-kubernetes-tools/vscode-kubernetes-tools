@@ -80,8 +80,15 @@ function platform(): Platform {
     }
 }
 
-function concatIfBoth(s1: string | undefined, s2: string | undefined): string | undefined {
-    return s1 && s2 ? s1.concat(s2) : undefined;
+function concatIfSafe(homeDrive: string | undefined, homePath: string | undefined): string | undefined {
+    if (homeDrive && homePath) {
+        const safe = !homePath.toLowerCase().startsWith('\\windows\\system32');
+        if (safe) {
+            return homeDrive.concat(homePath);
+        }
+    }
+
+    return undefined;
 }
 
 function home(): string {
@@ -89,7 +96,7 @@ function home(): string {
         return shelljs.exec('wsl.exe echo ${HOME}').stdout.trim();
     }
     return process.env['HOME'] ||
-        concatIfBoth(process.env['HOMEDRIVE'], process.env['HOMEPATH']) ||
+        concatIfSafe(process.env['HOMEDRIVE'], process.env['HOMEPATH']) ||
         process.env['USERPROFILE'] ||
         '';
 }
