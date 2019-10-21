@@ -285,13 +285,21 @@ function kubectlDone(context: Context): ShellHandler {
     };
 }
 
-async function baseKubectlPath(context: Context): Promise<string> {
+async function unquotedBaseKubectlPath(context: Context): Promise<string> {
     if (context.pathfinder) {
         return await context.pathfinder();
     }
     let bin = getToolPath(context.host, context.shell, 'kubectl');
     if (!bin) {
         bin = 'kubectl';
+    }
+    return bin;
+}
+
+async function baseKubectlPath(context: Context): Promise<string> {
+    let bin = await unquotedBaseKubectlPath(context);
+    if (bin && bin.includes(' ')) {
+        bin = `"${bin}"`;
     }
     return bin;
 }
