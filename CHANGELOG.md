@@ -1,5 +1,13 @@
 # Change Log
 
+## 1.0.6
+
+* Fixed too many closing braces in Helm autocomplete
+* Fixed YAML validation warning on IntOrString values that were numeric
+* Fixed an error if the path to `kubectl` contained spaces.
+
+Thanks to Ahmadali Shafiee.
+
 ## 1.0.5
 
 * Updated Deployment template to more recent Kubernetes API
