@@ -149,7 +149,11 @@ export class KubernetesClusterSchemaHolder {
         if (node.properties && this.schemaEnums[node.name]) {
             _.each(node.properties, (propSchema, propKey) => {
                 if (this.schemaEnums[node.name][propKey]) {
-                    propSchema.enum = this.schemaEnums[node.name][propKey];
+                    if (propSchema.type === "array" && propSchema.items) {
+                        propSchema.items.enum = this.schemaEnums[node.name][propKey];
+                    } else {
+                        propSchema.enum = this.schemaEnums[node.name][propKey];
+                    }
                 }
             });
         }
