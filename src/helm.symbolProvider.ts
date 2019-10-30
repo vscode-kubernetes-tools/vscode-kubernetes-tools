@@ -8,12 +8,32 @@ export class HelmDocumentSymbolProvider implements vscode.DocumentSymbolProvider
     }
 
     async provideDocumentSymbolsImpl(document: vscode.TextDocument, _token: vscode.CancellationToken): Promise<vscode.SymbolInformation[]> {
-        const fakeText = document.getText().replace(/{{[^}]*}}/g, (s) => encodeWithTemplateMarkers(s));
-        const root = yp.safeLoad(fakeText);
+        const fakeText1 = document.getText();
+        const fakeText2 = substituteStatements(fakeText1);
+        const fakeText3 = substituteExpressions(fakeText2);
+        const root = yp.safeLoad(fakeText3);
         const syms: vscode.SymbolInformation[] = [];
         walk(root, '', document, document.uri, syms);
         return syms;
     }
+}
+
+function substituteStatements(text: string): string {
+    return text.split('\n').map((l) => substituteStatement(l)).join('\n');
+}
+
+function substituteStatement(line: string): string {
+    // We can't salvage these as any semantic element without sacrificing direct overlay,
+    // but hopefully comments will suffice for our current needs
+    if (line.trim().startsWith('{{')) {
+        return line.replace('{{', '#{');  // replacing first occurrence only
+    }
+
+    return line;
+}
+
+function substituteExpressions(text: string): string {
+    return text.replace(/{{[^}]*}}/g, (s) => encodeWithTemplateMarkers(s));
 }
 
 // These MUST be the same lengths as the strings they replace
