@@ -55,11 +55,6 @@ function encodeWithTemplateMarkers(s: string): string {
             .replace(/"/g, ENCODE_TEMPLATE_QUOTE);
 }
 
-function hasEncodedTemplateMarkers(s: string): boolean {
-    return (s.startsWith(ENCODE_TEMPLATE_START) && s.endsWith(ENCODE_TEMPLATE_END))
-        || (s.startsWith('"' + ENCODE_TEMPLATE_START) && s.endsWith(ENCODE_TEMPLATE_END + '"'));
-}
-
 export interface FoundKeyPath {
     readonly found: vscode.SymbolInformation | undefined;
     readonly remaining: string[];
@@ -138,9 +133,7 @@ function symbolInfo(node: yp.YAMLNode, containerName: string, d: vscode.TextDocu
             const mp = node as yp.YAMLMapping;
             return new vscode.SymbolInformation(`${mp.key.rawValue}`, vscode.SymbolKind.Field, containerName, loc);
         case yp.Kind.SCALAR:
-            const sc = node as yp.YAMLScalar;
-            const isPossibleTemplateExpr = hasEncodedTemplateMarkers(sc.rawValue);
-            const realValue = isPossibleTemplateExpr ? d.getText(loc.range) : sc.rawValue;
+            const realValue = d.getText(loc.range) || '(scalar)';
             const isTemplateExpr = (realValue.startsWith('{{') && realValue.endsWith('}}'))
                                     || (realValue.startsWith('"{{') && realValue.endsWith('}}"'));
             const symbolKind = isTemplateExpr ? vscode.SymbolKind.Object : vscode.SymbolKind.Constant;

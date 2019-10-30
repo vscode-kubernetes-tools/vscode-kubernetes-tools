@@ -215,7 +215,7 @@ export async function convertToParameter(fs: FS, host: Host, document: vscode.Te
         return { succeeded: false, error: insertParamEdit.error };
     }
 
-    const keyReference = insertParamEdit.result.keyPath.join('.');
+    const keyReference = keyPath.join('.');
     const replaceValueWithParamRef = new vscode.TextEdit(valueLocation, `{{ .Values.${keyReference} }}`);
 
     const appliedEdits = await applyEdits(
