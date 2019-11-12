@@ -8,12 +8,32 @@ export class HelmDocumentSymbolProvider implements vscode.DocumentSymbolProvider
     }
 
     async provideDocumentSymbolsImpl(document: vscode.TextDocument, _token: vscode.CancellationToken): Promise<vscode.SymbolInformation[]> {
-        const fakeText = document.getText().replace(/{{[^}]*}}/g, (s) => encodeWithTemplateMarkers(s));
-        const root = yp.safeLoad(fakeText);
+        const fakeText1 = document.getText();
+        const fakeText2 = substituteStatements(fakeText1);
+        const fakeText3 = substituteExpressions(fakeText2);
+        const root = yp.safeLoad(fakeText3);
         const syms: vscode.SymbolInformation[] = [];
         walk(root, '', document, document.uri, syms);
         return syms;
     }
+}
+
+function substituteStatements(text: string): string {
+    return text.split('\n').map((l) => substituteStatement(l)).join('\n');
+}
+
+function substituteStatement(line: string): string {
+    // We can't salvage these as any semantic element without sacrificing direct overlay,
+    // but hopefully comments will suffice for our current needs
+    if (line.trim().startsWith('{{')) {
+        return line.replace('{{', '#{');  // replacing first occurrence only
+    }
+
+    return line;
+}
+
+function substituteExpressions(text: string): string {
+    return text.replace(/{{[^}]*}}/g, (s) => encodeWithTemplateMarkers(s));
 }
 
 // These MUST be the same lengths as the strings they replace
@@ -33,11 +53,6 @@ function encodeWithTemplateMarkers(s: string): string {
     return s.replace(/{{/g, ENCODE_TEMPLATE_START)
             .replace(/}}/g, ENCODE_TEMPLATE_END)
             .replace(/"/g, ENCODE_TEMPLATE_QUOTE);
-}
-
-function hasEncodedTemplateMarkers(s: string): boolean {
-    return (s.startsWith(ENCODE_TEMPLATE_START) && s.endsWith(ENCODE_TEMPLATE_END))
-        || (s.startsWith('"' + ENCODE_TEMPLATE_START) && s.endsWith(ENCODE_TEMPLATE_END + '"'));
 }
 
 export interface FoundKeyPath {
@@ -118,9 +133,7 @@ function symbolInfo(node: yp.YAMLNode, containerName: string, d: vscode.TextDocu
             const mp = node as yp.YAMLMapping;
             return new vscode.SymbolInformation(`${mp.key.rawValue}`, vscode.SymbolKind.Field, containerName, loc);
         case yp.Kind.SCALAR:
-            const sc = node as yp.YAMLScalar;
-            const isPossibleTemplateExpr = hasEncodedTemplateMarkers(sc.rawValue);
-            const realValue = isPossibleTemplateExpr ? d.getText(loc.range) : sc.rawValue;
+            const realValue = d.getText(loc.range) || '(scalar)';
             const isTemplateExpr = (realValue.startsWith('{{') && realValue.endsWith('}}'))
                                     || (realValue.startsWith('"{{') && realValue.endsWith('}}"'));
             const symbolKind = isTemplateExpr ? vscode.SymbolKind.Object : vscode.SymbolKind.Constant;

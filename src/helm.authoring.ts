@@ -7,8 +7,9 @@ import { Host } from './host';
 import { isKubernetesExplorerResourceNode } from './components/clusterexplorer/explorer';
 import { helmCreateCore } from './helm.exec';
 import { failed, Errorable } from './errorable';
-import { symbolAt, containmentChain, findKeyPath, FoundKeyPath } from './helm.symbolProvider';
+import { symbolAt, containmentChain, findKeyPath, FoundKeyPath, HelmDocumentSymbolProvider } from './helm.symbolProvider';
 import { ClusterExplorerResourceNode } from './components/clusterexplorer/node';
+import * as cancellation from './utils/cancellation';
 
 interface Context {
     readonly fs: FS;
@@ -214,7 +215,7 @@ export async function convertToParameter(fs: FS, host: Host, document: vscode.Te
         return { succeeded: false, error: insertParamEdit.error };
     }
 
-    const keyReference = insertParamEdit.result.keyPath.join('.');
+    const keyReference = keyPath.join('.');
     const replaceValueWithParamRef = new vscode.TextEdit(valueLocation, `{{ .Values.${keyReference} }}`);
 
     const appliedEdits = await applyEdits(
@@ -237,13 +238,9 @@ async function applyEdits(...edits: TextEdit[]): Promise<boolean> {
 }
 
 async function getHelmSymbols(document: vscode.TextDocument): Promise<vscode.SymbolInformation[]> {
-    const sis: any = await vscode.commands.executeCommand('vscode.executeDocumentSymbolProvider', document.uri);
-
-    if (sis && sis.length) {
-        return sis;
-    }
-
-    return [];
+    const symbolProvider = new HelmDocumentSymbolProvider();
+    const symbols = await symbolProvider.provideDocumentSymbolsImpl(document, cancellation.dummyToken());
+    return symbols;
 }
 
 async function addEntryToValuesFile(fs: FS, host: Host, template: vscode.TextDocument, keyPath: string[], value: string): Promise<Errorable<ValueInsertion>> {
