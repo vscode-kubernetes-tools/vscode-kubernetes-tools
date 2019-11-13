@@ -1,5 +1,13 @@
 # Change Log
 
+## 1.0.7
+
+* Install Dependencies now installs the latest version of Helm
+* Fixed autoversion and Install Dependencies not working on VS Code 1.40
+* Fixed Helm 'Convert to Template Parameter' command
+* Fixed incorrect warnings on `NamespaceSpec.finalizers` and `ResourceQuotaSpec.scopes` YAML
+* Added telemetry for the use of local dev clusters such as Kind and Microk8s - see disclosure statement in readme
+
 ## 1.0.6
 
 * Fixed too many closing braces in Helm autocomplete
