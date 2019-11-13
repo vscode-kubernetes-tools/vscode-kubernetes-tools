@@ -68,7 +68,7 @@ export async function installHelm(shell: Shell): Promise<Errorable<null>> {
     const tool = 'helm';
     const fileExtension = shell.isWindows() ? 'zip' : 'tar.gz';
     const archiveKind = shell.isWindows() ? ArchiveKind.Zip : ArchiveKind.Tar;
-    const urlTemplate = `https://get.helm.sh/helm-v2.14.3-{os_placeholder}-amd64.${fileExtension}`;
+    const urlTemplate = `https://get.helm.sh/helm-v3.0.0-{os_placeholder}-amd64.${fileExtension}`;
     return await installToolFromArchive(tool, urlTemplate, shell, archiveKind);
 }
 
