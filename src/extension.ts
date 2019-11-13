@@ -1914,9 +1914,11 @@ export async function installDependencies() {
     const gotDraft = await draft.checkPresent(DraftCheckPresentMode.Silent);
     const gotMinikube = await minikube.checkPresent(MinikubeCheckPresentMode.Silent);
 
+    const warn = (m: string) => kubeChannel.showOutput(m);
+
     const installPromises = [
         installDependency("kubectl", gotKubectl, installKubectl),
-        installDependency("Helm", gotHelm, installHelm),
+        installDependency("Helm", gotHelm, (sh) => installHelm(sh, warn)),
         installDependency("Draft", gotDraft, installDraft),
     ];
 

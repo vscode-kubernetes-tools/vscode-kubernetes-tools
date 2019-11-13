@@ -1,5 +1,6 @@
 'use strict';
 
+import * as https from 'https';
 import * as download from '../download/download';
 import * as fs from 'fs';
 import mkdirp = require('mkdirp');
@@ -7,9 +8,10 @@ import * as path from 'path';
 import * as unzipper from 'unzipper';
 import * as tar from 'tar';
 import { Shell, Platform } from '../../shell';
-import { Errorable, failed } from '../../errorable';
+import { Errorable, failed, succeeded } from '../../errorable';
 import { addPathToConfig, toolPathBaseKey, getUseWsl } from '../config/config';
 import { platformUrlString, formatBin } from './installationlayout';
+import { IncomingMessage } from 'http';
 
 enum ArchiveKind {
     Tar,
@@ -64,11 +66,39 @@ async function getStableKubectlVersion(): Promise<Errorable<string>> {
     return { succeeded: true, result: version };
 }
 
-export async function installHelm(shell: Shell): Promise<Errorable<null>> {
+async function getStableHelmVersion(): Promise<Errorable<string>> {
+    return new Promise<Errorable<string>>((resolve, _reject) => {
+        try {
+            const request = https.get('https://github.com/helm/helm/releases/latest', (r: IncomingMessage) => {
+                const location = r.headers.location;
+                if (location) {
+                    const locationBits = location.split('/');
+                    const version = locationBits[locationBits.length - 1];
+                    resolve({ succeeded: true, result: version });
+                } else {
+                    resolve({ succeeded: false, error: ['No location in response']});
+                }
+            });
+            request.on('error', (err) => resolve({ succeeded: false, error: [`${err}`]}));
+        }
+        catch (err) {
+            resolve({ succeeded: false, error: [`${err}`]});
+        }
+    });
+}
+
+const DEFAULT_HELM_VERSION = 'v3.0.0';
+
+export async function installHelm(shell: Shell, warn: (message: string) => void): Promise<Errorable<null>> {
     const tool = 'helm';
+    const latestVersionInfo = await getStableHelmVersion();
+    if (failed(latestVersionInfo)) {
+        warn(`Couldn't identify latest stable Helm: defaulting to ${DEFAULT_HELM_VERSION}. Error info: ${latestVersionInfo.error[0]}`);
+    }
+    const latestVersion = succeeded(latestVersionInfo) ? latestVersionInfo.result : DEFAULT_HELM_VERSION;
     const fileExtension = shell.isWindows() ? 'zip' : 'tar.gz';
     const archiveKind = shell.isWindows() ? ArchiveKind.Zip : ArchiveKind.Tar;
-    const urlTemplate = `https://get.helm.sh/helm-v2.14.3-{os_placeholder}-amd64.${fileExtension}`;
+    const urlTemplate = `https://get.helm.sh/helm-${latestVersion}-{os_placeholder}-amd64.${fileExtension}`;
     return await installToolFromArchive(tool, urlTemplate, shell, archiveKind);
 }
 
