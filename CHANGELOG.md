@@ -1,5 +1,9 @@
 # Change Log
 
+## 1.0.8
+
+* Fixed bug when doing Inspect Chart on a chart from a Helm repository
+
 ## 1.0.7
 
 * Install Dependencies now installs the latest version of Helm
