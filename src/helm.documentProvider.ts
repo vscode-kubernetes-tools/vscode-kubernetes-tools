@@ -79,11 +79,14 @@ export class HelmInspectDocumentProvider implements vscode.TextDocumentContentPr
                 const id = uri.path.substring(1);
                 const version = uri.query;
                 const versionArg = version ? `--version ${version}` : '';
-                if (uri.scheme === helm.INSPECT_CHART_SCHEME) {
-                    exec.helmExec(`inspect ${id} ${versionArg}`, printer);
-                } else if (uri.scheme === helm.INSPECT_VALUES_SCHEME) {
-                    exec.helmExec(`inspect values ${id} ${versionArg}`, printer);
-                }
+                exec.helmSyntaxVersion().then((sv) => {
+                    const helm3Scope = (sv === exec.HelmSyntaxVersion.V2) ? '' : 'all';
+                    if (uri.scheme === helm.INSPECT_CHART_SCHEME) {
+                        exec.helmExec(`inspect ${helm3Scope} ${id} ${versionArg}`, printer);
+                    } else if (uri.scheme === helm.INSPECT_VALUES_SCHEME) {
+                        exec.helmExec(`inspect values ${id} ${versionArg}`, printer);
+                    }
+                });
             }
         });
 
