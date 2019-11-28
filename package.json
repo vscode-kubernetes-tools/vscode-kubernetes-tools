@@ -1093,6 +1093,7 @@
             {
                 "id": "yaml",
                 "filenames": [
+                    "Chart.lock",
                     "requirements.lock",
                     "**/.kube/config"
                 ]
