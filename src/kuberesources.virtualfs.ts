@@ -6,7 +6,7 @@ import * as querystring from 'querystring';
 import { Kubectl } from './kubectl';
 import { Host } from './host';
 import { ShellResult } from './shell';
-import { helmExecAsync } from './helm.exec';
+import { helmExecAsync, helmSyntaxVersion, HelmSyntaxVersion } from './helm.exec';
 import * as config from './components/config/config';
 
 export const K8S_RESOURCE_SCHEME = "k8smsx";
@@ -86,7 +86,8 @@ export class KubernetesResourceVirtualFileSystemProvider implements FileSystemPr
                 const nsarg = ns ? `--namespace ${ns}` : '';
                 return await this.kubectl.invokeAsyncWithProgress(`-o ${outputFormat} ${nsarg} get ${value}`, `Loading ${value}...`);
             case HELM_RESOURCE_AUTHORITY:
-                return await helmExecAsync(`get ${value}`);
+                const scopearg = ((await helmSyntaxVersion()) === HelmSyntaxVersion.V2) ? '' : 'all';
+                return await helmExecAsync(`get ${scopearg} ${value}`);
             default:
                 return { code: -99, stdout: '', stderr: `Internal error: please raise an issue with the error code InvalidObjectLoadURI and report authority ${resourceAuthority}.` };
         }
