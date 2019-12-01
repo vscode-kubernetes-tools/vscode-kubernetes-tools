@@ -1,5 +1,12 @@
 # Change Log
 
+## 1.0.9
+
+* Added syntax highlighting for Helm 3 `Chart.lock` files
+* Fixed bug when displaying a Helm release using Helm 3
+
+Thanks to Remco Haszing.
+
 ## 1.0.8
 
 * Fixed bug when doing Inspect Chart on a chart from a Helm repository
