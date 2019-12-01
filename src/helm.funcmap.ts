@@ -174,6 +174,7 @@ export class FuncMap {
             this.f("default", "default $default $optional", "if $optional is not set, use $default"),
             this.f("empty", "empty $val", "if $value is empty, return true. Otherwise return false"),
             this.f("coalesce", "coalesce $val1 $val2 ...", "for a list of values, return the first non-empty one"),
+            this.f("ternary", "ternary $then $else $condition", "if $condition is true, return $then. Otherwise return $else"),
             // Encoding
             this.f("b64enc", "b64enc $str", "encode $str with base64 encoding"),
             this.f("b64dec", "b64dec $str", "decode $str with base64 decoder"),
