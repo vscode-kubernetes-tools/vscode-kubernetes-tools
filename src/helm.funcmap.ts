@@ -143,6 +143,7 @@ export class FuncMap {
             this.f("squote", "squote $str", "surround $str with single quotes (')"),
             this.f("cat", "cat $str1 $str2 ...", "concatenate all given strings into one, separated by spaces"),
             this.f("indent", "indent $count $str", "indent $str with $count space chars on the left"),
+            this.f("nindent", "nindent $count $str", "indent $str with $count space chars on the left and prepend a new line to $str"),
             this.f("replace", "replace $find $replace $str", "find $find and replace with $replace"),
 
             // String list
