@@ -117,7 +117,7 @@ export class FuncMap {
             // String
             this.f("trim", "trim $str", "remove space from either side of string"),
             this.f("trimAll", "trimAll $trim $str", "remove $trim from either side of $str"),
-            this.f("trimSuffix", "trimSuffix $pre $str", "trim suffix from string"),
+            this.f("trimSuffix", "trimSuffix $suf $str", "trim suffix from string"),
             this.f("trimPrefix", "trimPrefix $pre $str", "trim prefix from string"),
             this.f("upper", "upper $str", "convert string to uppercase"),
             this.f("lower", "lower $str", "convert string to lowercase"),
