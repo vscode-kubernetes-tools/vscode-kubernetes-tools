@@ -126,7 +126,6 @@ export class FuncMap {
             this.f("substr", "substr $start $len $string", "get a substring of $string, starting at $start and reading $len characters"),
             this.f("repeat", "repeat $count $str", "repeat $str $count times"),
             this.f("nospace", "nospace $str", "remove space from inside a string"),
-            this.f("upper", "upper $str", "convert string to uppercase"),
             this.f("trunc", "trunc $max $str", "truncate $str at $max characters"),
             this.f("abbrev", "abbrev $max $str", "truncate $str with elipses at max length $max"),
             this.f("abbrevboth", "abbrevboth $left $right $str", "abbreviate both $left and $right sides of $string"),
