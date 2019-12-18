@@ -62,7 +62,7 @@ export interface IDebugProvider {
      * @param processes the running processes on the container
      * @return the list of processes supported by the provider
      */
-    filterSupportedProcesses(processes: ProcessInfo[]) : ProcessInfo[] | undefined 
+    filterSupportedProcesses(processes: ProcessInfo[]): ProcessInfo[] | undefined;
 
     /**
      * Returns true if the debugger requires a port to connect to.

@@ -96,7 +96,7 @@ export class JavaDebugProvider implements IDebugProvider {
         let rawDebugPortInfo: string | undefined;
         const processes = await debugUtils.getProcesses(kubectl, pod, podNamespace, container);
         const commandLines = processes ? processes.map(({ command }) => command) : undefined;
-        if (commandLines){
+        if (commandLines) {
             for (const commandLine of commandLines) {
                 // java -Djava.security.egd=file:/dev/./urandom -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=1044,quiet=y -jar target/app.jar
                 const matches = commandLine.match(fullJavaDebugOptsRegExp);
@@ -121,8 +121,8 @@ export class JavaDebugProvider implements IDebugProvider {
         };
     }
 
-    public filterSupportedProcesses(processes: debugUtils.ProcessInfo[]) : debugUtils.ProcessInfo[] | undefined {
-        return undefined
+    public filterSupportedProcesses(processes: debugUtils.ProcessInfo[]): debugUtils.ProcessInfo[] | undefined {
+        return undefined;
     }
 
     public isPortRequired(): boolean {

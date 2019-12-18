@@ -48,7 +48,7 @@ export async function getDebugProvider(baseImage?: string, runningProcesses?: Pr
                 }
             }
         } else {
-            candidateProviders = supportedProviders
+            candidateProviders = supportedProviders;
         }
 
         if (candidateProviders.length === 0) {

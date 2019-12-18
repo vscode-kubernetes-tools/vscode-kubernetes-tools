@@ -72,8 +72,8 @@ export async function getProcesses(kubectl: Kubectl, pod: string, podNamespace: 
          */
 
         const outputRegEx = /^\s*(\d+)\s*(.*)$/gm;
-        var match = outputRegEx.exec(execResult.stdout);
-        while (match != null) {
+        let match = outputRegEx.exec(execResult.stdout);
+        while (match) {
             processes.push({
                 pid: +match[1],
                 command: match[2]
@@ -82,7 +82,7 @@ export async function getProcesses(kubectl: Kubectl, pod: string, podNamespace: 
         }
         return processes;
     }
-    return undefined
+    return undefined;
 }
 
 /**

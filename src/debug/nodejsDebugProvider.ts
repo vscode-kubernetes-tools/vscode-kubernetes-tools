@@ -95,8 +95,8 @@ export class NodejsDebugProvider implements IDebugProvider {
         return undefined;
     }
 
-    public filterSupportedProcesses(processes: ProcessInfo[]) : ProcessInfo[] | undefined {
-        return undefined
+    public filterSupportedProcesses(processes: ProcessInfo[]): ProcessInfo[] | undefined {
+        return undefined;
     }
 
     public isPortRequired(): boolean {

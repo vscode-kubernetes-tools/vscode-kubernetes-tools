@@ -166,7 +166,7 @@ export class DebugSession implements IDebugSession {
 
         // Find the debug port to attach.
         const isPortRequired = this.debugProvider.isPortRequired();
-        var portInfo: PortInfo | undefined = undefined;
+        let portInfo: PortInfo | undefined = undefined;
         if (isPortRequired) {
             portInfo = await this.debugProvider.resolvePortsFromContainer(this.kubectl, targetPod, targetPodNS, targetContainer);
             if (!portInfo || !portInfo.debugPort) {
@@ -177,7 +177,7 @@ export class DebugSession implements IDebugSession {
 
         vscode.window.withProgress({ location: vscode.ProgressLocation.Window }, async (p) => {
             try {
-                var proxyResult: ProxyResult | undefined;
+                let proxyResult: ProxyResult | undefined;
                 if (isPortRequired) {
                     p.report({ message: "Setting up port forwarding..."});
                     if (portInfo) {

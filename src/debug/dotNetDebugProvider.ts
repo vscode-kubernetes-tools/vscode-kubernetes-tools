@@ -34,22 +34,22 @@ export class DotNetDebugProvider implements IDebugProvider {
     public async startDebugging(workspaceFolder: string, sessionName: string, port: number | undefined, pod: string, pidToDebug: number | undefined): Promise<boolean> {
         const processId = pidToDebug ? pidToDebug.toString() : "${command:pickRemoteProcess}";
         const debugConfiguration = {
-            "name": ".NET Core Kubernetes Attach",
-            "type": "coreclr",
-            "request": "attach",
-            "processId": processId,
-            "pipeTransport": {
-                "pipeProgram": "kubectl",
-                "pipeArgs": [ "exec", "-i", pod, "--" ],
-                "debuggerPath": "/vsdbg/vsdbg",
-                "pipeCwd": "${workspaceRoot}",
-                "quoteArgs": false
+            name: ".NET Core Kubernetes Attach",
+            type: "coreclr",
+            request: "attach",
+            processId: processId,
+            pipeTransport: {
+                pipeProgram: "kubectl",
+                pipeArgs: [ "exec", "-i", pod, "--" ],
+                debuggerPath: "/vsdbg/vsdbg",
+                pipeCwd: "${workspaceRoot}",
+                quoteArgs: false
             }
         };
         const currentFolder = (vscode.workspace.workspaceFolders || []).find((folder) => folder.name === path.basename(workspaceFolder));
         const result = await vscode.debug.startDebugging(currentFolder, debugConfiguration);
         if (!result) {
-           kubeChannel.showOutput(defaultDotnetDebuggerConfigType + " debug attach failed for pod " + pod + ".\nSee https://github.com/Azure/vscode-kubernetes-tools/blob/master/debug-on-kubernetes.md for troubleshooting.", "Failed to attach");
+           kubeChannel.showOutput(`${defaultDotnetDebuggerConfigType} debug attach failed for pod ${pod}.\nSee https://github.com/Azure/vscode-kubernetes-tools/blob/master/debug-on-kubernetes.md for troubleshooting.`, "Failed to attach");
         }
         return result;
     }
@@ -67,9 +67,9 @@ export class DotNetDebugProvider implements IDebugProvider {
         return undefined;
     }
 
-    public filterSupportedProcesses(processes: ProcessInfo[]) : ProcessInfo[] | undefined {
-        return processes.filter(processInfo => processInfo.command.toLowerCase().startsWith('dotnet ') ||
-                                               processInfo.command.indexOf('/dotnet ') >= 0) // full path
+    public filterSupportedProcesses(processes: ProcessInfo[]): ProcessInfo[] | undefined {
+        return processes.filter(processInfo => (processInfo.command.toLowerCase().startsWith('dotnet ') ||
+                                                processInfo.command.indexOf('/dotnet ') >= 0)); // full path
     }
 
     public isPortRequired(): boolean {
