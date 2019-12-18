@@ -68,8 +68,8 @@ export class DotNetDebugProvider implements IDebugProvider {
     }
 
     public filterSupportedProcesses(processes: ProcessInfo[]): ProcessInfo[] | undefined {
-        return processes.filter(processInfo => (processInfo.command.toLowerCase().startsWith('dotnet ') ||
-                                                processInfo.command.indexOf('/dotnet ') >= 0)); // full path
+        return processes.filter((processInfo) => (processInfo.command.toLowerCase().startsWith('dotnet ') ||
+                                                  processInfo.command.indexOf('/dotnet ') >= 0)); // full path
     }
 
     public isPortRequired(): boolean {
