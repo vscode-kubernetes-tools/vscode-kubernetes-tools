@@ -3,13 +3,14 @@
 One of the key features of VS Code Kubernetes Extension is its one-click debugging support. This document shows you how to configure the feature and use it to debug your application.
 
 ## 1. Supported languages
+   * `dotnet` (Required: [C# for Visual Studio Code (powered by OmniSharp).](https://marketplace.visualstudio.com/items?itemName=ms-vscode.csharp)
    * `java` (Required: [Debugger for Java](https://marketplace.visualstudio.com/items?itemName=vscjava.vscode-java-debug) extension)
    * `python` (Required: [Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python) extension)
    * `node`
 
 ## 2. Commands for debugging
    * `Kubernetes: Debug (Launch)` - Run the current application as a Kubernetes Deployment and attach a debugging session to it (currently works only for Java/Node.js deployments)
-   * `Kubernetes: Debug (Attach)` - Attach a debugging session to an existing Kubernetes Deployment (currently works only for Java deployments and Python deployments running `ptvsd`)
+   * `Kubernetes: Debug (Attach)` - Attach a debugging session to an existing Kubernetes Deployment (currently works only for dotnet deployments, Java deployments and Python deployments running `ptvsd`)
 
 ## 3. Extension Settings for debugging
    * `vs-kubernetes` - Parent for Kubernetes-related extension settings
@@ -77,3 +78,25 @@ To learn more about the features provided by the VS Code Kubernetes Extension, t
    2. Either use [`ptvsd.enable_attach()`](https://github.com/microsoft/ptvsd#enabling-debugging) in your code or prepend your entrypont with [the ptvsd command](https://github.com/microsoft/ptvsd#ptvsd-cli-usage).
 
 Currently only attaching to a Python container running ptvsd is supported.
+
+## 6. dotnet debugging
+   1. Prerequisites
+      * [C# for Visual Studio Code](https://marketplace.visualstudio.com/items?itemName=ms-vscode.csharp) extension must be installed on local machine.
+      * `ps` must be available on the docker container. `ps` is used to try and autoselect the process id to debug. It is also used by the `C#` extension to look up processes for the process picker if there is more than one dotnet process running. You can install it by running the following command on the container:
+
+      `apt-get update && apt-get -y install procps`
+
+      * [`vsdbg`](https://github.com/OmniSharp/omnisharp-vscode/wiki/Attaching-to-remote-processes) must be installed on the container. You can download it by running the following command on the container.
+https://github.com/OmniSharp/omnisharp-vscode/wiki/Attaching-to-remote-processes
+      `curl -sSL https://aka.ms/getvsdbgsh | /bin/sh /dev/stdin -v latest -l ~/vsdbg`
+
+      \- or -
+
+      `wget https://aka.ms/getvsdbgsh -O - 2>/dev/null | /bin/sh /dev/stdin -v latest -l ~/vsdbg`
+
+   2. Notes:
+      * `dotnet` debugging is only supported for the `attach` scenario. The `launch` scenario is not yet supported.
+      * If `dotnet` does not show up in debugger picker list, than the extension was able to view the processes running on the container and there were no `dotnet` processes running at that time.
+      * If `ps` is not installed on the machine, than `dotnet` will show up in the debugger pick list. If `dotnet` is chosen it will give you an error message with a link to this page.
+      * If `dotnet` is chosen as the debugger and only one `dotnet` process is running on the container, that process will automatically be chosen.  If there is more than one dotnet process running at that time, you will be presented a process pick list, and you can choose the process you would like to debug.
+      * The [C# for Visual Studio Code](https://marketplace.visualstudio.com/items?itemName=ms-vscode.csharp) extension is powered by OmniSharp. Found out more information regarding remote debugging with OmniSharp [here](https://github.com/OmniSharp/omnisharp-vscode/wiki/Attaching-to-remote-processes).
