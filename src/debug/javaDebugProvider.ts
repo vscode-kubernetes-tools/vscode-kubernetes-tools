@@ -35,7 +35,7 @@ export class JavaDebugProvider implements IDebugProvider {
         return false;
     }
 
-    public async startDebugging(workspaceFolder: string, sessionName: string, port: number | undefined, pod: string, pidToDebug: number | undefined): Promise<boolean> {
+    public async startDebugging(workspaceFolder: string, sessionName: string, port: number | undefined, _pod: string, _pidToDebug: number | undefined): Promise<boolean> {
         const debugConfiguration = {
             type: "java",
             request: "attach",
@@ -121,7 +121,7 @@ export class JavaDebugProvider implements IDebugProvider {
         };
     }
 
-    public filterSupportedProcesses(processes: debugUtils.ProcessInfo[]): debugUtils.ProcessInfo[] | undefined {
+    public filterSupportedProcesses(_processes: debugUtils.ProcessInfo[]): debugUtils.ProcessInfo[] | undefined {
         return undefined;
     }
 

@@ -31,7 +31,7 @@ export class DotNetDebugProvider implements IDebugProvider {
         return false;
     }
 
-    public async startDebugging(workspaceFolder: string, sessionName: string, port: number | undefined, pod: string, pidToDebug: number | undefined): Promise<boolean> {
+    public async startDebugging(workspaceFolder: string, _sessionName: string, _port: number | undefined, pod: string, pidToDebug: number | undefined): Promise<boolean> {
         const processId = pidToDebug ? pidToDebug.toString() : "${command:pickRemoteProcess}";
         const debugConfiguration = {
             name: ".NET Core Kubernetes Attach",
@@ -54,16 +54,16 @@ export class DotNetDebugProvider implements IDebugProvider {
         return result;
     }
 
-    public isSupportedImage(baseImage: string): boolean {
+    public isSupportedImage(_baseImage: string): boolean {
         // todo: add support for debug from file
         return false;
     }
 
-    public async resolvePortsFromFile(dockerfile: IDockerfile, env: Dictionary<string>): Promise<PortInfo | undefined> {
+    public async resolvePortsFromFile(_dockerfile: IDockerfile, _env: Dictionary<string>): Promise<PortInfo | undefined> {
         return undefined;
     }
 
-    public async resolvePortsFromContainer(kubectl: Kubectl, pod: string, podNamespace: string | undefined, container: string): Promise<PortInfo | undefined> {
+    public async resolvePortsFromContainer(_kubectl: Kubectl, _pod: string, _podNamespace: string | undefined, _container: string): Promise<PortInfo | undefined> {
         return undefined;
     }
 

@@ -22,7 +22,7 @@ export class NodejsDebugProvider implements IDebugProvider {
         return true;
     }
 
-    public async startDebugging(workspaceFolder: string, sessionName: string, port: number | undefined, pod: string, pidToDebug: number | undefined): Promise<boolean> {
+    public async startDebugging(workspaceFolder: string, sessionName: string, port: number | undefined, _pod: string, _pidToDebug: number | undefined): Promise<boolean> {
 
         const debugConfiguration: vscode.DebugConfiguration = {
             type: "node",
@@ -95,7 +95,7 @@ export class NodejsDebugProvider implements IDebugProvider {
         return undefined;
     }
 
-    public filterSupportedProcesses(processes: ProcessInfo[]): ProcessInfo[] | undefined {
+    public filterSupportedProcesses(_processes: ProcessInfo[]): ProcessInfo[] | undefined {
         return undefined;
     }
 
