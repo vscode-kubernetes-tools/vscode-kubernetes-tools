@@ -51,7 +51,7 @@ export async function getDebugProvider(baseImage?: string, runningProcesses?: Pr
             candidateProviders = supportedProviders;
         }
 
-        if (candidateProviders.length === 0) {
+        if (candidateProviders.length === 1) {
             // there is only one debugger that qualifies, so use it
             debugProvider = candidateProviders[0];
         } else if (candidateProviders.length > 1) {
