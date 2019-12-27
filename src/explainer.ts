@@ -8,7 +8,7 @@ import * as shelljs from 'shelljs';
 import { formatComplex, formatOne, Typed, formatType } from "./schema-formatting";
 import { getKubeconfigPath } from './components/kubectl/kubeconfig';
 
-async function loadKubeconfig(): Promise<kubernetes.KubeConfig> {
+export async function loadKubeconfig(): Promise<kubernetes.KubeConfig> {
     const kubeconfig = new kubernetes.KubeConfig();
     const kubeconfigPath = getKubeconfigPath();
 

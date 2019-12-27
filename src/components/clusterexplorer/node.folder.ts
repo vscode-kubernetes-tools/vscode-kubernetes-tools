@@ -18,4 +18,9 @@ export abstract class FolderNode extends ClusterExplorerNodeImpl implements Clus
         treeItem.contextValue = this.contextValue || `vsKubernetes.${this.id}`;
         return treeItem;
     }
+
+    getPathApi(namespace: string): string {
+        const namespaceUri = ["namespaces", "nodes"].indexOf(this.displayName.toLowerCase()) !== -1 ? "" : `namespaces/${namespace}/`;
+        return `/api/v1/${namespaceUri}${this.displayName.toLowerCase()}`;
+    }
 }

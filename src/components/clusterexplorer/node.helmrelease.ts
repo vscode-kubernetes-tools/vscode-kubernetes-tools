@@ -25,6 +25,9 @@ export class HelmReleaseNode extends ClusterExplorerNodeImpl implements ClusterE
         treeItem.iconPath = getIconForHelmRelease(this.status.toLowerCase());
         return treeItem;
     }
+    getPathApi(_namespace: string): string {
+        return ''; //todo
+    }
 }
 
 function getIconForHelmRelease(status: string): vscode.Uri {

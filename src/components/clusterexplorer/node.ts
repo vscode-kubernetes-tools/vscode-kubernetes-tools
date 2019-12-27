@@ -11,6 +11,7 @@ export interface ClusterExplorerNodeBase {
     readonly nodeCategory: 'kubernetes-explorer-node';
     getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<ClusterExplorerNode[]>;
     getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem>;
+    getPathApi(namespace: string): string;
 }
 
 export interface ClusterExplorerContextNode extends ClusterExplorerNodeBase {

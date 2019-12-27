@@ -56,6 +56,10 @@ export class ResourceNode extends ClusterExplorerNodeImpl implements ClusterExpl
     get isExpandable(): boolean {
         return getChildSources(this.kind).length > 0;
     }
+
+    getPathApi(_namespace: string): string {
+        return ''; //todo
+    }
 }
 
 export interface ResourceExtraInfo {

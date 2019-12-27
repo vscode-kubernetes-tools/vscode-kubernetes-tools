@@ -192,7 +192,7 @@
                             "type": "boolean",
                             "description": "Once the debug session is terminated, automatically clean up the created Deployment and associated Pod by the command \"Kubernetes: Debug (Launch)\"."
                         },
-                        "vs-kubernetes.outputFormat": {
+                        "vs-kubernevs-kubernetes.tes.outputFormat": {
                             "enum": [
                                 "json",
                                 "yaml"
@@ -255,6 +255,10 @@
                         "vs-kubernetes.python-debug-port": {
                             "type": "number",
                             "description": "Remote debugging port for Python. Usually 5678."
+                        },
+                        "vs-kubernetes.resource-to-watch": {
+                            "type": "array",
+                            "description": "List of resources to be watched."
                         }
                     },
                     "default": {
@@ -273,7 +277,8 @@
                         "vs-kubernetes.nodejs-debug-port": 9229,
                         "checkForMinikubeUpgrade": true,
                         "logsDisplay": "webview",
-                        "imageBuildTool": "Docker"
+                        "imageBuildTool": "Docker",
+                        "resource-to-be-watched": ""
                     }
                 },
                 "vsdocker.imageUser": {
@@ -1241,8 +1246,8 @@
         "got": "9.6.0",
         "graceful-fs": "^4.1.11",
         "js-yaml": "^3.13.1",
-        "lodash": "^4.17.10",
-        "mixin-deep": "^1.3.1",
+        "lodash": "^4.17.15",
+        "mixin-deep": "^1.3.2",
         "mkdirp": "^0.5.1",
         "moment": "^2.24.0",
         "natives": "^1.1.3",

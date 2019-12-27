@@ -54,6 +54,9 @@ export class ContextNode extends ClusterExplorerNodeImpl implements ClusterExplo
         }
         return treeItem;
     }
+    getPathApi(_namespace: string): string {
+        return '';
+    }
 }
 export class MiniKubeContextNode extends ContextNode {
     get icon(): vscode.Uri {

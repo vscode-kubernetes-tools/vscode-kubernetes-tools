@@ -6,6 +6,7 @@ const EXTENSION_CONFIG_KEY = "vs-kubernetes";
 const KUBECONFIG_PATH_KEY = "vs-kubernetes.kubeconfig";
 const KNOWN_KUBECONFIGS_KEY = "vs-kubernetes.knownKubeconfigs";
 const KUBECTL_VERSIONING_KEY = "vs-kubernetes.kubectlVersioning";
+const RWATCH_KUBECONFIGS_KEY = "vs-kubernetes.resource-to-watch";
 
 export enum KubectlVersioning {
     UserProvided = 1,
@@ -229,4 +230,14 @@ export function getPythonRemoteRoot(): string {
 // remote debugging port for Python. Usually 5678
 export function getPythonDebugPort(): number | undefined {
     return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.python-debug-port'];
+}
+
+// Functions for working with the list of resources to be watched
+
+export function getResourcesToBeWatched(): string[] {
+    const krwConfig = vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)[RWATCH_KUBECONFIGS_KEY];
+    if (!krwConfig || !krwConfig.length) {
+        return [];
+    }
+    return krwConfig as string[];
 }

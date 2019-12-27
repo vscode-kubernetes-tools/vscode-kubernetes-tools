@@ -129,6 +129,9 @@ export class ContributedNode implements ClusterExplorerCustomNode {
     getTreeItem(): vscode.TreeItem {
         return this.impl.getTreeItem();
     }
+    getPathApi(_namespace: string): string {
+        return ''; //todo ma che so?
+    }
 }
 
 function resourceFolderContributor(displayName: string, pluralDisplayName: string, manifestKind: string, abbreviation: string): ClusterExplorerV1.NodeSource {

@@ -3,13 +3,16 @@ import * as vscode from 'vscode';
 import { Kubectl } from '../../kubectl';
 import * as kubectlUtils from '../../kubectlUtils';
 import { Host } from '../../host';
-import { affectsUs } from '../config/config';
+import { affectsUs, getResourcesToBeWatched } from '../config/config';
 import { ExplorerExtender, ExplorerUICustomizer } from './explorer.extension';
 import * as providerResult from '../../utils/providerresult';
 import { sleep } from '../../sleep';
 import { refreshExplorer } from '../clusterprovider/common/explorer';
 import { ClusterExplorerNode, ClusterExplorerResourceNode } from './node';
 import { MiniKubeContextNode, ContextNode } from './node.context';
+import { loadKubeconfig } from '../../explainer';
+import * as kubernetes from '@kubernetes/client-node';
+import { Request } from 'request';
 
 // Each item in the explorer is modelled as a ClusterExplorerNode.  This
 // is a discriminated union, using a nodeType field as its discriminator.
@@ -106,14 +109,65 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
             customisedTreeItem = providerResult.transformPossiblyAsync(extensionAwareTreeItem, (ti) => c.customize(element, ti));
         }
         return customisedTreeItem;
-}
+    }
 
     getChildren(parent?: ClusterExplorerNode): vscode.ProviderResult<ClusterExplorerNode[]> {
+        // da spostare e forse non conviene creare ogni volta un kubeconfig nuovo??
+        //se on hai diritto a bedere risorse si mete in ascolto uguale??? no ritorna null dentro la callback del watcher
+        const resourcesToWatch = getResourcesToBeWatched();
+        if (parent && resourcesToWatch.length > 0) {
+            const parentTreeItem = parent.getTreeItem();
+            providerResult.transform(parentTreeItem, (ti) => {
+                if (ti.label && resourcesToWatch.indexOf(ti.label) !== -1) {
+                    this.addWatcher(parent);
+                }
+            });
+        }
+
         const baseChildren = this.getChildrenBase(parent);
         const contributedChildren = this.extenders
                                         .filter((e) => e.contributesChildren(parent))
                                         .map((e) => e.getChildren(parent));
         return providerResult.append(baseChildren, ...contributedChildren);
+    }
+
+    async addWatcher(node: ClusterExplorerNode): Promise<void> {
+        const kc = await loadKubeconfig();
+        const namespace = await kubectlUtils.currentNamespace(this.kubectl);
+        const watch = new kubernetes.Watch(kc);
+        const apiUri = node.getPathApi(namespace);
+        const req: Request = watch.watch(`${apiUri}`,
+                    // optional query parameters can go here.
+                    {},
+                    // callback is called for each received object.
+                    (type, obj) => {
+                        if (type === 'ADDED') {
+                            // tslint:disable-next-line:no-console
+                            console.log('new pod:');
+                            //this.refresh(node);
+                        } else if (type === 'MODIFIED') {
+                            // tslint:disable-next-line:no-console
+                            console.log('changed pod:');
+                        } else if (type === 'DELETED') {
+                            // tslint:disable-next-line:no-console
+                            console.log('deleted pod:');
+                            //this.refresh(node);
+                        } else {
+                            // tslint:disable-next-line:no-console
+                            console.log('unknown pod: ' + type);
+                        }
+                        // tslint:disable-next-line:no-console
+                        console.log(obj);
+                    },
+                    // done callback is called if the watch terminates normally
+                    (err) => {
+                        // tslint:disable-next-line:no-console
+                        //err.code === "ECONNRESET";
+                        console.log(err);
+                    }
+        );
+        const v = "";
+        //req.abort();
     }
 
     private getChildrenBase(parent?: ClusterExplorerNode): vscode.ProviderResult<ClusterExplorerNode[]> {
@@ -123,8 +177,8 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         return this.getClusters();
     }
 
-    refresh(): void {
-        this.onDidChangeTreeDataEmitter.fire();
+    refresh(node?: ClusterExplorerNode): void {
+        this.onDidChangeTreeDataEmitter.fire(node);
     }
 
     registerExtender(extender: ExplorerExtender<ClusterExplorerNode>): void {
