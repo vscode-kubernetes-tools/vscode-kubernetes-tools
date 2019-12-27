@@ -135,17 +135,26 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         const watchManager = WatchManager.getInstance();
         const params = {};
         const callback = (type: string, obj: any) => {
+                            const treeItem = node.getTreeItem();
                             if (type === 'ADDED') {
                                 // tslint:disable-next-line:no-console
                                 console.log('new pod:');
-                                this.refresh(node);
+                                providerResult.transform(treeItem, (ti) => {
+                                    if (ti.collapsibleState !== vscode.TreeItemCollapsibleState.Collapsed) {
+                                        this.refresh(node);
+                                    }
+                                });
                             } else if (type === 'MODIFIED') {
                                 // tslint:disable-next-line:no-console
                                 console.log('changed pod:');
                             } else if (type === 'DELETED') {
                                 // tslint:disable-next-line:no-console
                                 console.log('deleted pod:');
-                                this.refresh(node);
+                                providerResult.transform(treeItem, (ti) => {
+                                    if (ti.collapsibleState !== vscode.TreeItemCollapsibleState.Collapsed) {
+                                        this.refresh(node);
+                                    }
+                                });
                             } else {
                                 // tslint:disable-next-line:no-console
                                 console.log('unknown pod: ' + type);
@@ -211,3 +220,5 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         });
     }
 }
+
+
