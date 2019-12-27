@@ -27,9 +27,11 @@
     "activationEvents": [
         "onCommand:extension.vsKubernetesCreate",
         "onCommand:extension.vsKubernetesCreateFile",
+        "onCommand:extension.vsKubernetesAddWatcher",
         "onCommand:extension.vsKubernetesDelete",
         "onCommand:extension.vsKubernetesDeleteNow",
         "onCommand:extension.vsKubernetesDeleteUri",
+        "onCommand:extension.vsKubernetesDeleteWatcher",
         "onCommand:extension.vsKubernetesDescribe.Refresh",
         "onCommand:extension.vsKubernetesApply",
         "onCommand:extension.vsKubernetesApplyFile",
@@ -460,6 +462,16 @@
                     "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.kind/i"
                 },
                 {
+                    "command": "extension.vsKubernetesAddWatcher",
+                    "group": "1@2",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.kind/i"
+                },
+                {
+                    "command": "extension.vsKubernetesDeleteWatcher",
+                    "group": "1@3",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.kind/i"
+                },
+                {
                     "command": "extension.vsKubernetesLoad",
                     "group": "0",
                     "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource(?!\\.namespace).*/i"
@@ -699,6 +711,11 @@
                 "category": "Kubernetes"
             },
             {
+                "command": "extension.vsKubernetesAddWatcher",
+                "title": "Watch",
+                "category": "Kubernetes"
+            },
+            {
                 "command": "extension.vsKubernetesDelete",
                 "title": "Delete",
                 "category": "Kubernetes"
@@ -711,6 +728,11 @@
             {
                 "command": "extension.vsKubernetesDeleteUri",
                 "title": "Delete Kubernetes resource",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesDeleteWatcher",
+                "title": "Delete Watch",
                 "category": "Kubernetes"
             },
             {

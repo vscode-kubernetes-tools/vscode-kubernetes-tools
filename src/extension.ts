@@ -85,6 +85,7 @@ import { getBuildCommand, getPushCommand } from './image/imageUtils';
 import { getImageBuildTool } from './components/config/config';
 import { ClusterExplorerNode, ClusterExplorerConfigurationValueNode, ClusterExplorerResourceNode, ClusterExplorerResourceFolderNode } from './components/clusterexplorer/node';
 import { create as activeContextTrackerCreate } from './components/contextmanager/active-context-tracker';
+import { WatchManager } from './components/kubectl/watch';
 
 let explainActive = false;
 let swaggerSpecPromise: Promise<explainer.SwaggerModel | undefined> | null = null;
@@ -197,6 +198,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.vsKubernetesDeleteContext', deleteContextKubernetes),
         registerCommand('extension.vsKubernetesUseNamespace', (explorerNode: ClusterExplorerNode) => { useNamespaceKubernetes(kubectl, explorerNode); } ),
         registerCommand('extension.vsKubernetesDashboard', () => { dashboardKubernetes(kubectl); }),
+        registerCommand('extension.vsKubernetesAddWatcher', (explorerNode: ClusterExplorerNode) => { addWatch(explorerNode, treeProvider); }),
+        registerCommand('extension.vsKubernetesDeleteWatcher', (explorerNode: ClusterExplorerNode) => { deleteWatch(explorerNode, treeProvider); }),
         registerCommand('extension.vsMinikubeStop', () => minikube.stop()),
         registerCommand('extension.vsMinikubeStart', () => minikube.start({} as MinikubeOptions)),
         registerCommand('extension.vsMinikubeStatus', async () => {
@@ -785,6 +788,24 @@ function getKubernetes(explorerNode?: any) {
         findKindNameOrPrompt(kuberesources.commonKinds, 'get', { nameOptional: true }, (value) => {
             kubectl.invokeInSharedTerminal(` get ${value} -o wide`);
         });
+    }
+}
+
+async function addWatch(explorerNode: ClusterExplorerNode, tree: explorer.KubernetesExplorer) {
+    if (explorerNode) {
+        const nodeItem = await tree.getTreeItem(explorerNode);
+        if (nodeItem.label) {
+            tree.addWatcher(nodeItem.label, explorerNode);
+        }
+    }
+}
+
+async function deleteWatch(explorerNode: ClusterExplorerNode, tree: explorer.KubernetesExplorer) {
+    if (explorerNode) {
+        const nodeItem = await tree.getTreeItem(explorerNode);
+        if (nodeItem.label) {
+            WatchManager.getInstance().removeWatch(nodeItem.label);
+        }
     }
 }
 

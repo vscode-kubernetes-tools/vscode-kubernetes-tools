@@ -140,9 +140,9 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
                                 // tslint:disable-next-line:no-console
                                 console.log('new pod:');
                                 providerResult.transform(treeItem, (ti) => {
-                                    if (ti.collapsibleState !== vscode.TreeItemCollapsibleState.Collapsed) {
+                                    //if (ti.collapsibleState !== vscode.TreeItemCollapsibleState.Collapsed) {
                                         this.refresh(node);
-                                    }
+                                    //}
                                 });
                             } else if (type === 'MODIFIED') {
                                 // tslint:disable-next-line:no-console
@@ -151,9 +151,9 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
                                 // tslint:disable-next-line:no-console
                                 console.log('deleted pod:');
                                 providerResult.transform(treeItem, (ti) => {
-                                    if (ti.collapsibleState !== vscode.TreeItemCollapsibleState.Collapsed) {
+                                    //if (ti.collapsibleState !== vscode.TreeItemCollapsibleState.Collapsed) {
                                         this.refresh(node);
-                                    }
+                                    //}
                                 });
                             } else {
                                 // tslint:disable-next-line:no-console
