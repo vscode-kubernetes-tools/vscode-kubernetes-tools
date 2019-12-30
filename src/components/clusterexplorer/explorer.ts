@@ -11,6 +11,7 @@ import { refreshExplorer } from '../clusterprovider/common/explorer';
 import { ClusterExplorerNode, ClusterExplorerResourceNode } from './node';
 import { MiniKubeContextNode, ContextNode } from './node.context';
 import { WatchManager } from '../kubectl/watch';
+import { clearTimeout, setTimeout } from 'timers';
 
 // Each item in the explorer is modelled as a ClusterExplorerNode.  This
 // is a discriminated union, using a nodeType field as its discriminator.
@@ -84,8 +85,17 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
 
     private readonly extenders = Array.of<ExplorerExtender<ClusterExplorerNode>>();
     private readonly customisers = Array.of<ExplorerUICustomizer<ClusterExplorerNode>>();
+    private readonly viewer: vscode.TreeView<ClusterExplorerNode>;
+    private refreshTimer: NodeJS.Timer;
 
     constructor(private readonly kubectl: Kubectl, private readonly host: Host) {
+        this.viewer = vscode.window.createTreeView('extension.vsKubernetesExplorer', { treeDataProvider: this });
+        this.viewer.onDidExpandElement((event) => {
+            this.expand(event.element);
+        });
+        this.viewer.onDidCollapseElement((event) => {
+            this.collapse(event.element);
+        });
         host.onDidChangeConfiguration((change) => {
             if (affectsUs(change)) {
                 this.refresh();
@@ -110,18 +120,6 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
     }
 
     getChildren(parent?: ClusterExplorerNode): vscode.ProviderResult<ClusterExplorerNode[]> {
-        // da spostare e forse non conviene creare ogni volta un kubeconfig nuovo??
-        //se on hai diritto a bedere risorse si mete in ascolto uguale??? no ritorna null dentro la callback del watcher
-        const resourcesToWatch = getResourcesToBeWatched();
-        if (parent && resourcesToWatch.length > 0) {
-            const parentTreeItem = parent.getTreeItem();
-            providerResult.transform(parentTreeItem, (ti) => {
-                if (ti.label && resourcesToWatch.indexOf(ti.label) !== -1) {
-                    this.addWatcher(ti.label, parent);
-                }
-            });
-        }
-
         const baseChildren = this.getChildrenBase(parent);
         const contributedChildren = this.extenders
                                         .filter((e) => e.contributesChildren(parent))
@@ -135,29 +133,21 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         const watchManager = WatchManager.getInstance();
         const params = {};
         const callback = (type: string, obj: any) => {
-                            const treeItem = node.getTreeItem();
                             if (type === 'ADDED') {
                                 // tslint:disable-next-line:no-console
-                                console.log('new pod:');
-                                providerResult.transform(treeItem, (ti) => {
-                                    //if (ti.collapsibleState !== vscode.TreeItemCollapsibleState.Collapsed) {
-                                        this.refresh(node);
-                                    //}
-                                });
+                                console.log('new element:');
+                                this.queueRefresh(node);
                             } else if (type === 'MODIFIED') {
                                 // tslint:disable-next-line:no-console
-                                console.log('changed pod:');
+                                console.log('changed element:');
+                                this.queueRefresh(node);
                             } else if (type === 'DELETED') {
                                 // tslint:disable-next-line:no-console
-                                console.log('deleted pod:');
-                                providerResult.transform(treeItem, (ti) => {
-                                    //if (ti.collapsibleState !== vscode.TreeItemCollapsibleState.Collapsed) {
-                                        this.refresh(node);
-                                    //}
-                                });
+                                console.log('deleted element:');
+                                this.queueRefresh(node);
                             } else {
                                 // tslint:disable-next-line:no-console
-                                console.log('unknown pod: ' + type);
+                                console.log('unknown element: ' + type);
                             }
                             // tslint:disable-next-line:no-console
                             console.log(obj);
@@ -191,7 +181,7 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         this.queueRefresh();
     }
 
-    queueRefresh(): void {
+    queueRefresh(node?: ClusterExplorerNode): void {
         // In the case where an extender contributes at top level (sibling to cluster nodes),
         // the tree view can populate before the extender has time to register.  So in this
         // case we need to kick off a refresh.  But... it turns out that if we just fire the
@@ -205,7 +195,42 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         // and always queue a refresh.
         //
         // These are pretty niche cases, so I'm not too worried if they aren't perfect.
-        sleep(50).then(() => refreshExplorer());
+        if (!node) {
+            sleep(50).then(() => refreshExplorer());
+        }
+        // In the case where many requests of updating are received in a short amount of time
+        // the tree is not refreshed for every change but once after a while.
+        // Every call resets a timer which trigger the tree refresh
+        clearTimeout(this.refreshTimer);
+        this.refreshTimer = setTimeout(() => {
+            console.log('refresh triggered');
+            this.refresh(node);
+        }, 500);
+    }
+
+    private expand(node: ClusterExplorerNode) {
+        const resourcesToWatch = getResourcesToBeWatched();
+        const treeItem = node.getTreeItem();
+        providerResult.transform(treeItem, (ti) => {
+            if (ti.collapsibleState === vscode.TreeItemCollapsibleState.Collapsed) {
+                ti.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
+            }
+            if (ti.label && resourcesToWatch.length > 0 && resourcesToWatch.indexOf(ti.label) !== -1) {
+                this.addWatcher(ti.label, node);
+            }
+        });
+    }
+
+    private collapse(node: ClusterExplorerNode) {
+        const treeItem = node.getTreeItem();
+        providerResult.transform(treeItem, (ti) => {
+            if (ti.collapsibleState === vscode.TreeItemCollapsibleState.Expanded) {
+                ti.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
+            }
+            if (ti.label) {
+                WatchManager.getInstance().removeWatch(ti.label);
+            }
+        });
     }
 
     private async getClusters(): Promise<ClusterExplorerNode[]> {

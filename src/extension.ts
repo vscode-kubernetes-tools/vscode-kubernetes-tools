@@ -198,8 +198,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.vsKubernetesDeleteContext', deleteContextKubernetes),
         registerCommand('extension.vsKubernetesUseNamespace', (explorerNode: ClusterExplorerNode) => { useNamespaceKubernetes(kubectl, explorerNode); } ),
         registerCommand('extension.vsKubernetesDashboard', () => { dashboardKubernetes(kubectl); }),
-        registerCommand('extension.vsKubernetesAddWatcher', (explorerNode: ClusterExplorerNode) => { addWatch(explorerNode, treeProvider); }),
-        registerCommand('extension.vsKubernetesDeleteWatcher', (explorerNode: ClusterExplorerNode) => { deleteWatch(explorerNode, treeProvider); }),
+        registerCommand('extension.vsKubernetesAddWatcher', (explorerNode: ClusterExplorerNode) => { addWatch(treeProvider, explorerNode); }),
+        registerCommand('extension.vsKubernetesDeleteWatcher', (explorerNode: ClusterExplorerNode) => { deleteWatch(treeProvider, explorerNode); }),
         registerCommand('extension.vsMinikubeStop', () => minikube.stop()),
         registerCommand('extension.vsMinikubeStart', () => minikube.start({} as MinikubeOptions)),
         registerCommand('extension.vsMinikubeStatus', async () => {
@@ -791,7 +791,7 @@ function getKubernetes(explorerNode?: any) {
     }
 }
 
-async function addWatch(explorerNode: ClusterExplorerNode, tree: explorer.KubernetesExplorer) {
+async function addWatch(tree: explorer.KubernetesExplorer, explorerNode?: ClusterExplorerNode) {
     if (explorerNode) {
         const nodeItem = await tree.getTreeItem(explorerNode);
         if (nodeItem.label) {
@@ -800,7 +800,7 @@ async function addWatch(explorerNode: ClusterExplorerNode, tree: explorer.Kubern
     }
 }
 
-async function deleteWatch(explorerNode: ClusterExplorerNode, tree: explorer.KubernetesExplorer) {
+async function deleteWatch(tree: explorer.KubernetesExplorer, explorerNode?: ClusterExplorerNode) {
     if (explorerNode) {
         const nodeItem = await tree.getTreeItem(explorerNode);
         if (nodeItem.label) {
