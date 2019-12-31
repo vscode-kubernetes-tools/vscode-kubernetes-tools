@@ -83,7 +83,7 @@ export interface TreeViewNodeStateChangeEvent<T> extends vscode.TreeViewExpansio
 	state: vscode.TreeItemCollapsibleState;
 }
 
-export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplorerNode>, vscode.Disposable {
+export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplorerNode> {
     private onDidChangeTreeDataEmitter: vscode.EventEmitter<ClusterExplorerNode | undefined> = new vscode.EventEmitter<ClusterExplorerNode | undefined>();
     readonly onDidChangeTreeData: vscode.Event<ClusterExplorerNode | undefined> = this.onDidChangeTreeDataEmitter.event;
 
@@ -222,10 +222,6 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         }, 500);
     }
 
-    dispose() {
-        this.disposable && this.disposable.dispose();
-    }
-
     private onElementCollapsed(e: vscode.TreeViewExpansionEvent<ClusterExplorerNode>) {
         const node = e.element;
         this.collapse(node);
@@ -273,5 +269,3 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         });
     }
 }
-
-
