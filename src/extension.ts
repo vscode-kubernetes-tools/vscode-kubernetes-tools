@@ -296,7 +296,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         portForwardStatusBarItem,
 
         // Telemetry
-        registerTelemetry(context)
+        registerTelemetry(context),
+
+        treeProvider.initialize()
     ];
 
     telemetry.invalidateClusterType(undefined, kubectl);

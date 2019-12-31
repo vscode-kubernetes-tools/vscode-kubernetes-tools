@@ -79,28 +79,42 @@ export function isKubernetesExplorerResourceNode(obj: any): obj is ClusterExplor
     return obj && obj.nodeCategory === KUBERNETES_EXPLORER_NODE_CATEGORY && obj.nodeType === 'resource';
 }
 
-export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplorerNode> {
+export interface TreeViewNodeStateChangeEvent<T> extends vscode.TreeViewExpansionEvent<T> {
+	state: vscode.TreeItemCollapsibleState;
+}
+
+export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplorerNode>, vscode.Disposable {
     private onDidChangeTreeDataEmitter: vscode.EventEmitter<ClusterExplorerNode | undefined> = new vscode.EventEmitter<ClusterExplorerNode | undefined>();
     readonly onDidChangeTreeData: vscode.Event<ClusterExplorerNode | undefined> = this.onDidChangeTreeDataEmitter.event;
 
     private readonly extenders = Array.of<ExplorerExtender<ClusterExplorerNode>>();
     private readonly customisers = Array.of<ExplorerUICustomizer<ClusterExplorerNode>>();
-    private readonly viewer: vscode.TreeView<ClusterExplorerNode>;
+    private viewer: vscode.TreeView<ClusterExplorerNode>;
     private refreshTimer: NodeJS.Timer;
+    private disposable: vscode.Disposable | undefined;
 
     constructor(private readonly kubectl: Kubectl, private readonly host: Host) {
-        this.viewer = vscode.window.createTreeView('extension.vsKubernetesExplorer', { treeDataProvider: this });
-        this.viewer.onDidExpandElement((event) => {
-            this.expand(event.element);
-        });
-        this.viewer.onDidCollapseElement((event) => {
-            this.collapse(event.element);
-        });
         host.onDidChangeConfiguration((change) => {
             if (affectsUs(change)) {
                 this.refresh();
             }
         });
+    }
+
+    initialize() {
+        if (this.disposable) {
+			this.disposable.dispose();
+		}
+
+		this.viewer = vscode.window.createTreeView('extension.vsKubernetesExplorer', {
+            treeDataProvider: this
+        });
+		this.disposable = vscode.Disposable.from(
+			this.viewer,
+            this.viewer.onDidCollapseElement(this.onElementCollapsed, this),
+            this.viewer.onDidExpandElement(this.onElementExpanded, this)
+        );
+        return this.disposable;
     }
 
     getTreeItem(element: ClusterExplorerNode): vscode.TreeItem | Thenable<vscode.TreeItem> {
@@ -206,6 +220,20 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
             console.log('refresh triggered');
             this.refresh(node);
         }, 500);
+    }
+
+    dispose() {
+        this.disposable && this.disposable.dispose();
+    }
+
+    private onElementCollapsed(e: vscode.TreeViewExpansionEvent<ClusterExplorerNode>) {
+        const node = e.element;
+        this.collapse(node);
+	}
+
+	private onElementExpanded(e: vscode.TreeViewExpansionEvent<ClusterExplorerNode>) {
+        const node = e.element;
+        this.expand(node);
     }
 
     private expand(node: ClusterExplorerNode) {
