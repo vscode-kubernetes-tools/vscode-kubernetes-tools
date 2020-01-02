@@ -1939,6 +1939,7 @@ async function useContextKubernetes(explorerNode: ClusterExplorerNode) {
         telemetry.invalidateClusterType(targetContext);
         activeContextTracker.setActive(targetContext);
         refreshExplorer();
+        WatchManager.getInstance().clear();
     } else {
         vscode.window.showErrorMessage(`Failed to set '${targetContext}' as current cluster: ${shellResult ? shellResult.stderr : "Unable to run kubectl"}`);
     }
