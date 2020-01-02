@@ -25,7 +25,6 @@ export class WatchManager {
         const kc = await loadKubeconfig();
         const kcWatch = new kubernetes.Watch(kc);
         const doneCallback = (err: any) => {
-                                            // tslint:disable-next-line:no-console
                                             // Error: read ECONNRESET
                                             // at TLSWrap.onStreamRead (internal/stream_base_commons.js:183:27)
                                             if (err &&

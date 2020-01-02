@@ -795,10 +795,7 @@ function getKubernetes(explorerNode?: any) {
 
 async function addWatch(tree: explorer.KubernetesExplorer, explorerNode?: ClusterExplorerNode) {
     if (explorerNode) {
-        const nodeItem = await tree.getTreeItem(explorerNode);
-        if (nodeItem.label) {
-            tree.addWatcher(nodeItem.label, explorerNode);
-        }
+        tree.addWatcher(explorerNode);
     }
 }
 

@@ -12,6 +12,7 @@ import { ClusterExplorerNode, ClusterExplorerResourceNode } from './node';
 import { MiniKubeContextNode, ContextNode } from './node.context';
 import { WatchManager } from '../kubectl/watch';
 import { clearTimeout, setTimeout } from 'timers';
+import { ResourceFolderNode } from './node.folder.resource';
 
 // Each item in the explorer is modelled as a ClusterExplorerNode.  This
 // is a discriminated union, using a nodeType field as its discriminator.
@@ -92,6 +93,7 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
     private viewer: vscode.TreeView<ClusterExplorerNode>;
     private refreshTimer: NodeJS.Timer;
     private disposable: vscode.Disposable | undefined;
+    private readonly refreshQueue: Array<ClusterExplorerNode> = new Array<ClusterExplorerNode>();
 
     constructor(private readonly kubectl: Kubectl, private readonly host: Host) {
         host.onDidChangeConfiguration((change) => {
@@ -141,10 +143,9 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         return providerResult.append(baseChildren, ...contributedChildren);
     }
 
-    async addWatcher(label: string, node: ClusterExplorerNode): Promise<void> {
+    async addWatcher(node: ClusterExplorerNode): Promise<void> {
         const namespace = await kubectlUtils.currentNamespace(this.kubectl);
         const apiUri = node.getPathApi(namespace);
-        const watchManager = WatchManager.getInstance();
         const params = {};
         const callback = (type: string, obj: any) => {
                             if (type === 'ADDED') {
@@ -166,6 +167,9 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
                             // tslint:disable-next-line:no-console
                             console.log(obj);
                         };
+        const ti = await this.getTreeItem(node);
+        const label = ti.label || '';
+        const watchManager = WatchManager.getInstance();
         watchManager.addWatch(label, apiUri, params, callback);
     }
 
@@ -216,9 +220,11 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         // the tree is not refreshed for every change but once after a while.
         // Every call resets a timer which trigger the tree refresh
         clearTimeout(this.refreshTimer);
+        // TODO check if element already is in refreshqueue before pushing it
+        this.refreshQueue.push(node as ClusterExplorerNode);
         this.refreshTimer = setTimeout(() => {
             console.log('refresh triggered');
-            this.refresh(node);
+            this.refreshQueue.splice(0).forEach((_node) => this.refresh(_node));
         }, 500);
     }
 
@@ -240,7 +246,7 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
                 ti.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
             }
             if (ti.label && resourcesToWatch.length > 0 && resourcesToWatch.indexOf(ti.label) !== -1) {
-                this.addWatcher(ti.label, node);
+                this.addWatcher(node);
             }
         });
     }
