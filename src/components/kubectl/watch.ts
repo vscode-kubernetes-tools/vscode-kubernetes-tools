@@ -18,8 +18,8 @@ export class WatchManager {
         return this.instance;
     }
 
-    public async addWatch(name: string, apiUri: string, params: any, callback: (phase: string, obj: any) => void): Promise<void> {
-        if (this.watchers.has(name)) {
+    public async addWatch(id: string, apiUri: string, params: any, callback: (phase: string, obj: any) => void): Promise<void> {
+        if (this.watchers.has(id)) {
             return;
         }
         const kc = await loadKubeconfig();
@@ -29,8 +29,8 @@ export class WatchManager {
                                             // at TLSWrap.onStreamRead (internal/stream_base_commons.js:183:27)
                                             if (err &&
                                                 (err as Error).name === "ECONNRESET") {
-                                                    this.removeWatch(name);
-                                                    this.addWatch(name, apiUri, params, callback);
+                                                    this.removeWatch(id);
+                                                    this.addWatch(id, apiUri, params, callback);
                                             }
                                             console.log(err);
                                             };
@@ -39,17 +39,25 @@ export class WatchManager {
                                                callback,
                                                doneCallback
                                                );
-        this.watchers.set(name, watcher);
+        this.watchers.set(id, watcher);
     }
 
-    public removeWatch(name: string) {
-        if (!this.watchers.has(name)) {
+    public removeWatch(id: string) {
+        if (!this.watchers.has(id)) {
             return;
         }
-        const watcher = this.watchers.get(name);
+        const watcher = this.watchers.get(id);
         if (watcher) {
             watcher.abort();
         }
-        this.watchers.delete(name);
+        this.watchers.delete(id);
+    }
+
+    public clear() {
+        if (this.watchers && this.watchers.size > 0) {
+            this.watchers.forEach((_value, key, _map) => {
+                this.removeWatch(key);
+            });
+        }
     }
 }
