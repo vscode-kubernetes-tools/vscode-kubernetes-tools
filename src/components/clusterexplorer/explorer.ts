@@ -167,8 +167,13 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
                             // tslint:disable-next-line:no-console
                             console.log(obj);
                         };
-        const ti = await this.getTreeItem(node);
-        const label = ti.label || '';
+        let label = '';
+        if ("kind" in node) {
+            label = node.kind.abbreviation;
+        }
+        if ("kindName" in node) {
+            label = node.kindName;
+        }
         const watchManager = WatchManager.getInstance();
         watchManager.addWatch(label, apiUri, params, callback);
     }
@@ -229,13 +234,11 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
     }
 
     private onElementCollapsed(e: vscode.TreeViewExpansionEvent<ClusterExplorerNode>) {
-        const node = e.element;
-        this.collapse(node);
+        this.collapse(e.element);
 	}
 
 	private onElementExpanded(e: vscode.TreeViewExpansionEvent<ClusterExplorerNode>) {
-        const node = e.element;
-        this.expand(node);
+        this.expand(e.element);
     }
 
     private expand(node: ClusterExplorerNode) {

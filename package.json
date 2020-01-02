@@ -522,6 +522,16 @@
                     "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.service/i"
                 },
                 {
+                    "command": "extension.vsKubernetesAddWatcher",
+                    "group": "2@7",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\./i"
+                },
+                {
+                    "command": "extension.vsKubernetesDeleteWatcher",
+                    "group": "2@8",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\./i"
+                },
+                {
                     "command": "extension.vsKubernetesPortForward",
                     "group": "2@6",
                     "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.deployment/i"
