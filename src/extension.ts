@@ -199,7 +199,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.vsKubernetesUseNamespace', (explorerNode: ClusterExplorerNode) => { useNamespaceKubernetes(kubectl, explorerNode); } ),
         registerCommand('extension.vsKubernetesDashboard', () => { dashboardKubernetes(kubectl); }),
         registerCommand('extension.vsKubernetesAddWatcher', (explorerNode: ClusterExplorerNode) => { addWatch(treeProvider, explorerNode); }),
-        registerCommand('extension.vsKubernetesDeleteWatcher', (explorerNode: ClusterExplorerNode) => { deleteWatch(explorerNode); }),
+        registerCommand('extension.vsKubernetesDeleteWatcher', (explorerNode: ClusterExplorerNode) => { deleteWatch(treeProvider, explorerNode); }),
         registerCommand('extension.vsMinikubeStop', () => minikube.stop()),
         registerCommand('extension.vsMinikubeStart', () => minikube.start({} as MinikubeOptions)),
         registerCommand('extension.vsMinikubeStatus', async () => {
@@ -793,22 +793,16 @@ function getKubernetes(explorerNode?: any) {
     }
 }
 
-async function addWatch(tree: explorer.KubernetesExplorer, explorerNode?: ClusterExplorerNode) {
+function addWatch(tree: explorer.KubernetesExplorer, explorerNode?: ClusterExplorerNode) {
     if (explorerNode) {
-        tree.addWatcher(explorerNode);
+        tree.watch(explorerNode);
     }
 }
 
-async function deleteWatch(explorerNode?: ClusterExplorerNode) {
+function deleteWatch(tree: explorer.KubernetesExplorer, explorerNode?: ClusterExplorerNode) {
     if (explorerNode) {
-        let label = '';
-        if ("kind" in explorerNode) {
-            label = explorerNode.kind.abbreviation;
-        }
-        if ("kindName" in explorerNode) {
-            label = explorerNode.kindName;
-        }
-        WatchManager.getInstance().removeWatch(label);
+        const id = tree.getWatchId(explorerNode);
+        WatchManager.getInstance().removeWatch(id);
     }
 }
 
