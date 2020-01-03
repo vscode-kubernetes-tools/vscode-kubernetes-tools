@@ -58,11 +58,11 @@ export class WatchManager {
             this.watchers.forEach((_value, key, _map) => {
                 this.removeWatch(key);
             });
+            this.watchers.clear();
         }
-        this.watchers.clear();
     }
 
-    public isWatched(id: string) {
+    public existsWatch(id: string) {
         return id && this.watchers.has(id);
     }
 }

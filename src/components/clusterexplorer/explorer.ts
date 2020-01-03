@@ -152,6 +152,7 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         const params = {};
         const callback = (type: string, _obj: any) => {
                             if (type) {
+                                console.log(`watch action: ${type}`);
                                 this.queueRefresh(node);
                             }
                         };
@@ -230,7 +231,7 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
             if (ti.collapsibleState === vscode.TreeItemCollapsibleState.Collapsed) {
                 ti.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
             }
-            if (WatchManager.getInstance().isWatched(watchId) ||
+            if (WatchManager.getInstance().existsWatch(watchId) ||
                 (ti.label &&
                 resourcesToWatch.length > 0 &&
                 resourcesToWatch.indexOf(ti.label) !== -1)) {
@@ -247,7 +248,9 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
             }
         });
         const watchId = this.getWatchId(node);
-        WatchManager.getInstance().removeWatch(watchId);
+        if (WatchManager.getInstance().existsWatch(watchId)) {
+            WatchManager.getInstance().removeWatch(watchId);
+        }
     }
 
     public getWatchId(node: ClusterExplorerNode) {
