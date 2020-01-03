@@ -25,6 +25,6 @@ export class ConfigurationValueNode extends ClusterExplorerNodeImpl implements C
         return [];
     }
     getPathApi(_namespace: string): string {
-        return ''; //todo ma che so??
+        return '';
     }
 }

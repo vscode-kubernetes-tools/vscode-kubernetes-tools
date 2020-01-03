@@ -26,7 +26,7 @@ export class HelmReleaseNode extends ClusterExplorerNodeImpl implements ClusterE
         return treeItem;
     }
     getPathApi(_namespace: string): string {
-        return ''; //todo
+        return '';
     }
 }
 

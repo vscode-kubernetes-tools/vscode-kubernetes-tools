@@ -198,8 +198,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.vsKubernetesDeleteContext', deleteContextKubernetes),
         registerCommand('extension.vsKubernetesUseNamespace', (explorerNode: ClusterExplorerNode) => { useNamespaceKubernetes(kubectl, explorerNode); } ),
         registerCommand('extension.vsKubernetesDashboard', () => { dashboardKubernetes(kubectl); }),
-        registerCommand('extension.vsKubernetesAddWatcher', (explorerNode: ClusterExplorerNode) => { addWatch(treeProvider, explorerNode); }),
-        registerCommand('extension.vsKubernetesDeleteWatcher', (explorerNode: ClusterExplorerNode) => { deleteWatch(treeProvider, explorerNode); }),
+        registerCommand('extension.vsKubernetesAddWatch', (explorerNode: ClusterExplorerNode) => { addWatch(treeProvider, explorerNode); }),
+        registerCommand('extension.vsKubernetesDeleteWatch', (explorerNode: ClusterExplorerNode) => { deleteWatch(treeProvider, explorerNode); }),
         registerCommand('extension.vsMinikubeStop', () => minikube.stop()),
         registerCommand('extension.vsMinikubeStart', () => minikube.start({} as MinikubeOptions)),
         registerCommand('extension.vsMinikubeStatus', async () => {

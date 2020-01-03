@@ -20,7 +20,21 @@ export abstract class FolderNode extends ClusterExplorerNodeImpl implements Clus
     }
 
     getPathApi(namespace: string): string {
-        const namespaceUri = ["namespaces", "nodes"].indexOf(this.displayName.toLowerCase()) !== -1 ? "" : `namespaces/${namespace}/`;
-        return `/api/v1/${namespaceUri}${this.displayName.toLowerCase()}`;
+        let namespaceUri = '';
+        let baseUri = '/api/v1/';
+        switch (this.displayName.toLowerCase()) {
+            case "namespaces" || "nodes": {
+                break;
+            }
+            case "jobs": {
+                baseUri = '/apis/batch/v1/';
+                break;
+            }
+            default: {
+                namespaceUri = `namespaces/${namespace}/`;
+                break;
+            }
+        }
+        return `${baseUri}${namespaceUri}${this.displayName.toLowerCase()}`;
     }
 }

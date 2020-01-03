@@ -57,8 +57,10 @@ export class ResourceNode extends ClusterExplorerNodeImpl implements ClusterExpl
         return getChildSources(this.kind).length > 0;
     }
 
-    getPathApi(_namespace: string): string {
-        return ''; //todo
+    getPathApi(namespace: string): string {
+        const kind = this.kind.pluralDisplayName.toLowerCase();
+        const namespaceUri = ["namespaces", "nodes"].indexOf(kind) !== -1 ? kind : `namespaces/${namespace}/${kind}`;
+        return `/api/v1/${namespaceUri}/${this.name}`;
     }
 }
 
