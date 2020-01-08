@@ -129,7 +129,7 @@ export class ContributedNode implements ClusterExplorerCustomNode {
     getTreeItem(): vscode.TreeItem {
         return this.impl.getTreeItem();
     }
-    getPathApi(_namespace: string): string {
+    async getPathApi(_namespace: string): Promise<string> {
         return ''; //todo ma che so?
     }
 }

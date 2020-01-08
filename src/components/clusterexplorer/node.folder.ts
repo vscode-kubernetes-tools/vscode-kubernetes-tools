@@ -4,6 +4,7 @@ import { Kubectl } from '../../kubectl';
 import { Host } from '../../host';
 import { ClusterExplorerNode, ClusterExplorerNodeBase, ClusterExplorerNodeImpl } from './node';
 import { KubernetesExplorerNodeType } from './explorer';
+import { getResourceVersion } from '../../extension';
 
 export abstract class FolderNode extends ClusterExplorerNodeImpl implements ClusterExplorerNodeBase {
 
@@ -19,22 +20,20 @@ export abstract class FolderNode extends ClusterExplorerNodeImpl implements Clus
         return treeItem;
     }
 
-    getPathApi(namespace: string): string {
-        let namespaceUri = '';
-        let baseUri = '/api/v1/';
-        switch (this.displayName.toLowerCase()) {
-            case "namespaces" || "nodes": {
-                break;
-            }
-            case "jobs": {
-                baseUri = '/apis/batch/v1/';
+    async getPathApi(namespace: string): Promise<string> {
+        const resources = this.displayName.replace(/\s/g, '').toLowerCase();
+        const version = await getResourceVersion(resources);
+        const baseUri = (version === 'v1') ? `/api/${version}/` : `/apis/${version}/`;
+        let namespaceUri = `namespaces/${namespace}/`;
+        switch (resources) {
+            case "namespaces" || "nodes" || "persistentvolumes" || "storageclasses": {
+                namespaceUri = '';
                 break;
             }
             default: {
-                namespaceUri = `namespaces/${namespace}/`;
                 break;
             }
         }
-        return `${baseUri}${namespaceUri}${this.displayName.toLowerCase()}`;
+        return `${baseUri}${namespaceUri}${resources}`;
     }
 }

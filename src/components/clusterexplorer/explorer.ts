@@ -145,7 +145,7 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
     async watch(node: ClusterExplorerNode): Promise<void> {
         const id = this.getWatchId(node);
         const namespace = await kubectlUtils.currentNamespace(this.kubectl);
-        const apiUri = node.getPathApi(namespace);
+        const apiUri = await node.getPathApi(namespace);
         if (!apiUri) {
             return;
         }

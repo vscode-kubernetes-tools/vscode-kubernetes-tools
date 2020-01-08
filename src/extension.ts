@@ -2278,3 +2278,22 @@ function kubernetesFindCloudProviders() {
     const searchUrl = 'https://marketplace.visualstudio.com/search?term=kubernetes-extension-cloud-provider&target=VSCode&category=All%20categories&sortBy=Relevance';
     browser.open(searchUrl);
 }
+
+export async function getResourceVersion(resource: string): Promise<string> {
+    const documentation = await kubectl.asLines(` explain ${resource}`);
+    if (failed(documentation)) {
+        return '';
+    }
+
+    const rgx = new RegExp('(?<=VERSION:\\s*)(\\S)+.*');
+    let version = '';
+    for (const line of documentation.result) {
+        const match = line.match(rgx);
+        if (match) {
+            version = match[0];
+            break;
+        }
+    }
+
+    return version;
+}
