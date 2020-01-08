@@ -265,10 +265,6 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
                 break;
             }
             default: {
-                const treeItem = node.getTreeItem();
-                providerResult.transform(treeItem, (ti) => {
-                    id = ti.id || '';
-                });
                 break;
             }
         }
