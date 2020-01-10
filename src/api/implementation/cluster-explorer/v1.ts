@@ -130,7 +130,7 @@ export class ContributedNode implements ClusterExplorerCustomNode {
         return this.impl.getTreeItem();
     }
     async getPathApi(_namespace: string): Promise<string> {
-        return ''; //todo ma che so?
+        return '';
     }
 }
 

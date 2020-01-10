@@ -144,6 +144,9 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
 
     async watch(node: ClusterExplorerNode): Promise<void> {
         const id = this.getWatchId(node);
+        if (!id) {
+            return;
+        }
         const namespace = await kubectlUtils.currentNamespace(this.kubectl);
         const apiUri = await node.getPathApi(namespace);
         if (!apiUri) {
@@ -152,7 +155,6 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         const params = {};
         const callback = (type: string, _obj: any) => {
                             if (type) {
-                                console.log(`watch action: ${type}`);
                                 this.queueRefresh(node);
                             }
                         };
@@ -202,17 +204,27 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         // These are pretty niche cases, so I'm not too worried if they aren't perfect.
         if (!node) {
             sleep(50).then(() => refreshExplorer());
+        } else {
+            const currentNodeId = this.getWatchId(node as ClusterExplorerNode);
+            if (!currentNodeId) {
+                return;
+            }
+            // In the case where many requests of updating are received in a short amount of time
+            // the tree is not refreshed for every change but once after a while.
+            // Every call resets a timer which trigger the tree refresh
+            clearTimeout(this.refreshTimer);
+            // check if element already is in refreshqueue before pushing it
+            const hasNode = this.refreshQueue.find((nodeQueue) => {
+                const nodeQueueid = this.getWatchId(nodeQueue);
+                return nodeQueueid && currentNodeId === nodeQueueid;
+            });
+            if (!hasNode) {
+                this.refreshQueue.push(node as ClusterExplorerNode);
+            }
+            this.refreshTimer = setTimeout(() => {
+                this.refreshQueue.splice(0).forEach((_node) => this.refresh(_node));
+            }, 500);
         }
-        // In the case where many requests of updating are received in a short amount of time
-        // the tree is not refreshed for every change but once after a while.
-        // Every call resets a timer which trigger the tree refresh
-        clearTimeout(this.refreshTimer);
-        // TODO check if element already is in refreshqueue before pushing it
-        this.refreshQueue.push(node as ClusterExplorerNode);
-        this.refreshTimer = setTimeout(() => {
-            console.log('refresh triggered');
-            this.refreshQueue.splice(0).forEach((_node) => this.refresh(_node));
-        }, 500);
     }
 
     private onElementCollapsed(e: vscode.TreeViewExpansionEvent<ClusterExplorerNode>) {
@@ -231,10 +243,11 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
             if (ti.collapsibleState === vscode.TreeItemCollapsibleState.Collapsed) {
                 ti.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
             }
-            if (WatchManager.getInstance().existsWatch(watchId) ||
+            if (watchId &&
+                (WatchManager.getInstance().existsWatch(watchId) ||
                 (ti.label &&
                 resourcesToWatch.length > 0 &&
-                resourcesToWatch.indexOf(ti.label) !== -1)) {
+                resourcesToWatch.indexOf(ti.label) !== -1))) {
                 this.watch(node);
             }
         });
@@ -248,7 +261,7 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
             }
         });
         const watchId = this.getWatchId(node);
-        if (WatchManager.getInstance().existsWatch(watchId)) {
+        if (watchId && WatchManager.getInstance().existsWatch(watchId)) {
             WatchManager.getInstance().removeWatch(watchId);
         }
     }

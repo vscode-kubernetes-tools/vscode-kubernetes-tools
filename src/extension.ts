@@ -802,7 +802,9 @@ function addWatch(tree: explorer.KubernetesExplorer, explorerNode?: ClusterExplo
 function deleteWatch(tree: explorer.KubernetesExplorer, explorerNode?: ClusterExplorerNode) {
     if (explorerNode) {
         const id = tree.getWatchId(explorerNode);
-        WatchManager.getInstance().removeWatch(id);
+        if (id) {
+            WatchManager.getInstance().removeWatch(id);
+        }
     }
 }
 
