@@ -42,7 +42,7 @@ export class DotNetDebugProvider implements IDebugProvider {
                 pipeProgram: "kubectl",
                 pipeArgs: [ "exec", "-i", pod, "--" ],
                 debuggerPath: "/vsdbg/vsdbg",
-                pipeCwd: "${workspaceRoot}",
+                pipeCwd: workspaceFolder,
                 quoteArgs: false
             }
         };
