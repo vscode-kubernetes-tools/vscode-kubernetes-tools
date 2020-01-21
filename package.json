@@ -279,8 +279,7 @@
                         "vs-kubernetes.nodejs-debug-port": 9229,
                         "checkForMinikubeUpgrade": true,
                         "logsDisplay": "webview",
-                        "imageBuildTool": "Docker",
-                        "resource-to-be-watched": ""
+                        "imageBuildTool": "Docker"
                     }
                 },
                 "vsdocker.imageUser": {
