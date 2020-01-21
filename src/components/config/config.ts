@@ -94,7 +94,7 @@ export async function setActiveKubeconfig(kubeconfig: string): Promise<void> {
 export function getKubeconfig () : string {
 	let kubeConfig = vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)[KUBECONFIG_PATH_KEY];
 	if (!kubeConfig) {
-		kubeConfig = process.env.KUBECONFIG;
+		kubeConfig = process.env['KUBECONFIG'];
 	}
 	if (!kubeConfig) {
 		kubeConfig = path.join((process.env['HOME'] || process.env['USERPROFILE'] || '.'), ".kube", "config"); // default kubeconfig value
