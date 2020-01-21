@@ -3,7 +3,7 @@
 import * as vscode from 'vscode';
 import * as shelljs from 'shelljs';
 import * as path from 'path';
-import { getActiveKubeconfig, getToolPath, getUseWsl } from './components/config/config';
+import { getKubeconfig, getToolPath, getUseWsl } from './components/config/config';
 import { host } from './host';
 import { ChildProcess } from 'child_process';
 
@@ -187,7 +187,7 @@ export function shellEnvironment(baseEnvironment: any): any {
         }
     }
 
-    const kubeconfig = getActiveKubeconfig();
+    const kubeconfig = getKubeconfig();
     if (kubeconfig) {
         env['KUBECONFIG'] = kubeconfig;
     }

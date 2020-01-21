@@ -1,16 +1,15 @@
 import * as vscode from 'vscode';
 import { fs } from '../../fs';
-import * as path from 'path';
 import * as yaml from 'js-yaml';
 import { refreshExplorer } from '../clusterprovider/common/explorer';
-import { getActiveKubeconfig } from '../config/config';
+import { getKubeconfig } from '../config/config';
 
 interface Named {
     readonly name: string;
 }
 
 export async function mergeToKubeconfig(newConfigText: string): Promise<void> {
-    const kcfile = kubeconfigPath();
+    const kcfile = getKubeconfig();
     if (!(await fs.existsAsync(kcfile))) {
         vscode.window.showErrorMessage("Couldn't find kubeconfig file to merge into");
         return;
@@ -55,12 +54,4 @@ async function mergeInto(existing: Named[], toMerge: Named[]): Promise<void> {
         }
         existing.push(toMergeEntry);
     }
-}
-
-function kubeconfigPath(): string {
-    return getActiveKubeconfig() || getDefaultKubeconfig();
-}
-
-function getDefaultKubeconfig(): string {
-    return path.join((process.env['HOME'] || process.env['USERPROFILE'] || '.'), ".kube", "config");
 }

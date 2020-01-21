@@ -9,7 +9,7 @@ import { Kubectl } from '../../kubectl';
 import { getCurrentContext } from '../../kubectlUtils';
 import { succeeded } from '../../errorable';
 import { FileBacked } from '../../utils/filebacked';
-import { getActiveKubeconfig } from '../config/config';
+import { getKubeconfig } from '../config/config';
 import { Host } from '../../host';
 import { mkdirpAsync } from '../../utils/mkdirp';
 import { platformUrlString, formatBin } from '../installer/installationlayout';
@@ -101,7 +101,7 @@ async function ensureCacheIsForCurrentKubeconfig(): Promise<void> {
 }
 
 async function getKubeconfigPathHash(): Promise<string | undefined> {
-    const kubeconfigPath = getActiveKubeconfig() || process.env['KUBECONFIG'] || path.join(shell.home(), '.kube/config');
+    const kubeconfigPath = getKubeconfig();
     if (!await fs.existsAsync(kubeconfigPath)) {
         return undefined;
     }
