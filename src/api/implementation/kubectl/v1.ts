@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 
 import { KubectlV1 } from "../../contract/kubectl/v1";
 import { Kubectl } from "../../../kubectl";
+import { getKubeconfig } from '../../../components/config/config';
 import { ChildProcess } from 'child_process';
 import { PortForwardStatusBarManager } from '../../../components/kubectl/port-forward-ui';
 
@@ -49,6 +50,10 @@ class KubectlV1Impl implements KubectlV1 {
         }
 
         return undefined;
+    }
+
+    getKubeconfig() : string {
+        return getKubeconfig();
     }
 }
 
