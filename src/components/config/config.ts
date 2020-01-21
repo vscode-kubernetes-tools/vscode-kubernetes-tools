@@ -91,7 +91,7 @@ export async function setActiveKubeconfig(kubeconfig: string): Promise<void> {
     await addPathToConfig(KUBECONFIG_PATH_KEY, kubeconfig);
 }
 
-export function getKubeconfig () : string {
+export function getKubeconfig(): string {
 	let kubeConfig = vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)[KUBECONFIG_PATH_KEY];
 	if (!kubeConfig) {
 		kubeConfig = process.env['KUBECONFIG'];
@@ -99,7 +99,7 @@ export function getKubeconfig () : string {
 	if (!kubeConfig) {
 		kubeConfig = path.join((process.env['HOME'] || process.env['USERPROFILE'] || '.'), ".kube", "config"); // default kubeconfig value
 	}
-	return kubeConfig;	
+	return kubeConfig;
 }
 
 // Functions for working with tool paths

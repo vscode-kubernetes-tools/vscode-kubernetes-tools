@@ -52,7 +52,7 @@ class KubectlV1Impl implements KubectlV1 {
         return undefined;
     }
 
-    getKubeconfig() : string {
+    getKubeconfig(): string {
         return getKubeconfig();
     }
 }
