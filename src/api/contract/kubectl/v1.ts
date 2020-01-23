@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 export interface KubectlV1 {
     invokeCommand(command: string): Promise<KubectlV1.ShellResult | undefined>;
     portForward(podName: string, podNamespace: string | undefined, localPort: number, remotePort: number, options?: KubectlV1.PortForwardOptions): Promise<vscode.Disposable | undefined>;
-    getKubeconfig(): string;
+    getKubeconfigPath(): string;
 }
 
 export namespace KubectlV1 {
