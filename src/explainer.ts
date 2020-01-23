@@ -6,11 +6,11 @@ import * as pluralize from 'pluralize';
 import * as shelljs from 'shelljs';
 
 import { formatComplex, formatOne, Typed, formatType } from "./schema-formatting";
-import { getKubeconfig, getUseWsl } from './components/config/config';
+import { getKubeconfigPath, getUseWsl } from './components/config/config';
 
 async function loadKubeconfig(): Promise<kubernetes.KubeConfig> {
     const kc = new kubernetes.KubeConfig();
-    const kubeconfig = getKubeconfig();
+    const kubeconfig = getKubeconfigPath();
     if (kubeconfig) {
         kc.loadFromFile(kubeconfig);
         return kc;
