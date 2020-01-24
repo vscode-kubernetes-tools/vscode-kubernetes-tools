@@ -3,9 +3,10 @@
 import * as vscode from 'vscode';
 import * as shelljs from 'shelljs';
 import * as path from 'path';
-import { getKubeconfigPath, getToolPath, getUseWsl } from './components/config/config';
+import { getToolPath, getUseWsl } from './components/config/config';
 import { host } from './host';
 import { ChildProcess } from 'child_process';
+import { getKubeconfigPath } from './components/kubectl/kubeconfig';
 
 export enum Platform {
     Windows,
@@ -187,11 +188,8 @@ export function shellEnvironment(baseEnvironment: any): any {
         }
     }
 
-    const kubeconfig = getKubeconfigPath();
-    if (kubeconfig) {
-        env['KUBECONFIG'] = kubeconfig;
-    }
-
+    const config = getKubeconfigPath();
+    env['KUBECONFIG'] = config.isHostPath ? config.path : config.guestPath;
     return env;
 }
 

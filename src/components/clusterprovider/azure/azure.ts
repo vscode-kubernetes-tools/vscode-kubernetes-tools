@@ -6,7 +6,7 @@ import { ActionResult, fromShellJson, fromShellExitCodeAndStandardError, fromShe
 import { Errorable, failed } from '../../../errorable';
 import * as compareVersions from 'compare-versions';
 import { sleep } from '../../../sleep';
-import { getKubeconfigPath } from '../../config/config';
+import { getKubeconfigPath } from '../../kubectl/kubeconfig';
 import { Dictionary } from '../../../utils/dictionary';
 
 export interface Context {
@@ -351,8 +351,9 @@ async function downloadKubectlCli(context: Context, clusterType: string): Promis
 }
 
 async function getCredentials(context: Context, clusterType: string, clusterName: string, clusterGroup: string, maxAttempts: number): Promise<any> {
-    const kubeconfig = getKubeconfigPath();
-    const kubeconfigFileOption = kubeconfig ? `-f "${kubeconfig}"` : '';
+    const config = getKubeconfigPath();
+    const kubeconfigPath = config.isHostPath ? config.path : config.guestPath;
+    const kubeconfigFileOption = kubeconfigPath ? `-f "${kubeconfigPath}"` : '';
     let attempts = 0;
     while (true) {
         attempts++;

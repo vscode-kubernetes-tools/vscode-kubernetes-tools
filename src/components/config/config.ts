@@ -1,4 +1,3 @@
-import * as path from 'path';
 import * as vscode from 'vscode';
 import { Host } from '../../host';
 import { Shell, Platform } from '../../shell';
@@ -91,15 +90,8 @@ export async function setActiveKubeconfig(kubeconfig: string): Promise<void> {
     await addPathToConfig(KUBECONFIG_PATH_KEY, kubeconfig);
 }
 
-export function getKubeconfigPath(): string {
-    let kubeConfig = vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)[KUBECONFIG_PATH_KEY];
-    if (!kubeConfig) {
-        kubeConfig = process.env['KUBECONFIG'];
-    }
-    if (!kubeConfig) {
-        kubeConfig = path.join((process.env['HOME'] || process.env['USERPROFILE'] || '.'), ".kube", "config"); // default kubeconfig value
-    }
-    return kubeConfig;
+export function getActiveKubeconfig(): string {
+    return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)[KUBECONFIG_PATH_KEY];
 }
 
 // Functions for working with tool paths
