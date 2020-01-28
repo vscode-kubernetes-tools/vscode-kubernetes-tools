@@ -352,8 +352,8 @@ async function downloadKubectlCli(context: Context, clusterType: string): Promis
 
 async function getCredentials(context: Context, clusterType: string, clusterName: string, clusterGroup: string, maxAttempts: number): Promise<any> {
     const config = getKubeconfigPath();
-    const kubeconfigPath = config.isHostPath ? config.path : config.guestPath;
-    const kubeconfigFileOption = kubeconfigPath ? `-f "${kubeconfigPath}"` : '';
+    const kubeconfigFilePath = config.pathType === "host" ? config.hostPath : config.wslPath;
+    const kubeconfigFileOption = kubeconfigFilePath ? `-f "${kubeconfigFilePath}"` : '';
     let attempts = 0;
     while (true) {
         attempts++;

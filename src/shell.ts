@@ -189,7 +189,7 @@ export function shellEnvironment(baseEnvironment: any): any {
     }
 
     const config = getKubeconfigPath();
-    env['KUBECONFIG'] = config.isHostPath ? config.path : config.guestPath;
+    env['KUBECONFIG'] = config.pathType === "host" ? config.hostPath : config.wslPath;
     return env;
 }
 

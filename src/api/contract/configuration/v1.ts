@@ -3,19 +3,21 @@
 // at all times.
 
 export interface ConfigurationV1 {
-    getKubeconfigPath(): ConfigurationV1.HostedKubeconfig | ConfigurationV1.GuestKubeconfig;
+    getKubeconfigPath(): ConfigurationV1.KubeconfigPath;
 }
 
 export namespace ConfigurationV1 {
 
-    export interface HostedKubeconfig {
-        readonly isHostPath: true;
-        path: string;
+    export interface HostKubeconfigPath {
+        readonly pathType: 'host';
+        hostPath: string;
     }
 
-    export interface GuestKubeconfig {
-        readonly isHostPath: false;
-        readonly guestPathType: 'wsl';
-        guestPath: string;
+    export interface WslKubeconfigPath {
+        readonly pathType: 'wsl';
+        wslPath: string;
     }
+
+    export type KubeconfigPath = HostKubeconfigPath | WslKubeconfigPath;
+
 }

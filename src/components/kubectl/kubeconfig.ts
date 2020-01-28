@@ -2,33 +2,59 @@ import * as vscode from 'vscode';
 import { fs } from '../../fs';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
+import * as shelljs from 'shelljs';
 import { refreshExplorer } from '../clusterprovider/common/explorer';
-import { getActiveKubeconfig } from '../config/config';
+import { getActiveKubeconfig, getUseWsl } from '../config/config';
 
 interface Named {
     readonly name: string;
 }
 
-export function getKubeconfigPath(): { isHostPath: true; path: string } | { isHostPath: false; guestPathType: 'wsl'; guestPath: string } {
-    let kubeConfigPath: string | undefined = getActiveKubeconfig();
-    if (!kubeConfigPath) {
-        kubeConfigPath = process.env['KUBECONFIG'];
+export function getKubeconfigPath(): { pathType: 'host'; hostPath: string } | { pathType: 'wsl'; wslPath: string }  {
+    // If the user specified a kubeconfig path -WSL or not-, let's use it.
+    let kubeconfigPath: string | undefined = getActiveKubeconfig();
+
+    if (getUseWsl()) {
+        if (!kubeconfigPath) {
+            // User is using WSL: we want to use the same default that kubectl uses on Linux ($KUBECONFIG or home directory).
+            const result = shelljs.exec('wsl.exe sh -c "${KUBECONFIG:-$HOME/.kube/config}"', { silent: true }) as shelljs.ExecOutputReturnValue;
+            if (!result) {
+                throw new Error(`Impossible to retrieve the kubeconfig path from WSL. No result from the shelljs.exe call.`);
+            }
+
+            if (result.code !== 0) {
+                throw new Error(`Impossible to retrieve the kubeconfig path from WSL. Error code: ${result.code}. Error output: ${result.stderr.trim()}`);
+            }
+            kubeconfigPath = result.stdout.trim();
+        }
+        return {
+            pathType: 'wsl',
+            wslPath: kubeconfigPath
+        };
     }
-    if (!kubeConfigPath) {
-        kubeConfigPath = path.join((process.env['HOME'] || process.env['USERPROFILE'] || '.'), ".kube", "config"); // default kubeconfig value
+
+    if (!kubeconfigPath) {
+        kubeconfigPath = process.env['KUBECONFIG'];
     }
-    return {isHostPath: true, path: kubeConfigPath};
+    if (!kubeconfigPath) {
+        // Fall back on the default kubeconfig value.
+        kubeconfigPath = path.join((process.env['HOME'] || process.env['USERPROFILE'] || '.'), ".kube", "config");
+    }
+    return {
+        pathType: 'host',
+        hostPath: kubeconfigPath
+    };
 }
 
 export async function mergeToKubeconfig(newConfigText: string): Promise<void> {
     const config = getKubeconfigPath();
-    const kcfile = config.isHostPath ? config.path : config.guestPath;
-    if (!(await fs.existsAsync(kcfile))) {
-        vscode.window.showErrorMessage("Couldn't find kubeconfig file to merge into");
+    const kubeconfigFilePath = config.pathType === "host" ? config.hostPath : config.wslPath;
+    if (!(await fs.existsAsync(kubeconfigFilePath))) {
+        vscode.window.showErrorMessage(`Couldn't find kubeconfig file to merge into: '${kubeconfigFilePath}'`);
         return;
     }
 
-    const kubeconfigText = await fs.readTextFile(kcfile);
+    const kubeconfigText = await fs.readTextFile(kubeconfigFilePath);
     const kubeconfig = yaml.safeLoad(kubeconfigText);
     const newConfig = yaml.safeLoad(newConfigText);
 
@@ -47,15 +73,15 @@ export async function mergeToKubeconfig(newConfigText: string): Promise<void> {
 
     const merged = yaml.safeDump(kubeconfig, { lineWidth: 1000000, noArrayIndent: true });
 
-    const backupFile = kcfile + '.vscode-k8s-tools-backup';
+    const backupFile = kubeconfigFilePath + '.vscode-k8s-tools-backup';
     if (await fs.existsAsync(backupFile)) {
         await fs.unlinkAsync(backupFile);
     }
-    await fs.renameAsync(kcfile, backupFile);
-    await fs.writeTextFile(kcfile, merged);
+    await fs.renameAsync(kubeconfigFilePath, backupFile);
+    await fs.writeTextFile(kubeconfigFilePath, merged);
 
     await refreshExplorer();
-    await vscode.window.showInformationMessage(`New configuration merged to ${kcfile}`);
+    await vscode.window.showInformationMessage(`New configuration merged to ${kubeconfigFilePath}`);
 }
 
 async function mergeInto(existing: Named[], toMerge: Named[]): Promise<void> {

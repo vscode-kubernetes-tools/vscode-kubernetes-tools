@@ -102,7 +102,7 @@ async function ensureCacheIsForCurrentKubeconfig(): Promise<void> {
 
 async function getKubeconfigPathHash(): Promise<string | undefined> {
     const config = getKubeconfigPath();
-    const kubeconfigPath = config.isHostPath ? config.path : config.guestPath;
+    const kubeconfigPath = config.pathType === "host" ? config.hostPath : config.wslPath;
     if (!await fs.existsAsync(kubeconfigPath)) {
         return undefined;
     }
