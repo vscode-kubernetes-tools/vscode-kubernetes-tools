@@ -188,8 +188,8 @@ export function shellEnvironment(baseEnvironment: any): any {
         }
     }
 
-    const config = getKubeconfigPath();
-    env['KUBECONFIG'] = config.pathType === "host" ? config.hostPath : config.wslPath;
+    const kubeconfigPath = getKubeconfigPath();
+    env['KUBECONFIG'] = kubeconfigPath.pathType === "host" ? kubeconfigPath.hostPath : kubeconfigPath.wslPath;
     return env;
 }
 

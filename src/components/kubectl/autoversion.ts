@@ -101,12 +101,12 @@ async function ensureCacheIsForCurrentKubeconfig(): Promise<void> {
 }
 
 async function getKubeconfigPathHash(): Promise<string | undefined> {
-    const config = getKubeconfigPath();
-    const kubeconfigPath = config.pathType === "host" ? config.hostPath : config.wslPath;
-    if (!await fs.existsAsync(kubeconfigPath)) {
+    const kubeconfigPath = getKubeconfigPath();
+    const kubeconfigFilePath = kubeconfigPath.pathType === "host" ? kubeconfigPath.hostPath : kubeconfigPath.wslPath;
+    if (!await fs.existsAsync(kubeconfigFilePath)) {
         return undefined;
     }
-    const kubeconfigPathHash = sha256.hash(Buffer.from(kubeconfigPath));
+    const kubeconfigPathHash = sha256.hash(Buffer.from(kubeconfigFilePath));
     const kubeconfigHashText = hashToString(kubeconfigPathHash);
     return kubeconfigHashText;
 }

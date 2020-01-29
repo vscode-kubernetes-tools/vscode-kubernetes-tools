@@ -3,6 +3,7 @@ import { fs } from '../../fs';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
 import * as shelljs from 'shelljs';
+import { ConfigurationV1 } from '../../api/contract/configuration/v1';
 import { refreshExplorer } from '../clusterprovider/common/explorer';
 import { getActiveKubeconfig, getUseWsl } from '../config/config';
 
@@ -10,7 +11,7 @@ interface Named {
     readonly name: string;
 }
 
-export function getKubeconfigPath(): { pathType: 'host'; hostPath: string } | { pathType: 'wsl'; wslPath: string }  {
+export function getKubeconfigPath(): ConfigurationV1.KubeconfigPath  {
     // If the user specified a kubeconfig path -WSL or not-, let's use it.
     let kubeconfigPath: string | undefined = getActiveKubeconfig();
 
@@ -47,8 +48,8 @@ export function getKubeconfigPath(): { pathType: 'host'; hostPath: string } | { 
 }
 
 export async function mergeToKubeconfig(newConfigText: string): Promise<void> {
-    const config = getKubeconfigPath();
-    const kubeconfigFilePath = config.pathType === "host" ? config.hostPath : config.wslPath;
+    const kubeconfigPath = getKubeconfigPath();
+    const kubeconfigFilePath = kubeconfigPath.pathType === "host" ? kubeconfigPath.hostPath : kubeconfigPath.wslPath;
     if (!(await fs.existsAsync(kubeconfigFilePath))) {
         vscode.window.showErrorMessage(`Couldn't find kubeconfig file to merge into: '${kubeconfigFilePath}'`);
         return;
