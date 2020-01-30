@@ -9,7 +9,7 @@ import * as unzipper from 'unzipper';
 import * as tar from 'tar';
 import { Shell, Platform } from '../../shell';
 import { Errorable, failed, succeeded } from '../../errorable';
-import { addPathToConfig, toolPathBaseKey, getUseWsl } from '../config/config';
+import { addPathToConfig, toolPathOSKey, getUseWsl } from '../config/config';
 import { platformUrlString, formatBin } from './installationlayout';
 import { IncomingMessage } from 'http';
 
@@ -21,7 +21,8 @@ enum ArchiveKind {
 export async function installKubectl(shell: Shell): Promise<Errorable<null>> {
     const tool = 'kubectl';
     const binFile = (shell.isUnix()) ? 'kubectl' : 'kubectl.exe';
-    const os = platformUrlString(shell.platform());
+    const platform = shell.platform();
+    const os = platformUrlString(platform);
 
     const version = await getStableKubectlVersion();
     if (failed(version)) {
@@ -42,7 +43,7 @@ export async function installKubectl(shell: Shell): Promise<Errorable<null>> {
         fs.chmodSync(downloadFile, '0777');
     }
 
-    await addPathToConfig(toolPathBaseKey(tool), downloadFile);
+    await addPathToConfig(toolPathOSKey(platform, tool), downloadFile);
     return { succeeded: true, result: null };
 }
 
@@ -135,7 +136,7 @@ export async function installMinikube(shell: Shell, version: string | null): Pro
     if (shell.isUnix()) {
         await shell.exec(`chmod +x ${executableFullPath}`);
     }
-    const configKey = toolPathBaseKey(tool);
+    const configKey = toolPathOSKey(shell.platform(), tool);
     await addPathToConfig(configKey, executableFullPath);
 
     return { succeeded: true, result: null };
@@ -149,7 +150,7 @@ async function installToolFromArchive(tool: string, urlTemplate: string, shell: 
     const installFolder = getInstallFolder(shell, tool);
     const executable = formatBin(tool, shell.platform())!;  // safe because we have already checked the platform
     const url = urlTemplate.replace('{os_placeholder}', os);
-    const configKey = toolPathBaseKey(tool);
+    const configKey = toolPathOSKey(shell.platform(), tool);
     return installFromArchive(url, installFolder, executable, configKey, shell, archiveKind);
 }
 
