@@ -25,13 +25,16 @@
   "Deployment": {
     "prefix": "kindDeployment",
     "body": [
-      "apiVersion: extensions/v1beta1",
+      "apiVersion: apps/v1",
       "kind: Deployment",
       "metadata: {{ \\$fullname := printf \"%s-%s\" .Release.Name .Chart.Name | trunc 63 | trimSuffix \"-\" }}",
       "  name: {{ \\$fullname }}",
       "  labels:",
       "    chart: \"{{ .Chart.Name }}-{{ .Chart.Version | replace \"+\" \"_\" }}\"",
       "spec:",
+      "  selector:",
+      "    matchLabels:",
+      "      app: {{ \\$fullname }}",
       "  replicas: {{ default 1 .Values.replicaCount | int }}",
       "  template:",
       "    metadata:",
@@ -101,26 +104,20 @@
       "apiVersion: v1",
       "kind: Pod",
       "metadata:",
-      "  name: \"{{.Release.Name}}-{{.Values.Name}}\"",
+      "  name: \"${1}\"",
       "  labels:",
-      "    # The \"heritage\" label is used to track which tool deployed a given chart.",
-      "    # It is useful for admins who want to see what releases a particular tool",
-      "    # is responsible for.",
       "    heritage: {{.Release.Service | quote }}",
-      "    # The \"release\" convention makes it easy to tie a release to all of the",
-      "    # Kubernetes resources that were created as part of that release.",
       "    release: {{.Release.Name | quote }}",
-      "    # This makes it easy to audit chart usage.",
       "    chart: \"{{.Chart.Name}}-{{.Chart.Version}}\"",
       "spec:",
       "  # This shows how to use a simple value. This will look for a passed-in value",
       "  # called restartPolicy. If it is not found, it will use the default value.",
       "  # {{default \"Never\" .restartPolicy}} is a slightly optimized version of the",
       "  # more conventional syntax: {{.restartPolicy | default \"Never\"}}",
-      "  restartPolicy: {{default \"Never\" .Values.restartPolicy}}",
+      "  restartPolicy: \"Never\"",
       "  containers:",
       "  - name: main",
-      "    image: \"{{ default \"alpine:3.3\" .Values.image }}\""
+      "    image: \"${2:debian-slim}:${3:latest}\""
     ],
     "description": "Create a Pod manifest"
   },
@@ -192,8 +189,8 @@
   "range-list": {
     "prefix": "rangeList",
     "body": [
-      "{{- range \\$i, \\$val := ${1:list} }}",
-      "  $2",
+      "{{- range \\$i, \\$val := ${1:$list} }}",
+      "  ${2}",
       "{{ end -}}"
     ],
     "description": "Loop over a list"
@@ -201,8 +198,8 @@
   "range-map": {
     "prefix": "rangeDict",
     "body": [
-      "{{- range \\$key, \\$val := ${1:dict} }}",
-      "  $2",
+      "{{- range \\$key, \\$val := ${1:$dict} }}",
+      "  ${2}",
       "{{ end -}}"
     ],
     "description": "Loop over a dict or map"
@@ -210,8 +207,8 @@
   "range-until": {
     "prefix": "rangeUntil",
     "body": [
-      "{{- range \\$i := until ${1:number} }}",
-      "  $2",
+      "{{- range \\$i := until ${1:$number} }}",
+      "  ${2}",
       "{{ end -}}"
     ],
     "description": "Loop a fixed number of times."
