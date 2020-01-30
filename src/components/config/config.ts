@@ -107,7 +107,13 @@ function getPathSetting(host: Host, shell: Shell, baseKey: string): string | und
     return osOverridePath || host.getConfiguration(EXTENSION_CONFIG_KEY)[baseKey];
 }
 
-export function toolPathBaseKey(tool: string): string {
+export function toolPathOSKey(os: Platform, tool: string): string {
+    const baseKey = toolPathBaseKey(tool);
+    const osSpecificKey = osOverrideKey(os, baseKey);
+    return osSpecificKey;
+}
+
+function toolPathBaseKey(tool: string): string {
     return `vs-kubernetes.${tool}-path`;
 }
 
