@@ -135,6 +135,11 @@ function createAutoVersioned(host: Host, fs: FS, shell: Shell, installDependenci
     return new KubectlImpl(host, fs, shell, installDependenciesCallback, pathfinder, false);
 }
 
+export function createOnBinary(host: Host, fs: FS, shell: Shell, bin: string): Kubectl {
+    const pathfinder = async () => bin;
+    return new KubectlImpl(host, fs, shell, () => {}, pathfinder, false);
+}
+
 export enum CheckPresentMessageMode {
     Command,
     Activation,
