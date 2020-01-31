@@ -17,6 +17,7 @@ import * as installer from '../installer/installer';
 
 const AUTO_VERSION_CACHE_FILE = getCachePath(shell);  // TODO: awkward that we're using a hardwired shell here but parameterising it elsewhere
 const AUTO_VERSION_CACHE = new FileBacked<ClusterVersionCache>(fs, AUTO_VERSION_CACHE_FILE, defaultClusterVersionCache);
+const OPERATION_ID_DOWNLOAD_KC_FOR_BOOTSTRAP = 'autoversion:download_kubectl_for_bootstrap';
 
 interface ClusterVersionCache {
     readonly derivedFromKubeconfig: string | undefined;
@@ -158,7 +159,7 @@ async function ensureBootstrapperKubectl(naiveKubectl: Kubectl, shell: Shell, ho
     }
 
     // Looks like we're going to have to download one
-    const installationResult = await host.longRunning({ title: 'Downloading default version of kubectl' }, () =>
+    const installationResult = await host.longRunning({ title: 'Downloading default version of kubectl', operationKey: OPERATION_ID_DOWNLOAD_KC_FOR_BOOTSTRAP }, () =>
         installer.installKubectl(shell)
     );
     if (!installationResult.succeeded) {
