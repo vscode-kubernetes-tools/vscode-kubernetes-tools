@@ -5,17 +5,19 @@ import * as download from '../download/download';
 import { Shell, shell } from "../../shell";
 import { Dictionary } from '../../utils/dictionary';
 import { fs } from '../../fs';
-import { Kubectl } from '../../kubectl';
+import { Kubectl, CheckPresentMessageMode, createOnBinary as kubectlCreateOnBinary } from '../../kubectl';
 import { getCurrentContext } from '../../kubectlUtils';
 import { succeeded } from '../../errorable';
 import { FileBacked } from '../../utils/filebacked';
-import { getActiveKubeconfig } from '../config/config';
+import { getActiveKubeconfig, getToolPath } from '../config/config';
 import { Host } from '../../host';
 import { mkdirpAsync } from '../../utils/mkdirp';
 import { platformUrlString, formatBin } from '../installer/installationlayout';
+import * as installer from '../installer/installer';
 
 const AUTO_VERSION_CACHE_FILE = getCachePath(shell);  // TODO: awkward that we're using a hardwired shell here but parameterising it elsewhere
 const AUTO_VERSION_CACHE = new FileBacked<ClusterVersionCache>(fs, AUTO_VERSION_CACHE_FILE, defaultClusterVersionCache);
+const OPERATION_ID_DOWNLOAD_KC_FOR_BOOTSTRAP = 'autoversion:download_kubectl_for_bootstrap';
 
 interface ClusterVersionCache {
     readonly derivedFromKubeconfig: string | undefined;
@@ -26,11 +28,17 @@ export async function ensureSuitableKubectl(kubectl: Kubectl, shell: Shell, host
     if (!(await fs.existsAsync(getBasePath(shell)))) {
         await mkdirpAsync(getBasePath(shell));
     }
-    const context = await getCurrentContext(kubectl);
+
+    const bootstrapperKubectl = await ensureBootstrapperKubectl(kubectl, shell, host);
+    if (!bootstrapperKubectl) {
+        return undefined;
+    }
+
+    const context = await getCurrentContext(bootstrapperKubectl);
     if (!context) {
         return undefined;
     }
-    const serverVersion = await getServerVersion(kubectl, context.contextName);
+    const serverVersion = await getServerVersion(bootstrapperKubectl, context.contextName);
     if (!serverVersion) {
         return undefined;
     }
@@ -135,4 +143,48 @@ async function getServerVersion(kubectl: Kubectl, context: string): Promise<stri
 
 function defaultClusterVersionCache(): ClusterVersionCache {
     return { derivedFromKubeconfig: undefined, versions: {} };
+}
+
+async function ensureBootstrapperKubectl(naiveKubectl: Kubectl, shell: Shell, host: Host): Promise<Kubectl | undefined> {
+    if (await naiveKubectl.checkPresent(CheckPresentMessageMode.Silent)) {
+        return naiveKubectl;
+    }
+
+    // There's no kubectl where we were hoping to find one. Is there one in
+    // the autoversion directory?
+    const existingKubectls = getExistingAutoversionKubectls(shell);
+    if (existingKubectls.length > 0) {
+        const existingKubectl = existingKubectls[0];
+        return kubectlCreateOnBinary(host, fs, shell, existingKubectl);
+    }
+
+    // Looks like we're going to have to download one
+    const installationResult = await host.longRunning({ title: 'Downloading default version of kubectl', operationKey: OPERATION_ID_DOWNLOAD_KC_FOR_BOOTSTRAP }, () =>
+        installer.installKubectl(shell)
+    );
+    if (!installationResult.succeeded) {
+        return undefined;
+    }
+
+    const installedToolPath = getToolPath(host, shell, 'kubectl');
+    if (!installedToolPath) {
+        return undefined;
+    }
+
+    return kubectlCreateOnBinary(host, fs, shell, installedToolPath);
+}
+
+// TODO: would be nice to make this async
+function getExistingAutoversionKubectls(shell: Shell): string[] {
+    const baseFolder = getBasePath(shell);
+    const downloadedFolders = fs.dirSync(baseFolder)
+                                .map((p) => path.join(baseFolder, p))
+                                .filter((p) => fs.statSync(p).isDirectory);
+    const binName = formatBin('kubectl', shell.platform());
+    if (!binName) {
+        return [];
+    }
+    const kubectls = downloadedFolders.map((f) => path.join(f, binName)).filter((p) => fs.existsSync(p));
+    return kubectls;
+
 }
