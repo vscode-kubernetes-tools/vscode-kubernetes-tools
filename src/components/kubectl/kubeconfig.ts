@@ -3,7 +3,6 @@ import { fs } from '../../fs';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
 import * as shelljs from 'shelljs';
-import { ConfigurationV1 } from '../../api/contract/configuration/v1';
 import { refreshExplorer } from '../clusterprovider/common/explorer';
 import { getActiveKubeconfig, getUseWsl } from '../config/config';
 
@@ -11,7 +10,7 @@ interface Named {
     readonly name: string;
 }
 
-export function getKubeconfigPath(): ConfigurationV1.KubeconfigPath  {
+export function getKubeconfigPath(): { readonly pathType: 'host'; readonly hostPath: string; } | { readonly pathType: 'wsl'; readonly wslPath: string; } {
     // If the user specified a kubeconfig path -WSL or not-, let's use it.
     let kubeconfigPath: string | undefined = getActiveKubeconfig();
 
@@ -49,13 +48,16 @@ export function getKubeconfigPath(): ConfigurationV1.KubeconfigPath  {
 
 export async function mergeToKubeconfig(newConfigText: string): Promise<void> {
     const kubeconfigPath = getKubeconfigPath();
-    const kubeconfigFilePath = kubeconfigPath.pathType === "host" ? kubeconfigPath.hostPath : kubeconfigPath.wslPath;
-    if (!(await fs.existsAsync(kubeconfigFilePath))) {
-        vscode.window.showErrorMessage(`Couldn't find kubeconfig file to merge into: '${kubeconfigFilePath}'`);
+    const kcfile = kubeconfigPath.pathType === "host" ? kubeconfigPath.hostPath : kubeconfigPath.wslPath;
+
+    // TODO: fs.existsAsync looks in the host filesystem, even in the case of a WSL path. This needs fixing to handle
+    // WSL paths properly.
+    if (!(await fs.existsAsync(kcfile))) {
+        vscode.window.showErrorMessage(`Couldn't find kubeconfig file to merge into: '${kcfile}'`);
         return;
     }
 
-    const kubeconfigText = await fs.readTextFile(kubeconfigFilePath);
+    const kubeconfigText = await fs.readTextFile(kcfile);
     const kubeconfig = yaml.safeLoad(kubeconfigText);
     const newConfig = yaml.safeLoad(newConfigText);
 
@@ -74,15 +76,15 @@ export async function mergeToKubeconfig(newConfigText: string): Promise<void> {
 
     const merged = yaml.safeDump(kubeconfig, { lineWidth: 1000000, noArrayIndent: true });
 
-    const backupFile = kubeconfigFilePath + '.vscode-k8s-tools-backup';
+    const backupFile = kcfile + '.vscode-k8s-tools-backup';
     if (await fs.existsAsync(backupFile)) {
         await fs.unlinkAsync(backupFile);
     }
-    await fs.renameAsync(kubeconfigFilePath, backupFile);
-    await fs.writeTextFile(kubeconfigFilePath, merged);
+    await fs.renameAsync(kcfile, backupFile);
+    await fs.writeTextFile(kcfile, merged);
 
     await refreshExplorer();
-    await vscode.window.showInformationMessage(`New configuration merged to ${kubeconfigFilePath}`);
+    await vscode.window.showInformationMessage(`New configuration merged to ${kcfile}`);
 }
 
 async function mergeInto(existing: Named[], toMerge: Named[]): Promise<void> {

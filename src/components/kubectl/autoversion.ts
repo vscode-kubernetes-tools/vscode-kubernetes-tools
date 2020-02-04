@@ -103,6 +103,9 @@ async function ensureCacheIsForCurrentKubeconfig(): Promise<void> {
 async function getKubeconfigPathHash(): Promise<string | undefined> {
     const kubeconfigPath = getKubeconfigPath();
     const kubeconfigFilePath = kubeconfigPath.pathType === "host" ? kubeconfigPath.hostPath : kubeconfigPath.wslPath;
+
+    // TODO: fs.existsAsync looks in the host filesystem, even in the case of a WSL path. This needs fixing to handle
+    // WSL paths properly.
     if (!await fs.existsAsync(kubeconfigFilePath)) {
         return undefined;
     }

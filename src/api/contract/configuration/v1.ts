@@ -10,12 +10,12 @@ export namespace ConfigurationV1 {
 
     export interface HostKubeconfigPath {
         readonly pathType: 'host';
-        hostPath: string;
+        readonly hostPath: string;
     }
 
     export interface WslKubeconfigPath {
         readonly pathType: 'wsl';
-        wslPath: string;
+        readonly wslPath: string;
     }
 
     export type KubeconfigPath = HostKubeconfigPath | WslKubeconfigPath;
