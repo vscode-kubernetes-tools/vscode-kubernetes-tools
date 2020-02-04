@@ -9,7 +9,8 @@ import { Kubectl, CheckPresentMessageMode, createOnBinary as kubectlCreateOnBina
 import { getCurrentContext } from '../../kubectlUtils';
 import { succeeded } from '../../errorable';
 import { FileBacked } from '../../utils/filebacked';
-import { getActiveKubeconfig, getToolPath } from '../config/config';
+import { getKubeconfigPath } from '../kubectl/kubeconfig';
+import { getToolPath } from '../config/config';
 import { Host } from '../../host';
 import { mkdirpAsync } from '../../utils/mkdirp';
 import { platformUrlString, formatBin } from '../installer/installationlayout';
@@ -109,11 +110,15 @@ async function ensureCacheIsForCurrentKubeconfig(): Promise<void> {
 }
 
 async function getKubeconfigPathHash(): Promise<string | undefined> {
-    const kubeconfigPath = getActiveKubeconfig() || process.env['KUBECONFIG'] || path.join(shell.home(), '.kube/config');
-    if (!await fs.existsAsync(kubeconfigPath)) {
+    const kubeconfigPath = getKubeconfigPath();
+    const kubeconfigFilePath = kubeconfigPath.pathType === "host" ? kubeconfigPath.hostPath : kubeconfigPath.wslPath;
+
+    // TODO: fs.existsAsync looks in the host filesystem, even in the case of a WSL path. This needs fixing to handle
+    // WSL paths properly.
+    if (!await fs.existsAsync(kubeconfigFilePath)) {
         return undefined;
     }
-    const kubeconfigPathHash = sha256.hash(Buffer.from(kubeconfigPath));
+    const kubeconfigPathHash = sha256.hash(Buffer.from(kubeconfigFilePath));
     const kubeconfigHashText = hashToString(kubeconfigPathHash);
     return kubeconfigHashText;
 }

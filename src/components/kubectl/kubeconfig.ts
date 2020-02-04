@@ -2,17 +2,58 @@ import * as vscode from 'vscode';
 import { fs } from '../../fs';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
+import * as shelljs from 'shelljs';
 import { refreshExplorer } from '../clusterprovider/common/explorer';
-import { getActiveKubeconfig } from '../config/config';
+import { getActiveKubeconfig, getUseWsl } from '../config/config';
 
 interface Named {
     readonly name: string;
 }
 
+export function getKubeconfigPath(): { readonly pathType: 'host'; readonly hostPath: string; } | { readonly pathType: 'wsl'; readonly wslPath: string; } {
+    // If the user specified a kubeconfig path -WSL or not-, let's use it.
+    let kubeconfigPath: string | undefined = getActiveKubeconfig();
+
+    if (getUseWsl()) {
+        if (!kubeconfigPath) {
+            // User is using WSL: we want to use the same default that kubectl uses on Linux ($KUBECONFIG or home directory).
+            const result = shelljs.exec('wsl.exe sh -c "${KUBECONFIG:-$HOME/.kube/config}"', { silent: true }) as shelljs.ExecOutputReturnValue;
+            if (!result) {
+                throw new Error(`Impossible to retrieve the kubeconfig path from WSL. No result from the shelljs.exe call.`);
+            }
+
+            if (result.code !== 0) {
+                throw new Error(`Impossible to retrieve the kubeconfig path from WSL. Error code: ${result.code}. Error output: ${result.stderr.trim()}`);
+            }
+            kubeconfigPath = result.stdout.trim();
+        }
+        return {
+            pathType: 'wsl',
+            wslPath: kubeconfigPath
+        };
+    }
+
+    if (!kubeconfigPath) {
+        kubeconfigPath = process.env['KUBECONFIG'];
+    }
+    if (!kubeconfigPath) {
+        // Fall back on the default kubeconfig value.
+        kubeconfigPath = path.join((process.env['HOME'] || process.env['USERPROFILE'] || '.'), ".kube", "config");
+    }
+    return {
+        pathType: 'host',
+        hostPath: kubeconfigPath
+    };
+}
+
 export async function mergeToKubeconfig(newConfigText: string): Promise<void> {
-    const kcfile = kubeconfigPath();
+    const kubeconfigPath = getKubeconfigPath();
+    const kcfile = kubeconfigPath.pathType === "host" ? kubeconfigPath.hostPath : kubeconfigPath.wslPath;
+
+    // TODO: fs.existsAsync looks in the host filesystem, even in the case of a WSL path. This needs fixing to handle
+    // WSL paths properly.
     if (!(await fs.existsAsync(kcfile))) {
-        vscode.window.showErrorMessage("Couldn't find kubeconfig file to merge into");
+        vscode.window.showErrorMessage(`Couldn't find kubeconfig file to merge into: '${kcfile}'`);
         return;
     }
 
@@ -55,12 +96,4 @@ async function mergeInto(existing: Named[], toMerge: Named[]): Promise<void> {
         }
         existing.push(toMergeEntry);
     }
-}
-
-function kubeconfigPath(): string {
-    return getActiveKubeconfig() || getDefaultKubeconfig();
-}
-
-function getDefaultKubeconfig(): string {
-    return path.join((process.env['HOME'] || process.env['USERPROFILE'] || '.'), ".kube", "config");
 }
