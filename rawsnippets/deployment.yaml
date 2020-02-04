@@ -5,6 +5,9 @@ metadata: {{ \$fullname := printf "%s-%s" .Release.Name .Chart.Name | trunc 63 |
   labels:
     chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
 spec:
+  selector:
+    matchLabels:
+      app: {{ \$fullname }}
   replicas: {{ default 1 .Values.replicaCount | int }}
   template:
     metadata:

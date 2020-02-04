@@ -117,7 +117,8 @@ export class FuncMap {
             // String
             this.f("trim", "trim $str", "remove space from either side of string"),
             this.f("trimAll", "trimAll $trim $str", "remove $trim from either side of $str"),
-            this.f("trimSuffix", "trimSuffix $pre $str", "trim suffix from string"),
+            this.f("trimSuffix", "trimSuffix $suf $str", "trim suffix from string"),
+            this.f("trimPrefix", "trimPrefix $pre $str", "trim prefix from string"),
             this.f("upper", "upper $str", "convert string to uppercase"),
             this.f("lower", "lower $str", "convert string to lowercase"),
             this.f("title", "title $str", "convert string to title case"),
@@ -125,7 +126,6 @@ export class FuncMap {
             this.f("substr", "substr $start $len $string", "get a substring of $string, starting at $start and reading $len characters"),
             this.f("repeat", "repeat $count $str", "repeat $str $count times"),
             this.f("nospace", "nospace $str", "remove space from inside a string"),
-            this.f("upper", "upper $str", "convert string to uppercase"),
             this.f("trunc", "trunc $max $str", "truncate $str at $max characters"),
             this.f("abbrev", "abbrev $max $str", "truncate $str with elipses at max length $max"),
             this.f("abbrevboth", "abbrevboth $left $right $str", "abbreviate both $left and $right sides of $string"),
@@ -143,6 +143,7 @@ export class FuncMap {
             this.f("squote", "squote $str", "surround $str with single quotes (')"),
             this.f("cat", "cat $str1 $str2 ...", "concatenate all given strings into one, separated by spaces"),
             this.f("indent", "indent $count $str", "indent $str with $count space chars on the left"),
+            this.f("nindent", "nindent $count $str", "indent $str with $count space chars on the left and prepend a new line to $str"),
             this.f("replace", "replace $find $replace $str", "find $find and replace with $replace"),
 
             // String list

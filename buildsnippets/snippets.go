@@ -80,7 +80,7 @@ var snippets = map[string]Snippet{
 	},
 	"ifelse": {
 		Prefix:      "ifElse",
-		Description: "Create a conditional with elseif, else",
+		Description: "Create a conditional with else if, else",
 		Body:        load("ifelse.tpl"),
 	},
 	"with": {
