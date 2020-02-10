@@ -462,12 +462,12 @@
                 },
                 {
                     "command": "extension.vsKubernetesAddWatch",
-                    "group": "1@2",
+                    "group": "3@1",
                     "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.kind/i"
                 },
                 {
                     "command": "extension.vsKubernetesDeleteWatch",
-                    "group": "1@3",
+                    "group": "3@2",
                     "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.kind/i"
                 },
                 {
@@ -741,7 +741,7 @@
             },
             {
                 "command": "extension.vsKubernetesDeleteWatch",
-                "title": "Delete Watch",
+                "title": "Stop Watching",
                 "category": "Kubernetes"
             },
             {

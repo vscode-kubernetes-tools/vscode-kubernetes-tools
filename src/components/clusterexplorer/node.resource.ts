@@ -9,7 +9,6 @@ import { kubefsUri } from '../../kuberesources.virtualfs';
 import { ClusterExplorerNode, ClusterExplorerNodeImpl, ClusterExplorerResourceNode } from './node';
 import { getChildSources, getUICustomiser } from './resourceui';
 import { NODE_TYPES } from './explorer';
-import { getResourceVersion } from '../../extension';
 
 export class ResourceNode extends ClusterExplorerNodeImpl implements ClusterExplorerResourceNode {
 
@@ -58,10 +57,18 @@ export class ResourceNode extends ClusterExplorerNodeImpl implements ClusterExpl
         return getChildSources(this.kind).length > 0;
     }
 
-    async getPathApi(namespace: string): Promise<string> {
-        const resources = this.kind.pluralDisplayName.replace(/\s/g, '').toLowerCase();
-        const version = await getResourceVersion(resources);
+    async apiURI(kubectl: Kubectl, namespace: string): Promise<string | undefined> {
+        const resources = this.kind.apiName.replace(/\s/g, '').toLowerCase();
+        const version = await kubectlUtils.getResourceVersion(kubectl, resources);
+        if (!version) {
+            return undefined;
+        }
         const baseUri = (version === 'v1') ? `/api/${version}/` : `/apis/${version}/`;
+        const namespaceUri = this.namespaceUriPart(namespace, resources);
+        return `${baseUri}${namespaceUri}${this.name}`;
+    }
+
+    private namespaceUriPart(ns: string, resources: string): string {
         let namespaceUri = '';
         switch (resources) {
             case "namespaces" || "nodes" || "persistentvolumes" || "storageclasses": {
@@ -69,11 +76,11 @@ export class ResourceNode extends ClusterExplorerNodeImpl implements ClusterExpl
                 break;
             }
             default: {
-                namespaceUri = `namespaces/${namespace}/${resources}/`;
+                namespaceUri = `namespaces/${ns}/${resources}/`;
                 break;
             }
         }
-        return `${baseUri}${namespaceUri}${this.name}`;
+        return namespaceUri;
     }
 }
 

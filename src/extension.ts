@@ -801,10 +801,7 @@ function addWatch(tree: explorer.KubernetesExplorer, explorerNode?: ClusterExplo
 
 function deleteWatch(tree: explorer.KubernetesExplorer, explorerNode?: ClusterExplorerNode) {
     if (explorerNode) {
-        const id = tree.getWatchId(explorerNode);
-        if (id) {
-            WatchManager.getInstance().removeWatch(id);
-        }
+        tree.stopWatching(explorerNode);
     }
 }
 
@@ -1935,7 +1932,7 @@ async function useContextKubernetes(explorerNode: ClusterExplorerNode) {
         telemetry.invalidateClusterType(targetContext);
         activeContextTracker.setActive(targetContext);
         refreshExplorer();
-        WatchManager.getInstance().clear();
+        WatchManager.instance().clear();
     } else {
         vscode.window.showErrorMessage(`Failed to set '${targetContext}' as current cluster: ${shellResult ? shellResult.stderr : "Unable to run kubectl"}`);
     }
@@ -2279,23 +2276,4 @@ async function kubeconfigFromTreeNode(target?: CloudExplorerTreeNode): Promise<s
 function kubernetesFindCloudProviders() {
     const searchUrl = 'https://marketplace.visualstudio.com/search?term=kubernetes-extension-cloud-provider&target=VSCode&category=All%20categories&sortBy=Relevance';
     browser.open(searchUrl);
-}
-
-export async function getResourceVersion(resource: string): Promise<string> {
-    const documentation = await kubectl.asLines(` explain ${resource}`);
-    if (failed(documentation)) {
-        return '';
-    }
-
-    const rgx = new RegExp('(?<=VERSION:\\s*)(\\S)+.*');
-    let version = '';
-    for (const line of documentation.result) {
-        const match = line.match(rgx);
-        if (match) {
-            version = match[0];
-            break;
-        }
-    }
-
-    return version;
 }

@@ -4,7 +4,6 @@ import { Kubectl } from '../../kubectl';
 import { Host } from '../../host';
 import { ClusterExplorerNode, ClusterExplorerNodeBase, ClusterExplorerNodeImpl } from './node';
 import { KubernetesExplorerNodeType } from './explorer';
-import { getResourceVersion } from '../../extension';
 
 export abstract class FolderNode extends ClusterExplorerNodeImpl implements ClusterExplorerNodeBase {
 
@@ -20,20 +19,7 @@ export abstract class FolderNode extends ClusterExplorerNodeImpl implements Clus
         return treeItem;
     }
 
-    async getPathApi(namespace: string): Promise<string> {
-        const resources = this.displayName.replace(/\s/g, '').toLowerCase();
-        const version = await getResourceVersion(resources);
-        const baseUri = (version === 'v1') ? `/api/${version}/` : `/apis/${version}/`;
-        let namespaceUri = `namespaces/${namespace}/`;
-        switch (resources) {
-            case "namespaces" || "nodes" || "persistentvolumes" || "storageclasses": {
-                namespaceUri = '';
-                break;
-            }
-            default: {
-                break;
-            }
-        }
-        return `${baseUri}${namespaceUri}${resources}`;
+    async apiURI(_kubectl: Kubectl, _namespace: string): Promise<string | undefined> {
+        return undefined;
     }
 }

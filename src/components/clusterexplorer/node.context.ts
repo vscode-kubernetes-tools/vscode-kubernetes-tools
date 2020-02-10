@@ -54,8 +54,8 @@ export class ContextNode extends ClusterExplorerNodeImpl implements ClusterExplo
         }
         return treeItem;
     }
-    async getPathApi(_namespace: string): Promise<string> {
-        return '';
+    async apiURI(_kubectl: Kubectl, _namespace: string): Promise<string | undefined> {
+        return undefined;
     }
 }
 export class MiniKubeContextNode extends ContextNode {

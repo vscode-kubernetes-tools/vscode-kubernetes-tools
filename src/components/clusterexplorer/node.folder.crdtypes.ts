@@ -16,7 +16,7 @@ export class CRDTypesFolderNode extends GroupingFolderNode {
         return objects.map((obj) => ResourceFolderNode.create(this.customResourceKind(obj)));
     }
     private customResourceKind(crd: CRD): kuberesources.ResourceKind {
-        return new kuberesources.ResourceKind(crd.spec.names.singular, crd.spec.names.plural, crd.spec.names.kind, this.safeAbbreviation(crd));
+        return new kuberesources.ResourceKind(crd.spec.names.singular, crd.spec.names.plural, crd.spec.names.kind, this.safeAbbreviation(crd), crd.spec.names.plural);
     }
     private safeAbbreviation(crd: CRD): string {
         const shortNames = crd.spec.names.shortNames;

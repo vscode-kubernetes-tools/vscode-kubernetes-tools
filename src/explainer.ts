@@ -3,34 +3,9 @@
 import request = require('request');
 import * as kubernetes from '@kubernetes/client-node';
 import * as pluralize from 'pluralize';
-import * as shelljs from 'shelljs';
 
 import { formatComplex, formatOne, Typed, formatType } from "./schema-formatting";
-import { getKubeconfigPath } from './components/kubectl/kubeconfig';
-
-export async function loadKubeconfig(): Promise<kubernetes.KubeConfig> {
-    const kubeconfig = new kubernetes.KubeConfig();
-    const kubeconfigPath = getKubeconfigPath();
-
-    if (kubeconfigPath.pathType === 'host') {
-        kubeconfig.loadFromFile(kubeconfigPath.hostPath);
-    } else if (kubeconfigPath.pathType === 'wsl') {
-        const result = shelljs.exec(`wsl.exe sh -c "cat ${kubeconfigPath.wslPath}"`, { silent: true }) as shelljs.ExecOutputReturnValue;
-        if (!result) {
-            throw new Error(`Impossible to retrieve the kubeconfig content from WSL at path '${kubeconfigPath.wslPath}'. No result from the shelljs.exe call.`);
-        }
-
-        if (result.code !== 0) {
-            throw new Error(`Impossible to retrieve the kubeconfig content from WSL at path '${kubeconfigPath.wslPath}. Error code: ${result.code}. Error output: ${result.stderr.trim()}`);
-        }
-
-        kubeconfig.loadFromString(result.stdout.trim());
-    } else {
-        throw new Error(`Kubeconfig path type is not recognized.`);
-    }
-
-    return kubeconfig;
-}
+import { loadKubeconfig } from './components/kubectl/kubeconfig';
 
 export interface SwaggerModel {
     readonly definitions: any[];

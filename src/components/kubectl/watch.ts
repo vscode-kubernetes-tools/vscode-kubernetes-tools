@@ -1,56 +1,66 @@
-import { loadKubeconfig } from '../../explainer';
 import * as kubernetes from '@kubernetes/client-node';
 import { Request } from 'request';
+import { loadKubeconfig } from './kubeconfig';
+
+interface InactiveWatch {
+    readonly active: false;
+}
+interface ActiveWatch {
+    readonly active: true;
+    readonly request: Request;
+}
+type Watch = InactiveWatch | ActiveWatch;
 
 export class WatchManager {
-    private static instance: WatchManager;
-    private watchers: Map<string, Request | null>;
+    private static mng: WatchManager;
+    private readonly watchers: Map<string, Watch> = new Map<string, Watch>();
 
-    private constructor() {
-        this.watchers = new Map<string, Request | null>();
-    }
-
-    public static getInstance() {
-        if (!this.instance) {
-            this.instance = new WatchManager();
+    public static instance() {
+        if (!this.mng) {
+            this.mng = new WatchManager();
         }
 
-        return this.instance;
+        return this.mng;
     }
 
     public async addWatch(id: string, apiUri: string, params: any, callback: (phase: string, obj: any) => void): Promise<void> {
-        if (!id ||
-            (this.watchers.has(id) &&
-            this.watchers.get(id) !== null)) {
+        if (!id) {
             return;
         }
+        if (this.watchers.has(id) && (this.watchers.get(id) as Watch).active) {
+            return;
+        }
+
         const kc = await loadKubeconfig();
         const kcWatch = new kubernetes.Watch(kc);
-        const doneCallback = (err: any) =>
-                                {
-                                    // Error: read ECONNRESET
-                                    // at TLSWrap.onStreamRead (internal/stream_base_commons.js:183:27)
-                                    if (err &&
-                                        (err as Error).name === "ECONNRESET") {
-                                        this.removeWatch(id);
-                                        this.addWatch(id, apiUri, params, callback);
-                                    }
-                                };
-        const watcher: Request = kcWatch.watch(apiUri, params, callback, doneCallback);
-        this.watchers.set(id, watcher);
+        const restartWatchOnConnectionError = (err: any) => {
+                    // Error: read ECONNRESET
+                    // at TLSWrap.onStreamRead (internal/stream_base_commons.js:183:27)
+                    if (err &&
+                        (err as Error).name === "ECONNRESET") {
+                        this.removeWatch(id);
+                        this.addWatch(id, apiUri, params, callback);
+                    }
+                };
+        if (!params) {
+            params = {};
+        }
+        const req: Request = kcWatch.watch(apiUri, params, callback, restartWatchOnConnectionError);
+        this.watchers.set(id, { active: true, request: req } );
     }
 
     public removeWatch(id: string) {
-        if (!id ||
-            !this.watchers.has(id) ||
-            (this.watchers.has(id) && this.watchers.get(id) === null)) {
+        if (!id || !this.watchers.has(id)) {
+            return;
+        }
+        if (this.watchers.has(id) && !(this.watchers.get(id) as Watch).active) {
             return;
         }
         const watcher = this.watchers.get(id);
-        if (watcher) {
-            watcher.abort();
+        if (watcher && watcher.active) {
+            watcher.request.abort();
         }
-        this.watchers.set(id, null);
+        this.watchers.set(id, { active: false });
     }
 
     public clear() {
