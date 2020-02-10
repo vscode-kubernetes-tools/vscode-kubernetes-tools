@@ -13,11 +13,11 @@ export namespace ConfigurationV1 {
         readonly hostPath: string;
     }
 
-    export interface WslKubeconfigPath {
+    export interface WSLKubeconfigPath {
         readonly pathType: 'wsl';
         readonly wslPath: string;
     }
 
-    export type KubeconfigPath = HostKubeconfigPath | WslKubeconfigPath;
+    export type KubeconfigPath = HostKubeconfigPath | WSLKubeconfigPath;
 
 }
