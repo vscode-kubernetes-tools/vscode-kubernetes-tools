@@ -59,9 +59,14 @@ export async function promptForAppPort(ports: string[], defaultPort: string, env
  */
 export async function getProcesses(kubectl: Kubectl, pod: string, podNamespace: string | undefined, container: string | undefined): Promise<ProcessInfo[] | undefined> {
     const processes: ProcessInfo[] = [];
-    const nsarg = podNamespace && podNamespace !== "default" ? `--namespace ${podNamespace}` : '';
+    const nsarg = podNamespace ? `--namespace ${podNamespace}` : '';
     const containerCommand = container ? `-c ${container}` : '';
+
+    // second -w in below command tells ps to not limit number of columns by terminal size. Since this is not running in terminal,
+    // this may have no affect, but atleast someone debugging can run the command in terminal and will get the same results that this
+    // invocation will get.
     const execCmd = `exec ${pod} ${nsarg} ${containerCommand} -- ps -o pid,command -e -w -w`;
+
     const execResult = await kubectl.invokeAsync(execCmd);
     if (execResult && execResult.code === 0) {
         /**

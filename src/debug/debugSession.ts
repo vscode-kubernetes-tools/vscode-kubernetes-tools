@@ -161,8 +161,7 @@ export class DebugSession implements IDebugSession {
             return;
         }
 
-        const supportedProcesses = processes ? this.debugProvider.filterSupportedProcesses(processes) : undefined;
-        const pidToDebug = supportedProcesses && supportedProcesses.length === 1 ? +supportedProcesses[0].pid : undefined;
+        const pidToDebug = this.tryFindTargetPid(processes);
 
         // Find the debug port to attach.
         const isPortRequired = this.debugProvider.isPortRequired();
@@ -199,6 +198,11 @@ export class DebugSession implements IDebugSession {
                 kubeChannel.showOutput(`\nTo learn more about the usage of the debug feature, take a look at ${debugCommandDocumentationUrl}`);
             }
         });
+    }
+
+    tryFindTargetPid(processes: ProcessInfo[] | undefined): number | undefined {
+        const supportedProcesses = processes ? (<IDebugProvider>this.debugProvider).filterSupportedProcesses(processes) : undefined;
+        return supportedProcesses && supportedProcesses.length === 1 ? +supportedProcesses[0].pid : undefined;
     }
 
     async getPodTarget(pod?: string, podNamespace?: string) {
