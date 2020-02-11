@@ -1423,6 +1423,20 @@ async function deleteKubernetes(delMode: KubernetesDeleteMode, explorerNode?: Cl
         if (!answer || answer.isCloseAffordance) {
             return;
         }
+
+        if (explorerNode.kind.manifestKind === 'Namespace') {
+            const ns = explorerNode.name;
+            const confirmed = await confirmDangerousNamespaceDeletion(ns);
+            if (!confirmed) {
+                return;
+            }
+            const currentNS = await kubectlUtils.currentNamespace(kubectl);
+            if (ns === currentNS) {
+                await host.longRunning(`Switching out of namespace '${ns}'`, () =>
+                    kubectlUtils.switchNamespace(kubectl, "default")
+                );
+            }
+        }
         const nsarg = explorerNode.namespace ? `--namespace ${explorerNode.namespace}` : '';
         const shellResult = await kubectl.invokeAsyncWithProgress(`delete ${explorerNode.kindName} ${nsarg} ${delModeArg}`, `Deleting ${explorerNode.kindName}...`);
         await reportDeleteResult(explorerNode.kindName, shellResult);
@@ -1438,6 +1452,42 @@ async function deleteKubernetes(delMode: KubernetesDeleteMode, explorerNode?: Cl
             }
         });
     }
+}
+
+async function confirmDangerousNamespaceDeletion(ns: string): Promise<boolean> {
+    if (ns === 'default') {
+        const confirmed = await warnConfirm("This will delete the default namespace, which is inadvisable.", "I'm aware of the risks: delete anyway", "Don't delete");
+        if (!confirmed) {
+            return false;
+        }
+    }
+
+    const resources = await host.longRunning(`Checking contents of namespace '${ns}'`, () =>
+        kubectlUtils.namespaceResources(kubectl, ns)
+    );
+    if (succeeded(resources)) {
+        if (resources.result.length > 0) {
+            const confirmed = await warnConfirm(`This will also delete all ${resources.result.length} resources in namespace '${ns}'.`, "I don't need them: delete anyway", "Don't delete");
+            if (!confirmed) {
+                return false;
+            }
+        }
+    } else {
+        const confirmed = await warnConfirm(`Can't check if namespace '${ns}' contains resources: ${resources.error[0]}.`, "I'm sure it's safe: delete anyway", "Don't delete");
+        if (!confirmed) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+async function warnConfirm(message: string, acceptText: string, cancelText: string): Promise<boolean> {
+    const choice = await vscode.window.showWarningMessage(message, acceptText, cancelText);
+    if (!choice || choice === cancelText) {
+        return false;
+    }
+    return true;
 }
 
 enum KubernetesDeleteMode {
