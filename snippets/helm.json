@@ -189,7 +189,7 @@
   "range-list": {
     "prefix": "rangeList",
     "body": [
-      "{{- range \\$i, \\$val := ${1:$list} }}",
+      "{{- range \\$i, \\$val := ${1:list} }}",
       "  ${2}",
       "{{ end -}}"
     ],
@@ -198,7 +198,7 @@
   "range-map": {
     "prefix": "rangeDict",
     "body": [
-      "{{- range \\$key, \\$val := ${1:$dict} }}",
+      "{{- range \\$key, \\$val := ${1:dict} }}",
       "  ${2}",
       "{{ end -}}"
     ],
@@ -207,7 +207,7 @@
   "range-until": {
     "prefix": "rangeUntil",
     "body": [
-      "{{- range \\$i := until ${1:$number} }}",
+      "{{- range \\$i := until ${1:number} }}",
       "  ${2}",
       "{{ end -}}"
     ],
