@@ -467,7 +467,7 @@
                 {
                     "command": "extension.vsKubernetesDelete",
                     "group": "2@2",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource(?!\\.namespace).*/i"
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource.*/i"
                 },
                 {
                     "command": "extension.vsKubernetesDescribe",

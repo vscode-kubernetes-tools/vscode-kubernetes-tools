@@ -3,7 +3,7 @@ import { Kubectl } from "./kubectl";
 import { kubeChannel } from "./kubeChannel";
 import { sleep } from "./sleep";
 import { ObjectMeta, KubernetesCollection, DataResource, Namespace, Pod, KubernetesResource, CRD } from './kuberesources.objectmodel';
-import { failed } from "./errorable";
+import { failed, Errorable } from "./errorable";
 import { shellMessage } from "./shell";
 
 export interface KubectlContext {
@@ -413,4 +413,25 @@ async function changeResourceFromUri(uri: vscode.Uri, kubectl: Kubectl, command:
     } else {
         vscode.window.showInformationMessage(`Resource ${path} ${verbPast}.`);
     }
+}
+
+export async function namespaceResources(kubectl: Kubectl, ns: string): Promise<Errorable<string[]>> {
+    const arresult = await kubectl.fromLines('api-resources -o wide');
+    if (failed(arresult)) {
+        return arresult;
+    }
+
+    const resourceKinds = arresult.result.filter((r) => r.namespaced === 'true')
+                                         .filter((r) => r.verbs.includes('list'))
+                                         .map((r) => r.name);
+    const resourceKindsList = resourceKinds.join(',');
+
+    const getresult = await kubectl.invokeAsync(`get ${resourceKindsList} -o name --namespace ${ns} --ignore-not-found`);
+    if (!getresult || getresult.code !== 0) {
+        const message = getresult ? getresult.stderr : 'Unable to run kubectl';
+        return { succeeded: false, error: [message] };
+    }
+
+    const resources = getresult.stdout.split('\n').map((s) => s.trim()).filter((s) => s.length > 0);
+    return { succeeded: true, result: resources };
 }
