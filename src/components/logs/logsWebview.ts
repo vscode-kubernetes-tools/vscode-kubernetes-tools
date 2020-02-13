@@ -64,6 +64,8 @@ export class LogsPanel extends WebPanel {
                 </select>
                 <span style='position: absolute; left: 240px'>Match expression</span>
                 <input style='left:350px; position: absolute' type='text' id='regexp' onkeyup='eval()' placeholder='Filter' size='25'/>
+                <span style='position: absolute; left: 600px'>Auto-scroll</span>
+                <input style='left: 675px; position: absolute' type='checkbox' id='autoscroll' onkeyup='eval()' checked="true"/>
             </div>
             <div style='position: absolute; top: 55px; bottom: 10px; width: 97%'>
               <div style="overflow-y: scroll; height: 100%">
@@ -85,13 +87,13 @@ export class LogsPanel extends WebPanel {
                 return filter(logsText, true);
               }
 
-              const filter = (text, isNewLog) => {   
+              const filter = (text, isNewLog) => {
                 const regexp = document.getElementById('regexp').value;
                 const mode = document.getElementById('mode').value;
                 let content;
                 if (regexp.length > 0 && mode !== 'all') {
-                    const regex = new RegExp(regexp);   
-                    switch (mode) {                        
+                    const regex = new RegExp(regexp);
+                    switch (mode) {
                         case 'include':
                             content = text.filter((line) => regex.test(line));
                             break;
@@ -100,7 +102,7 @@ export class LogsPanel extends WebPanel {
                             break;
                         case 'before':
                             content = [];
-                            if (!isNewLog) { 
+                            if (!isNewLog) {
                                 for (const line of text) {
                                     if (regex.test(line)) {
                                         break;
@@ -117,7 +119,7 @@ export class LogsPanel extends WebPanel {
                                     return regex.test(line)
                                 });
                                 content = text.slice(i+1);
-                            }                           
+                            }
                             break;
                         default:
                             content = []
@@ -126,7 +128,7 @@ export class LogsPanel extends WebPanel {
                 } else {
                     content = text;
                 }
-                
+
                 return content;
               };
 
@@ -137,11 +139,11 @@ export class LogsPanel extends WebPanel {
                 return beautifyLines(contentLines);
               }
 
-              const beautifyLines = (contentLines) => {                
+              const beautifyLines = (contentLines) => {
                 let content = contentLines.join('\\n');
                 if (content) {
                     content = content.match(/\\n$/) ? content : content + '\\n';
-                }                
+                }
                 return content;
               };
 
@@ -158,6 +160,12 @@ export class LogsPanel extends WebPanel {
                     });
                     const content = beautifyLines(filterNewLogs(text));
                     elt.appendChild(document.createTextNode(content));
+
+                    // handle auto-scroll on/off
+                    var checkBox = document.getElementById("autoscroll");
+                    if (checkBox.checked == true){
+                        document.getElementById('bottom').scrollIntoView();
+                    }
                 }
               });
 
@@ -196,7 +204,7 @@ export class LogsPanel extends WebPanel {
                 fn();
               };
               eval();
-              
+
             </script>
             </body>
         </html>`;
