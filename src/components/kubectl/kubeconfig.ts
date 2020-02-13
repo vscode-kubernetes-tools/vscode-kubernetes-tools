@@ -10,7 +10,7 @@ interface Named {
     readonly name: string;
 }
 
-export function getKubeconfigPath(): { readonly pathType: 'host'; readonly hostPath: string; } | { readonly pathType: 'wsl'; readonly wslPath: string; } {
+export function getKubeconfigPath(): { readonly pathType: 'host'; readonly hostPath: string } | { readonly pathType: 'wsl'; readonly wslPath: string } {
     // If the user specified a kubeconfig path -WSL or not-, let's use it.
     let kubeconfigPath: string | undefined = getActiveKubeconfig();
 

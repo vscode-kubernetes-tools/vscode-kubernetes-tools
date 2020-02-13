@@ -6,7 +6,7 @@ import * as vscode from 'vscode';
 export class FuncMap {
 
     public all(): vscode.CompletionItem[] {
-        return this.sprigFuncs().concat(this.builtinFuncs()).concat(this.helmFuncs())
+        return this.sprigFuncs().concat(this.builtinFuncs()).concat(this.helmFuncs());
     }
 
     public helmVals(): vscode.CompletionItem[] {
@@ -24,7 +24,7 @@ export class FuncMap {
 - .Release.IsInstall: True if this is an install
 - .Release.Revision: The revision number
 `),
-        ]
+        ];
     }
     public releaseVals(): vscode.CompletionItem[] {
         return [
@@ -35,14 +35,14 @@ export class FuncMap {
             this.v("IsUpgrade", ".Release.IsUpgrade", "True if this is an upgrade operation"),
             this.v("IsInstall", ".Release.IsInstall", "True if this is an install operation"),
             this.v("Revision", ".Release.Revision", "Release revision number (starts at 1)"),
-        ]
+        ];
     }
 
     public filesVals(): vscode.CompletionItem[] {
         return [
             this.f("Get", ".Files.Get $path", "Get file contents. Path is relative to chart."),
             this.f("GetBytes", ".Files.GetBytes $path", "Get file contents as a byte array. Path is relative to chart.")
-        ]
+        ];
     }
 
     public capabilitiesVals(): vscode.CompletionItem[] {
@@ -50,7 +50,7 @@ export class FuncMap {
             this.v("KubeVersion", ".Capabilities.KubeVersion", "Kubernetes version"),
             this.v("TillerVersion", ".Capabilities.TillerVersion", "Tiller version"),
             this.f("ApiVersions.Has", `.Capabilities.ApiVersions.Has "batch/v1"`, "Returns true if the given Kubernetes API/version is present on the cluster")
-        ]
+        ];
     }
 
     public chartVals(): vscode.CompletionItem[] {
@@ -66,7 +66,7 @@ export class FuncMap {
             this.v("AppVersion", ".Chart.AppVersion", "The version of the main app contained in this chart"),
             this.v("Deprecated", ".Chart.Deprecated", "If true, this chart is no longer maintained"),
             this.v("TillerVersion", ".Chart.TillerVersion", "The version (range) if Tiller that this chart can run on."),
-        ]
+        ];
     }
 
     public helmFuncs(): vscode.CompletionItem[] {
@@ -78,7 +78,7 @@ export class FuncMap {
             this.f("fromYaml", "fromYaml $str", "parse YAML into a dict or list"),
             this.f("fromJson", "fromJson $str", "parse JSON $str into a dict or list"),
             this.f("required", "required $val", "fail template if $val is not provided or is empty"),
-        ]
+        ];
     }
 
     public builtinFuncs(): vscode.CompletionItem[] {
@@ -103,7 +103,7 @@ export class FuncMap {
             this.f("gt", "gt $a $b", "returns true if $a > $b"),
             this.f("le", "le $a $b", "returns true if $a <= $b"),
             this.f("ge", "ge $a $b", "returns true if $a >= $b"),
-        ]
+        ];
     }
 
     public sprigFuncs(): vscode.CompletionItem[] {
@@ -235,20 +235,20 @@ export class FuncMap {
             this.f("sha256sum", "sha256sum $str", "generate a SHA-256 sum of $str"),
             this.f("derivePassword", "derivePassword $counter $long $pass $user $domain", "generate a password from [Master Password](http://masterpasswordapp.com/algorithm.html) spec"),
             this.f("generatePrivateKey", "generatePrivateKey 'ecdsa'", "generate private PEM key (takes dsa, rsa, or ecdsa)"),
-        ]
+        ];
     }
 
     public f(name: string, args: string, doc: string): vscode.CompletionItem {
-        const i = new vscode.CompletionItem(name, vscode.CompletionItemKind.Function)
-        i.detail = args
-        i.documentation = doc
-        return i
+        const i = new vscode.CompletionItem(name, vscode.CompletionItemKind.Function);
+        i.detail = args;
+        i.documentation = doc;
+        return i;
     }
 
     public v(name: string, use: string, doc: string): vscode.CompletionItem {
-        const i = new vscode.CompletionItem(name, vscode.CompletionItemKind.Constant)
-        i.detail = use
-        i.documentation = doc
-        return i
+        const i = new vscode.CompletionItem(name, vscode.CompletionItemKind.Constant);
+        i.detail = use;
+        i.documentation = doc;
+        return i;
     }
 }

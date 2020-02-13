@@ -160,7 +160,7 @@ export async function helmCreate(): Promise<void> {
     }
 }
 
-export async function helmCreateCore(prompt: string, sampleName: string): Promise<Errorable<{ name: string, path: string}> | undefined> {
+export async function helmCreateCore(prompt: string, sampleName: string): Promise<Errorable<{ name: string; path: string}> | undefined> {
     const folder = await showWorkspaceFolderPick();
     if (!folder) {
         return undefined;

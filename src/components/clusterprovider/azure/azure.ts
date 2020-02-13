@@ -155,8 +155,7 @@ async function listLocations(context: Context): Promise<Errorable<Locations>> {
     const sr = await context.shell.exec(`az account list-locations --query ${query} -ojson`);
 
     return fromShellJson<Locations>(sr, "Unable to list Azure regions", (response) => {
-        /* tslint:disable-next-line:prefer-const */
-        let locations = Dictionary.of<string>();
+        const locations = Dictionary.of<string>();
         for (const r of response) {
             locations[r.name] = r.displayName;
         }

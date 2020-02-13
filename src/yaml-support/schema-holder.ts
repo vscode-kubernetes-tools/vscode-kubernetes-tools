@@ -14,12 +14,12 @@ interface KubernetesSchema {
     readonly apiVersion?: string;
     readonly kind?: string;
     readonly 'x-kubernetes-group-version-kind'?: any[];
-    readonly properties?: { [key: string]: any; };
+    readonly properties?: { [key: string]: any };
 }
 
 export class KubernetesClusterSchemaHolder {
-    private definitions: { [key: string]: KubernetesSchema; } = {};
-    private schemaEnums: { [key: string]: { [key: string]: [string[]] }; };
+    private definitions: { [key: string]: KubernetesSchema } = {};
+    private schemaEnums: { [key: string]: { [key: string]: [string[]] } };
 
     public static async fromActiveCluster(kubectl: Kubectl): Promise<KubernetesClusterSchemaHolder> {
         const holder = new KubernetesClusterSchemaHolder();
