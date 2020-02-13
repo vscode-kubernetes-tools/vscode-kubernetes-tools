@@ -33,7 +33,7 @@ async function isAKSCluster (kubectl: Kubectl): Promise<boolean> {
 
     const nodeItems = nodes.result.items;
     for (const nodeItem of nodeItems) {
-        const isAKSNode = _isNodeAKS(nodeItem);
+        const isAKSNode = isNodeAKS(nodeItem);
 
         if (!isAKSNode) {
             return false;
@@ -43,7 +43,7 @@ async function isAKSCluster (kubectl: Kubectl): Promise<boolean> {
    return true;
 }
 
-function _isNodeAKS(node: Node): boolean {
+function isNodeAKS(node: Node): boolean {
     const name: string = node.metadata.name;
     const roleLabel: string = node.metadata.labels ? node.metadata.labels["kubernetes.io/role"] : '';
 

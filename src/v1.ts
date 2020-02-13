@@ -1,3 +1,4 @@
+/* eslint-disable quote-props */
 /* tslint:disable:object-literal-key-quotes */
 /* tslint:disable:semicolon */
 

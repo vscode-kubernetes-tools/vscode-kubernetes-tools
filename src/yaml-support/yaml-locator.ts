@@ -65,7 +65,7 @@ export interface YamlMatchedElement {
  */
 export class YamlLocator {
     // a mapping of URIs to cached documents
-    private cache: { [key: string]: YamlCachedDocuments; }  = {};
+    private cache: { [key: string]: YamlCachedDocuments }  = {};
 
     /**
      * Parse the yaml text and find the best node&document for the given position.

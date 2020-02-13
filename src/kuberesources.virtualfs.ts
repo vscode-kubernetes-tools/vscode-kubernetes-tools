@@ -93,7 +93,7 @@ export class KubernetesResourceVirtualFileSystemProvider implements FileSystemPr
         }
     }
 
-    writeFile(uri: Uri, content: Uint8Array, _options: { create: boolean, overwrite: boolean }): void | Thenable<void> {
+    writeFile(uri: Uri, content: Uint8Array, _options: { create: boolean; overwrite: boolean }): void | Thenable<void> {
         return this.saveAsync(uri, content);  // TODO: respect options
     }
 

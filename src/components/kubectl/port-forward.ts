@@ -198,7 +198,6 @@ function validatePortMapping(portMapping: string): ValidationResult | undefined 
  * @returns An error to be displayed, or undefined
  */
 function validatePortPair(portPair: string): ValidationResult {
-    let localPort, targetPort;
     const splitMapping = portPair.split(':');
 
     // User provided only the target port
@@ -216,8 +215,8 @@ function validatePortPair(portPair: string): ValidationResult {
         };
     }
 
-    localPort = splitMapping[0];
-    targetPort = splitMapping[1];
+    const localPort = splitMapping[0];
+    const targetPort = splitMapping[1];
 
     if (
         Number(localPort) &&

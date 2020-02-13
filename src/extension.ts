@@ -870,11 +870,11 @@ export interface FindPodsResult {
 
 function findNameAndImage() {
     return {
-        then: _findNameAndImageInternal
+        then: findNameAndImageInternal
     };
 }
 
-function _findNameAndImageInternal(fn: (name: string, image: string) => void) {
+function findNameAndImageInternal(fn: (name: string, image: string) => void) {
     if (vscode.workspace.rootPath === undefined) {
         vscode.window.showErrorMessage('This command requires an open folder.');
         return;
@@ -1257,7 +1257,7 @@ export interface PodSummary {
     readonly name: string;
     readonly namespace: string | undefined;
     readonly spec?: {
-        containers?: Container[]
+        containers?: Container[];
     };
 }
 

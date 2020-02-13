@@ -1205,6 +1205,7 @@
     },
     "scripts": {
         "vscode:prepublish": "npm run compile",
+        "lint": "eslint -c .eslintrc.js --ext .ts ./src",
         "compile": "tsc -p ./",
         "watch": "tsc -watch -p ./",
         "postinstall": "node ./node_modules/vscode/bin/install",
@@ -1269,10 +1270,14 @@
         "@types/node": "^10.2.0",
         "@types/request": "^2.48.1",
         "@types/unzipper": "^0.10.0",
+        "@typescript-eslint/eslint-plugin": "^2.19.2",
+        "@typescript-eslint/eslint-plugin-tslint": "2.19.2",
+        "@typescript-eslint/parser": "^2.19.2",
+        "eslint": "^6.8.0",
         "gulp": "^4.0.2",
         "gulp-tslint": "^8.1.2",
         "mocha": "^4.1.0",
-        "tslint": "^5.9.1",
+        "tslint": "^5.18.0",
         "typescript": "^3.5.2",
         "vscode": "^1.1.21"
     },
