@@ -5,7 +5,8 @@ import * as path from "path";
 import * as portfinder from "portfinder";
 import { ChildProcess } from "child_process";
 
-import { IDebugProvider } from "./debugProvider";
+import { IDebugProvider, PortInfo } from "./debugProvider";
+import { ProcessInfo, getProcesses } from "./debugUtils";
 import * as providerRegistry from "./providerRegistry";
 
 import { kubeChannel } from "../kubeChannel";
@@ -115,7 +116,7 @@ export class DebugSession implements IDebugSession {
 
                 // Start debug session.
                 p.report({ message: `Starting ${this.debugProvider!.getDebuggerType()} debug session...`});  // safe because checked outside the lambda
-                await this.startDebugSession(appName, cwd, proxyResult);
+                await this.startDebugSession(appName, cwd, proxyResult, podName, undefined);
             } catch (error) {
                 vscode.window.showErrorMessage(error);
                 kubeChannel.showOutput(`Debug on Kubernetes failed. The errors were: ${error}.`);
@@ -145,12 +146,6 @@ export class DebugSession implements IDebugSession {
 
         const { targetPod, targetPodNS, containers } = targetPodInfo;
 
-        // Select the image type to attach.
-        this.debugProvider = await this.pickupAndInstallDebugProvider();
-        if (!this.debugProvider) {
-            return;
-        }
-
         // Select the target container to attach.
         // TODO: consolidate with container selection in extension.ts.
         const targetContainer = await this.pickContainer(containers);
@@ -158,32 +153,56 @@ export class DebugSession implements IDebugSession {
             return;
         }
 
-        // Find the debug port to attach.
-        const portInfo = await this.debugProvider.resolvePortsFromContainer(this.kubectl, targetPod, targetPodNS, targetContainer);
-        if (!portInfo || !portInfo.debugPort) {
-            await this.openInBrowser("Cannot resolve the debug port to attach. See the documentation for how to use this command.", debugCommandDocumentationUrl);
+        const processes = await getProcesses(this.kubectl, targetPod, targetPodNS, targetContainer);
+
+        // Select the image type to attach.
+        this.debugProvider = await this.pickupAndInstallDebugProvider(undefined, processes);
+        if (!this.debugProvider) {
             return;
+        }
+
+        const pidToDebug = this.tryFindTargetPid(processes);
+
+        // Find the debug port to attach.
+        const isPortRequired = this.debugProvider.isPortRequired();
+        let portInfo: PortInfo | undefined = undefined;
+        if (isPortRequired) {
+            portInfo = await this.debugProvider.resolvePortsFromContainer(this.kubectl, targetPod, targetPodNS, targetContainer);
+            if (!portInfo || !portInfo.debugPort) {
+                await this.openInBrowser("Cannot resolve the debug port to attach. See the documentation for how to use this command.", debugCommandDocumentationUrl);
+                return;
+            }
         }
 
         vscode.window.withProgress({ location: vscode.ProgressLocation.Window }, async (p) => {
             try {
-                // Setup port-forward.
-                p.report({ message: "Setting up port forwarding..."});
-                const proxyResult = await this.setupPortForward(targetPod, targetPodNS, portInfo.debugPort);
+                let proxyResult: ProxyResult | undefined;
+                if (isPortRequired) {
+                    p.report({ message: "Setting up port forwarding..."});
+                    if (portInfo) {
+                        proxyResult = await this.setupPortForward(targetPod, targetPodNS, portInfo.debugPort);
+                    }
 
-                if (!proxyResult.proxyProcess) {
-                    return;  // No port forwarding, so can't debug
+                    if (!proxyResult || !proxyResult.proxyProcess) {
+                        return;  // No port forwarding, so can't debug
+                    }
                 }
 
                 // Start debug session.
                 p.report({ message: `Starting ${this.debugProvider!.getDebuggerType()} debug session...`});  // safe because checked outside lambda
-                await this.startDebugSession(undefined, workspaceFolder.uri.fsPath, proxyResult);
+
+                await this.startDebugSession(undefined, workspaceFolder.uri.fsPath, proxyResult, targetPod, pidToDebug);
             } catch (error) {
                 vscode.window.showErrorMessage(error);
                 kubeChannel.showOutput(`Debug on Kubernetes failed. The errors were: ${error}.`);
                 kubeChannel.showOutput(`\nTo learn more about the usage of the debug feature, take a look at ${debugCommandDocumentationUrl}`);
             }
         });
+    }
+
+    tryFindTargetPid(processes: ProcessInfo[] | undefined): number | undefined {
+        const supportedProcesses = processes ? (<IDebugProvider>this.debugProvider).filterSupportedProcesses(processes) : undefined;
+        return supportedProcesses && supportedProcesses.length === 1 ? +supportedProcesses[0].pid : undefined;
     }
 
     async getPodTarget(pod?: string, podNamespace?: string) {
@@ -254,8 +273,8 @@ export class DebugSession implements IDebugSession {
         return selectedContainer.name;
     }
 
-    private async pickupAndInstallDebugProvider(baseImage?: string): Promise<IDebugProvider | undefined> {
-        const debugProvider = await providerRegistry.getDebugProvider(baseImage);
+    private async pickupAndInstallDebugProvider(baseImage?: string, runningProcesses?: ProcessInfo[]): Promise<IDebugProvider | undefined> {
+        const debugProvider = await providerRegistry.getDebugProvider(baseImage, runningProcesses);
         if (!debugProvider) {
             return undefined;
         } else if (!await debugProvider.isDebuggerInstalled()) {
@@ -326,11 +345,15 @@ export class DebugSession implements IDebugSession {
         return proxyResult;
     }
 
-    private async startDebugSession(appName: string | undefined, cwd: string, proxyResult: ProxyResult): Promise<void> {
+    private async startDebugSession(appName: string | undefined, cwd: string, proxyResult: ProxyResult | undefined, pod: string, pidToDebug: number | undefined): Promise<void> {
         kubeChannel.showOutput("Starting debug session...", "Start debug session");
         const sessionName = appName || `${Date.now()}`;
-        await this.startDebugging(cwd, sessionName, proxyResult.proxyDebugPort, proxyResult.proxyAppPort, async () => {
-            if (proxyResult.proxyProcess) {
+
+        const proxyDebugPort = proxyResult ? proxyResult.proxyDebugPort : undefined;
+        const proxyAppPort = proxyResult ? proxyResult.proxyAppPort : undefined;
+
+        await this.startDebugging(cwd, sessionName, proxyDebugPort, proxyAppPort, pod, pidToDebug, async () => {
+            if (proxyResult && proxyResult.proxyProcess) {
                 proxyResult.proxyProcess.kill();
             }
             if (appName) {
@@ -421,7 +444,7 @@ export class DebugSession implements IDebugSession {
         return forwardingRegExp.test(message);
     }
 
-    private async startDebugging(workspaceFolder: string, sessionName: string, proxyDebugPort: number, proxyAppPort: number, onTerminateCallback: () => Promise<any>): Promise<boolean> {
+    private async startDebugging(workspaceFolder: string, sessionName: string, proxyDebugPort: number | undefined, proxyAppPort: number | undefined, pod: string, pidToDebug: number | undefined, onTerminateCallback: () => Promise<any>): Promise<boolean> {
         const disposables: vscode.Disposable[] = [];
         disposables.push(vscode.debug.onDidStartDebugSession((debugSession) => {
             if (debugSession.name === sessionName) {
@@ -444,7 +467,7 @@ export class DebugSession implements IDebugSession {
             return false;
         }
 
-        const success = await this.debugProvider.startDebugging(workspaceFolder, sessionName, proxyDebugPort);
+        const success = await this.debugProvider.startDebugging(workspaceFolder, sessionName, proxyDebugPort, pod, pidToDebug);
         if (!success) {
             disposables.forEach((d) => d.dispose());
             await onTerminateCallback();

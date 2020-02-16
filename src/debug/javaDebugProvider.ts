@@ -35,7 +35,7 @@ export class JavaDebugProvider implements IDebugProvider {
         return false;
     }
 
-    public async startDebugging(workspaceFolder: string, sessionName: string, port: number): Promise<boolean> {
+    public async startDebugging(workspaceFolder: string, sessionName: string, port: number | undefined, _pod: string, _pidToDebug: number | undefined): Promise<boolean> {
         const debugConfiguration = {
             type: "java",
             request: "attach",
@@ -93,14 +93,17 @@ export class JavaDebugProvider implements IDebugProvider {
 
     public async resolvePortsFromContainer(kubectl: Kubectl, pod: string, podNamespace: string | undefined, container: string): Promise<PortInfo | undefined> {
         let rawDebugPortInfo: string | undefined;
-        const commandLines = await debugUtils.getCommandsOfProcesses(kubectl, pod, podNamespace, container);
-        for (const commandLine of commandLines) {
-            // java -Djava.security.egd=file:/dev/./urandom -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=1044,quiet=y -jar target/app.jar
-            const matches = commandLine.match(fullJavaDebugOptsRegExp);
-            if (matches && matches.length > 0) {
-                const addresses = matches[2].split("=")[1].split(":");
-                rawDebugPortInfo = addresses[addresses.length - 1];
-                break;
+        const processes = await debugUtils.getProcesses(kubectl, pod, podNamespace, container);
+        const commandLines = processes ? processes.map(({ command }) => command) : undefined;
+        if (commandLines) {
+            for (const commandLine of commandLines) {
+                // java -Djava.security.egd=file:/dev/./urandom -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=1044,quiet=y -jar target/app.jar
+                const matches = commandLine.match(fullJavaDebugOptsRegExp);
+                if (matches && matches.length > 0) {
+                    const addresses = matches[2].split("=")[1].split(":");
+                    rawDebugPortInfo = addresses[addresses.length - 1];
+                    break;
+                }
             }
         }
 
@@ -115,5 +118,13 @@ export class JavaDebugProvider implements IDebugProvider {
         return {
             debugPort: Number(rawDebugPortInfo)
         };
+    }
+
+    public filterSupportedProcesses(_processes: debugUtils.ProcessInfo[]): debugUtils.ProcessInfo[] | undefined {
+        return undefined;
+    }
+
+    public isPortRequired(): boolean {
+        return true;
     }
 }

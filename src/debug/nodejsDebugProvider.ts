@@ -6,6 +6,7 @@ import { suggestedShellForContainer } from '../utils/container-shell';
 import * as config from '../components/config/config';
 import { Kubectl } from "../kubectl";
 import { kubeChannel } from "../kubeChannel";
+import { ProcessInfo } from "./debugUtils";
 
 const debuggerType = 'nodejs';
 
@@ -21,7 +22,7 @@ export class NodejsDebugProvider implements IDebugProvider {
         return true;
     }
 
-    public async startDebugging(workspaceFolder: string, sessionName: string, port: number): Promise<boolean> {
+    public async startDebugging(workspaceFolder: string, sessionName: string, port: number | undefined, _pod: string, _pidToDebug: number | undefined): Promise<boolean> {
 
         const debugConfiguration: vscode.DebugConfiguration = {
             type: "node",
@@ -92,5 +93,13 @@ export class NodejsDebugProvider implements IDebugProvider {
         }
 
         return undefined;
+    }
+
+    public filterSupportedProcesses(_processes: ProcessInfo[]): ProcessInfo[] | undefined {
+        return undefined;
+    }
+
+    public isPortRequired(): boolean {
+        return true;
     }
 }

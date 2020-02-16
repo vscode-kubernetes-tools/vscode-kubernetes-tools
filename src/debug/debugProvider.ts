@@ -1,6 +1,7 @@
 import { Kubectl } from "../kubectl";
 import { IDockerfile } from "../docker/parser";
 import { Dictionary } from "../utils/dictionary";
+import { ProcessInfo } from "./debugUtils";
 
 export interface PortInfo {
     readonly debugPort: number;
@@ -26,7 +27,7 @@ export interface IDebugProvider {
      * @param port the debugging port exposed by the target program.
      * @return A thenable that resolves when debugging could be successfully started.
      */
-    startDebugging(workspaceFolder: string, sessionName: string, port: number): Promise<boolean>;
+    startDebugging(workspaceFolder: string, sessionName: string, port: number | undefined, pod: string, pidToDebug: number | undefined): Promise<boolean>;
 
     /**
      * The docker image is supported by the provider or not.
@@ -54,4 +55,17 @@ export interface IDebugProvider {
      * @return the resolved port info.
      */
     resolvePortsFromContainer(kubectl: Kubectl, pod: string, podNamespace: string | undefined, container: string): Promise<PortInfo | undefined>;
+
+    /**
+     * Filters the process list to those processes that can be debugged by the the provider.
+     *
+     * @param processes the running processes on the container
+     * @return the list of processes supported by the provider
+     */
+    filterSupportedProcesses(processes: ProcessInfo[]): ProcessInfo[] | undefined;
+
+    /**
+     * Returns true if the debugger requires a port to connect to.
+     */
+    isPortRequired(): boolean;
 }
