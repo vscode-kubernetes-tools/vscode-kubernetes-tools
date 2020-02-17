@@ -74,3 +74,6 @@ snippet. In terms of the TypeScript typings from the NPM package, `activate` ret
 * [Cloud Explorer API](cloudexplorer.md) - used for working with the Clouds tree
   * ID: `cloudexplorer`
   * Versions: `v1`
+* [Configuration API](configuration.md) - used for working with Kubernetes configuration
+  * ID: `configuration`
+  * Versions: `v1`
