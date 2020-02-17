@@ -72,6 +72,7 @@ export class LogsPanel extends WebPanel {
                   <code>
                     <pre id='content'>
                     </pre>
+                    <a id='bottom' />
                   </code>
                 </div>
             </div>
