@@ -258,7 +258,7 @@
                             "type": "number",
                             "description": "Remote debugging port for Python. Usually 5678."
                         },
-                        "vs-kubernetes.resource-to-watch": {
+                        "vs-kubernetes.resources-to-watch": {
                             "type": "array",
                             "description": "List of resources to be watched."
                         }
@@ -463,12 +463,12 @@
                 {
                     "command": "extension.vsKubernetesAddWatch",
                     "group": "3@1",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.kind/i"
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /k8s-watchable/i"
                 },
                 {
                     "command": "extension.vsKubernetesDeleteWatch",
                     "group": "3@2",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.kind/i"
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /k8s-watchable/i"
                 },
                 {
                     "command": "extension.vsKubernetesLoad",
@@ -519,16 +519,6 @@
                     "command": "extension.vsKubernetesPortForward",
                     "group": "2@6",
                     "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.service/i"
-                },
-                {
-                    "command": "extension.vsKubernetesAddWatch",
-                    "group": "2@7",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\./i"
-                },
-                {
-                    "command": "extension.vsKubernetesDeleteWatch",
-                    "group": "2@8",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\./i"
                 },
                 {
                     "command": "extension.vsKubernetesPortForward",

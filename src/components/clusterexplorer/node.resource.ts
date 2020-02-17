@@ -58,6 +58,9 @@ export class ResourceNode extends ClusterExplorerNodeImpl implements ClusterExpl
     }
 
     async apiURI(kubectl: Kubectl, namespace: string): Promise<string | undefined> {
+        if (!this.kind.apiName) {
+            return undefined;
+        }
         const resources = this.kind.apiName.replace(/\s/g, '').toLowerCase();
         const version = await kubectlUtils.getResourceVersion(kubectl, resources);
         if (!version) {

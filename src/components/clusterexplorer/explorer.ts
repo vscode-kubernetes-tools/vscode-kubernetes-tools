@@ -100,7 +100,7 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         const viewer = vscode.window.createTreeView('extension.vsKubernetesExplorer', {
             treeDataProvider: this
         });
-		return vscode.Disposable.from(
+        return vscode.Disposable.from(
 			viewer,
             viewer.onDidCollapseElement(this.onElementCollapsed, this),
             viewer.onDidExpandElement(this.onElementExpanded, this)
@@ -111,6 +111,9 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         const baseTreeItem = element.getTreeItem();
 
         const extensionAwareTreeItem = providerResult.transform(baseTreeItem, (ti) => {
+            if ('kind' in element && 'apiName' in element.kind && element.kind.apiName) {
+                ti.contextValue += 'k8s-watchable';
+            }
             if (ti.collapsibleState === vscode.TreeItemCollapsibleState.None && this.extenders.some((e) => e.contributesChildren(element))) {
                 ti.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
             }
@@ -234,9 +237,6 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         const watchId = this.getIdForWatch(node);
         const treeItem = node.getTreeItem();
         providerResult.transform(treeItem, (ti) => {
-            if (ti.collapsibleState === vscode.TreeItemCollapsibleState.Collapsed) {
-                ti.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
-            }
             if (this.shouldCreateWatch(ti.label, watchId)) {
                 this.watch(node);
             }
@@ -244,12 +244,6 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
     }
 
     private collapse(node: ClusterExplorerNode) {
-        const treeItem = node.getTreeItem();
-        providerResult.transform(treeItem, (ti) => {
-            if (ti.collapsibleState === vscode.TreeItemCollapsibleState.Expanded) {
-                ti.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
-            }
-        });
         const watchId = this.getIdForWatch(node);
         if (watchId && WatchManager.instance().existsWatch(watchId)) {
             WatchManager.instance().removeWatch(watchId);

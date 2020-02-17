@@ -6,7 +6,7 @@ const EXTENSION_CONFIG_KEY = "vs-kubernetes";
 const KUBECONFIG_PATH_KEY = "vs-kubernetes.kubeconfig";
 const KNOWN_KUBECONFIGS_KEY = "vs-kubernetes.knownKubeconfigs";
 const KUBECTL_VERSIONING_KEY = "vs-kubernetes.kubectlVersioning";
-const RESOURCES_TO_WATCH_KEY = "vs-kubernetes.resource-to-watch";
+const RESOURCES_TO_WATCH_KEY = "vs-kubernetes.resources-to-watch";
 
 export enum KubectlVersioning {
     UserProvided = 1,

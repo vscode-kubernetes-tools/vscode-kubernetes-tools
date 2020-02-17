@@ -37,6 +37,9 @@ export class ResourceFolderNode extends FolderNode implements ClusterExplorerRes
     }
 
     async apiURI(kubectl: Kubectl, namespace: string): Promise<string | undefined> {
+        if (!this.kind.apiName) {
+            return undefined;
+        }
         const resources = this.kind.apiName.replace(/\s/g, '').toLowerCase();
         const version = await getResourceVersion(kubectl, resources);
         if (!version) {

@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { Dictionary } from './utils/dictionary';
 
 export class ResourceKind implements vscode.QuickPickItem {
-    constructor(readonly displayName: string, readonly pluralDisplayName: string, readonly manifestKind: string, readonly abbreviation: string, readonly apiName: string) {
+    constructor(readonly displayName: string, readonly pluralDisplayName: string, readonly manifestKind: string, readonly abbreviation: string, readonly apiName?: string) {
     }
 
     get label() { return this.displayName; }

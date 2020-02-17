@@ -101,7 +101,7 @@ export namespace ClusterExplorerV1 {
     }
 
     export interface NodeSources {
-        resourceFolder(displayName: string, pluralDisplayName: string, manifestKind: string, abbreviation: string, apiName: string): NodeSource;
+        resourceFolder(displayName: string, pluralDisplayName: string, manifestKind: string, abbreviation: string): NodeSource;
         groupingFolder(displayName: string, contextValue: string | undefined, ...children: NodeSource[]): NodeSource;
     }
 }
