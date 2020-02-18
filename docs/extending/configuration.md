@@ -50,7 +50,7 @@ async function runMyTool() {
         // ...do things with childProcess...
     } else if (path.pathType === 'wsl') {
         // WSL-aware:
-        const childProcess = shelljs.exec(`wsl mytool --kubecconfig ${path.wslPath}`);
+        const childProcess = shelljs.exec(`wsl mytool --kubeconfig ${path.wslPath}`);
         // Non-WSL-aware:
         // vscode.window.showErrorMessage('This command is not supported on WSL.');
     } else {
