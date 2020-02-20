@@ -1,5 +1,18 @@
 # Change Log
 
+## 1.1.0
+
+* Added .NET debugging support
+* Added Configuration API v1
+* You can now delete namespaces if you _really really_ want to
+* Automatic `kubectl` versioning no longer needs a version of `kubectl` installed to get started
+* Updated Helm string functions
+* Added Sprig ternary function
+* Updated Deployment snippet to `apps/v1`
+* Install Dependencies button correctly handles multi-OS installs (specifically for Windows/WSL via VS Code Remote)
+
+Thanks to Patrick Carnahan, Ted Chambers, amirschw and Michelle Soedal.
+
 ## 1.0.9
 
 * Added syntax highlighting for Helm 3 `Chart.lock` files
