@@ -24,4 +24,7 @@ export class MessageNode extends ClusterExplorerNodeImpl implements ClusterExplo
     getChildren(_kubectl: Kubectl, _host: Host): vscode.ProviderResult<ClusterExplorerNode[]> {
         return [];
     }
+    async apiURI(_kubectl: Kubectl, _namespace: string): Promise<string | undefined> {
+        return undefined;
+    }
 }

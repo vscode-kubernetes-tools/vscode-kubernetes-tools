@@ -56,6 +56,35 @@ export class ResourceNode extends ClusterExplorerNodeImpl implements ClusterExpl
     get isExpandable(): boolean {
         return getChildSources(this.kind).length > 0;
     }
+
+    async apiURI(kubectl: Kubectl, namespace: string): Promise<string | undefined> {
+        if (!this.kind.apiName) {
+            return undefined;
+        }
+        const resources = this.kind.apiName.replace(/\s/g, '').toLowerCase();
+        const version = await kubectlUtils.getResourceVersion(kubectl, resources);
+        if (!version) {
+            return undefined;
+        }
+        const baseUri = (version === 'v1') ? `/api/${version}/` : `/apis/${version}/`;
+        const namespaceUri = this.namespaceUriPart(namespace, resources);
+        return `${baseUri}${namespaceUri}${this.name}`;
+    }
+
+    private namespaceUriPart(ns: string, resources: string): string {
+        let namespaceUri = '';
+        switch (resources) {
+            case "namespaces" || "nodes" || "persistentvolumes" || "storageclasses": {
+                namespaceUri = `${resources}/`;
+                break;
+            }
+            default: {
+                namespaceUri = `namespaces/${ns}/${resources}/`;
+                break;
+            }
+        }
+        return namespaceUri;
+    }
 }
 
 export interface ResourceExtraInfo {

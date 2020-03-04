@@ -5,12 +5,37 @@ import * as yaml from 'js-yaml';
 import * as shelljs from 'shelljs';
 import { refreshExplorer } from '../clusterprovider/common/explorer';
 import { getActiveKubeconfig, getUseWsl } from '../config/config';
+import * as kubernetes from '@kubernetes/client-node';
 
 interface Named {
     readonly name: string;
 }
 
-export function getKubeconfigPath(): { readonly pathType: 'host'; readonly hostPath: string } | { readonly pathType: 'wsl'; readonly wslPath: string } {
+export async function loadKubeconfig(): Promise<kubernetes.KubeConfig> {
+    const kubeconfig = new kubernetes.KubeConfig();
+    const kubeconfigPath = getKubeconfigPath();
+
+    if (kubeconfigPath.pathType === 'host') {
+        kubeconfig.loadFromFile(kubeconfigPath.hostPath);
+    } else if (kubeconfigPath.pathType === 'wsl') {
+        const result = shelljs.exec(`wsl.exe sh -c "cat ${kubeconfigPath.wslPath}"`, { silent: true }) as shelljs.ExecOutputReturnValue;
+        if (!result) {
+            throw new Error(`Impossible to retrieve the kubeconfig content from WSL at path '${kubeconfigPath.wslPath}'. No result from the shelljs.exe call.`);
+        }
+
+        if (result.code !== 0) {
+            throw new Error(`Impossible to retrieve the kubeconfig content from WSL at path '${kubeconfigPath.wslPath}. Error code: ${result.code}. Error output: ${result.stderr.trim()}`);
+        }
+
+        kubeconfig.loadFromString(result.stdout.trim());
+    } else {
+        throw new Error(`Kubeconfig path type is not recognized.`);
+    }
+
+    return kubeconfig;
+}
+
+export function getKubeconfigPath(): { readonly pathType: 'host'; readonly hostPath: string; } | { readonly pathType: 'wsl'; readonly wslPath: string; } {
     // If the user specified a kubeconfig path -WSL or not-, let's use it.
     let kubeconfigPath: string | undefined = getActiveKubeconfig();
 

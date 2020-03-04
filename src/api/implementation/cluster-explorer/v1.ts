@@ -129,6 +129,9 @@ export class ContributedNode implements ClusterExplorerCustomNode {
     getTreeItem(): vscode.TreeItem {
         return this.impl.getTreeItem();
     }
+    async apiURI(_kubectl: Kubectl, _namespace: string): Promise<string | undefined> {
+        return undefined;
+    }
 }
 
 function resourceFolderContributor(displayName: string, pluralDisplayName: string, manifestKind: string, abbreviation: string): ClusterExplorerV1.NodeSource {

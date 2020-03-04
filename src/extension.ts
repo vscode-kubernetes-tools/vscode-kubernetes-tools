@@ -85,6 +85,7 @@ import { getBuildCommand, getPushCommand } from './image/imageUtils';
 import { getImageBuildTool } from './components/config/config';
 import { ClusterExplorerNode, ClusterExplorerConfigurationValueNode, ClusterExplorerResourceNode, ClusterExplorerResourceFolderNode } from './components/clusterexplorer/node';
 import { create as activeContextTrackerCreate } from './components/contextmanager/active-context-tracker';
+import { WatchManager } from './components/kubectl/watch';
 
 let explainActive = false;
 let swaggerSpecPromise: Promise<explainer.SwaggerModel | undefined> | null = null;
@@ -197,6 +198,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.vsKubernetesDeleteContext', deleteContextKubernetes),
         registerCommand('extension.vsKubernetesUseNamespace', (explorerNode: ClusterExplorerNode) => { useNamespaceKubernetes(kubectl, explorerNode); } ),
         registerCommand('extension.vsKubernetesDashboard', () => { dashboardKubernetes(kubectl); }),
+        registerCommand('extension.vsKubernetesAddWatch', (explorerNode: ClusterExplorerNode) => { addWatch(treeProvider, explorerNode); }),
+        registerCommand('extension.vsKubernetesDeleteWatch', (explorerNode: ClusterExplorerNode) => { deleteWatch(treeProvider, explorerNode); }),
         registerCommand('extension.vsMinikubeStop', () => minikube.stop()),
         registerCommand('extension.vsMinikubeStart', () => minikube.start({} as MinikubeOptions)),
         registerCommand('extension.vsMinikubeStatus', async () => {
@@ -293,7 +296,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         portForwardStatusBarItem,
 
         // Telemetry
-        registerTelemetry(context)
+        registerTelemetry(context),
+
+        treeProvider.initialize()
     ];
 
     telemetry.invalidateClusterType(undefined, kubectl);
@@ -785,6 +790,18 @@ function getKubernetes(explorerNode?: any) {
         findKindNameOrPrompt(kuberesources.commonKinds, 'get', { nameOptional: true }, (value) => {
             kubectl.invokeInSharedTerminal(` get ${value} -o wide`);
         });
+    }
+}
+
+function addWatch(tree: explorer.KubernetesExplorer, explorerNode?: ClusterExplorerNode) {
+    if (explorerNode) {
+        tree.watch(explorerNode);
+    }
+}
+
+function deleteWatch(tree: explorer.KubernetesExplorer, explorerNode?: ClusterExplorerNode) {
+    if (explorerNode) {
+        tree.stopWatching(explorerNode);
     }
 }
 
@@ -1915,6 +1932,7 @@ async function useContextKubernetes(explorerNode: ClusterExplorerNode) {
         telemetry.invalidateClusterType(targetContext);
         activeContextTracker.setActive(targetContext);
         refreshExplorer();
+        WatchManager.instance().clear();
     } else {
         vscode.window.showErrorMessage(`Failed to set '${targetContext}' as current cluster: ${shellResult ? shellResult.stderr : "Unable to run kubectl"}`);
     }

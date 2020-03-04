@@ -25,6 +25,9 @@ export class HelmReleaseNode extends ClusterExplorerNodeImpl implements ClusterE
         treeItem.iconPath = getIconForHelmRelease(this.status.toLowerCase());
         return treeItem;
     }
+    async apiURI(_kubectl: Kubectl, _namespace: string): Promise<string | undefined> {
+        return undefined;
+    }
 }
 
 function getIconForHelmRelease(status: string): vscode.Uri {

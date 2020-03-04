@@ -24,4 +24,7 @@ export class ConfigurationValueNode extends ClusterExplorerNodeImpl implements C
     getChildren(_kubectl: Kubectl, _host: Host): vscode.ProviderResult<ClusterExplorerNode[]> {
         return [];
     }
+    async apiURI(_kubectl: Kubectl, _namespace: string): Promise<string | undefined> {
+        return undefined;
+    }
 }

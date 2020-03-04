@@ -8,6 +8,7 @@ import { FolderNode } from './node.folder';
 import { ResourceNode } from './node.resource';
 import { getLister } from './resourceui';
 import { NODE_TYPES } from './explorer';
+import { getResourceVersion } from '../../kubectlUtils';
 
 export class ResourceFolderNode extends FolderNode implements ClusterExplorerResourceFolderNode {
 
@@ -33,5 +34,33 @@ export class ResourceFolderNode extends FolderNode implements ClusterExplorerRes
             const bits = line.split(' ');
             return ResourceNode.create(this.kind, bits[0], undefined, undefined);
         });
+    }
+
+    async apiURI(kubectl: Kubectl, namespace: string): Promise<string | undefined> {
+        if (!this.kind.apiName) {
+            return undefined;
+        }
+        const resources = this.kind.apiName.replace(/\s/g, '').toLowerCase();
+        const version = await getResourceVersion(kubectl, resources);
+        if (!version) {
+            return undefined;
+        }
+        const baseUri = (version === 'v1') ? `/api/${version}/` : `/apis/${version}/`;
+        const namespaceUri = this.namespaceUriPart(namespace, resources);
+        return `${baseUri}${namespaceUri}${resources}`;
+    }
+
+    private namespaceUriPart(ns: string, resources: string): string {
+        let namespaceUri = `namespaces/${ns}/`;
+        switch (resources) {
+            case "namespaces" || "nodes" || "persistentvolumes" || "storageclasses": {
+                namespaceUri = '';
+                break;
+            }
+            default: {
+                break;
+            }
+        }
+        return namespaceUri;
     }
 }

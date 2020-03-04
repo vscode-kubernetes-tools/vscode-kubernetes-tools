@@ -3,13 +3,15 @@ import * as vscode from 'vscode';
 import { Kubectl } from '../../kubectl';
 import * as kubectlUtils from '../../kubectlUtils';
 import { Host } from '../../host';
-import { affectsUs } from '../config/config';
+import { affectsUs, getResourcesToBeWatched } from '../config/config';
 import { ExplorerExtender, ExplorerUICustomizer } from './explorer.extension';
 import * as providerResult from '../../utils/providerresult';
 import { sleep } from '../../sleep';
 import { refreshExplorer } from '../clusterprovider/common/explorer';
 import { ClusterExplorerNode, ClusterExplorerResourceNode } from './node';
 import { MiniKubeContextNode, ContextNode } from './node.context';
+import { WatchManager } from '../kubectl/watch';
+import { clearTimeout, setTimeout } from 'timers';
 
 // Each item in the explorer is modelled as a ClusterExplorerNode.  This
 // is a discriminated union, using a nodeType field as its discriminator.
@@ -83,6 +85,8 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
 
     private readonly extenders = Array.of<ExplorerExtender<ClusterExplorerNode>>();
     private readonly customisers = Array.of<ExplorerUICustomizer<ClusterExplorerNode>>();
+    private refreshTimer: NodeJS.Timer;
+    private readonly refreshQueue = Array<ClusterExplorerNode>();
 
     constructor(private readonly kubectl: Kubectl, private readonly host: Host) {
         host.onDidChangeConfiguration((change) => {
@@ -92,10 +96,24 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         });
     }
 
+    initialize() {
+        const viewer = vscode.window.createTreeView('extension.vsKubernetesExplorer', {
+            treeDataProvider: this
+        });
+        return vscode.Disposable.from(
+			viewer,
+            viewer.onDidCollapseElement(this.onElementCollapsed, this),
+            viewer.onDidExpandElement(this.onElementExpanded, this)
+        );
+    }
+
     getTreeItem(element: ClusterExplorerNode): vscode.TreeItem | Thenable<vscode.TreeItem> {
         const baseTreeItem = element.getTreeItem();
 
         const extensionAwareTreeItem = providerResult.transform(baseTreeItem, (ti) => {
+            if ('kind' in element && 'apiName' in element.kind && element.kind.apiName) {
+                ti.contextValue += 'k8s-watchable';
+            }
             if (ti.collapsibleState === vscode.TreeItemCollapsibleState.None && this.extenders.some((e) => e.contributesChildren(element))) {
                 ti.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
             }
@@ -106,7 +124,7 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
             customisedTreeItem = providerResult.transformPossiblyAsync(extensionAwareTreeItem, (ti) => c.customize(element, ti));
         }
         return customisedTreeItem;
-}
+    }
 
     getChildren(parent?: ClusterExplorerNode): vscode.ProviderResult<ClusterExplorerNode[]> {
         const baseChildren = this.getChildrenBase(parent);
@@ -116,6 +134,35 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         return providerResult.append(baseChildren, ...contributedChildren);
     }
 
+    async watch(node: ClusterExplorerNode): Promise<void> {
+        const id = this.getIdForWatch(node);
+        if (!id) {
+            console.log('Failed getting id for watch.');
+            return;
+        }
+        const namespace = await kubectlUtils.currentNamespace(this.kubectl);
+        const apiUri = await node.apiURI(this.kubectl, namespace);
+        if (!apiUri) {
+            console.log('Api URI is not valid.');
+            return;
+        }
+        const onWatchNotification = (type: string, _obj: any) => {
+            if (type) {
+                this.queueRefresh(node);
+            }
+        };
+
+        WatchManager.instance().addWatch(id, apiUri, undefined, onWatchNotification);
+    }
+
+    stopWatching(node: ClusterExplorerNode): void
+    {
+        const id = this.getIdForWatch(node);
+        if (id) {
+            WatchManager.instance().removeWatch(id);
+        }
+    }
+
     private getChildrenBase(parent?: ClusterExplorerNode): vscode.ProviderResult<ClusterExplorerNode[]> {
         if (parent) {
             return parent.getChildren(this.kubectl, this.host);
@@ -123,8 +170,8 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         return this.getClusters();
     }
 
-    refresh(): void {
-        this.onDidChangeTreeDataEmitter.fire();
+    refresh(node?: ClusterExplorerNode): void {
+        this.onDidChangeTreeDataEmitter.fire(node);
     }
 
     registerExtender(extender: ExplorerExtender<ClusterExplorerNode>): void {
@@ -142,21 +189,96 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         this.queueRefresh();
     }
 
-    queueRefresh(): void {
-        // In the case where an extender contributes at top level (sibling to cluster nodes),
-        // the tree view can populate before the extender has time to register.  So in this
-        // case we need to kick off a refresh.  But... it turns out that if we just fire the
-        // change event, VS Code goes 'oh well I'm just drawing the thing now so I'll be
-        // picking up the change, no need to repopulate a second time.'  Even with a delay
-        // there's a race condition.  But it seems that if we pipe it through the refresh
-        // *command* (as refreshExplorer does) then it seems to work... ON MY MACHINE TM anyway.
-        //
-        // Refresh after registration is also a consideration for customisers, but we don't know
-        // whether they're  interested in the top level so we have to err on the side of caution
-        // and always queue a refresh.
-        //
-        // These are pretty niche cases, so I'm not too worried if they aren't perfect.
-        sleep(50).then(() => refreshExplorer());
+    queueRefresh(node?: ClusterExplorerNode): void {
+        if (!node) {
+            // In the case where an extender contributes at top level (sibling to cluster nodes),
+            // the tree view can populate before the extender has time to register.  So in this
+            // case we need to kick off a refresh.  But... it turns out that if we just fire the
+            // change event, VS Code goes 'oh well I'm just drawing the thing now so I'll be
+            // picking up the change, no need to repopulate a second time.'  Even with a delay
+            // there's a race condition.  But it seems that if we pipe it through the refresh
+            // *command* (as refreshExplorer does) then it seems to work... ON MY MACHINE TM anyway.
+            //
+            // Refresh after registration is also a consideration for customisers, but we don't know
+            // whether they're  interested in the top level so we have to err on the side of caution
+            // and always queue a refresh.
+            //
+            // These are pretty niche cases, so I'm not too worried if they aren't perfect.
+            sleep(50).then(() => refreshExplorer());
+        } else {
+            const currentNodeId = this.getIdForWatch(node);
+            if (!currentNodeId) {
+                return;
+            }
+            // In the case where many requests of updating are received in a short amount of time
+            // the tree is not refreshed for every change but once after a while.
+            // Every call resets a timer which trigger the tree refresh
+            clearTimeout(this.refreshTimer);
+            // check if element already is in refreshqueue before pushing it
+            const alreadyInQueue = this.refreshQueue.some((queueEntry) => currentNodeId === this.getIdForWatch(queueEntry));
+            if (!alreadyInQueue) {
+                this.refreshQueue.push(node);
+            }
+            this.refreshTimer = setTimeout(() => {
+                this.refreshQueue.splice(0).forEach((n) => this.refresh(n));
+            }, 500);
+        }
+    }
+
+    private onElementCollapsed(e: vscode.TreeViewExpansionEvent<ClusterExplorerNode>) {
+        this.collapse(e.element);
+	}
+
+	private onElementExpanded(e: vscode.TreeViewExpansionEvent<ClusterExplorerNode>) {
+        this.expand(e.element);
+    }
+
+    private expand(node: ClusterExplorerNode) {
+        const watchId = this.getIdForWatch(node);
+        const treeItem = node.getTreeItem();
+        providerResult.transform(treeItem, (ti) => {
+            if (this.shouldCreateWatch(ti.label, watchId)) {
+                this.watch(node);
+            }
+        });
+    }
+
+    private collapse(node: ClusterExplorerNode) {
+        const watchId = this.getIdForWatch(node);
+        if (watchId && WatchManager.instance().existsWatch(watchId)) {
+            WatchManager.instance().removeWatch(watchId);
+        }
+    }
+
+    private shouldCreateWatch(label: string | undefined, watchId: string | undefined): boolean {
+        if (!watchId) {
+            return false;
+        }
+        if (WatchManager.instance().existsWatch(watchId)) {
+            return true;
+        }
+        const resourcesToWatch = getResourcesToBeWatched();
+        if (label &&
+            resourcesToWatch.length > 0 &&
+            resourcesToWatch.indexOf(label) !== -1) {
+            return true;
+        }
+        return false;
+    }
+
+    public getIdForWatch(node: ClusterExplorerNode): string | undefined {
+        switch (node.nodeType) {
+            case 'folder.resource': {
+                return node.kind.abbreviation;
+            }
+            case 'resource': {
+                return node.kindName;
+            }
+            default: {
+                break;
+            }
+        }
+        return undefined;
     }
 
     private async getClusters(): Promise<ClusterExplorerNode[]> {

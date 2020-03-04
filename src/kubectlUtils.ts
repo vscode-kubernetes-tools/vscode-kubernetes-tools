@@ -435,3 +435,20 @@ export async function namespaceResources(kubectl: Kubectl, ns: string): Promise<
     const resources = getresult.stdout.split('\n').map((s) => s.trim()).filter((s) => s.length > 0);
     return { succeeded: true, result: resources };
 }
+
+export async function getResourceVersion(kubectl: Kubectl, resource: string): Promise<string | undefined> {
+    const documentation = await kubectl.asLines(` explain ${resource}`);
+    if (failed(documentation)) {
+        return undefined;
+    }
+
+    const rgx = new RegExp('(?<=VERSION:\\s*)(\\S)+.*');
+    for (const line of documentation.result) {
+        const match = line.match(rgx);
+        if (match) {
+            return match[0];
+        }
+    }
+
+    return undefined;
+}

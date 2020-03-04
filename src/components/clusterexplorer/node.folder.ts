@@ -18,4 +18,8 @@ export abstract class FolderNode extends ClusterExplorerNodeImpl implements Clus
         treeItem.contextValue = this.contextValue || `vsKubernetes.${this.id}`;
         return treeItem;
     }
+
+    async apiURI(_kubectl: Kubectl, _namespace: string): Promise<string | undefined> {
+        return undefined;
+    }
 }
