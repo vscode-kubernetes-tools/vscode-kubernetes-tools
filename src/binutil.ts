@@ -2,12 +2,12 @@ import * as config from './components/config/config';
 import { Shell } from './shell';
 import { Host } from './host';
 import { FS } from './fs';
+import { installDependencies } from './components/installer/installdependencies';
 
 export interface BinCheckContext {
     readonly host: Host;
     readonly fs: FS;
     readonly shell: Shell;
-    readonly installDependenciesCallback: () => void;
     binFound: boolean;
     binPath: string;
 }
@@ -50,7 +50,7 @@ export function execPath(shell: Shell, basePath: string): string {
 
 type CheckPresentFailureReason = 'inferFailed' | 'configuredFileMissing';
 
-function alertNoBin(host: Host, binName: string, failureReason: CheckPresentFailureReason, message: string, installDependencies: () => void): void {
+function alertNoBin(host: Host, binName: string, failureReason: CheckPresentFailureReason, message: string): void {
     switch (failureReason) {
         case 'inferFailed':
             host.showErrorMessage(message, 'Install dependencies', 'Learn more').then(
@@ -85,7 +85,7 @@ export async function checkForBinary(context: BinCheckContext, bin: string | und
 
         if (fb.err || fb.output.length === 0) {
             if (alertOnFail) {
-                alertNoBin(context.host, binName, 'inferFailed', inferFailedMessage, context.installDependenciesCallback);
+                alertNoBin(context.host, binName, 'inferFailed', inferFailedMessage);
             }
             return false;
         }
@@ -105,7 +105,7 @@ export async function checkForBinary(context: BinCheckContext, bin: string | und
         context.binPath = bin;
     } else {
         if (alertOnFail) {
-            alertNoBin(context.host, binName, 'configuredFileMissing', configuredFileMissingMessage, context.installDependenciesCallback);
+            alertNoBin(context.host, binName, 'configuredFileMissing', configuredFileMissingMessage);
         }
     }
 

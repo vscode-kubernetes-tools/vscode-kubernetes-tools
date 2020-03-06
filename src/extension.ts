@@ -20,7 +20,7 @@ import { pullAll } from 'lodash';
 import { host } from './host';
 import { addKubernetesConfigFile, deleteKubernetesConfigFile } from './configMap';
 import * as explainer from './explainer';
-import { shell, Shell, ShellResult, ShellHandler } from './shell';
+import { shell, ShellResult, ShellHandler } from './shell';
 import * as configmaps from './configMap';
 import { DescribePanel } from './components/describe/describeWebview';
 import * as kuberesources from './kuberesources';
@@ -33,7 +33,7 @@ import * as kubectlUtils from './kubectlUtils';
 import * as explorer from './components/clusterexplorer/explorer';
 import * as helmRepoExplorer from './helm.repoExplorer';
 import { create as draftCreate, CheckPresentMode as DraftCheckPresentMode } from './draft/draft';
-import { create as minikubeCreate, CheckPresentMode as MinikubeCheckPresentMode } from './components/clusterprovider/minikube/minikube';
+import { create as minikubeCreate } from './components/clusterprovider/minikube/minikube';
 import * as logger from './logger';
 import * as helm from './helm';
 import * as helmexec from './helm.exec';
@@ -64,7 +64,6 @@ import { refreshExplorer } from './components/clusterprovider/common/explorer';
 import { KubernetesCompletionProvider } from "./yaml-support/yaml-snippet";
 import { showWorkspaceFolderPick } from './hostutils';
 import { DraftConfigurationProvider } from './draft/draftConfigurationProvider';
-import { installHelm, installDraft, installKubectl, installMinikube } from './components/installer/installer';
 import { KubernetesResourceVirtualFileSystemProvider, K8S_RESOURCE_SCHEME, kubefsUri } from './kuberesources.virtualfs';
 import { KubernetesResourceLinkProvider } from './kuberesources.linkprovider';
 import { Container, isKubernetesResource, KubernetesCollection, Pod, KubernetesResource } from './kuberesources.objectmodel';
@@ -92,9 +91,9 @@ let swaggerSpecPromise: Promise<explainer.SwaggerModel | undefined> | null = nul
 
 const kubernetesDiagnostics = vscode.languages.createDiagnosticCollection("Kubernetes");
 
-const kubectl = kubectlCreate(config.getKubectlVersioning(), host, fs, shell, installDependencies);
-const draft = draftCreate(host, fs, shell, installDependencies);
-const minikube = minikubeCreate(host, fs, shell, installDependencies);
+const kubectl = kubectlCreate(config.getKubectlVersioning(), host, fs, shell);
+const draft = draftCreate(host, fs, shell);
+const minikube = minikubeCreate(host, fs, shell);
 const clusterProviderRegistry = clusterproviderregistry.get();
 const configMapProvider = new configmaps.ConfigMapTextProvider(kubectl);
 const git = new Git(shell);
@@ -1984,46 +1983,6 @@ function copiableName(explorerNode: ClusterExplorerNode): string | undefined {
         case explorer.NODE_TYPES.helm.release: return explorerNode.releaseName;
         case explorer.NODE_TYPES.configitem: return explorerNode.key;
         default: return undefined;
-    }
-}
-
-// TODO: having to export this is untidy - unpick dependencies and move
-export async function installDependencies() {
-    // TODO: gosh our binchecking is untidy
-    const gotKubectl = await kubectl.checkPresent(CheckPresentMessageMode.Silent);
-    const gotHelm = helmexec.ensureHelm(helmexec.EnsureMode.Silent);
-    const gotDraft = await draft.checkPresent(DraftCheckPresentMode.Silent);
-    const gotMinikube = await minikube.checkPresent(MinikubeCheckPresentMode.Silent);
-
-    const warn = (m: string) => kubeChannel.showOutput(m);
-
-    const installPromises = [
-        installDependency("kubectl", gotKubectl, installKubectl),
-        installDependency("Helm", gotHelm, (sh) => installHelm(sh, warn)),
-        installDependency("Draft", gotDraft, installDraft),
-    ];
-
-    if (!config.getUseWsl()) {
-        // TODO: Install Win32 Minikube
-        installPromises.push(
-            installDependency("Minikube", gotMinikube, (shell: Shell) => {
-                return installMinikube(shell, null);
-            }));
-    }
-    await Promise.all(installPromises);
-
-    kubeChannel.showOutput("Done");
-}
-
-async function installDependency(name: string, alreadyGot: boolean, installFunc: (shell: Shell) => Promise<Errorable<null>>): Promise<void> {
-    if (alreadyGot) {
-        kubeChannel.showOutput(`Already got ${name}...`);
-    } else {
-        kubeChannel.showOutput(`Installing ${name}...`);
-        const result = await installFunc(shell);
-        if (failed(result)) {
-            kubeChannel.showOutput(`Unable to install ${name}: ${result.error[0]}`);
-        }
     }
 }
 

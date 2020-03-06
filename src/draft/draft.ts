@@ -15,8 +15,8 @@ export interface Draft {
     version(): Promise<Errorable<string>>;
 }
 
-export function create(host: Host, fs: FS, shell: Shell, installDependenciesCallback: () => void): Draft {
-    return new DraftImpl(host, fs, shell, installDependenciesCallback, false);
+export function create(host: Host, fs: FS, shell: Shell): Draft {
+    return new DraftImpl(host, fs, shell, false);
 }
 
 export enum CheckPresentMode {
@@ -28,14 +28,13 @@ interface Context {
     readonly host: Host;
     readonly fs: FS;
     readonly shell: Shell;
-    readonly installDependenciesCallback: () => void;
     binFound: boolean;
     binPath: string;
 }
 
 class DraftImpl implements Draft {
-    constructor(host: Host, fs: FS, shell: Shell, installDependenciesCallback: () => void, draftFound: boolean) {
-        this.context = { host : host, fs : fs, shell : shell, installDependenciesCallback : installDependenciesCallback, binFound : draftFound, binPath : 'draft' };
+    constructor(host: Host, fs: FS, shell: Shell, draftFound: boolean) {
+        this.context = { host : host, fs : fs, shell : shell, binFound : draftFound, binPath : 'draft' };
     }
 
     private readonly context: Context;

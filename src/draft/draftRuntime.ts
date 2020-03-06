@@ -7,10 +7,9 @@ import { host } from '../host';
 import { shell } from '../shell';
 import { fs } from '../fs';
 import { create as draftCreate, CheckPresentMode } from './draft';
-import { installDependencies } from '../extension';
 
 export class DraftRuntime extends EventEmitter {
-	private draft = draftCreate(host, fs, shell, installDependencies);
+	private draft = draftCreate(host, fs, shell);
 	private connectProcess: ChildProcess;
 
 	constructor() {

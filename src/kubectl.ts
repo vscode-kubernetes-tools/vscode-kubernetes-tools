@@ -37,19 +37,17 @@ interface Context {
     readonly host: Host;
     readonly fs: FS;
     readonly shell: Shell;
-    readonly installDependenciesCallback: () => void;
     readonly pathfinder: (() => Promise<string>) | undefined;
     binFound: boolean;
     binPath: string;
 }
 
 class KubectlImpl implements Kubectl {
-    constructor(host: Host, fs: FS, shell: Shell, installDependenciesCallback: () => void, pathfinder: (() => Promise<string>) | undefined, kubectlFound: boolean) {
+    constructor(host: Host, fs: FS, shell: Shell, pathfinder: (() => Promise<string>) | undefined, kubectlFound: boolean) {
         this.context = {
             host : host,
             fs : fs,
             shell : shell,
-            installDependenciesCallback : installDependenciesCallback,
             pathfinder: pathfinder,
             binFound : kubectlFound,
             binPath : 'kubectl'
@@ -122,26 +120,26 @@ class KubectlImpl implements Kubectl {
     }
 }
 
-export function create(versioning: KubectlVersioning, host: Host, fs: FS, shell: Shell, installDependenciesCallback: () => void): Kubectl {
+export function create(versioning: KubectlVersioning, host: Host, fs: FS, shell: Shell): Kubectl {
     if (versioning === KubectlVersioning.Infer) {
-        return createAutoVersioned(host, fs, shell, installDependenciesCallback);
+        return createAutoVersioned(host, fs, shell);
     }
-    return createSingleVersion(host, fs, shell, installDependenciesCallback);
+    return createSingleVersion(host, fs, shell);
 }
 
-function createSingleVersion(host: Host, fs: FS, shell: Shell, installDependenciesCallback: () => void): Kubectl {
-    return new KubectlImpl(host, fs, shell, installDependenciesCallback, undefined, false);
+function createSingleVersion(host: Host, fs: FS, shell: Shell): Kubectl {
+    return new KubectlImpl(host, fs, shell, undefined, false);
 }
 
-function createAutoVersioned(host: Host, fs: FS, shell: Shell, installDependenciesCallback: () => void): Kubectl {
-    const bootstrapper = createSingleVersion(host, fs, shell, installDependenciesCallback);
+function createAutoVersioned(host: Host, fs: FS, shell: Shell): Kubectl {
+    const bootstrapper = createSingleVersion(host, fs, shell);
     const pathfinder = async () => (await ensureSuitableKubectl(bootstrapper, shell, host)) || 'kubectl';
-    return new KubectlImpl(host, fs, shell, installDependenciesCallback, pathfinder, false);
+    return new KubectlImpl(host, fs, shell, pathfinder, false);
 }
 
 export function createOnBinary(host: Host, fs: FS, shell: Shell, bin: string): Kubectl {
     const pathfinder = async () => bin;
-    return new KubectlImpl(host, fs, shell, () => {}, pathfinder, false);
+    return new KubectlImpl(host, fs, shell, pathfinder, false);
 }
 
 export enum CheckPresentMessageMode {
@@ -344,6 +342,12 @@ async function path(context: Context): Promise<string> {
     const bin = await baseKubectlPath(context);
     return binutil.execPath(context.shell, bin);
 }
+
+// NONE OF THIS IS SPECIFIC TO KUBECTL.  We should be using the same core
+// for Helm, Draft and Minikube.
+//
+// We possibly need the notion of _tool traits_ - a binary may be
+// installable a la kubectl or Helm, or not a la Git.
 
 // interface KubectlNotFound {
 //     readonly resultKind: 'kc-not-found';

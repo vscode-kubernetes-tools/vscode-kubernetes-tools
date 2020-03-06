@@ -34,8 +34,8 @@ export interface Minikube {
     status(): Promise<MinikubeInfo>;
 }
 
-export function create(host: Host, fs: FS, shell: Shell, installDependenciesCallback: () => void): Minikube {
-    return new MinikubeImpl(host, fs, shell, installDependenciesCallback, false);
+export function create(host: Host, fs: FS, shell: Shell): Minikube {
+    return new MinikubeImpl(host, fs, shell, false);
 }
 
 // TODO: these are the same as we are using for Draft (and kubectl?) -
@@ -50,7 +50,6 @@ interface Context {
     readonly host: Host;
     readonly fs: FS;
     readonly shell: Shell;
-    readonly installDependenciesCallback: () => void;
     binFound: boolean;
     binPath: string;
 }
@@ -58,8 +57,8 @@ interface Context {
 class MinikubeImpl implements Minikube {
     private readonly context: Context;
 
-    constructor(host: Host, fs: FS, shell: Shell, installDependenciesCallback: () => void, toolFound: boolean) {
-        this.context = { host: host, fs: fs, shell: shell, installDependenciesCallback: installDependenciesCallback, binFound: toolFound, binPath: 'minikube' };
+    constructor(host: Host, fs: FS, shell: Shell, toolFound: boolean) {
+        this.context = { host: host, fs: fs, shell: shell, binFound: toolFound, binPath: 'minikube' };
     }
 
     checkPresent(mode: CheckPresentMode): Promise<boolean> {
