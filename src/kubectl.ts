@@ -9,14 +9,13 @@ import { parseLineOutput } from './outputUtils';
 import * as compatibility from './components/kubectl/compatibility';
 import { getToolPath, affectsUs, getUseWsl, KubectlVersioning } from './components/config/config';
 import { ensureSuitableKubectl } from './components/kubectl/autoversion';
-import { updateYAMLSchema } from './yaml-support/yaml-schema';
 
 const KUBECTL_OUTPUT_COLUMN_SEPARATOR = /\s\s+/g;
 
 export interface Kubectl {
     checkPresent(errorMessageMode: CheckPresentMessageMode): Promise<boolean>;
-    invoke(command: string, handler?: ShellHandler): Promise<void>;
-    invokeWithProgress(command: string, progressMessage: string, handler?: ShellHandler): Promise<void>;
+    invoke(command: string, handler: ShellHandler): Promise<void>;
+    invokeWithProgress(command: string, progressMessage: string, handler: ShellHandler): Promise<void>;
     invokeAsync(command: string, stdin?: string, callback?: (proc: ChildProcess) => void): Promise<ShellResult | undefined>;
     invokeAsyncWithProgress(command: string, progressMessage: string): Promise<ShellResult | undefined>;
     spawnAsChild(command: string[]): Promise<ChildProcess | undefined>;
@@ -31,6 +30,7 @@ export interface Kubectl {
     asLines(command: string): Promise<Errorable<string[]>>;
     fromLines(command: string): Promise<Errorable<{ [key: string]: string }[]>>;
     asJson<T>(command: string): Promise<Errorable<T>>;
+    checkPossibleIncompatibility(): Promise<void>;
 }
 
 interface Context {
@@ -62,10 +62,10 @@ class KubectlImpl implements Kubectl {
     checkPresent(errorMessageMode: CheckPresentMessageMode): Promise<boolean> {
         return checkPresent(this.context, errorMessageMode);
     }
-    invoke(command: string, handler?: ShellHandler): Promise<void> {
+    invoke(command: string, handler: ShellHandler): Promise<void> {
         return invoke(this.context, command, handler);
     }
-    invokeWithProgress(command: string, progressMessage: string, handler?: ShellHandler): Promise<void> {
+    invokeWithProgress(command: string, progressMessage: string, handler: ShellHandler): Promise<void> {
         return invokeWithProgress(this.context, command, progressMessage, handler);
     }
     invokeAsync(command: string, stdin?: string, callback?: (proc: ChildProcess) => void): Promise<ShellResult | undefined> {
@@ -115,6 +115,10 @@ class KubectlImpl implements Kubectl {
             });
         }
         return this.sharedTerminal;
+    }
+
+    checkPossibleIncompatibility() {
+        return checkPossibleIncompatibility(this.context);
     }
 }
 
@@ -174,17 +178,17 @@ function getCheckKubectlContextMessage(errorMessageMode: CheckPresentMessageMode
     return '';
 }
 
-async function invoke(context: Context, command: string, handler?: ShellHandler): Promise<void> {
-    await kubectlInternal(context, command, handler || kubectlDone(context));
+async function invoke(context: Context, command: string, handler: ShellHandler): Promise<void> {
+    await kubectlInternal(context, command, handler);
 }
 
-async function invokeWithProgress(context: Context, command: string, progressMessage: string, handler?: ShellHandler): Promise<void> {
+async function invokeWithProgress(context: Context, command: string, progressMessage: string, handler: ShellHandler): Promise<void> {
     return context.host.withProgress((p) => {
         return new Promise<void>((resolve) => {
             p.report({ message: progressMessage });
             kubectlInternal(context, command, (code, stdout, stderr) => {
                 resolve();
-                (handler || kubectlDone(context))(code, stdout, stderr);
+                handler(code, stdout, stderr);
             });
         });
     });
@@ -271,20 +275,6 @@ async function kubectlInternal(context: Context, command: string, handler: Shell
             handler(sr.code, sr.stdout, sr.stderr);
         }
     }
-}
-
-function kubectlDone(context: Context): ShellHandler {
-    return (result: number, stdout: string, stderr: string) => {
-        if (result !== 0) {
-            context.host.showErrorMessage('Kubectl command failed: ' + stderr);
-            console.log(stderr);
-            checkPossibleIncompatibility(context);
-            return;
-        }
-
-        updateYAMLSchema();  // TODO: I really do not like having this here. Massive separation of concerns red flag plus we lack context to decide whether it's needed. But hard to move without revamping the result handling system.
-        context.host.showInformationMessage(stdout);
-    };
 }
 
 async function unquotedBaseKubectlPath(context: Context): Promise<string> {

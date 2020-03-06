@@ -564,6 +564,19 @@ function initStatusBar() {
     return statusBarItem;
 }
 
+const GENERIC_KUBECTL_RESULT_HANDLER: ShellHandler = (code, stdout, stderr) => {
+    if (code !== 0) {
+        host.showErrorMessage('Kubectl command failed: ' + stderr);
+        console.log(stderr);
+        kubectl.checkPossibleIncompatibility();
+        return;
+    }
+
+    updateYAMLSchema();  // TODO: I really do not like having this here. Massive separation of concerns red flag plus we lack context to decide whether it's needed. But hard to move without revamping the result handling system.
+    host.showInformationMessage(stdout);
+};
+
+
 // Runs a command for the text in the active window.
 // Expects that it can append a filename to 'command' to create a complete kubectl command.
 //
@@ -583,7 +596,7 @@ function maybeRunKubernetesCommandForActiveWindow(command: string, progressMessa
     }
 
     const isKubernetesSyntax = (editor.document.languageId === 'json' || editor.document.languageId === 'yaml');
-    const resultHandler: ShellHandler | undefined = isKubernetesSyntax ? undefined /* default handling */ :
+    const resultHandler: ShellHandler | undefined = isKubernetesSyntax ? GENERIC_KUBECTL_RESULT_HANDLER /* default handling */ :
         (code, stdout, stderr) => {
             if (code === 0 ) {
                 if (command === 'create' || command === 'apply') {
@@ -644,7 +657,7 @@ function convertWindowsToWSL(filePath: string): string {
     return `/mnt/${drive}/${path}`;
 }
 
-function kubectlTextDocument(command: string, document: vscode.TextDocument, progressMessage: string, resultHandler: ShellHandler | undefined): void {
+function kubectlTextDocument(command: string, document: vscode.TextDocument, progressMessage: string, resultHandler: ShellHandler): void {
     if (document.uri.scheme === 'file') {
         let fileName = document.fileName;
         if (config.getUseWsl()) {
@@ -657,7 +670,7 @@ function kubectlTextDocument(command: string, document: vscode.TextDocument, pro
     }
 }
 
-function kubectlViaTempFile(command: string, fileContent: string, progressMessage: string, handler?: ShellHandler) {
+function kubectlViaTempFile(command: string, fileContent: string, progressMessage: string, handler: ShellHandler) {
     const tmpobj = tmp.fileSync();
     fs.writeFileSync(tmpobj.name, fileContent);
 
@@ -769,7 +782,7 @@ function exposeKubernetes() {
             cmd += ' --port=' + ports[0];
         }
 
-        kubectl.invokeWithProgress(cmd, "Kubernetes Exposing...");
+        kubectl.invokeWithProgress(cmd, "Kubernetes Exposing...", GENERIC_KUBECTL_RESULT_HANDLER);
     });
 }
 
@@ -935,12 +948,12 @@ function promptScaleKubernetes(kindName: string) {
 }
 
 function invokeScaleKubernetes(kindName: string, replicas: number) {
-    kubectl.invokeWithProgress(`scale --replicas=${replicas} ${kindName}`, "Kubernetes Scaling...");
+    kubectl.invokeWithProgress(`scale --replicas=${replicas} ${kindName}`, "Kubernetes Scaling...", GENERIC_KUBECTL_RESULT_HANDLER);
 }
 
 function runKubernetes() {
     buildPushThenExec((name, image) => {
-        kubectl.invokeWithProgress(`run ${name} --image=${image}`, "Creating a Deployment...");
+        kubectl.invokeWithProgress(`run ${name} --image=${image}`, "Creating a Deployment...", GENERIC_KUBECTL_RESULT_HANDLER);
     });
 }
 
@@ -1759,7 +1772,7 @@ const doDebug = async (name: string, image: string, cmd: string) => {
     vscode.window.showInformationMessage('Debug pod running as: ' + podName);
 
     waitForRunningPod(podName, () => {
-        kubectl.invoke(` port-forward ${podName} 5858:5858 8000:8000`);
+        kubectl.invoke(` port-forward ${podName} 5858:5858 8000:8000`, GENERIC_KUBECTL_RESULT_HANDLER);
 
         const debugConfiguration = {
             type: 'node',
@@ -1847,11 +1860,11 @@ function removeDebugKubernetes() {
                     }
 
                     if (service) {
-                        kubectl.invoke('delete service ' + deploymentName);
+                        kubectl.invoke('delete service ' + deploymentName, GENERIC_KUBECTL_RESULT_HANDLER);
                     }
 
                     if (deployment) {
-                        kubectl.invoke('delete deployment ' + deploymentName);
+                        kubectl.invoke('delete deployment ' + deploymentName, GENERIC_KUBECTL_RESULT_HANDLER);
                     }
                 },
                 (err) => vscode.window.showErrorMessage(`Error getting confirmation of delete: ${err}`));
