@@ -344,3 +344,61 @@ async function path(context: Context): Promise<string> {
     const bin = await baseKubectlPath(context);
     return binutil.execPath(context.shell, bin);
 }
+
+// interface KubectlNotFound {
+//     readonly resultKind: 'kc-not-found';
+// }
+
+// interface KubectlExecFailed {
+//     readonly resultKind: 'kc-exec-failed';
+// }
+
+// interface KubectlSucceeded {
+//     readonly resultKind: 'kc-succeeded';
+//     readonly stdout: string;
+// }
+
+// interface KubectlErrored {
+//     readonly resultKind: 'kc-errored';
+//     readonly code: number;
+//     readonly stderr: string;
+// }
+
+// type KubectlInvokeResult = KubectlNotFound | KubectlExecFailed | KubectlSucceeded | KubectlErrored;
+
+// async function invokeForResult(context: Context, command: string, stdin: string | undefined): Promise<KubectlInvokeResult> {
+//     const isPresent = await checkPresent(context, CheckPresentMessageMode.Silent);
+//     if (!isPresent) {
+//         return { resultKind: 'kc-not-found' };
+//     }
+
+//     const bin = await baseKubectlPath(context);
+//     const cmd = `${bin} ${command}`;
+//     const sr = await context.shell.exec(cmd, stdin);
+
+//     if (!sr) {
+//         return { resultKind: 'kc-exec-failed' };
+//     }
+
+//     if (sr.code === 0) {
+//         return { resultKind: 'kc-succeeded', stdout: sr.stdout };
+//     }
+
+//     return { resultKind: 'kc-errored', code: sr.code, stderr: sr.stderr };
+// }
+
+// async function requireSuccessInteractive(context: Context, result: KubectlInvokeResult): Promise<KubectlSucceeded | undefined> {
+//     switch (result.resultKind) {
+//         case 'kc-not-found':
+//             // offer to install dependencies
+//             return undefined;
+//         case 'kc-exec-failed':
+//             await context.host.showErrorMessage('Kubectl command failed: unable to run kubectl');
+//             return undefined;
+//         case 'kc-errored':
+//             await context.host.showErrorMessage(`Kubectl command failed: ${result.stderr}`);
+//             return undefined;
+//         case 'kc-succeeded':
+//             return result;
+//     }
+// }
