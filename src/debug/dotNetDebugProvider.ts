@@ -10,7 +10,7 @@ import { IDockerfile } from "../docker/parser";
 import { Dictionary } from "../utils/dictionary";
 
 // Use the csharp debugger extension provided by Microsoft for csharp debugging.
-const defaultDotnetDebuggerExtensionId = "ms-vscode.csharp";
+const defaultDotnetDebuggerExtensionId = "ms-dotnettools.csharp";
 const defaultDotnetDebuggerExtension = "C# for Visual Studio Code";
 
 const defaultDotnetDebuggerConfigType = "dotnet";

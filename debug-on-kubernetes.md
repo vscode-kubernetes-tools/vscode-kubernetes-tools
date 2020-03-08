@@ -3,7 +3,7 @@
 One of the key features of VS Code Kubernetes Extension is its one-click debugging support. This document shows you how to configure the feature and use it to debug your application.
 
 ## 1. Supported languages
-   * `dotnet` (Required: [C# for Visual Studio Code (powered by OmniSharp).](https://marketplace.visualstudio.com/items?itemName=ms-vscode.csharp)
+   * `dotnet` (Required: [C# for Visual Studio Code (powered by OmniSharp).](https://marketplace.visualstudio.com/items?itemName=ms-dotnettools.csharp)
    * `java` (Required: [Debugger for Java](https://marketplace.visualstudio.com/items?itemName=vscjava.vscode-java-debug) extension)
    * `python` (Required: [Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python) extension)
    * `node`
@@ -81,7 +81,7 @@ Currently only attaching to a Python container running ptvsd is supported.
 
 ## 6. dotnet debugging
    1. Prerequisites
-      * [C# for Visual Studio Code](https://marketplace.visualstudio.com/items?itemName=ms-vscode.csharp) extension must be installed on local machine.
+      * [C# for Visual Studio Code](https://marketplace.visualstudio.com/items?itemName=ms-dotnettools.csharp) extension must be installed on local machine.
       * `ps` must be available on the docker container. `ps` is used to try and autoselect the process id to debug. It is also used by the `C#` extension to look up processes for the process picker if there is more than one dotnet process running. You can install it by running the following command on the container:
 
       `apt-get update && apt-get -y install procps`
@@ -99,4 +99,4 @@ https://github.com/OmniSharp/omnisharp-vscode/wiki/Attaching-to-remote-processes
       * If `dotnet` does not show up in debugger picker list, than the extension was able to view the processes running on the container and there were no `dotnet` processes running at that time.
       * If `ps` is not installed on the machine, than `dotnet` will show up in the debugger pick list. If `dotnet` is chosen it will give you an error message with a link to this page.
       * If `dotnet` is chosen as the debugger and only one `dotnet` process is running on the container, that process will automatically be chosen.  If there is more than one dotnet process running at that time, you will be presented a process pick list, and you can choose the process you would like to debug.
-      * The [C# for Visual Studio Code](https://marketplace.visualstudio.com/items?itemName=ms-vscode.csharp) extension is powered by OmniSharp. Found out more information regarding remote debugging with OmniSharp [here](https://github.com/OmniSharp/omnisharp-vscode/wiki/Attaching-to-remote-processes).
+      * The [C# for Visual Studio Code](https://marketplace.visualstudio.com/items?itemName=ms-dotnettools.csharp) extension is powered by OmniSharp. Found out more information regarding remote debugging with OmniSharp [here](https://github.com/OmniSharp/omnisharp-vscode/wiki/Attaching-to-remote-processes).
