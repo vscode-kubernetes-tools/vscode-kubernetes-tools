@@ -14,7 +14,7 @@ import { Dictionary } from "../utils/dictionary";
 export async function resolveKubernetesDockerEnv(kubectl: Kubectl): Promise<{}> {
     const dockerEnv = Dictionary.of<string | number>();
     dockerEnv["DOCKER_API_VERSION"] = await dockerApiVersion();
-    const currentCluster = await getCurrentClusterConfig(kubectl);
+    const currentCluster = await getCurrentClusterConfig(kubectl, {});  // TODO: should this be silent
     if (!currentCluster || !currentCluster.server || !currentCluster.certificateAuthority) {
         return {};
     }

@@ -10,7 +10,7 @@ export function create(kubectl: Kubectl): ActiveValueTracker<string | null> {
 }
 
 async function getActiveContextName(kubectl: Kubectl): Promise<string | null> {
-    const currentContext = await getCurrentContext(kubectl);
+    const currentContext = await getCurrentContext(kubectl, { silent: true });
     if (!currentContext) {
         return null;
     }

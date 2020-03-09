@@ -3,6 +3,7 @@ import { FS } from './fs';
 import { Shell } from './shell';
 import { installDependencies } from "./components/installer/installdependencies";
 import { getToolPath, getUseWsl } from './components/config/config';
+import { Errorable } from './errorable';
 
 export interface ExternalBinary {
     readonly displayName: string;
@@ -13,20 +14,24 @@ export interface ExternalBinary {
 
 export interface ExecBinNotFound {
     readonly resultKind: 'exec-bin-not-found';
+    readonly command: string;
     readonly findResult: FindBinaryStatus;
 }
 
 export interface ExecFailed {
     readonly resultKind: 'exec-failed';
+    readonly command: string;
 }
 
 export interface ExecSucceeded {
     readonly resultKind: 'exec-succeeded';
+    readonly command: string;
     readonly stdout: string;
 }
 
 export interface ExecErrored {
     readonly resultKind: 'exec-errored';
+    readonly command: string;
     readonly code: number;
     readonly stderr: string;
 }
@@ -131,7 +136,7 @@ async function findBinaryCore(context: Context): Promise<FindBinaryStatus> {
 export async function invokeForResult(context: Context, command: string, stdin: string | undefined): Promise<ExecResult> {
     const fbr = await findBinary(context);
     if (!fbr.found) {
-        return { resultKind: 'exec-bin-not-found', findResult: fbr };
+        return { resultKind: 'exec-bin-not-found', command, findResult: fbr };
     }
 
     const bin = await baseBinPath(context);
@@ -139,14 +144,14 @@ export async function invokeForResult(context: Context, command: string, stdin: 
     const sr = await context.shell.exec(cmd, stdin);
 
     if (!sr) {
-        return { resultKind: 'exec-failed' };
+        return { resultKind: 'exec-failed', command };
     }
 
     if (sr.code === 0) {
-        return { resultKind: 'exec-succeeded', stdout: sr.stdout };
+        return { resultKind: 'exec-succeeded', command, stdout: sr.stdout };
     }
 
-    return { resultKind: 'exec-errored', code: sr.code, stderr: sr.stderr };
+    return { resultKind: 'exec-errored', command, code: sr.code, stderr: sr.stderr };
 }
 
 // This is noisy - handles failure UI for an interactive command that performs an invokeForResult
@@ -206,4 +211,21 @@ export function logText(context: Context, execResult: ExecResult): string {
         case 'exec-succeeded':
             return '';
     }
+}
+
+export function parseJSON<T>(context: Context, execResult: ExecResult): Errorable<T> {
+    if (execResult.resultKind === 'exec-bin-not-found') {
+        return { succeeded: false, error: [`${context.binary.displayName} command failed trying to run '${execResult.command}': ${context.binary.binBaseName} not found`] };
+    }
+    if (execResult.resultKind === 'exec-failed') {
+        return { succeeded: false, error: [`${context.binary.displayName} command failed trying to run '${execResult.command}': unable to run ${context.binary.binBaseName}`] };
+    }
+
+    if (execResult.resultKind === 'exec-succeeded') {
+        return { succeeded: true, result: JSON.parse(execResult.stdout.trim()) as T };
+
+    }
+
+    return { succeeded: false, error: [ execResult.stderr ] };
+
 }

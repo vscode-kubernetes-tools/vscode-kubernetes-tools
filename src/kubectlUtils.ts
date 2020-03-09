@@ -67,17 +67,26 @@ export interface DataHolder {
     readonly data: any;
 }
 
-async function getKubeconfig(kubectl: Kubectl): Promise<Kubeconfig | null> {
-    const shellResult = await kubectl.asJson<any>("config view -o json");
-    if (failed(shellResult)) {
-        vscode.window.showErrorMessage(shellResult.error[0]);
-        return null;
-    }
-    return shellResult.result;
+export interface ConfigReadOptions {
+    readonly silent?: boolean;  // TODO: get rid of this because it is ambiguous - but convenient for now!
 }
 
-export async function getCurrentClusterConfig(kubectl: Kubectl): Promise<ClusterConfig | undefined> {
-    const kubeConfig = await getKubeconfig(kubectl);
+async function getKubeconfig(kubectl: Kubectl, options: ConfigReadOptions): Promise<Kubeconfig | null> {
+    const er = await kubectl.invokeCommand("config view -o json");
+    const config = kubectl.parseJSON<any>(er);
+    if (failed(config)) {
+        if (options.silent) {
+            console.log(config.error[0]);
+        } else {
+            vscode.window.showErrorMessage(config.error[0]);
+        }
+        return null;
+    }
+    return config.result;
+}
+
+export async function getCurrentClusterConfig(kubectl: Kubectl, options: ConfigReadOptions): Promise<ClusterConfig | undefined> {
+    const kubeConfig = await getKubeconfig(kubectl, options);
     if (!kubeConfig || !kubeConfig.clusters || !kubeConfig.contexts) {
         return undefined;
     }
@@ -89,8 +98,8 @@ export async function getCurrentClusterConfig(kubectl: Kubectl): Promise<Cluster
     };
 }
 
-export async function getContexts(kubectl: Kubectl): Promise<KubectlContext[]> {
-    const kubectlConfig = await getKubeconfig(kubectl);
+export async function getContexts(kubectl: Kubectl, options: ConfigReadOptions): Promise<KubectlContext[]> {
+    const kubectlConfig = await getKubeconfig(kubectl, options);
     if (!kubectlConfig) {
         return [];
     }
@@ -106,8 +115,8 @@ export async function getContexts(kubectl: Kubectl): Promise<KubectlContext[]> {
     });
 }
 
-export async function getCurrentContext(kubectl: Kubectl): Promise<KubectlContext | undefined> {
-    const contexts = await getContexts(kubectl);
+export async function getCurrentContext(kubectl: Kubectl, options: ConfigReadOptions): Promise<KubectlContext | undefined> {
+    const contexts = await getContexts(kubectl, options);
     return contexts.find((c) => c.active);
 }
 
@@ -248,7 +257,7 @@ export async function getPods(kubectl: Kubectl, selector: any, namespace: string
 }
 
 export async function currentNamespace(kubectl: Kubectl): Promise<string> {
-    const kubectlConfig = await getKubeconfig(kubectl);
+    const kubectlConfig = await getKubeconfig(kubectl, { silent: false }); // TODO: should this be silent
     if (!kubectlConfig) {
         return "";
     }

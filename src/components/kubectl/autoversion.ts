@@ -35,7 +35,7 @@ export async function ensureSuitableKubectl(kubectl: Kubectl, shell: Shell, host
         return undefined;
     }
 
-    const context = await getCurrentContext(bootstrapperKubectl);
+    const context = await getCurrentContext(bootstrapperKubectl, { silent: true });
     if (!context) {
         return undefined;
     }

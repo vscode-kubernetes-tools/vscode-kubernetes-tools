@@ -9,7 +9,7 @@ import { parseLineOutput } from './outputUtils';
 import * as compatibility from './components/kubectl/compatibility';
 import { getToolPath, affectsUs, getUseWsl, KubectlVersioning } from './components/config/config';
 import { ensureSuitableKubectl } from './components/kubectl/autoversion';
-import { invokeForResult, ExternalBinary, FindBinaryStatus, ExecResult, ExecSucceeded, discardFailureInteractive, logText } from './binutilplusplus';
+import { invokeForResult, ExternalBinary, FindBinaryStatus, ExecResult, ExecSucceeded, discardFailureInteractive, logText, parseJSON } from './binutilplusplus';
 import { updateYAMLSchema } from './yaml-support/yaml-schema';
 
 const KUBECTL_OUTPUT_COLUMN_SEPARATOR = /\s\s+/g;
@@ -36,6 +36,7 @@ export interface Kubectl {
 
     invokeCommand(command: string): Promise<ExecResult>;
     reportResult(execResult: ExecResult, options: ReportResultOptions): Promise<ExecSucceeded | undefined>;
+    parseJSON<T>(execResult: ExecResult): Errorable<T>;
 }
 
 // TODO: move this out of the reporting layer and into the application layer
@@ -156,6 +157,10 @@ class KubectlImpl implements Kubectl {
             this.checkPossibleIncompatibility();
         }
         return success;
+    }
+
+    parseJSON<T>(execResult: ExecResult): Errorable<T> {
+        return parseJSON<T>(this.context, execResult);
     }
 }
 

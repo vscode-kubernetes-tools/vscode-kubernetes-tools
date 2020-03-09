@@ -1,6 +1,6 @@
 import { reporter } from './telemetry';
 import { Kubectl } from './kubectl';
-import { ShellResult } from './shell';
+import { ExecResult } from './binutilplusplus';
 
 export function telemetrise(command: string, kubectl: Kubectl, callback: (...args: any[]) => any): (...args: any[]) => any {
     return (a) => {
@@ -28,6 +28,7 @@ export enum NonDeterminationReason {
     None,
     GetCurrentContextError,
     GetClusterInfoFailed,
+    GetClusterInfoFailedNoKubectl,
     ConnectionRefused,
     ConnectionTimeout,
     ConnectionOtherError,
@@ -92,6 +93,8 @@ function telemetryReasonOf(reason: NonDeterminationReason): string {
             return 'error_getting_current_context';
         case NonDeterminationReason.GetClusterInfoFailed:
             return 'error_calling_kubectl_cluster_info';
+        case NonDeterminationReason.GetClusterInfoFailedNoKubectl:
+            return 'error_calling_kubectl_cluster_info_no_kubectl';
         case NonDeterminationReason.ConnectionRefused:
             return 'cluster_connection_refused';
         case NonDeterminationReason.ConnectionTimeout:
@@ -127,9 +130,9 @@ async function loadCachedClusterType(kubectl: Kubectl) {
 
 async function inferCurrentClusterType(kubectl: Kubectl): Promise<[ClusterType, NonDeterminationReason]> {
     if (!latestContextName) {
-        const ctxsr = await kubectl.invokeAsync('config current-context');
-        if (ctxsr && ctxsr.code === 0) {
-            latestContextName = ctxsr.stdout.trim();
+        const ctxer = await kubectl.invokeCommand('config current-context');
+        if (ctxer.resultKind === 'exec-succeeded') {
+            latestContextName = ctxer.stdout.trim();
         } else {
             return [ClusterType.Other, NonDeterminationReason.GetCurrentContextError];  // something is terribly wrong; we don't want to retry
         }
@@ -139,11 +142,11 @@ async function inferCurrentClusterType(kubectl: Kubectl): Promise<[ClusterType, 
         return [ClusterType.Minikube, NonDeterminationReason.None];
     }
 
-    const cisr = await kubectl.invokeAsync('cluster-info');
-    if (!cisr || cisr.code !== 0) {
-        return [inferClusterTypeFromError(cisr), diagnoseKubectlClusterInfoError(cisr)];
+    const cier = await kubectl.invokeCommand('cluster-info');
+    if (cier.resultKind !== 'exec-succeeded') {
+        return [inferClusterTypeFromError(cier), diagnoseKubectlClusterInfoError(cier)];
     }
-    const masterInfos = cisr.stdout.split('\n')
+    const masterInfos = cier.stdout.split('\n')
                                    .filter((s) => s.indexOf('master is running at') >= 0);
 
     if (masterInfos.length === 0) {
@@ -156,9 +159,9 @@ async function inferCurrentClusterType(kubectl: Kubectl): Promise<[ClusterType, 
     }
 
     if (latestContextName) {
-        const gcsr = await kubectl.invokeAsync(`config get-contexts ${latestContextName}`);
-        if (gcsr && gcsr.code === 0) {
-            if (gcsr.stdout.indexOf('minikube') >= 0) {
+        const gcer = await kubectl.invokeCommand(`config get-contexts ${latestContextName}`);
+        if (gcer.resultKind === 'exec-succeeded') {
+            if (gcer.stdout.indexOf('minikube') >= 0) {
                 return [ClusterType.Minikube, NonDeterminationReason.None];  // It's pretty heuristic, so don't spend time parsing the table
             }
         }
@@ -172,33 +175,38 @@ async function inferCurrentClusterType(kubectl: Kubectl): Promise<[ClusterType, 
     return [ClusterType.Other, NonDeterminationReason.NonAzureMasterURL];
 }
 
-function inferClusterTypeFromError(sr: ShellResult | undefined): ClusterType {
-    if (!sr || sr.code === 0 || !sr.stderr) {
-        return ClusterType.Indeterminate;  // shouldn't be calling us in this case!
-    }
+function inferClusterTypeFromError(er: ExecResult): ClusterType {
+    if (er.resultKind === 'exec-errored') {
+        if (!er.stderr) {
+            return ClusterType.Indeterminate;
+        }
 
-    const errorText = sr.stderr.toLowerCase();
-    if (errorText.includes('dial tcp localhost') || errorText.includes('dial tcp 127.0.0.1')) {
-        return ClusterType.FailedLocal;
+        const errorText = er.stderr.toLowerCase();
+        if (errorText.includes('dial tcp localhost') || errorText.includes('dial tcp 127.0.0.1')) {
+            return ClusterType.FailedLocal;
+        }
     }
 
     return ClusterType.Indeterminate;
 }
 
-function diagnoseKubectlClusterInfoError(sr: ShellResult | undefined): NonDeterminationReason {
-    if (!sr) {
+function diagnoseKubectlClusterInfoError(er: ExecResult): NonDeterminationReason {
+    if (er.resultKind === 'exec-bin-not-found') {
+        return NonDeterminationReason.GetClusterInfoFailedNoKubectl;
+    }
+    if (er.resultKind === 'exec-failed') {
         return NonDeterminationReason.GetClusterInfoFailed;
     }
 
-    if (sr.code === 0) {
+    if (er.resultKind === 'exec-succeeded') {
         return NonDeterminationReason.None;
     }
 
-    if (!sr.stderr || sr.stderr.length === 0) {
+    if (!er.stderr || er.stderr.length === 0) {
         return NonDeterminationReason.GetClusterInfoOtherError;
     }
 
-    const error = sr.stderr.toLowerCase();
+    const error = er.stderr.toLowerCase();
 
     if (error.includes('connectex:')) {
         if (error.includes('actively refused')) {
