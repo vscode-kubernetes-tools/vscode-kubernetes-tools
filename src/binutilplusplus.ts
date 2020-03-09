@@ -128,7 +128,7 @@ async function findBinaryCore(context: Context): Promise<FindBinaryStatus> {
 }
 
 // This is silent - building block for experiences that need an input->output invoke
-async function invokeForResult(context: Context, command: string, stdin: string | undefined): Promise<ExecResult> {
+export async function invokeForResult(context: Context, command: string, stdin: string | undefined): Promise<ExecResult> {
     const fbr = await findBinary(context);
     if (!fbr.found) {
         return { resultKind: 'exec-bin-not-found', findResult: fbr };
@@ -150,16 +150,16 @@ async function invokeForResult(context: Context, command: string, stdin: string 
 }
 
 // This is noisy - handles failure UI for an interactive command that performs an invokeForResult
-async function discardFailureInteractive(context: Context, result: ExecResult): Promise<ExecSucceeded | undefined> {
+export async function discardFailureInteractive(context: Context, result: ExecResult): Promise<ExecSucceeded | undefined> {
     switch (result.resultKind) {
         case 'exec-bin-not-found':
-            await showErrorMessageWithInstallPrompt(context, result.findResult, 'Kubectl command failed: kubectl not found');
+            await showErrorMessageWithInstallPrompt(context, result.findResult, `${context.binary.displayName} command failed: ${context.binary.binBaseName} not found`);
             return undefined;
         case 'exec-failed':
-            await context.host.showErrorMessage('Kubectl command failed: unable to run kubectl');
+            await context.host.showErrorMessage(`${context.binary.displayName} command failed: unable to run ${context.binary.binBaseName}`);
             return undefined;
         case 'exec-errored':
-            await context.host.showErrorMessage(`Kubectl command failed: ${result.stderr}`);
+            await context.host.showErrorMessage(`${context.binary.displayName} command failed: ${result.stderr}`);
             return undefined;
         case 'exec-succeeded':
             return result;
@@ -192,5 +192,18 @@ async function showErrorMessageWithInstallPromptForConfiguredBinPath(context: Co
     const choice = await context.host.showErrorMessage(message, 'Install dependencies');
     if (choice === 'Install dependencies') {
         installDependencies();
+    }
+}
+
+export function logText(context: Context, execResult: ExecResult): string {
+    switch (execResult.resultKind) {
+        case 'exec-bin-not-found':
+            return `*** ${context.binary.binBaseName} binary not found (using ${context.status ? context.status.how : '(unknown strategy)'})`;
+        case 'exec-failed':
+            return `*** failed to invoke ${context.binary.binBaseName} (from ${context.status ? (context.status.how === 'config' ? context.status.where : 'path') : '(unknown strategy)'}`;
+        case 'exec-errored':
+            return `${context.binary.binBaseName} exited with code ${execResult.code}\n${execResult.stderr}`;
+        case 'exec-succeeded':
+            return '';
     }
 }
