@@ -951,8 +951,11 @@ function invokeScaleKubernetes(kindName: string, replicas: number) {
 }
 
 function runKubernetes() {
-    buildPushThenExec((name, image) => {
-        kubectl.invokeWithProgress(`run ${name} --image=${image}`, "Creating a Deployment...", GENERIC_KUBECTL_RESULT_HANDLER);
+    buildPushThenExec(async (name, image) => {
+        const er = await host.longRunning(`Deploying ${image} as ${name}...`, () =>
+            kubectl.invokeCommandInteractive(`run ${name} --image=${image}`)
+        );
+        await kubectl.reportResult(er, {});
     });
 }
 

@@ -1,6 +1,6 @@
 import { Terminal, Disposable } from 'vscode';
 import { ChildProcess, spawn as spawnChildProcess } from "child_process";
-import { Host } from './host';
+import { Host, host } from './host';
 import { FS } from './fs';
 import { Shell, ShellHandler, ShellResult } from './shell';
 import * as binutil from './binutil';
@@ -9,6 +9,8 @@ import { parseLineOutput } from './outputUtils';
 import * as compatibility from './components/kubectl/compatibility';
 import { getToolPath, affectsUs, getUseWsl, KubectlVersioning } from './components/config/config';
 import { ensureSuitableKubectl } from './components/kubectl/autoversion';
+import { invokeForResult, ExternalBinary, FindBinaryStatus, ExecResult, ExecSucceeded, discardFailureInteractive, logText } from './binutilplusplus';
+import { updateYAMLSchema } from './yaml-support/yaml-schema';
 
 const KUBECTL_OUTPUT_COLUMN_SEPARATOR = /\s\s+/g;
 
@@ -31,6 +33,14 @@ export interface Kubectl {
     fromLines(command: string): Promise<Errorable<{ [key: string]: string }[]>>;
     asJson<T>(command: string): Promise<Errorable<T>>;
     checkPossibleIncompatibility(): Promise<void>;
+
+    invokeCommandInteractive(command: string): Promise<ExecResult>;
+    reportResult(execResult: ExecResult, options: ReportResultOptions): Promise<ExecSucceeded | undefined>;
+}
+
+// TODO: move this out of the reporting layer and into the application layer
+export interface ReportResultOptions {
+    readonly updateSchemasOnSuccess?: boolean;
 }
 
 interface Context {
@@ -40,7 +50,16 @@ interface Context {
     readonly pathfinder: (() => Promise<string>) | undefined;
     binFound: boolean;
     binPath: string;
+    readonly binary: ExternalBinary;
+    status: FindBinaryStatus | undefined;
 }
+
+const KUBECTL_BINARY: ExternalBinary = {
+    binBaseName: 'kubectl',
+    configKeyName: 'kubectl',
+    displayName: 'Kubectl',
+    offersInstall: true,
+};
 
 class KubectlImpl implements Kubectl {
     constructor(host: Host, fs: FS, shell: Shell, pathfinder: (() => Promise<string>) | undefined, kubectlFound: false /* TODO: this is now safe to remove */) {
@@ -50,7 +69,9 @@ class KubectlImpl implements Kubectl {
             shell : shell,
             pathfinder: pathfinder,
             binFound : kubectlFound,
-            binPath : 'kubectl'
+            binPath : 'kubectl',
+            binary: KUBECTL_BINARY,
+            status: undefined
         };
     }
 
@@ -117,6 +138,24 @@ class KubectlImpl implements Kubectl {
 
     checkPossibleIncompatibility() {
         return checkPossibleIncompatibility(this.context);
+    }
+
+    async invokeCommandInteractive(command: string): Promise<ExecResult> {
+        return await invokeForResult(this.context, command, undefined);
+    }
+
+    async reportResult(execResult: ExecResult, options: ReportResultOptions): Promise<ExecSucceeded | undefined> {
+        const success = await discardFailureInteractive(this.context, execResult);
+        if (success) {
+            if (options.updateSchemasOnSuccess) {
+                updateYAMLSchema();  // TODO: boo - move to higher level
+            }
+            host.showInformationMessage(success.stdout);
+        } else {
+            console.log(logText(this.context, execResult));
+            this.checkPossibleIncompatibility();
+        }
+        return success;
     }
 }
 
