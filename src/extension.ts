@@ -946,8 +946,11 @@ function promptScaleKubernetes(kindName: string) {
     (err) => vscode.window.showErrorMessage(`Error getting scale input: ${err}`));
 }
 
-function invokeScaleKubernetes(kindName: string, replicas: number) {
-    kubectl.invokeWithProgress(`scale --replicas=${replicas} ${kindName}`, "Kubernetes Scaling...", GENERIC_KUBECTL_RESULT_HANDLER);
+async function invokeScaleKubernetes(kindName: string, replicas: number) {
+    const er = await host.longRunning(`Scaling ${kindName} to ${replicas} replicas...`, () =>
+        kubectl.invokeCommandInteractive(`scale --replicas=${replicas} ${kindName}`)
+    );
+    await kubectl.reportResult(er, {});
 }
 
 function runKubernetes() {
@@ -1010,7 +1013,10 @@ function buildPushThenExec(fn: (name: string, image: string) => void): void {
 export function tryFindKindNameFromEditor(): Errorable<ResourceKindName> {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
-        return { succeeded: false, error: ['No open editor']}; // No open text editor
+        return { succeeded: false, error: ['No open editor']};
+    }
+    if (editor.document.languageId !== 'yaml' && editor.document.languageId !== 'json') {
+        return { succeeded: false, error: ['Not a YAML or JSON document']};
     }
     const text = editor.document.getText();
     return findKindNameForText(text);
