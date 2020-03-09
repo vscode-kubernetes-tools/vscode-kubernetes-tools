@@ -43,7 +43,7 @@ interface Context {
 }
 
 class KubectlImpl implements Kubectl {
-    constructor(host: Host, fs: FS, shell: Shell, pathfinder: (() => Promise<string>) | undefined, kubectlFound: boolean) {
+    constructor(host: Host, fs: FS, shell: Shell, pathfinder: (() => Promise<string>) | undefined, kubectlFound: false /* TODO: this is now safe to remove */) {
         this.context = {
             host : host,
             fs : fs,
@@ -342,67 +342,3 @@ async function path(context: Context): Promise<string> {
     const bin = await baseKubectlPath(context);
     return binutil.execPath(context.shell, bin);
 }
-
-// NONE OF THIS IS SPECIFIC TO KUBECTL.  We should be using the same core
-// for Helm, Draft and Minikube.
-//
-// We possibly need the notion of _tool traits_ - a binary may be
-// installable a la kubectl or Helm, or not a la Git.
-
-// interface KubectlNotFound {
-//     readonly resultKind: 'kc-not-found';
-// }
-
-// interface KubectlExecFailed {
-//     readonly resultKind: 'kc-exec-failed';
-// }
-
-// interface KubectlSucceeded {
-//     readonly resultKind: 'kc-succeeded';
-//     readonly stdout: string;
-// }
-
-// interface KubectlErrored {
-//     readonly resultKind: 'kc-errored';
-//     readonly code: number;
-//     readonly stderr: string;
-// }
-
-// type KubectlInvokeResult = KubectlNotFound | KubectlExecFailed | KubectlSucceeded | KubectlErrored;
-
-// async function invokeForResult(context: Context, command: string, stdin: string | undefined): Promise<KubectlInvokeResult> {
-//     const isPresent = await checkPresent(context, CheckPresentMessageMode.Silent);
-//     if (!isPresent) {
-//         return { resultKind: 'kc-not-found' };
-//     }
-
-//     const bin = await baseKubectlPath(context);
-//     const cmd = `${bin} ${command}`;
-//     const sr = await context.shell.exec(cmd, stdin);
-
-//     if (!sr) {
-//         return { resultKind: 'kc-exec-failed' };
-//     }
-
-//     if (sr.code === 0) {
-//         return { resultKind: 'kc-succeeded', stdout: sr.stdout };
-//     }
-
-//     return { resultKind: 'kc-errored', code: sr.code, stderr: sr.stderr };
-// }
-
-// async function requireSuccessInteractive(context: Context, result: KubectlInvokeResult): Promise<KubectlSucceeded | undefined> {
-//     switch (result.resultKind) {
-//         case 'kc-not-found':
-//             // offer to install dependencies
-//             return undefined;
-//         case 'kc-exec-failed':
-//             await context.host.showErrorMessage('Kubectl command failed: unable to run kubectl');
-//             return undefined;
-//         case 'kc-errored':
-//             await context.host.showErrorMessage(`Kubectl command failed: ${result.stderr}`);
-//             return undefined;
-//         case 'kc-succeeded':
-//             return result;
-//     }
-// }
