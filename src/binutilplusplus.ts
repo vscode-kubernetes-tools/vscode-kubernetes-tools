@@ -85,7 +85,7 @@ async function baseBinPath(context: Context): Promise<string> {
 }
 
 // This is silent - just caching over findBinaryCore
-async function findBinary(context: Context): Promise<FindBinaryStatus> {
+export async function findBinary(context: Context): Promise<FindBinaryStatus> {
     if (context.status && context.status.found) {
         return context.status;
     }
@@ -171,7 +171,7 @@ export async function discardFailureInteractive(context: Context, result: ExecRe
     }
 }
 
-async function showErrorMessageWithInstallPrompt(context: Context, findResult: FindBinaryStatus, message: string): Promise<void> {
+export async function showErrorMessageWithInstallPrompt(context: Context, findResult: FindBinaryStatus, message: string): Promise<void> {
     const binary = context.binary;
     switch (findResult.how) {
         case 'path':

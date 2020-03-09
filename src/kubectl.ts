@@ -9,7 +9,7 @@ import { parseLineOutput } from './outputUtils';
 import * as compatibility from './components/kubectl/compatibility';
 import { getToolPath, affectsUs, getUseWsl, KubectlVersioning } from './components/config/config';
 import { ensureSuitableKubectl } from './components/kubectl/autoversion';
-import { invokeForResult, ExternalBinary, FindBinaryStatus, ExecResult, ExecSucceeded, discardFailureInteractive, logText, parseJSON } from './binutilplusplus';
+import { invokeForResult, ExternalBinary, FindBinaryStatus, ExecResult, ExecSucceeded, discardFailureInteractive, logText, parseJSON, findBinary, showErrorMessageWithInstallPrompt } from './binutilplusplus';
 import { updateYAMLSchema } from './yaml-support/yaml-schema';
 
 const KUBECTL_OUTPUT_COLUMN_SEPARATOR = /\s\s+/g;
@@ -34,6 +34,7 @@ export interface Kubectl {
     asJson<T>(command: string): Promise<Errorable<T>>;
     checkPossibleIncompatibility(): Promise<void>;
 
+    ensurePresent(options: EnsurePresentOptions): Promise<boolean>;
     invokeCommand(command: string): Promise<ExecResult>;
     reportResult(execResult: ExecResult, options: ReportResultOptions): Promise<ExecSucceeded | undefined>;
     parseJSON<T>(execResult: ExecResult): Errorable<T>;
@@ -42,6 +43,10 @@ export interface Kubectl {
 // TODO: move this out of the reporting layer and into the application layer
 export interface ReportResultOptions {
     readonly updateSchemasOnSuccess?: boolean;
+}
+
+export interface EnsurePresentOptions {
+    readonly warnIfNotPresent: boolean;
 }
 
 interface Context {
@@ -139,6 +144,20 @@ class KubectlImpl implements Kubectl {
 
     checkPossibleIncompatibility() {
         return checkPossibleIncompatibility(this.context);
+    }
+
+    async ensurePresent(options: EnsurePresentOptions): Promise<boolean> {
+        const status = await findBinary(this.context);
+        if (status.found) {
+            return true;
+        }
+
+        if (options.warnIfNotPresent) {
+            // TODO: suppressible!
+            showErrorMessageWithInstallPrompt(this.context, status, 'Kubectl not found. Many features of the Kubernetes extension will not work.');
+        }
+
+        return false;
     }
 
     async invokeCommand(command: string): Promise<ExecResult> {
