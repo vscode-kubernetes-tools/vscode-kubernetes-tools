@@ -948,7 +948,7 @@ function promptScaleKubernetes(kindName: string) {
 
 async function invokeScaleKubernetes(kindName: string, replicas: number) {
     const er = await host.longRunning(`Scaling ${kindName} to ${replicas} replicas...`, () =>
-        kubectl.invokeCommandInteractive(`scale --replicas=${replicas} ${kindName}`)
+        kubectl.invokeCommand(`scale --replicas=${replicas} ${kindName}`)
     );
     await kubectl.reportResult(er, {});
 }
@@ -956,7 +956,7 @@ async function invokeScaleKubernetes(kindName: string, replicas: number) {
 function runKubernetes() {
     buildPushThenExec(async (name, image) => {
         const er = await host.longRunning(`Deploying ${image} as ${name}...`, () =>
-            kubectl.invokeCommandInteractive(`run ${name} --image=${image}`)
+            kubectl.invokeCommand(`run ${name} --image=${image}`)
         );
         await kubectl.reportResult(er, {});
     });

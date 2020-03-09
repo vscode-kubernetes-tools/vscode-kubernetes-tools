@@ -34,7 +34,7 @@ export interface Kubectl {
     asJson<T>(command: string): Promise<Errorable<T>>;
     checkPossibleIncompatibility(): Promise<void>;
 
-    invokeCommandInteractive(command: string): Promise<ExecResult>;
+    invokeCommand(command: string): Promise<ExecResult>;
     reportResult(execResult: ExecResult, options: ReportResultOptions): Promise<ExecSucceeded | undefined>;
 }
 
@@ -140,7 +140,7 @@ class KubectlImpl implements Kubectl {
         return checkPossibleIncompatibility(this.context);
     }
 
-    async invokeCommandInteractive(command: string): Promise<ExecResult> {
+    async invokeCommand(command: string): Promise<ExecResult> {
         return await invokeForResult(this.context, command, undefined);
     }
 
