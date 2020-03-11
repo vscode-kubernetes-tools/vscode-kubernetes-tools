@@ -4,6 +4,8 @@ import { Shell } from './shell';
 import { installDependencies } from "./components/installer/installdependencies";
 import { getToolPath, getUseWsl } from './components/config/config';
 import { Errorable } from './errorable';
+import { parseLineOutput } from './outputUtils';
+import { Dictionary } from './utils/dictionary';
 
 export interface ExternalBinary {
     readonly displayName: string;
@@ -14,29 +16,50 @@ export interface ExternalBinary {
 
 export interface ExecBinNotFound {
     readonly resultKind: 'exec-bin-not-found';
+    readonly execProgram: ExternalBinary;
     readonly command: string;
     readonly findResult: FindBinaryStatus;
 }
 
 export interface ExecFailed {
     readonly resultKind: 'exec-failed';
+    readonly execProgram: ExternalBinary;
     readonly command: string;
 }
 
 export interface ExecSucceeded {
     readonly resultKind: 'exec-succeeded';
+    readonly execProgram: ExternalBinary;
     readonly command: string;
     readonly stdout: string;
 }
 
 export interface ExecErrored {
     readonly resultKind: 'exec-errored';
+    readonly execProgram: ExternalBinary;
     readonly command: string;
     readonly code: number;
     readonly stderr: string;
 }
 
 export type ExecResult = ExecBinNotFound | ExecFailed | ExecSucceeded | ExecErrored;
+
+export namespace ExecResult {
+    export function tryMap<T>(execResult: ExecResult, fn: (output: string) => T): Errorable<T> {
+        if (execResult.resultKind === 'exec-bin-not-found') {
+            return { succeeded: false, error: [`${execResult.execProgram.displayName} command failed trying to run '${execResult.command}': ${execResult.execProgram.binBaseName} not found`] };
+        }
+        if (execResult.resultKind === 'exec-failed') {
+            return { succeeded: false, error: [`${execResult.execProgram.displayName} command failed trying to run '${execResult.command}': unable to run ${execResult.execProgram.binBaseName}`] };
+        }
+
+        if (execResult.resultKind === 'exec-succeeded') {
+            return { succeeded: true, result: fn(execResult.stdout.trim()) };
+        }
+
+        return { succeeded: false, error: [ execResult.stderr ] };
+    }
+}
 
 export interface BinaryFound {
     readonly found: true;
@@ -136,7 +159,7 @@ async function findBinaryCore(context: Context): Promise<FindBinaryStatus> {
 export async function invokeForResult(context: Context, command: string, stdin: string | undefined): Promise<ExecResult> {
     const fbr = await findBinary(context);
     if (!fbr.found) {
-        return { resultKind: 'exec-bin-not-found', command, findResult: fbr };
+        return { resultKind: 'exec-bin-not-found', execProgram: context.binary, command, findResult: fbr };
     }
 
     const bin = await baseBinPath(context);
@@ -144,27 +167,27 @@ export async function invokeForResult(context: Context, command: string, stdin: 
     const sr = await context.shell.exec(cmd, stdin);
 
     if (!sr) {
-        return { resultKind: 'exec-failed', command };
+        return { resultKind: 'exec-failed', execProgram: context.binary, command };
     }
 
     if (sr.code === 0) {
-        return { resultKind: 'exec-succeeded', command, stdout: sr.stdout };
+        return { resultKind: 'exec-succeeded', execProgram: context.binary, command, stdout: sr.stdout };
     }
 
-    return { resultKind: 'exec-errored', command, code: sr.code, stderr: sr.stderr };
+    return { resultKind: 'exec-errored', execProgram: context.binary, command, code: sr.code, stderr: sr.stderr };
 }
 
 // This is noisy - handles failure UI for an interactive command that performs an invokeForResult
 export async function discardFailureInteractive(context: Context, result: ExecResult): Promise<ExecSucceeded | undefined> {
     switch (result.resultKind) {
         case 'exec-bin-not-found':
-            await showErrorMessageWithInstallPrompt(context, result.findResult, `${context.binary.displayName} command failed: ${context.binary.binBaseName} not found`);
+            await showErrorMessageWithInstallPrompt(context, result.findResult, `${result.execProgram.displayName} command failed: ${result.execProgram.binBaseName} not found`);
             return undefined;
         case 'exec-failed':
-            await context.host.showErrorMessage(`${context.binary.displayName} command failed: unable to run ${context.binary.binBaseName}`);
+            await context.host.showErrorMessage(`${result.execProgram.displayName} command failed: unable to run ${result.execProgram.binBaseName}`);
             return undefined;
         case 'exec-errored':
-            await context.host.showErrorMessage(`${context.binary.displayName} command failed: ${result.stderr}`);
+            await context.host.showErrorMessage(`${result.execProgram.displayName} command failed: ${result.stderr}`);
             return undefined;
         case 'exec-succeeded':
             return result;
@@ -213,19 +236,17 @@ export function logText(context: Context, execResult: ExecResult): string {
     }
 }
 
-export function parseJSON<T>(context: Context, execResult: ExecResult): Errorable<T> {
-    if (execResult.resultKind === 'exec-bin-not-found') {
-        return { succeeded: false, error: [`${context.binary.displayName} command failed trying to run '${execResult.command}': ${context.binary.binBaseName} not found`] };
-    }
-    if (execResult.resultKind === 'exec-failed') {
-        return { succeeded: false, error: [`${context.binary.displayName} command failed trying to run '${execResult.command}': unable to run ${context.binary.binBaseName}`] };
-    }
+export function parseJSON<T>(execResult: ExecResult): Errorable<T> {
+    return ExecResult.tryMap<T>(execResult, (text) => JSON.parse(text) as T);
+}
 
-    if (execResult.resultKind === 'exec-succeeded') {
-        return { succeeded: true, result: JSON.parse(execResult.stdout.trim()) as T };
+export function parseTable(execResult: ExecResult, columnSeparator: RegExp): Errorable<Dictionary<string>[]> {
+    return ExecResult.tryMap<Dictionary<string>[]>(execResult, (text) => parseLinedText(text, columnSeparator));
+}
 
-    }
-
-    return { succeeded: false, error: [ execResult.stderr ] };
+function parseLinedText(text: string, columnSeparator: RegExp): Dictionary<string>[] {
+    const lines = text.split('\n').filter((l) => l.length > 0);
+    const parsedOutput = parseLineOutput(lines, columnSeparator);
+    return parsedOutput;
 
 }

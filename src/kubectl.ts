@@ -9,8 +9,9 @@ import { parseLineOutput } from './outputUtils';
 import * as compatibility from './components/kubectl/compatibility';
 import { getToolPath, affectsUs, getUseWsl, KubectlVersioning } from './components/config/config';
 import { ensureSuitableKubectl } from './components/kubectl/autoversion';
-import { invokeForResult, ExternalBinary, FindBinaryStatus, ExecResult, ExecSucceeded, discardFailureInteractive, logText, parseJSON, findBinary, showErrorMessageWithInstallPrompt } from './binutilplusplus';
+import { invokeForResult, ExternalBinary, FindBinaryStatus, ExecResult, ExecSucceeded, discardFailureInteractive, logText, parseJSON, findBinary, showErrorMessageWithInstallPrompt, parseTable } from './binutilplusplus';
 import { updateYAMLSchema } from './yaml-support/yaml-schema';
+import { Dictionary } from './utils/dictionary';
 
 const KUBECTL_OUTPUT_COLUMN_SEPARATOR = /\s\s+/g;
 
@@ -30,14 +31,21 @@ export interface Kubectl {
     invokeInSharedTerminal(command: string): Promise<void>;
     runAsTerminal(command: string[], terminalName: string): Promise<void>;
     asLines(command: string): Promise<Errorable<string[]>>;
-    fromLines(command: string): Promise<Errorable<{ [key: string]: string }[]>>;
+    // fromLines(command: string): Promise<Errorable<{ [key: string]: string }[]>>;
     asJson<T>(command: string): Promise<Errorable<T>>;
     checkPossibleIncompatibility(): Promise<void>;
 
     ensurePresent(options: EnsurePresentOptions): Promise<boolean>;
     invokeCommand(command: string): Promise<ExecResult>;
     reportResult(execResult: ExecResult, options: ReportResultOptions): Promise<ExecSucceeded | undefined>;
+
+    // TODO: can we get rid of these?
     parseJSON<T>(execResult: ExecResult): Errorable<T>;
+    parseTable(execResult: ExecResult): Errorable<Dictionary<string>[]>;
+
+    // readXxx = invokeCommand + parseXxx
+    readJSON<T>(command: string): Promise<Errorable<T>>;
+    readTable(command: string): Promise<Errorable<Dictionary<string>[]>>;
 }
 
 // TODO: move this out of the reporting layer and into the application layer
@@ -179,7 +187,21 @@ class KubectlImpl implements Kubectl {
     }
 
     parseJSON<T>(execResult: ExecResult): Errorable<T> {
-        return parseJSON<T>(this.context, execResult);
+        return parseJSON<T>(execResult);
+    }
+
+    parseTable(execResult: ExecResult): Errorable<Dictionary<string>[]> {
+        return parseTable(execResult, KUBECTL_OUTPUT_COLUMN_SEPARATOR);
+    }
+
+    async readJSON<T>(command: string): Promise<Errorable<T>> {
+        const er = await this.invokeCommand(command);
+        return this.parseJSON<T>(er);
+    }
+
+    async readTable(command: string): Promise<Errorable<Dictionary<string>[]>> {
+        const er = await this.invokeCommand(command);
+        return this.parseTable(er);
     }
 }
 

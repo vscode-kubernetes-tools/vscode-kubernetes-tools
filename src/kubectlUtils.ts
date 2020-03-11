@@ -5,6 +5,7 @@ import { sleep } from "./sleep";
 import { ObjectMeta, KubernetesCollection, DataResource, Namespace, Pod, KubernetesResource, CRD } from './kuberesources.objectmodel';
 import { failed, Errorable } from "./errorable";
 import { shellMessage } from "./shell";
+import { ExecResult } from "./binutilplusplus";
 
 export interface KubectlContext {
     readonly clusterName: string;
@@ -72,8 +73,7 @@ export interface ConfigReadOptions {
 }
 
 async function getKubeconfig(kubectl: Kubectl, options: ConfigReadOptions): Promise<Kubeconfig | null> {
-    const er = await kubectl.invokeCommand("config view -o json");
-    const config = kubectl.parseJSON<any>(er);
+    const config = await kubectl.readJSON<any>("config view -o json");
     if (failed(config)) {
         if (options.silent) {
             console.log(config.error[0]);
@@ -239,7 +239,7 @@ export async function getPods(kubectl: Kubectl, selector: any, namespace: string
         labelStr = "--selector=" + labels.join(",");
     }
 
-    const pods = await kubectl.fromLines(`get pods -o wide ${nsFlag} ${labelStr}`);
+    const pods = await kubectl.readTable(`get pods -o wide ${nsFlag} ${labelStr}`);
     if (failed(pods)) {
         vscode.window.showErrorMessage(pods.error[0]);
         return [];
@@ -425,7 +425,7 @@ async function changeResourceFromUri(uri: vscode.Uri, kubectl: Kubectl, command:
 }
 
 export async function namespaceResources(kubectl: Kubectl, ns: string): Promise<Errorable<string[]>> {
-    const arresult = await kubectl.fromLines('api-resources -o wide');
+    const arresult = await kubectl.readTable('api-resources -o wide');
     if (failed(arresult)) {
         return arresult;
     }
@@ -435,14 +435,11 @@ export async function namespaceResources(kubectl: Kubectl, ns: string): Promise<
                                          .map((r) => r.name);
     const resourceKindsList = resourceKinds.join(',');
 
-    const getresult = await kubectl.invokeAsync(`get ${resourceKindsList} -o name --namespace ${ns} --ignore-not-found`);
-    if (!getresult || getresult.code !== 0) {
-        const message = getresult ? getresult.stderr : 'Unable to run kubectl';
-        return { succeeded: false, error: [message] };
-    }
+    const getresult = await kubectl.invokeCommand(`get ${resourceKindsList} -o name --namespace ${ns} --ignore-not-found`);
 
-    const resources = getresult.stdout.split('\n').map((s) => s.trim()).filter((s) => s.length > 0);
-    return { succeeded: true, result: resources };
+    return ExecResult.tryMap<string[]>(getresult, (text) =>
+        text.split('\n').map((s) => s.trim()).filter((s) => s.length > 0)
+    );
 }
 
 export async function getResourceVersion(kubectl: Kubectl, resource: string): Promise<string | undefined> {
