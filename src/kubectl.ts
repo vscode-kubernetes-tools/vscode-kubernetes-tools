@@ -293,6 +293,14 @@ async function invokeAsync(context: Context, command: string, stdin?: string, ca
     }
 }
 
+async function kubectlInternal(context: Context, command: string, handler: ShellHandler): Promise<void> {
+    invokeAsync(context, command).then((sr) => {
+        if (sr && sr.code !== -1) {
+            handler(sr.code, sr.stdout, sr.stderr);
+        }
+    });
+}
+
 // TODO: invalidate this when the context changes or if we know kubectl has changed (e.g. config)
 let checkedCompatibility = false;  // We don't want to spam the user (or CPU!) repeatedly running the version check
 
@@ -343,17 +351,6 @@ async function runAsTerminal(context: Context, command: string[], terminalName: 
         }
         const term = context.host.createTerminal(terminalName, execPath, cmd);
         term.show();
-    }
-}
-
-async function kubectlInternal(context: Context, command: string, handler: ShellHandler): Promise<void> {
-    if (await checkPresent(context, CheckPresentMessageMode.Command)) {
-        const bin = await baseKubectlPath(context);
-        const cmd = `${bin} ${command}`;
-        const sr = await context.shell.exec(cmd);
-        if (sr) {
-            handler(sr.code, sr.stdout, sr.stderr);
-        }
     }
 }
 
