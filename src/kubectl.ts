@@ -207,7 +207,6 @@ export function createOnBinary(host: Host, fs: FS, shell: Shell, bin: string): K
 
 export enum CheckPresentMessageMode {
     Command,
-    Activation,
     Silent,
 }
 
@@ -231,9 +230,7 @@ async function checkForKubectlInternal(context: Context, errorMessageMode: Check
 }
 
 function getCheckKubectlContextMessage(errorMessageMode: CheckPresentMessageMode): string {
-    if (errorMessageMode === CheckPresentMessageMode.Activation) {
-        return ' Kubernetes commands other than configuration will not function correctly.';
-    } else if (errorMessageMode === CheckPresentMessageMode.Command) {
+    if (errorMessageMode === CheckPresentMessageMode.Command) {
         return ' Cannot execute command.';
     }
     return '';
