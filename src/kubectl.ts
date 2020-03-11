@@ -153,7 +153,7 @@ class KubectlImpl implements Kubectl {
         }
 
         if (options.warnIfNotPresent) {
-            // TODO: suppressible!
+            // TODO: suppressible once refactoring complete!
             showErrorMessageWithInstallPrompt(this.context, status, 'Kubectl not found. Many features of the Kubernetes extension will not work.');
         }
 
