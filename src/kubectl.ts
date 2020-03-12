@@ -17,7 +17,6 @@ const KUBECTL_OUTPUT_COLUMN_SEPARATOR = /\s\s+/g;
 
 export interface Kubectl {
     checkPresent(errorMessageMode: CheckPresentMessageMode): Promise<boolean>;
-    invoke(command: string, handler: ShellHandler): Promise<void>;
     invokeWithProgress(command: string, progressMessage: string, handler: ShellHandler): Promise<void>;
     invokeAsync(command: string, stdin?: string, callback?: (proc: ChildProcess) => void): Promise<ShellResult | undefined>;
     invokeAsyncWithProgress(command: string, progressMessage: string): Promise<ShellResult | undefined>;
@@ -37,6 +36,7 @@ export interface Kubectl {
 
     ensurePresent(options: EnsurePresentOptions): Promise<boolean>;
     invokeCommand(command: string): Promise<ExecResult>;
+    invokeCommandThen<T>(command: string, fn: (execResult: ExecResult) => T): Promise<T>;
     reportResult(execResult: ExecResult, options: ReportResultOptions): Promise<ExecSucceeded | undefined>;
 
     // TODO: can we get rid of these?
@@ -94,9 +94,6 @@ class KubectlImpl implements Kubectl {
 
     checkPresent(errorMessageMode: CheckPresentMessageMode): Promise<boolean> {
         return checkPresent(this.context, errorMessageMode);
-    }
-    invoke(command: string, handler: ShellHandler): Promise<void> {
-        return invoke(this.context, command, handler);
     }
     invokeWithProgress(command: string, progressMessage: string, handler: ShellHandler): Promise<void> {
         return invokeWithProgress(this.context, command, progressMessage, handler);
@@ -170,6 +167,12 @@ class KubectlImpl implements Kubectl {
 
     async invokeCommand(command: string): Promise<ExecResult> {
         return await invokeForResult(this.context, command, undefined);
+    }
+
+    async invokeCommandThen<T>(command: string, fn: (execResult: ExecResult) => T): Promise<T> {
+        const er = await this.invokeCommand(command);
+        const result = fn(er);
+        return result;
     }
 
     async reportResult(execResult: ExecResult, options: ReportResultOptions): Promise<ExecSucceeded | undefined> {
@@ -256,10 +259,6 @@ function getCheckKubectlContextMessage(errorMessageMode: CheckPresentMessageMode
         return ' Cannot execute command.';
     }
     return '';
-}
-
-async function invoke(context: Context, command: string, handler: ShellHandler): Promise<void> {
-    await kubectlInternal(context, command, handler);
 }
 
 async function invokeWithProgress(context: Context, command: string, progressMessage: string, handler: ShellHandler): Promise<void> {

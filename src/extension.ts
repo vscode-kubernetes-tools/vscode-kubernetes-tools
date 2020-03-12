@@ -85,6 +85,7 @@ import { getImageBuildTool } from './components/config/config';
 import { ClusterExplorerNode, ClusterExplorerConfigurationValueNode, ClusterExplorerResourceNode, ClusterExplorerResourceFolderNode } from './components/clusterexplorer/node';
 import { create as activeContextTrackerCreate } from './components/contextmanager/active-context-tracker';
 import { WatchManager } from './components/kubectl/watch';
+import { ExecResult } from './binutilplusplus';
 
 let explainActive = false;
 let swaggerSpecPromise: Promise<explainer.SwaggerModel | undefined> | null = null;
@@ -574,7 +575,6 @@ const GENERIC_KUBECTL_RESULT_HANDLER: ShellHandler = (code, stdout, stderr) => {
     updateYAMLSchema();  // TODO: I really do not like having this here. Massive separation of concerns red flag plus we lack context to decide whether it's needed. But hard to move without revamping the result handling system.
     host.showInformationMessage(stdout);
 };
-
 
 // Runs a command for the text in the active window.
 // Expects that it can append a filename to 'command' to create a complete kubectl command.
@@ -1686,18 +1686,18 @@ function diffKubernetesCore(callback: (r: DiffResult) => void): void {
             return;
         }
 
-        kubectl.invoke(` get -o ${fileFormat} ${kindName}`, (result, stdout, stderr) => {
-            if (result === 1 && stderr.indexOf('NotFound') >= 0) {
+        kubectl.invokeCommandThen(` get -o ${fileFormat} ${kindName}`, (er) => {
+            if (er.resultKind === 'exec-errored' && er.code === 1 && er.stderr.indexOf('NotFound') >= 0) {
                 callback({ result: DiffResultKind.NoClusterResource, resourceName: kindName || undefined });  // TODO: rationalise our nulls and undefineds
                 return;
             }
-            else if (result !== 0) {
-                callback({ result: DiffResultKind.GetFailed, stderr: stderr });
+            else if (er.resultKind !== 'exec-succeeded') {
+                callback({ result: DiffResultKind.GetFailed, stderr: ExecResult.failureMessage(er) });
                 return;
             }
 
             const serverFile = path.join(os.tmpdir(), `server.${fileFormat}`);
-            fs.writeFile(serverFile, stdout, handleError);
+            fs.writeFile(serverFile, er.stdout, handleError);
 
             vscode.commands.executeCommand(
                 'vscode.diff',
@@ -1785,8 +1785,13 @@ const doDebug = async (name: string, image: string, cmd: string) => {
     const podName = podList[0].metadata.name;
     vscode.window.showInformationMessage('Debug pod running as: ' + podName);
 
-    waitForRunningPod(podName, () => {
-        kubectl.invoke(` port-forward ${podName} 5858:5858 8000:8000`, GENERIC_KUBECTL_RESULT_HANDLER);
+    waitForRunningPod(podName, async () => {
+        const pfer = await kubectl.invokeCommand(` port-forward ${podName} 5858:5858 8000:8000`);
+        const pfsucc = await kubectl.reportResult(pfer, {});
+
+        if (!pfsucc) {
+            return;
+        }
 
         const debugConfiguration = {
             type: 'node',
@@ -1812,9 +1817,9 @@ const doDebug = async (name: string, image: string, cmd: string) => {
                     }
 
                     const exposeCmd = `expose deployment ${deploymentName} --type=LoadBalancer --port=${port}`;
-                    kubectl.invoke(exposeCmd, (result, _stdout, stderr) => {
-                        if (result !== 0) {
-                            vscode.window.showErrorMessage('Failed to expose deployment: ' + stderr);
+                    kubectl.invokeCommandThen(exposeCmd, (eer) => {
+                        if (eer.resultKind !== 'exec-succeeded') {
+                            vscode.window.showErrorMessage('Failed to expose deployment: ' + ExecResult.failureMessage(eer));
                             return;
                         }
                         vscode.window.showInformationMessage(`Deployment exposed. Run Kubernetes Get > service ${deploymentName} for IP address`);
@@ -1827,14 +1832,14 @@ const doDebug = async (name: string, image: string, cmd: string) => {
 };
 
 const waitForRunningPod = (name: string, callback: () => void) => {
-    kubectl.invoke(` get pods ${name} -o jsonpath --template="{.status.phase}"`,
-        (result, stdout, stderr) => {
-            if (result !== 0) {
-                vscode.window.showErrorMessage(`Failed to run command (${result}) ${stderr}`);
+    kubectl.invokeCommandThen(` get pods ${name} -o jsonpath --template="{.status.phase}"`,
+        async (er) => {
+            const succ = await kubectl.reportResult(er, {});
+            if (!succ) {
                 return;
             }
 
-            if (stdout === 'Running') {
+            if (succ.stdout === 'Running') {
                 callback();
                 return;
             }
@@ -1844,8 +1849,8 @@ const waitForRunningPod = (name: string, callback: () => void) => {
 };
 
 function exists(kind: string, name: string, handler: (exists: boolean) => void) {
-    kubectl.invoke(`get ${kind} ${name}`, (result) => {
-        handler(result === 0);
+    kubectl.invokeCommandThen(`get ${kind} ${name}`, (er) => {
+        handler(er.resultKind === 'exec-succeeded');
     });
 }
 
@@ -1874,11 +1879,11 @@ function removeDebugKubernetes() {
                     }
 
                     if (service) {
-                        kubectl.invoke('delete service ' + deploymentName, GENERIC_KUBECTL_RESULT_HANDLER);
+                        kubectl.invokeCommandThen('delete service ' + deploymentName, (er) => kubectl.reportResult(er, {}));
                     }
 
                     if (deployment) {
-                        kubectl.invoke('delete deployment ' + deploymentName, GENERIC_KUBECTL_RESULT_HANDLER);
+                        kubectl.invokeCommandThen('delete deployment ' + deploymentName, (er) => kubectl.reportResult(er, {}));
                     }
                 },
                 (err) => vscode.window.showErrorMessage(`Error getting confirmation of delete: ${err}`));

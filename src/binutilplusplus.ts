@@ -3,7 +3,7 @@ import { FS } from './fs';
 import { Shell } from './shell';
 import { installDependencies } from "./components/installer/installdependencies";
 import { getToolPath, getUseWsl } from './components/config/config';
-import { Errorable } from './errorable';
+import { Errorable, failed } from './errorable';
 import { parseLineOutput } from './outputUtils';
 import { Dictionary } from './utils/dictionary';
 
@@ -58,6 +58,14 @@ export namespace ExecResult {
         }
 
         return { succeeded: false, error: [ execResult.stderr ] };
+    }
+
+    export function failureMessage(execResult: ExecResult): string {
+        const err = ExecResult.tryMap(execResult, (s) => s);
+        if (failed(err)) {
+            return err.error[0];
+        }
+        return '';
     }
 }
 
