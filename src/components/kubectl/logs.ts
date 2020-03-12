@@ -177,17 +177,16 @@ async function logsForPodFromOpenDocument(kubectl: Kubectl, editor: vscode.TextE
 async function logsForPodFromCurrentNamespace(kubectl: Kubectl, displayMode: LogsDisplayMode) {
     const namespace = await kubectlUtils.currentNamespace(kubectl);
 
-    quickPickKindName(
+    const pod = await quickPickKindName(
         [kuberesources.allKinds.pod],
-        { nameOptional: false },
-        async (pod) => {
-
-            const podSummary: PodSummary = {
-                name: pod.split('/')[1],
-                namespace: namespace // should figure out how to handle namespaces.
-            };
-
-            await getLogsForPod(kubectl, podSummary, displayMode);
-        }
+        { nameOptional: false }
     );
+    if (pod) {
+        const podSummary: PodSummary = {
+            name: pod.split('/')[1],
+            namespace: namespace // should figure out how to handle namespaces.
+        };
+
+        await getLogsForPod(kubectl, podSummary, displayMode);
+    }
 }

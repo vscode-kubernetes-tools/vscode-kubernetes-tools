@@ -746,13 +746,14 @@ function getTextForActiveWindow(callback: (data: string | null, file: vscode.Uri
     return;
 }
 
-function loadKubernetes(explorerNode?: ClusterExplorerResourceNode) {
+async function loadKubernetes(explorerNode?: ClusterExplorerResourceNode) {
     if (explorerNode) {
         loadKubernetesCore(explorerNode.namespace, explorerNode.kindName);
     } else {
-        promptKindName(kuberesources.commonKinds, "load", { nameOptional: true }, (value) => {
+        const value = await promptKindName(kuberesources.commonKinds, "load", { nameOptional: true });
+        if (value) {
             loadKubernetesCore(null, value);
-        });
+        }
     }
 }
 
@@ -767,22 +768,23 @@ function loadKubernetesCore(namespace: string | null, value: string) {
     (err) => vscode.window.showErrorMessage(`Error loading document: ${err}`));
 }
 
-function exposeKubernetes() {
-    findKindNameOrPrompt(kuberesources.exposableKinds, 'expose', { nameOptional: false}, (kindName: string) => {
-        if (!kindName) {
-            vscode.window.showErrorMessage('couldn\'t find a relevant type to expose.');
-            return;
-        }
+async function exposeKubernetes() {
+    const kindName = await findKindNameOrPrompt(kuberesources.exposableKinds, 'expose', { nameOptional: false});
+    if (!kindName) {
+        return;
+    }
 
-        let cmd = `expose ${kindName}`;
-        const ports = getPorts();
+    let cmd = `expose ${kindName}`;
+    const ports = getPorts();
 
-        if (ports && ports.length > 0) {
-            cmd += ' --port=' + ports[0];
-        }
+    if (ports && ports.length > 0) {
+        cmd += ' --port=' + ports[0];
+    }
 
-        kubectl.invokeWithProgress(cmd, "Kubernetes Exposing...", GENERIC_KUBECTL_RESULT_HANDLER);
-    });
+    const er = await host.longRunning(`Exposing ${kindName} as service...`, () =>
+        kubectl.invokeCommand(cmd)
+    );
+    await kubectl.reportResult(er, {});
 }
 
 function kubectlId(explorerNode: ClusterExplorerResourceNode | ClusterExplorerResourceFolderNode) {
@@ -799,9 +801,10 @@ function getKubernetes(explorerNode?: any) {
         const nsarg = (node.nodeType === explorer.NODE_TYPES.resource && node.namespace) ? `--namespace ${node.namespace}` : '';
         kubectl.invokeInSharedTerminal(`get ${id} ${nsarg} -o wide`);
     } else {
-        findKindNameOrPrompt(kuberesources.commonKinds, 'get', { nameOptional: true }, (value) => {
+        const value = findKindNameOrPrompt(kuberesources.commonKinds, 'get', { nameOptional: true });
+        if (value) {
             kubectl.invokeInSharedTerminal(` get ${value} -o wide`);
-        });
+        }
     }
 }
 
@@ -921,14 +924,15 @@ function findNameAndImageInternal(fn: (name: string, image: string) => void) {
     });
 }
 
-function scaleKubernetes(target?: any) {
+async function scaleKubernetes(target?: any) {
     if (target && explorer.isKubernetesExplorerResourceNode(target)) {
         const kindName = target.kindName;
         promptScaleKubernetes(kindName);
     } else {
-        findKindNameOrPrompt(kuberesources.scaleableKinds, 'scale', {}, (kindName) => {
+        const kindName = await findKindNameOrPrompt(kuberesources.scaleableKinds, 'scale', {});
+        if (kindName) {
             promptScaleKubernetes(kindName);
-        });
+        }
     }
 }
 
@@ -1062,16 +1066,16 @@ function findKindNamesForText(text: string): Errorable<ResourceKindName[]> {
     }
 }
 
-export function findKindNameOrPrompt(resourceKinds: kuberesources.ResourceKind[], descriptionVerb: string, opts: vscode.InputBoxOptions & QuickPickKindNameOptions, handler: (kindName: string) => void) {
+export async function findKindNameOrPrompt(resourceKinds: kuberesources.ResourceKind[], descriptionVerb: string, opts: vscode.InputBoxOptions & QuickPickKindNameOptions): Promise<string | undefined> {
     const kindObject = tryFindKindNameFromEditor();
     if (failed(kindObject)) {
-        promptKindName(resourceKinds, descriptionVerb, opts, handler);
+        return await promptKindName(resourceKinds, descriptionVerb, opts);
     } else {
-        handler(`${kindObject.result.kind}/${kindObject.result.resourceName}`);
+        return `${kindObject.result.kind}/${kindObject.result.resourceName}`;
     }
 }
 
-export function promptKindName(resourceKinds: kuberesources.ResourceKind[], descriptionVerb: string, opts: vscode.InputBoxOptions & QuickPickKindNameOptions, handler: (kindName: string) => void) {
+export async function promptKindName(resourceKinds: kuberesources.ResourceKind[], descriptionVerb: string, opts: vscode.InputBoxOptions & QuickPickKindNameOptions): Promise<string | undefined> {
     let placeHolder: string = 'Empty string to be prompted';
     let prompt: string = `What resource do you want to ${descriptionVerb}?`;
 
@@ -1080,30 +1084,28 @@ export function promptKindName(resourceKinds: kuberesources.ResourceKind[], desc
         prompt = opts.prompt || prompt;
     }
 
-    vscode.window.showInputBox({ prompt, placeHolder}).then((resource) => {
-        if (resource === '') {
-            quickPickKindName(resourceKinds, opts, handler);
-        } else if (resource === undefined) {
-            return;
-        } else {
-            handler(resource);
-        }
-    },
-    (err) => vscode.window.showErrorMessage(`Error getting kind input: ${err}`));
+    const resource = await vscode.window.showInputBox({ prompt, placeHolder});
+
+    if (resource === '') {
+        return await quickPickKindName(resourceKinds, opts);
+    } else if (resource === undefined) {
+        return undefined;
+    } else {
+        return resource;
+    }
 }
 
-export function quickPickKindName(resourceKinds: kuberesources.ResourceKind[], opts: QuickPickKindNameOptions, handler: (kindName: string) => void) {
+export async function quickPickKindName(resourceKinds: kuberesources.ResourceKind[], opts: QuickPickKindNameOptions): Promise<string | undefined> {
     if (resourceKinds.length === 1) {
-        quickPickKindNameFromKind(resourceKinds[0], opts, handler);
-        return;
+        return await quickPickKindNameFromKind(resourceKinds[0], opts);
     }
 
-    vscode.window.showQuickPick(resourceKinds).then((resourceKind) => {
-        if (resourceKind) {
-            quickPickKindNameFromKind(resourceKind, opts, handler);
-        }
-    },
-    (err) => vscode.window.showErrorMessage(`Error picking resource kind: ${err}`));
+    const resourceKind = await vscode.window.showQuickPick(resourceKinds);
+    if (!resourceKind) {
+        return undefined;
+    }
+
+    return await quickPickKindNameFromKind(resourceKind, opts);
 }
 
 interface QuickPickKindNameOptions {
@@ -1111,48 +1113,52 @@ interface QuickPickKindNameOptions {
     readonly nameOptional?: boolean;
 }
 
-function quickPickKindNameFromKind(resourceKind: kuberesources.ResourceKind, opts: QuickPickKindNameOptions, handler: (kindName: string) => void) {
+async function quickPickKindNameFromKind(resourceKind: kuberesources.ResourceKind, opts: QuickPickKindNameOptions): Promise<string | undefined> {
     const kind = resourceKind.abbreviation;
-    kubectl.invoke("get " + kind, (code, stdout, stderr) => {
-        if (code !== 0) {
-            vscode.window.showErrorMessage(stderr);
-            return;
-        }
+    const sr = await kubectl.invokeAsync("get " + kind);
+    if (!sr || sr.code === -1) {
+        return undefined;
+    }
 
-        let names = parseNamesFromKubectlLines(stdout);
-        if (names.length === 0) {
-            vscode.window.showInformationMessage(`No resources of type ${resourceKind.displayName} in cluster`);
-            return;
-        }
+    if (sr.code !== 0) {
+        vscode.window.showErrorMessage(sr.stderr);
+        return undefined;
+    }
 
-        if (opts) {
-            names = pullAll(names, opts.filterNames) || names;
-        }
+    let names = parseNamesFromKubectlLines(sr.stdout);
+    if (names.length === 0) {
+        vscode.window.showInformationMessage(`No resources of type ${resourceKind.displayName} in cluster`);
+        return;
+    }
 
-        if (opts && opts.nameOptional) {
-            names.push('(all)');
-            vscode.window.showQuickPick(names).then((name) => {
-                if (name) {
-                    let kindName;
-                    if (name === '(all)') {
-                        kindName = kind;
-                    } else {
-                        kindName = `${kind}/${name}`;
-                    }
-                    handler(kindName);
-                }
-            }),
-            (err: any) => vscode.window.showErrorMessage(`Error picking name: ${err}`);
+    if (opts) {
+        names = pullAll(names, opts.filterNames) || names;
+    }
+
+    if (opts && opts.nameOptional) {
+        names.push('(all)');
+        const name = await vscode.window.showQuickPick(names);
+
+        if (name) {
+            let kindName;
+            if (name === '(all)') {
+                kindName = kind;
+            } else {
+                kindName = `${kind}/${name}`;
+            }
+            return kindName;
         } else {
-            vscode.window.showQuickPick(names).then((name) => {
-                if (name) {
-                    const kindName = `${kind}/${name}`;
-                    handler(kindName);
-                }
-            },
-            (err) => vscode.window.showErrorMessage(`Error picking name: ${err}`));
+            return undefined;
         }
-    });
+    } else {
+        const name = await vscode.window.showQuickPick(names);
+        if (name) {
+            const kindName = `${kind}/${name}`;
+            return kindName;
+        } else {
+            return undefined;
+        }
+    }
 }
 
 function containsName(kindName: string): boolean {
@@ -1276,7 +1282,8 @@ async function describeKubernetes(explorerNode?: ClusterExplorerResourceNode) {
             await vscode.window.showErrorMessage(`Describe failed: ${result ? result.stderr : "Unable to call kubectl"}`);
         }
     } else {
-        findKindNameOrPrompt(kuberesources.commonKinds, 'describe', { nameOptional: true }, async (value) => {
+        const value = await findKindNameOrPrompt(kuberesources.commonKinds, 'describe', { nameOptional: true });
+        if (value) {
             const cmd = `describe ${value}`;
             const refresh = (): Promise<ShellResult | undefined> => {
                 return kubectl.invokeAsync(cmd);
@@ -1287,7 +1294,7 @@ async function describeKubernetes(explorerNode?: ClusterExplorerResourceNode) {
             } else {
                 await vscode.window.showErrorMessage(`Describe failed: ${result ? result.stderr : "Unable to call kubectl"}`);
             }
-        });
+        }
     }
 }
 
@@ -1479,16 +1486,15 @@ async function deleteKubernetes(delMode: KubernetesDeleteMode, explorerNode?: Cl
         const shellResult = await kubectl.invokeAsyncWithProgress(`delete ${explorerNode.kindName} ${nsarg} ${delModeArg}`, `Deleting ${explorerNode.kindName}...`);
         await reportDeleteResult(explorerNode.kindName, shellResult);
     } else {
-        promptKindName(kuberesources.commonKinds, 'delete', { nameOptional: true }, async (kindName) => {
-            if (kindName) {
-                let commandArgs = kindName;
-                if (!containsName(kindName)) {
-                    commandArgs = kindName + " --all";
-                }
-                const shellResult = await kubectl.invokeAsyncWithProgress(`delete ${commandArgs} ${delModeArg}`, `Deleting ${kindName}...`);
-                await reportDeleteResult(kindName, shellResult);
+        const kindName = await promptKindName(kuberesources.commonKinds, 'delete', { nameOptional: true });
+        if (kindName) {
+            let commandArgs = kindName;
+            if (!containsName(kindName)) {
+                commandArgs = kindName + " --all";
             }
-        });
+            const shellResult = await kubectl.invokeAsyncWithProgress(`delete ${commandArgs} ${delModeArg}`, `Deleting ${kindName}...`);
+            await reportDeleteResult(kindName, shellResult);
+        }
     }
 }
 
