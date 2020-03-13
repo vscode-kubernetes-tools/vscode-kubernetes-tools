@@ -3,7 +3,6 @@
 // at all times.
 
 import * as vscode from 'vscode';
-import { Kubectl } from '../../../kubectl';
 
 export interface ClusterExplorerV2 {
     resolveCommandTarget(target?: any): ClusterExplorerV2.ClusterExplorerNode | undefined;
