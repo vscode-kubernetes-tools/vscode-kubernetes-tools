@@ -7,9 +7,9 @@ import * as yaml from 'js-yaml';
 import * as kubectlUtils from '../../kubectlUtils';
 import { LogsPanel } from '../../components/logs/logsWebview';
 import { ContainerContainer } from '../../utils/containercontainer';
-import { ChildProcess } from 'child_process';
 import { ClusterExplorerResourceNode } from '../clusterexplorer/node';
 import { logsDisplay, LogsDisplay } from '../config/config';
+import { ExecResult } from '../../binutilplusplus';
 
 export enum LogsDisplayMode {
     Show,
@@ -85,19 +85,21 @@ async function getLogsForContainer(
     containerName: string | undefined,
     displayMode: LogsDisplayMode
 ) {
-    let cmd = `logs ${containerResource.kindName}`;
+    const args = ['logs', containerResource.kindName];
 
     if (containerResource.namespace) {
-        cmd = `${cmd} --namespace=${containerResource.namespace}`;
+        args.push(`--namespace=${containerResource.namespace}`);
     }
 
     if (containerName) {
-        cmd = `${cmd} --container=${containerName}`;
+        args.push(`--container=${containerName}`);
     }
 
     if (displayMode === LogsDisplayMode.Follow) {
-        cmd = `${cmd} -f`;
+        args.push('-f');
     }
+
+    const cmd = args.join(' ');
 
     if (logsDisplay() === LogsDisplay.Terminal) {
         if (displayMode === LogsDisplayMode.Follow) {
@@ -113,12 +115,13 @@ async function getLogsForContainer(
     const panel = LogsPanel.createOrShow('Loading...', resource);
 
     if (displayMode === LogsDisplayMode.Follow) {
-        cmd = `${cmd} -f`;
-        kubectl.invokeAsync(cmd, undefined, (proc: ChildProcess) => {
-            proc.stdout.on('data', (data: string) => {
-                panel.addContent(data);
-            });
-        });
+        const lines = await kubectl.observeCommand(args);
+
+        lines.subscribe(
+            (line) => { if (line) { panel.addContent(line + '\n'); } },
+            (err: ExecResult) => kubectl.reportResult(err, { whatFailed: `Follow logs failed` })
+        );
+
         return;
     }
 

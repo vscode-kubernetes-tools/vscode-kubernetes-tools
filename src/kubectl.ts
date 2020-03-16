@@ -1,5 +1,6 @@
 import { Terminal, Disposable } from 'vscode';
 import { ChildProcess, spawn as spawnChildProcess } from "child_process";
+import * as rx from 'rxjs';
 import { Host, host, LongRunningUIOptions } from './host';
 import { FS } from './fs';
 import { Shell, ShellResult } from './shell';
@@ -9,7 +10,7 @@ import { parseLineOutput } from './outputUtils';
 import * as compatibility from './components/kubectl/compatibility';
 import { getToolPath, affectsUs, getUseWsl, KubectlVersioning } from './components/config/config';
 import { ensureSuitableKubectl } from './components/kubectl/autoversion';
-import { invokeForResult, ExternalBinary, FindBinaryStatus, ExecResult, ExecSucceeded, discardFailureInteractive, logText, parseJSON, findBinary, showErrorMessageWithInstallPrompt, parseTable, ExecBinNotFound } from './binutilplusplus';
+import { invokeForResult, ExternalBinary, FindBinaryStatus, ExecResult, ExecSucceeded, discardFailureInteractive, logText, parseJSON, findBinary, showErrorMessageWithInstallPrompt, parseTable, ExecBinNotFound, invokeTracking } from './binutilplusplus';
 import { updateYAMLSchema } from './yaml-support/yaml-schema';
 import { Dictionary } from './utils/dictionary';
 
@@ -17,7 +18,7 @@ const KUBECTL_OUTPUT_COLUMN_SEPARATOR = /\s\s+/g;
 
 export interface Kubectl {
     checkPresent(errorMessageMode: CheckPresentMessageMode): Promise<boolean>;
-    invokeAsync(command: string, stdin?: string, callback?: (proc: ChildProcess) => void): Promise<ShellResult | undefined>;
+    invokeAsync(command: string, stdin?: string): Promise<ShellResult | undefined>;
     spawnAsChild(command: string[]): Promise<ChildProcess | undefined>;
     /**
      * Invoke a kubectl command in Terminal.
@@ -35,6 +36,7 @@ export interface Kubectl {
     ensurePresent(options: EnsurePresentOptions): Promise<boolean>;
     invokeCommand(command: string): Promise<ExecResult>;
     invokeCommandThen<T>(command: string, fn: (execResult: ExecResult) => T): Promise<T>;
+    observeCommand(args: string[]): Promise<rx.Observable<string>>;
 
     // transiently shouty
     invokeCommandWithFeedback(command: string, uiOptions: string | LongRunningUIOptions): Promise<ExecResult>;
@@ -175,6 +177,11 @@ class KubectlImpl implements Kubectl {
         const er = await this.invokeCommand(command);
         const result = fn(er);
         return result;
+    }
+
+    async observeCommand(args: string[]): Promise<rx.Observable<string>> {
+        const process = await invokeTracking(this.context, args);
+        return process.lines;
     }
 
     async invokeCommandWithFeedback(command: string, uiOptions: string | LongRunningUIOptions): Promise<ExecResult> {

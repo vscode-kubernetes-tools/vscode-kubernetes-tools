@@ -1,3 +1,5 @@
+import * as rx from 'rxjs';
+import * as spawnrx from 'spawn-rx';
 import { Host } from './host';
 import { FS } from './fs';
 import { Shell } from './shell';
@@ -200,6 +202,36 @@ export async function invokeForResult(context: Context, command: string, stdin: 
     return { resultKind: 'exec-errored', execProgram: context.binary, command, code: sr.code, stderr: sr.stderr };
 }
 
+// TODO: can probably get rid of this now though would be nice
+// to have a kill feature
+export interface RunningProcess {
+    readonly lines: rx.Observable<string>;
+}
+
+export async function invokeTracking(context: Context, args: string[]): Promise<RunningProcess> {
+    const linesSubject = new rx.Subject<string>();
+
+    const fbr = await findBinary(context);
+    if (!fbr.found) {
+        // return { resultKind: 'exec-bin-not-found', execProgram: context.binary, command, findResult: fbr };
+        linesSubject.error({ resultKind: 'exec-bin-not-found', execProgram: context.binary, command: args.join(' '), findResult: fbr })
+    }
+
+    const bin = await baseBinPath(context);
+
+    let pending = '';
+    const stdout = spawnrx.spawn(bin, args);
+    stdout.subscribe((chunk) => {
+        const todo = pending + chunk;
+        const lines = todo.split('\n').map((l) => l.trim());
+        const lastIsWholeLine = todo.endsWith('\n');
+        pending = lastIsWholeLine ? '' : lines.pop()!;
+        for (const line of lines) {
+            linesSubject.next(line);
+        }
+    });
+    return { lines: linesSubject };
+}
 // This is noisy - handles failure UI for an interactive command that performs an invokeForResult
 export async function discardFailureInteractive(context: Context, result: ExecResult, options: FailureMessageOptions): Promise<ExecSucceeded | undefined> {
     const prefix = options.whatFailed ?
