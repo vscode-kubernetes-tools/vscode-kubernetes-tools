@@ -1,8 +1,8 @@
 import { Terminal, Disposable } from 'vscode';
 import { ChildProcess, spawn as spawnChildProcess } from "child_process";
-import { Host, host } from './host';
+import { Host, host, LongRunningUIOptions } from './host';
 import { FS } from './fs';
-import { Shell, ShellHandler, ShellResult } from './shell';
+import { Shell, ShellResult } from './shell';
 import * as binutil from './binutil';
 import { Errorable } from './errorable';
 import { parseLineOutput } from './outputUtils';
@@ -17,7 +17,6 @@ const KUBECTL_OUTPUT_COLUMN_SEPARATOR = /\s\s+/g;
 
 export interface Kubectl {
     checkPresent(errorMessageMode: CheckPresentMessageMode): Promise<boolean>;
-    invokeWithProgress(command: string, progressMessage: string, handler: ShellHandler): Promise<void>;
     invokeAsync(command: string, stdin?: string, callback?: (proc: ChildProcess) => void): Promise<ShellResult | undefined>;
     invokeAsyncWithProgress(command: string, progressMessage: string): Promise<ShellResult | undefined>;
     spawnAsChild(command: string[]): Promise<ChildProcess | undefined>;
@@ -34,16 +33,24 @@ export interface Kubectl {
     asJson<T>(command: string): Promise<Errorable<T>>;
     checkPossibleIncompatibility(): Promise<void>;
 
+    // silent (unless you explicitly ask it to be shouty)
     ensurePresent(options: EnsurePresentOptions): Promise<boolean>;
     invokeCommand(command: string): Promise<ExecResult>;
     invokeCommandThen<T>(command: string, fn: (execResult: ExecResult) => T): Promise<T>;
+
+    // transiently shouty
+    invokeCommandWithFeedbackThen<T>(command: string, uiOptions: string | LongRunningUIOptions, fn: (execResult: ExecResult) => T): Promise<T>;
+
+    // proper shouty
     reportResult(execResult: ExecResult, options: ReportResultOptions): Promise<ExecSucceeded | undefined>;
 
     // TODO: can we get rid of these?
+    // silent
     parseJSON<T>(execResult: ExecResult): Errorable<T>;
     parseTable(execResult: ExecResult): Errorable<Dictionary<string>[]>;
 
     // readXxx = invokeCommand + parseXxx
+    // silent
     readJSON<T>(command: string): Promise<Errorable<T>>;
     readTable(command: string): Promise<Errorable<Dictionary<string>[]>>;
 }
@@ -94,9 +101,6 @@ class KubectlImpl implements Kubectl {
 
     checkPresent(errorMessageMode: CheckPresentMessageMode): Promise<boolean> {
         return checkPresent(this.context, errorMessageMode);
-    }
-    invokeWithProgress(command: string, progressMessage: string, handler: ShellHandler): Promise<void> {
-        return invokeWithProgress(this.context, command, progressMessage, handler);
     }
     invokeAsync(command: string, stdin?: string, callback?: (proc: ChildProcess) => void): Promise<ShellResult | undefined> {
         return invokeAsync(this.context, command, stdin, callback);
@@ -171,6 +175,14 @@ class KubectlImpl implements Kubectl {
 
     async invokeCommandThen<T>(command: string, fn: (execResult: ExecResult) => T): Promise<T> {
         const er = await this.invokeCommand(command);
+        const result = fn(er);
+        return result;
+    }
+
+    async invokeCommandWithFeedbackThen<T>(command: string, uiOptions: string | LongRunningUIOptions, fn: (execResult: ExecResult) => T): Promise<T> {
+        const er = await this.context.host.longRunning(uiOptions, () =>
+            this.invokeCommand(command)
+        );
         const result = fn(er);
         return result;
     }
@@ -261,18 +273,6 @@ function getCheckKubectlContextMessage(errorMessageMode: CheckPresentMessageMode
     return '';
 }
 
-async function invokeWithProgress(context: Context, command: string, progressMessage: string, handler: ShellHandler): Promise<void> {
-    return context.host.withProgress((p) => {
-        return new Promise<void>((resolve) => {
-            p.report({ message: progressMessage });
-            kubectlInternal(context, command, (code, stdout, stderr) => {
-                resolve();
-                handler(code, stdout, stderr);
-            });
-        });
-    });
-}
-
 async function invokeAsync(context: Context, command: string, stdin?: string, callback?: (proc: ChildProcess) => void): Promise<ShellResult | undefined> {
     if (await checkPresent(context, CheckPresentMessageMode.Command)) {
         const bin = await baseKubectlPath(context);
@@ -290,14 +290,6 @@ async function invokeAsync(context: Context, command: string, stdin?: string, ca
     } else {
         return { code: -1, stdout: '', stderr: '' };
     }
-}
-
-async function kubectlInternal(context: Context, command: string, handler: ShellHandler): Promise<void> {
-    invokeAsync(context, command).then((sr) => {
-        if (sr && sr.code !== -1) {
-            handler(sr.code, sr.stdout, sr.stderr);
-        }
-    });
 }
 
 // TODO: invalidate this when the context changes or if we know kubectl has changed (e.g. config)

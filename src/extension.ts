@@ -20,7 +20,7 @@ import { pullAll } from 'lodash';
 import { host } from './host';
 import { addKubernetesConfigFile, deleteKubernetesConfigFile } from './configMap';
 import * as explainer from './explainer';
-import { shell, ShellResult, ShellHandler } from './shell';
+import { shell, ShellResult } from './shell';
 import * as configmaps from './configMap';
 import { DescribePanel } from './components/describe/describeWebview';
 import * as kuberesources from './kuberesources';
@@ -564,17 +564,17 @@ function initStatusBar() {
     return statusBarItem;
 }
 
-const GENERIC_KUBECTL_RESULT_HANDLER: ShellHandler = (code, stdout, stderr) => {
-    if (code !== 0) {
-        host.showErrorMessage('Kubectl command failed: ' + stderr);
-        console.log(stderr);
-        kubectl.checkPossibleIncompatibility();
-        return;
-    }
+// const GENERIC_KUBECTL_RESULT_HANDLER: ShellHandler = (code, stdout, stderr) => {
+//     if (code !== 0) {
+//         host.showErrorMessage('Kubectl command failed: ' + stderr);
+//         console.log(stderr);
+//         kubectl.checkPossibleIncompatibility();
+//         return;
+//     }
 
-    updateYAMLSchema();  // TODO: I really do not like having this here. Massive separation of concerns red flag plus we lack context to decide whether it's needed. But hard to move without revamping the result handling system.
-    host.showInformationMessage(stdout);
-};
+//     updateYAMLSchema();  // TODO: I really do not like having this here. Massive separation of concerns red flag plus we lack context to decide whether it's needed. But hard to move without revamping the result handling system.
+//     host.showInformationMessage(stdout);
+// };
 
 // Runs a command for the text in the active window.
 // Expects that it can append a filename to 'command' to create a complete kubectl command.
@@ -595,17 +595,19 @@ function maybeRunKubernetesCommandForActiveWindow(command: string, progressMessa
     }
 
     const isKubernetesSyntax = (editor.document.languageId === 'json' || editor.document.languageId === 'yaml');
-    const resultHandler: ShellHandler | undefined = isKubernetesSyntax ? GENERIC_KUBECTL_RESULT_HANDLER /* default handling */ :
-        (code, stdout, stderr) => {
-            if (code === 0 ) {
+    const couldUpdateSchema = (command === 'create' || command === 'apply');  // This is a very crude test in case we modified a CRD
+    const resultHandler: (er: ExecResult) => void = isKubernetesSyntax ?
+        (er) => kubectl.reportResult(er, { updateSchemasOnSuccess: couldUpdateSchema }) :
+        (er) => {
+            if (er.resultKind === 'exec-succeeded') {
                 if (command === 'create' || command === 'apply') {
                     // This is a very crude test - it would be nice to check if we have modified a CRD.
                     // But the current structure of the code does not support that.
                     updateYAMLSchema();
                 }
-                vscode.window.showInformationMessage(stdout);
+                vscode.window.showInformationMessage(er.stdout);
             } else {
-                vscode.window.showErrorMessage(`Kubectl command failed. The open document might not be a valid Kubernetes resource.  Details: ${stderr}`);
+                vscode.window.showErrorMessage(`Kubectl command failed. The open document might not be a valid Kubernetes resource.  Details: ${ExecResult.failureMessage(er)}`);
             }
         };
 
@@ -656,20 +658,20 @@ function convertWindowsToWSL(filePath: string): string {
     return `/mnt/${drive}/${path}`;
 }
 
-function kubectlTextDocument(command: string, document: vscode.TextDocument, progressMessage: string, resultHandler: ShellHandler): void {
+function kubectlTextDocument(command: string, document: vscode.TextDocument, progressMessage: string, resultHandler: (er: ExecResult) => void): void {
     if (document.uri.scheme === 'file') {
         let fileName = document.fileName;
         if (config.getUseWsl()) {
             fileName = convertWindowsToWSL(fileName);
         }
         const fullCommand = `${command} -f "${fileName}"`;
-        kubectl.invokeWithProgress(fullCommand, progressMessage, resultHandler);
+        kubectl.invokeCommandWithFeedbackThen(fullCommand, progressMessage, resultHandler);
     } else {
         kubectlViaTempFile(command, document.getText(), progressMessage, resultHandler);
     }
 }
 
-function kubectlViaTempFile(command: string, fileContent: string, progressMessage: string, handler: ShellHandler) {
+function kubectlViaTempFile(command: string, fileContent: string, progressMessage: string, handler: (er: ExecResult) => void) {
     const tmpobj = tmp.fileSync();
     fs.writeFileSync(tmpobj.name, fileContent);
 
@@ -677,7 +679,7 @@ function kubectlViaTempFile(command: string, fileContent: string, progressMessag
     if (config.getUseWsl()) {
         fileName = convertWindowsToWSL(fileName);
     }
-    kubectl.invokeWithProgress(`${command} -f ${fileName}`, progressMessage, handler);
+    kubectl.invokeCommandWithFeedbackThen(`${command} -f ${fileName}`, progressMessage, handler);
 }
 
 /**
