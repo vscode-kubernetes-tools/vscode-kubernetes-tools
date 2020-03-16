@@ -3,7 +3,7 @@ import { FS } from './fs';
 import { Shell } from './shell';
 import { installDependencies } from "./components/installer/installdependencies";
 import { getToolPath, getUseWsl } from './components/config/config';
-import { Errorable, failed } from './errorable';
+import { Errorable } from './errorable';
 import { parseLineOutput } from './outputUtils';
 import { Dictionary } from './utils/dictionary';
 
@@ -44,6 +44,10 @@ export interface ExecErrored {
 
 export type ExecResult = ExecBinNotFound | ExecFailed | ExecSucceeded | ExecErrored;
 
+export interface FailureMessageOptions {
+    readonly whatFailed?: string;
+}
+
 export namespace ExecResult {
     export function tryMap<T>(execResult: ExecResult, fn: (output: string) => T): Errorable<T> {
         if (execResult.resultKind === 'exec-bin-not-found') {
@@ -60,12 +64,23 @@ export namespace ExecResult {
         return { succeeded: false, error: [ execResult.stderr ] };
     }
 
-    export function failureMessage(execResult: ExecResult): string {
+    export function failureMessage(execResult: ExecResult, options: FailureMessageOptions): string {
         const err = ExecResult.tryMap(execResult, (s) => s);
-        if (failed(err)) {
-            return err.error[0];
+        if (Errorable.failed(err)) {
+            const prefix = options.whatFailed ?
+                `${options.whatFailed}: ` :
+                '';
+            return prefix + err.error[0];
         }
         return '';
+    }
+
+    export function failed(execResult: ExecResult): execResult is ExecBinNotFound | ExecFailed | ExecErrored {
+        return execResult.resultKind !== 'exec-succeeded';
+    }
+
+    export function succeeded(execResult: ExecResult): execResult is ExecSucceeded {
+        return execResult.resultKind === 'exec-succeeded';
     }
 }
 
@@ -186,16 +201,20 @@ export async function invokeForResult(context: Context, command: string, stdin: 
 }
 
 // This is noisy - handles failure UI for an interactive command that performs an invokeForResult
-export async function discardFailureInteractive(context: Context, result: ExecResult): Promise<ExecSucceeded | undefined> {
+export async function discardFailureInteractive(context: Context, result: ExecResult, options: FailureMessageOptions): Promise<ExecSucceeded | undefined> {
+    const prefix = options.whatFailed ?
+        `${options.whatFailed}: ` :
+        '';
+    const announcement = `${prefix}${result.execProgram.displayName} command failed`;
     switch (result.resultKind) {
         case 'exec-bin-not-found':
-            await showErrorMessageWithInstallPrompt(context, result.findResult, `${result.execProgram.displayName} command failed: ${result.execProgram.binBaseName} not found`);
+            await showErrorMessageWithInstallPrompt(context, result.findResult, `${announcement}: ${result.execProgram.binBaseName} not found`);
             return undefined;
         case 'exec-failed':
-            await context.host.showErrorMessage(`${result.execProgram.displayName} command failed: unable to run ${result.execProgram.binBaseName}`);
+            await context.host.showErrorMessage(`${announcement}: unable to run ${result.execProgram.binBaseName}`);
             return undefined;
         case 'exec-errored':
-            await context.host.showErrorMessage(`${result.execProgram.displayName} command failed: ${result.stderr}`);
+            await context.host.showErrorMessage(`${announcement}: ${result.stderr}`);
             return undefined;
         case 'exec-succeeded':
             return result;

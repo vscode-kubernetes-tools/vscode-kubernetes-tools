@@ -121,21 +121,34 @@ export async function getCurrentContext(kubectl: Kubectl, options: ConfigReadOpt
 }
 
 export async function deleteCluster(kubectl: Kubectl, context: KubectlContext): Promise<boolean> {
-    const deleteClusterResult = await kubectl.invokeAsyncWithProgress(`config delete-cluster ${context.clusterName}`, "Deleting cluster...");
-    if (!deleteClusterResult || deleteClusterResult.code !== 0) {
-        kubeChannel.showOutput(`Failed to remove the underlying cluster for context ${context.clusterName} from the kubeconfig: ${deleteClusterResult ? deleteClusterResult.stderr : "Unable to run kubectl"}`, `Delete ${context.contextName}`);
+    const deleteClusterResult = await kubectl.invokeCommandWithFeedback(`config delete-cluster ${context.clusterName}`, "Deleting cluster...");
+    if (ExecResult.failed(deleteClusterResult)) {
+        const whatFailed = `Failed to remove the underlying cluster for context ${context.clusterName} from the kubeconfig`;
+        kubeChannel.showOutput(ExecResult.failureMessage(deleteClusterResult, { whatFailed }), `Delete ${context.contextName}`);
+
+        if (deleteClusterResult.resultKind === 'exec-bin-not-found') {
+            // Special handling for the first step in the process - if kubectl doesn't exist,
+            // prompt to install dependencies and _don't try any further_.  (Not worth trying to
+            // be this graceful about the possibility of kubectl disappearing between the first and
+            // last steps though!)
+            kubectl.promptInstallDependencies(deleteClusterResult, `Can't delete ${context.contextName}): kubectl not found`);
+            return false;
+        }
+
         vscode.window.showWarningMessage(`Failed to remove the underlying cluster for context ${context.contextName}. See Output window for more details.`);
     }
 
-    const deleteUserResult = await kubectl.invokeAsyncWithProgress(`config unset users.${context.userName}`, "Deleting user...");
-    if (!deleteUserResult || deleteUserResult.code !== 0) {
-        kubeChannel.showOutput(`Failed to remove the underlying user for context ${context.contextName} from the kubeconfig: ${deleteUserResult ? deleteUserResult.stderr : "Unable to run kubectl"}`);
+    const deleteUserResult = await kubectl.invokeCommandWithFeedback(`config unset users.${context.userName}`, "Deleting user...");
+    if (ExecResult.failed(deleteUserResult)) {
+        const whatFailed = `Failed to remove the underlying user for context ${context.contextName} from the kubeconfig`;
+        kubeChannel.showOutput(ExecResult.failureMessage(deleteUserResult, { whatFailed }));
         vscode.window.showWarningMessage(`Failed to remove the underlying user for context ${context.contextName}. See Output window for more details.`);
     }
 
-    const deleteContextResult = await kubectl.invokeAsyncWithProgress(`config delete-context ${context.contextName}`, "Deleting context...");
-    if (!deleteContextResult || deleteContextResult.code !== 0) {
-        kubeChannel.showOutput(`Failed to delete the specified cluster's context ${context.contextName} from the kubeconfig: ${deleteContextResult ? deleteContextResult.stderr : "Unable to run kubectl"}`);
+    const deleteContextResult = await kubectl.invokeCommandWithFeedback(`config delete-context ${context.contextName}`, "Deleting context...");
+    if (ExecResult.failed(deleteContextResult)) {
+        const whatFailed = `Failed to delete the specified cluster's context ${context.contextName} from the kubeconfig`;
+        kubeChannel.showOutput(ExecResult.failureMessage(deleteContextResult, { whatFailed }));
         vscode.window.showErrorMessage(`Delete ${context.contextName} failed. See Output window for more details.`);
         return false;
     }
@@ -284,11 +297,16 @@ export async function switchNamespace(kubectl: Kubectl, namespace: string): Prom
         vscode.window.showErrorMessage("Switch namespace failed. See Output window for more details.");
         return false;
     }
-    const updateResult = await kubectl.invokeAsyncWithProgress(`config set-context ${shellResult.stdout.trim()} --namespace="${namespace}"`,
+    const updateResult = await kubectl.invokeCommandWithFeedback(`config set-context ${shellResult.stdout.trim()} --namespace="${namespace}"`,
         "Switching namespace...");
-    if (!updateResult || updateResult.code !== 0) {
-        kubeChannel.showOutput(`Failed to switch the namespace: ${updateResult ? updateResult.stderr : "Unable to run kubectl"}`, `Switch namespace ${namespace}`);
-        vscode.window.showErrorMessage("Switch namespace failed. See Output window for more details.");
+    if (ExecResult.failed(updateResult)) {
+        kubeChannel.showOutput(ExecResult.failureMessage(updateResult, { whatFailed: `Failed to switch the namespace` }), `Switch namespace ${namespace}`);
+
+        if (updateResult.resultKind === 'exec-bin-not-found') {
+            kubectl.promptInstallDependencies(updateResult, `Switch namespace failed: kubectl not found`);
+        } else {
+            vscode.window.showErrorMessage("Switch namespace failed. See Output window for more details.");
+        }
         return false;
     }
     return true;

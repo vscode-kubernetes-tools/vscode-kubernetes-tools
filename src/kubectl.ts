@@ -9,7 +9,7 @@ import { parseLineOutput } from './outputUtils';
 import * as compatibility from './components/kubectl/compatibility';
 import { getToolPath, affectsUs, getUseWsl, KubectlVersioning } from './components/config/config';
 import { ensureSuitableKubectl } from './components/kubectl/autoversion';
-import { invokeForResult, ExternalBinary, FindBinaryStatus, ExecResult, ExecSucceeded, discardFailureInteractive, logText, parseJSON, findBinary, showErrorMessageWithInstallPrompt, parseTable } from './binutilplusplus';
+import { invokeForResult, ExternalBinary, FindBinaryStatus, ExecResult, ExecSucceeded, discardFailureInteractive, logText, parseJSON, findBinary, showErrorMessageWithInstallPrompt, parseTable, ExecBinNotFound } from './binutilplusplus';
 import { updateYAMLSchema } from './yaml-support/yaml-schema';
 import { Dictionary } from './utils/dictionary';
 
@@ -18,7 +18,6 @@ const KUBECTL_OUTPUT_COLUMN_SEPARATOR = /\s\s+/g;
 export interface Kubectl {
     checkPresent(errorMessageMode: CheckPresentMessageMode): Promise<boolean>;
     invokeAsync(command: string, stdin?: string, callback?: (proc: ChildProcess) => void): Promise<ShellResult | undefined>;
-    invokeAsyncWithProgress(command: string, progressMessage: string): Promise<ShellResult | undefined>;
     spawnAsChild(command: string[]): Promise<ChildProcess | undefined>;
     /**
      * Invoke a kubectl command in Terminal.
@@ -29,7 +28,6 @@ export interface Kubectl {
     invokeInSharedTerminal(command: string): Promise<void>;
     runAsTerminal(command: string[], terminalName: string): Promise<void>;
     asLines(command: string): Promise<Errorable<string[]>>;
-    // fromLines(command: string): Promise<Errorable<{ [key: string]: string }[]>>;
     asJson<T>(command: string): Promise<Errorable<T>>;
     checkPossibleIncompatibility(): Promise<void>;
 
@@ -39,10 +37,12 @@ export interface Kubectl {
     invokeCommandThen<T>(command: string, fn: (execResult: ExecResult) => T): Promise<T>;
 
     // transiently shouty
+    invokeCommandWithFeedback(command: string, uiOptions: string | LongRunningUIOptions): Promise<ExecResult>;
     invokeCommandWithFeedbackThen<T>(command: string, uiOptions: string | LongRunningUIOptions, fn: (execResult: ExecResult) => T): Promise<T>;
 
     // proper shouty
     reportResult(execResult: ExecResult, options: ReportResultOptions): Promise<ExecSucceeded | undefined>;
+    promptInstallDependencies(execResult: ExecBinNotFound, message: string): Promise<void>;
 
     // TODO: can we get rid of these?
     // silent
@@ -57,6 +57,7 @@ export interface Kubectl {
 
 // TODO: move this out of the reporting layer and into the application layer
 export interface ReportResultOptions {
+    readonly whatFailed?: string;
     readonly updateSchemasOnSuccess?: boolean;
 }
 
@@ -104,9 +105,6 @@ class KubectlImpl implements Kubectl {
     }
     invokeAsync(command: string, stdin?: string, callback?: (proc: ChildProcess) => void): Promise<ShellResult | undefined> {
         return invokeAsync(this.context, command, stdin, callback);
-    }
-    invokeAsyncWithProgress(command: string, progressMessage: string): Promise<ShellResult | undefined> {
-        return invokeAsyncWithProgress(this.context, command, progressMessage);
     }
     spawnAsChild(command: string[]): Promise<ChildProcess | undefined> {
         return spawnAsChild(this.context, command);
@@ -179,6 +177,12 @@ class KubectlImpl implements Kubectl {
         return result;
     }
 
+    async invokeCommandWithFeedback(command: string, uiOptions: string | LongRunningUIOptions): Promise<ExecResult> {
+        return await this.context.host.longRunning(uiOptions, () =>
+            this.invokeCommand(command)
+        );
+    }
+
     async invokeCommandWithFeedbackThen<T>(command: string, uiOptions: string | LongRunningUIOptions, fn: (execResult: ExecResult) => T): Promise<T> {
         const er = await this.context.host.longRunning(uiOptions, () =>
             this.invokeCommand(command)
@@ -188,7 +192,8 @@ class KubectlImpl implements Kubectl {
     }
 
     async reportResult(execResult: ExecResult, options: ReportResultOptions): Promise<ExecSucceeded | undefined> {
-        const success = await discardFailureInteractive(this.context, execResult);
+        const discardFailureOptions = { whatFailed: options.whatFailed };
+        const success = await discardFailureInteractive(this.context, execResult, discardFailureOptions);
         if (success) {
             if (options.updateSchemasOnSuccess) {
                 updateYAMLSchema();  // TODO: boo - move to higher level
@@ -199,6 +204,10 @@ class KubectlImpl implements Kubectl {
             this.checkPossibleIncompatibility();
         }
         return success;
+    }
+
+    async promptInstallDependencies(execResult: ExecBinNotFound, message: string): Promise<void> {
+        await showErrorMessageWithInstallPrompt(this.context, execResult.findResult, message);
     }
 
     parseJSON<T>(execResult: ExecResult): Errorable<T> {
@@ -305,10 +314,6 @@ async function checkPossibleIncompatibility(context: Context): Promise<void> {
         const versionAlert = `kubectl version ${compat.clientVersion} may be incompatible with cluster Kubernetes version ${compat.serverVersion}`;
         context.host.showWarningMessage(versionAlert);
     }
-}
-
-async function invokeAsyncWithProgress(context: Context, command: string, progressMessage: string): Promise<ShellResult | undefined> {
-    return context.host.longRunning(progressMessage, () => invokeAsync(context, command));
 }
 
 async function spawnAsChild(context: Context, command: string[]): Promise<ChildProcess | undefined> {

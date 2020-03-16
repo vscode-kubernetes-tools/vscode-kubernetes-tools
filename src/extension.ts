@@ -607,7 +607,7 @@ function maybeRunKubernetesCommandForActiveWindow(command: string, progressMessa
                 }
                 vscode.window.showInformationMessage(er.stdout);
             } else {
-                vscode.window.showErrorMessage(`Kubectl command failed. The open document might not be a valid Kubernetes resource.  Details: ${ExecResult.failureMessage(er)}`);
+                vscode.window.showErrorMessage(`Kubectl command failed. The open document might not be a valid Kubernetes resource.  Details: ${ExecResult.failureMessage(er, {})}`);
             }
         };
 
@@ -1452,13 +1452,12 @@ async function syncKubernetes(): Promise<void> {
     }
 }
 
-async function reportDeleteResult(resourceId: string, shellResult: ShellResult | undefined) {
-    if (!shellResult || shellResult.code !== 0) {
-        await vscode.window.showErrorMessage(`Failed to delete resource '${resourceId}': ${shellResult ? shellResult.stderr : "Unable to call kubectl"}`);
-        return;
-    }
-    await vscode.window.showInformationMessage(shellResult.stdout);
+async function reportDeleteResult(resourceId: string, execResult: ExecResult) {
+    const successInfo = await kubectl.reportResult(execResult, { whatFailed: `Failed to delete resource '${resourceId}'` });
+    if (successInfo) {
+        await vscode.window.showInformationMessage(successInfo.stdout);
     refreshExplorer();
+    }
 }
 
 async function deleteKubernetes(delMode: KubernetesDeleteMode, explorerNode?: ClusterExplorerResourceNode) {
@@ -1485,8 +1484,8 @@ async function deleteKubernetes(delMode: KubernetesDeleteMode, explorerNode?: Cl
             }
         }
         const nsarg = explorerNode.namespace ? `--namespace ${explorerNode.namespace}` : '';
-        const shellResult = await kubectl.invokeAsyncWithProgress(`delete ${explorerNode.kindName} ${nsarg} ${delModeArg}`, `Deleting ${explorerNode.kindName}...`);
-        await reportDeleteResult(explorerNode.kindName, shellResult);
+        const execResult = await kubectl.invokeCommandWithFeedback(`delete ${explorerNode.kindName} ${nsarg} ${delModeArg}`, `Deleting ${explorerNode.kindName}...`);
+        await reportDeleteResult(explorerNode.kindName, execResult);
     } else {
         const kindName = await promptKindName(kuberesources.commonKinds, 'delete', { nameOptional: true });
         if (kindName) {
@@ -1494,8 +1493,8 @@ async function deleteKubernetes(delMode: KubernetesDeleteMode, explorerNode?: Cl
             if (!containsName(kindName)) {
                 commandArgs = kindName + " --all";
             }
-            const shellResult = await kubectl.invokeAsyncWithProgress(`delete ${commandArgs} ${delModeArg}`, `Deleting ${kindName}...`);
-            await reportDeleteResult(kindName, shellResult);
+            const execResult = await kubectl.invokeCommandWithFeedback(`delete ${commandArgs} ${delModeArg}`, `Deleting ${kindName}...`);
+            await reportDeleteResult(kindName, execResult);
         }
     }
 }
@@ -1694,7 +1693,7 @@ function diffKubernetesCore(callback: (r: DiffResult) => void): void {
                 return;
             }
             else if (er.resultKind !== 'exec-succeeded') {
-                callback({ result: DiffResultKind.GetFailed, stderr: ExecResult.failureMessage(er) });
+                callback({ result: DiffResultKind.GetFailed, stderr: ExecResult.failureMessage(er, {}) });
                 return;
             }
 
@@ -1821,7 +1820,7 @@ const doDebug = async (name: string, image: string, cmd: string) => {
                     const exposeCmd = `expose deployment ${deploymentName} --type=LoadBalancer --port=${port}`;
                     kubectl.invokeCommandThen(exposeCmd, (eer) => {
                         if (eer.resultKind !== 'exec-succeeded') {
-                            vscode.window.showErrorMessage('Failed to expose deployment: ' + ExecResult.failureMessage(eer));
+                            vscode.window.showErrorMessage('Failed to expose deployment: ' + ExecResult.failureMessage(eer, {}));
                             return;
                         }
                         vscode.window.showInformationMessage(`Deployment exposed. Run Kubernetes Get > service ${deploymentName} for IP address`);

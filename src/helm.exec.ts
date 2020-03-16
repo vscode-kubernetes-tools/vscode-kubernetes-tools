@@ -7,19 +7,21 @@ import * as tmp from 'tmp';
 import * as helmrepoexplorer from './helm.repoExplorer';
 import * as helm from './helm';
 import { showWorkspaceFolderPick } from './hostutils';
-import { shell as sh, ShellResult, ExecCallback } from './shell';
+import { shell as sh, ShellResult, ExecCallback, shell } from './shell';
 import { K8S_RESOURCE_SCHEME, HELM_RESOURCE_AUTHORITY } from './kuberesources.virtualfs';
 import { Errorable, failed } from './errorable';
 import { parseLineOutput } from './outputUtils';
 import { currentNamespace } from './kubectlUtils';
 import { Kubectl } from './kubectl';
 import { getToolPath } from './components/config/config';
-import { host } from './host';
+import { host, LongRunningUIOptions } from './host';
 import * as fs from './wsl-fs';
+import { fs as shellfs } from './fs';
 import { preview } from './utils/preview';
 import { ClusterExplorerNode } from './components/clusterexplorer/node';
 import { NODE_TYPES } from './components/clusterexplorer/explorer';
 import { installDependencies } from './components/installer/installdependencies';
+import { ExecResult, invokeForResult, ExternalBinary, Context } from './binutilplusplus';
 
 export interface PickChartUIOptions {
     readonly warnIfNoCharts: boolean;
@@ -568,6 +570,32 @@ export async function helmExecAsync(args: string): Promise<ShellResult | undefin
     const bin = configuredBin ? `"${configuredBin}"` : "helm";
     const cmd = `${bin} ${args}`;
     return await sh.exec(cmd);
+}
+
+const HELM_BINARY: ExternalBinary = {
+    binBaseName: 'helm',
+    configKeyName: 'helm',
+    displayName: 'Helm',
+    offersInstall: true,
+};
+
+const HELM_CONTEXT: Context = {
+    host: host,
+    fs: shellfs,
+    shell: shell,
+    pathfinder: undefined,
+    binary: HELM_BINARY,
+    status: undefined,
+};
+
+export async function helmInvokeCommand(command: string): Promise<ExecResult> {
+    return await invokeForResult(HELM_CONTEXT, command, undefined);
+}
+
+export async function helmInvokeCommandWithFeedback(command: string, uiOptions: string | LongRunningUIOptions): Promise<ExecResult> {
+    return await HELM_CONTEXT.host.longRunning(uiOptions, () =>
+        invokeForResult(HELM_CONTEXT, command, undefined)
+    );
 }
 
 const HELM_PAGING_PREFIX = "next:";
