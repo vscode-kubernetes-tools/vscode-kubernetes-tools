@@ -213,8 +213,7 @@ export async function invokeTracking(context: Context, args: string[]): Promise<
 
     const fbr = await findBinary(context);
     if (!fbr.found) {
-        // return { resultKind: 'exec-bin-not-found', execProgram: context.binary, command, findResult: fbr };
-        linesSubject.error({ resultKind: 'exec-bin-not-found', execProgram: context.binary, command: args.join(' '), findResult: fbr })
+        linesSubject.error({ resultKind: 'exec-bin-not-found', execProgram: context.binary, command: args.join(' '), findResult: fbr });
     }
 
     const bin = await baseBinPath(context);
@@ -232,6 +231,7 @@ export async function invokeTracking(context: Context, args: string[]): Promise<
     });
     return { lines: linesSubject };
 }
+
 // This is noisy - handles failure UI for an interactive command that performs an invokeForResult
 export async function discardFailureInteractive(context: Context, result: ExecResult, options: FailureMessageOptions): Promise<ExecSucceeded | undefined> {
     const prefix = options.whatFailed ?
