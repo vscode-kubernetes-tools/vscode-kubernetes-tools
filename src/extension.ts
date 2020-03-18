@@ -1117,17 +1117,13 @@ interface QuickPickKindNameOptions {
 
 async function quickPickKindNameFromKind(resourceKind: kuberesources.ResourceKind, opts: QuickPickKindNameOptions): Promise<string | undefined> {
     const kind = resourceKind.abbreviation;
-    const sr = await kubectl.invokeAsync("get " + kind);
-    if (!sr || sr.code === -1) {
+    const er = await kubectl.invokeCommand("get " + kind);
+    const getResult = await kubectl.reportResult(er, {});
+    if (!getResult) {
         return undefined;
     }
 
-    if (sr.code !== 0) {
-        vscode.window.showErrorMessage(sr.stderr);
-        return undefined;
-    }
-
-    let names = parseNamesFromKubectlLines(sr.stdout);
+    let names = parseNamesFromKubectlLines(getResult.stdout);
     if (names.length === 0) {
         vscode.window.showInformationMessage(`No resources of type ${resourceKind.displayName} in cluster`);
         return;
@@ -1273,30 +1269,28 @@ function getPorts() {
 }
 
 async function describeKubernetes(explorerNode?: ClusterExplorerResourceNode) {
-    if (explorerNode) {
-        const nsarg = explorerNode.namespace ? `--namespace ${explorerNode.namespace}` : '';
-        const cmd = `describe ${explorerNode.kindName} ${nsarg}`;
-        const result = await kubectl.invokeAsync(cmd);
-        const refresh = (): Promise<ShellResult | undefined> => kubectl.invokeAsync(cmd);
-        if (result && result.code === 0) {
-            DescribePanel.createOrShow(result.stdout, explorerNode.kindName, refresh);
+    async function describeSettings() {
+        if (explorerNode) {
+            const nsarg = explorerNode.namespace ? `--namespace ${explorerNode.namespace}` : '';
+            return { cmd: `describe ${explorerNode.kindName} ${nsarg}`, resourceKindName: explorerNode.kindName };
         } else {
-            await vscode.window.showErrorMessage(`Describe failed: ${result ? result.stderr : "Unable to call kubectl"}`);
-        }
-    } else {
-        const value = await findKindNameOrPrompt(kuberesources.commonKinds, 'describe', { nameOptional: true });
-        if (value) {
-            const cmd = `describe ${value}`;
-            const refresh = (): Promise<ShellResult | undefined> => {
-                return kubectl.invokeAsync(cmd);
-            };
-            const result = await kubectl.invokeAsync(cmd);
-            if (result && result.code === 0) {
-                DescribePanel.createOrShow(result.stdout, value, refresh);
-            } else {
-                await vscode.window.showErrorMessage(`Describe failed: ${result ? result.stderr : "Unable to call kubectl"}`);
+            const value = await findKindNameOrPrompt(kuberesources.commonKinds, 'describe', { nameOptional: true });
+            if (value) {
+                return { cmd: `describe ${value}`, resourceKindName: value };
             }
+            return undefined;
         }
+    }
+    const settings = await describeSettings();
+    if (!settings) {
+        return;
+    }
+
+    const describe = () => kubectl.invokeCommand(settings.cmd);
+    const er = await describe();
+    const describeResult = await kubectl.reportResult(er, { whatFailed: 'Describe failed' });
+    if (describeResult) {
+        DescribePanel.createOrShow(describeResult.stdout, settings.resourceKindName, describe);
     }
 }
 
@@ -1763,10 +1757,9 @@ const doDebug = async (name: string, image: string, cmd: string) => {
     const runCmd = `run ${deploymentName} --image=${image} -i --attach=false -- ${cmd}`;
     console.log(runCmd);
 
-    const sr = await kubectl.invokeAsync(runCmd);
-
-    if (!sr || sr.code !== 0) {
-        vscode.window.showErrorMessage('Failed to start debug container: ' + (sr ? sr.stderr : "Unable to run kubectl"));
+    const er = await kubectl.invokeCommand(runCmd);
+    const runResult = await kubectl.reportResult(er, { whatFailed: 'Failed to start debug container'});
+    if (!runResult) {
         return;
     }
 
@@ -1960,14 +1953,14 @@ async function useContextKubernetes(explorerNode: ClusterExplorerNode) {
     }
     const contextObj = explorerNode.kubectlContext;
     const targetContext = contextObj.contextName;
-    const shellResult = await kubectl.invokeAsync(`config use-context ${targetContext}`);
-    if (shellResult && shellResult.code === 0) {
+    const er = await kubectl.invokeCommand(`config use-context ${targetContext}`);
+    if (ExecResult.succeeded(er)) {
         telemetry.invalidateClusterType(targetContext);
         activeContextTracker.setActive(targetContext);
         refreshExplorer();
         WatchManager.instance().clear();
     } else {
-        vscode.window.showErrorMessage(`Failed to set '${targetContext}' as current cluster: ${shellResult ? shellResult.stderr : "Unable to run kubectl"}`);
+        kubectl.reportResult(er, { whatFailed: `Failed to set '${targetContext}' as current cluster` });
     }
 }
 
@@ -2182,10 +2175,10 @@ async function cronJobRunNow(target?: any): Promise<void> {
     }
 
     const nsarg = await kubectlUtils.currentNamespaceArg(kubectl);
-    const sr = await kubectl.invokeAsync(`create job ${jobName} ${nsarg} --from=cronjob/${name}`);
+    const er = await kubectl.invokeCommand(`create job ${jobName} ${nsarg} --from=cronjob/${name}`);
 
-    if (!sr || sr.code !== 0) {
-        vscode.window.showErrorMessage(`Error creating job: ${sr ? sr.stderr : 'Unable to run kubectl'}`);
+    if (ExecResult.failed(er)) {
+        kubectl.reportResult(er, { whatFailed: 'Error creating job' });
         return;
     }
 
@@ -2207,13 +2200,13 @@ async function resourceNameFromTarget(target: string | ClusterExplorerResourceNo
 }
 
 async function pickResourceName(resourceKind: kuberesources.ResourceKind, prompt: string): Promise<string | undefined> {
-    const sr = await kubectl.invokeAsync(`get ${resourceKind.abbreviation}`);
-    if (!sr || sr.code !== 0) {
-        vscode.window.showErrorMessage(sr ? sr.stderr : `Unable to list resources of type ${resourceKind.displayName}`);
+    const er = await kubectl.invokeCommand(`get ${resourceKind.abbreviation}`);
+    const getResult = await kubectl.reportResult(er, { whatFailed: `Unable to list resources of type ${resourceKind.displayName}` });
+    if (!getResult) {
         return undefined;
     }
 
-    const names = parseNamesFromKubectlLines(sr.stdout);
+    const names = parseNamesFromKubectlLines(getResult.stdout);
     if (names.length === 0) {
         vscode.window.showInformationMessage(`No resources of type ${resourceKind.displayName} in cluster`);
         return undefined;

@@ -7,7 +7,7 @@ import { Dictionary } from '../../utils/dictionary';
 import { fs } from '../../fs';
 import { Kubectl, CheckPresentMessageMode, createOnBinary as kubectlCreateOnBinary } from '../../kubectl';
 import { getCurrentContext } from '../../kubectlUtils';
-import { succeeded } from '../../errorable';
+import { succeeded, Errorable } from '../../errorable';
 import { FileBacked } from '../../utils/filebacked';
 import { getKubeconfigPath } from '../kubectl/kubeconfig';
 import { getToolPath } from '../config/config';
@@ -133,15 +133,15 @@ async function getServerVersion(kubectl: Kubectl, context: string): Promise<stri
     if (cachedVersions.versions[context]) {
         return cachedVersions.versions[context];
     }
-    const sr = await kubectl.invokeAsync('version -o json');
-    if (sr && sr.code === 0) {
-        const versionInfo = JSON.parse(sr.stdout);
-        if (versionInfo && versionInfo.serverVersion) {
-            const serverVersion: string = versionInfo.serverVersion.gitVersion;
-            cachedVersions.versions[context] = serverVersion;
-            await AUTO_VERSION_CACHE.update(cachedVersions);
-            return serverVersion;
-        }
+    const versionInfo = await kubectl.readJSON<any>('version -o json');
+    if (Errorable.failed(versionInfo)) {
+        return undefined;
+    }
+    if (versionInfo.result && versionInfo.result.serverVersion) {
+        const serverVersion: string = versionInfo.result.serverVersion.gitVersion;
+        cachedVersions.versions[context] = serverVersion;
+        await AUTO_VERSION_CACHE.update(cachedVersions);
+        return serverVersion;
     }
     return undefined;
 }

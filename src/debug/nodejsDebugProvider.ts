@@ -7,6 +7,7 @@ import * as config from '../components/config/config';
 import { Kubectl } from "../kubectl";
 import { kubeChannel } from "../kubeChannel";
 import { ProcessInfo } from "./debugUtils";
+import { ExecResult } from "../binutilplusplus";
 
 const debuggerType = 'nodejs';
 
@@ -69,8 +70,8 @@ export class NodejsDebugProvider implements IDebugProvider {
         // sending SIGUSR1 to a Node.js process will set it in debug (inspect) mode. See https://nodejs.org/en/docs/guides/debugging-getting-started/#enable-inspector
         const containerCommand = container? `-c ${container}` : '';
         const execCmd = `exec ${pod} ${nsarg} ${containerCommand} -- ${this.shell} -c 'kill -s USR1 1'`;
-        const execResult = await kubectl.invokeAsync(execCmd);
-        return (execResult !== undefined && execResult.code === 0);
+        const execResult = await kubectl.invokeCommand(execCmd);
+        return ExecResult.succeeded(execResult);
     }
 
     async tryGetRemoteRoot(kubectl: Kubectl, podName: string, podNamespace: string | undefined, containerName: string | undefined): Promise<string | undefined> {
@@ -79,8 +80,8 @@ export class NodejsDebugProvider implements IDebugProvider {
             const nsarg = podNamespace ? `--namespace ${podNamespace}` : '';
             const containerCommand = containerName? `-c ${containerName}` : '';
             const execCmd = `exec ${podName} ${nsarg} ${containerCommand} -- ${this.shell} -c 'readlink /proc/1/cwd'`;
-            const execResult = await kubectl.invokeAsync(execCmd);
-            if (execResult !== undefined && execResult.code === 0) {
+            const execResult = await kubectl.invokeCommand(execCmd);
+            if (ExecResult.succeeded(execResult)) {
                 const remoteRoot = execResult.stdout.replace(/(\r\n|\n|\r)/gm, '');
                 kubeChannel.showOutput(`Got remote root from container: ${remoteRoot}`);
                 return remoteRoot;

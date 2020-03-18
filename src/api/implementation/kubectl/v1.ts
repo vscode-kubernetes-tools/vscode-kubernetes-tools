@@ -13,7 +13,7 @@ class KubectlV1Impl implements KubectlV1 {
     constructor(private readonly kubectl: Kubectl, private readonly portForwardStatusBarManager: PortForwardStatusBarManager) {}
 
     invokeCommand(command: string): Promise<KubectlV1.ShellResult | undefined> {
-        return this.kubectl.invokeAsync(command);
+        return this.kubectl.legacyInvokeAsync(command);
     }
 
     // TODO: move into core kubectl module

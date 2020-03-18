@@ -21,6 +21,7 @@ import * as config from "../components/config/config";
 import { Dictionary } from "../utils/dictionary";
 import { definedOf } from "../utils/array";
 import * as imageUtils from "../image/imageUtils";
+import { ExecResult } from "../binutilplusplus";
 
 const debugCommandDocumentationUrl = "https://github.com/Azure/vscode-kubernetes-tools/blob/master/debug-on-kubernetes.md";
 
@@ -379,9 +380,9 @@ export class DebugSession implements IDebugSession {
 
     private async cleanupResource(resourceId: string): Promise<void> {
         kubeChannel.showOutput(`Starting to clean up debug resource...`, "Cleanup debug resource");
-        const deleteResult = await this.kubectl.invokeAsync(`delete ${resourceId}`);
-        if (!deleteResult || deleteResult.code !== 0) {
-            kubeChannel.showOutput(`Kubectl command failed: ${deleteResult ? deleteResult.stderr : "Unable to run kubectl"}`);
+        const deleteResult = await this.kubectl.invokeCommand(`delete ${resourceId}`);
+        if (ExecResult.failed(deleteResult)) {
+            kubeChannel.showOutput(ExecResult.failureMessage(deleteResult, {}));
             return;
         } else {
             kubeChannel.showOutput(`Resource ${resourceId} is removed successfully.`);

@@ -18,7 +18,7 @@ const KUBECTL_OUTPUT_COLUMN_SEPARATOR = /\s\s+/g;
 
 export interface Kubectl {
     checkPresent(errorMessageMode: CheckPresentMessageMode): Promise<boolean>;
-    invokeAsync(command: string, stdin?: string): Promise<ShellResult | undefined>;
+    legacyInvokeAsync(command: string, stdin?: string): Promise<ShellResult | undefined>;
     spawnAsChild(command: string[]): Promise<ChildProcess | undefined>;
     /**
      * Invoke a kubectl command in Terminal.
@@ -33,8 +33,8 @@ export interface Kubectl {
     checkPossibleIncompatibility(): Promise<void>;
 
     // silent (unless you explicitly ask it to be shouty)
-    ensurePresent(options: EnsurePresentOptions): Promise<boolean>;
-    invokeCommand(command: string): Promise<ExecResult>;
+    ensurePresent(options: EnsurePresentOptions): Promise<boolean>;  // TODO: ONLY on startup ()
+    invokeCommand(command: string, stdin?: string): Promise<ExecResult>;
     invokeCommandThen<T>(command: string, fn: (execResult: ExecResult) => T): Promise<T>;
     observeCommand(args: string[]): Promise<rx.Observable<string>>;
 
@@ -44,6 +44,7 @@ export interface Kubectl {
 
     // proper shouty
     reportResult(execResult: ExecResult, options: ReportResultOptions): Promise<ExecSucceeded | undefined>;
+    // consider something of the form: succeedOrNotify(execResult: ExecResult, options: ReportResultOptions): execResult is ExecSucceeded;
     promptInstallDependencies(execResult: ExecBinNotFound, message: string): Promise<void>;
 
     // TODO: can we get rid of these?
@@ -105,7 +106,7 @@ class KubectlImpl implements Kubectl {
     checkPresent(errorMessageMode: CheckPresentMessageMode): Promise<boolean> {
         return checkPresent(this.context, errorMessageMode);
     }
-    invokeAsync(command: string, stdin?: string, callback?: (proc: ChildProcess) => void): Promise<ShellResult | undefined> {
+    legacyInvokeAsync(command: string, stdin?: string, callback?: (proc: ChildProcess) => void): Promise<ShellResult | undefined> {
         return invokeAsync(this.context, command, stdin, callback);
     }
     spawnAsChild(command: string[]): Promise<ChildProcess | undefined> {
@@ -169,8 +170,8 @@ class KubectlImpl implements Kubectl {
         return false;
     }
 
-    async invokeCommand(command: string): Promise<ExecResult> {
-        return await invokeForResult(this.context, command, undefined);
+    async invokeCommand(command: string, stdin?: string): Promise<ExecResult> {
+        return await invokeForResult(this.context, command, stdin);
     }
 
     async invokeCommandThen<T>(command: string, fn: (execResult: ExecResult) => T): Promise<T> {

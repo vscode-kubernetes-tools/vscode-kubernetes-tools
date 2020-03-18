@@ -4,8 +4,8 @@ import { kubeChannel } from "./kubeChannel";
 import { sleep } from "./sleep";
 import { ObjectMeta, KubernetesCollection, DataResource, Namespace, Pod, KubernetesResource, CRD } from './kuberesources.objectmodel';
 import { failed, Errorable } from "./errorable";
-import { shellMessage } from "./shell";
 import { ExecResult } from "./binutilplusplus";
+import { shellMessage } from "./shell";
 
 export interface KubectlContext {
     readonly clusterName: string;
@@ -291,13 +291,13 @@ export async function currentNamespaceArg(kubectl: Kubectl): Promise<string> {
 }
 
 export async function switchNamespace(kubectl: Kubectl, namespace: string): Promise<boolean> {
-    const shellResult = await kubectl.invokeAsync("config current-context");
-    if (!shellResult || shellResult.code !== 0) {
-        kubeChannel.showOutput(`Failed. Cannot get the current context: ${shellResult ? shellResult.stderr : "Unable to run kubectl"}`, `Switch namespace ${namespace}`);
+    const er = await kubectl.invokeCommand("config current-context");
+    if (ExecResult.failed(er)) {
+        kubeChannel.showOutput(ExecResult.failureMessage(er, { whatFailed: 'Cannot get the current context' }), `Switch namespace ${namespace}`);
         vscode.window.showErrorMessage("Switch namespace failed. See Output window for more details.");
         return false;
     }
-    const updateResult = await kubectl.invokeCommandWithFeedback(`config set-context ${shellResult.stdout.trim()} --namespace="${namespace}"`,
+    const updateResult = await kubectl.invokeCommandWithFeedback(`config set-context ${er.stdout.trim()} --namespace="${namespace}"`,
         "Switching namespace...");
     if (ExecResult.failed(updateResult)) {
         kubeChannel.showOutput(ExecResult.failureMessage(updateResult, { whatFailed: `Failed to switch the namespace` }), `Switch namespace ${namespace}`);
@@ -340,9 +340,9 @@ export async function runAsDeployment(kubectl: Kubectl, deploymentName: string, 
         ...Object.keys(env || {}).map((key) => `--env="${key}=${env[key]}"`)
     ];
 
-    const runResult = await kubectl.invokeAsync(runCmd.join(" "));
-    if (!runResult || runResult.code !== 0) {
-        throw new Error(`Failed to run the image "${image}" on Kubernetes: ${runResult ? runResult.stderr : "Unable to run kubectl"}`);
+    const runResult = await kubectl.invokeCommand(runCmd.join(" "));
+    if (ExecResult.failed(runResult)) {
+        throw new Error(ExecResult.failureMessage(runResult, { whatFailed: `Failed to run the image "${image}" on Kubernetes` }));
     }
 
     return deploymentName;
@@ -371,16 +371,16 @@ export async function findPodsByLabel(kubectl: Kubectl, labelQuery: string): Pro
  */
 export async function waitForRunningPod(kubectl: Kubectl, podName: string): Promise<void> {
     while (true) {
-        const shellResult = await kubectl.invokeAsync(`get pod/${podName} --no-headers`);
-        if (!shellResult || shellResult.code !== 0) {
-            throw new Error(`Failed to get pod status: ${shellResult ? shellResult.stderr : "Unable to run kubectl" }`);
+        const er = await kubectl.invokeCommand(`get pod/${podName} --no-headers`);
+        if (ExecResult.failed(er)) {
+            throw new Error(ExecResult.failureMessage(er, { whatFailed: 'Failed to get pod status' }));
         }
-        const status = shellResult.stdout.split(/\s+/)[2];
+        const status = er.stdout.split(/\s+/)[2];
         kubeChannel.showOutput(`pod/${podName} status: ${status}`);
         if (status === "Running") {
             return;
         } else if (!isTransientPodState(status)) {
-            const logsResult = await kubectl.invokeAsync(`logs pod/${podName}`);
+            const logsResult = await kubectl.invokeCommand(`logs pod/${podName}`);
             kubeChannel.showOutput(`Failed to start the pod "${podName}". Its status is "${status}".
                 Pod logs:\n${shellMessage(logsResult, "Unable to retrieve logs")}`);
             throw new Error(`Failed to start the pod "${podName}". Its status is "${status}".`);
@@ -432,11 +432,9 @@ async function changeResourceFromUri(uri: vscode.Uri, kubectl: Kubectl, command:
         return;
     }
     const path = vscode.workspace.asRelativePath(uri);
-    const result = await kubectl.invokeAsync(`${command} -f "${path}"`);
-    if (!result || result.code !== 0) {
-        const message = result ? result.stderr : "Unable to run kubectl";
-        vscode.window.showErrorMessage(`Error ${verbParticiple} resource: ${message}`);
-        kubeChannel.showOutput(message, `Error ${verbParticiple} resource (${result ? result.code : 'program not found'})`);
+    const result = await kubectl.invokeCommand(`${command} -f "${path}"`);
+    if (ExecResult.failed(result)) {
+        kubectl.reportResult(result, { whatFailed: `Error ${verbParticiple} resource` });
     } else {
         vscode.window.showInformationMessage(`Resource ${path} ${verbPast}.`);
     }

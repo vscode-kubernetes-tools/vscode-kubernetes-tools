@@ -12,6 +12,7 @@ import * as kuberesources from '../../kuberesources';
 
 import * as kubernetes from '@kubernetes/client-node';
 import { ClusterExplorerResourceNode } from '../clusterexplorer/node';
+import { ExecResult } from '../../binutilplusplus';
 
 const PORT_FORWARD_TERMINAL = 'kubectl port-forward';
 const MAX_PORT_COUNT = 65535;
@@ -142,13 +143,11 @@ async function promptForPort(kubectl?: Kubectl, podName?: string, namespace?: st
     if (podName && kubectl) {
         const ns = namespace || 'default';
         try {
-            const result = await kubectl.invokeAsync(`get pods ${podName} --namespace ${ns} -o json`);
-            if (result) {
-                if (result.code === 0) {
-                    defaultValue = extractPodPorts(result.stdout);
-                } else {
-                    console.log(`Error getting ports: ${result.stderr}`);
-                }
+            const result = await kubectl.invokeCommand(`get pods ${podName} --namespace ${ns} -o json`);
+            if (ExecResult.failed(result)) {
+                console.log(ExecResult.failureMessage(result, { whatFailed: 'Error getting ports' }));
+            } else {
+                defaultValue = extractPodPorts(result.stdout);
             }
         } catch (err) {
             console.log(err);

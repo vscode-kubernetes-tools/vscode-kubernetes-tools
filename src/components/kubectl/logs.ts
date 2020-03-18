@@ -126,9 +126,9 @@ async function getLogsForContainer(
     }
 
     try {
-        const result = await kubectl.invokeAsync(cmd);
-        if (!result || result.code !== 0) {
-            vscode.window.showErrorMessage(`Error reading logs: ${result ? result.stderr : undefined}`);
+        const result = await kubectl.invokeCommand(cmd);
+        if (ExecResult.failed(result)) {
+            kubectl.reportResult(result, { whatFailed: 'Error reading logs' });
         } else {
             panel.setInfo(result.stdout, containerResource.kindName);
         }
