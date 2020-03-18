@@ -796,14 +796,14 @@ function kubectlId(explorerNode: ClusterExplorerResourceNode | ClusterExplorerRe
     return explorerNode.kind.abbreviation;
 }
 
-function getKubernetes(explorerNode?: any) {
+async function getKubernetes(explorerNode?: any) {
     if (explorerNode) {
         const node = explorerNode as ClusterExplorerResourceNode | ClusterExplorerResourceFolderNode;
         const id = kubectlId(node);
         const nsarg = (node.nodeType === explorer.NODE_TYPES.resource && node.namespace) ? `--namespace ${node.namespace}` : '';
         kubectl.invokeInSharedTerminal(`get ${id} ${nsarg} -o wide`);
     } else {
-        const value = findKindNameOrPrompt(kuberesources.commonKinds, 'get', { nameOptional: true });
+        const value = await findKindNameOrPrompt(kuberesources.commonKinds, 'get', { nameOptional: true });
         if (value) {
             kubectl.invokeInSharedTerminal(` get ${value} -o wide`);
         }
