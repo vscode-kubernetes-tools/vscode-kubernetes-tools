@@ -17,20 +17,20 @@ import { Dictionary } from './utils/dictionary';
 const KUBECTL_OUTPUT_COLUMN_SEPARATOR = /\s\s+/g;
 
 export interface Kubectl {
+    // TODO: obsolete these
     checkPresent(errorMessageMode: CheckPresentMessageMode): Promise<boolean>;
     legacyInvokeAsync(command: string, stdin?: string): Promise<ShellResult | undefined>;
+
+    // TODO: review usages
     spawnAsChild(command: string[]): Promise<ChildProcess | undefined>;
-    /**
-     * Invoke a kubectl command in Terminal.
-     * @param command the subcommand to run.
-     * @param terminalName if empty, run the command in the shared Terminal; otherwise run it in a new Terminal.
-     */
+
     invokeInNewTerminal(command: string, terminalName: string, onClose?: (e: Terminal) => any, pipeTo?: string): Promise<Disposable>;
     invokeInSharedTerminal(command: string): Promise<void>;
     runAsTerminal(command: string[], terminalName: string): Promise<void>;
+
+    // TODO: analyse uses for these and convert these over
     asLines(command: string): Promise<Errorable<string[]>>;
     asJson<T>(command: string): Promise<Errorable<T>>;
-    checkPossibleIncompatibility(): Promise<void>;
 
     // silent (unless you explicitly ask it to be shouty)
     ensurePresent(options: EnsurePresentOptions): Promise<boolean>;  // TODO: ONLY on startup ()
@@ -46,6 +46,7 @@ export interface Kubectl {
     reportResult(execResult: ExecResult, options: ReportResultOptions): Promise<ExecSucceeded | undefined>;
     // consider something of the form: succeedOrNotify(execResult: ExecResult, options: ReportResultOptions): execResult is ExecSucceeded;
     promptInstallDependencies(execResult: ExecBinNotFound, message: string): Promise<void>;
+    checkPossibleIncompatibility(): Promise<void>;
 
     // TODO: can we get rid of these?
     // silent
