@@ -75,7 +75,7 @@ export async function deleteKubernetesConfigFile(kubectl: Kubectl, obj: ClusterE
     const out = JSON.stringify(dataHolder);
     const er = await kubectl.invokeCommand(`replace -f - --namespace=${currentNS}`, out);
     if (ExecResult.failed(er)) {
-        kubectl.reportResult(er, { whatFailed: 'Failed to delete file' });
+        kubectl.reportFailure(er, { whatFailed: 'Failed to delete file' });
         return;
     }
     explorer.refresh();
@@ -118,7 +118,7 @@ export async function addKubernetesConfigFile(kubectl: Kubectl, obj: ClusterExpl
         const out = JSON.stringify(dataHolder);
         const er = await kubectl.invokeCommand(`replace -f - --namespace=${currentNS}`, out);
         if (ExecResult.failed(er)) {
-            kubectl.reportResult(er, { whatFailed: `Failed to add file(s) to resource ${obj.name}` });
+            kubectl.reportFailure(er, { whatFailed: `Failed to add file(s) to resource ${obj.name}` });
             return;
         }
         explorer.refresh();

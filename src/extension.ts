@@ -1118,12 +1118,12 @@ interface QuickPickKindNameOptions {
 async function quickPickKindNameFromKind(resourceKind: kuberesources.ResourceKind, opts: QuickPickKindNameOptions): Promise<string | undefined> {
     const kind = resourceKind.abbreviation;
     const er = await kubectl.invokeCommand("get " + kind);
-    const getResult = await kubectl.reportResult(er, {});
-    if (!getResult) {
+    if (ExecResult.failed(er)) {
+        await kubectl.reportFailure(er, {});
         return undefined;
     }
 
-    let names = parseNamesFromKubectlLines(getResult.stdout);
+    let names = parseNamesFromKubectlLines(er.stdout);
     if (names.length === 0) {
         vscode.window.showInformationMessage(`No resources of type ${resourceKind.displayName} in cluster`);
         return;
@@ -1288,10 +1288,11 @@ async function describeKubernetes(explorerNode?: ClusterExplorerResourceNode) {
 
     const describe = () => kubectl.invokeCommand(settings.cmd);
     const er = await describe();
-    const describeResult = await kubectl.reportResult(er, { whatFailed: 'Describe failed' });
-    if (describeResult) {
-        DescribePanel.createOrShow(describeResult.stdout, settings.resourceKindName, describe);
+    if (ExecResult.failed(er)) {
+        await kubectl.reportFailure(er, { whatFailed: 'Describe failed' });
+        return;
     }
+    DescribePanel.createOrShow(er.stdout, settings.resourceKindName, describe);
 }
 
 export interface PodSummary {
@@ -1449,8 +1450,7 @@ async function syncKubernetes(): Promise<void> {
 async function reportDeleteResult(resourceId: string, execResult: ExecResult) {
     const successInfo = await kubectl.reportResult(execResult, { whatFailed: `Failed to delete resource '${resourceId}'` });
     if (successInfo) {
-        await vscode.window.showInformationMessage(successInfo.stdout);
-    refreshExplorer();
+        refreshExplorer();
     }
 }
 
@@ -1758,8 +1758,8 @@ const doDebug = async (name: string, image: string, cmd: string) => {
     console.log(runCmd);
 
     const er = await kubectl.invokeCommand(runCmd);
-    const runResult = await kubectl.reportResult(er, { whatFailed: 'Failed to start debug container'});
-    if (!runResult) {
+    if (ExecResult.failed(er)) {
+        await kubectl.reportFailure(er, { whatFailed: 'Failed to start debug container'});
         return;
     }
 
@@ -1960,7 +1960,7 @@ async function useContextKubernetes(explorerNode: ClusterExplorerNode) {
         refreshExplorer();
         WatchManager.instance().clear();
     } else {
-        kubectl.reportResult(er, { whatFailed: `Failed to set '${targetContext}' as current cluster` });
+        kubectl.reportFailure(er, { whatFailed: `Failed to set '${targetContext}' as current cluster` });
     }
 }
 
@@ -2178,7 +2178,7 @@ async function cronJobRunNow(target?: any): Promise<void> {
     const er = await kubectl.invokeCommand(`create job ${jobName} ${nsarg} --from=cronjob/${name}`);
 
     if (ExecResult.failed(er)) {
-        kubectl.reportResult(er, { whatFailed: 'Error creating job' });
+        kubectl.reportFailure(er, { whatFailed: 'Error creating job' });
         return;
     }
 
@@ -2201,12 +2201,12 @@ async function resourceNameFromTarget(target: string | ClusterExplorerResourceNo
 
 async function pickResourceName(resourceKind: kuberesources.ResourceKind, prompt: string): Promise<string | undefined> {
     const er = await kubectl.invokeCommand(`get ${resourceKind.abbreviation}`);
-    const getResult = await kubectl.reportResult(er, { whatFailed: `Unable to list resources of type ${resourceKind.displayName}` });
-    if (!getResult) {
+    if (ExecResult.failed(er)) {
+        await kubectl.reportFailure(er, { whatFailed: `Unable to list resources of type ${resourceKind.displayName}` });
         return undefined;
     }
 
-    const names = parseNamesFromKubectlLines(getResult.stdout);
+    const names = parseNamesFromKubectlLines(er.stdout);
     if (names.length === 0) {
         vscode.window.showInformationMessage(`No resources of type ${resourceKind.displayName} in cluster`);
         return undefined;

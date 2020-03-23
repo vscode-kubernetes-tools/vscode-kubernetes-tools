@@ -10,7 +10,7 @@ import { parseLineOutput } from './outputUtils';
 import * as compatibility from './components/kubectl/compatibility';
 import { getToolPath, affectsUs, getUseWsl, KubectlVersioning } from './components/config/config';
 import { ensureSuitableKubectl } from './components/kubectl/autoversion';
-import { invokeForResult, ExternalBinary, FindBinaryStatus, ExecResult, ExecSucceeded, discardFailureInteractive, logText, parseJSON, findBinary, showErrorMessageWithInstallPrompt, parseTable, ExecBinNotFound, invokeTracking } from './binutilplusplus';
+import { invokeForResult, ExternalBinary, FindBinaryStatus, ExecResult, ExecSucceeded, discardFailureInteractive, logText, parseJSON, findBinary, showErrorMessageWithInstallPrompt, parseTable, ExecBinNotFound, invokeTracking, FailedExecResult } from './binutilplusplus';
 import { updateYAMLSchema } from './yaml-support/yaml-schema';
 import { Dictionary } from './utils/dictionary';
 
@@ -44,6 +44,7 @@ export interface Kubectl {
 
     // proper shouty
     reportResult(execResult: ExecResult, options: ReportResultOptions): Promise<ExecSucceeded | undefined>;
+    reportFailure(execResult: FailedExecResult, options: ReportResultOptions): Promise<void>;
     // consider something of the form: succeedOrNotify(execResult: ExecResult, options: ReportResultOptions): execResult is ExecSucceeded;
     promptInstallDependencies(execResult: ExecBinNotFound, message: string): Promise<void>;
     checkPossibleIncompatibility(): Promise<void>;
@@ -213,6 +214,13 @@ class KubectlImpl implements Kubectl {
             this.checkPossibleIncompatibility();
         }
         return success;
+    }
+
+    async reportFailure(execResult: FailedExecResult, options: ReportResultOptions): Promise<void> {
+        const discardFailureOptions = { whatFailed: options.whatFailed };
+        await discardFailureInteractive(this.context, execResult, discardFailureOptions);
+        console.log(logText(this.context, execResult));
+        this.checkPossibleIncompatibility();
     }
 
     async promptInstallDependencies(execResult: ExecBinNotFound, message: string): Promise<void> {

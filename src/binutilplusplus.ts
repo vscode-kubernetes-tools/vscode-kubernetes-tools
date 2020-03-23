@@ -45,6 +45,7 @@ export interface ExecErrored {
 }
 
 export type ExecResult = ExecBinNotFound | ExecFailed | ExecSucceeded | ExecErrored;
+export type FailedExecResult = ExecBinNotFound | ExecFailed | ExecErrored;
 
 export interface FailureMessageOptions {
     readonly whatFailed?: string;
@@ -77,7 +78,7 @@ export namespace ExecResult {
         return '';
     }
 
-    export function failed(execResult: ExecResult): execResult is ExecBinNotFound | ExecFailed | ExecErrored {
+    export function failed(execResult: ExecResult): execResult is FailedExecResult {
         return execResult.resultKind !== 'exec-succeeded';
     }
 

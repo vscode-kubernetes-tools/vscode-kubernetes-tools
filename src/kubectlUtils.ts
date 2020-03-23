@@ -434,7 +434,7 @@ async function changeResourceFromUri(uri: vscode.Uri, kubectl: Kubectl, command:
     const path = vscode.workspace.asRelativePath(uri);
     const result = await kubectl.invokeCommand(`${command} -f "${path}"`);
     if (ExecResult.failed(result)) {
-        kubectl.reportResult(result, { whatFailed: `Error ${verbParticiple} resource` });
+        kubectl.reportFailure(result, { whatFailed: `Error ${verbParticiple} resource` });
     } else {
         vscode.window.showInformationMessage(`Resource ${path} ${verbPast}.`);
     }

@@ -128,7 +128,7 @@ async function getLogsForContainer(
     try {
         const result = await kubectl.invokeCommand(cmd);
         if (ExecResult.failed(result)) {
-            kubectl.reportResult(result, { whatFailed: 'Error reading logs' });
+            kubectl.reportFailure(result, { whatFailed: 'Error reading logs' });
         } else {
             panel.setInfo(result.stdout, containerResource.kindName);
         }
