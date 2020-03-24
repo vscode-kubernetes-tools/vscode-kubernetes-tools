@@ -36,6 +36,13 @@ export interface ExecSucceeded {
     readonly stdout: string;
 }
 
+export interface ParsedExecSucceeded<T> {
+    readonly resultKind: 'exec-succeeded';
+    readonly execProgram: ExternalBinary;
+    readonly command: string;
+    readonly result: T;
+}
+
 export interface ExecErrored {
     readonly resultKind: 'exec-errored';
     readonly execProgram: ExternalBinary;
@@ -44,6 +51,7 @@ export interface ExecErrored {
     readonly stderr: string;
 }
 
+export type ParsedExecResult<T> = ExecBinNotFound | ExecFailed | ParsedExecSucceeded<T> | ExecErrored;
 export type ExecResult = ExecBinNotFound | ExecFailed | ExecSucceeded | ExecErrored;
 export type FailedExecResult = ExecBinNotFound | ExecFailed | ExecErrored;
 
@@ -67,7 +75,20 @@ export namespace ExecResult {
         return { succeeded: false, error: [ execResult.stderr ] };
     }
 
-    export function failureMessage(execResult: ExecResult, options: FailureMessageOptions): string {
+    export function map<T>(execResult: ExecResult, fn: (output: string) => T): ParsedExecResult<T> {
+        if (ExecResult.failed(execResult)) {
+            return execResult;
+        }
+
+        return {
+            resultKind: execResult.resultKind,
+            execProgram: execResult.execProgram,
+            command: execResult.command,
+            result: fn(execResult.stdout.trim())
+        };
+    }
+
+    export function failureMessage(execResult: FailedExecResult, options: FailureMessageOptions): string {
         const err = ExecResult.tryMap(execResult, (s) => s);
         if (Errorable.failed(err)) {
             const prefix = options.whatFailed ?
@@ -78,7 +99,7 @@ export namespace ExecResult {
         return '';
     }
 
-    export function failed(execResult: ExecResult): execResult is FailedExecResult {
+    export function failed<T>(execResult: ExecResult | ParsedExecResult<T>): execResult is FailedExecResult {
         return execResult.resultKind !== 'exec-succeeded';
     }
 
@@ -304,7 +325,7 @@ export function parseTable(execResult: ExecResult, columnSeparator: RegExp): Err
     return ExecResult.tryMap<Dictionary<string>[]>(execResult, (text) => parseLinedText(text, columnSeparator));
 }
 
-function parseLinedText(text: string, columnSeparator: RegExp): Dictionary<string>[] {
+export function parseLinedText(text: string, columnSeparator: RegExp): Dictionary<string>[] {
     const lines = text.split('\n').filter((l) => l.length > 0);
     const parsedOutput = parseLineOutput(lines, columnSeparator);
     return parsedOutput;

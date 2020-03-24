@@ -10,7 +10,7 @@ import { parseLineOutput } from './outputUtils';
 import * as compatibility from './components/kubectl/compatibility';
 import { getToolPath, affectsUs, getUseWsl, KubectlVersioning } from './components/config/config';
 import { ensureSuitableKubectl } from './components/kubectl/autoversion';
-import { invokeForResult, ExternalBinary, FindBinaryStatus, ExecResult, ExecSucceeded, discardFailureInteractive, logText, parseJSON, findBinary, showErrorMessageWithInstallPrompt, parseTable, ExecBinNotFound, invokeTracking, FailedExecResult } from './binutilplusplus';
+import { invokeForResult, ExternalBinary, FindBinaryStatus, ExecResult, ExecSucceeded, discardFailureInteractive, logText, parseJSON, findBinary, showErrorMessageWithInstallPrompt, parseTable, ExecBinNotFound, invokeTracking, FailedExecResult, ParsedExecResult, parseLinedText } from './binutilplusplus';
 import { updateYAMLSchema } from './yaml-support/yaml-schema';
 import { Dictionary } from './utils/dictionary';
 
@@ -56,8 +56,8 @@ export interface Kubectl {
 
     // readXxx = invokeCommand + parseXxx
     // silent
-    readJSON<T>(command: string): Promise<Errorable<T>>;
-    readTable(command: string): Promise<Errorable<Dictionary<string>[]>>;
+    readJSON<T>(command: string): Promise<ParsedExecResult<T>>;
+    readTable(command: string): Promise<ParsedExecResult<Dictionary<string>[]>>;
 }
 
 // TODO: move this out of the reporting layer and into the application layer
@@ -235,14 +235,14 @@ class KubectlImpl implements Kubectl {
         return parseTable(execResult, KUBECTL_OUTPUT_COLUMN_SEPARATOR);
     }
 
-    async readJSON<T>(command: string): Promise<Errorable<T>> {
+    async readJSON<T>(command: string): Promise<ParsedExecResult<T>> {
         const er = await this.invokeCommand(command);
-        return this.parseJSON<T>(er);
+        return ExecResult.map(er, (s) => JSON.parse(s) as T);
     }
 
-    async readTable(command: string): Promise<Errorable<Dictionary<string>[]>> {
+    async readTable(command: string): Promise<ParsedExecResult<Dictionary<string>[]>> {
         const er = await this.invokeCommand(command);
-        return this.parseTable(er);
+        return ExecResult.map(er, (s) => parseLinedText(s, KUBECTL_OUTPUT_COLUMN_SEPARATOR));
     }
 }
 

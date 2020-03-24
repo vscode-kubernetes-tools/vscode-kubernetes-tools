@@ -74,11 +74,11 @@ export interface ConfigReadOptions {
 
 async function getKubeconfig(kubectl: Kubectl, options: ConfigReadOptions): Promise<Kubeconfig | null> {
     const config = await kubectl.readJSON<any>("config view -o json");
-    if (failed(config)) {
+    if (ExecResult.failed(config)) {
         if (options.silent) {
-            console.log(config.error[0]);
+            console.log(ExecResult.failureMessage(config, {}));
         } else {
-            vscode.window.showErrorMessage(config.error[0]);
+            kubectl.reportFailure(config, {});
         }
         return null;
     }
@@ -253,8 +253,8 @@ export async function getPods(kubectl: Kubectl, selector: any, namespace: string
     }
 
     const pods = await kubectl.readTable(`get pods -o wide ${nsFlag} ${labelStr}`);
-    if (failed(pods)) {
-        vscode.window.showErrorMessage(pods.error[0]);
+    if (ExecResult.failed(pods)) {
+        kubectl.reportFailure(pods, {});
         return [];
     }
 
@@ -442,8 +442,8 @@ async function changeResourceFromUri(uri: vscode.Uri, kubectl: Kubectl, command:
 
 export async function namespaceResources(kubectl: Kubectl, ns: string): Promise<Errorable<string[]>> {
     const arresult = await kubectl.readTable('api-resources -o wide');
-    if (failed(arresult)) {
-        return arresult;
+    if (ExecResult.failed(arresult)) {
+        return { succeeded: false, error: [ExecResult.failureMessage(arresult, {})] };
     }
 
     const resourceKinds = arresult.result.filter((r) => r.namespaced === 'true')

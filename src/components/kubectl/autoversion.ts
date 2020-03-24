@@ -7,7 +7,7 @@ import { Dictionary } from '../../utils/dictionary';
 import { fs } from '../../fs';
 import { Kubectl, CheckPresentMessageMode, createOnBinary as kubectlCreateOnBinary } from '../../kubectl';
 import { getCurrentContext } from '../../kubectlUtils';
-import { succeeded, Errorable } from '../../errorable';
+import { succeeded } from '../../errorable';
 import { FileBacked } from '../../utils/filebacked';
 import { getKubeconfigPath } from '../kubectl/kubeconfig';
 import { getToolPath } from '../config/config';
@@ -15,6 +15,7 @@ import { Host } from '../../host';
 import { mkdirpAsync } from '../../utils/mkdirp';
 import { platformUrlString, formatBin } from '../installer/installationlayout';
 import * as installer from '../installer/installer';
+import { ExecResult } from '../../binutilplusplus';
 
 const AUTO_VERSION_CACHE_FILE = getCachePath(shell);  // TODO: awkward that we're using a hardwired shell here but parameterising it elsewhere
 const AUTO_VERSION_CACHE = new FileBacked<ClusterVersionCache>(fs, AUTO_VERSION_CACHE_FILE, defaultClusterVersionCache);
@@ -134,7 +135,7 @@ async function getServerVersion(kubectl: Kubectl, context: string): Promise<stri
         return cachedVersions.versions[context];
     }
     const versionInfo = await kubectl.readJSON<any>('version -o json');
-    if (Errorable.failed(versionInfo)) {
+    if (ExecResult.failed(versionInfo)) {
         return undefined;
     }
     if (versionInfo.result && versionInfo.result.serverVersion) {
