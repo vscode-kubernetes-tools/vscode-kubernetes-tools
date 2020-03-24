@@ -6,6 +6,7 @@ import * as shelljs from 'shelljs';
 import { refreshExplorer } from '../clusterprovider/common/explorer';
 import { getActiveKubeconfig, getUseWsl } from '../config/config';
 import * as kubernetes from '@kubernetes/client-node';
+import { mkdirpAsync } from '../../utils/mkdirp';
 
 interface Named {
     readonly name: string;
@@ -73,17 +74,17 @@ export function getKubeconfigPath(): { readonly pathType: 'host'; readonly hostP
 
 export async function mergeToKubeconfig(newConfigText: string): Promise<void> {
     const kubeconfigPath = getKubeconfigPath();
-    const kcfile = kubeconfigPath.pathType === "host" ? kubeconfigPath.hostPath : kubeconfigPath.wslPath;
 
-    // TODO: fs.existsAsync looks in the host filesystem, even in the case of a WSL path. This needs fixing to handle
-    // WSL paths properly.
-    if (!(await fs.existsAsync(kcfile))) {
-        vscode.window.showErrorMessage(`Couldn't find kubeconfig file to merge into: '${kcfile}'`);
+    if (kubeconfigPath.pathType === 'wsl') {
+        vscode.window.showErrorMessage("You are on Windows, but are using WSL-based tools. We can't merge into your WSL kubeconfig. Consider running VS Code in WSL using the Remote Extensions.");
         return;
     }
 
-    const kubeconfigText = await fs.readTextFile(kcfile);
-    const kubeconfig = yaml.safeLoad(kubeconfigText);
+    const kcfile = kubeconfigPath.hostPath;
+    const kcfileExists = await fs.existsAsync(kcfile);
+
+    const kubeconfigText = kcfileExists ? await fs.readTextFile(kcfile) : '';
+    const kubeconfig = yaml.safeLoad(kubeconfigText) || {};
     const newConfig = yaml.safeLoad(newConfigText);
 
     for (const section of ['clusters', 'contexts', 'users']) {
@@ -99,13 +100,21 @@ export async function mergeToKubeconfig(newConfigText: string): Promise<void> {
         await mergeInto(existing, toMerge);
     }
 
+    if (!kcfileExists && newConfig.contexts && newConfig.contexts[0]) {
+        kubeconfig['current-context'] = newConfig.contexts[0].name;
+    }
+
     const merged = yaml.safeDump(kubeconfig, { lineWidth: 1000000, noArrayIndent: true });
 
-    const backupFile = kcfile + '.vscode-k8s-tools-backup';
-    if (await fs.existsAsync(backupFile)) {
-        await fs.unlinkAsync(backupFile);
+    if (kcfileExists) {
+        const backupFile = kcfile + '.vscode-k8s-tools-backup';
+        if (await fs.existsAsync(backupFile)) {
+            await fs.unlinkAsync(backupFile);
+        }
+        await fs.renameAsync(kcfile, backupFile);
+    } else {
+        await mkdirpAsync(path.dirname(kcfile));
     }
-    await fs.renameAsync(kcfile, backupFile);
     await fs.writeTextFile(kcfile, merged);
 
     await refreshExplorer();
