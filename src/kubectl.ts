@@ -47,7 +47,7 @@ export interface Kubectl {
     reportFailure(execResult: FailedExecResult, options: ReportResultOptions): Promise<void>;
     // consider something of the form: succeedOrNotify(execResult: ExecResult, options: ReportResultOptions): execResult is ExecSucceeded;
     promptInstallDependencies(execResult: ExecBinNotFound, message: string): Promise<void>;
-    checkPossibleIncompatibility(): Promise<void>;
+    // checkPossibleIncompatibility(): Promise<void>;
 
     // TODO: can we get rid of these?
     // silent
@@ -87,6 +87,9 @@ const KUBECTL_BINARY: ExternalBinary = {
     displayName: 'Kubectl',
     offersInstall: true,
 };
+
+// TODO: invalidate this when the context changes or if we know kubectl has changed (e.g. config)
+let checkedCompatibility = false;  // We don't want to spam the user (or CPU!) repeatedly running the version check
 
 class KubectlImpl implements Kubectl {
     constructor(host: Host, fs: FS, shell: Shell, pathfinder: (() => Promise<string>) | undefined, kubectlFound: false /* TODO: this is now safe to remove */) {
@@ -154,8 +157,21 @@ class KubectlImpl implements Kubectl {
         return this.sharedTerminal;
     }
 
-    checkPossibleIncompatibility() {
-        return checkPossibleIncompatibility(this.context);
+    async checkPossibleIncompatibility(): Promise<void> {
+        if (checkedCompatibility) {
+            return;
+        }
+        checkedCompatibility = true;
+        const kubectl = this;
+        async function kubectlLoadJSON(cmd: string): Promise<Errorable<compatibility.Version>> {
+            const json = await kubectl.readJSON<compatibility.Version>(cmd);
+            return ExecResult.asErrorable(json, {});
+        }
+        const compat = await compatibility.check(kubectlLoadJSON);
+        if (!compatibility.isGuaranteedCompatible(compat) && compat.didCheck) {
+            const versionAlert = `kubectl version ${compat.clientVersion} may be incompatible with cluster Kubernetes version ${compat.serverVersion}`;
+            this.context.host.showWarningMessage(versionAlert);
+        }
     }
 
     async ensurePresent(options: EnsurePresentOptions): Promise<boolean> {
@@ -310,7 +326,7 @@ async function invokeAsync(context: Context, command: string, stdin?: string, ca
             sr = await context.shell.execStreaming(cmd, callback);
         }
         if (sr && sr.code !== 0) {
-            checkPossibleIncompatibility(context);
+            checkPossibleIncompatibilityLegacy(context);
         }
         return sr;
     } else {
@@ -318,10 +334,7 @@ async function invokeAsync(context: Context, command: string, stdin?: string, ca
     }
 }
 
-// TODO: invalidate this when the context changes or if we know kubectl has changed (e.g. config)
-let checkedCompatibility = false;  // We don't want to spam the user (or CPU!) repeatedly running the version check
-
-async function checkPossibleIncompatibility(context: Context): Promise<void> {
+async function checkPossibleIncompatibilityLegacy(context: Context): Promise<void> {
     if (checkedCompatibility) {
         return;
     }

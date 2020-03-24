@@ -106,6 +106,13 @@ export namespace ExecResult {
     export function succeeded(execResult: ExecResult): execResult is ExecSucceeded {
         return execResult.resultKind === 'exec-succeeded';
     }
+
+    export function asErrorable<T>(execResult: ParsedExecResult<T>, options: FailureMessageOptions): Errorable<T> {
+        if (failed(execResult)) {
+            return { succeeded: false, error: [failureMessage(execResult, options)] };
+        }
+        return { succeeded: true, result: execResult.result };
+    }
 }
 
 export interface BinaryFound {
