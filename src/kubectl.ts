@@ -157,10 +157,14 @@ class KubectlImpl implements Kubectl {
         return this.sharedTerminal;
     }
 
-    async checkPossibleIncompatibility(): Promise<void> {
+    async checkPossibleIncompatibility(afterError: ExecResult): Promise<void> {
         if (checkedCompatibility) {
             return;
         }
+        if (afterError.resultKind === 'exec-bin-not-found') {
+            return;
+        }
+
         checkedCompatibility = true;
         const kubectl = this;
         async function kubectlLoadJSON(cmd: string): Promise<Errorable<compatibility.Version>> {
@@ -227,7 +231,7 @@ class KubectlImpl implements Kubectl {
             host.showInformationMessage(success.stdout);
         } else {
             console.log(logText(this.context, execResult));
-            this.checkPossibleIncompatibility();
+            this.checkPossibleIncompatibility(execResult);
         }
         return success;
     }
@@ -236,7 +240,7 @@ class KubectlImpl implements Kubectl {
         const discardFailureOptions = { whatFailed: options.whatFailed };
         await discardFailureInteractive(this.context, execResult, discardFailureOptions);
         console.log(logText(this.context, execResult));
-        this.checkPossibleIncompatibility();
+        this.checkPossibleIncompatibility(execResult);
     }
 
     async promptInstallDependencies(execResult: ExecBinNotFound, message: string): Promise<void> {
