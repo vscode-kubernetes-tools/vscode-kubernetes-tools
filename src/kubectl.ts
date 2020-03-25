@@ -17,11 +17,8 @@ import { Dictionary } from './utils/dictionary';
 const KUBECTL_OUTPUT_COLUMN_SEPARATOR = /\s\s+/g;
 
 export interface Kubectl {
-    // TODO: obsolete these
-    checkPresent(errorMessageMode: CheckPresentMessageMode): Promise<boolean>;
+    // entangledly shouty but retained for API backcompat
     legacyInvokeAsync(command: string, stdin?: string): Promise<ShellResult | undefined>;
-
-    // TODO: review usages
     legacySpawnAsChild(command: string[]): Promise<ChildProcess | undefined>;
 
     invokeInNewTerminal(command: string, terminalName: string, onClose?: (e: Terminal) => any, pipeTo?: string): Promise<Disposable>;
@@ -33,7 +30,7 @@ export interface Kubectl {
     asJson<T>(command: string): Promise<Errorable<T>>;
 
     // silent (unless you explicitly ask it to be shouty)
-    ensurePresent(options: EnsurePresentOptions): Promise<boolean>;  // TODO: ONLY on startup ()
+    ensurePresent(options: EnsurePresentOptions): Promise<boolean>;
     invokeCommand(command: string, stdin?: string): Promise<ExecResult>;
     invokeCommandThen<T>(command: string, fn: (execResult: ExecResult) => T): Promise<T>;
     observeCommand(args: string[]): Promise<rx.Observable<string>>;
@@ -67,8 +64,11 @@ export interface ReportResultOptions {
     readonly updateSchemasOnSuccess?: boolean;
 }
 
-export interface EnsurePresentOptions {
-    readonly warnIfNotPresent: boolean;
+export type EnsurePresentOptions = {
+    readonly silent?: false;
+    readonly warningIfNotPresent: string;
+} | {
+    readonly silent: true;
 }
 
 interface Context {
@@ -180,14 +180,18 @@ class KubectlImpl implements Kubectl {
     }
 
     async ensurePresent(options: EnsurePresentOptions): Promise<boolean> {
+        if (this.context.pathfinder) {
+            return true;
+        }
+
         const status = await findBinary(this.context);
         if (status.found) {
             return true;
         }
 
-        if (options.warnIfNotPresent) {
+        if (!options.silent) {
             // TODO: suppressible once refactoring complete!
-            showErrorMessageWithInstallPrompt(this.context, status, 'Kubectl not found. Many features of the Kubernetes extension will not work.');
+            showErrorMessageWithInstallPrompt(this.context, status, options.warningIfNotPresent);
         }
 
         return false;

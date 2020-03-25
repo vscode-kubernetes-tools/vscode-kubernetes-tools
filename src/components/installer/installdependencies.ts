@@ -1,6 +1,6 @@
 import * as helmexec from '../../helm.exec';
 import { kubeChannel } from '../../kubeChannel';
-import { CheckPresentMessageMode, create as kubectlCreate } from '../../kubectl';
+import { create as kubectlCreate } from '../../kubectl';
 import { create as draftCreate, CheckPresentMode as DraftCheckPresentMode } from '../../draft/draft';
 import { create as minikubeCreate, CheckPresentMode as MinikubeCheckPresentMode } from '../clusterprovider/minikube/minikube';
 import { fs } from '../../fs';
@@ -16,7 +16,7 @@ const minikube = minikubeCreate(host, fs, shell);
 
 export async function installDependencies() {
     // TODO: gosh our binchecking is untidy
-    const gotKubectl = await kubectl.checkPresent(CheckPresentMessageMode.Silent);
+    const gotKubectl = await kubectl.ensurePresent({ silent: true });
     const gotHelm = helmexec.ensureHelm(helmexec.EnsureMode.Silent);
     const gotDraft = await draft.checkPresent(DraftCheckPresentMode.Silent);
     const gotMinikube = await minikube.checkPresent(MinikubeCheckPresentMode.Silent);

@@ -5,7 +5,7 @@ import * as download from '../download/download';
 import { Shell, shell } from "../../shell";
 import { Dictionary } from '../../utils/dictionary';
 import { fs } from '../../fs';
-import { Kubectl, CheckPresentMessageMode, createOnBinary as kubectlCreateOnBinary } from '../../kubectl';
+import { Kubectl, createOnBinary as kubectlCreateOnBinary } from '../../kubectl';
 import { getCurrentContext } from '../../kubectlUtils';
 import { succeeded } from '../../errorable';
 import { FileBacked } from '../../utils/filebacked';
@@ -152,7 +152,7 @@ function defaultClusterVersionCache(): ClusterVersionCache {
 }
 
 async function ensureBootstrapperKubectl(naiveKubectl: Kubectl, shell: Shell, host: Host): Promise<Kubectl | undefined> {
-    if (await naiveKubectl.checkPresent(CheckPresentMessageMode.Silent)) {
+    if (await naiveKubectl.ensurePresent({ silent: true })) {
         return naiveKubectl;
     }
 
