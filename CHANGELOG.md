@@ -1,5 +1,14 @@
 # Change Log
 
+## 1.1.1
+
+* You can now watch resources in the cluster explorer - get live updates as they change
+* Cloud explorer Merge To Kubeconfig command now creates a default kubeconfig if no kubeconfig exists
+* Updated .NET debugging support to new C# extension ID
+* Fixed AKS dashboard not showing on Kubernetes 1.14 or above
+
+Thanks to hermanho, Mattias Karlsson and Luca Stocchi.
+
 ## 1.1.0
 
 * Added .NET debugging support
