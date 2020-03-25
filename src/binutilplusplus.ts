@@ -131,6 +131,11 @@ export interface BinaryFound {
     readonly where: string;
 }
 
+export interface BinaryPathfinderProvided {
+    readonly found: true;
+    readonly how: 'pathfinder';
+}
+
 export interface ConfiguredBinaryNotFound {
     readonly found: false;
     readonly how: 'config';
@@ -142,7 +147,7 @@ export interface UnconfiguredBinaryNotFound {
     readonly how: 'path';
 }
 
-export type FindBinaryStatus = BinaryFound | ConfiguredBinaryNotFound | UnconfiguredBinaryNotFound;
+export type FindBinaryStatus = BinaryFound | BinaryPathfinderProvided | ConfiguredBinaryNotFound | UnconfiguredBinaryNotFound;
 
 export interface Context {
     readonly host: Host;
@@ -186,6 +191,10 @@ export async function findBinary(context: Context): Promise<FindBinaryStatus> {
 
 // This is silent: tells us whether we can find the required binary
 async function findBinaryCore(context: Context): Promise<FindBinaryStatus> {
+    if (context.pathfinder) {
+        return { found: true, how: 'pathfinder' };
+    }
+
     // Do we have a configured location?
     const configuredPath = getToolPath(context.host, context.shell, context.binary.configKeyName);
     if (configuredPath) {
