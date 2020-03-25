@@ -1,5 +1,6 @@
 import * as rx from 'rxjs';
 import * as spawnrx from 'spawn-rx';
+import { ChildProcess, spawn as spawnChildProcess } from "child_process";
 import { Host } from './host';
 import { FS } from './fs';
 import { Shell } from './shell';
@@ -51,9 +52,18 @@ export interface ExecErrored {
     readonly stderr: string;
 }
 
+
+export interface ExecChildProcessStarted {
+    readonly resultKind: 'exec-child-process-started';
+    readonly execProgram: ExternalBinary;
+    readonly command: string;
+    readonly childProcess: ChildProcess;
+}
+
 export type ParsedExecResult<T> = ExecBinNotFound | ExecFailed | ParsedExecSucceeded<T> | ExecErrored;
 export type ExecResult = ExecBinNotFound | ExecFailed | ExecSucceeded | ExecErrored;
 export type FailedExecResult = ExecBinNotFound | ExecFailed | ExecErrored;
+export type BackgroundExecResult = ExecBinNotFound | ExecChildProcessStarted;
 
 export interface FailureMessageOptions {
     readonly whatFailed?: string;
@@ -259,6 +269,18 @@ export async function invokeTracking(context: Context, args: string[]): Promise<
         }
     });
     return { lines: linesSubject };
+}
+
+export async function invokeBackground(context: Context, args: string[]): Promise<BackgroundExecResult> {
+    const fbr = await findBinary(context);
+    if (!fbr.found) {
+        return { resultKind: 'exec-bin-not-found', execProgram: context.binary, command: args.join(' '), findResult: fbr };
+    }
+
+    const bin = await baseBinPath(context);
+
+    const childProcess = spawnChildProcess(bin, args, context.shell.execOpts());
+    return { resultKind: 'exec-child-process-started', execProgram: context.binary, command: args.join(' '), childProcess };
 }
 
 // This is noisy - handles failure UI for an interactive command that performs an invokeForResult

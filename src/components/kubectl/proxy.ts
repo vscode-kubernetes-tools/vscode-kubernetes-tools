@@ -7,12 +7,12 @@ export async function proxy(kubectl: Kubectl, port: number | 'random'): Promise<
     const args = ['proxy', `--port=${portNumber}`];
 
     // TODO: option to show a cancellable progress indicator while opening proxy?  We don't really need this for the Swagger scenario though
-    const proxyingProcess = await kubectl.spawnAsChild(args);
-    if (!proxyingProcess) {
-        return { succeeded: false, error: ['Failed to invoke kubectl'] };
+    const proxyingProcess = await kubectl.spawnCommand(args);
+    if (proxyingProcess.resultKind === 'exec-bin-not-found') {
+        return { succeeded: false, error: ['Failed to invoke kubectl: program not found'] };
     }
 
-    const forwarding = await waitForOutput(proxyingProcess, /Starting to serve on \d+\.\d+\.\d+\.\d+:(\d+)/);
+    const forwarding = await waitForOutput(proxyingProcess.childProcess, /Starting to serve on \d+\.\d+\.\d+\.\d+:(\d+)/);
 
     if (forwarding.waitResult === 'process-exited') {
         return { succeeded: false, error: ['Failed to open proxy to cluster']};  // TODO: get the error moar betters
@@ -23,7 +23,7 @@ export async function proxy(kubectl: Kubectl, port: number | 'random'): Promise<
     }
 
     const actualPort = Number.parseInt(forwarding.matchedOutput[1]);
-    const dispose = () => { proxyingProcess.kill(); };
+    const dispose = () => { proxyingProcess.childProcess.kill(); };
 
     return {
         succeeded: true,

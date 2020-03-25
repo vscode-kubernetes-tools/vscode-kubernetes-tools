@@ -408,8 +408,19 @@ export class DebugSession implements IDebugSession {
 
         const nsarg = podNamespace ? [ '--namespace', podNamespace ] : [];
 
+        const proxyProcess = await kubectl.spawnCommand(["port-forward", podName, ...nsarg, ...portMapping]);
+
+        if (proxyProcess.resultKind === 'exec-bin-not-found') {
+            kubectl.reportFailure(proxyProcess, { whatFailed: 'Failed to forward debug port' });
+            return {
+                proxyProcess: undefined,
+                proxyDebugPort,
+                proxyAppPort
+            };
+        }
+
         return {
-            proxyProcess: await kubectl.spawnAsChild(["port-forward", podName, ...nsarg, ...portMapping]),
+            proxyProcess: proxyProcess.childProcess,
             proxyDebugPort,
             proxyAppPort
         };

@@ -10,7 +10,7 @@ import { parseLineOutput } from './outputUtils';
 import * as compatibility from './components/kubectl/compatibility';
 import { getToolPath, affectsUs, getUseWsl, KubectlVersioning } from './components/config/config';
 import { ensureSuitableKubectl } from './components/kubectl/autoversion';
-import { invokeForResult, ExternalBinary, FindBinaryStatus, ExecResult, ExecSucceeded, discardFailureInteractive, logText, parseJSON, findBinary, showErrorMessageWithInstallPrompt, parseTable, ExecBinNotFound, invokeTracking, FailedExecResult, ParsedExecResult, parseLinedText } from './binutilplusplus';
+import { invokeForResult, ExternalBinary, FindBinaryStatus, ExecResult, ExecSucceeded, discardFailureInteractive, logText, parseJSON, findBinary, showErrorMessageWithInstallPrompt, parseTable, ExecBinNotFound, invokeTracking, FailedExecResult, ParsedExecResult, parseLinedText, BackgroundExecResult, invokeBackground } from './binutilplusplus';
 import { updateYAMLSchema } from './yaml-support/yaml-schema';
 import { Dictionary } from './utils/dictionary';
 
@@ -22,7 +22,7 @@ export interface Kubectl {
     legacyInvokeAsync(command: string, stdin?: string): Promise<ShellResult | undefined>;
 
     // TODO: review usages
-    spawnAsChild(command: string[]): Promise<ChildProcess | undefined>;
+    legacySpawnAsChild(command: string[]): Promise<ChildProcess | undefined>;
 
     invokeInNewTerminal(command: string, terminalName: string, onClose?: (e: Terminal) => any, pipeTo?: string): Promise<Disposable>;
     invokeInSharedTerminal(command: string): Promise<void>;
@@ -37,6 +37,7 @@ export interface Kubectl {
     invokeCommand(command: string, stdin?: string): Promise<ExecResult>;
     invokeCommandThen<T>(command: string, fn: (execResult: ExecResult) => T): Promise<T>;
     observeCommand(args: string[]): Promise<rx.Observable<string>>;
+    spawnCommand(args: string[]): Promise<BackgroundExecResult>;
 
     // transiently shouty
     invokeCommandWithFeedback(command: string, uiOptions: string | LongRunningUIOptions): Promise<ExecResult>;
@@ -114,7 +115,7 @@ class KubectlImpl implements Kubectl {
     legacyInvokeAsync(command: string, stdin?: string, callback?: (proc: ChildProcess) => void): Promise<ShellResult | undefined> {
         return invokeAsync(this.context, command, stdin, callback);
     }
-    spawnAsChild(command: string[]): Promise<ChildProcess | undefined> {
+    legacySpawnAsChild(command: string[]): Promise<ChildProcess | undefined> {
         return spawnAsChild(this.context, command);
     }
     async invokeInNewTerminal(command: string, terminalName: string, onClose?: (e: Terminal) => any, pipeTo?: string): Promise<Disposable> {
@@ -205,6 +206,10 @@ class KubectlImpl implements Kubectl {
     async observeCommand(args: string[]): Promise<rx.Observable<string>> {
         const process = await invokeTracking(this.context, args);
         return process.lines;
+    }
+
+    async spawnCommand(args: string[]): Promise<BackgroundExecResult> {
+        return await invokeBackground(this.context, args);
     }
 
     async invokeCommandWithFeedback(command: string, uiOptions: string | LongRunningUIOptions): Promise<ExecResult> {
