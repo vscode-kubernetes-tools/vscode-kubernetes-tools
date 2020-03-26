@@ -193,6 +193,34 @@ a `NodeSource`, then use its `at` method to specify where to attach to the tree.
 The `at` method may specify an existing grouping folder (specified by display name), or
 `undefined` to appear directly under the context tree node.
 
+**`API v1_1`**
+
+For example, to display network policies under the Network folder:
+
+```javascript
+clusterExplorer.api.registerNodeContributor(
+    clusterExplorer.api.nodeSources.resourceFolder("Network Policy", "Network Policies", "NetworkPolicy", "netpol", "networkpolicy").at("Network")
+);
+```
+
+**NOTE:** The last optional parameter `apiName` is used to retrieve detailed informations about the object added, allowing to watch resources of that type and get live updates in the cluster explorer as they change. `apiName` is the equivalent of the object type and accepts both normal and abbreviated form, such as `service` or the abbreviated `svc`. If no `apiName` is passed the extension will behave the same as if you were using `API v1`.
+
+Or to display a Security grouping folder directly under the context, and display folders for roles and so on under it:
+
+```javascript
+clusterExplorer.api.registerNodeContributor(
+    clusterExplorer.api.nodeSources.groupingFolder("Security", undefined,
+        clusterExplorer.api.nodeSources.resourceFolder("Role", "Roles", "Role", "roles", "roles"),
+        clusterExplorer.api.nodeSources.resourceFolder("Role Binding", "Role Bindings", "RoleBinding", "rolebindings"),
+        clusterExplorer.api.nodeSources.resourceFolder("Cluster Role", "Cluster Roles", "ClusterRole", "clusterroles"),
+        clusterExplorer.api.nodeSources.resourceFolder("Cluster Role Binding", "Cluster Role Bindings", "ClusterRoleBinding", "clusterrolebindings")
+).at(undefined));
+```
+
+**NOTE:** In the example above only the resourceFolder "Role" is enabling the watch feature
+
+**`API v1`**
+
 For example, to display network policies under the Network folder:
 
 ```javascript
