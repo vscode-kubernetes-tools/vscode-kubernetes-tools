@@ -4,18 +4,18 @@
 
 import * as vscode from 'vscode';
 
-export interface ClusterExplorerV2 {
-    resolveCommandTarget(target?: any): ClusterExplorerV2.ClusterExplorerNode | undefined;
-    registerNodeContributor(nodeContributor: ClusterExplorerV2.NodeContributor): void;
-    readonly nodeSources: ClusterExplorerV2.NodeSources;
-    registerNodeUICustomizer(nodeUICustomizer: ClusterExplorerV2.NodeUICustomizer): void;
+export interface ClusterExplorerV1_1 {
+    resolveCommandTarget(target?: any): ClusterExplorerV1_1.ClusterExplorerNode | undefined;
+    registerNodeContributor(nodeContributor: ClusterExplorerV1_1.NodeContributor): void;
+    readonly nodeSources: ClusterExplorerV1_1.NodeSources;
+    registerNodeUICustomizer(nodeUICustomizer: ClusterExplorerV1_1.NodeUICustomizer): void;
     refresh(): void;
 }
 
-export namespace ClusterExplorerV2 {
+export namespace ClusterExplorerV1_1 {
     export interface NodeContributor {
-        contributesChildren(parent: ClusterExplorerV2.ClusterExplorerNode | undefined): boolean;
-        getChildren(parent: ClusterExplorerV2.ClusterExplorerNode | undefined): Promise<Node[]>;
+        contributesChildren(parent: ClusterExplorerNode | undefined): boolean;
+        getChildren(parent: ClusterExplorerNode | undefined): Promise<Node[]>;
     }
 
     export interface NodeUICustomizer {
