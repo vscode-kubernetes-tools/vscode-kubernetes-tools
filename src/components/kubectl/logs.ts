@@ -118,7 +118,7 @@ async function getLogsForContainer(
         const lines = await kubectl.observeCommand(args);
 
         lines.subscribe(
-            (line) => { if (line) { panel.addContent(line + '\n'); } },
+            (line) => { if (line) { panel.addContent(`${line}\n`); } },
             (err: ExecResult) => kubectl.reportResult(err, { whatFailed: `Follow logs failed` })
         );
 

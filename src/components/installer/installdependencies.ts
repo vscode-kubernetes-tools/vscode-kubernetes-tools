@@ -32,9 +32,8 @@ export async function installDependencies() {
     if (!config.getUseWsl()) {
         // TODO: Install Win32 Minikube
         installPromises.push(
-            installDependency("Minikube", gotMinikube, (shell: Shell) => {
-                return installMinikube(shell, null);
-            }));
+            installDependency("Minikube", gotMinikube, (sh) => installMinikube(sh, null))
+        );
     }
     await Promise.all(installPromises);
 
