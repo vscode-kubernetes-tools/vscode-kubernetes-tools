@@ -197,18 +197,22 @@ For example, to display network policies under the Network folder:
 
 ```javascript
 clusterExplorer.api.registerNodeContributor(
-    clusterExplorer.api.nodeSources.resourceFolder("Network Policy", "Network Policies", "NetworkPolicy", "netpol").at("Network")
+    clusterExplorer.api.nodeSources.resourceFolder("Network Policy", "Network Policies", "NetworkPolicy", "netpol", "networkpolicy").at("Network")
 );
 ```
+
+**IMPORTANT:** The last optional parameter `apiName`, if present, enables the **Watch** feature allowing to watch resources and get live updates in the cluster explorer as they change. Its value must be equal to the object type and it accepts both normal and abbreviated form, such as `service` or the abbreviated `svc`.
+
+**NOTE:** `apiName` argument is not available in API v1
 
 Or to display a Security grouping folder directly under the context, and display folders for roles and so on under it:
 
 ```javascript
 clusterExplorer.api.registerNodeContributor(
     clusterExplorer.api.nodeSources.groupingFolder("Security", undefined,
-        clusterExplorer.api.nodeSources.resourceFolder("Role", "Roles", "Role", "roles"),
-        clusterExplorer.api.nodeSources.resourceFolder("Role Binding", "Role Bindings", "RoleBinding", "rolebindings"),
-        clusterExplorer.api.nodeSources.resourceFolder("Cluster Role", "Cluster Roles", "ClusterRole", "clusterroles"),
+        clusterExplorer.api.nodeSources.resourceFolder("Role", "Roles", "Role", "roles", "roles"),
+        clusterExplorer.api.nodeSources.resourceFolder("Role Binding", "Role Bindings", "RoleBinding", "rolebindings", "rolebindings"),
+        clusterExplorer.api.nodeSources.resourceFolder("Cluster Role", "Cluster Roles", "ClusterRole", "clusterroles", "clusterroles"),
         clusterExplorer.api.nodeSources.resourceFolder("Cluster Role Binding", "Cluster Role Bindings", "ClusterRoleBinding", "clusterrolebindings")
 ).at(undefined));
 ```
@@ -217,7 +221,7 @@ You can also use the `if` method to conditionally display nodes:
 
 ```javascript
 clusterExplorer.api.registerNodeContributor(
-    clusterExplorer.api.nodeSources.resourceFolder("Contoso Backup", "Contoso Backups", "ContosoBackup", "contosobackups")
+    clusterExplorer.api.nodeSources.resourceFolder("Contoso Backup", "Contoso Backups", "ContosoBackup", "contosobackups", "contosobackups")
         .if(isContosoBackupOperatorInstalled)
         .at("Storage")
 );
@@ -268,7 +272,7 @@ import * as k8s from 'vscode-kubernetes-tools-api';
 const LOAD_BALANCER_NODE_CONTRIBUTOR = new LoadBalancerNodeContributor();
 
 export async function activate(context: vscode.ExtensionContext) {
-    const explorer = await k8s.extension.clusterExplorer.v1;
+    const explorer = await k8s.extension.clusterExplorer.v1_1;
 
     if (!explorer.available) {
         console.log("Unable to register node contributor: " + explorer.reason);

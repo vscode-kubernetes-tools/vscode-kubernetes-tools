@@ -23,6 +23,7 @@ Features include:
 * Create Helm charts using scaffolding and snippets.
 * Bootstrap applications using Draft, and rapidly deploy and debug them to speed up
   the development loop.
+* Watch resources in the cluster explorer and get live updates as they change
 
 **What's new in this version?**  See the [change log](CHANGELOG.md) to find out!
 
@@ -105,6 +106,8 @@ If you want to skip TLS verification for a particular cluster, you can edit your
    * `Kubernetes: Show Logs` - Show logs for a pod in an output window.
    * `Kubernetes: Follow Events` - Follow events on a selected namespace.
    * `Kubernetes: Show Events` - Show events on a selected namespace.
+   * `Kubernetes: Watch` - Watch a specific resource or all resources of that object type, and update the cluster explorer as they change
+   * `Kubernetes: Stop Watching` - Stop watching the specific resource
 
 #### Commands while viewing a Kubernetes manifest file
 
@@ -205,6 +208,7 @@ Minikube tools to be installed and available on your PATH.
        * `vs-kubernetes.knownKubeconfigs` - An array of file paths of kubeconfig files that you want to be able to quickly switch between using the Set Kubeconfig command.
        * `vs-kubernetes.autoCleanupOnDebugTerminate` - The flag to control whether to auto cleanup the created deployment and associated pod by the command "Kubernetes: Debug (Launch)". The cleanup action occurs when it failed to start debug session or debug session terminated. If not specified, the extension will prompt for whether to clean up or not. You might choose not to clean up if you wanted to view pod logs, etc.
        * `vs-kubernetes.outputFormat` - The output format that you prefer to view Kubernetes manifests in. One of "yaml" or "json". Defaults to "yaml".
+       * `vs-kubernetes.resources-to-watch` - List of resources to be watched. To identify a resource the extension uses the label displayed in the cluster explorer. E.g. ["Pods", "Services", "Namespaces"]. 
        * `logsDisplay` - Where and how to display Kubernetes logs.  One of `webview` (display in a filterable HTML view) and `terminal` (run the command in the VS Code terminal)
    * `vsdocker.imageUser` - Image prefix for the container images e.g. 'docker.io/brendanburns'
    * `checkForMinikubeUpgrade` - On extension startup, notify if a minikube upgrade is available. Defaults to true.
