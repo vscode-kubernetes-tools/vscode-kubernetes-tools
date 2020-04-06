@@ -1,10 +1,10 @@
 import * as vscode from 'vscode';
+import { LogsPanel } from '../logs/logsWebview';
 
 export abstract class WebPanel {
     private disposables: vscode.Disposable[] = [];
     protected content: string;
     protected resource: string;
-    private hasLivePanel = true;
 
     protected static createOrShowInternal<T extends WebPanel>(content: string, resource: string, viewType: string, title: string, currentPanels: Map<string, T>, fn: (p: vscode.WebviewPanel, content: string, resource: string) => T): T {
         const column = vscode.window.activeTextEditor ? vscode.window.activeTextEditor.viewColumn : undefined;
@@ -12,8 +12,7 @@ export abstract class WebPanel {
         // If we already have a panel, show it.
         const currentPanel = currentPanels.get(resource);
         if (currentPanel) {
-            currentPanel.setInfo(content, resource);
-            currentPanel.update();
+            currentPanel.setContent(content);
             currentPanel.panel.reveal(column);
             return currentPanel;
         }
@@ -49,16 +48,17 @@ export abstract class WebPanel {
         }, null, this.disposables);
     }
 
-    public setInfo(content: string, resource: string) {
+    public setContent(content: string) {
         this.content = content;
-        this.resource = resource;
         this.update();
     }
 
     protected dispose<T extends WebPanel>(currentPanels: Map<string, T>) {
+        const panelToDispose = currentPanels.get(this.resource);
+        if (panelToDispose && "appendContentProcess" in panelToDispose) {
+            (panelToDispose as unknown as LogsPanel).deleteAppendContentProcess();
+        }
         currentPanels.delete(this.resource);
-
-        this.hasLivePanel = false;
 
         this.panel.dispose();
 
@@ -68,10 +68,6 @@ export abstract class WebPanel {
                 x.dispose();
             }
         }
-    }
-
-    public get canProcessMessages(): boolean {
-        return this.hasLivePanel;
     }
 
     protected abstract update(): void;
