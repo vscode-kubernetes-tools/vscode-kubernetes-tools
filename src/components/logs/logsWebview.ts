@@ -122,7 +122,6 @@ export class LogsPanel extends WebPanel {
               };
 
               window.addEventListener('message', event => {
-                  console.log('dentro event add');
                 const message = event.data;
                 switch (message.command) {
                     case 'content':
