@@ -64,24 +64,31 @@ export class LogsPanel extends WebPanel {
               let renderNonce = 0;
               let orig = \`${this.content}\`.split('\\n');
 
-              const getFilteredContent = (textToAppend) => {   
+              const filterAll = () => {
+                return filter(orig, false);
+              }
+
+              const filterNewLogs = (logsText) => {
+                return filter(logsText, true);
+              }
+
+              const filter = (text, isNewLog) => {   
                 const regexp = document.getElementById('regexp').value;
-                const mode = document.getElementById('mode').value;                         
-                const rawContent = textToAppend ? textToAppend : orig;
+                const mode = document.getElementById('mode').value;
                 let content;
                 if (regexp.length > 0 && mode !== 'all') {
                     const regex = new RegExp(regexp);   
                     switch (mode) {                        
                         case 'include':
-                            content = rawContent.filter((line) => regex.test(line));
+                            content = text.filter((line) => regex.test(line));
                             break;
                         case 'exclude':
-                            content = rawContent.filter((line) => !regex.test(line));
+                            content = text.filter((line) => !regex.test(line));
                             break;
                         case 'before':
                             content = [];
-                            if (!textToAppend) { 
-                                for (const line of orig) {
+                            if (!isNewLog) { 
+                                for (const line of text) {
                                     if (regex.test(line)) {
                                         break;
                                     }
@@ -90,13 +97,13 @@ export class LogsPanel extends WebPanel {
                             }
                             break;
                         case 'after':
-                            if (textToAppend) {
-                                content = rawContent;
+                            if (isNewLog) {
+                                content = text;
                             } else {
-                                const i = orig.findIndex((line) => {
+                                const i = text.findIndex((line) => {
                                     return regex.test(line)
                                 });
-                                content = orig.slice(i+1);
+                                content = text.slice(i+1);
                             }                           
                             break;
                         default:
@@ -104,17 +111,21 @@ export class LogsPanel extends WebPanel {
                             break;
                     }
                 } else {
-                    content = rawContent;
+                    content = text;
                 }
                 
                 return content;
               };
 
-              const getBeautifiedContent = (contentAsArray, ix, end) => {
+              const beautifyContentLineRange = (contentLines, ix, end) => {
                 if (ix && end) {
-                    contentAsArray = content.slice(ix, end);
+                    contentLines = contentLines.slice(ix, end);
                 }
-                let content = contentAsArray.join('\\n');
+                return beautifyLines(contentLines);
+              }
+
+              const beautifyLines = (contentLines) => {                
+                let content = contentLines.join('\\n');
                 if (content) {
                     content = content.match(/\\n$/) ? content : content + '\\n';
                 }                
@@ -132,8 +143,7 @@ export class LogsPanel extends WebPanel {
                             orig.push(line);
                         }
                     });
-                    // TODO: need to apply filters here!
-                    const content = getBeautifiedContent(getFilteredContent(text));
+                    const content = beautifyLines(filterNewLogs(text));
                     elt.appendChild(document.createTextNode(content));
                 }
               });
@@ -146,7 +156,7 @@ export class LogsPanel extends WebPanel {
                 renderNonce = Math.random();
                 const currentNonce = renderNonce;
 
-                const content = getFilteredContent();
+                const content = filterAll();
 
                 const elt = document.getElementById('content');
                 elt.textContent = '';
@@ -166,7 +176,7 @@ export class LogsPanel extends WebPanel {
                         return;
                     }
                     const end = Math.min(content.length, ix + step);
-                    elt.appendChild(document.createTextNode(getBeautifiedContent(content, ix, end)));
+                    elt.appendChild(document.createTextNode(beautifyContentLineRange(content, ix, end)));
                     ix += step;
                     setTimeout(fn, 0);
                 }
