@@ -1,6 +1,5 @@
 import { Terminal, Disposable } from 'vscode';
 import { ChildProcess, spawn as spawnChildProcess } from "child_process";
-import * as rx from 'rxjs';
 import { Host, host, LongRunningUIOptions } from './host';
 import { FS } from './fs';
 import { Shell, ShellResult } from './shell';
@@ -10,7 +9,7 @@ import { parseLineOutput } from './outputUtils';
 import * as compatibility from './components/kubectl/compatibility';
 import { getToolPath, affectsUs, getUseWsl, KubectlVersioning } from './components/config/config';
 import { ensureSuitableKubectl } from './components/kubectl/autoversion';
-import { invokeForResult, ExternalBinary, FindBinaryStatus, ExecResult, ExecSucceeded, discardFailureInteractive, logText, parseJSON, findBinary, showErrorMessageWithInstallPrompt, parseTable, ExecBinNotFound, invokeTracking, FailedExecResult, ParsedExecResult, parseLinedText, BackgroundExecResult, invokeBackground } from './binutilplusplus';
+import { invokeForResult, ExternalBinary, FindBinaryStatus, ExecResult, ExecSucceeded, discardFailureInteractive, logText, parseJSON, findBinary, showErrorMessageWithInstallPrompt, parseTable, ExecBinNotFound, invokeTracking, FailedExecResult, ParsedExecResult, parseLinedText, BackgroundExecResult, invokeBackground, RunningProcess } from './binutilplusplus';
 import { updateYAMLSchema } from './yaml-support/yaml-schema';
 import { Dictionary } from './utils/dictionary';
 
@@ -33,7 +32,7 @@ export interface Kubectl {
     ensurePresent(options: EnsurePresentOptions): Promise<boolean>;
     invokeCommand(command: string, stdin?: string): Promise<ExecResult>;
     invokeCommandThen<T>(command: string, fn: (execResult: ExecResult) => T): Promise<T>;
-    observeCommand(args: string[]): Promise<rx.Observable<string>>;
+    observeCommand(args: string[]): Promise<RunningProcess>;
     spawnCommand(args: string[]): Promise<BackgroundExecResult>;
 
     // transiently shouty
@@ -69,7 +68,7 @@ export type EnsurePresentOptions = {
     readonly warningIfNotPresent: string;
 } | {
     readonly silent: true;
-}
+};
 
 interface Context {
     readonly host: Host;
@@ -207,9 +206,8 @@ class KubectlImpl implements Kubectl {
         return result;
     }
 
-    async observeCommand(args: string[]): Promise<rx.Observable<string>> {
-        const process = await invokeTracking(this.context, args);
-        return process.lines;
+    async observeCommand(args: string[]): Promise<RunningProcess> {
+        return await invokeTracking(this.context, args);
     }
 
     async spawnCommand(args: string[]): Promise<BackgroundExecResult> {

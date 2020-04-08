@@ -115,9 +115,10 @@ async function getLogsForContainer(
     const panel = LogsPanel.createOrShow('Loading...', resource);
 
     if (displayMode === LogsDisplayMode.Follow) {
-        const lines = await kubectl.observeCommand(args);
+        const followProcess = await kubectl.observeCommand(args);
 
-        lines.subscribe(
+        // TODO: during rebase, we will need to also provide the followProcess.terminate method to the viewer
+        followProcess.lines.subscribe(
             (line) => { if (line) { panel.addContent(`${line}\n`); } },
             (err: ExecResult) => kubectl.reportResult(err, { whatFailed: `Follow logs failed` })
         );

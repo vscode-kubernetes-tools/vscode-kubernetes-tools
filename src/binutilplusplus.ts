@@ -250,10 +250,9 @@ export async function invokeForResult(context: Context, command: string, stdin: 
     return { resultKind: 'exec-errored', execProgram: context.binary, command, code: sr.code, stderr: sr.stderr };
 }
 
-// TODO: can probably get rid of this now though would be nice
-// to have a kill feature
 export interface RunningProcess {
     readonly lines: rx.Observable<string>;
+    terminate(): void;
 }
 
 export async function invokeTracking(context: Context, args: string[]): Promise<RunningProcess> {
@@ -277,7 +276,7 @@ export async function invokeTracking(context: Context, args: string[]): Promise<
             linesSubject.next(line);
         }
     });
-    return { lines: linesSubject };
+    return { lines: linesSubject, terminate: () => linesSubject.unsubscribe() };
 }
 
 export async function invokeBackground(context: Context, args: string[]): Promise<BackgroundExecResult> {
