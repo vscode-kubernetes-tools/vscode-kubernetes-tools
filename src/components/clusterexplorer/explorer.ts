@@ -282,7 +282,7 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
     }
 
     private async getClusters(): Promise<ClusterExplorerNode[]> {
-        const contexts = await kubectlUtils.getContexts(this.kubectl);
+        const contexts = await kubectlUtils.getContexts(this.kubectl, { silent: false });  // TODO: turn it silent, cascade errors, and provide an error node
         return contexts.map((context) => {
             // TODO: this is slightly hacky...
             if (context.contextName === 'minikube') {

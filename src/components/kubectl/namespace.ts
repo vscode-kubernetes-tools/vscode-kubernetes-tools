@@ -17,16 +17,19 @@ export async function useNamespaceKubernetes(kubectl: Kubectl, explorerNode: Clu
     }
 
     const currentNS = await kubectlUtils.currentNamespace(kubectl);
-    promptKindName(
+    const kindName = await promptKindName(
         [kuberesources.allKinds.namespace],
         '',  // unused because options specify prompt
         {
             prompt: 'What namespace do you want to use?',
             placeHolder: 'Enter the namespace to switch to or press enter to select from available list',
             filterNames: [currentNS]
-        },
-        (kindName) => switchToNamespace(kubectl, currentNS, kindName)
+        }
     );
+
+    if (kindName) {
+        switchToNamespace(kubectl, currentNS, kindName)
+    }
 }
 
 async function switchToNamespace (kubectl: Kubectl, currentNS: string, resource: string) {

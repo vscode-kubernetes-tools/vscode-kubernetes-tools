@@ -5,7 +5,7 @@ import * as download from '../download/download';
 import { Shell, shell } from "../../shell";
 import { Dictionary } from '../../utils/dictionary';
 import { fs } from '../../fs';
-import { Kubectl, CheckPresentMessageMode, createOnBinary as kubectlCreateOnBinary } from '../../kubectl';
+import { Kubectl, createOnBinary as kubectlCreateOnBinary } from '../../kubectl';
 import { getCurrentContext } from '../../kubectlUtils';
 import { succeeded } from '../../errorable';
 import { FileBacked } from '../../utils/filebacked';
@@ -15,6 +15,7 @@ import { Host } from '../../host';
 import { mkdirpAsync } from '../../utils/mkdirp';
 import { platformUrlString, formatBin } from '../installer/installationlayout';
 import * as installer from '../installer/installer';
+import { ExecResult } from '../../binutilplusplus';
 
 const AUTO_VERSION_CACHE_FILE = getCachePath(shell);  // TODO: awkward that we're using a hardwired shell here but parameterising it elsewhere
 const AUTO_VERSION_CACHE = new FileBacked<ClusterVersionCache>(fs, AUTO_VERSION_CACHE_FILE, defaultClusterVersionCache);
@@ -35,7 +36,7 @@ export async function ensureSuitableKubectl(kubectl: Kubectl, shell: Shell, host
         return undefined;
     }
 
-    const context = await getCurrentContext(bootstrapperKubectl);
+    const context = await getCurrentContext(bootstrapperKubectl, { silent: true });
     if (!context) {
         return undefined;
     }
@@ -133,15 +134,15 @@ async function getServerVersion(kubectl: Kubectl, context: string): Promise<stri
     if (cachedVersions.versions[context]) {
         return cachedVersions.versions[context];
     }
-    const sr = await kubectl.invokeAsync('version -o json');
-    if (sr && sr.code === 0) {
-        const versionInfo = JSON.parse(sr.stdout);
-        if (versionInfo && versionInfo.serverVersion) {
-            const serverVersion: string = versionInfo.serverVersion.gitVersion;
-            cachedVersions.versions[context] = serverVersion;
-            await AUTO_VERSION_CACHE.update(cachedVersions);
-            return serverVersion;
-        }
+    const versionInfo = await kubectl.readJSON<any>('version -o json');
+    if (ExecResult.failed(versionInfo)) {
+        return undefined;
+    }
+    if (versionInfo.result && versionInfo.result.serverVersion) {
+        const serverVersion: string = versionInfo.result.serverVersion.gitVersion;
+        cachedVersions.versions[context] = serverVersion;
+        await AUTO_VERSION_CACHE.update(cachedVersions);
+        return serverVersion;
     }
     return undefined;
 }
@@ -151,7 +152,7 @@ function defaultClusterVersionCache(): ClusterVersionCache {
 }
 
 async function ensureBootstrapperKubectl(naiveKubectl: Kubectl, shell: Shell, host: Host): Promise<Kubectl | undefined> {
-    if (await naiveKubectl.checkPresent(CheckPresentMessageMode.Silent)) {
+    if (await naiveKubectl.ensurePresent({ silent: true })) {
         return naiveKubectl;
     }
 

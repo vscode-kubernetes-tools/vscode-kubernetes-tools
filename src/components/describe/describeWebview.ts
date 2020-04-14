@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
-import { ShellResult } from '../../shell';
 import { WebPanel } from '../webpanel/webpanel';
+import { ExecResult } from '../../binutilplusplus';
 
 export class DescribePanel extends WebPanel {
     public static readonly viewType = 'vscodeKubernetesDescribe';
@@ -14,7 +14,7 @@ export class DescribePanel extends WebPanel {
         }
     }
 
-    public static createOrShow(content: string, resource: string, refresh: () => Promise<ShellResult | undefined>) {
+    public static createOrShow(content: string, resource: string, refresh: () => Promise<ExecResult>) {
         const fn = (panel: vscode.WebviewPanel, content: string, resource: string): DescribePanel => {
             return new DescribePanel(panel, content, resource, refresh);
         };
@@ -25,7 +25,7 @@ export class DescribePanel extends WebPanel {
         panel: vscode.WebviewPanel,
         content: string,
         resource: string,
-        private readonly refresh: () => Promise<ShellResult | undefined>
+        private readonly refresh: () => Promise<ExecResult>
     ) {
         super(panel, content, resource, DescribePanel.currentPanels);
 
@@ -52,12 +52,8 @@ export class DescribePanel extends WebPanel {
 
     private async doRefresh() {
         const result = await this.refresh();
-        if (!result) {
-            vscode.window.showErrorMessage('Error refreshing!');
-            return;
-        }
-        if (result.code !== 0) {
-            vscode.window.showErrorMessage(`Error refreshing: ${result.stderr}`);
+        if (ExecResult.failed(result)) {
+            vscode.window.showErrorMessage(ExecResult.failureMessage(result, { whatFailed: 'Error refreshing' }));
             return;
         }
         this.panel.webview.postMessage({

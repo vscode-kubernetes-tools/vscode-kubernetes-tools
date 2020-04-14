@@ -7,9 +7,9 @@ import * as yaml from 'js-yaml';
 import * as kubectlUtils from '../../kubectlUtils';
 import { LogsPanel } from '../../components/logs/logsWebview';
 import { ContainerContainer } from '../../utils/containercontainer';
-import { ChildProcess } from 'child_process';
 import { ClusterExplorerResourceNode } from '../clusterexplorer/node';
 import { logsDisplay, LogsDisplay } from '../config/config';
+import { ExecResult } from '../../binutilplusplus';
 
 export enum LogsDisplayMode {
     Show,
@@ -85,19 +85,21 @@ async function getLogsForContainer(
     containerName: string | undefined,
     displayMode: LogsDisplayMode
 ) {
-    let cmd = `logs ${containerResource.kindName}`;
+    const args = ['logs', containerResource.kindName];
 
     if (containerResource.namespace) {
-        cmd = `${cmd} --namespace=${containerResource.namespace}`;
+        args.push(`--namespace=${containerResource.namespace}`);
     }
 
     if (containerName) {
-        cmd = `${cmd} --container=${containerName}`;
+        args.push(`--container=${containerName}`);
     }
 
     if (displayMode === LogsDisplayMode.Follow) {
-        cmd = `${cmd} -f`;
+        args.push('-f');
     }
+
+    const cmd = args.join(' ');
 
     if (logsDisplay() === LogsDisplay.Terminal) {
         if (displayMode === LogsDisplayMode.Follow) {
@@ -113,19 +115,21 @@ async function getLogsForContainer(
     const panel = LogsPanel.createOrShow('Loading...', resource);
 
     if (displayMode === LogsDisplayMode.Follow) {
-        cmd = `${cmd} -f`;
-        kubectl.invokeAsync(cmd, undefined, (proc: ChildProcess) => {
-            proc.stdout.on('data', (data: string) => {
-                panel.addContent(data);
-            });
-        });
+        const followProcess = await kubectl.observeCommand(args);
+
+        // TODO: during rebase, we will need to also provide the followProcess.terminate method to the viewer
+        followProcess.lines.subscribe(
+            (line) => { if (line) { panel.addContent(`${line}\n`); } },
+            (err: ExecResult) => kubectl.reportResult(err, { whatFailed: `Follow logs failed` })
+        );
+
         return;
     }
 
     try {
-        const result = await kubectl.invokeAsync(cmd);
-        if (!result || result.code !== 0) {
-            vscode.window.showErrorMessage(`Error reading logs: ${result ? result.stderr : undefined}`);
+        const result = await kubectl.invokeCommand(cmd);
+        if (ExecResult.failed(result)) {
+            kubectl.reportFailure(result, { whatFailed: 'Error reading logs' });
         } else {
             panel.setInfo(result.stdout, containerResource.kindName);
         }
@@ -177,17 +181,16 @@ async function logsForPodFromOpenDocument(kubectl: Kubectl, editor: vscode.TextE
 async function logsForPodFromCurrentNamespace(kubectl: Kubectl, displayMode: LogsDisplayMode) {
     const namespace = await kubectlUtils.currentNamespace(kubectl);
 
-    quickPickKindName(
+    const pod = await quickPickKindName(
         [kuberesources.allKinds.pod],
-        { nameOptional: false },
-        async (pod) => {
-
-            const podSummary: PodSummary = {
-                name: pod.split('/')[1],
-                namespace: namespace // should figure out how to handle namespaces.
-            };
-
-            await getLogsForPod(kubectl, podSummary, displayMode);
-        }
+        { nameOptional: false }
     );
+    if (pod) {
+        const podSummary: PodSummary = {
+            name: pod.split('/')[1],
+            namespace: namespace // should figure out how to handle namespaces.
+        };
+
+        await getLogsForPod(kubectl, podSummary, displayMode);
+    }
 }

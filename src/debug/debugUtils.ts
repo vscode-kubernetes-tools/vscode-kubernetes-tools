@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 
 import { Kubectl } from "../kubectl";
 import { Dictionary } from "../utils/dictionary";
+import { ExecResult } from "../binutilplusplus";
 
 async function promptForPort(promptMessage: string, defaultPort: string): Promise<string | undefined> {
     const input = await vscode.window.showInputBox({
@@ -67,8 +68,8 @@ export async function getProcesses(kubectl: Kubectl, pod: string, podNamespace: 
     // invocation will get.
     const execCmd = `exec ${pod} ${nsarg} ${containerCommand} -- ps -o pid,command -e -w -w`;
 
-    const execResult = await kubectl.invokeAsync(execCmd);
-    if (execResult && execResult.code === 0) {
+    const execResult = await kubectl.invokeCommand(execCmd);
+    if (ExecResult.succeeded(execResult)) {
         /**
          * PID   COMMAND
          *  1    java -Djava.security.egd=file:/dev/./urandom -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=1044,quiet=y -jar target/app.jar

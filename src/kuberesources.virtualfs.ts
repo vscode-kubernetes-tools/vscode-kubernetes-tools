@@ -5,9 +5,10 @@ import * as querystring from 'querystring';
 
 import { Kubectl } from './kubectl';
 import { Host } from './host';
-import { ShellResult } from './shell';
-import { helmExecAsync, helmSyntaxVersion, HelmSyntaxVersion } from './helm.exec';
+import { helmSyntaxVersion, HelmSyntaxVersion, helmInvokeCommandWithFeedback } from './helm.exec';
 import * as config from './components/config/config';
+import { ExecResult } from './binutilplusplus';
+import { Errorable } from './errorable';
 
 export const K8S_RESOURCE_SCHEME = "k8smsx";
 export const KUBECTL_RESOURCE_AUTHORITY = "loadkubernetescore";
@@ -69,27 +70,40 @@ export class KubernetesResourceVirtualFileSystemProvider implements FileSystemPr
         const ns = query.ns as string | undefined;
         const resourceAuthority = uri.authority;
 
-        const sr = await this.execLoadResource(resourceAuthority, ns, value, outputFormat);
+        const eer = await this.execLoadResource(resourceAuthority, ns, value, outputFormat);
 
-        if (!sr || sr.code !== 0) {
-            const message = sr ? sr.stderr : "Unable to run command line tool";
-            this.host.showErrorMessage('Get command failed: ' + message);
+        if (Errorable.failed(eer)) {
+            this.host.showErrorMessage(eer.error[0]);
+            throw eer.error[0];
+        }
+
+        const er = eer.result;
+
+        if (ExecResult.failed(er)) {
+            const message = ExecResult.failureMessage(er, { whatFailed: 'Get command failed'});
+            if (er.resultKind === 'exec-bin-not-found') {
+                this.kubectl.promptInstallDependencies(er, message);  // It doesn't matter which bincontext we go through for this  // TODO: have a shared exec context with the host, shell and fs members
+            } else {
+                this.host.showErrorMessage(message);
+            }
             throw message;
         }
 
-        return sr.stdout;
+        return er.stdout;
     }
 
-    async execLoadResource(resourceAuthority: string, ns: string | undefined, value: string, outputFormat: string): Promise<ShellResult | undefined> {
+    async execLoadResource(resourceAuthority: string, ns: string | undefined, value: string, outputFormat: string): Promise<Errorable<ExecResult>> {
         switch (resourceAuthority) {
             case KUBECTL_RESOURCE_AUTHORITY:
                 const nsarg = ns ? `--namespace ${ns}` : '';
-                return await this.kubectl.invokeAsyncWithProgress(`-o ${outputFormat} ${nsarg} get ${value}`, `Loading ${value}...`);
+                const ker = await this.kubectl.invokeCommandWithFeedback(`-o ${outputFormat} ${nsarg} get ${value}`, `Loading ${value}...`);
+                return { succeeded: true, result: ker };
             case HELM_RESOURCE_AUTHORITY:
                 const scopearg = ((await helmSyntaxVersion()) === HelmSyntaxVersion.V2) ? '' : 'all';
-                return await helmExecAsync(`get ${scopearg} ${value}`);
+                const her = await helmInvokeCommandWithFeedback(`get ${scopearg} ${value}`, `Loading ${value}...`);
+                return { succeeded: true, result: her };
             default:
-                return { code: -99, stdout: '', stderr: `Internal error: please raise an issue with the error code InvalidObjectLoadURI and report authority ${resourceAuthority}.` };
+                return { succeeded: false, error: [`Internal error: please raise an issue with the error code InvalidObjectLoadURI and report authority ${resourceAuthority}.`] };
         }
     }
 

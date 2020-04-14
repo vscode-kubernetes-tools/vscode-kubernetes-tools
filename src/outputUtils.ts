@@ -7,7 +7,7 @@ import { Dictionary } from "./utils/dictionary";
  * @param columnSeparator a regex for the column separators
  * @return array of objects with key as column header and value
  */
-export function parseLineOutput(lineOutput: string[], columnSeparator: RegExp): { [key: string]: string }[] {
+export function parseLineOutput(lineOutput: string[], columnSeparator: RegExp): Dictionary<string>[] {
     const headers = lineOutput.shift();
     if (!headers) {
         return [];

@@ -17,3 +17,13 @@ export function succeeded<T>(e: Errorable<T>): e is Succeeded<T> {
 export function failed<T>(e: Errorable<T>): e is Failed {
     return !e.succeeded;
 }
+
+export namespace Errorable {
+    export function succeeded<T>(e: Errorable<T>): e is Succeeded<T> {
+        return e.succeeded;
+    }
+
+    export function failed<T>(e: Errorable<T>): e is Failed {
+        return !e.succeeded;
+    }
+}

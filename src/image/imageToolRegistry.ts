@@ -33,7 +33,7 @@ class DockerLikeImageBuildTool implements ContainerImageBuildTool {
     protected readonly context: binutil.BinCheckContext;
 
     constructor(readonly binName: string) {
-        this.context = { host : host, fs : fs, shell : shell, installDependenciesCallback : () => {}, binFound : false, binPath : binName };
+        this.context = { host : host, fs : fs, shell : shell, binFound : false, binPath : binName };
     }
 
     getBuildCommand(image: string): string {

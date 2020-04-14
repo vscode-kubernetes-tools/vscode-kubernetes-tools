@@ -4,6 +4,7 @@ import { kubeChannel } from "./kubeChannel";
 import { sleep } from "./sleep";
 import { ObjectMeta, KubernetesCollection, DataResource, Namespace, Pod, KubernetesResource, CRD } from './kuberesources.objectmodel';
 import { failed, Errorable } from "./errorable";
+import { ExecResult } from "./binutilplusplus";
 import { shellMessage } from "./shell";
 
 export interface KubectlContext {
@@ -67,17 +68,25 @@ export interface DataHolder {
     readonly data: any;
 }
 
-async function getKubeconfig(kubectl: Kubectl): Promise<Kubeconfig | null> {
-    const shellResult = await kubectl.asJson<any>("config view -o json");
-    if (failed(shellResult)) {
-        vscode.window.showErrorMessage(shellResult.error[0]);
-        return null;
-    }
-    return shellResult.result;
+export interface ConfigReadOptions {
+    readonly silent?: boolean;  // TODO: get rid of this because it is ambiguous - but convenient for now!
 }
 
-export async function getCurrentClusterConfig(kubectl: Kubectl): Promise<ClusterConfig | undefined> {
-    const kubeConfig = await getKubeconfig(kubectl);
+async function getKubeconfig(kubectl: Kubectl, options: ConfigReadOptions): Promise<Kubeconfig | null> {
+    const config = await kubectl.readJSON<any>("config view -o json");
+    if (ExecResult.failed(config)) {
+        if (options.silent) {
+            console.log(ExecResult.failureMessage(config, {}));
+        } else {
+            kubectl.reportFailure(config, {});
+        }
+        return null;
+    }
+    return config.result;
+}
+
+export async function getCurrentClusterConfig(kubectl: Kubectl, options: ConfigReadOptions): Promise<ClusterConfig | undefined> {
+    const kubeConfig = await getKubeconfig(kubectl, options);
     if (!kubeConfig || !kubeConfig.clusters || !kubeConfig.contexts) {
         return undefined;
     }
@@ -89,8 +98,8 @@ export async function getCurrentClusterConfig(kubectl: Kubectl): Promise<Cluster
     };
 }
 
-export async function getContexts(kubectl: Kubectl): Promise<KubectlContext[]> {
-    const kubectlConfig = await getKubeconfig(kubectl);
+export async function getContexts(kubectl: Kubectl, options: ConfigReadOptions): Promise<KubectlContext[]> {
+    const kubectlConfig = await getKubeconfig(kubectl, options);
     if (!kubectlConfig) {
         return [];
     }
@@ -106,27 +115,40 @@ export async function getContexts(kubectl: Kubectl): Promise<KubectlContext[]> {
     });
 }
 
-export async function getCurrentContext(kubectl: Kubectl): Promise<KubectlContext | undefined> {
-    const contexts = await getContexts(kubectl);
+export async function getCurrentContext(kubectl: Kubectl, options: ConfigReadOptions): Promise<KubectlContext | undefined> {
+    const contexts = await getContexts(kubectl, options);
     return contexts.find((c) => c.active);
 }
 
 export async function deleteCluster(kubectl: Kubectl, context: KubectlContext): Promise<boolean> {
-    const deleteClusterResult = await kubectl.invokeAsyncWithProgress(`config delete-cluster ${context.clusterName}`, "Deleting cluster...");
-    if (!deleteClusterResult || deleteClusterResult.code !== 0) {
-        kubeChannel.showOutput(`Failed to remove the underlying cluster for context ${context.clusterName} from the kubeconfig: ${deleteClusterResult ? deleteClusterResult.stderr : "Unable to run kubectl"}`, `Delete ${context.contextName}`);
+    const deleteClusterResult = await kubectl.invokeCommandWithFeedback(`config delete-cluster ${context.clusterName}`, "Deleting cluster...");
+    if (ExecResult.failed(deleteClusterResult)) {
+        const whatFailed = `Failed to remove the underlying cluster for context ${context.clusterName} from the kubeconfig`;
+        kubeChannel.showOutput(ExecResult.failureMessage(deleteClusterResult, { whatFailed }), `Delete ${context.contextName}`);
+
+        if (deleteClusterResult.resultKind === 'exec-bin-not-found') {
+            // Special handling for the first step in the process - if kubectl doesn't exist,
+            // prompt to install dependencies and _don't try any further_.  (Not worth trying to
+            // be this graceful about the possibility of kubectl disappearing between the first and
+            // last steps though!)
+            kubectl.promptInstallDependencies(deleteClusterResult, `Can't delete ${context.contextName}): kubectl not found`);
+            return false;
+        }
+
         vscode.window.showWarningMessage(`Failed to remove the underlying cluster for context ${context.contextName}. See Output window for more details.`);
     }
 
-    const deleteUserResult = await kubectl.invokeAsyncWithProgress(`config unset users.${context.userName}`, "Deleting user...");
-    if (!deleteUserResult || deleteUserResult.code !== 0) {
-        kubeChannel.showOutput(`Failed to remove the underlying user for context ${context.contextName} from the kubeconfig: ${deleteUserResult ? deleteUserResult.stderr : "Unable to run kubectl"}`);
+    const deleteUserResult = await kubectl.invokeCommandWithFeedback(`config unset users.${context.userName}`, "Deleting user...");
+    if (ExecResult.failed(deleteUserResult)) {
+        const whatFailed = `Failed to remove the underlying user for context ${context.contextName} from the kubeconfig`;
+        kubeChannel.showOutput(ExecResult.failureMessage(deleteUserResult, { whatFailed }));
         vscode.window.showWarningMessage(`Failed to remove the underlying user for context ${context.contextName}. See Output window for more details.`);
     }
 
-    const deleteContextResult = await kubectl.invokeAsyncWithProgress(`config delete-context ${context.contextName}`, "Deleting context...");
-    if (!deleteContextResult || deleteContextResult.code !== 0) {
-        kubeChannel.showOutput(`Failed to delete the specified cluster's context ${context.contextName} from the kubeconfig: ${deleteContextResult ? deleteContextResult.stderr : "Unable to run kubectl"}`);
+    const deleteContextResult = await kubectl.invokeCommandWithFeedback(`config delete-context ${context.contextName}`, "Deleting context...");
+    if (ExecResult.failed(deleteContextResult)) {
+        const whatFailed = `Failed to delete the specified cluster's context ${context.contextName} from the kubeconfig`;
+        kubeChannel.showOutput(ExecResult.failureMessage(deleteContextResult, { whatFailed }));
         vscode.window.showErrorMessage(`Delete ${context.contextName} failed. See Output window for more details.`);
         return false;
     }
@@ -230,9 +252,9 @@ export async function getPods(kubectl: Kubectl, selector: any, namespace: string
         labelStr = "--selector=" + labels.join(",");
     }
 
-    const pods = await kubectl.fromLines(`get pods -o wide ${nsFlag} ${labelStr}`);
-    if (failed(pods)) {
-        vscode.window.showErrorMessage(pods.error[0]);
+    const pods = await kubectl.readTable(`get pods -o wide ${nsFlag} ${labelStr}`);
+    if (ExecResult.failed(pods)) {
+        kubectl.reportFailure(pods, {});
         return [];
     }
 
@@ -248,7 +270,7 @@ export async function getPods(kubectl: Kubectl, selector: any, namespace: string
 }
 
 export async function currentNamespace(kubectl: Kubectl): Promise<string> {
-    const kubectlConfig = await getKubeconfig(kubectl);
+    const kubectlConfig = await getKubeconfig(kubectl, { silent: false }); // TODO: should this be silent
     if (!kubectlConfig) {
         return "";
     }
@@ -269,17 +291,22 @@ export async function currentNamespaceArg(kubectl: Kubectl): Promise<string> {
 }
 
 export async function switchNamespace(kubectl: Kubectl, namespace: string): Promise<boolean> {
-    const shellResult = await kubectl.invokeAsync("config current-context");
-    if (!shellResult || shellResult.code !== 0) {
-        kubeChannel.showOutput(`Failed. Cannot get the current context: ${shellResult ? shellResult.stderr : "Unable to run kubectl"}`, `Switch namespace ${namespace}`);
+    const er = await kubectl.invokeCommand("config current-context");
+    if (ExecResult.failed(er)) {
+        kubeChannel.showOutput(ExecResult.failureMessage(er, { whatFailed: 'Cannot get the current context' }), `Switch namespace ${namespace}`);
         vscode.window.showErrorMessage("Switch namespace failed. See Output window for more details.");
         return false;
     }
-    const updateResult = await kubectl.invokeAsyncWithProgress(`config set-context ${shellResult.stdout.trim()} --namespace="${namespace}"`,
+    const updateResult = await kubectl.invokeCommandWithFeedback(`config set-context ${er.stdout.trim()} --namespace="${namespace}"`,
         "Switching namespace...");
-    if (!updateResult || updateResult.code !== 0) {
-        kubeChannel.showOutput(`Failed to switch the namespace: ${updateResult ? updateResult.stderr : "Unable to run kubectl"}`, `Switch namespace ${namespace}`);
-        vscode.window.showErrorMessage("Switch namespace failed. See Output window for more details.");
+    if (ExecResult.failed(updateResult)) {
+        kubeChannel.showOutput(ExecResult.failureMessage(updateResult, { whatFailed: `Failed to switch the namespace` }), `Switch namespace ${namespace}`);
+
+        if (updateResult.resultKind === 'exec-bin-not-found') {
+            kubectl.promptInstallDependencies(updateResult, `Switch namespace failed: kubectl not found`);
+        } else {
+            vscode.window.showErrorMessage("Switch namespace failed. See Output window for more details.");
+        }
         return false;
     }
     return true;
@@ -313,9 +340,9 @@ export async function runAsDeployment(kubectl: Kubectl, deploymentName: string, 
         ...Object.keys(env || {}).map((key) => `--env="${key}=${env[key]}"`)
     ];
 
-    const runResult = await kubectl.invokeAsync(runCmd.join(" "));
-    if (!runResult || runResult.code !== 0) {
-        throw new Error(`Failed to run the image "${image}" on Kubernetes: ${runResult ? runResult.stderr : "Unable to run kubectl"}`);
+    const runResult = await kubectl.invokeCommand(runCmd.join(" "));
+    if (ExecResult.failed(runResult)) {
+        throw new Error(ExecResult.failureMessage(runResult, { whatFailed: `Failed to run the image "${image}" on Kubernetes` }));
     }
 
     return deploymentName;
@@ -344,16 +371,16 @@ export async function findPodsByLabel(kubectl: Kubectl, labelQuery: string): Pro
  */
 export async function waitForRunningPod(kubectl: Kubectl, podName: string): Promise<void> {
     while (true) {
-        const shellResult = await kubectl.invokeAsync(`get pod/${podName} --no-headers`);
-        if (!shellResult || shellResult.code !== 0) {
-            throw new Error(`Failed to get pod status: ${shellResult ? shellResult.stderr : "Unable to run kubectl" }`);
+        const er = await kubectl.invokeCommand(`get pod/${podName} --no-headers`);
+        if (ExecResult.failed(er)) {
+            throw new Error(ExecResult.failureMessage(er, { whatFailed: 'Failed to get pod status' }));
         }
-        const status = shellResult.stdout.split(/\s+/)[2];
+        const status = er.stdout.split(/\s+/)[2];
         kubeChannel.showOutput(`pod/${podName} status: ${status}`);
         if (status === "Running") {
             return;
         } else if (!isTransientPodState(status)) {
-            const logsResult = await kubectl.invokeAsync(`logs pod/${podName}`);
+            const logsResult = await kubectl.invokeCommand(`logs pod/${podName}`);
             kubeChannel.showOutput(`Failed to start the pod "${podName}". Its status is "${status}".
                 Pod logs:\n${shellMessage(logsResult, "Unable to retrieve logs")}`);
             throw new Error(`Failed to start the pod "${podName}". Its status is "${status}".`);
@@ -405,20 +432,18 @@ async function changeResourceFromUri(uri: vscode.Uri, kubectl: Kubectl, command:
         return;
     }
     const path = vscode.workspace.asRelativePath(uri);
-    const result = await kubectl.invokeAsync(`${command} -f "${path}"`);
-    if (!result || result.code !== 0) {
-        const message = result ? result.stderr : "Unable to run kubectl";
-        vscode.window.showErrorMessage(`Error ${verbParticiple} resource: ${message}`);
-        kubeChannel.showOutput(message, `Error ${verbParticiple} resource (${result ? result.code : 'program not found'})`);
+    const result = await kubectl.invokeCommand(`${command} -f "${path}"`);
+    if (ExecResult.failed(result)) {
+        kubectl.reportFailure(result, { whatFailed: `Error ${verbParticiple} resource` });
     } else {
         vscode.window.showInformationMessage(`Resource ${path} ${verbPast}.`);
     }
 }
 
 export async function namespaceResources(kubectl: Kubectl, ns: string): Promise<Errorable<string[]>> {
-    const arresult = await kubectl.fromLines('api-resources -o wide');
-    if (failed(arresult)) {
-        return arresult;
+    const arresult = await kubectl.readTable('api-resources -o wide');
+    if (ExecResult.failed(arresult)) {
+        return { succeeded: false, error: [ExecResult.failureMessage(arresult, {})] };
     }
 
     const resourceKinds = arresult.result.filter((r) => r.namespaced === 'true')
@@ -426,14 +451,11 @@ export async function namespaceResources(kubectl: Kubectl, ns: string): Promise<
                                          .map((r) => r.name);
     const resourceKindsList = resourceKinds.join(',');
 
-    const getresult = await kubectl.invokeAsync(`get ${resourceKindsList} -o name --namespace ${ns} --ignore-not-found`);
-    if (!getresult || getresult.code !== 0) {
-        const message = getresult ? getresult.stderr : 'Unable to run kubectl';
-        return { succeeded: false, error: [message] };
-    }
+    const getresult = await kubectl.invokeCommand(`get ${resourceKindsList} -o name --namespace ${ns} --ignore-not-found`);
 
-    const resources = getresult.stdout.split('\n').map((s) => s.trim()).filter((s) => s.length > 0);
-    return { succeeded: true, result: resources };
+    return ExecResult.tryMap<string[]>(getresult, (text) =>
+        text.split('\n').map((s) => s.trim()).filter((s) => s.length > 0)
+    );
 }
 
 export async function getResourceVersion(kubectl: Kubectl, resource: string): Promise<string | undefined> {

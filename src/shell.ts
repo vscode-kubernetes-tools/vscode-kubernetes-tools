@@ -7,6 +7,7 @@ import { getToolPath, getUseWsl } from './components/config/config';
 import { host } from './host';
 import { ChildProcess } from 'child_process';
 import { getKubeconfigPath } from './components/kubectl/kubeconfig';
+import { ExecResult } from './binutilplusplus';
 
 export enum Platform {
     Windows,
@@ -243,9 +244,9 @@ function ls(path: string): string[] {
     return shelljs.ls(path);
 }
 
-export function shellMessage(sr: ShellResult | undefined, invocationFailureMessage: string): string {
-    if (!sr) {
+export function shellMessage(er: ExecResult, invocationFailureMessage: string): string {
+    if (er.resultKind === 'exec-bin-not-found' || er.resultKind === 'exec-failed') {
         return invocationFailureMessage;
     }
-    return sr.code === 0 ? sr.stdout : sr.stderr;
+    return er.resultKind === 'exec-succeeded' ? er.stdout : er.stderr;
 }

@@ -9,6 +9,7 @@ import { KubernetesExplorer } from './components/clusterexplorer/explorer';
 import { allKinds } from './kuberesources';
 import { failed } from './errorable';
 import { ClusterExplorerConfigurationValueNode, ClusterExplorerResourceNode } from './components/clusterexplorer/node';
+import { ExecResult } from './binutilplusplus';
 
 export const uriScheme: string = 'k8sviewfiledata';
 
@@ -72,9 +73,9 @@ export async function deleteKubernetesConfigFile(kubectl: Kubectl, obj: ClusterE
     const dataHolder = json.result;
     dataHolder.data = removeKey(dataHolder.data, obj.key);
     const out = JSON.stringify(dataHolder);
-    const shellRes = await kubectl.invokeAsync(`replace -f - --namespace=${currentNS}`, out);
-    if (!shellRes || shellRes.code !== 0) {
-        vscode.window.showErrorMessage('Failed to delete file: ' + (shellRes ? shellRes.stderr : "Unable to run kubectl"));
+    const er = await kubectl.invokeCommand(`replace -f - --namespace=${currentNS}`, out);
+    if (ExecResult.failed(er)) {
+        kubectl.reportFailure(er, { whatFailed: 'Failed to delete file' });
         return;
     }
     explorer.refresh();
@@ -115,9 +116,9 @@ export async function addKubernetesConfigFile(kubectl: Kubectl, obj: ClusterExpl
             }
         });
         const out = JSON.stringify(dataHolder);
-        const shellRes = await kubectl.invokeAsync(`replace -f - --namespace=${currentNS}`, out);
-        if (!shellRes || shellRes.code !== 0) {
-            vscode.window.showErrorMessage('Failed to add file(s) to resource ${obj.id}: ' + (shellRes ? shellRes.stderr : "Unable to run kubectl"));
+        const er = await kubectl.invokeCommand(`replace -f - --namespace=${currentNS}`, out);
+        if (ExecResult.failed(er)) {
+            kubectl.reportFailure(er, { whatFailed: `Failed to add file(s) to resource ${obj.name}` });
             return;
         }
         explorer.refresh();

@@ -4,7 +4,6 @@ import { helm as logger } from './logger';
 import * as YAML from 'yamljs';
 import * as _ from 'lodash';
 import * as tmp from 'tmp';
-import * as extension from './extension';
 import * as helmrepoexplorer from './helm.repoExplorer';
 import * as helm from './helm';
 import { showWorkspaceFolderPick } from './hostutils';
@@ -15,11 +14,14 @@ import { parseLineOutput } from './outputUtils';
 import { currentNamespace } from './kubectlUtils';
 import { Kubectl } from './kubectl';
 import { getToolPath } from './components/config/config';
-import { host } from './host';
+import { host, LongRunningUIOptions } from './host';
 import * as fs from './wsl-fs';
+import { fs as shellfs } from './fs';
 import { preview } from './utils/preview';
 import { ClusterExplorerNode } from './components/clusterexplorer/node';
 import { NODE_TYPES } from './components/clusterexplorer/explorer';
+import { installDependencies } from './components/installer/installdependencies';
+import { ExecResult, invokeForResult, ExternalBinary, Context } from './binutilplusplus';
 
 export interface PickChartUIOptions {
     readonly warnIfNoCharts: boolean;
@@ -570,6 +572,32 @@ export async function helmExecAsync(args: string): Promise<ShellResult | undefin
     return await sh.exec(cmd);
 }
 
+const HELM_BINARY: ExternalBinary = {
+    binBaseName: 'helm',
+    configKeyName: 'helm',
+    displayName: 'Helm',
+    offersInstall: true,
+};
+
+const HELM_CONTEXT: Context = {
+    host: host,
+    fs: shellfs,
+    shell: sh,
+    pathfinder: undefined,
+    binary: HELM_BINARY,
+    status: undefined,
+};
+
+export async function helmInvokeCommand(command: string): Promise<ExecResult> {
+    return await invokeForResult(HELM_CONTEXT, command, undefined);
+}
+
+export async function helmInvokeCommandWithFeedback(command: string, uiOptions: string | LongRunningUIOptions): Promise<ExecResult> {
+    return await HELM_CONTEXT.host.longRunning(uiOptions, () =>
+        invokeForResult(HELM_CONTEXT, command, undefined)
+    );
+}
+
 const HELM_PAGING_PREFIX = "next:";
 
 export async function helmListAll(namespace?: string): Promise<Errorable<{ [key: string]: string }[]>> {
@@ -619,7 +647,7 @@ export function ensureHelm(mode: EnsureMode) {
             vscode.window.showErrorMessage(`${configuredBin} does not exist!`, "Install dependencies").then((str) =>
             {
                 if (str === "Install dependencies") {
-                    extension.installDependencies();
+                    installDependencies();
                 }
             });
         }
@@ -632,7 +660,7 @@ export function ensureHelm(mode: EnsureMode) {
         vscode.window.showErrorMessage(`Could not find Helm binary.`, "Install dependencies").then((str) =>
         {
             if (str === "Install dependencies") {
-                extension.installDependencies();
+                installDependencies();
             }
         });
     }
