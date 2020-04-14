@@ -7,7 +7,7 @@ import * as tmp from 'tmp';
 import * as helmrepoexplorer from './helm.repoExplorer';
 import * as helm from './helm';
 import { showWorkspaceFolderPick } from './hostutils';
-import { shell as sh, ShellResult, ExecCallback, shell } from './shell';
+import { shell as sh, ShellResult, ExecCallback } from './shell';
 import { K8S_RESOURCE_SCHEME, HELM_RESOURCE_AUTHORITY } from './kuberesources.virtualfs';
 import { Errorable, failed } from './errorable';
 import { parseLineOutput } from './outputUtils';
@@ -582,7 +582,7 @@ const HELM_BINARY: ExternalBinary = {
 const HELM_CONTEXT: Context = {
     host: host,
     fs: shellfs,
-    shell: shell,
+    shell: sh,
     pathfinder: undefined,
     binary: HELM_BINARY,
     status: undefined,
