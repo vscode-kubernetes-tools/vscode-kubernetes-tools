@@ -172,4 +172,10 @@ export class LogsPanel extends WebPanel {
             </body>
         </html>`;
     }
+
+    protected dispose<LogsPanel>(_currentPanels: Map<string, LogsPanel>) {
+        this.deleteAppendContentProcess();
+        super.dispose(LogsPanel.currentPanels);
+    }
+
 }

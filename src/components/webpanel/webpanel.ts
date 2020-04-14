@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import { LogsPanel } from '../logs/logsWebview';
 
 export abstract class WebPanel {
     private disposables: vscode.Disposable[] = [];
@@ -54,10 +53,6 @@ export abstract class WebPanel {
     }
 
     protected dispose<T extends WebPanel>(currentPanels: Map<string, T>) {
-        const panelToDispose = currentPanels.get(this.resource);
-        if (panelToDispose && "appendContentProcess" in panelToDispose) {
-            (panelToDispose as unknown as LogsPanel).deleteAppendContentProcess();
-        }
         currentPanels.delete(this.resource);
 
         this.panel.dispose();
