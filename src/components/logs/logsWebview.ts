@@ -1,9 +1,12 @@
 import * as vscode from 'vscode';
 import { WebPanel } from '../webpanel/webpanel';
+import { RunningProcess } from '../../binutilplusplus';
 
 export class LogsPanel extends WebPanel {
     public static readonly viewType = 'vscodeKubernetesLogs';
     public static currentPanels = new Map<string, LogsPanel>();
+
+    public appendContentProcess: RunningProcess | undefined;
 
     public static createOrShow(content: string, resource: string): LogsPanel {
         const fn = (panel: vscode.WebviewPanel, content: string, resource: string): LogsPanel => {
@@ -22,11 +25,21 @@ export class LogsPanel extends WebPanel {
 
     public addContent(content: string) {
         this.content += content;
-        if (this.canProcessMessages) {
-            this.panel.webview.postMessage({
-                command: 'content',
-                text: content,
-            });
+        this.panel.webview.postMessage({
+            command: 'content',
+            text: content,
+        });
+    }
+
+    public setAppendContentProcess(proc: RunningProcess) {
+        this.deleteAppendContentProcess();
+        this.appendContentProcess = proc;
+    }
+
+    public deleteAppendContentProcess() {
+        if (this.appendContentProcess) {
+            this.appendContentProcess.terminate();
+            this.appendContentProcess = undefined;
         }
     }
 
@@ -159,4 +172,10 @@ export class LogsPanel extends WebPanel {
             </body>
         </html>`;
     }
+
+    protected dispose() {
+        this.deleteAppendContentProcess();
+        super.dispose(LogsPanel.currentPanels);
+    }
+
 }

@@ -116,6 +116,7 @@ async function getLogsForContainer(
 
     if (displayMode === LogsDisplayMode.Follow) {
         const followProcess = await kubectl.observeCommand(args);
+        panel.setAppendContentProcess(followProcess);
 
         // TODO: during rebase, we will need to also provide the followProcess.terminate method to the viewer
         followProcess.lines.subscribe(
@@ -131,7 +132,8 @@ async function getLogsForContainer(
         if (ExecResult.failed(result)) {
             kubectl.reportFailure(result, { whatFailed: 'Error reading logs' });
         } else {
-            panel.setInfo(result.stdout, containerResource.kindName);
+            panel.deleteAppendContentProcess();
+            panel.setContent(result.stdout);
         }
     } catch (err) {
         vscode.window.showErrorMessage(`Error reading logs ${err}`);
