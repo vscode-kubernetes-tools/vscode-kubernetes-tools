@@ -29,10 +29,10 @@ export namespace ClusterExplorerV1_1 {
 
     export interface ClusterExplorerResourceNode {
         readonly nodeType: 'resource';
-        readonly namespace: string | null;
+        readonly namespace: string;
         readonly resourceKind: ResourceKind;
         readonly name: string;
-        readonly metadata?: any;
+        readonly metadata: object;
     }
 
     export interface ClusterExplorerGroupingFolderNode {

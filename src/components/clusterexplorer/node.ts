@@ -37,9 +37,9 @@ export interface ClusterExplorerMessageNode extends ClusterExplorerNodeBase {
 export interface ClusterExplorerResourceNode extends ClusterExplorerNodeBase {
     readonly nodeType: KubernetesExplorerNodeTypeResource;
     readonly name: string;
-    readonly namespace: string | null;
+    readonly namespace: string;
     readonly kindName: string;
-    readonly metadata: ObjectMeta | undefined;
+    readonly metadata: ObjectMeta;
     readonly kind: ResourceKind;
     uri(outputFormat: string): vscode.Uri;
 }

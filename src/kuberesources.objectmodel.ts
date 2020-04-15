@@ -9,7 +9,7 @@ export interface KubernetesCollection<T extends KubernetesResource> {
 
 export interface ObjectMeta {
     readonly name: string;
-    readonly namespace?: string;
+    readonly namespace: string;
     readonly labels?: KeyValuePairs;
 }
 
