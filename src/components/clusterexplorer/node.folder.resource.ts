@@ -25,14 +25,18 @@ export class ResourceFolderNode extends FolderNode implements ClusterExplorerRes
         if (lister) {
             return await lister.list(kubectl, this.kind);
         }
-        const childrenLines = await kubectl.asLines(`get ${this.kind.abbreviation}`);
+        const childrenLines = await kubectl.asLines(`get ${this.kind.abbreviation} -o custom-columns=NAME:.metadata.name,NAMESPACE:.metadata.namespace`);
         if (failed(childrenLines)) {
             host.showErrorMessage(childrenLines.error[0]);
             return [new MessageNode("Error")];
         }
         return childrenLines.result.map((line) => {
             const bits = line.split(' ');
-            return ResourceNode.create(this.kind, bits[0], undefined, undefined);
+            const metadata = {
+                name: bits[0],
+                namespace: bits[1]
+            };
+            return ResourceNode.create(this.kind, bits[0], metadata, undefined);
         });
     }
 

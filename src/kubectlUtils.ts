@@ -41,7 +41,7 @@ interface Kubeconfig {
 
 export interface KubernetesObject {
     readonly name: string;
-    readonly metadata: ObjectMeta | undefined;
+    readonly metadata: ObjectMeta;
 }
 
 export interface NamespaceInfo extends KubernetesObject {

@@ -12,18 +12,18 @@ import { NODE_TYPES } from './explorer';
 
 export class ResourceNode extends ClusterExplorerNodeImpl implements ClusterExplorerResourceNode {
 
-    static create(kind: kuberesources.ResourceKind, name: string, metadata: ObjectMeta | undefined, extraInfo: ResourceExtraInfo | undefined): ClusterExplorerResourceNode {
+    static create(kind: kuberesources.ResourceKind, name: string, metadata: ObjectMeta, extraInfo: ResourceExtraInfo | undefined): ClusterExplorerResourceNode {
         return new ResourceNode(kind, name, metadata, extraInfo);
     }
 
     readonly kindName: string;
     readonly nodeType = NODE_TYPES.resource;
-    constructor(readonly kind: kuberesources.ResourceKind, readonly name: string, readonly metadata: ObjectMeta | undefined, readonly extraInfo: ResourceExtraInfo | undefined) {
+    constructor(readonly kind: kuberesources.ResourceKind, readonly name: string, readonly metadata: ObjectMeta, readonly extraInfo: ResourceExtraInfo | undefined) {
         super(NODE_TYPES.resource);
         this.kindName = `${kind.abbreviation}/${name}`;
     }
-    get namespace(): string | null {
-        return (this.metadata && this.metadata.namespace) ? this.metadata.namespace : null;
+    get namespace(): string {
+        return this.metadata.namespace;
     }
     uri(outputFormat: string): vscode.Uri {
         return kubefsUri(this.namespace, this.kindName, outputFormat);
