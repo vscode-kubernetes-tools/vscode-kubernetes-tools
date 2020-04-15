@@ -1,3 +1,5 @@
+/* eslint-disable camelcase */
+
 import * as v1 from "./v1";
 import * as v1_1 from "./v1_1";
 import { API } from "../../contract/api";

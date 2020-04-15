@@ -1,3 +1,5 @@
+/* eslint-disable camelcase */
+
 import * as vscode from 'vscode';
 
 import { ClusterExplorerV1_1 } from '../../contract/cluster-explorer/v1_1';
