@@ -18,6 +18,7 @@ One of the key features of VS Code Kubernetes Extension is its one-click debuggi
       * `vs-kubernetes.nodejs-autodetect-remote-root` - This flag controls how the extension locates the root of the source code in the container. If true will try to automatically get the root location of the source code in the container, by getting the CWD of the nodejs process. If false, the `remoteRoot` setting in the debug configuration will be set to the value of the `vs-kubernetes.nodejs-remote-root` setting.
       * `vs-kubernetes.nodejs-remote-root` - User specified root location of the source code in the container. Remote root is passed to the debug configuration to allow vscode to map local files to files in the container. If `vs-kubernetes.nodejs-autodetect-remote-root` is set to `false` and `vs-kubernetes.nodejs-remote-root` is empty, no remoteRoot is set in the debug configuration. For more info on Node.js remote debugging see [vscode documentation](https://code.visualstudio.com/docs/nodejs/nodejs-debugging#_remote-debugging)
       * `vs-kubernetes.nodejs-debug-port` - Sets the nodejs remote debugging port. The default for node is 9229.
+      * `vs-kubernetes.dotnet-source-file-map` - Sets the compilation root for the vsdbg debugger in order to have a sourceFileMap in the attach configuration
 
    * `vsdocker.imageUser` - Image prefix for docker images e.g. 'docker.io/brendanburns'.
 

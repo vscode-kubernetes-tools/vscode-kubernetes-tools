@@ -232,6 +232,12 @@ export function getPythonDebugPort(): number | undefined {
     return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.python-debug-port'];
 }
 
+
+// remote debugging sourceFileMap for dotnet
+export function getDotnetDebugSourceFileMap(): string | undefined {
+    return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.dotnet-source-file-map'];
+}
+
 // Functions for working with the list of resources to be watched
 
 export function getResourcesToBeWatched(): string[] {
