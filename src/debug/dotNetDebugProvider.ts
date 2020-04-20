@@ -49,12 +49,12 @@ export class DotNetDebugProvider implements IDebugProvider {
         };
         const map = extensionConfig.getDotnetDebugSourceFileMap();
         if (map) {
-            try{
+            try {
                 const json: string = `{"${map.replace("\\", "\\\\")}":"${workspaceFolder.replace("\\", "\\\\")}"}`;
                 const sourceFileMap: JSON = JSON.parse(json);
                 debugConfiguration['sourceFileMap'] = sourceFileMap;
-            }catch(Error){
-                kubeChannel.showOutput(Error.message);
+            } catch (error) {
+                kubeChannel.showOutput(error.message);
             }
         }
         const currentFolder = (vscode.workspace.workspaceFolders || []).find((folder) => folder.name === path.basename(workspaceFolder));
