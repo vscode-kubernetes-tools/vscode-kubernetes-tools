@@ -18,6 +18,7 @@ One of the key features of VS Code Kubernetes Extension is its one-click debuggi
       * `vs-kubernetes.nodejs-autodetect-remote-root` - This flag controls how the extension locates the root of the source code in the container. If true will try to automatically get the root location of the source code in the container, by getting the CWD of the nodejs process. If false, the `remoteRoot` setting in the debug configuration will be set to the value of the `vs-kubernetes.nodejs-remote-root` setting.
       * `vs-kubernetes.nodejs-remote-root` - User specified root location of the source code in the container. Remote root is passed to the debug configuration to allow vscode to map local files to files in the container. If `vs-kubernetes.nodejs-autodetect-remote-root` is set to `false` and `vs-kubernetes.nodejs-remote-root` is empty, no remoteRoot is set in the debug configuration. For more info on Node.js remote debugging see [vscode documentation](https://code.visualstudio.com/docs/nodejs/nodejs-debugging#_remote-debugging)
       * `vs-kubernetes.nodejs-debug-port` - Sets the nodejs remote debugging port. The default for node is 9229.
+      * `vs-kubernetes.dotnet-source-file-map` - Sets the compilation root for the vsdbg debugger in order to have a sourceFileMap in the attach configuration
 
    * `vsdocker.imageUser` - Image prefix for docker images e.g. 'docker.io/brendanburns'.
 
@@ -100,3 +101,14 @@ https://github.com/OmniSharp/omnisharp-vscode/wiki/Attaching-to-remote-processes
       * If `ps` is not installed on the machine, than `dotnet` will show up in the debugger pick list. If `dotnet` is chosen it will give you an error message with a link to this page.
       * If `dotnet` is chosen as the debugger and only one `dotnet` process is running on the container, that process will automatically be chosen.  If there is more than one dotnet process running at that time, you will be presented a process pick list, and you can choose the process you would like to debug.
       * The [C# for Visual Studio Code](https://marketplace.visualstudio.com/items?itemName=ms-dotnettools.csharp) extension is powered by OmniSharp. Found out more information regarding remote debugging with OmniSharp [here](https://github.com/OmniSharp/omnisharp-vscode/wiki/Attaching-to-remote-processes).
+      * In case of the `Kubernetes: Debug(Attach)` action is used for debugging, you might need to set the build root of your docker image in order to enable the debugger to map the symbols to your code.
+      When you use a docker image to build your code (so the build root differs from the one on your local system) you should set the `vs-kubernetes.dotnet-source-file-map` parameter to add a sourceFileMap entry to the debug configuration.
+
+         ```javascript
+         "sourceFileMap": {
+            "<buildRoot>":"<local source>"
+         }
+         ```
+
+         This sourceFileMap will ten map the symbols found by the debugger to your local source code. The `vs-kubernetes.dotnet-source-file-map` shall contain the build root, the location of your local source code is determined by the selected workspace folder.
+         For mor information please have a look into the [C# for Visual Studio Code Launch Documentation](https://github.com/OmniSharp/omnisharp-vscode/blob/master/debugger-launchjson.md).
