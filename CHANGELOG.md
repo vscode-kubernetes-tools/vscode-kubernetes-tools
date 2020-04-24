@@ -1,5 +1,17 @@
 # Change Log
 
+## 1.2.0
+
+* Added Cluster Explorer API v1.1 (watch support, and metadata now always present)
+* Fixed filter not being applied to new logs in Follow Logs
+* Fixed breakpoints not working when debugging .NET applications
+* Fixed Start Minikube command not working because status check failed
+* Fixed issue where VS Code was injecting garbage into Set Kubeconfig
+* Fixed error and leak when reusing an existing logs panel
+
+Thanks to Matthias Janson and Luca Stocchi.  Luca also joins the project as a core
+maintainer!
+
 ## 1.1.1
 
 * You can now watch resources in the cluster explorer - get live updates as they change
