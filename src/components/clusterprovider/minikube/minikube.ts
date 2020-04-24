@@ -229,7 +229,11 @@ async function minikubeStatus(context: Context): Promise<MinikubeInfo> {
     const result = await context.shell.exec(`"${context.binPath}" status`);
 
     if (result && result.stderr.length === 0) {
-        const hostStatus = result.stdout.split('\n')[0].split(': ')[1].toLowerCase();
+        const hostItem = result.stdout.split('\n').find((status) => status.includes('host'));
+        if (!hostItem) {
+            throw new Error(`Failed to get host status: Unable to run Minikube`);
+        }
+        const hostStatus = hostItem.split(': ')[1].toLowerCase();
         return {
             running: 'stopped' !== hostStatus,
             message: `${result.stdout}`
