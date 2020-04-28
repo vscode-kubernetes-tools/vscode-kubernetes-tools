@@ -6,7 +6,6 @@ import { formatComplex, formatOne, formatType } from '../schema-formatting';
 import * as swagger from '../components/swagger/swagger';
 import { succeeded } from '../errorable';
 import * as util from "./yaml-util";
-import { ExtensionContext } from 'vscode';
 
 interface KubernetesSchema {
     readonly name: string;
@@ -22,22 +21,22 @@ export class KubernetesClusterSchemaHolder {
     private definitions: { [key: string]: KubernetesSchema } = {};
     private schemaEnums: { [key: string]: { [key: string]: [string[]] } };
 
-    public static async fromActiveCluster(extensionContext: ExtensionContext, kubectl: Kubectl): Promise<KubernetesClusterSchemaHolder> {
+    public static async fromActiveCluster(kubectl: Kubectl): Promise<KubernetesClusterSchemaHolder> {
         const holder = new KubernetesClusterSchemaHolder();
-        await holder.loadSchemaFromActiveCluster(extensionContext, kubectl, KUBERNETES_SCHEMA_ENUM_FILE(extensionContext));
+        await holder.loadSchemaFromActiveCluster(kubectl, KUBERNETES_SCHEMA_ENUM_FILE());
         return holder;
     }
 
-    public static fallback(extensionContext: ExtensionContext): KubernetesClusterSchemaHolder {
+    public static fallback(): KubernetesClusterSchemaHolder {
         const holder = new KubernetesClusterSchemaHolder();
-        const fallbackSchema = util.loadJson(FALLBACK_SCHEMA_FILE(extensionContext));
-        holder.loadSchemaFromRaw(fallbackSchema, KUBERNETES_SCHEMA_ENUM_FILE(extensionContext));
+        const fallbackSchema = util.loadJson(FALLBACK_SCHEMA_FILE());
+        holder.loadSchemaFromRaw(fallbackSchema, KUBERNETES_SCHEMA_ENUM_FILE());
         return holder;
     }
 
-    private async loadSchemaFromActiveCluster(extensionContext: ExtensionContext, kubectl: Kubectl, schemaEnumFile?: string): Promise<void> {
+    private async loadSchemaFromActiveCluster(kubectl: Kubectl, schemaEnumFile?: string): Promise<void> {
         const clusterSwagger = await swagger.getClusterSwagger(kubectl);
-        const schemaRaw = succeeded(clusterSwagger) ? this.definitionsObject(clusterSwagger.result) : util.loadJson(FALLBACK_SCHEMA_FILE(extensionContext));
+        const schemaRaw = succeeded(clusterSwagger) ? this.definitionsObject(clusterSwagger.result) : util.loadJson(FALLBACK_SCHEMA_FILE());
         this.loadSchemaFromRaw(schemaRaw, schemaEnumFile);
     }
 

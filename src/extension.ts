@@ -413,7 +413,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
     const currentNS = await kubectlUtils.currentNamespace(kubectl);
     updateStatusBarItem(activeNamespaceStatusBarItem, currentNS, 'Current active namespace', !config.isNamespaceStatusBarDisabled());
 
-    await registerYamlSchemaSupport(context, activeContextTracker, kubectl);
+    await registerYamlSchemaSupport(activeContextTracker, kubectl);
 
     vscode.workspace.registerTextDocumentContentProvider(configmaps.uriScheme, configMapProvider);
 

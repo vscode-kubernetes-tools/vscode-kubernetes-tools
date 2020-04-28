@@ -21,11 +21,11 @@ declare type YamlSchemaContributor = (schema: string,
 
 let schemas: BackgroundContextCache<KubernetesClusterSchemaHolder> | null = null;
 
-export async function registerYamlSchemaSupport(context: vscode.ExtensionContext, activeContextTracker: ActiveValueTracker<string | null>, kubectl: Kubectl): Promise<void> {
+export async function registerYamlSchemaSupport(activeContextTracker: ActiveValueTracker<string | null>, kubectl: Kubectl): Promise<void> {
     schemas = new BackgroundContextCache(
         activeContextTracker,
-        () => KubernetesClusterSchemaHolder.fromActiveCluster(context, kubectl),
-        KubernetesClusterSchemaHolder.fallback(context));
+        () => KubernetesClusterSchemaHolder.fromActiveCluster(kubectl),
+        KubernetesClusterSchemaHolder.fallback());
 
     const yamlPlugin: any = await activateYamlExtension();
     if (!yamlPlugin || !yamlPlugin.registerContributor) {
