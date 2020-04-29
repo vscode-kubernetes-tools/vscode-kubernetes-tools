@@ -39,6 +39,11 @@ interface PodFromDocument {
     readonly namespace?: string;
 }
 
+enum PortSpecifier {
+    Required,
+    AllowEmpty,
+}
+
 type PortForwardFindPodsResult = PodFromDocument | FindPodsResult;
 
 function isFindResultFromDocument(obj: PortForwardFindPodsResult): obj is PodFromDocument {
@@ -183,7 +188,7 @@ async function promptForPort(kubectl: Kubectl, kind: string, resourceName: strin
 
     let defaultValue: string | undefined = undefined;
     if (extractedPorts.length > 0) {
-        const portPairs = extractedPorts.map(({port}) => `${port}:${port}`);
+        const portPairs = extractedPorts.map(({name, port}) => `${port}:${name||port}`);
         defaultValue = portPairs.join(' ');
     }
 
@@ -193,7 +198,7 @@ async function promptForPort(kubectl: Kubectl, kind: string, resourceName: strin
             value: defaultValue,
             prompt: `Port mappings in the format LOCAL:REMOTE. Separate multiple port mappings with spaces.`,
             validateInput: (portMapping: string) => {
-                const validatedPortMapping = validatePortMapping(portMapping);
+                const validatedPortMapping = validatePortMapping(portMapping, extractedPorts);
 
                 if (validatedPortMapping && validatedPortMapping.error) {
                     return validatedPortMapping.error;
@@ -209,31 +214,33 @@ async function promptForPort(kubectl: Kubectl, kind: string, resourceName: strin
     if (!portString) {
         return [];
     }
-    return buildPortMapping(portString);
+    return buildPortMapping(portString, extractedPorts);
 }
 
 /**
  * Validates the user supplied port mapping(s)
  * @param portMapping The portMapping string captured from an input field
+ * @param validPorts List of valid named ports
  * @returns A ValidationResult object describing the first error found.
  */
-function validatePortMapping(portMapping: string): ValidationResult | undefined {
+function validatePortMapping(portMapping: string, validPorts: ExtractedPort[] = []): ValidationResult | undefined {
     const portPairs = portMapping.split(' ');
-    const validationResults: ValidationResult[] = portPairs.map(validatePortPair);
+    const validationResults = portPairs.map((pair) => validatePortPair(validPorts, pair));
 
     return validationResults.find((result) => !result.valid);
 }
 
 /**
  * Validates a single port mapping
+ * @param validPorts List of valid named ports
  * @param portPair The port pair to validate
  * @returns An error to be displayed, or undefined
  */
-function validatePortPair(portPair: string): ValidationResult {
+function validatePortPair(validPorts: ExtractedPort[], portPair: string): ValidationResult {
     const splitMapping = portPair.split(':');
 
     // User provided only the target port
-    if (!portPair.includes(':') && Number(portPair)) {
+    if (!portPair.includes(':') && isPortValid(validPorts, portPair, PortSpecifier.Required)) {
         return {
             valid: true
         };
@@ -251,10 +258,8 @@ function validatePortPair(portPair: string): ValidationResult {
     const targetPort = splitMapping[1];
 
     if (
-        Number(localPort) &&
-        Number(localPort) <= MAX_PORT_COUNT &&
-        Number(targetPort) &&
-        Number(targetPort) <= MAX_PORT_COUNT
+        isPortValid(validPorts, localPort, PortSpecifier.AllowEmpty) &&
+        isPortValid(validPorts, targetPort, PortSpecifier.Required)
     ) {
         return {
             valid: true
@@ -268,25 +273,44 @@ function validatePortPair(portPair: string): ValidationResult {
 }
 
 /**
+ * Validates if the port is a named port or withing the valid range
+ * @param validPorts List of valid named ports
+ * @param port The port to validate
+ * @param portSpecifier Can the port be empty or zero
+ * @returns Boolean identifying if the port is valid
+ */
+function isPortValid(validPorts: ExtractedPort[], port: string, portSpecifier: PortSpecifier): boolean {
+    if (validPorts.map(({name}) => name).includes(port)) {
+        return true;
+    }
+    if (portSpecifier === PortSpecifier.AllowEmpty && ['', '0'].includes(port)) {
+        return true;
+    }
+    return 0 < Number(port) && Number(port) <= MAX_PORT_COUNT;
+}
+
+/**
  * Builds and returns multiple PortMapping objects
  * @param portString A validated, user provided string containing the port mappings
+ * @param namedPorts List of valid named ports
  * @returns An array containing the requested PortMappings
  */
-export function buildPortMapping(portString: string): PortMapping[] {
+export function buildPortMapping(portString: string, namedPorts: ExtractedPort[] = []): PortMapping[] {
     const portPairs = portString.split(' ');
-    return portPairs.map(buildPortPair);
+    return portPairs.map((pair) => buildPortPair(namedPorts, pair));
 }
 
 /**
  * Builds a single PortMapping object from the captured user input
+ * @param validPorts List of valid named ports
  * @param portString The port string provided by the user
  * @returns PortMapping object
  */
-function buildPortPair(portPair: string): PortMapping {
+function buildPortPair(validPorts: ExtractedPort[], portPair: string): PortMapping {
     // Only target port supplied.
     if (!portPair.includes(':')) {
         return {
-            targetPort: Number(portPair),
+            targetPort: buildPort(validPorts, portPair),
             localPort: undefined
         };
     }
@@ -297,9 +321,36 @@ function buildPortPair(portPair: string): PortMapping {
     const targetPort = splitString[1];
 
     return {
-        localPort: Number(localPort),
-        targetPort: Number(targetPort)
+        localPort: buildNullablePort(validPorts, localPort),
+        targetPort: buildPort(validPorts, targetPort)
     };
+}
+
+/**
+ * Builds a single numberic port for a PortMapping object from the captured user input allowing empty or zero value
+ * @param validPorts List of valid named ports
+ * @param portString The port provided by the user
+ * @returns numberic port number
+ */
+function buildNullablePort(validPorts: ExtractedPort[], port: string): number | undefined {
+    if (['', '0'].includes(port)) {
+        return undefined;
+    }
+    return buildPort(validPorts, port);
+}
+
+/**
+ * Builds a single numberic port for a PortMapping object from the captured user input
+ * @param validPorts List of valid named ports
+ * @param portString The port provided by the user
+ * @returns numberic port number
+ */
+function buildPort(validPorts: ExtractedPort[], port: string): number {
+    const validPort = validPorts.find(({name}) => name === port);
+    if (validPort) {
+        return validPort.port;
+    }
+    return Number(port);
 }
 
 /**
