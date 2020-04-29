@@ -49,19 +49,10 @@ export async function portForwardKubernetes(kubectl: Kubectl, explorerNode?: any
     if (explorerNode) {
         // The port forward option only appears on pod level workloads in the tree view.
         const resourceNode = explorerNode as ClusterExplorerResourceNode;
-        const podName = resourceNode.name;
+        const kind = resourceNode.kind.apiName || 'pods';
+        const resourceName = resourceNode.name;
         const namespace = resourceNode.namespace || await kubectlUtils.currentNamespace(kubectl);
-        const portMapping = await promptForPort(kubectl, podName, namespace);
-        if (portMapping.length !== 0) {
-            if (explorerNode.kind === kuberesources.allKinds.pod) {
-                portForwardToPod(kubectl, podName, portMapping, namespace);
-            } else if (explorerNode.kind === kuberesources.allKinds.service) {
-                portForwardToService(kubectl, resourceNode.name, portMapping, namespace);
-            } else if (explorerNode.kind === kuberesources.allKinds.deployment) {
-                portForwardToDeployment(kubectl, resourceNode.name, portMapping, namespace);
-            }
-        }
-        return;
+        return await promptAndForwardPort(kubectl, kind, resourceName, namespace);
     } else {
         let portForwardablePods: PortForwardFindPodsResult;
 
@@ -79,11 +70,7 @@ export async function portForwardKubernetes(kubectl: Kubectl, explorerNode?: any
         if (isFindResultFromDocument(portForwardablePods)) {
             // The pod is described by the open document. Skip asking which pod to use and go straight to port-forward.
             const podSelection = portForwardablePods.pod;
-            const portMapping = await promptForPort(kubectl, podSelection, portForwardablePods.namespace);
-            if (portMapping.length !== 0) {
-                portForwardToPod(kubectl, podSelection, portMapping, portForwardablePods.namespace);
-            }
-            return;
+            return await promptAndForwardPort(kubectl, 'pods', podSelection, portForwardablePods.namespace);
         }
 
         let podSelection: string | undefined;
@@ -105,10 +92,18 @@ export async function portForwardKubernetes(kubectl: Kubectl, explorerNode?: any
             return;
         }
         const namespace = await kubectlUtils.currentNamespace(kubectl);
-        const portMapping = await promptForPort(kubectl, podSelection, namespace);
-        if (portMapping.length !== 0) {
-            portForwardToPod(kubectl, podSelection, portMapping, namespace);
-        }
+        await promptAndForwardPort(kubectl, 'pods', podSelection, namespace);
+    }
+}
+
+/**
+ * Prompts the user on what port to port-forward to, and sets up the forwarding
+ * if a valid input was provided.
+ */
+async function promptAndForwardPort(kubectl: Kubectl, kind: string, resourceName: string, namespace?: string): Promise<void> {
+    const portMapping = await promptForPort(kubectl, resourceName, namespace);
+    if (portMapping.length !== 0) {
+        portForwardToResource(kubectl, kind, resourceName, portMapping, namespace);
     }
 }
 
