@@ -106,7 +106,12 @@ class HelmError extends HelmExplorerNodeImpl implements HelmObject {
 
     getTreeItem(): vscode.TreeItem {
         const treeItem = new vscode.TreeItem(this.text);
-        treeItem.tooltip = this.detail;
+        treeItem.tooltip = 'Click for details';
+        treeItem.command = {
+            title: 'Show details',
+            command: 'extension.showInfoMessage',
+            arguments: [this.detail]
+        }
         return treeItem;
     }
 

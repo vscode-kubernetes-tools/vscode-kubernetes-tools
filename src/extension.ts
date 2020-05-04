@@ -251,6 +251,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         // Commands - special no-op command for debouncing concurrent activations
         vscode.commands.registerCommand('extension.vsKubernetesDebounceActivation', () => {}),
 
+        // Commands - general
+        registerCommand('extension.showInfoMessage', showInfoMessage),
+
         // Draft debug configuration provider
         vscode.debug.registerDebugConfigurationProvider('draft', draftDebugProvider),
 
@@ -2270,7 +2273,13 @@ async function kubeconfigFromTreeNode(target?: CloudExplorerTreeNode): Promise<s
     return kubeconfigYaml;
 }
 
+async function showInfoMessage(message: string) {
+    await vscode.window.showInformationMessage(message);
+}
+
 function kubernetesFindCloudProviders() {
     const searchUrl = 'https://marketplace.visualstudio.com/search?term=kubernetes-extension-cloud-provider&target=VSCode&category=All%20categories&sortBy=Relevance';
     browser.open(searchUrl);
 }
+
+
