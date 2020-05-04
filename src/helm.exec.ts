@@ -274,6 +274,32 @@ export function helmGet(resourceNode?: ClusterExplorerNode) {
     });
 }
 
+export function helmUninstall(resourceNode?: ClusterExplorerNode) {
+    if (!resourceNode) {
+        return;
+    }
+    if (resourceNode.nodeType !== NODE_TYPES.helm.release) {
+        return;
+    }
+    const releaseName = resourceNode.releaseName;
+    logger.log("⎈⎈⎈ Uninstalling " + releaseName);
+    vscode.window.showWarningMessage(`This will uninstall ${releaseName}, this cannot be undone.`, 'Uninstall').then((opt) => {
+        if (opt === "Uninstall") {
+            helmExec(`del ${releaseName}`, (code, out, err) => {
+                logger.log(out);
+                logger.log(err);
+                if (code !== 0) {
+                    logger.log("⎈⎈⎈ UNINSTALL FAILED");
+                    vscode.window.showErrorMessage(`Error uninstalling ${releaseName} ${err}`);
+                } else{
+                    vscode.window.showInformationMessage(`Release ${releaseName} successfully uninstalled.`)
+                }
+            });
+        }
+
+    });
+}
+
 export function helmfsUri(releaseName: string): vscode.Uri {
     const docname = `helmrelease-${releaseName}.txt`;
     const nonce = new Date().getTime();
