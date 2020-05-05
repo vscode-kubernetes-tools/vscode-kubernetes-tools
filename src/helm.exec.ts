@@ -22,6 +22,7 @@ import { ClusterExplorerNode } from './components/clusterexplorer/node';
 import { NODE_TYPES } from './components/clusterexplorer/explorer';
 import { installDependencies } from './components/installer/installdependencies';
 import { ExecResult, invokeForResult, ExternalBinary, Context } from './binutilplusplus';
+import { refreshExplorer } from './components/clusterprovider/common/explorer';
 
 export interface PickChartUIOptions {
     readonly warnIfNoCharts: boolean;
@@ -283,7 +284,7 @@ export function helmUninstall(resourceNode?: ClusterExplorerNode) {
     }
     const releaseName = resourceNode.releaseName;
     logger.log("⎈⎈⎈ Uninstalling " + releaseName);
-    vscode.window.showWarningMessage(`This will uninstall ${releaseName}, this cannot be undone.`, 'Uninstall').then((opt) => {
+    vscode.window.showWarningMessage(`You are about to uninstall ${releaseName}. This action cannot be undone.`, 'Uninstall').then((opt) => {
         if (opt === "Uninstall") {
             helmExec(`del ${releaseName}`, (code, out, err) => {
                 logger.log(out);
@@ -291,8 +292,9 @@ export function helmUninstall(resourceNode?: ClusterExplorerNode) {
                 if (code !== 0) {
                     logger.log("⎈⎈⎈ UNINSTALL FAILED");
                     vscode.window.showErrorMessage(`Error uninstalling ${releaseName} ${err}`);
-                } else{
-                    vscode.window.showInformationMessage(`Release ${releaseName} successfully uninstalled.`)
+                } else {
+                    vscode.window.showInformationMessage(`Release ${releaseName} successfully uninstalled.`);
+                    refreshExplorer();
                 }
             });
         }
