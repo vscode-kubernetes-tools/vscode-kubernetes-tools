@@ -562,6 +562,11 @@
                     "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.file/i"
                 },
                 {
+                    "command": "extension.vsKubernetesCopy",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.helmrelease/i",
+                    "group": "1"
+                },
+                {
                     "command": "extension.helmFetch",
                     "group": "1",
                     "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem =~ /vsKubernetes\\.((chart)|(chartversion))/i"
