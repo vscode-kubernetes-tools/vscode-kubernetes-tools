@@ -78,6 +78,7 @@
         "onCommand:extension.helmPackage",
         "onCommand:extension.helmFetch",
         "onCommand:extension.helmInstall",
+        "onCommand:extension.helmUninstall",
         "onCommand:extension.helmDependencies",
         "onCommand:extension.helmConvertToTemplate",
         "onCommand:extension.helmParameterise",
@@ -561,6 +562,11 @@
                     "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.file/i"
                 },
                 {
+                    "command": "extension.vsKubernetesCopy",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.helmrelease/i",
+                    "group": "1"
+                },
+                {
                     "command": "extension.helmFetch",
                     "group": "1",
                     "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem =~ /vsKubernetes\\.((chart)|(chartversion))/i"
@@ -584,6 +590,11 @@
                     "command": "extension.helmInspectValues",
                     "group": "0@2",
                     "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem =~ /vsKubernetes\\.((chart)|(chartversion))/i"
+                },
+                {
+                    "command": "extension.helmUninstall",
+                    "group": "3",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.helmrelease/i"
                 },
                 {
                     "command": "kubernetes.cloudExplorer.mergeIntoKubeconfig",
@@ -1044,6 +1055,12 @@
                 "command": "extension.helmInstall",
                 "title": "Install",
                 "description": "Install a Helm chart into the cluster",
+                "category": "Helm"
+            },
+            {
+                "command": "extension.helmUninstall",
+                "title": "Uninstall",
+                "description": "Uninstall a Helm release",
                 "category": "Helm"
             },
             {
