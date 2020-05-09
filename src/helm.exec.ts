@@ -42,6 +42,17 @@ interface HelmRepositoriesFile {
     }>;
 }
 
+// Schema for Helm release
+// added to support rollback feature
+interface HelmRelease {
+    revision:    number;
+    updated:     string;
+    status:      string;
+    chart:       string;
+    appVersion: string;
+    description: string;
+}
+
 // This file contains utilities for executing command line tools, notably Helm.
 
 export async function helmVersion() {
@@ -297,6 +308,74 @@ export function helmUninstall(resourceNode?: ClusterExplorerNode) {
                     refreshExplorer();
                 }
             });
+        }
+    });
+}
+
+function quickPickForReleases(
+    release: HelmRelease
+): vscode.QuickPickItem {
+    return {
+        label: `${release.revision}`,
+        description: "",
+        detail: `Release (${release.revision}) ${release.status} (${release.updated})`,
+    };
+}
+
+export async function helmRollback(resourceNode?: ClusterExplorerNode) {
+    if (!resourceNode) {
+        return;
+    }
+    if (resourceNode.nodeType !== NODE_TYPES.helm.release) {
+        return;
+    }
+    const releaseName = resourceNode.releaseName;
+    const maxReleases = 20;
+    helmExec(`history ${releaseName} --max ${maxReleases} --output json`, async (code, out, err) => {
+        logger.log(out);
+        logger.log(err);
+        if (out !== "") {
+            const releaseHistory: HelmRelease[] = JSON.parse(out);
+            const previousReleases: HelmRelease[] = releaseHistory.filter((element: HelmRelease) => {
+                if (element.status !== "deployed") {
+                    return true;
+                }
+                return false;
+            }).reverse();
+            if (previousReleases.length > 0) {
+                logger.log("multiple releases found");
+                const pickItems = previousReleases.map((element: HelmRelease) => {
+                        return quickPickForReleases(element);
+                });
+                const selectedForRollback = await vscode.window.showQuickPick(pickItems, {
+                    placeHolder: "Select a release from last 20 historical releases.",
+                });
+                if (!selectedForRollback) {
+                    return;
+                }
+                vscode.window.showWarningMessage(`You are about to rollback ${releaseName} to release version ${selectedForRollback.label}. Continue?`, 'Rollback').then((opt) => {
+                    if (opt === "Rollback") {
+                        helmExec(`rollback ${releaseName} ${selectedForRollback.label} --cleanup-on-fail`, async (code, out, err) => {
+                            logger.log(out);
+                            logger.log(err);
+                            if (out !== "") {
+                                vscode.window.showInformationMessage(`Release ${releaseName} successfully rolled back to ${selectedForRollback.label}.`);
+                                refreshExplorer();
+                            }
+                            if (code !== 0) {
+                                vscode.window.showErrorMessage(`Error rolling back to ${selectedForRollback.label} for ${releaseName} ${err}`);
+                            }
+                        });
+                    }
+                });
+
+            } else {
+                vscode.window.showInformationMessage(`No historical releases found.`);
+            }
+        }
+        if (code !== 0) {
+            logger.log("⎈⎈⎈ CANNOT FETCH RELEASE HISTORY");
+            vscode.window.showErrorMessage(`Error fetching release history for ${releaseName} ${err}`);
         }
     });
 }

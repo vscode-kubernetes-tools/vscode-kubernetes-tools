@@ -235,6 +235,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.helmFetch', helmexec.helmFetch),
         registerCommand('extension.helmInstall', (o) => helmexec.helmInstall(kubectl, o)),
         registerCommand("extension.helmUninstall", helmexec.helmUninstall),
+        registerCommand("extension.helmRollback", helmexec.helmRollback),
         registerCommand('extension.helmDependencies', helmexec.helmDependencies),
         registerCommand('extension.helmConvertToTemplate', helmConvertToTemplate),
         registerCommand('extension.helmParameterise', helmParameterise),
