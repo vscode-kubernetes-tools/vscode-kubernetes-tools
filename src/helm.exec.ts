@@ -1,28 +1,28 @@
-import * as vscode from 'vscode';
-import * as filepath from 'path';
-import { helm as logger } from './logger';
-import * as YAML from 'yamljs';
 import * as _ from 'lodash';
+import * as filepath from 'path';
 import * as tmp from 'tmp';
-import * as helmrepoexplorer from './helm.repoExplorer';
-import * as helm from './helm';
-import { showWorkspaceFolderPick } from './hostutils';
-import { shell as sh, ShellResult, ExecCallback } from './shell';
-import { K8S_RESOURCE_SCHEME, HELM_RESOURCE_AUTHORITY } from './kuberesources.virtualfs';
-import { Errorable, failed } from './errorable';
-import { parseLineOutput } from './outputUtils';
-import { currentNamespace } from './kubectlUtils';
-import { Kubectl } from './kubectl';
-import { getToolPath } from './components/config/config';
-import { host, LongRunningUIOptions } from './host';
-import * as fs from './wsl-fs';
-import { fs as shellfs } from './fs';
-import { preview } from './utils/preview';
-import { ClusterExplorerNode } from './components/clusterexplorer/node';
+import * as vscode from 'vscode';
+import * as YAML from 'yamljs';
+import { Context, ExecResult, ExternalBinary, invokeForResult } from './binutilplusplus';
 import { NODE_TYPES } from './components/clusterexplorer/explorer';
-import { installDependencies } from './components/installer/installdependencies';
-import { ExecResult, invokeForResult, ExternalBinary, Context } from './binutilplusplus';
+import { ClusterExplorerNode } from './components/clusterexplorer/node';
 import { refreshExplorer } from './components/clusterprovider/common/explorer';
+import { getToolPath } from './components/config/config';
+import { installDependencies } from './components/installer/installdependencies';
+import { Errorable, failed } from './errorable';
+import { fs as shellfs } from './fs';
+import * as helm from './helm';
+import * as helmrepoexplorer from './helm.repoExplorer';
+import { host, LongRunningUIOptions } from './host';
+import { showWorkspaceFolderPick } from './hostutils';
+import { Kubectl } from './kubectl';
+import { currentNamespace } from './kubectlUtils';
+import { HELM_RESOURCE_AUTHORITY, K8S_RESOURCE_SCHEME } from './kuberesources.virtualfs';
+import { helm as logger } from './logger';
+import { parseLineOutput } from './outputUtils';
+import { ExecCallback, shell as sh, ShellResult } from './shell';
+import { preview } from './utils/preview';
+import * as fs from './wsl-fs';
 
 export interface PickChartUIOptions {
     readonly warnIfNoCharts: boolean;
@@ -312,6 +312,21 @@ export function helmUninstall(resourceNode?: ClusterExplorerNode) {
     });
 }
 
+export async function helmGetHistory(release: string): Promise<Errorable<HelmRelease[]>> {
+    if (!ensureHelm(EnsureMode.Alert)) {
+        return { succeeded: false, error: [ "Helm client is not installed" ] };
+    }
+    const releases: HelmRelease[] = [];
+    const sr = await helmExecAsync(`history ${release} --output json`);
+    if (!sr || sr.code !== 0) {
+        await vscode.window.showErrorMessage(`Helm fetch history failed: ${sr ? sr.stderr : "Unable to run Helm"}`);
+    } else {
+        const hist: HelmRelease[] = JSON.parse(sr.stdout);
+        releases.push(...hist);
+    }
+    return { succeeded: true, result: releases };
+}
+
 function quickPickForReleases(
     release: HelmRelease
 ): vscode.QuickPickItem {
@@ -330,21 +345,17 @@ export async function helmRollback(resourceNode?: ClusterExplorerNode) {
         return;
     }
     const releaseName = resourceNode.releaseName;
-    const maxReleases = 20;
-    helmExec(`history ${releaseName} --max ${maxReleases} --output json`, async (code, out, err) => {
-        logger.log(out);
-        logger.log(err);
-        if (out !== "") {
-            const releaseHistory: HelmRelease[] = JSON.parse(out);
-            const previousReleases: HelmRelease[] = releaseHistory.filter((element: HelmRelease) => {
-                if (element.status !== "deployed") {
-                    return true;
-                }
-                return false;
-            }).reverse();
-            if (previousReleases.length > 0) {
-                logger.log("multiple releases found");
-                const pickItems = previousReleases.map((element: HelmRelease) => {
+    const releaseHistory = await helmGetHistory(releaseName);
+    if (!failed(releaseHistory)) {
+        const previousReleases: HelmRelease[] = releaseHistory.result.filter((element: HelmRelease) => {
+            if (element.status !== "deployed") {
+                return true;
+            }
+            return false;
+        }).reverse();
+        if (previousReleases.length > 0) {
+            logger.log("multiple releases found");
+            const pickItems = previousReleases.map((element: HelmRelease) => {
                         return quickPickForReleases(element);
                 });
                 const selectedForRollback = await vscode.window.showQuickPick(pickItems, {
@@ -373,11 +384,6 @@ export async function helmRollback(resourceNode?: ClusterExplorerNode) {
                 vscode.window.showInformationMessage(`No historical releases found.`);
             }
         }
-        if (code !== 0) {
-            logger.log("⎈⎈⎈ CANNOT FETCH RELEASE HISTORY");
-            vscode.window.showErrorMessage(`Error fetching release history for ${releaseName} ${err}`);
-        }
-    });
 }
 
 export function helmfsUri(releaseName: string): vscode.Uri {

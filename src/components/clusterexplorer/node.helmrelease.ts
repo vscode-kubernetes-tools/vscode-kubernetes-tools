@@ -5,14 +5,25 @@ import { Kubectl } from '../../kubectl';
 import { Host } from '../../host';
 import { ClusterExplorerNode, ClusterExplorerNodeImpl, ClusterExplorerHelmReleaseNode } from './node';
 import { NODE_TYPES } from './explorer';
+import * as helmexec from '../../helm.exec';
+import { MessageNode } from './node.message';
+import { failed } from '../../errorable';
 
 export class HelmReleaseNode extends ClusterExplorerNodeImpl implements ClusterExplorerHelmReleaseNode {
     constructor(readonly releaseName: string, readonly status: string) {
         super(NODE_TYPES.helm.release);
     }
     readonly nodeType = NODE_TYPES.helm.release;
-    getChildren(_kubectl: Kubectl, _host: Host): vscode.ProviderResult<ClusterExplorerNode[]> {
-        return [];
+    async getChildren(_kubectl: Kubectl, _host: Host): Promise<ClusterExplorerNode[]> {
+        if (!helmexec.ensureHelm(helmexec.EnsureMode.Silent)) {
+            return [new MessageNode("Helm client is not installed")];
+        }
+        const history = await helmexec.helmGetHistory(this.releaseName);
+        if (failed(history)) {
+            return [new MessageNode("Helm history list error", history.error[0])];
+        }
+        return history.result.map((r) => new HelmReleaseNode(`${r.revision}`, r.status));
+
     }
     getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
         const treeItem = new vscode.TreeItem(this.releaseName, vscode.TreeItemCollapsibleState.None);
