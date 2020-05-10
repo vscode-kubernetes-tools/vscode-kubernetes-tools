@@ -6,6 +6,7 @@ import * as YAML from 'yamljs';
 import { Context, ExecResult, ExternalBinary, invokeForResult } from './binutilplusplus';
 import { NODE_TYPES } from './components/clusterexplorer/explorer';
 import { ClusterExplorerNode } from './components/clusterexplorer/node';
+import { HelmHistoryNode } from './components/clusterexplorer/node.helmrelease';
 import { refreshExplorer } from './components/clusterprovider/common/explorer';
 import { getToolPath } from './components/config/config';
 import { installDependencies } from './components/installer/installdependencies';
@@ -274,7 +275,7 @@ export function helmGet(resourceNode?: ClusterExplorerNode) {
     if (!resourceNode) {
         return;
     }
-    if (resourceNode.nodeType !== NODE_TYPES.helm.release) {
+    if ((resourceNode.nodeType !== NODE_TYPES.helm.release || NODE_TYPES.helm.history)) {
         return;
     }
     const releaseName = resourceNode.releaseName;
@@ -324,66 +325,32 @@ export async function helmGetHistory(release: string): Promise<Errorable<HelmRel
         const hist: HelmRelease[] = JSON.parse(sr.stdout);
         releases.push(...hist);
     }
-    return { succeeded: true, result: releases };
+    return { succeeded: true, result: releases.reverse() };
 }
 
-function quickPickForReleases(
-    release: HelmRelease
-): vscode.QuickPickItem {
-    return {
-        label: `${release.revision}`,
-        description: "",
-        detail: `Release (${release.revision}) ${release.status} (${release.updated})`,
-    };
-}
-
-export async function helmRollback(resourceNode?: ClusterExplorerNode) {
+export async function helmRollback(resourceNode?: HelmHistoryNode) {
     if (!resourceNode) {
         return;
     }
-    if (resourceNode.nodeType !== NODE_TYPES.helm.release) {
+    if (resourceNode.status === "deployed") {
         return;
     }
     const releaseName = resourceNode.releaseName;
-    const releaseHistory = await helmGetHistory(releaseName);
-    if (!failed(releaseHistory)) {
-        const previousReleases: HelmRelease[] = releaseHistory.result.filter((element: HelmRelease) => {
-            if (element.status !== "deployed") {
-                return true;
+    vscode.window.showWarningMessage(`You are about to rollback ${releaseName} to release version ${resourceNode.revision}. Continue?`, 'Rollback').then((opt) => {
+        if (opt === "Rollback") {
+            helmExec(`rollback ${releaseName} ${resourceNode.revision} --cleanup-on-fail`, async (code, out, err) => {
+            logger.log(out);
+            logger.log(err);
+            if (out !== "") {
+                vscode.window.showInformationMessage(`Release ${releaseName} successfully rolled back to ${resourceNode.revision}.`);
+                refreshExplorer();
             }
-            return false;
-        }).reverse();
-        if (previousReleases.length > 0) {
-            logger.log("multiple releases found");
-            const pickItems = previousReleases.map((element: HelmRelease) => {
-                        return quickPickForReleases(element);
-                });
-                const selectedForRollback = await vscode.window.showQuickPick(pickItems, {
-                    placeHolder: "Select a release from last 20 historical releases.",
-                });
-                if (!selectedForRollback) {
-                    return;
-                }
-                vscode.window.showWarningMessage(`You are about to rollback ${releaseName} to release version ${selectedForRollback.label}. Continue?`, 'Rollback').then((opt) => {
-                    if (opt === "Rollback") {
-                        helmExec(`rollback ${releaseName} ${selectedForRollback.label} --cleanup-on-fail`, async (code, out, err) => {
-                            logger.log(out);
-                            logger.log(err);
-                            if (out !== "") {
-                                vscode.window.showInformationMessage(`Release ${releaseName} successfully rolled back to ${selectedForRollback.label}.`);
-                                refreshExplorer();
-                            }
-                            if (code !== 0) {
-                                vscode.window.showErrorMessage(`Error rolling back to ${selectedForRollback.label} for ${releaseName} ${err}`);
-                            }
-                        });
-                    }
-                });
-
-            } else {
-                vscode.window.showInformationMessage(`No historical releases found.`);
+            if (code !== 0) {
+                vscode.window.showErrorMessage(`Error rolling back to ${resourceNode.revision} for ${releaseName} ${err}`);
             }
-        }
+        });
+    }
+});
 }
 
 export function helmfsUri(releaseName: string): vscode.Uri {

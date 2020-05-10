@@ -1,11 +1,11 @@
 import * as vscode from 'vscode';
-
-import { Kubectl } from '../../kubectl';
 import { Host } from '../../host';
-import { KubernetesExplorerNodeType, KUBERNETES_EXPLORER_NODE_CATEGORY, KubernetesExplorerNodeTypeError, KubernetesExplorerNodeTypeContext, KubernetesExplorerNodeTypeResourceFolder, KubernetesExplorerNodeTypeGroupingFolder, KubernetesExplorerNodeTypeResource, KubernetesExplorerNodeTypeConfigItem, KubernetesExplorerNodeTypeHelmRelease, KubernetesExplorerNodeTypeExtension } from './explorer';
+import { Kubectl } from '../../kubectl';
 import { KubectlContext } from '../../kubectlUtils';
 import { ResourceKind } from '../../kuberesources';
 import { ObjectMeta } from '../../kuberesources.objectmodel';
+import { KubernetesExplorerNodeType, KubernetesExplorerNodeTypeConfigItem, KubernetesExplorerNodeTypeContext, KubernetesExplorerNodeTypeError, KubernetesExplorerNodeTypeExtension, KubernetesExplorerNodeTypeGroupingFolder, KubernetesExplorerNodeTypeHelmHistory, KubernetesExplorerNodeTypeHelmRelease, KubernetesExplorerNodeTypeResource, KubernetesExplorerNodeTypeResourceFolder, KUBERNETES_EXPLORER_NODE_CATEGORY } from './explorer';
+
 
 export interface ClusterExplorerNodeBase {
     readonly nodeCategory: 'kubernetes-explorer-node';
@@ -52,9 +52,19 @@ export interface ClusterExplorerConfigurationValueNode extends ClusterExplorerNo
     readonly parentName: string;
 }
 
+
 export interface ClusterExplorerHelmReleaseNode extends ClusterExplorerNodeBase {
     readonly nodeType: KubernetesExplorerNodeTypeHelmRelease;
     readonly releaseName: string;
+}
+
+export interface ClusterExplorerHelmHistoryNode extends ClusterExplorerNodeBase {
+    readonly nodeType: KubernetesExplorerNodeTypeHelmHistory;
+    readonly releaseName: string;
+    readonly revision: number;
+    readonly updated:  string;
+    readonly status: string;
+    readonly description: string;
 }
 
 export interface ClusterExplorerCustomNode extends ClusterExplorerNodeBase {

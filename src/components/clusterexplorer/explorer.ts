@@ -1,17 +1,16 @@
+import { clearTimeout, setTimeout } from 'timers';
 import * as vscode from 'vscode';
-
+import { Host } from '../../host';
 import { Kubectl } from '../../kubectl';
 import * as kubectlUtils from '../../kubectlUtils';
-import { Host } from '../../host';
-import { affectsUs, getResourcesToBeWatched } from '../config/config';
-import { ExplorerExtender, ExplorerUICustomizer } from './explorer.extension';
-import * as providerResult from '../../utils/providerresult';
 import { sleep } from '../../sleep';
+import * as providerResult from '../../utils/providerresult';
 import { refreshExplorer } from '../clusterprovider/common/explorer';
-import { ClusterExplorerNode, ClusterExplorerResourceNode } from './node';
-import { MiniKubeContextNode, ContextNode } from './node.context';
+import { affectsUs, getResourcesToBeWatched } from '../config/config';
 import { WatchManager } from '../kubectl/watch';
-import { clearTimeout, setTimeout } from 'timers';
+import { ExplorerExtender, ExplorerUICustomizer } from './explorer.extension';
+import { ClusterExplorerNode, ClusterExplorerResourceNode } from './node';
+import { ContextNode, MiniKubeContextNode } from './node.context';
 
 // Each item in the explorer is modelled as a ClusterExplorerNode.  This
 // is a discriminated union, using a nodeType field as its discriminator.
@@ -44,6 +43,7 @@ export type KubernetesExplorerNodeTypeGroupingFolder = 'folder.grouping';
 export type KubernetesExplorerNodeTypeResource = 'resource';
 export type KubernetesExplorerNodeTypeConfigItem = 'configitem';
 export type KubernetesExplorerNodeTypeHelmRelease = 'helm.release';
+export type KubernetesExplorerNodeTypeHelmHistory = 'helm.history';
 export type KubernetesExplorerNodeTypeExtension = 'extension';
 
 export type KubernetesExplorerNodeType =
@@ -54,6 +54,7 @@ export type KubernetesExplorerNodeType =
     KubernetesExplorerNodeTypeResource |
     KubernetesExplorerNodeTypeConfigItem |
     KubernetesExplorerNodeTypeHelmRelease |
+    KubernetesExplorerNodeTypeHelmHistory |
     KubernetesExplorerNodeTypeExtension;
 
 export const NODE_TYPES = {
@@ -67,6 +68,7 @@ export const NODE_TYPES = {
     configitem: 'configitem',
     helm: {
         release: 'helm.release',
+        history: 'helm.history',
     },
     extension: 'extension'
 } as const;

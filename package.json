@@ -595,7 +595,7 @@
                 {
                     "command": "extension.helmRollback",
                     "group": "3@1",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.helmrelease/i"
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.helmhistory/i"
                 },
                 {
                     "command": "extension.helmUninstall",
