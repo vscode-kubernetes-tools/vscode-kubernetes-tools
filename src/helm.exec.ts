@@ -333,6 +333,7 @@ export async function helmRollback(resourceNode?: HelmHistoryNode) {
         return;
     }
     if (resourceNode.status === "deployed") {
+        vscode.window.showInformationMessage('this is the currently deployed release');
         return;
     }
     const releaseName = resourceNode.releaseName;
