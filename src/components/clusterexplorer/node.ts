@@ -79,6 +79,7 @@ export type ClusterExplorerNode =
     ClusterExplorerResourceNode |
     ClusterExplorerConfigurationValueNode |
     ClusterExplorerHelmReleaseNode |
+    ClusterExplorerHelmHistoryNode |
     ClusterExplorerCustomNode;
 
 export class ClusterExplorerNodeImpl {

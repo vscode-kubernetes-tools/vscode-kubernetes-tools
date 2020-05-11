@@ -47,7 +47,6 @@ export class HelmReleaseNode extends ClusterExplorerNodeImpl implements ClusterE
             return [new MessageNode("Helm history list error", history.error[0])];
         }
         return history.result.map((r) => new HelmHistoryNode(this.releaseName, r.revision, r.updated, r.status, r.description));
-
     }
     getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
         const treeItem = new vscode.TreeItem(this.releaseName, vscode.TreeItemCollapsibleState.Collapsed);
