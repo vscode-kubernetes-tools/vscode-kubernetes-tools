@@ -73,6 +73,10 @@ export namespace ClusterExplorerV1 {
         readonly nodeType: 'helm.release';
         readonly name: string;
     }
+    export interface ClusterExplorerHelmHistoryNode {
+        readonly nodeType: 'helm.history';
+        readonly name: string;
+    }
 
     export interface ClusterExplorerExtensionNode {
         readonly nodeType: 'extension';
@@ -87,6 +91,7 @@ export namespace ClusterExplorerV1 {
         ClusterExplorerConfigDataItemNode |
         ClusterExplorerErrorNode |
         ClusterExplorerHelmReleaseNode |
+        ClusterExplorerHelmHistoryNode |
         ClusterExplorerExtensionNode;
 
     export interface ResourceKind {
