@@ -69,7 +69,7 @@ export class NodejsDebugProvider implements IDebugProvider {
         const nsarg = podNamespace ? `--namespace ${podNamespace}` : '';
         // sending SIGUSR1 to a Node.js process will set it in debug (inspect) mode. See https://nodejs.org/en/docs/guides/debugging-getting-started/#enable-inspector
         const containerCommand = container? `-c ${container}` : '';
-        const execCmd = `exec ${pod} ${nsarg} ${containerCommand} -- ${this.shell} -c 'kill -s USR1 1'`;
+        const execCmd = `exec ${pod} ${nsarg} ${containerCommand} -- ${this.shell} -c "kill -s USR1 1"`;
         const execResult = await kubectl.invokeCommand(execCmd);
         return ExecResult.succeeded(execResult);
     }
@@ -79,7 +79,7 @@ export class NodejsDebugProvider implements IDebugProvider {
             kubeChannel.showOutput("Trying to detect remote root.");
             const nsarg = podNamespace ? `--namespace ${podNamespace}` : '';
             const containerCommand = containerName? `-c ${containerName}` : '';
-            const execCmd = `exec ${podName} ${nsarg} ${containerCommand} -- ${this.shell} -c 'readlink /proc/1/cwd'`;
+            const execCmd = `exec ${podName} ${nsarg} ${containerCommand} -- ${this.shell} -c "readlink /proc/1/cwd"`;
             const execResult = await kubectl.invokeCommand(execCmd);
             if (ExecResult.succeeded(execResult)) {
                 const remoteRoot = execResult.stdout.replace(/(\r\n|\n|\r)/gm, '');
