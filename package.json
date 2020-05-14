@@ -50,6 +50,7 @@
         "onCommand:extension.vsKubernetesDebug",
         "onCommand:extension.vsKubernetesDebugLocalTunnel",
         "onCommand:extension.vsKubernetesFindLocalTunnelDebugProviders",
+        "onCommand:extension.vsKubernetesSelectPod",
         "onCommand:extension.vsKubernetesRemoveDebug",
         "onCommand:extension.vsKubernetesConfigureFromCluster",
         "onCommand:extension.vsKubernetesCreateCluster",
