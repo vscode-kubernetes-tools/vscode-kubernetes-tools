@@ -187,6 +187,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.vsKubernetesDebug', debugKubernetes),
         registerCommand('extension.vsKubernetesRemoveDebug', removeDebugKubernetes),
         registerCommand('extension.vsKubernetesDebugAttach', debugAttachKubernetes),
+        registerCommand('extension.vsKubernetesSelectPod', selectPodKubernetes),
         registerCommand('extension.vsKubernetesConfigureFromCluster', configureFromClusterKubernetes),
         registerCommand('extension.vsKubernetesCreateCluster', createClusterKubernetes),
         registerCommand('extension.vsKubernetesRefreshExplorer', () => treeProvider.refresh()),
@@ -1739,6 +1740,30 @@ const debugAttachKubernetes = async (explorerNode: ClusterExplorerResourceNode) 
     if (workspaceFolder) {
         new DebugSession(kubectl).attach(workspaceFolder, explorerNode ? explorerNode.name : undefined, explorerNode ? explorerNode.namespace || undefined : undefined);  // TODO: rationalise the nulls and undefineds
     }
+};
+
+const selectPodKubernetes = async () => {
+    const resource =  await kubectlUtils.getResourceAsJson<KubernetesCollection<Pod>>(kubectl, "pods");
+    if (!resource) {
+        return;
+    }
+
+    const podPickItems = resource.items.map((pod) => {
+        return {
+            label: `${pod.metadata.name} (${pod.spec.nodeName})`,
+            description: "pod",
+            name: pod.metadata.name,
+            namespace: pod.metadata.namespace,
+            containers: pod.spec.containers
+        };
+    });
+
+    const selectedPod = await vscode.window.showQuickPick(podPickItems, { placeHolder: `Select a pod` });
+    if (!selectedPod) {
+        return;
+    }
+
+    return selectedPod.name;
 };
 
 const debugInternal = (name: string, image: string) => {

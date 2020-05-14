@@ -49,6 +49,7 @@
         "onCommand:extension.vsKubernetesDiff",
         "onCommand:extension.vsKubernetesScale",
         "onCommand:extension.vsKubernetesDebug",
+        "onCommand:extension.vsKubernetesSelectPod",
         "onCommand:extension.vsKubernetesRemoveDebug",
         "onCommand:extension.vsKubernetesConfigureFromCluster",
         "onCommand:extension.vsKubernetesCreateCluster",
