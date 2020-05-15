@@ -1751,10 +1751,7 @@ const selectPodKubernetes = async () => {
     const podPickItems = resource.items.map((pod) => {
         return {
             label: `${pod.metadata.name} (${pod.spec.nodeName})`,
-            description: "pod",
-            name: pod.metadata.name,
-            namespace: pod.metadata.namespace,
-            containers: pod.spec.containers
+            name: pod.metadata.name
         };
     });
 
