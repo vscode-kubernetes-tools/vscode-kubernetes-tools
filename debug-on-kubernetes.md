@@ -104,11 +104,12 @@ https://github.com/OmniSharp/omnisharp-vscode/wiki/Attaching-to-remote-processes
       * In case of the `Kubernetes: Debug(Attach)` action is used for debugging, you might need to set the build root of your docker image in order to enable the debugger to map the symbols to your code.
       When you use a docker image to build your code (so the build root differs from the one on your local system) you should set the `vs-kubernetes.dotnet-source-file-map` parameter to add a sourceFileMap entry to the debug configuration.
 
+         settings.json:
          ```javascript
-         "sourceFileMap": {
-            "<buildRoot>":"<local source>"
+         "vs-kubernetes": {
+            "vs-kubernetes.dotnet-source-file-map": "<build-root-path>"
          }
          ```
 
-         This sourceFileMap will ten map the symbols found by the debugger to your local source code. The `vs-kubernetes.dotnet-source-file-map` shall contain the build root, the location of your local source code is determined by the selected workspace folder.
+         This sourceFileMap will then map the symbols found by the debugger to your local source code. The `vs-kubernetes.dotnet-source-file-map` shall contain the build root, the location of your local source code is determined by the selected workspace folder.
          For mor information please have a look into the [C# for Visual Studio Code Launch Documentation](https://github.com/OmniSharp/omnisharp-vscode/blob/master/debugger-launchjson.md).

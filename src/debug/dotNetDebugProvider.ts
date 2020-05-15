@@ -50,7 +50,7 @@ export class DotNetDebugProvider implements IDebugProvider {
         const map = extensionConfig.getDotnetDebugSourceFileMap();
         if (map) {
             try {
-                const json: string = `{"${map.replace("\\", "\\\\")}":"${workspaceFolder.replace("\\", "\\\\")}"}`;
+                const json: string = `{"${map.replace(/\\/g, "\\\\")}":"${workspaceFolder.replace(/\\/g, "\\\\")}"}`;
                 const sourceFileMap: JSON = JSON.parse(json);
                 debugConfiguration['sourceFileMap'] = sourceFileMap;
             } catch (error) {
