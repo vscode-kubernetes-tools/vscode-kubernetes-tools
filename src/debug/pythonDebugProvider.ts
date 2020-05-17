@@ -99,4 +99,8 @@ export class PythonDebugProvider implements IDebugProvider {
     public isPortRequired(): boolean {
         return true;
     }
+
+    public async getDebugArgs(): Promise<string | undefined> {
+        return undefined;
+    }
 }

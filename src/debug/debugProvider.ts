@@ -68,4 +68,9 @@ export interface IDebugProvider {
      * Returns true if the debugger requires a port to connect to.
      */
     isPortRequired(): boolean;
+
+    /**
+     * The additional args required by the debugger
+     */
+    getDebugArgs(): Promise<string | undefined>;
 }

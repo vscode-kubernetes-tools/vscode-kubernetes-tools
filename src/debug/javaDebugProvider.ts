@@ -127,4 +127,8 @@ export class JavaDebugProvider implements IDebugProvider {
     public isPortRequired(): boolean {
         return true;
     }
+
+    public async getDebugArgs(): Promise<string | undefined> {
+        return undefined;
+    }
 }

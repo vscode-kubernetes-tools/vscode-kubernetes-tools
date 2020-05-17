@@ -86,4 +86,8 @@ export class DotNetDebugProvider implements IDebugProvider {
     public isPortRequired(): boolean {
         return false;
     }
+
+    public async getDebugArgs(): Promise<string | undefined> {
+        return undefined;
+    }
 }
