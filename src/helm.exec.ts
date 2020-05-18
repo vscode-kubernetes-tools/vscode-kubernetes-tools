@@ -275,7 +275,7 @@ export function helmGet(resourceNode?: ClusterExplorerNode) {
     if (!resourceNode) {
         return;
     }
-    if ((resourceNode.nodeType !== NODE_TYPES.helm.release || NODE_TYPES.helm.history)) {
+    if (resourceNode.nodeType !== (NODE_TYPES.helm.history ||NODE_TYPES.helm.release)) {
         return;
     }
     const releaseName = resourceNode.releaseName;
@@ -333,7 +333,7 @@ export async function helmRollback(resourceNode?: HelmHistoryNode) {
         return;
     }
     if (resourceNode.status === "deployed") {
-        vscode.window.showInformationMessage('this is the currently deployed release');
+        vscode.window.showInformationMessage('This is the currently deployed release');
         return;
     }
     const releaseName = resourceNode.releaseName;

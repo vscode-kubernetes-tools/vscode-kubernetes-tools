@@ -10,7 +10,7 @@ import { MessageNode } from './node.message';
 import moment = require('moment');
 
 export class HelmHistoryNode extends ClusterExplorerNodeImpl implements ClusterExplorerHelmHistoryNode {
-    constructor(readonly releaseName: string, readonly revision: number, readonly updated:  string, readonly status: string, readonly description: string) {
+    constructor(readonly releaseName: string, readonly revision: number, readonly updated:  string, readonly status: string) {
         super(NODE_TYPES.helm.history);
     }
     readonly nodeType = NODE_TYPES.helm.history;
@@ -46,7 +46,7 @@ export class HelmReleaseNode extends ClusterExplorerNodeImpl implements ClusterE
         if (failed(history)) {
             return [new MessageNode("Helm history list error", history.error[0])];
         }
-        return history.result.map((r) => new HelmHistoryNode(this.releaseName, r.revision, r.updated, r.status, r.description));
+        return history.result.map((r) => new HelmHistoryNode(this.releaseName, r.revision, r.updated, r.status));
     }
     getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
         const treeItem = new vscode.TreeItem(this.releaseName, vscode.TreeItemCollapsibleState.Collapsed);

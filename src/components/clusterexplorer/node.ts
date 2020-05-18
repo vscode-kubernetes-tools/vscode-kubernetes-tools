@@ -64,7 +64,6 @@ export interface ClusterExplorerHelmHistoryNode extends ClusterExplorerNodeBase 
     readonly revision: number;
     readonly updated:  string;
     readonly status: string;
-    readonly description: string;
 }
 
 export interface ClusterExplorerCustomNode extends ClusterExplorerNodeBase {
