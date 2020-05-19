@@ -275,7 +275,10 @@ export function helmGet(resourceNode?: ClusterExplorerNode) {
     if (!resourceNode) {
         return;
     }
-    if (resourceNode.nodeType !== (NODE_TYPES.helm.history ||NODE_TYPES.helm.release)) {
+    if (
+        resourceNode.nodeType !== NODE_TYPES.helm.history &&
+        resourceNode.nodeType !== NODE_TYPES.helm.release
+    ) {
         return;
     }
     const releaseName = resourceNode.releaseName;
