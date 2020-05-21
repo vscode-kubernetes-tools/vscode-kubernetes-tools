@@ -51,6 +51,7 @@ export class NodejsDebugProvider implements IDebugProvider {
     }
 
     public async resolvePortsFromFile(dockerfile: IDockerfile, env: Dictionary<string>): Promise<PortInfo | undefined> {
+        this.remoteRoot = dockerfile.getWorkDir();
         const possiblePorts = dockerfile.getExposedPorts();
         if (!extensionUtils.isNonEmptyArray(possiblePorts)) { // Enable debug options in command lines directly.
             return undefined;

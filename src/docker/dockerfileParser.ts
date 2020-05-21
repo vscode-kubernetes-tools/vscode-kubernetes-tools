@@ -69,6 +69,14 @@ class Dockerfile implements IDockerfile {
         return this.dockerfile.mergeCommandArgsOfType("expose");
     }
 
+    getWorkDir(): string | undefined {
+        const workDirEntry = this.dockerfile.getCommandsOfType("workdir");
+        if (workDirEntry.length === 0) {
+            return undefined;
+        }
+        return String(workDirEntry[0].args);
+    }
+
     searchLaunchArgs(regularExpression: RegExp): RegExpMatchArray {
         return this.dockerfile.searchInArgs(regularExpression, ["run", "cmd", "entrypoint"]);
     }
