@@ -79,6 +79,7 @@
         "onCommand:extension.helmFetch",
         "onCommand:extension.helmInstall",
         "onCommand:extension.helmUninstall",
+        "onCommand:extension.helmRollback",
         "onCommand:extension.helmDependencies",
         "onCommand:extension.helmConvertToTemplate",
         "onCommand:extension.helmParameterise",
@@ -592,8 +593,13 @@
                     "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem =~ /vsKubernetes\\.((chart)|(chartversion))/i"
                 },
                 {
+                    "command": "extension.helmRollback",
+                    "group": "3@1",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.helmhistory/i"
+                },
+                {
                     "command": "extension.helmUninstall",
-                    "group": "3",
+                    "group": "3@2",
                     "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.helmrelease/i"
                 },
                 {
@@ -1061,6 +1067,12 @@
                 "command": "extension.helmUninstall",
                 "title": "Uninstall",
                 "description": "Uninstall a Helm release",
+                "category": "Helm"
+            },
+            {
+                "command": "extension.helmRollback",
+                "title": "Rollback",
+                "description": "Rollback Helm Release",
                 "category": "Helm"
             },
             {

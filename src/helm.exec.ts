@@ -1,28 +1,29 @@
-import * as vscode from 'vscode';
-import * as filepath from 'path';
-import { helm as logger } from './logger';
-import * as YAML from 'yamljs';
 import * as _ from 'lodash';
+import * as filepath from 'path';
 import * as tmp from 'tmp';
-import * as helmrepoexplorer from './helm.repoExplorer';
-import * as helm from './helm';
-import { showWorkspaceFolderPick } from './hostutils';
-import { shell as sh, ShellResult, ExecCallback } from './shell';
-import { K8S_RESOURCE_SCHEME, HELM_RESOURCE_AUTHORITY } from './kuberesources.virtualfs';
-import { Errorable, failed } from './errorable';
-import { parseLineOutput } from './outputUtils';
-import { currentNamespace } from './kubectlUtils';
-import { Kubectl } from './kubectl';
-import { getToolPath } from './components/config/config';
-import { host, LongRunningUIOptions } from './host';
-import * as fs from './wsl-fs';
-import { fs as shellfs } from './fs';
-import { preview } from './utils/preview';
-import { ClusterExplorerNode } from './components/clusterexplorer/node';
+import * as vscode from 'vscode';
+import * as YAML from 'yamljs';
+import { Context, ExecResult, ExternalBinary, invokeForResult } from './binutilplusplus';
 import { NODE_TYPES } from './components/clusterexplorer/explorer';
-import { installDependencies } from './components/installer/installdependencies';
-import { ExecResult, invokeForResult, ExternalBinary, Context } from './binutilplusplus';
+import { ClusterExplorerNode } from './components/clusterexplorer/node';
+import { HelmHistoryNode } from './components/clusterexplorer/node.helmrelease';
 import { refreshExplorer } from './components/clusterprovider/common/explorer';
+import { getToolPath } from './components/config/config';
+import { installDependencies } from './components/installer/installdependencies';
+import { Errorable, failed } from './errorable';
+import { fs as shellfs } from './fs';
+import * as helm from './helm';
+import * as helmrepoexplorer from './helm.repoExplorer';
+import { host, LongRunningUIOptions } from './host';
+import { showWorkspaceFolderPick } from './hostutils';
+import { Kubectl } from './kubectl';
+import { currentNamespace } from './kubectlUtils';
+import { HELM_RESOURCE_AUTHORITY, K8S_RESOURCE_SCHEME } from './kuberesources.virtualfs';
+import { helm as logger } from './logger';
+import { parseLineOutput } from './outputUtils';
+import { ExecCallback, shell as sh, ShellResult } from './shell';
+import { preview } from './utils/preview';
+import * as fs from './wsl-fs';
 
 export interface PickChartUIOptions {
     readonly warnIfNoCharts: boolean;
@@ -40,6 +41,17 @@ interface HelmRepositoriesFile {
         readonly cache: string;  // cache file path
         readonly url: string;
     }>;
+}
+
+// Schema for Helm release
+// added to support rollback feature
+interface HelmRelease {
+    revision:    number;
+    updated:     string;
+    status:      string;
+    chart:       string;
+    appVersion: string;
+    description: string;
 }
 
 // This file contains utilities for executing command line tools, notably Helm.
@@ -263,7 +275,10 @@ export function helmGet(resourceNode?: ClusterExplorerNode) {
     if (!resourceNode) {
         return;
     }
-    if (resourceNode.nodeType !== NODE_TYPES.helm.release) {
+    if (
+        resourceNode.nodeType !== NODE_TYPES.helm.history &&
+        resourceNode.nodeType !== NODE_TYPES.helm.release
+    ) {
         return;
     }
     const releaseName = resourceNode.releaseName;
@@ -299,6 +314,47 @@ export function helmUninstall(resourceNode?: ClusterExplorerNode) {
             });
         }
     });
+}
+
+export async function helmGetHistory(release: string): Promise<Errorable<HelmRelease[]>> {
+    if (!ensureHelm(EnsureMode.Alert)) {
+        return { succeeded: false, error: [ "Helm client is not installed" ] };
+    }
+    const releases: HelmRelease[] = [];
+    const sr = await helmExecAsync(`history ${release} --output json`);
+    if (!sr || sr.code !== 0) {
+        await vscode.window.showErrorMessage(`Helm fetch history failed: ${sr ? sr.stderr : "Unable to run Helm"}`);
+    } else {
+        const hist: HelmRelease[] = JSON.parse(sr.stdout);
+        releases.push(...hist);
+    }
+    return { succeeded: true, result: releases.reverse() };
+}
+
+export async function helmRollback(resourceNode?: HelmHistoryNode) {
+    if (!resourceNode) {
+        return;
+    }
+    if (resourceNode.status === "deployed") {
+        vscode.window.showInformationMessage('This is the currently deployed release');
+        return;
+    }
+    const releaseName = resourceNode.releaseName;
+    vscode.window.showWarningMessage(`You are about to rollback ${releaseName} to release version ${resourceNode.revision}. Continue?`, 'Rollback').then((opt) => {
+        if (opt === "Rollback") {
+            helmExec(`rollback ${releaseName} ${resourceNode.revision} --cleanup-on-fail`, async (code, out, err) => {
+            logger.log(out);
+            logger.log(err);
+            if (out !== "") {
+                vscode.window.showInformationMessage(`Release ${releaseName} successfully rolled back to ${resourceNode.revision}.`);
+                refreshExplorer();
+            }
+            if (code !== 0) {
+                vscode.window.showErrorMessage(`Error rolling back to ${resourceNode.revision} for ${releaseName} ${err}`);
+            }
+        });
+    }
+});
 }
 
 export function helmfsUri(releaseName: string): vscode.Uri {

@@ -1,15 +1,15 @@
 /* eslint-disable camelcase */
 
 import * as vscode from 'vscode';
-
-import { ClusterExplorerV1_1 } from '../../contract/cluster-explorer/v1_1';
+import { KubernetesExplorer, KUBERNETES_EXPLORER_NODE_CATEGORY } from "../../../components/clusterexplorer/explorer";
 import { ExplorerExtender, ExplorerUICustomizer } from "../../../components/clusterexplorer/explorer.extension";
-import { KUBERNETES_EXPLORER_NODE_CATEGORY, KubernetesExplorer } from "../../../components/clusterexplorer/explorer";
-import { Kubectl } from "../../../kubectl";
+import { CustomGroupingFolderNodeSource, CustomResourceFolderNodeSource, NodeSourceImpl } from "../../../components/clusterexplorer/extension.nodesources";
+import { ClusterExplorerCustomNode, ClusterExplorerNode, ClusterExplorerResourceNode } from "../../../components/clusterexplorer/node";
 import { Host } from "../../../host";
-import { CustomResourceFolderNodeSource, CustomGroupingFolderNodeSource, NodeSourceImpl } from "../../../components/clusterexplorer/extension.nodesources";
-import { ClusterExplorerNode, ClusterExplorerResourceNode, ClusterExplorerCustomNode } from "../../../components/clusterexplorer/node";
+import { Kubectl } from "../../../kubectl";
 import { ResourceKind } from '../../../kuberesources';
+import { ClusterExplorerV1_1 } from '../../contract/cluster-explorer/v1_1';
+
 
 export function impl(explorer: KubernetesExplorer): ClusterExplorerV1_1 {
     return new ClusterExplorerV1_1Impl(explorer);
@@ -103,6 +103,8 @@ function adaptKubernetesExplorerNode(node: ClusterExplorerNode): ClusterExplorer
             return { nodeType: 'configitem', name: node.key };
         case 'helm.release':
             return { nodeType: 'helm.release', name: node.releaseName };
+        case 'helm.history':
+            return { nodeType: 'helm.history', name: node.releaseName };
         case 'extension':
             return { nodeType: 'extension' };
     }
