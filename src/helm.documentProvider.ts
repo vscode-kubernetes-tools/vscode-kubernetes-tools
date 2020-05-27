@@ -115,44 +115,44 @@ export class HelmTemplatePreviewDocumentProvider implements vscode.TextDocumentC
             const tpl = vscode.window.activeTextEditor.document.fileName;
 
             exec.helmSyntaxVersion().then((v) => {
-                if (v === exec.HelmSyntaxVersion.V3) {
-                    resolve(render({ title: tpl, content: 'Individual template previews are not available in Helm 3', isErrorOutput: true }));
-                    return;
-                } else {
 
-                    // First, we need to get the top-most chart:
-                    exec.pickChartForFile(tpl, { warnIfNoCharts: true }, (chartPath) => {
-                        // We need the relative path for 'helm template'
-                        if (!fs.statSync(chartPath).isDirectory()) {
-                            chartPath = filepath.dirname(chartPath);
+                // First, we need to get the top-most chart:
+                exec.pickChartForFile(tpl, { warnIfNoCharts: true }, (chartPath) => {
+                    // We need the relative path for 'helm template'
+                    if (!fs.statSync(chartPath).isDirectory()) {
+                        chartPath = filepath.dirname(chartPath);
+                    }
+                    const reltpl = filepath.relative(chartPath, tpl);
+                    const notesarg = (tpl.toLowerCase().endsWith('notes.txt')) ? '--notes' : '';
+                    const displayResultAfterCommandExecution = (code: number, out: string, err: any) => {
+                        if (code !== 0) {
+                            const errorDoc = { title: "Chart Preview", subtitle: "Failed template call", content: err, isErrorOutput: true };
+                            resolve(render(errorDoc));
+                            return;
                         }
-                        const reltpl = filepath.relative(chartPath, tpl);
-                        const notesarg = (tpl.toLowerCase().endsWith('notes.txt')) ? '--notes' : '';
-                        exec.helmExec(`template "${chartPath}" --execute "${reltpl}" ${notesarg}`, (code, out, err) => {
-                            if (code !== 0) {
-                                const errorDoc = { title: "Chart Preview", subtitle: "Failed template call", content: err, isErrorOutput: true };
-                                resolve(render(errorDoc));
-                                return;
+
+                        if (filepath.basename(reltpl) !== "NOTES.txt") {
+                            try {
+                                YAML.parse(out);
+                            } catch (e) {
+                                // TODO: Figure out the best way to display this message, but have it go away when the
+                                // file parses correctly.
+                                vscode.window.showErrorMessage(`YAML failed to parse: ${ e.message }`);
                             }
+                        }
 
-                            if (filepath.basename(reltpl) !== "NOTES.txt") {
-                                try {
-                                    YAML.parse(out);
-                                } catch (e) {
-                                    // TODO: Figure out the best way to display this message, but have it go away when the
-                                    // file parses correctly.
-                                    vscode.window.showErrorMessage(`YAML failed to parse: ${ e.message }`);
-                                }
-                            }
+                        const previewDoc = out ?
+                            { title: reltpl, content: out, isErrorOutput: false } :
+                            { title: reltpl, content: 'Helm template produced no output', isErrorOutput: true };
+                        resolve(render(previewDoc));
+                    };
 
-                            const previewDoc = out ?
-                                { title: reltpl, content: out, isErrorOutput: false } :
-                                { title: reltpl, content: 'Helm template produced no output', isErrorOutput: true };
-                            resolve(render(previewDoc));
-                        });
-                    });
-
-                }
+                    if (v === exec.HelmSyntaxVersion.V3) {
+                        exec.helmExec(`template "${chartPath}" --show-only "${reltpl}" ${notesarg}`, displayResultAfterCommandExecution);
+                    } else {
+                        exec.helmExec(`template "${chartPath}" --execute "${reltpl}" ${notesarg}`, displayResultAfterCommandExecution);
+                    }                    
+                });
             });
         });
 
