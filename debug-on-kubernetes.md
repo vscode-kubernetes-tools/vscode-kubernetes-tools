@@ -113,3 +113,36 @@ https://github.com/OmniSharp/omnisharp-vscode/wiki/Attaching-to-remote-processes
 
          This sourceFileMap will then map the symbols found by the debugger to your local source code. The `vs-kubernetes.dotnet-source-file-map` shall contain the build root, the location of your local source code is determined by the selected workspace folder.
          For mor information please have a look into the [C# for Visual Studio Code Launch Documentation](https://github.com/OmniSharp/omnisharp-vscode/blob/master/debugger-launchjson.md).
+
+## 7. NodeJS debugging
+### 7.1 Launch a NodeJS application on Kubernetes and debug it
+   * Launch VS Code.
+   * Open a NodeJS application.
+   * If your application doesn't already have a Dockerfile, create one for it.
+   * Set up the image repository on the VS Code user or workspace settings, using the `vsdocker.imageUser` configuration setting. 
+```javascript
+  {
+    ...
+    "vsdocker.imageUser": "<your-image-prefix-here>",
+    ...
+  }
+```
+Where `<your-image-prefix-here>` is something like `docker.io/brendanburns` or `mycontainerregistry082.azurecr.io`.
+   * Log into your repository using the appropriate tool. For example, to log into Docker Hub, run `docker login`; to log into Azure Container Registry, run `az acr login`. (If `vsdocker.imageUser` is not configured, skip this step.)
+   * Run the VS Code command `"Kubernetes: Debug (Launch)"`.
+
+The extension will try to automatically detect your application platform, but if this fails, you will have to select your debug environment manually.
+
+![select the environment](https://raw.githubusercontent.com/Azure/vscode-kubernetes-tools/master/images/screenshots/select-the-environment-nodejs-debug-launch.png)
+
+After that, the extension will try to resolve the debug port and application port from the Dockerfile. The application port is what your application provides service on. For NodeJS, the typical application port is 8080 or 80. If you don't expose it explicitly in your Dockerfile, you will have to specify it manually.
+
+At this point the extension will ask if you want to add an additional debug command. For debugging NodeJS application we need to enable the inspector so that the NodeJS process in our container correctly listens to a debugging client. Based on your application the command could slightly change but it should look like `node --inspect app.js`. More information at [NodeJS Debugging Getting Started](https://nodejs.org/en/docs/guides/debugging-getting-started/)
+
+![enable inspector](https://raw.githubusercontent.com/Azure/vscode-kubernetes-tools/master/images/screenshots/enable-inspector-nodejs-debug-launch.png)
+
+When the prompts finish, the extension will start to build a Docker image from your current workspace, and run it as a deployment in Kubernetes and wait for the pod to be ready. After that, the extension creates port-forwarding for the ports (debug port and application port) to make them to be accessible at localhost. Finally, the extension starts a debug session to attach to the debug port.
+
+Here is a GIF showing the full workflow:
+
+![launch nodejs debug on minikube](https://raw.githubusercontent.com/Azure/vscode-kubernetes-tools/master/images/screenshots/debug-launch-nodejs.gif)
