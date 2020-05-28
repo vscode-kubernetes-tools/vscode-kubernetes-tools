@@ -121,7 +121,7 @@ export class NodejsDebugProvider implements IDebugProvider {
 
     public async getDebugArgs(): Promise<DebugArgs> {
         const debugCommand = await vscode.window.showInputBox({
-            prompt: 'Command to enable inspector for Nodejs process debugging in your container.',
+            prompt: 'Command to enable inspector in your container for debugging.',
             placeHolder: 'Example: node --inspect app.js'
         });
         if (!debugCommand) {
