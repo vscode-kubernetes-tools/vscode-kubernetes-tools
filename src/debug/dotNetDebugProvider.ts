@@ -1,7 +1,7 @@
 import * as path from "path";
 import * as vscode from "vscode";
 
-import { IDebugProvider, PortInfo } from "./debugProvider";
+import { IDebugProvider, PortInfo, DebugArgs } from "./debugProvider";
 import { ProcessInfo } from "./debugUtils";
 import * as extensionUtils from "../extensionUtils";
 import { Kubectl } from "../kubectl";
@@ -87,7 +87,7 @@ export class DotNetDebugProvider implements IDebugProvider {
         return false;
     }
 
-    public async getDebugArgs(): Promise<string | undefined> {
-        return undefined;
+    public async getDebugArgs(): Promise<DebugArgs> {
+        return { succeeded: true };
     }
 }

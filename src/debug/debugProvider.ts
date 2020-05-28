@@ -8,6 +8,11 @@ export interface PortInfo {
     readonly appPort?: number;
 }
 
+export interface DebugArgs {
+    readonly succeeded: boolean;
+    readonly command?: string;
+}
+
 export interface IDebugProvider {
     /**
      * The debugger type supported by the provider.
@@ -72,5 +77,5 @@ export interface IDebugProvider {
     /**
      * The additional args required by the debugger
      */
-    getDebugArgs(): Promise<string | undefined>;
+    getDebugArgs(): Promise<DebugArgs>;
 }
