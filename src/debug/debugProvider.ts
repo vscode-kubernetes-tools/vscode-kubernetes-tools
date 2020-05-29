@@ -8,10 +8,16 @@ export interface PortInfo {
     readonly appPort?: number;
 }
 
-export interface DebugArgs {
-    readonly succeeded: boolean;
-    readonly command?: string;
+interface Accepted {
+    readonly cancelled: false;
+    readonly value?: string;
 }
+
+interface Cancelled {
+    readonly cancelled: true;
+}
+
+export type Cancellable = Accepted | Cancelled;
 
 export interface IDebugProvider {
     /**
@@ -77,5 +83,5 @@ export interface IDebugProvider {
     /**
      * The additional args required by the debugger
      */
-    getDebugArgs(): Promise<DebugArgs>;
+    getDebugArgs(): Promise<Cancellable>;
 }

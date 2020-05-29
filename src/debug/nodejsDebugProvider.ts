@@ -1,7 +1,7 @@
 import * as path from "path";
 import * as vscode from "vscode";
 
-import { IDebugProvider, PortInfo, DebugArgs } from "./debugProvider";
+import { IDebugProvider, PortInfo, DebugArgs, Cancellable } from "./debugProvider";
 import { suggestedShellForContainer } from '../utils/container-shell';
 import * as config from '../components/config/config';
 import { Kubectl } from "../kubectl";
@@ -119,14 +119,14 @@ export class NodejsDebugProvider implements IDebugProvider {
         return true;
     }
 
-    public async getDebugArgs(): Promise<DebugArgs> {
+    public async getDebugArgs(): Promise<Cancellable> {
         const debugCommand = await vscode.window.showInputBox({
             prompt: 'Command to enable inspector in your container for debugging.',
             placeHolder: 'Example: node --inspect app.js'
         });
         if (!debugCommand) {
-            return { succeeded: false };
+            return { cancelled: true };
         }
-        return { succeeded: true, command: `-i --attach=false -- ${debugCommand}` };
+        return { cancelled: false, value: `-i --attach=false -- ${debugCommand}` };
     }
 }

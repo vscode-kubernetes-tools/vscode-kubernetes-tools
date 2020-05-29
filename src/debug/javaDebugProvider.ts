@@ -1,7 +1,7 @@
 import * as path from "path";
 import * as vscode from "vscode";
 
-import { IDebugProvider, PortInfo, DebugArgs } from "./debugProvider";
+import { IDebugProvider, PortInfo, DebugArgs, Cancellable } from "./debugProvider";
 import * as debugUtils from "./debugUtils";
 import * as extensionUtils from "../extensionUtils";
 import { Kubectl } from "../kubectl";
@@ -128,7 +128,7 @@ export class JavaDebugProvider implements IDebugProvider {
         return true;
     }
 
-    public async getDebugArgs(): Promise<DebugArgs> {
-        return { succeeded: true };
+    public async getDebugArgs(): Promise<Cancellable> {
+        return { cancelled: false };
     }
 }

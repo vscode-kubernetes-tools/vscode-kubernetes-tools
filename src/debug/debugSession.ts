@@ -86,7 +86,7 @@ export class DebugSession implements IDebugSession {
             await this.openInBrowser("Cannot resolve debug/application port from Dockerfile. See the documentation for how to use this command.", debugCommandDocumentationUrl);
             return;
         }
-        if (!debugArgs.succeeded) {
+        if (debugArgs.cancelled) {
             return;
         }
 
@@ -101,7 +101,7 @@ export class DebugSession implements IDebugSession {
                 // Run docker image in k8s container.
                 p.report({ message: "Running Docker image on Kubernetes..."});
                 const exposedPorts = definedOf(portInfo.appPort, portInfo.debugPort);
-                appName = await this.runAsDeployment(imageName, exposedPorts, containerEnv, debugArgs.command);
+                appName = await this.runAsDeployment(imageName, exposedPorts, containerEnv, debugArgs.value);
 
                 // Find the running debug pod.
                 p.report({ message: "Finding the debug pod..."});

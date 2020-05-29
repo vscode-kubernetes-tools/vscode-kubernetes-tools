@@ -1,7 +1,7 @@
 import * as path from "path";
 import * as vscode from "vscode";
 
-import { IDebugProvider, PortInfo, DebugArgs } from "./debugProvider";
+import { IDebugProvider, PortInfo, DebugArgs, Cancellable } from "./debugProvider";
 import { suggestedShellForContainer } from '../utils/container-shell';
 import * as config from '../components/config/config';
 import * as extensionUtils from "../extensionUtils";
@@ -100,7 +100,7 @@ export class PythonDebugProvider implements IDebugProvider {
         return true;
     }
 
-    public async getDebugArgs(): Promise<DebugArgs> {
-        return { succeeded: true };
+    public async getDebugArgs(): Promise<Cancellable> {
+        return { cancelled: false };
     }
 }
