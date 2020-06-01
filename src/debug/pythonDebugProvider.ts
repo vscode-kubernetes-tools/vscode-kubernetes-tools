@@ -1,7 +1,7 @@
 import * as path from "path";
 import * as vscode from "vscode";
 
-import { IDebugProvider, PortInfo } from "./debugProvider";
+import { IDebugProvider, PortInfo, Cancellable } from "./debugProvider";
 import { suggestedShellForContainer } from '../utils/container-shell';
 import * as config from '../components/config/config';
 import * as extensionUtils from "../extensionUtils";
@@ -98,5 +98,9 @@ export class PythonDebugProvider implements IDebugProvider {
 
     public isPortRequired(): boolean {
         return true;
+    }
+
+    public async getDebugArgs(): Promise<Cancellable> {
+        return { cancelled: false };
     }
 }

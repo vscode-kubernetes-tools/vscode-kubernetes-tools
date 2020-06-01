@@ -10,6 +10,11 @@ export interface IDockerfile {
     getExposedPorts(): string[];
 
     /**
+     *  Parse the workdir from the dockerfile.
+     */
+    getWorkDir(): string | undefined;
+
+    /**
      * Search the debug options from the launch command.
      */
     searchLaunchArgs(regularExpression: RegExp): RegExpMatchArray;

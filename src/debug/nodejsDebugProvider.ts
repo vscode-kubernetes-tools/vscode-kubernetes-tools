@@ -1,13 +1,17 @@
 import * as path from "path";
 import * as vscode from "vscode";
 
-import { IDebugProvider, PortInfo } from "./debugProvider";
+import { IDebugProvider, PortInfo, Cancellable } from "./debugProvider";
 import { suggestedShellForContainer } from '../utils/container-shell';
 import * as config from '../components/config/config';
 import { Kubectl } from "../kubectl";
 import { kubeChannel } from "../kubeChannel";
 import { ProcessInfo } from "./debugUtils";
 import { ExecResult } from "../binutilplusplus";
+import { IDockerfile } from "../docker/parser";
+import { Dictionary } from "../utils/dictionary";
+import * as extensionUtils from "../extensionUtils";
+import * as debugUtils from "./debugUtils";
 
 const debuggerType = 'nodejs';
 
@@ -46,8 +50,19 @@ export class NodejsDebugProvider implements IDebugProvider {
         return false;
     }
 
-    public async resolvePortsFromFile(): Promise<PortInfo | undefined> {
-        return undefined;
+    public async resolvePortsFromFile(dockerfile: IDockerfile, env: Dictionary<string>): Promise<PortInfo | undefined> {
+        this.remoteRoot = dockerfile.getWorkDir();
+        const possiblePorts = dockerfile.getExposedPorts();
+        if (!extensionUtils.isNonEmptyArray(possiblePorts)) { // Enable debug options in command lines directly.
+            return undefined;
+        }
+        const rawDebugPortInfo = config.getNodejsDebugPort() || 9229;
+        const rawAppPortInfo = await debugUtils.promptForAppPort(possiblePorts, '8080', env);
+
+        return {
+            debugPort: Number(rawDebugPortInfo),
+            appPort: Number(rawAppPortInfo)
+        };
     }
 
     public async resolvePortsFromContainer(kubectl: Kubectl, pod: string, podNamespace: string, container: string): Promise<PortInfo | undefined> {
@@ -102,5 +117,16 @@ export class NodejsDebugProvider implements IDebugProvider {
 
     public isPortRequired(): boolean {
         return true;
+    }
+
+    public async getDebugArgs(): Promise<Cancellable> {
+        const debugCommand = await vscode.window.showInputBox({
+            prompt: 'Command to enable inspector in your container for debugging.',
+            placeHolder: 'Example: node --inspect app.js'
+        });
+        if (!debugCommand) {
+            return { cancelled: true };
+        }
+        return { cancelled: false, value: `-i --attach=false -- ${debugCommand}` };
     }
 }

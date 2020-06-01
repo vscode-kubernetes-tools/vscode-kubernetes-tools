@@ -1,7 +1,7 @@
 import * as path from "path";
 import * as vscode from "vscode";
 
-import { IDebugProvider, PortInfo } from "./debugProvider";
+import { IDebugProvider, PortInfo, Cancellable } from "./debugProvider";
 import { ProcessInfo } from "./debugUtils";
 import * as extensionUtils from "../extensionUtils";
 import { Kubectl } from "../kubectl";
@@ -85,5 +85,9 @@ export class DotNetDebugProvider implements IDebugProvider {
 
     public isPortRequired(): boolean {
         return false;
+    }
+
+    public async getDebugArgs(): Promise<Cancellable> {
+        return { cancelled: false };
     }
 }

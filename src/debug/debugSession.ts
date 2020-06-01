@@ -76,6 +76,7 @@ export class DebugSession implements IDebugSession {
         const imagePrefix = vscode.workspace.getConfiguration().get<string | null>("vsdocker.imageUser", null);
         const containerEnv = Dictionary.of<string>();
         const portInfo = await this.debugProvider.resolvePortsFromFile(dockerfile, containerEnv);
+        const debugArgs = await this.debugProvider.getDebugArgs();
 
         if (!imagePrefix) {
             await vscode.window.showErrorMessage("No Docker image prefix set for image push. Please set 'vsdocker.imageUser' in your Kubernetes extension settings.");
@@ -83,6 +84,9 @@ export class DebugSession implements IDebugSession {
         }
         if (!portInfo || !portInfo.debugPort || !portInfo.appPort) {
             await this.openInBrowser("Cannot resolve debug/application port from Dockerfile. See the documentation for how to use this command.", debugCommandDocumentationUrl);
+            return;
+        }
+        if (debugArgs.cancelled) {
             return;
         }
 
@@ -97,7 +101,7 @@ export class DebugSession implements IDebugSession {
                 // Run docker image in k8s container.
                 p.report({ message: "Running Docker image on Kubernetes..."});
                 const exposedPorts = definedOf(portInfo.appPort, portInfo.debugPort);
-                appName = await this.runAsDeployment(imageName, exposedPorts, containerEnv);
+                appName = await this.runAsDeployment(imageName, exposedPorts, containerEnv, debugArgs.value);
 
                 // Find the running debug pod.
                 p.report({ message: "Finding the debug pod..."});
@@ -299,12 +303,12 @@ export class DebugSession implements IDebugSession {
         return imageName;
     }
 
-    private async runAsDeployment(image: string, exposedPorts: number[], containerEnv: any): Promise<string> {
+    private async runAsDeployment(image: string, exposedPorts: number[], containerEnv: any, debugArgs?: string): Promise<string> {
         kubeChannel.showOutput(`Starting to run image ${image} on Kubernetes cluster...`, "Run on Kubernetes");
         const imageName = image.split(":")[0];
         const baseName = imageName.substring(imageName.lastIndexOf("/")+1);
         const deploymentName = `${baseName}-debug-${Date.now()}`;
-        const appName = await kubectlUtils.runAsDeployment(this.kubectl, deploymentName, image, exposedPorts, containerEnv);
+        const appName = await kubectlUtils.runAsDeployment(this.kubectl, deploymentName, image, exposedPorts, containerEnv, debugArgs);
         kubeChannel.showOutput(`Finished launching image ${image} as a deployment ${appName} on Kubernetes cluster.`);
         return appName;
     }
