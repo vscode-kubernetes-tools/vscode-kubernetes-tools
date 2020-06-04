@@ -64,12 +64,14 @@ export class LogsPanel extends WebPanel {
                 </select>
                 <span style='position: absolute; left: 240px'>Match expression</span>
                 <input style='left:350px; position: absolute' type='text' id='regexp' onkeyup='eval()' placeholder='Filter' size='25'/>
+                <input style='left:575px; position: absolute' type='button' id='goToBottom' size='25' value='Scroll To Bottom'/>
             </div>
             <div style='position: absolute; top: 55px; bottom: 10px; width: 97%'>
-              <div style="overflow-y: scroll; height: 100%">
+              <div id="logPanel" style="overflow-y: scroll; height: 100%">
                   <code>
                     <pre id='content'>
                     </pre>
+                    <a id='bottom' />
                   </code>
                 </div>
             </div>
@@ -85,13 +87,13 @@ export class LogsPanel extends WebPanel {
                 return filter(logsText, true);
               }
 
-              const filter = (text, isNewLog) => {   
+              const filter = (text, isNewLog) => {
                 const regexp = document.getElementById('regexp').value;
                 const mode = document.getElementById('mode').value;
                 let content;
                 if (regexp.length > 0 && mode !== 'all') {
-                    const regex = new RegExp(regexp);   
-                    switch (mode) {                        
+                    const regex = new RegExp(regexp);
+                    switch (mode) {
                         case 'include':
                             content = text.filter((line) => regex.test(line));
                             break;
@@ -100,7 +102,7 @@ export class LogsPanel extends WebPanel {
                             break;
                         case 'before':
                             content = [];
-                            if (!isNewLog) { 
+                            if (!isNewLog) {
                                 for (const line of text) {
                                     if (regex.test(line)) {
                                         break;
@@ -117,7 +119,7 @@ export class LogsPanel extends WebPanel {
                                     return regex.test(line)
                                 });
                                 content = text.slice(i+1);
-                            }                           
+                            }
                             break;
                         default:
                             content = []
@@ -126,7 +128,7 @@ export class LogsPanel extends WebPanel {
                 } else {
                     content = text;
                 }
-                
+
                 return content;
               };
 
@@ -137,13 +139,58 @@ export class LogsPanel extends WebPanel {
                 return beautifyLines(contentLines);
               }
 
-              const beautifyLines = (contentLines) => {                
+              const beautifyLines = (contentLines) => {
                 let content = contentLines.join('\\n');
                 if (content) {
                     content = content.match(/\\n$/) ? content : content + '\\n';
-                }                
+                }
                 return content;
               };
+
+              var lastMode = '';
+              var lastRegexp = '';
+              var isToBottom = true;
+
+              function debounce(func, wait, immediate) {
+                var timeout;
+                return function() {
+                  var context = this, args = arguments;
+                  var later = function() {
+                    timeout = null;
+                    if (!immediate) func.apply(context, args);
+                  };
+                  var callNow = immediate && !timeout;
+                  clearTimeout(timeout);
+                  timeout = setTimeout(later, wait);
+                  if (callNow) func.apply(context, args);
+                };
+              };
+
+              const elem = document.getElementById('logPanel');
+              let lastScrollTop = 0;
+              let toBottom = debounce(function() {
+                const st = elem.scrollTop;
+                if (st > lastScrollTop){
+                  // scroll down
+                  isToBottom = (elem.scrollTop + window.innerHeight) >= elem.scrollHeight;
+                } else {
+                  // scroll up
+                  isToBottom = false;
+                }
+                lastScrollTop = st <= 0 ? 0 : st;
+              }, 250);
+
+              elem.addEventListener("scroll", toBottom);
+
+              const button = document.getElementById('goToBottom');
+
+              function scrollToBottom () {
+                document.getElementById('bottom').scrollIntoView();
+              }
+
+              button.addEventListener('click', function(){
+                scrollToBottom();
+              });
 
               window.addEventListener('message', event => {
                 const message = event.data;
@@ -158,12 +205,16 @@ export class LogsPanel extends WebPanel {
                     });
                     const content = beautifyLines(filterNewLogs(text));
                     elt.appendChild(document.createTextNode(content));
+
+                    // handle auto-scroll on/off
+                    if (isToBottom) scrollToBottom();
                 }
               });
 
               const eval = () => {
                 setTimeout(evalInternal, 0);
               };
+
               const evalInternal = () => {
                 // We use this to abort renders in progress if a new render starts
                 renderNonce = Math.random();
@@ -196,7 +247,7 @@ export class LogsPanel extends WebPanel {
                 fn();
               };
               eval();
-              
+
             </script>
             </body>
         </html>`;
