@@ -1772,15 +1772,16 @@ const debugAttachKubernetes = async (explorerNode: ClusterExplorerResourceNode) 
     }
 };
 
-const selectPodKubernetes = async () => {
-    const resource =  await kubectlUtils.getResourceAsJson<KubernetesCollection<Pod>>(kubectl, "pods");
-    if (!resource) {
+async function selectPodKubernetes(): Promise<string | undefined> {
+    const pods =  await kubectlUtils.getResourceAsJson<KubernetesCollection<Pod>>(kubectl, "pods");
+    if (!pods) {
+        vscode.window.showInformationMessage('Unable to list any pods. No pod found in the current namespace.');
         return;
     }
 
-    const podPickItems = resource.items.map((pod) => {
+    const podPickItems = pods.items.map((pod) => {
         return {
-            label: `${pod.metadata.name} (${pod.spec.nodeName})`,
+            label: `${pod.metadata.name} (on ${pod.spec.nodeName})`,
             name: pod.metadata.name
         };
     });
