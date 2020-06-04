@@ -1,5 +1,17 @@
 # Change Log
 
+## 1.2.1
+
+* Helm releases now have Uninstall and Rollback commands
+* Follow Logs now has a 'scroll to bottom' button
+* We now support Debug (Launch) for Node.js projects
+* You can now click on a Helm Repos tree error node to see what the problem was
+* Fixed Preview Template command with Helm 3
+* Fixed path escaping issue with nested directories when debugging .NET applications
+* Fixed issue with attaching to Node.js applications
+
+Thanks to Eli Arbel, Brian Fitzpatrick, Shreyas Karnik, Beda Kuster and Luca Stocchi.
+
 ## 1.2.0
 
 * Added Cluster Explorer API v1.1 (watch support, and metadata now always present)
