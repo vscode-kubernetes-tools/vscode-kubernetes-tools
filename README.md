@@ -151,6 +151,7 @@ If you want to skip TLS verification for a particular cluster, you can edit your
 
    * `Kubernetes: Open Dashboard` - Opens the Kubernetes Dashboard in your browser.
    * `Kubernetes: Port Forward` - Prompts user for a local port and a remote port to bind to on a Pod.
+   * `Kubernetes: Select Pod` - It allows to select a pod from a list of pods belonging to the "current" namespace. It can be invoked through command substitution `${command:extension.vsKubernetesSelectPod}`. See [Commands for debugging](https://github.com/Azure/vscode-kubernetes-tools/blob/master/debug-on-kubernetes.md#2-commands-for-debugging) for more details. 
 
 ### Minikube
 

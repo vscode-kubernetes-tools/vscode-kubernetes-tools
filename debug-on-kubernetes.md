@@ -12,6 +12,35 @@ One of the key features of VS Code Kubernetes Extension is its one-click debuggi
    * `Kubernetes: Debug (Launch)` - Run the current application as a Kubernetes Deployment and attach a debugging session to it (currently works only for Java/Node.js deployments)
    * `Kubernetes: Debug (Attach)` - Attach a debugging session to an existing Kubernetes Deployment (currently works only for dotnet deployments, Java deployments and Python deployments running `ptvsd`)
 
+      ### Miscellaneous commands
+      * `Kubernetes: Select Pod` - It allows to select a pod from a list of pods belonging to the "current" namespace. It can be invoked through command substitution (`${command:extension.vsKubernetesSelectPod}`) inside files such as launch.json or tasks.json.
+   
+         An example of how to use the command inside a launch.json configuration can be found below.
+
+```javascript
+  {
+     "version": "0.2.0",
+      "configurations": [
+        {
+            "name": "Attach Api (Kubernetes)",
+            "type": "coreclr",
+            "request": "attach",
+            "pipeTransport": {
+                "pipeProgram": "kubectl",
+                "pipeArgs": [ "exec", "-i", "${command:extension.vsKubernetesSelectPod}", "--" ],
+                "pipeCwd": "${workspaceRoot}",
+                "debuggerPath": "/vsdbg/vsdbg",
+                "quoteArgs": false
+            },
+         ...
+   }
+```
+
+   When starting it, you will be shown a list of pods where to select the one you want to use.
+
+![select the pod](https://raw.githubusercontent.com/Azure/vscode-kubernetes-tools/master/images/screenshots/select-pod-command-substitution.png)
+
+
 ## 3. Extension Settings for debugging
    * `vs-kubernetes` - Parent for Kubernetes-related extension settings
       * `vs-kubernetes.autoCleanupOnDebugTerminate` - The flag to control whether to auto cleanup the created Deployment and associated Pod by the command "Kubernetes: Debug (Launch)". The cleanup action occurs when it failed to start debug session or debug session terminated. If not specified, the extension will prompt for whether to clean up or not. You might choose not to clean up if you wanted to view pod logs, etc.
