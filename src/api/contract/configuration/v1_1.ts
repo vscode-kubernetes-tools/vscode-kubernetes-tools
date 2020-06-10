@@ -1,13 +1,21 @@
+
 // This module is contractual and should not be changed after release.
 // It should be in sync with vscode-kubernetes-tools-api/ts/configuration/v1.ts
 // at all times.
 
+import { Event } from 'vscode';
 
-export interface ConfigurationV1 {
-    getKubeconfigPath(): ConfigurationV1.KubeconfigPath;
+/* eslint-disable camelcase */
+
+export interface ConfigurationV1_1 {
+    getKubeconfigPath(): ConfigurationV1_1.KubeconfigPath;
+
+    onDidChangeKubeconfigPath: Event<ConfigurationV1_1.KubeconfigPath>;
+
+    onDidChangeContext: Event<string | null>;
 }
 
-export namespace ConfigurationV1 {
+export namespace ConfigurationV1_1 {
 
     export interface HostKubeconfigPath {
         readonly pathType: 'host';
@@ -22,3 +30,4 @@ export namespace ConfigurationV1 {
     export type KubeconfigPath = HostKubeconfigPath | WSLKubeconfigPath;
 
 }
+
