@@ -23,7 +23,7 @@ import * as explainer from './explainer';
 import { shell } from './shell';
 import * as configmaps from './configMap';
 import * as kuberesources from './kuberesources';
-import { useNamespaceKubernetes } from './components/kubectl/namespace';
+import { useNamespaceKubernetes, switchNamespaceKubernetes } from './components/kubectl/namespace';
 import { EventDisplayMode, getEvents } from './components/kubectl/events';
 import * as docker from './docker';
 import { kubeChannel } from './kubeChannel';
@@ -201,10 +201,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.vsKubernetesRefreshHelmRepoExplorer', () => helmRepoTreeProvider.refresh()),
         registerCommand('extension.vsKubernetesRefreshCloudExplorer', () => cloudExplorer.refresh()),
         registerCommand('extension.vsKubernetesUseContext', useContextKubernetes),
+        registerCommand('extension.vsKubernetesSwitchContext', () => switchContextKubernetes(treeProvider)),
         registerCommand('extension.vsKubernetesUseKubeconfig', useKubeconfigKubernetes),
         registerCommand('extension.vsKubernetesClusterInfo', clusterInfoKubernetes),
         registerCommand('extension.vsKubernetesDeleteContext', deleteContextKubernetes),
         registerCommand('extension.vsKubernetesUseNamespace', (explorerNode: ClusterExplorerNode) => { useNamespaceKubernetes(kubectl, explorerNode); } ),
+        registerCommand('extension.vsKubernetesSwitchNamespace', () => switchNamespaceKubernetes(kubectl)),
         registerCommand('extension.vsKubernetesDashboard', () => { dashboardKubernetes(kubectl); }),
         registerCommand('extension.vsKubernetesAddWatch', (explorerNode: ClusterExplorerNode) => { addWatch(treeProvider, explorerNode); }),
         registerCommand('extension.vsKubernetesDeleteWatch', (explorerNode: ClusterExplorerNode) => { deleteWatch(treeProvider, explorerNode); }),
@@ -1982,6 +1984,27 @@ async function setContextKubernetes(targetContext: string) {
     } else {
         kubectl.reportFailure(er, { whatFailed: `Failed to set '${targetContext}' as current cluster` });
     }
+}
+
+async function setContextKubernetes(targetContext: string) {
+    const er = await kubectl.invokeCommand(`config use-context ${targetContext}`);
+    if (ExecResult.succeeded(er)) {
+        telemetry.invalidateClusterType(targetContext);
+        activeContextTracker.setActive(targetContext);
+        refreshExplorer();
+        WatchManager.instance().clear();
+    } else {
+        kubectl.reportFailure(er, { whatFailed: `Failed to set '${targetContext}' as current cluster` });
+    }
+}
+
+async function switchContextKubernetes(tree: explorer.KubernetesExplorer) {
+    const clusters = await tree.getInactiveClusters();
+    const result = await vscode.window.showQuickPick(clusters, { placeHolder: 'Pick the context you want to switch to' });
+    if (!result) {
+        return;
+    }
+    setContextKubernetes(result);
 }
 
 async function clusterInfoKubernetes(_explorerNode: ClusterExplorerNode) {

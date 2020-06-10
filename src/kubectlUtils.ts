@@ -10,6 +10,7 @@ import { shellMessage } from "./shell";
 export interface KubectlContext {
     readonly clusterName: string;
     readonly contextName: string;
+    readonly namespace?: string;
     readonly userName: string;
     readonly active: boolean;
 }
@@ -109,6 +110,7 @@ export async function getContexts(kubectl: Kubectl, options: ConfigReadOptions):
         return {
             clusterName: c.context.cluster,
             contextName: c.name,
+            namespace: c.context.namespace,
             userName: c.context.user,
             active: c.name === currentContext
         };

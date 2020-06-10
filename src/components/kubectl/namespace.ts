@@ -6,6 +6,7 @@ import * as kuberesources from '../../kuberesources';
 import { Kubectl } from '../../kubectl';
 import { ClusterExplorerNode } from '../clusterexplorer/node';
 import { NODE_TYPES } from '../clusterexplorer/explorer';
+import { window } from 'vscode';
 
 
 export async function useNamespaceKubernetes(kubectl: Kubectl, explorerNode: ClusterExplorerNode) {
@@ -50,5 +51,18 @@ async function switchToNamespace(kubectl: Kubectl, currentNS: string, resource: 
             refreshExplorer();
             host.showInformationMessage(`Switched to namespace ${toSwitchNamespace}`);
         }
+    }
+}
+
+export async function switchNamespaceKubernetes(kubectl: Kubectl) {
+    const namespaces = await kubectlUtils.getNamespaces(kubectl);
+    const result = await window.showQuickPick(namespaces.map(ns => ns.name), { placeHolder: 'Pick the namespace you want to switch to' });
+    if (!result) {
+        return;
+    }
+    if (await kubectlUtils.switchNamespace(kubectl, result)) {
+        refreshExplorer();
+        host.showInformationMessage(`Switched to namespace ${result}`);
+        return;
     }
 }

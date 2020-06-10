@@ -55,6 +55,8 @@
         "onCommand:extension.vsKubernetesConfigureFromCluster",
         "onCommand:extension.vsKubernetesCreateCluster",
         "onCommand:extension.vsKubernetesUseKubeconfig",
+        "onCommand:extension.vsKubernetesSwitchContext",
+        "onCommand:extension.vsKubernetesSwitchNamespace",
         "onCommand:extension.vsKubernetesDashboard",
         "onCommand:extension.vsMinikubeStop",
         "onCommand:extension.vsMinikubeStart",
@@ -655,6 +657,10 @@
                     "when": "view == extension.vsKubernetesExplorer"
                 },
                 {
+                    "command": "extension.vsKubernetesSwitchContext",
+                    "when": ""
+                },
+                {
                     "command": "extension.vsKubernetesClusterInfo",
                     "when": "view == extension.vsKubernetesExplorer"
                 },
@@ -664,6 +670,10 @@
                 },
                 {
                     "command": "extension.vsKubernetesUseNamespace",
+                    "when": ""
+                },
+                {
+                    "command": "extension.vsKubernetesSwitchNamespace",
                     "when": ""
                 },
                 {
@@ -870,6 +880,11 @@
                 "category": "Kubernetes"
             },
             {
+                "command": "extension.vsKubernetesSwitchContext",
+                "title": "Switch Current Cluster",
+                "category": "Kubernetes"
+            },
+            {
                 "command": "extension.vsKubernetesUseKubeconfig",
                 "title": "Set Kubeconfig",
                 "category": "Kubernetes"
@@ -887,6 +902,11 @@
             {
                 "command": "extension.vsKubernetesUseNamespace",
                 "title": "Use Namespace",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesSwitchNamespace",
+                "title": "Switch Namespace",
                 "category": "Kubernetes"
             },
             {
@@ -1112,6 +1132,18 @@
                 "key": "shift+ctrl+r",
                 "mac": "shift+cmd+r",
                 "when": "vscodeKubernetesDescribeContext"
+            },
+            {
+                "command": "extension.vsKubernetesSwitchContext",
+                "key": "alt+ctrl+q",
+                "mac": "alt+cmd+q",
+                "when": ""
+            },
+            {
+                "command": "extension.vsKubernetesSwitchNamespace",
+                "key": "alt+ctrl+w",
+                "mac": "alt+cmd+w",
+                "when": ""
             }
         ],
         "languages": [
