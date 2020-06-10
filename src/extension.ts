@@ -78,7 +78,7 @@ import { APIBroker } from './api/contract/api';
 import { apiBroker } from './api/implementation/apibroker';
 import { sleep } from './sleep';
 import { CloudExplorer, CloudExplorerTreeNode } from './components/cloudexplorer/cloudexplorer';
-import { mergeToKubeconfig } from './components/kubectl/kubeconfig';
+import { mergeToKubeconfig, getKubeconfigPath } from './components/kubectl/kubeconfig';
 import { PortForwardStatusBarManager } from './components/kubectl/port-forward-ui';
 import { getBuildCommand, getPushCommand } from './image/imageUtils';
 import { getImageBuildTool } from './components/config/config';
@@ -99,6 +99,7 @@ const clusterProviderRegistry = clusterproviderregistry.get();
 const configMapProvider = new configmaps.ConfigMapTextProvider(kubectl);
 const git = new Git(shell);
 const activeContextTracker = activeContextTrackerCreate(kubectl);
+const configPathChangedEmitter = new vscode.EventEmitter<{ readonly pathType: 'host'; readonly hostPath: string; } | { readonly pathType: 'wsl'; readonly wslPath: string; }>();
 
 export const overwriteMessageItems: vscode.MessageItem[] = [
     {
@@ -391,7 +392,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
     await registerYamlSchemaSupport(activeContextTracker, kubectl);
 
     vscode.workspace.registerTextDocumentContentProvider(configmaps.uriScheme, configMapProvider);
-    return apiBroker(clusterProviderRegistry, kubectl, portForwardStatusBarManager, treeProvider, cloudExplorer);
+    return apiBroker(clusterProviderRegistry, kubectl, portForwardStatusBarManager, treeProvider, cloudExplorer, configPathChangedEmitter, activeContextTracker);
 }
 
 // this method is called when your extension is deactivated
@@ -1939,6 +1940,7 @@ async function useKubeconfigKubernetes(kubeconfig?: string | { isTrusted: boolea
         return;
     }
     await setActiveKubeconfig(kc);
+    configPathChangedEmitter.fire(getKubeconfigPath());
     telemetry.invalidateClusterType(undefined, kubectl);
 }
 

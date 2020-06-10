@@ -11,8 +11,18 @@ import { Kubectl } from "../../kubectl";
 import { KubernetesExplorer } from "../../components/clusterexplorer/explorer";
 import { CloudExplorer } from "../../components/cloudexplorer/cloudexplorer";
 import { PortForwardStatusBarManager } from "../../components/kubectl/port-forward-ui";
+import { EventEmitter } from "vscode";
+import { ActiveValueTracker } from "../../components/contextmanager/active-value-tracker";
+import { ConfigurationV1 } from "../contract/configuration/v1";
 
-export function apiBroker(clusterProviderRegistry: ClusterProviderRegistry, kubectlImpl: Kubectl, portForwardStatusBarManager: PortForwardStatusBarManager, explorer: KubernetesExplorer, cloudExplorer: CloudExplorer): APIBroker {
+export function apiBroker(
+    clusterProviderRegistry: ClusterProviderRegistry,
+    kubectlImpl: Kubectl,
+    portForwardStatusBarManager: PortForwardStatusBarManager,
+    explorer: KubernetesExplorer, cloudExplorer: CloudExplorer,
+    configPathChangedEmitter: EventEmitter<ConfigurationV1.KubeconfigPath>,
+    activeContextTracker: ActiveValueTracker<string | null>): APIBroker {
+
     return {
         get(component: string, version: string): API<any> {
             switch (component) {
@@ -21,7 +31,7 @@ export function apiBroker(clusterProviderRegistry: ClusterProviderRegistry, kube
                 case "helm": return helm.apiVersion(version);
                 case "clusterexplorer": return clusterexplorer.apiVersion(explorer, version);
                 case "cloudexplorer": return cloudexplorer.apiVersion(cloudExplorer, version);
-                case "configuration": return configuration.apiVersion(version);
+                case "configuration": return configuration.apiVersion(version, configPathChangedEmitter, activeContextTracker);
                 default: return versionUnknown;
             }
         },

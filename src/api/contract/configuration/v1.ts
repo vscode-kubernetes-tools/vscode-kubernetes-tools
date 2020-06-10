@@ -2,8 +2,14 @@
 // It should be in sync with vscode-kubernetes-tools-api/ts/configuration/v1.ts
 // at all times.
 
+import { Event } from 'vscode';
+
 export interface ConfigurationV1 {
     getKubeconfigPath(): ConfigurationV1.KubeconfigPath;
+
+    onDidKubeconfigPathChange: Event<ConfigurationV1.KubeconfigPath>;
+
+    onDidActiveContextChanged: Event<string | null>;
 }
 
 export namespace ConfigurationV1 {

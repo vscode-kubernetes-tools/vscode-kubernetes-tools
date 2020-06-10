@@ -58,3 +58,59 @@ async function runMyTool() {
     }
 }
 ```
+
+## Detecting Kubernetes context change
+
+If your extension need to react on context change you may use `onDidActiveContextChanged` event.
+It fires every time when extension change kubernetos context (current active cluster).
+
+To subscribe to `onDidActiveContextChanged` event:
+
+* Request the Kubernetes extension's Configuration API
+* Use `onDidActiveContextChanged` to pass your even listener function.
+
+Your event listener will receive cluster identifier string or `null` if there are no cluster.
+
+Example:
+
+```javascript
+import * as k8s from 'vscode-kubernetes-tools-api';
+
+async function refreshWhenK8sContextChange() {
+    const configuration = await k8s.extension.configuration.v1;
+    if (!configuration.available) {
+        return;
+    }
+    configuration.api.onDidActiveContextChanged((e) => {
+        // current context is changed, do something with it
+    });
+}
+```
+
+## Detecting Kubernetes config path change
+
+This extension allows to have multiple kubernetos config files and provide UI to switch between them.
+If in you want to react, when extension change path to config file, you may use `onDidKubeconfigPathChange` event.
+
+To subscribe to `onDidKubeconfigPathChange` event:
+
+* Request the Kubernetes extension's Configuration API
+* Use `onDidKubeconfigPathChange` to pass your even listener function.
+
+Your event listener will receive same object as `getKubeconfigPath` provide.
+
+Example:
+
+```javascript
+import * as k8s from 'vscode-kubernetes-tools-api';
+
+async function detectK8sConfigPathChange() {
+    const configuration = await k8s.extension.configuration.v1;
+    if (!configuration.available) {
+        return;
+    }
+    configuration.api.onDidKubeconfigPathChange((e) => {
+        // path to config file is changed, do something with it
+    });
+}
+```
