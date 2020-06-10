@@ -1999,12 +1999,12 @@ async function setContextKubernetes(targetContext: string) {
 }
 
 async function switchContextKubernetes(tree: explorer.KubernetesExplorer) {
-    const clusters = await tree.getInactiveClusters();
-    const result = await vscode.window.showQuickPick(clusters, { placeHolder: 'Pick the context you want to switch to' });
-    if (!result) {
+    const inactiveContexts = await tree.getInactiveContexts();
+    const selected = await vscode.window.showQuickPick(inactiveContexts, { placeHolder: 'Pick the context you want to switch to' });
+    if (!selected) {
         return;
     }
-    setContextKubernetes(result);
+    setContextKubernetes(selected);
 }
 
 async function clusterInfoKubernetes(_explorerNode: ClusterExplorerNode) {

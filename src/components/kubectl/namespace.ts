@@ -56,13 +56,14 @@ async function switchToNamespace(kubectl: Kubectl, currentNS: string, resource: 
 
 export async function switchNamespaceKubernetes(kubectl: Kubectl) {
     const namespaces = await kubectlUtils.getNamespaces(kubectl);
-    const result = await window.showQuickPick(namespaces.map(ns => ns.name), { placeHolder: 'Pick the namespace you want to switch to' });
-    if (!result) {
+    const inactiveNamespaces = namespaces.filter(ns => !ns.active).map(ns => ns.name);
+    const selected = await window.showQuickPick(inactiveNamespaces, { placeHolder: 'Pick the namespace you want to switch to' });
+    if (!selected) {
         return;
     }
-    if (await kubectlUtils.switchNamespace(kubectl, result)) {
+    if (await kubectlUtils.switchNamespace(kubectl, selected)) {
         refreshExplorer();
-        host.showInformationMessage(`Switched to namespace ${result}`);
+        host.showInformationMessage(`Switched to namespace ${selected}`);
         return;
     }
 }

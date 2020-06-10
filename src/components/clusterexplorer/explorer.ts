@@ -11,7 +11,6 @@ import { WatchManager } from '../kubectl/watch';
 import { ExplorerExtender, ExplorerUICustomizer } from './explorer.extension';
 import { ClusterExplorerNode, ClusterExplorerResourceNode } from './node';
 import { ContextNode, MiniKubeContextNode } from './node.context';
-import { SSL_OP_NO_TLSv1_1 } from 'constants';
 
 // Each item in the explorer is modelled as a ClusterExplorerNode.  This
 // is a discriminated union, using a nodeType field as its discriminator.
@@ -173,7 +172,7 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         if (parent) {
             return parent.getChildren(this.kubectl, this.host);
         }
-        return this.getActiveCluster();
+        return this.getActiveContext();
     }
 
     refresh(node?: ClusterExplorerNode): void {
@@ -287,19 +286,7 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         return undefined;
     }
 
-    private async getClusters(): Promise<ClusterExplorerNode[]> {
-        const contexts = await kubectlUtils.getContexts(this.kubectl, { silent: false });  // TODO: turn it silent, cascade errors, and provide an error node
-        return contexts.map((context) => {
-            // TODO: this is slightly hacky...
-            if (context.contextName === 'minikube') {
-                return new MiniKubeContextNode(context.contextName, context);
-            }
-            
-            return new ContextNode(context.contextName, context);
-        });
-    }
-
-    private async getActiveCluster(): Promise<ClusterExplorerNode[]> {
+    private async getActiveContext(): Promise<ClusterExplorerNode[]> {
         const contexts = await kubectlUtils.getContexts(this.kubectl, { silent: false });  // TODO: turn it silent, cascade errors, and provide an error node
         return contexts.filter((context) => context.active).map((context) => {
             // TODO: this is slightly hacky...
@@ -311,7 +298,7 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         });
     }
 
-    public async getInactiveClusters(): Promise<string[]> {
+    public async getInactiveContexts(): Promise<string[]> {
         const contexts = await kubectlUtils.getContexts(this.kubectl, { silent: false });  // TODO: turn it silent, cascade errors, and provide an error node
         return contexts.filter((context) => !context.active).map((context) => {
             return context.contextName            

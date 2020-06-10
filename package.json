@@ -881,7 +881,7 @@
             },
             {
                 "command": "extension.vsKubernetesSwitchContext",
-                "title": "Switch Current Cluster",
+                "title": "Switch Context",
                 "category": "Kubernetes"
             },
             {

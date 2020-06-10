@@ -44,8 +44,8 @@ export class ContextNode extends ClusterExplorerNodeImpl implements ClusterExplo
     getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
         let label = this.contextName;
         if (this.kubectlContext) {
-            label = `${this.kubectlContext.namespace ? this.kubectlContext.namespace : ''}` + 
-                    `/${this.kubectlContext.clusterName}/${this.kubectlContext.userName.split('/')[0]}`;
+            const namespace = this.kubectlContext.namespace ? this.kubectlContext.namespace : '';
+            label = `${namespace}/${this.kubectlContext.clusterName}/${this.kubectlContext.userName.split('/')[0]}`;
         } 
         const treeItem = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.Collapsed);
         treeItem.contextValue = this.clusterType;
