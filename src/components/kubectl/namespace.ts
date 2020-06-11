@@ -6,12 +6,16 @@ import * as kuberesources from '../../kuberesources';
 import { Kubectl } from '../../kubectl';
 import { ClusterExplorerNode } from '../clusterexplorer/node';
 import { NODE_TYPES } from '../clusterexplorer/explorer';
+import { EventEmitter } from 'vscode';
+
+export const onDidChangeNamespaceEmitter = new EventEmitter<string>();
 
 export async function useNamespaceKubernetes(kubectl: Kubectl, explorerNode: ClusterExplorerNode) {
     if (explorerNode && explorerNode.nodeType === NODE_TYPES.resource) {
         if (await kubectlUtils.switchNamespace(kubectl, explorerNode.name)) {
             refreshExplorer();
             host.showInformationMessage(`Switched to namespace ${explorerNode.name}`);
+            onDidChangeNamespaceEmitter.fire(explorerNode.name);
             return;
         }
     }
@@ -32,7 +36,7 @@ export async function useNamespaceKubernetes(kubectl: Kubectl, explorerNode: Clu
     }
 }
 
-async function switchToNamespace (kubectl: Kubectl, currentNS: string, resource: string) {
+async function switchToNamespace(kubectl: Kubectl, currentNS: string, resource: string) {
     if (!resource) {
         return;
     }
@@ -48,6 +52,7 @@ async function switchToNamespace (kubectl: Kubectl, currentNS: string, resource:
         if (await kubectlUtils.switchNamespace(kubectl, toSwitchNamespace)) {
             refreshExplorer();
             host.showInformationMessage(`Switched to namespace ${toSwitchNamespace}`);
+            onDidChangeNamespaceEmitter.fire(toSwitchNamespace);
         }
     }
 }

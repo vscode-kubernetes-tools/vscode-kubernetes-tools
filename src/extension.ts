@@ -24,7 +24,7 @@ import { shell, ShellResult } from './shell';
 import * as configmaps from './configMap';
 import { DescribePanel } from './components/describe/describeWebview';
 import * as kuberesources from './kuberesources';
-import { useNamespaceKubernetes } from './components/kubectl/namespace';
+import { useNamespaceKubernetes, onDidChangeNamespaceEmitter } from './components/kubectl/namespace';
 import { EventDisplayMode, getEvents } from './components/kubectl/events';
 import * as docker from './docker';
 import { kubeChannel } from './kubeChannel';
@@ -99,7 +99,7 @@ const clusterProviderRegistry = clusterproviderregistry.get();
 const configMapProvider = new configmaps.ConfigMapTextProvider(kubectl);
 const git = new Git(shell);
 const activeContextTracker = activeContextTrackerCreate(kubectl);
-const configPathChangedEmitter = new vscode.EventEmitter<KubeconfigPath>();
+const onDidChangeKubeconfigEmitter = new vscode.EventEmitter<KubeconfigPath>();
 
 export const overwriteMessageItems: vscode.MessageItem[] = [
     {
@@ -392,7 +392,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
     await registerYamlSchemaSupport(activeContextTracker, kubectl);
 
     vscode.workspace.registerTextDocumentContentProvider(configmaps.uriScheme, configMapProvider);
-    return apiBroker(clusterProviderRegistry, kubectl, portForwardStatusBarManager, treeProvider, cloudExplorer, configPathChangedEmitter, activeContextTracker);
+    return apiBroker(clusterProviderRegistry, kubectl, portForwardStatusBarManager, treeProvider, cloudExplorer, onDidChangeKubeconfigEmitter, activeContextTracker, onDidChangeNamespaceEmitter);
 }
 
 // this method is called when your extension is deactivated
@@ -1940,7 +1940,7 @@ async function useKubeconfigKubernetes(kubeconfig?: string | { isTrusted: boolea
         return;
     }
     await setActiveKubeconfig(kc);
-    configPathChangedEmitter.fire(getKubeconfigPath());
+    onDidChangeKubeconfigEmitter.fire(getKubeconfigPath());
     telemetry.invalidateClusterType(undefined, kubectl);
 }
 

@@ -11,8 +11,8 @@ export interface ConfigurationV1_1 {
     getKubeconfigPath(): ConfigurationV1_1.KubeconfigPath;
 
     readonly onDidChangeKubeconfigPath: Event<ConfigurationV1_1.KubeconfigPath>;
-
     readonly onDidChangeContext: Event<string | null>;
+    readonly onDidChangeNamespace: Event<string>;
 }
 
 export namespace ConfigurationV1_1 {

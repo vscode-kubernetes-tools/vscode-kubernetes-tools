@@ -87,6 +87,33 @@ async function refreshWhenK8sContextChange() {
 }
 ```
 
+## Detecting Kubernetes namespace change
+
+If your extension need to react on namespace change you may use `onDidChangeNamespace` event.
+
+To subscribe to `onDidChangeNamespace` event:
+
+* Request the Kubernetes extension's Configuration API
+* Use `onDidChangeNamespace` to pass your even listener function.
+
+Your event listener will receive the new namespace name.
+
+Example:
+
+```javascript
+import * as k8s from 'vscode-kubernetes-tools-api';
+
+async function refreshWhenK8sContextChange() {
+    const configuration = await k8s.extension.configuration.v1_1;
+    if (!configuration.available) {
+        return;
+    }
+    configuration.api.onDidChangeNamespace((e) => {
+        // current namespace is changed, do something with it
+    });
+}
+```
+
 ## Detecting Kubernetes config path change
 
 This extension allows users to have multiple Kubernetes config files and provides UI to switch between them.

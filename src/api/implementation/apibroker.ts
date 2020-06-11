@@ -21,8 +21,9 @@ export function apiBroker(
     kubectlImpl: Kubectl,
     portForwardStatusBarManager: PortForwardStatusBarManager,
     explorer: KubernetesExplorer, cloudExplorer: CloudExplorer,
-    configPathChangedEmitter: EventEmitter<KubeconfigPath>,
-    activeContextTracker: ActiveValueTracker<string | null>): APIBroker {
+    onDidChangeKubeconfigEmitter: EventEmitter<KubeconfigPath>,
+    activeContextTracker: ActiveValueTracker<string | null>,
+    onDidChangeNamespaceEmitter: EventEmitter<string>): APIBroker {
 
     return {
         get(component: string, version: string): API<any> {
@@ -32,7 +33,7 @@ export function apiBroker(
                 case "helm": return helm.apiVersion(version);
                 case "clusterexplorer": return clusterexplorer.apiVersion(explorer, version);
                 case "cloudexplorer": return cloudexplorer.apiVersion(cloudExplorer, version);
-                case "configuration": return configuration.apiVersion(version, configPathChangedEmitter, activeContextTracker);
+                case "configuration": return configuration.apiVersion(version, onDidChangeKubeconfigEmitter, activeContextTracker, onDidChangeNamespaceEmitter);
                 default: return versionUnknown;
             }
         },
