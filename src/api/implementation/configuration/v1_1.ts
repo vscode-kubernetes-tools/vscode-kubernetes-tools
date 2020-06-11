@@ -5,14 +5,13 @@ import { ActiveValueTracker } from "../../../components/contextmanager/active-va
 import { ConfigurationV1_1 } from "../../contract/configuration/v1_1";
 
 export function impl(configPathChangedEmitter: EventEmitter<ConfigurationV1_1.KubeconfigPath>, activeContextTracker: ActiveValueTracker<string | null>): ConfigurationV1_1 {
-    return new ConfigurationV1Impl(configPathChangedEmitter, activeContextTracker);
+    return new ConfigurationV1_1Impl(configPathChangedEmitter, activeContextTracker);
 }
 
-class ConfigurationV1Impl implements ConfigurationV1_1 {
+class ConfigurationV1_1Impl implements ConfigurationV1_1 {
+    readonly onDidChangeKubeconfigPath: Event<ConfigurationV1_1.KubeconfigPath>;
 
-    onDidChangeKubeconfigPath: Event<ConfigurationV1_1.KubeconfigPath>;
-
-    onDidChangeContext: Event<string | null>;
+    readonly onDidChangeContext: Event<string | null>;
 
     constructor(configPathChangedEmitter: EventEmitter<ConfigurationV1_1.KubeconfigPath>, activeContextTracker: ActiveValueTracker<string | null>) {
         this.onDidChangeKubeconfigPath = configPathChangedEmitter.event;

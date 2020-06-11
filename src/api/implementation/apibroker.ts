@@ -13,14 +13,15 @@ import { CloudExplorer } from "../../components/cloudexplorer/cloudexplorer";
 import { PortForwardStatusBarManager } from "../../components/kubectl/port-forward-ui";
 import { EventEmitter } from "vscode";
 import { ActiveValueTracker } from "../../components/contextmanager/active-value-tracker";
-import { ConfigurationV1 } from "../contract/configuration/v1";
+import { KubeconfigPath } from "../../components/kubectl/kubeconfig";
+
 
 export function apiBroker(
     clusterProviderRegistry: ClusterProviderRegistry,
     kubectlImpl: Kubectl,
     portForwardStatusBarManager: PortForwardStatusBarManager,
     explorer: KubernetesExplorer, cloudExplorer: CloudExplorer,
-    configPathChangedEmitter: EventEmitter<ConfigurationV1.KubeconfigPath>,
+    configPathChangedEmitter: EventEmitter<KubeconfigPath>,
     activeContextTracker: ActiveValueTracker<string | null>): APIBroker {
 
     return {

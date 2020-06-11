@@ -1,6 +1,6 @@
 
 // This module is contractual and should not be changed after release.
-// It should be in sync with vscode-kubernetes-tools-api/ts/configuration/v1.ts
+// It should be in sync with vscode-kubernetes-tools-api/ts/configuration/v1_1.ts
 // at all times.
 
 import { Event } from 'vscode';
@@ -10,9 +10,9 @@ import { Event } from 'vscode';
 export interface ConfigurationV1_1 {
     getKubeconfigPath(): ConfigurationV1_1.KubeconfigPath;
 
-    onDidChangeKubeconfigPath: Event<ConfigurationV1_1.KubeconfigPath>;
+    readonly onDidChangeKubeconfigPath: Event<ConfigurationV1_1.KubeconfigPath>;
 
-    onDidChangeContext: Event<string | null>;
+    readonly onDidChangeContext: Event<string | null>;
 }
 
 export namespace ConfigurationV1_1 {
