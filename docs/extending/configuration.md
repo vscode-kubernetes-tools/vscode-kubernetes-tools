@@ -103,7 +103,7 @@ Example:
 ```javascript
 import * as k8s from 'vscode-kubernetes-tools-api';
 
-async function refreshWhenK8sContextChange() {
+async function refreshWhenK8sNamespaceChange() {
     const configuration = await k8s.extension.configuration.v1_1;
     if (!configuration.available) {
         return;

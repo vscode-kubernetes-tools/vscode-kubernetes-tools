@@ -290,6 +290,8 @@ export async function currentNamespaceArg(kubectl: Kubectl): Promise<string> {
     return `--namespace ${ns}`;
 }
 
+export const onDidChangeNamespaceEmitter = new vscode.EventEmitter<string>();
+
 export async function switchNamespace(kubectl: Kubectl, namespace: string): Promise<boolean> {
     const er = await kubectl.invokeCommand("config current-context");
     if (ExecResult.failed(er)) {
@@ -309,6 +311,7 @@ export async function switchNamespace(kubectl: Kubectl, namespace: string): Prom
         }
         return false;
     }
+    onDidChangeNamespaceEmitter.fire(namespace);
     return true;
 }
 

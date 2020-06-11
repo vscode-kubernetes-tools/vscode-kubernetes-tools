@@ -20,7 +20,8 @@ export function apiBroker(
     clusterProviderRegistry: ClusterProviderRegistry,
     kubectlImpl: Kubectl,
     portForwardStatusBarManager: PortForwardStatusBarManager,
-    explorer: KubernetesExplorer, cloudExplorer: CloudExplorer,
+    explorer: KubernetesExplorer,
+    cloudExplorer: CloudExplorer,
     onDidChangeKubeconfigEmitter: EventEmitter<KubeconfigPath>,
     activeContextTracker: ActiveValueTracker<string | null>,
     onDidChangeNamespaceEmitter: EventEmitter<string>): APIBroker {

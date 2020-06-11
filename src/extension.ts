@@ -24,7 +24,7 @@ import { shell, ShellResult } from './shell';
 import * as configmaps from './configMap';
 import { DescribePanel } from './components/describe/describeWebview';
 import * as kuberesources from './kuberesources';
-import { useNamespaceKubernetes, onDidChangeNamespaceEmitter } from './components/kubectl/namespace';
+import { useNamespaceKubernetes } from './components/kubectl/namespace';
 import { EventDisplayMode, getEvents } from './components/kubectl/events';
 import * as docker from './docker';
 import { kubeChannel } from './kubeChannel';
@@ -392,7 +392,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
     await registerYamlSchemaSupport(activeContextTracker, kubectl);
 
     vscode.workspace.registerTextDocumentContentProvider(configmaps.uriScheme, configMapProvider);
-    return apiBroker(clusterProviderRegistry, kubectl, portForwardStatusBarManager, treeProvider, cloudExplorer, onDidChangeKubeconfigEmitter, activeContextTracker, onDidChangeNamespaceEmitter);
+    return apiBroker(clusterProviderRegistry, kubectl, portForwardStatusBarManager, treeProvider, cloudExplorer, onDidChangeKubeconfigEmitter, activeContextTracker, kubectlUtils.onDidChangeNamespaceEmitter);
 }
 
 // this method is called when your extension is deactivated

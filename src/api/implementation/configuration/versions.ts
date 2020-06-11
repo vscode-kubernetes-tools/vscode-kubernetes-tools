@@ -6,10 +6,10 @@ import { API } from "../../contract/api";
 import { versionUnknown, available } from "../apiutils";
 import { EventEmitter } from "vscode";
 import { ActiveValueTracker } from "../../../components/contextmanager/active-value-tracker";
-import { ConfigurationV1 } from "../../contract/configuration/v1";
+import { KubeconfigPath } from "../../../components/kubectl/kubeconfig";
 
 export function apiVersion(version: string,
-    onDidChangeKubeconfigEmitter: EventEmitter<ConfigurationV1.KubeconfigPath>,
+    onDidChangeKubeconfigEmitter: EventEmitter<KubeconfigPath>,
     activeContextTracker: ActiveValueTracker<string | null>,
     onDidChangeNamespaceEmitter: EventEmitter<string>): API<any> {
     switch (version) {
