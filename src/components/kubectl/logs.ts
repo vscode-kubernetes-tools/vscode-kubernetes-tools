@@ -13,7 +13,8 @@ import { ExecResult } from '../../binutilplusplus';
 
 export enum LogsDisplayMode {
     Show,
-    Follow
+    Follow,
+    Limit
 }
 
 /**
@@ -97,6 +98,10 @@ async function getLogsForContainer(
 
     if (displayMode === LogsDisplayMode.Follow) {
         args.push('-f');
+    }
+
+    if (displayMode === LogsDisplayMode.Limit) {
+        args.push('--since=5m');
     }
 
     const cmd = args.join(' ');

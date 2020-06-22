@@ -177,6 +177,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.vsKubernetesRun', runKubernetes),
         registerCommand('extension.vsKubernetesShowLogs', (explorerNode: ClusterExplorerResourceNode) => { logsKubernetes(kubectl, explorerNode, LogsDisplayMode.Show); }),
         registerCommand('extension.vsKubernetesFollowLogs', (explorerNode: ClusterExplorerResourceNode) => { logsKubernetes(kubectl, explorerNode, LogsDisplayMode.Follow); }),
+        registerCommand('extension.vsKubernetesLimitLogs', (explorerNode: ClusterExplorerResourceNode) => { logsKubernetes(kubectl, explorerNode, LogsDisplayMode.Limit); }),
         registerCommand('extension.vsKubernetesExpose', exposeKubernetes),
         registerCommand('extension.vsKubernetesDescribe', describeKubernetes),
         registerCommand('extension.vsKubernetesSync', syncKubernetes),
