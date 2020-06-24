@@ -24,6 +24,7 @@ import { parseLineOutput } from './outputUtils';
 import { ExecCallback, shell as sh, ShellResult } from './shell';
 import { preview } from './utils/preview';
 import * as fs from './wsl-fs';
+import * as shell from './shell';
 
 export interface PickChartUIOptions {
     readonly warnIfNoCharts: boolean;
@@ -403,6 +404,15 @@ export async function helmFetch(helmObject: helmrepoexplorer.HelmObject | undefi
 }
 
 async function helmFetchCore(chartId: string, version: string | undefined): Promise<void> {
+    if (!shell.isSafe(chartId)) {
+        vscode.window.showWarningMessage(`Unexpected characters in chart name ${chartId}. Use Helm CLI to fetch this chart.`);
+        return;
+    }
+    if (version && !shell.isSafe(version)) {
+        vscode.window.showWarningMessage(`Unexpected characters in chart version ${version}. Use Helm CLI to fetch this chart.`);
+        return;
+    }
+
     const projectFolder = await showWorkspaceFolderPick();
     if (!projectFolder) {
         return;
@@ -432,6 +442,15 @@ export async function helmInstall(kubectl: Kubectl, helmObject: helmrepoexplorer
 }
 
 async function helmInstallCore(kubectl: Kubectl, chartId: string, version: string | undefined): Promise<void> {
+    if (!shell.isSafe(chartId)) {
+        vscode.window.showWarningMessage(`Unexpected characters in chart name ${chartId}. Use Helm CLI to install this chart.`);
+        return;
+    }
+    if (version && !shell.isSafe(version)) {
+        vscode.window.showWarningMessage(`Unexpected characters in chart version ${version}. Use Helm CLI to install this chart.`);
+        return;
+    }
+
     const syntaxVersion = await helmSyntaxVersion();
     const ns = await currentNamespace(kubectl);
     const nsArg = ns ? `--namespace ${ns}` : '';
@@ -475,6 +494,15 @@ export async function helmDependencies(helmObject: helmrepoexplorer.HelmObject |
 }
 
 async function helmDependenciesLaunchViewer(chartId: string, version: string | undefined): Promise<void> {
+    if (!shell.isSafe(chartId)) {
+        vscode.window.showWarningMessage(`Unexpected characters in chart name ${chartId}. Use Helm CLI to install this chart.`);
+        return;
+    }
+    if (version && !shell.isSafe(version)) {
+        vscode.window.showWarningMessage(`Unexpected characters in chart version ${version}. Use Helm CLI to install this chart.`);
+        return;
+    }
+
     // Boing it back through a HTML preview window
     const versionQuery = version ? `?${version}` : '';
     const uri = vscode.Uri.parse(`${helm.DEPENDENCIES_SCHEME}://${helm.DEPENDENCIES_REPO_AUTHORITY}/${chartId}${versionQuery}`);
