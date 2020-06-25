@@ -250,3 +250,9 @@ export function shellMessage(er: ExecResult, invocationFailureMessage: string): 
     }
     return er.resultKind === 'exec-succeeded' ? er.stdout : er.stderr;
 }
+
+const SAFE_CHARS_REGEX = /^[-,._+:@%/\w]*$/;
+
+export function isSafe(s: string): boolean {
+    return SAFE_CHARS_REGEX.test(s);
+}
