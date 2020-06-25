@@ -266,7 +266,7 @@
                         },
                         "vs-kubernetes.enable-snap-flag": {
                             "type": "boolean",
-                            "description": "If true will enable the flag to run kubectl commands using kubectl installed by snap."
+                            "description": "Enables compatibility with instances of VS Code that were installed using snap."
                         }
                     },
                     "default": {

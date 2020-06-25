@@ -210,6 +210,7 @@ Minikube tools to be installed and available on your PATH.
        * `vs-kubernetes.outputFormat` - The output format that you prefer to view Kubernetes manifests in. One of "yaml" or "json". Defaults to "yaml".
        * `vs-kubernetes.resources-to-watch` - List of resources to be watched. To identify a resource the extension uses the label displayed in the cluster explorer. E.g. ["Pods", "Services", "Namespaces"]. 
        * `logsDisplay` - Where and how to display Kubernetes logs.  One of `webview` (display in a filterable HTML view) and `terminal` (run the command in the VS Code terminal)
+       * `vscode-kubernetes.enable-snap-flag` - Enables compatibility with instances of VS Code that were installed using snap.
    * `vsdocker.imageUser` - Image prefix for the container images e.g. 'docker.io/brendanburns'
    * `checkForMinikubeUpgrade` - On extension startup, notify if a minikube upgrade is available. Defaults to true.
    * `disable-lint` - Disable all linting of Kubernetes files
@@ -260,6 +261,7 @@ Here are the various linters, you can enable or disable them individually using 
 
   * `Kubernetes: Debug` command currently works only with Node.js, Java, Python and .NET applications
   * For deeply nested Helm charts, template previews are generated against highest (umbrella) chart values (though for `Helm: Template` calls you can pick your chart)
+  * When installing VS Code and/or kubectl through `snap` on a Linux system, you may face some permissions error which will prevent this extension to work correctly. As a workaround you can set up the `vs-kubernetes.enable-snap-flag` setting to `true` in your user or workspace settings. 
 
 ## Release notes
 
