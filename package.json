@@ -263,6 +263,10 @@
                         "vs-kubernetes.resources-to-watch": {
                             "type": "array",
                             "description": "List of resources to be watched."
+                        },
+                        "vs-kubernetes.enable-snap-flag": {
+                            "type": "boolean",
+                            "description": "Enables compatibility with instances of VS Code that were installed using snap."
                         }
                     },
                     "default": {
