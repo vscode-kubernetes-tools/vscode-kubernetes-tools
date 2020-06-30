@@ -61,15 +61,17 @@ async function runMyTool() {
 
 ## Detecting Kubernetes context change
 
-If your extension need to react on context change you may use `onDidChangeContext` event.
-It fires when the extensions changes the Kubernetes context (current active cluster).
+If your extension needs to know if the current context changes, you can subscribe to the `onDidChangeContext` event.
+This event fires when the extension changes the current Kubernetes context.
 
-To subscribe to `onDidChangeContext` event:
+*Note that this event is heuristic*. It is only reliable when the user changes the current Kubernetes context through the extension and therefore there could be inconsistencies when the user changes it `behind our backs`, for example by using `kubectl` at the command line.
+
+To subscribe to the `onDidChangeContext` event through the extension API:
 
 * Request the Kubernetes extension's Configuration API
-* Use `onDidChangeContext` to pass your even listener function.
+* Use `onDidChangeContext` to pass your event listener function.
 
-Your event listener will receive the new cluster identifier string or `null` if there is no active cluster.
+Your listener will receive the new cluster identifier or `null` if there is no active cluster.
 
 Example:
 
@@ -81,7 +83,7 @@ async function refreshWhenK8sContextChange() {
     if (!configuration.available) {
         return;
     }
-    configuration.api.onDidChangeContext((e) => {
+    configuration.api.onDidChangeContext((context) => {
         // current context is changed, do something with it
     });
 }
@@ -89,14 +91,17 @@ async function refreshWhenK8sContextChange() {
 
 ## Detecting Kubernetes namespace change
 
-If your extension need to react on namespace change you may use `onDidChangeNamespace` event.
+If your extension needs to know if the current namespace changes, you can subscribe to the `onDidChangeNamespace` event.
+This event fires when the extension changes the current Kubernetes namespace.
 
-To subscribe to `onDidChangeNamespace` event:
+*Note that this event is heuristic*. It is only reliable when the user changes the current Kubernetes namespace through the extension and therefore there could be inconsistencies when the user changes it `behind our backs`, for example by using `kubectl` at the command line.
+
+To subscribe to the `onDidChangeNamespace` event through the extension API:
 
 * Request the Kubernetes extension's Configuration API
-* Use `onDidChangeNamespace` to pass your even listener function.
+* Use `onDidChangeNamespace` to pass your event listener function.
 
-Your event listener will receive the new namespace name.
+Your listener will receive the new namespace name.
 
 Example:
 
@@ -108,7 +113,7 @@ async function refreshWhenK8sNamespaceChange() {
     if (!configuration.available) {
         return;
     }
-    configuration.api.onDidChangeNamespace((e) => {
+    configuration.api.onDidChangeNamespace((namespace) => {
         // current namespace is changed, do something with it
     });
 }
@@ -116,15 +121,17 @@ async function refreshWhenK8sNamespaceChange() {
 
 ## Detecting Kubernetes config path change
 
-This extension allows users to have multiple Kubernetes config files and provides UI to switch between them.
-If in you want to react, when extension change path to config file, you may use `onDidChangeKubeconfigPath` event.
+If your extension needs to know if the current Kubernetes config file used changes, you can subscribe to the `onDidChangeKubeconfigPath` event.
+This event fires when the extension changes the reference Kubernetes config file.
 
-To subscribe to `onDidChangeKubeconfigPath` event:
+*Note that this event is heuristic*. It is only reliable when the user changes the current Kubernetes config file through the extension and therefore there could be inconsistencies when the user changes it `behind our backs`, for example by using `kubectl` at the command line.
+
+To subscribe to the `onDidChangeKubeconfigPath` event through the extension API:
 
 * Request the Kubernetes extension's Configuration API
 * Use `onDidChangeKubeconfigPath` to pass your event listener function.
 
-Your event listener will receive same object as `getKubeconfigPath` provide.
+Your event listener will receive an object containing a `pathType` attribute as described for the `getKubeconfigPath` method [above](#Detecting-the-kubernetes-configuration).
 
 Example:
 
@@ -136,7 +143,7 @@ async function detectK8sConfigPathChange() {
     if (!configuration.available) {
         return;
     }
-    configuration.api.onDidChangeKubeconfigPath((e) => {
+    configuration.api.onDidChangeKubeconfigPath((path) => {
         // path to config file is changed, do something with it
     });
 }
