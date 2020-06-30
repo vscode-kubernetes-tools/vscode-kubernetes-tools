@@ -192,7 +192,7 @@ export class FuncMap {
             this.f("reverse", "reverse $list", "reverse $list item order"),
             this.f("uniq", "uniq $list", "remove duplicates from list"),
             this.f("without", "without $list $item ...", "return $list with $item(s) removed"),
-            this.f("has", "has $list $item", "return true if $item is in $list"),
+            this.f("has", "has $item $list", "return true if $item is in $list"),
             // Dictionaries
             this.f("dict", "dict $key $val $key2 $val2 ...", "create dictionary with $key/$val pairs"),
             this.f("set", "set $dict $key $val", "set $key=$val in $dict (mutates dict)"),
