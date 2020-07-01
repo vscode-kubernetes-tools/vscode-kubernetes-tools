@@ -86,6 +86,7 @@ import { ClusterExplorerNode, ClusterExplorerConfigurationValueNode, ClusterExpl
 import { create as activeContextTrackerCreate } from './components/contextmanager/active-context-tracker';
 import { WatchManager } from './components/kubectl/watch';
 import { ExecResult } from './binutilplusplus';
+import { recommendExtensions } from './components/extexplorer/explorer';
 
 let explainActive = false;
 let swaggerSpecPromise: Promise<explainer.SwaggerModel | undefined> | null = null;
@@ -142,6 +143,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
     const dependenciesProvider = new HelmDependencyDocumentProvider();
     const helmSymbolProvider = new HelmDocumentSymbolProvider();
     const completionProvider = new HelmTemplateCompletionProvider();
+    recommendExtensions(kubectl, context);
     const completionFilter = [
         "helm",
         {pattern: "**/templates/NOTES.txt"}
