@@ -15,6 +15,7 @@ const specialKinds: ReadonlyArray<ResourceKindUIDescriptor> = [
     { kind: kuberesources.allKinds.node, childSources: [nodePodsChildSource] },
     { kind: kuberesources.allKinds.deployment, lister: hasSelectorLister, childSources: [selectedPodsChildSource] },
     { kind: kuberesources.allKinds.daemonSet, lister: hasSelectorLister, childSources: [selectedPodsChildSource] },
+    { kind: kuberesources.allKinds.job, lister: hasSelectorLister, childSources: [selectedPodsChildSource] },
     { kind: kuberesources.allKinds.pod, lister: podLister, childSources: [podStatusChildSource], uiCustomiser: podUICustomiser },
     { kind: kuberesources.allKinds.service, lister: hasSelectorLister, childSources: [selectedPodsChildSource] },
     { kind: kuberesources.allKinds.configMap, lister: configResourceLister, childSources: [configItemsChildSource] },
