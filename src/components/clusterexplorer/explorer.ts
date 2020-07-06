@@ -100,7 +100,8 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
 
     initialize() {
         const viewer = vscode.window.createTreeView('extension.vsKubernetesExplorer', {
-            treeDataProvider: this
+            treeDataProvider: this,
+            showCollapseAll: true
         });
         return vscode.Disposable.from(
 			viewer,
