@@ -64,7 +64,7 @@ import { refreshExplorer } from './components/clusterprovider/common/explorer';
 import { KubernetesCompletionProvider } from "./yaml-support/yaml-snippet";
 import { showWorkspaceFolderPick } from './hostutils';
 import { DraftConfigurationProvider } from './draft/draftConfigurationProvider';
-import { KubernetesResourceVirtualFileSystemProvider, K8S_RESOURCE_SCHEME, kubefsUri } from './kuberesources.virtualfs';
+import { KubernetesResourceVirtualFileSystemProvider, K8S_RESOURCE_SCHEME, kubefsUri, K8S_RESOURCE_SCHEME_READONLY } from './kuberesources.virtualfs';
 import { KubernetesResourceLinkProvider } from './kuberesources.linkprovider';
 import { Container, isKubernetesResource, KubernetesCollection, Pod, KubernetesResource } from './kuberesources.objectmodel';
 import { setActiveKubeconfig, getKnownKubeconfigs, addKnownKubeconfig } from './components/config/config';
@@ -290,6 +290,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
 
         // Temporarily loaded resource providers
         vscode.workspace.registerFileSystemProvider(K8S_RESOURCE_SCHEME, resourceDocProvider, { /* TODO: case sensitive? */ }),
+        vscode.workspace.registerFileSystemProvider(K8S_RESOURCE_SCHEME_READONLY, resourceDocProvider, { isReadonly: true }),
 
         // Link from resources to referenced resources
         vscode.languages.registerDocumentLinkProvider({ scheme: K8S_RESOURCE_SCHEME }, resourceLinkProvider),
@@ -1274,30 +1275,25 @@ function getPorts() {
 }
 
 async function describeKubernetes(explorerNode?: ClusterExplorerResourceNode) {
-    async function describeSettings() {
-        if (explorerNode) {
-            const nsarg = explorerNode.namespace ? `--namespace ${explorerNode.namespace}` : '';
-            return { cmd: `describe ${explorerNode.kindName} ${nsarg}`, resourceKindName: explorerNode.kindName };
-        } else {
-            const value = await findKindNameOrPrompt(kuberesources.commonKinds, 'describe', { nameOptional: true });
-            if (value) {
-                return { cmd: `describe ${value}`, resourceKindName: value };
-            }
-            return undefined;
-        }
-    }
-    const settings = await describeSettings();
-    if (!settings) {
-        return;
+    let ns: string | null, value: string | undefined;
+    if (explorerNode) {
+        ns = explorerNode.namespace ? explorerNode.namespace : '';
+        value = explorerNode.kindName;
+    } else {
+        ns = null;
+        value = await findKindNameOrPrompt(kuberesources.commonKinds, 'describe', { nameOptional: true });
     }
 
-    const describe = () => kubectl.invokeCommand(settings.cmd);
-    const er = await describe();
-    if (ExecResult.failed(er)) {
-        await kubectl.reportFailure(er, { whatFailed: 'Describe failed' });
+    if (!value) {
         return;
     }
-    DescribePanel.createOrShow(er.stdout, settings.resourceKindName, describe);
+    const uri = kubefsUri(ns, value, '', 'describe');
+    vscode.workspace.openTextDocument(uri).then((doc) => {
+        if (doc) {
+            vscode.window.showTextDocument(doc);
+        }
+    },
+    (err) => vscode.window.showErrorMessage(`Error loading document: ${err}`));
 }
 
 export interface PodSummary {
