@@ -64,7 +64,7 @@ import { refreshExplorer } from './components/clusterprovider/common/explorer';
 import { KubernetesCompletionProvider } from "./yaml-support/yaml-snippet";
 import { showWorkspaceFolderPick } from './hostutils';
 import { DraftConfigurationProvider } from './draft/draftConfigurationProvider';
-import { KubernetesResourceVirtualFileSystemProvider, K8S_RESOURCE_SCHEME, kubefsUri, K8S_RESOURCE_SCHEME_READONLY } from './kuberesources.virtualfs';
+import { KubernetesResourceVirtualFileSystemProvider, K8S_RESOURCE_SCHEME, kubefsUri, K8S_RESOURCE_SCHEME_READONLY, KUBECTL_DESCRIBE_AUTHORITY } from './kuberesources.virtualfs';
 import { KubernetesResourceLinkProvider } from './kuberesources.linkprovider';
 import { Container, isKubernetesResource, KubernetesCollection, Pod, KubernetesResource } from './kuberesources.objectmodel';
 import { setActiveKubeconfig, getKnownKubeconfigs, addKnownKubeconfig } from './components/config/config';
@@ -169,7 +169,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
             (uri: vscode.Uri) => kubectlUtils.applyResourceFromUri(uri, kubectl)),
         registerCommand('extension.vsKubernetesDelete', (explorerNode: ClusterExplorerResourceNode) => { deleteKubernetes(KubernetesDeleteMode.Graceful, explorerNode); }),
         registerCommand('extension.vsKubernetesDeleteNow', (explorerNode: ClusterExplorerResourceNode) => { deleteKubernetes(KubernetesDeleteMode.Now, explorerNode); }),
-        registerCommand('extension.vsKubernetesDescribe.Refresh', DescribePanel.refreshCommand),
+        registerCommand('extension.vsKubernetesDescribe.Refresh', () => refreshDescribeKubernetes(resourceDocProvider)),
         registerCommand('extension.vsKubernetesApply', applyKubernetes),
         registerCommand('extension.vsKubernetesExplain', explainActiveWindow),
         registerCommand('extension.vsKubernetesLoad', loadKubernetes),
@@ -1294,6 +1294,22 @@ async function describeKubernetes(explorerNode?: ClusterExplorerResourceNode) {
         }
     },
     (err) => vscode.window.showErrorMessage(`Error loading document: ${err}`));
+}
+
+async function refreshDescribeKubernetes(resourceDocProvider: KubernetesResourceVirtualFileSystemProvider) {
+    const editor = vscode.window.activeTextEditor;
+    if (editor) {
+        const uri = editor.document.uri;
+        if (uri.authority === KUBECTL_DESCRIBE_AUTHORITY) {
+            const newContent = await resourceDocProvider.loadResource(uri);
+            const edit = new vscode.WorkspaceEdit();
+            edit.replace(
+                uri,
+                new vscode.Range(0, 0, editor.document.lineCount, 0),
+                newContent);
+            vscode.workspace.applyEdit(edit);
+        }
+    }
 }
 
 export interface PodSummary {
