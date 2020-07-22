@@ -22,7 +22,6 @@ import { addKubernetesConfigFile, deleteKubernetesConfigFile } from './configMap
 import * as explainer from './explainer';
 import { shell, ShellResult } from './shell';
 import * as configmaps from './configMap';
-import { DescribePanel } from './components/describe/describeWebview';
 import * as kuberesources from './kuberesources';
 import { useNamespaceKubernetes } from './components/kubectl/namespace';
 import { EventDisplayMode, getEvents } from './components/kubectl/events';
