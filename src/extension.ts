@@ -1057,6 +1057,9 @@ function findKindNamesForText(text: string): Errorable<ResourceKindName[]> {
 export async function findKindNameOrPrompt(resourceKinds: kuberesources.ResourceKind[], descriptionVerb: string, opts: vscode.InputBoxOptions & QuickPickKindNameOptions): Promise<string | undefined> {
     const kindObject = tryFindKindNameFromEditor();
     if (failed(kindObject)) {
+        if (opts.skipPrompt) {
+            return await quickPickKindName(resourceKinds, opts);
+        }
         return await promptKindName(resourceKinds, descriptionVerb, opts);
     } else {
         return `${kindObject.result.kind}/${kindObject.result.resourceName}`;
@@ -1099,6 +1102,7 @@ export async function quickPickKindName(resourceKinds: kuberesources.ResourceKin
 interface QuickPickKindNameOptions {
     readonly filterNames?: string[];
     readonly nameOptional?: boolean;
+    readonly skipPrompt?: boolean;
 }
 
 async function quickPickKindNameFromKind(resourceKind: kuberesources.ResourceKind, opts: QuickPickKindNameOptions): Promise<string | undefined> {
@@ -1260,8 +1264,11 @@ async function describeKubernetes(explorerNode?: ClusterExplorerResourceNode) {
         ns = explorerNode.namespace ? explorerNode.namespace : '';
         value = explorerNode.kindName;
     } else {
+        const clusterKinds = await kubectlUtils.clusterResources(kubectl, ['get', 'list']);
+        if (clusterKinds.succeeded) {
+            value = await findKindNameOrPrompt(clusterKinds.result, 'describe', { nameOptional: true, skipPrompt: true });
+        }
         ns = null;
-        value = await findKindNameOrPrompt(kuberesources.commonKinds, 'describe', { nameOptional: true });
     }
 
     if (!value) {
