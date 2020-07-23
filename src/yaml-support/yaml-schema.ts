@@ -38,32 +38,36 @@ export async function registerYamlSchemaSupport(activeContextTracker: ActiveValu
 
 // see docs from YamlSchemaContributor
 function requestYamlSchemaUriCallback(resource: string): string | undefined {
-    const textEditor = vscode.window.visibleTextEditors.find((editor) => editor.document.uri.toString() === resource);
-    if (textEditor) {
-        const yamlDocs = yamlLocator.getYamlDocuments(textEditor.document);
-        const choices: string[] = [];
-        const activeSchema = schemas && schemas.active();
-        if (!activeSchema) {
-            return undefined;
-        }
-        yamlDocs.forEach((doc) => {
-            // if the yaml document contains apiVersion and kind node, it will report it is a kubernetes yaml
-            // file
-            const topLevelMapping = <YamlMap>doc.nodes.find((node) => node.kind === 'MAPPING');
-            if (topLevelMapping) {
-                // if the overall yaml is an map, find the apiVersion and kind properties in yaml
-                const apiVersion = util.getYamlMappingValue(topLevelMapping, 'apiVersion');
-                const kind = util.getYamlMappingValue(topLevelMapping, 'kind');
-                if (apiVersion && kind) {
-                    const qualifiedKind = apiVersion + GROUP_VERSION_KIND_SEPARATOR + kind;
-                    // Check we have a schema here - returning undefined from the schema content callback reports an error
-                    if (activeSchema.lookup(qualifiedKind)) {
-                        choices.push(qualifiedKind);
+    try {
+        const textEditor = vscode.window.visibleTextEditors.find((editor) => editor.document.uri.toString() === resource);
+        if (textEditor) {
+            const yamlDocs = yamlLocator.getYamlDocuments(textEditor.document);
+            const choices: string[] = [];
+            const activeSchema = schemas && schemas.active();
+            if (!activeSchema) {
+                return undefined;
+            }
+            yamlDocs.forEach((doc) => {
+                // if the yaml document contains apiVersion and kind node, it will report it is a kubernetes yaml
+                // file
+                const topLevelMapping = <YamlMap>doc.nodes.find((node) => node.kind === 'MAPPING');
+                if (topLevelMapping) {
+                    // if the overall yaml is an map, find the apiVersion and kind properties in yaml
+                    const apiVersion = util.getYamlMappingValue(topLevelMapping, 'apiVersion');
+                    const kind = util.getYamlMappingValue(topLevelMapping, 'kind');
+                    if (apiVersion && kind) {
+                        const qualifiedKind = apiVersion + GROUP_VERSION_KIND_SEPARATOR + kind;
+                        // Check we have a schema here - returning undefined from the schema content callback reports an error
+                        if (activeSchema.lookup(qualifiedKind)) {
+                            choices.push(qualifiedKind);
+                        }
                     }
                 }
-            }
-        });
-        return util.makeKubernetesUri(choices);
+            });
+            return util.makeKubernetesUri(choices);
+        }
+    } catch (error) {
+        return undefined;
     }
     return undefined;
 }
