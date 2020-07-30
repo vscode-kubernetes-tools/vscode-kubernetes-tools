@@ -74,10 +74,13 @@ export class YamlLocator {
      * @param {vscode.Position} pos vscode position
      * @returns {YamlMatchedElement} the search results of yaml elements at the given position
      */
-    public getMatchedElement(textDocument: vscode.TextDocument, pos: vscode.Position): YamlMatchedElement {
+    public getMatchedElement(textDocument: vscode.TextDocument, pos: vscode.Position): YamlMatchedElement | undefined {
         const key: string = textDocument.uri.toString();
         this.ensureCache(key, textDocument);
         const cacheEntry = this.cache[key];
+        if (!cacheEntry) {
+            return undefined;
+        }
         // findNodeAtPosition will find the matched node at given position
         return findNodeAtPosition(cacheEntry.yamlDocs, cacheEntry.lineLengths, pos.line, pos.character);
     }
@@ -92,7 +95,10 @@ export class YamlLocator {
     public getYamlDocuments(textDocument: vscode.TextDocument): YamlDocument[] {
         const key: string = textDocument.uri.toString();
         this.ensureCache(key, textDocument);
-        return this.cache[key].yamlDocs;
+        if (!this.cache[key]) {
+            return [];
+        }
+        return this.cache[key].yamlDocs ? this.cache[key].yamlDocs : [];
     }
 
     private ensureCache(key: string, textDocument: vscode.TextDocument): void {
@@ -103,10 +109,14 @@ export class YamlLocator {
         if (this.cache[key].version !== textDocument.version) {
             // the document and line lengths from parse method is cached into YamlCachedDocuments to avoid duplicate
             // parse against the same text.
-            const { documents, lineLengths } = parse(textDocument.getText());
-            this.cache[key].yamlDocs = documents;
-            this.cache[key].lineLengths = lineLengths;
-            this.cache[key].version = textDocument.version;
+            try {
+                const { documents, lineLengths } = parse(textDocument.getText());
+                this.cache[key].yamlDocs = documents;
+                this.cache[key].lineLengths = lineLengths;
+                this.cache[key].version = textDocument.version;
+            } catch (err) {
+                delete this.cache[key];
+            }
         }
     }
 }
