@@ -297,3 +297,8 @@ export function isNamespaceStatusBarDisabled(): boolean {
 export function getLocalTunnelDebugProvider(): string | undefined {
     return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.local-tunnel-debug-provider'];
 }
+
+// if true will enable the flag to run kubectl commands using kubectl installed by snap
+export function enableMinimalDescribeWorkflow(): boolean {
+    return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.enable-minimal-describe-workflow'];
+}

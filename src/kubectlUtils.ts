@@ -463,7 +463,7 @@ export async function namespaceResources(kubectl: Kubectl, ns: string): Promise<
     );
 }
 
-export async function clusterResources(kubectl: Kubectl, verbs: string[]): Promise<Errorable<ResourceKind[]>> {
+export async function allResourceKinds(kubectl: Kubectl, verbs: string[]): Promise<Errorable<ResourceKind[]>> {
     const arresult = await kubectl.readTable('api-resources -o wide');
     if (ExecResult.failed(arresult)) {
         return { succeeded: false, error: [ExecResult.failureMessage(arresult, {})] };
@@ -471,7 +471,7 @@ export async function clusterResources(kubectl: Kubectl, verbs: string[]): Promi
 
     const resourceKinds: ResourceKind[] = arresult.result.filter((r) => verbs.every((verb) => r.verbs.includes(verb)))
                                          .map((r) =>
-                                            new ResourceKind(r.name, r.name, r.kind, r.shortnames === '' ? r.kind : r.shortnames));
+                                            new ResourceKind(r.name, r.name, r.kind, r.name));
 
     return { succeeded: true, result: resourceKinds };
 }
