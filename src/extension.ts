@@ -22,7 +22,6 @@ import { addKubernetesConfigFile, deleteKubernetesConfigFile } from './configMap
 import * as explainer from './explainer';
 import { shell, ShellResult } from './shell';
 import * as configmaps from './configMap';
-import { DescribePanel } from './components/describe/describeWebview';
 import * as kuberesources from './kuberesources';
 import { useNamespaceKubernetes } from './components/kubectl/namespace';
 import { EventDisplayMode, getEvents } from './components/kubectl/events';
@@ -64,7 +63,7 @@ import { refreshExplorer } from './components/clusterprovider/common/explorer';
 import { KubernetesCompletionProvider } from "./yaml-support/yaml-snippet";
 import { showWorkspaceFolderPick } from './hostutils';
 import { DraftConfigurationProvider } from './draft/draftConfigurationProvider';
-import { KubernetesResourceVirtualFileSystemProvider, K8S_RESOURCE_SCHEME, kubefsUri } from './kuberesources.virtualfs';
+import { KubernetesResourceVirtualFileSystemProvider, K8S_RESOURCE_SCHEME, kubefsUri, K8S_RESOURCE_SCHEME_READONLY, KUBECTL_DESCRIBE_AUTHORITY } from './kuberesources.virtualfs';
 import { KubernetesResourceLinkProvider } from './kuberesources.linkprovider';
 import { Container, isKubernetesResource, KubernetesCollection, Pod, KubernetesResource } from './kuberesources.objectmodel';
 import { setActiveKubeconfig, getKnownKubeconfigs, addKnownKubeconfig } from './components/config/config';
@@ -169,7 +168,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
             (uri: vscode.Uri) => kubectlUtils.applyResourceFromUri(uri, kubectl)),
         registerCommand('extension.vsKubernetesDelete', (explorerNode: ClusterExplorerResourceNode) => { deleteKubernetes(KubernetesDeleteMode.Graceful, explorerNode); }),
         registerCommand('extension.vsKubernetesDeleteNow', (explorerNode: ClusterExplorerResourceNode) => { deleteKubernetes(KubernetesDeleteMode.Now, explorerNode); }),
-        registerCommand('extension.vsKubernetesDescribe.Refresh', DescribePanel.refreshCommand),
+        registerCommand('extension.vsKubernetesDescribe.Refresh', () => refreshDescribeKubernetes(resourceDocProvider)),
         registerCommand('extension.vsKubernetesApply', applyKubernetes),
         registerCommand('extension.vsKubernetesExplain', explainActiveWindow),
         registerCommand('extension.vsKubernetesLoad', loadKubernetes),
@@ -290,6 +289,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
 
         // Temporarily loaded resource providers
         vscode.workspace.registerFileSystemProvider(K8S_RESOURCE_SCHEME, resourceDocProvider, { /* TODO: case sensitive? */ }),
+        vscode.workspace.registerFileSystemProvider(K8S_RESOURCE_SCHEME_READONLY, resourceDocProvider, { isReadonly: true }),
 
         // Link from resources to referenced resources
         vscode.languages.registerDocumentLinkProvider({ scheme: K8S_RESOURCE_SCHEME }, resourceLinkProvider),
@@ -1274,30 +1274,41 @@ function getPorts() {
 }
 
 async function describeKubernetes(explorerNode?: ClusterExplorerResourceNode) {
-    async function describeSettings() {
-        if (explorerNode) {
-            const nsarg = explorerNode.namespace ? `--namespace ${explorerNode.namespace}` : '';
-            return { cmd: `describe ${explorerNode.kindName} ${nsarg}`, resourceKindName: explorerNode.kindName };
-        } else {
-            const value = await findKindNameOrPrompt(kuberesources.commonKinds, 'describe', { nameOptional: true });
-            if (value) {
-                return { cmd: `describe ${value}`, resourceKindName: value };
-            }
-            return undefined;
-        }
-    }
-    const settings = await describeSettings();
-    if (!settings) {
-        return;
+    let ns: string | null, value: string | undefined;
+    if (explorerNode) {
+        ns = explorerNode.namespace ? explorerNode.namespace : '';
+        value = explorerNode.kindName;
+    } else {
+        ns = null;
+        value = await findKindNameOrPrompt(kuberesources.commonKinds, 'describe', { nameOptional: true });
     }
 
-    const describe = () => kubectl.invokeCommand(settings.cmd);
-    const er = await describe();
-    if (ExecResult.failed(er)) {
-        await kubectl.reportFailure(er, { whatFailed: 'Describe failed' });
+    if (!value) {
         return;
     }
-    DescribePanel.createOrShow(er.stdout, settings.resourceKindName, describe);
+    const uri = kubefsUri(ns, value, '', 'describe');
+    vscode.workspace.openTextDocument(uri).then((doc) => {
+        if (doc) {
+            vscode.window.showTextDocument(doc);
+        }
+    },
+    (err) => vscode.window.showErrorMessage(`Error loading document: ${err}`));
+}
+
+async function refreshDescribeKubernetes(resourceDocProvider: KubernetesResourceVirtualFileSystemProvider) {
+    const editor = vscode.window.activeTextEditor;
+    if (editor) {
+        const uri = editor.document.uri;
+        if (uri.authority === KUBECTL_DESCRIBE_AUTHORITY) {
+            const newContent = await resourceDocProvider.loadResource(uri);
+            const edit = new vscode.WorkspaceEdit();
+            edit.replace(
+                uri,
+                new vscode.Range(0, 0, editor.document.lineCount, 0),
+                newContent);
+            vscode.workspace.applyEdit(edit);
+        }
+    }
 }
 
 export interface PodSummary {
