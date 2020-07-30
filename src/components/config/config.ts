@@ -298,7 +298,7 @@ export function getLocalTunnelDebugProvider(): string | undefined {
     return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.local-tunnel-debug-provider'];
 }
 
-// if true will enable the flag to run kubectl commands using kubectl installed by snap
-export function enableMinimalDescribeWorkflow(): boolean {
+// if true will enable the minimal describe workflow
+export function isMinimalDescribeWorkflow(): boolean {
     return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.enable-minimal-describe-workflow'];
 }

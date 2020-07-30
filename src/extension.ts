@@ -1269,7 +1269,7 @@ async function describeKubernetes(explorerNode?: ClusterExplorerResourceNode) {
     } else {
         let resourceKinds;
         let skipFreeTextPrompt;
-        const isMinimalDescribeWorkflow = config.enableMinimalDescribeWorkflow();
+        const isMinimalDescribeWorkflow = config.isMinimalDescribeWorkflow();
         if (isMinimalDescribeWorkflow) {
             resourceKinds = kuberesources.commonKinds;
             skipFreeTextPrompt = false;
@@ -1282,7 +1282,7 @@ async function describeKubernetes(explorerNode?: ClusterExplorerResourceNode) {
             skipFreeTextPrompt = true;
         }
         ns = null;
-        value = await findKindNameOrPrompt(resourceKinds, 'describe', { nameOptional: true, skipFreeTextPrompt: skipFreeTextPrompt });
+        value = await findKindNameOrPrompt(resourceKinds, 'describe', { nameOptional: true, skipFreeTextPrompt });
     }
 
     if (!value) {
