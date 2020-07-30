@@ -9,9 +9,12 @@ export class JsonALikeYamlDocumentSymbolProvider implements vscode.DocumentSymbo
 
     async provideDocumentSymbolsImpl(document: vscode.TextDocument, _token: vscode.CancellationToken): Promise<vscode.SymbolInformation[]> {
         const fakeText = document.getText().replace(/{{[^}]*}}/g, (s) => encodeWithTemplateMarkers(s));
-        const root = yp.safeLoad(fakeText);
+        const nodes: yp.YAMLNode[] = [];
+        yp.safeLoadAll(fakeText, (node) => nodes.push(node));
         const syms: vscode.SymbolInformation[] = [];
-        walk(root, '', document, document.uri, syms);
+        nodes.forEach((node) => {
+            walk(node, '', document, document.uri, syms);
+        });
         return syms;
     }
 }
