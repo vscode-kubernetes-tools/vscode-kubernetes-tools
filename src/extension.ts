@@ -1047,6 +1047,9 @@ function findKindNamesForText(text: string): Errorable<ResourceKindName[]> {
                 resourceName: obj.metadata.name,
                 namespace: obj.metadata.namespace
             }));
+        if (kindNames.length === 0) {
+            return { succeeded: false, error: [ 'the open document doesn\'t contain a valid kind name'] };
+        }
         return { succeeded: true, result: kindNames };
     } catch (ex) {
         console.log(ex);
