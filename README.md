@@ -211,6 +211,8 @@ Minikube tools to be installed and available on your PATH.
        * `vs-kubernetes.resources-to-watch` - List of resources to be watched. To identify a resource the extension uses the label displayed in the cluster explorer. E.g. ["Pods", "Services", "Namespaces"]. 
        * `logsDisplay` - Where and how to display Kubernetes logs.  One of `webview` (display in a filterable HTML view) and `terminal` (run the command in the VS Code terminal)
        * `vscode-kubernetes.enable-snap-flag` - Enables compatibility with instances of VS Code that were installed using snap.
+       * `vs-kubernetes.disable-context-info-status-bar` - Disable displaying your current Kubernetes context in VS Code's status bar. When active, it can be used to switch context from the status bar.
+       * `vs-kubernetes.disable-namespace-info-status-bar` - Disable displaying your current Kubernetes namespace in VS Code's status bar. When active, it can be used to switch namespace from the status bar.
    * `vsdocker.imageUser` - Image prefix for the container images e.g. 'docker.io/brendanburns'
    * `checkForMinikubeUpgrade` - On extension startup, notify if a minikube upgrade is available. Defaults to true.
    * `disable-lint` - Disable all linting of Kubernetes files

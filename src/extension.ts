@@ -401,14 +401,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
     activeContextTracker.activeChanged(async (context) => {
         const currentContext = await getCurrentContext(kubectl, { silent: true });
         if (!currentContext) { return; }
-        updateStatusBarItem(activeContextStatusBarItem, context!, `${currentContext.contextName}\nCluster: ${currentContext.clusterName}`, true);
+        updateStatusBarItem(activeContextStatusBarItem, context!, `${currentContext.contextName}\nCluster: ${currentContext.clusterName}`, !config.isContextStatusBarDisabled());
     });
 
     kubectlUtils.onDidChangeNamespaceEmitter.event((namespace) => {
-        updateStatusBarItem(activeNamespaceStatusBarItem, namespace, 'Current active namespace', true);
+        updateStatusBarItem(activeNamespaceStatusBarItem, namespace, 'Current active namespace', !config.isNamespaceStatusBarDisabled());
     });
     const currentNS = await kubectlUtils.currentNamespace(kubectl);
-    updateStatusBarItem(activeNamespaceStatusBarItem, currentNS, 'Current active namespace', true);
+    updateStatusBarItem(activeNamespaceStatusBarItem, currentNS, 'Current active namespace', !config.isNamespaceStatusBarDisabled());
 
     await registerYamlSchemaSupport(activeContextTracker, kubectl);
 

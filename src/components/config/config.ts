@@ -252,3 +252,13 @@ export function getResourcesToBeWatched(): string[] {
 export function getEnableSnapFlag(): boolean {
     return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.enable-snap-flag'];
 }
+
+// if true will disable displaying the context from the status bar
+export function isContextStatusBarDisabled(): boolean {
+    return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.disable-context-info-status-bar'];
+}
+
+// if true will disable displaying the namespace from the status bar
+export function isNamespaceStatusBarDisabled(): boolean {
+    return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.disable-namespace-info-status-bar'];
+}
