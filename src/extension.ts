@@ -85,6 +85,7 @@ import { ClusterExplorerNode, ClusterExplorerConfigurationValueNode, ClusterExpl
 import { create as activeContextTrackerCreate } from './components/contextmanager/active-context-tracker';
 import { WatchManager } from './components/kubectl/watch';
 import { ExecResult } from './binutilplusplus';
+import { getCurrentContext } from './kubectlUtils';
 
 let explainActive = false;
 let swaggerSpecPromise: Promise<explainer.SwaggerModel | undefined> | null = null;
@@ -149,8 +150,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
     const draftDebugProvider = new DraftConfigurationProvider();
     let draftDebugSession: vscode.DebugSession;
 
-    const portForwardStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+    const portForwardStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 0);
     const portForwardStatusBarManager = PortForwardStatusBarManager.init(portForwardStatusBarItem);
+
+    const activeNamespaceStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 1);
+    activeNamespaceStatusBarItem.command = 'extension.vsKubernetesUseNamespace';
+
+    const activeContextStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 2);
+    activeContextStatusBarItem.command = 'extension.vsKubernetesUseContext';
 
     minikube.checkUpgradeAvailable();
 
@@ -299,6 +306,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
 
         // Status bar
         portForwardStatusBarItem,
+        activeNamespaceStatusBarItem,
+        activeContextStatusBarItem,
 
         // Telemetry
         registerTelemetry(context),
@@ -388,6 +397,19 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
     subscriptions.forEach((element) => {
         context.subscriptions.push(element);
     });
+
+    activeContextTracker.activeChanged(async (context) => {
+        const currentContext = await getCurrentContext(kubectl, { silent: true });
+        if (!currentContext) { return; }
+        updateStatusBarItem(activeContextStatusBarItem, context!, `${currentContext.contextName}\nCluster: ${currentContext.clusterName}`, true);
+    });
+
+    kubectlUtils.onDidChangeNamespaceEmitter.event((namespace) => {
+        updateStatusBarItem(activeNamespaceStatusBarItem, namespace, 'Current active namespace', true);
+    });
+    const currentNS = await kubectlUtils.currentNamespace(kubectl);
+    updateStatusBarItem(activeNamespaceStatusBarItem, currentNS, 'Current active namespace', true);
+
     await registerYamlSchemaSupport(activeContextTracker, kubectl);
 
     vscode.workspace.registerTextDocumentContentProvider(configmaps.uriScheme, configMapProvider);
@@ -1975,11 +1997,22 @@ async function getKubeconfigSelection(kubeconfig?: string): Promise<string | und
 }
 
 async function useContextKubernetes(explorerNode: ClusterExplorerNode) {
-    if (!explorerNode || explorerNode.nodeType !== explorer.NODE_TYPES.context) {
+    if (explorerNode && explorerNode.nodeType === explorer.NODE_TYPES.context) {
+        const contextObj = explorerNode.kubectlContext;
+        const targetContext = contextObj.contextName;
+        setContextKubernetes(targetContext);
         return;
     }
-    const contextObj = explorerNode.kubectlContext;
-    const targetContext = contextObj.contextName;
+
+    const contexts = await kubectlUtils.getContexts(kubectl, { silent: false });  // TODO: turn it silent, cascade errors, and provide an error node
+    const inactiveContexts = contexts.filter((context) => !context.active).map((context) => context.contextName);
+    const selected = await vscode.window.showQuickPick(inactiveContexts, { placeHolder: 'Pick the context you want to switch to' });
+    if (selected) {
+        setContextKubernetes(selected);
+    }
+}
+
+async function setContextKubernetes(targetContext: string) {
     const er = await kubectl.invokeCommand(`config use-context ${targetContext}`);
     if (ExecResult.succeeded(er)) {
         telemetry.invalidateClusterType(targetContext);
@@ -2295,4 +2328,12 @@ function kubernetesFindCloudProviders() {
     browser.open(searchUrl);
 }
 
-
+function updateStatusBarItem(statusBarItem: vscode.StatusBarItem, text: string, tooltip: string, show: boolean): void {
+    statusBarItem.text = text;
+    statusBarItem.tooltip = tooltip;
+	if (show) {
+		statusBarItem.show();
+	} else {
+		statusBarItem.hide();
+	}
+}
