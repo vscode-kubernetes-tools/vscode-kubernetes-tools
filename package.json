@@ -267,6 +267,14 @@
                         "vs-kubernetes.enable-snap-flag": {
                             "type": "boolean",
                             "description": "Enables compatibility with instances of VS Code that were installed using snap."
+                        },
+                        "vs-kubernetes.disable-context-info-status-bar": {
+                            "type": "boolean",
+                            "description": "Disable displaying your current Kubernetes context in VS Code's status bar."
+                        },
+                        "vs-kubernetes.disable-namespace-info-status-bar": {
+                            "type": "boolean",
+                            "description": "Disable displaying your current Kubernetes namespace in VS Code's status bar."
                         }
                     },
                     "default": {
