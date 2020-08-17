@@ -28,7 +28,7 @@ export async function useNamespaceKubernetes(kubectl: Kubectl, explorerNode: Clu
     );
 
     if (kindName) {
-        switchToNamespace(kubectl, currentNS, kindName)
+        switchToNamespace(kubectl, currentNS, kindName);
     }
 }
 
