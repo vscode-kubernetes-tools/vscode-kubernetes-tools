@@ -1132,18 +1132,6 @@
                 "key": "shift+ctrl+r",
                 "mac": "shift+cmd+r",
                 "when": "vscodeKubernetesDescribeContext"
-            },
-            {
-                "command": "extension.vsKubernetesSwitchContext",
-                "key": "alt+ctrl+q",
-                "mac": "alt+cmd+q",
-                "when": ""
-            },
-            {
-                "command": "extension.vsKubernetesSwitchNamespace",
-                "key": "alt+ctrl+w",
-                "mac": "alt+cmd+w",
-                "when": ""
             }
         ],
         "languages": [

@@ -56,7 +56,7 @@ async function switchToNamespace(kubectl: Kubectl, currentNS: string, resource: 
 
 export async function switchNamespaceKubernetes(kubectl: Kubectl) {
     const namespaces = await kubectlUtils.getNamespaces(kubectl);
-    const inactiveNamespaces = namespaces.filter(ns => !ns.active).map(ns => ns.name);
+    const inactiveNamespaces = namespaces.filter((ns) => !ns.active).map((ns) => ns.name);
     const selected = await window.showQuickPick(inactiveNamespaces, { placeHolder: 'Pick the namespace you want to switch to' });
     if (!selected) {
         return;

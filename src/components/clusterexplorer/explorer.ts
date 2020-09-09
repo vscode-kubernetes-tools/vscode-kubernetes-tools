@@ -10,7 +10,8 @@ import { affectsUs, getResourcesToBeWatched } from '../config/config';
 import { WatchManager } from '../kubectl/watch';
 import { ExplorerExtender, ExplorerUICustomizer } from './explorer.extension';
 import { ClusterExplorerNode, ClusterExplorerResourceNode } from './node';
-import { ContextNode, MiniKubeContextNode } from './node.context';
+import { ClusterNode } from './node.cluster';
+import { InactiveContextsFolderNode } from './node.folder.inactive.contexts';
 
 // Each item in the explorer is modelled as a ClusterExplorerNode.  This
 // is a discriminated union, using a nodeType field as its discriminator.
@@ -117,9 +118,10 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
             if ('kind' in element && 'apiName' in element.kind && element.kind.apiName) {
                 ti.contextValue += 'k8s-watchable';
             }
-            if (ti.contextValue === 'vsKubernetes.cluster') {
+            /*if (ti.contextValue === 'vsKubernetes.cluster') {
                 ti.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
-            } else if (ti.collapsibleState === vscode.TreeItemCollapsibleState.None && this.extenders.some((e) => e.contributesChildren(element))) {
+            } else */
+            if (ti.collapsibleState === vscode.TreeItemCollapsibleState.None && this.extenders.some((e) => e.contributesChildren(element))) {
                 ti.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
             }
         });
@@ -288,20 +290,26 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
 
     private async getActiveContext(): Promise<ClusterExplorerNode[]> {
         const contexts = await kubectlUtils.getContexts(this.kubectl, { silent: false });  // TODO: turn it silent, cascade errors, and provide an error node
-        return contexts.filter((context) => context.active).map((context) => {
+        const active = contexts.find((context) => context.active);
+        if (active) {
+            return [
+                new ClusterNode(active.clusterName, active),
+                new InactiveContextsFolderNode(active),
+            ];
+        }
+        return [];
+        /* return contexts.filter((context) => context.active).map((context) => {
             // TODO: this is slightly hacky...
             if (context.contextName === 'minikube') {
                 return new MiniKubeContextNode(context.contextName, context);
             }
             
             return new ContextNode(context.contextName, context);
-        });
+        });*/
     }
 
     public async getInactiveContexts(): Promise<string[]> {
         const contexts = await kubectlUtils.getContexts(this.kubectl, { silent: false });  // TODO: turn it silent, cascade errors, and provide an error node
-        return contexts.filter((context) => !context.active).map((context) => {
-            return context.contextName            
-        });
+        return contexts.filter((context) => !context.active).map((context) => context.contextName);
     }
 }
