@@ -38,13 +38,13 @@ export class ContextNode extends ClusterExplorerNodeImpl implements ClusterExplo
         return [];
     }
     getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
-        const name = this.kubectlContext.namespace ? this.kubectlContext.namespace : 'default';
+        let name = 'default';
+        if (this.kubectlContext && this.kubectlContext.namespace) {
+            name = this.kubectlContext.namespace;
+        }
         const treeItem = new vscode.TreeItem(name, vscode.TreeItemCollapsibleState.Expanded);
         treeItem.contextValue = this.clusterType;
         treeItem.iconPath = this.icon;
-        if (this.kubectlContext) {
-            treeItem.tooltip = this.kubectlContext.contextName;
-        }
         return treeItem;
     }
     async apiURI(_kubectl: Kubectl, _namespace: string): Promise<string | undefined> {

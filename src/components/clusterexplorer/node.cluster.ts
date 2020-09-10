@@ -41,7 +41,7 @@ export class ClusterNode extends ClusterExplorerNodeImpl implements ClusterExplo
         treeItem.contextValue = this.clusterType;
         treeItem.iconPath = this.icon;
         if (this.kubectlContext) {
-            treeItem.tooltip = `${this.kubectlContext.contextName}\nUser: ${this.kubectlContext.userName}`;
+            treeItem.tooltip = `Context:${this.kubectlContext.contextName}\nUser: ${this.kubectlContext.userName}`;
         }
         return treeItem;
     }

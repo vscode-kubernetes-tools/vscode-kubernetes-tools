@@ -9,7 +9,7 @@ import * as providerResult from '../../utils/providerresult';
 import { InactiveContextNode } from './node.context';
 
 export class InactiveContextsFolderNode extends ClusterExplorerNodeImpl implements ClusterExplorerCustomNode {
-    constructor(readonly kubectlContext: kubectlUtils.KubectlContext) {
+    constructor() {
         super(NODE_TYPES.extension);
     }
     readonly nodeType = NODE_TYPES.extension;

@@ -118,9 +118,6 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
             if ('kind' in element && 'apiName' in element.kind && element.kind.apiName) {
                 ti.contextValue += 'k8s-watchable';
             }
-            /*if (ti.contextValue === 'vsKubernetes.cluster') {
-                ti.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
-            } else */
             if (ti.collapsibleState === vscode.TreeItemCollapsibleState.None && this.extenders.some((e) => e.contributesChildren(element))) {
                 ti.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
             }
@@ -174,7 +171,7 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         if (parent) {
             return parent.getChildren(this.kubectl, this.host);
         }
-        return this.getActiveContext();
+        return this.getRootNodes();
     }
 
     refresh(node?: ClusterExplorerNode): void {
@@ -288,24 +285,15 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         return undefined;
     }
 
-    private async getActiveContext(): Promise<ClusterExplorerNode[]> {
+    private async getRootNodes(): Promise<ClusterExplorerNode[]> {
         const contexts = await kubectlUtils.getContexts(this.kubectl, { silent: false });  // TODO: turn it silent, cascade errors, and provide an error node
         const active = contexts.find((context) => context.active);
+        const rootNodes: ClusterExplorerNode[] = [new InactiveContextsFolderNode()];
+        // if there is no active context, the tree will only display the inactive contexts node
         if (active) {
-            return [
-                new ClusterNode(active.clusterName, active),
-                new InactiveContextsFolderNode(active),
-            ];
+            rootNodes.unshift(new ClusterNode(active.clusterName, active));
         }
-        return [];
-        /* return contexts.filter((context) => context.active).map((context) => {
-            // TODO: this is slightly hacky...
-            if (context.contextName === 'minikube') {
-                return new MiniKubeContextNode(context.contextName, context);
-            }
-            
-            return new ContextNode(context.contextName, context);
-        });*/
+        return rootNodes;
     }
 
     public async getInactiveContexts(): Promise<string[]> {
