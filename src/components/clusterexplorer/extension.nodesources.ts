@@ -1,6 +1,6 @@
 import * as kuberesources from '../../kuberesources';
 import { ExplorerExtender } from './explorer.extension';
-import { ClusterExplorerNode, ClusterExplorerNodev2 } from './node';
+import { ClusterExplorerNode, ClusterExplorerNodeV2 } from './node';
 import { ContributedGroupingFolderNode } from './node.folder.grouping.custom';
 import { ResourceFolderNode } from './node.folder.resource';
 import { NODE_TYPES } from './explorer';
@@ -17,7 +17,7 @@ import { NODE_TYPES } from './explorer';
 // of the inherent behaviour of a resource folder).
 
 export abstract class NodeSourceImpl {
-    at(parent: string | undefined): ExplorerExtender<ClusterExplorerNodev2> {
+    at(parent: string | undefined): ExplorerExtender<ClusterExplorerNode> {
         return new ContributedNodeSourceExtender(parent, this);
     }
     if(condition: () => boolean | Thenable<boolean>): NodeSourceImpl {
@@ -56,18 +56,21 @@ class ConditionalNodeSource extends NodeSourceImpl {
     }
 }
 
-export class ContributedNodeSourceExtender implements ExplorerExtender<ClusterExplorerNodev2> {
+export class ContributedNodeSourceExtender implements ExplorerExtender<ClusterExplorerNode> {
     constructor(private readonly under: string | undefined, private readonly nodeSource: NodeSourceImpl) { }
-    contributesChildren(parent?: ClusterExplorerNode | undefined): boolean {
+    contributesChildren(parent?: ClusterExplorerNodeV2 | undefined): boolean {
         if (!parent) {
             return false;
+        }
+        if (this.under === 'active.cluster') {
+            return parent.nodeType === NODE_TYPES.cluster;
         }
         if (this.under) {
             return parent.nodeType === NODE_TYPES.folder.grouping && parent.displayName === this.under;
         }
         return parent.nodeType === NODE_TYPES.context && parent.kubectlContext.active;
     }
-    getChildren(_parent?: ClusterExplorerNodev2 | undefined): Promise<ClusterExplorerNodev2[]> {
+    getChildren(_parent?: ClusterExplorerNodeV2 | undefined): Promise<ClusterExplorerNode[]> {
         return this.nodeSource.nodes();
     }
 }

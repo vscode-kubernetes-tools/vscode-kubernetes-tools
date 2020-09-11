@@ -7,7 +7,7 @@
 import * as vscode from 'vscode';
 
 export interface ClusterExplorerV1_2 {
-    resolveCommandTarget(target?: any): ClusterExplorerV1_2.ClusterExplorerNodev2 | undefined;
+    resolveCommandTarget(target?: any): ClusterExplorerV1_2.ClusterExplorerNodeV2 | undefined;
     registerNodeContributor(nodeContributor: ClusterExplorerV1_2.NodeContributor): void;
     readonly nodeSources: ClusterExplorerV1_2.NodeSources;
     registerNodeUICustomizer(nodeUICustomizer: ClusterExplorerV1_2.NodeUICustomizer): void;
@@ -16,12 +16,12 @@ export interface ClusterExplorerV1_2 {
 
 export namespace ClusterExplorerV1_2 {
     export interface NodeContributor {
-        contributesChildren(parent: ClusterExplorerNodev2 | undefined): boolean;
-        getChildren(parent: ClusterExplorerNodev2 | undefined): Promise<Node[]>;
+        contributesChildren(parent: ClusterExplorerNodeV2 | undefined): boolean;
+        getChildren(parent: ClusterExplorerNodeV2 | undefined): Promise<Node[]>;
     }
 
     export interface NodeUICustomizer {
-        customize(node: ClusterExplorerNodev2, treeItem: vscode.TreeItem): void | Thenable<void>;
+        customize(node: ClusterExplorerNodeV2, treeItem: vscode.TreeItem): void | Thenable<void>;
     }
 
     export interface Node {
@@ -89,7 +89,7 @@ export namespace ClusterExplorerV1_2 {
         readonly nodeType: 'extension';
     }
 
-    export type ClusterExplorerNodev2 =
+    export type ClusterExplorerNodeV2 =
         ClusterExplorerResourceNode |
         ClusterExplorerClusterNode |
         ClusterExplorerGroupingFolderNode |

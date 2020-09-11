@@ -84,7 +84,7 @@ export type ClusterExplorerNode =
     ClusterExplorerHelmHistoryNode |
     ClusterExplorerCustomNode;
 
-export type ClusterExplorerNodev2 =
+export type ClusterExplorerNodeV2 =
     ClusterExplorerMessageNode |
     ClusterExplorerClusterNode |
     ClusterExplorerContextNode |

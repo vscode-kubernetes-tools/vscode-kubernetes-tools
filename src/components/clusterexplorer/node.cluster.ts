@@ -10,7 +10,7 @@ import { ResourceFolderNode } from './node.folder.resource';
 import { NODE_TYPES } from './explorer';
 import { ContextNode, MiniKubeContextNode } from './node.context';
 
-const KUBERNETES_CLUSTER = "vsKubernetes.cluster";
+const KUBERNETES_CLUSTER = "vsKubernetes.active.cluster";
 
 export class ClusterNode extends ClusterExplorerNodeImpl implements ClusterExplorerClusterNode {
     constructor(readonly clusterName: string, readonly kubectlContext: kubectlUtils.KubectlContext) {

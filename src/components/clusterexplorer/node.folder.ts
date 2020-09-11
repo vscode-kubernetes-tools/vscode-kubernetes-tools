@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 
 import { Kubectl } from '../../kubectl';
 import { Host } from '../../host';
-import { ClusterExplorerNodeBase, ClusterExplorerNodeImpl, ClusterExplorerNode } from './node';
+import { ClusterExplorerNode, ClusterExplorerNodeBase, ClusterExplorerNodeImpl } from './node';
 import { KubernetesExplorerNodeType } from './explorer';
 
 export abstract class FolderNode extends ClusterExplorerNodeImpl implements ClusterExplorerNodeBase {

@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import { Kubectl } from '../../kubectl';
 import * as kuberesources from '../../kuberesources';
 import { Host } from '../../host';
-import { ClusterExplorerGroupingFolderNode, ClusterExplorerNode } from './node';
+import { ClusterExplorerNode, ClusterExplorerGroupingFolderNode } from './node';
 import { FolderNode } from './node.folder';
 import { ResourceFolderNode } from './node.folder.resource';
 import { NODE_TYPES } from './explorer';
