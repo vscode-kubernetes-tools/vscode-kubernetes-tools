@@ -4,7 +4,7 @@ import * as vscode from 'vscode';
 import { KubernetesExplorer, KUBERNETES_EXPLORER_NODE_CATEGORY } from "../../../components/clusterexplorer/explorer";
 import { ExplorerExtender, ExplorerUICustomizer } from "../../../components/clusterexplorer/explorer.extension";
 import { CustomGroupingFolderNodeSource, CustomResourceFolderNodeSource, NodeSourceImpl } from "../../../components/clusterexplorer/extension.nodesources";
-import { ClusterExplorerCustomNode, ClusterExplorerResourceNode, ClusterExplorerNodev2 } from "../../../components/clusterexplorer/node";
+import { ClusterExplorerCustomNode, ClusterExplorerResourceNode, ClusterExplorerNodev2, ClusterExplorerNode } from "../../../components/clusterexplorer/node";
 import { Host } from "../../../host";
 import { Kubectl } from "../../../kubectl";
 import { ResourceKind } from '../../../kuberesources';
@@ -129,7 +129,7 @@ export class ContributedNode implements ClusterExplorerCustomNode {
 
     constructor(private readonly impl: ClusterExplorerV1_2.Node) { }
 
-    async getChildren(_kubectl: Kubectl, _host: Host): Promise<ClusterExplorerNodev2[]> {
+    async getChildren(_kubectl: Kubectl, _host: Host): Promise<ClusterExplorerNode[]> {
         return (await this.impl.getChildren()).map((n) => internalNodeOf(n));
     }
     getTreeItem(): vscode.TreeItem {
@@ -166,7 +166,7 @@ interface BuiltInNodeSource {
 
 interface BuiltInNode {
     readonly [BUILT_IN_NODE_KIND_TAG]: true;
-    readonly impl: ClusterExplorerNodev2;
+    readonly impl: ClusterExplorerNode;
 }
 
 function apiNodeSourceOf(nodeSet: NodeSourceImpl): ClusterExplorerV1_2.NodeSource & BuiltInNodeSource {
@@ -206,14 +206,14 @@ function apiNodeContributorOf(ee: ExplorerExtender<ClusterExplorerNodev2>): Clus
     };
 }
 
-export function internalNodeOf(node: ClusterExplorerV1_2.Node): ClusterExplorerNodev2 {
+export function internalNodeOf(node: ClusterExplorerV1_2.Node): ClusterExplorerNode {
     if ((<any>node)[BUILT_IN_NODE_KIND_TAG]) {
         return (node as unknown as BuiltInNode).impl;
     }
     return new ContributedNode(node);
 }
 
-function apiNodeOf(node: ClusterExplorerNodev2): ClusterExplorerV1_2.Node & BuiltInNode {
+function apiNodeOf(node: ClusterExplorerNode): ClusterExplorerV1_2.Node & BuiltInNode {
     return {
         async getChildren() { throw new Error('apiNodeOf->getChildren: not expected to be called directly'); },
         getTreeItem() { throw new Error('apiNodeOf->getTreeItem: not expected to be called directly'); },

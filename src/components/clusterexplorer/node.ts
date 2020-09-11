@@ -10,7 +10,7 @@ import { KubernetesExplorerNodeType, KubernetesExplorerNodeTypeConfigItem, Kuber
 
 export interface ClusterExplorerNodeBase {
     readonly nodeCategory: 'kubernetes-explorer-node';
-    getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<ClusterExplorerNodev2[]>;
+    getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<ClusterExplorerNode[]>;
     getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem>;
     apiURI(kubectl: Kubectl, namespace: string): Promise<string | undefined>;
 }

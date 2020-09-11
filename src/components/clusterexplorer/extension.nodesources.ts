@@ -23,7 +23,7 @@ export abstract class NodeSourceImpl {
     if(condition: () => boolean | Thenable<boolean>): NodeSourceImpl {
         return new ConditionalNodeSource(this, condition);
     }
-    abstract nodes(): Promise<ClusterExplorerNodev2[]>;
+    abstract nodes(): Promise<ClusterExplorerNode[]>;
 }
 
 export class CustomResourceFolderNodeSource extends NodeSourceImpl {
@@ -48,7 +48,7 @@ class ConditionalNodeSource extends NodeSourceImpl {
     constructor(private readonly impl: NodeSourceImpl, private readonly condition: () => boolean | Thenable<boolean>) {
         super();
     }
-    async nodes(): Promise<ClusterExplorerNodev2[]> {
+    async nodes(): Promise<ClusterExplorerNode[]> {
         if (await this.condition()) {
             return this.impl.nodes();
         }

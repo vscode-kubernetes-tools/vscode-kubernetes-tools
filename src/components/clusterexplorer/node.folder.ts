@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 
 import { Kubectl } from '../../kubectl';
 import { Host } from '../../host';
-import { ClusterExplorerNodeBase, ClusterExplorerNodeImpl, ClusterExplorerNodev2 } from './node';
+import { ClusterExplorerNodeBase, ClusterExplorerNodeImpl, ClusterExplorerNode } from './node';
 import { KubernetesExplorerNodeType } from './explorer';
 
 export abstract class FolderNode extends ClusterExplorerNodeImpl implements ClusterExplorerNodeBase {
@@ -11,7 +11,7 @@ export abstract class FolderNode extends ClusterExplorerNodeImpl implements Clus
         super(nodeType);
     }
 
-    abstract getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<ClusterExplorerNodev2[]>;
+    abstract getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<ClusterExplorerNode[]>;
 
     getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
         const treeItem = new vscode.TreeItem(this.displayName, vscode.TreeItemCollapsibleState.Collapsed);
