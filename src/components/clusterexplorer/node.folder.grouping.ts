@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import { Kubectl } from '../../kubectl';
 import * as kuberesources from '../../kuberesources';
 import { Host } from '../../host';
-import { ClusterExplorerNode, ClusterExplorerGroupingFolderNode } from './node';
+import { ClusterExplorerGroupingFolderNode, ClusterExplorerNodev2 } from './node';
 import { FolderNode } from './node.folder';
 import { ResourceFolderNode } from './node.folder.resource';
 import { NODE_TYPES } from './explorer';
@@ -33,7 +33,7 @@ class ResourceKindsGroupingFolder extends GroupingFolderNode {
     constructor(id: string, displayName: string, private readonly kinds: kuberesources.ResourceKind[]) {
         super(id, displayName);
     }
-    getChildren(_kubectl: Kubectl, _host: Host): vscode.ProviderResult<ClusterExplorerNode[]> {
+    getChildren(_kubectl: Kubectl, _host: Host): vscode.ProviderResult<ClusterExplorerNodev2[]> {
         return this.kinds.map((k) => ResourceFolderNode.create(k));
     }
 }

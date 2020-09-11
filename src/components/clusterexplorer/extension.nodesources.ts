@@ -1,6 +1,6 @@
 import * as kuberesources from '../../kuberesources';
 import { ExplorerExtender } from './explorer.extension';
-import { ClusterExplorerNode } from './node';
+import { ClusterExplorerNode, ClusterExplorerNodev2 } from './node';
 import { ContributedGroupingFolderNode } from './node.folder.grouping.custom';
 import { ResourceFolderNode } from './node.folder.resource';
 import { NODE_TYPES } from './explorer';
@@ -17,13 +17,13 @@ import { NODE_TYPES } from './explorer';
 // of the inherent behaviour of a resource folder).
 
 export abstract class NodeSourceImpl {
-    at(parent: string | undefined): ExplorerExtender<ClusterExplorerNode> {
+    at(parent: string | undefined): ExplorerExtender<ClusterExplorerNodev2> {
         return new ContributedNodeSourceExtender(parent, this);
     }
     if(condition: () => boolean | Thenable<boolean>): NodeSourceImpl {
         return new ConditionalNodeSource(this, condition);
     }
-    abstract nodes(): Promise<ClusterExplorerNode[]>;
+    abstract nodes(): Promise<ClusterExplorerNodev2[]>;
 }
 
 export class CustomResourceFolderNodeSource extends NodeSourceImpl {
@@ -48,7 +48,7 @@ class ConditionalNodeSource extends NodeSourceImpl {
     constructor(private readonly impl: NodeSourceImpl, private readonly condition: () => boolean | Thenable<boolean>) {
         super();
     }
-    async nodes(): Promise<ClusterExplorerNode[]> {
+    async nodes(): Promise<ClusterExplorerNodev2[]> {
         if (await this.condition()) {
             return this.impl.nodes();
         }
@@ -56,7 +56,7 @@ class ConditionalNodeSource extends NodeSourceImpl {
     }
 }
 
-export class ContributedNodeSourceExtender implements ExplorerExtender<ClusterExplorerNode> {
+export class ContributedNodeSourceExtender implements ExplorerExtender<ClusterExplorerNodev2> {
     constructor(private readonly under: string | undefined, private readonly nodeSource: NodeSourceImpl) { }
     contributesChildren(parent?: ClusterExplorerNode | undefined): boolean {
         if (!parent) {
@@ -67,7 +67,7 @@ export class ContributedNodeSourceExtender implements ExplorerExtender<ClusterEx
         }
         return parent.nodeType === NODE_TYPES.context && parent.kubectlContext.active;
     }
-    getChildren(_parent?: ClusterExplorerNode | undefined): Promise<ClusterExplorerNode[]> {
+    getChildren(_parent?: ClusterExplorerNodev2 | undefined): Promise<ClusterExplorerNodev2[]> {
         return this.nodeSource.nodes();
     }
 }

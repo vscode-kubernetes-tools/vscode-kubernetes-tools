@@ -9,7 +9,7 @@ import { refreshExplorer } from '../clusterprovider/common/explorer';
 import { affectsUs, getResourcesToBeWatched } from '../config/config';
 import { WatchManager } from '../kubectl/watch';
 import { ExplorerExtender, ExplorerUICustomizer } from './explorer.extension';
-import { ClusterExplorerNode, ClusterExplorerResourceNode } from './node';
+import { ClusterExplorerResourceNode, ClusterExplorerNodev2 } from './node';
 import { ClusterNode } from './node.cluster';
 import { InactiveContextsFolderNode } from './node.folder.inactive.contexts';
 
@@ -38,6 +38,7 @@ import { InactiveContextsFolderNode } from './node.folder.inactive.contexts';
 export const KUBERNETES_EXPLORER_NODE_CATEGORY = 'kubernetes-explorer-node';
 
 export type KubernetesExplorerNodeTypeError = 'error';
+export type KubernetesExplorerNodeTypeCluster = 'cluster';
 export type KubernetesExplorerNodeTypeContext = 'context';
 export type KubernetesExplorerNodeTypeResourceFolder = 'folder.resource';
 export type KubernetesExplorerNodeTypeGroupingFolder = 'folder.grouping';
@@ -49,6 +50,7 @@ export type KubernetesExplorerNodeTypeExtension = 'extension';
 
 export type KubernetesExplorerNodeType =
     KubernetesExplorerNodeTypeError |
+    KubernetesExplorerNodeTypeCluster |
     KubernetesExplorerNodeTypeContext |
     KubernetesExplorerNodeTypeResourceFolder |
     KubernetesExplorerNodeTypeGroupingFolder |
@@ -60,6 +62,7 @@ export type KubernetesExplorerNodeType =
 
 export const NODE_TYPES = {
     error: 'error',
+    cluster: 'cluster',
     context: 'context',
     folder: {
         resource: 'folder.resource',
@@ -82,14 +85,14 @@ export function isKubernetesExplorerResourceNode(obj: any): obj is ClusterExplor
     return obj && obj.nodeCategory === KUBERNETES_EXPLORER_NODE_CATEGORY && obj.nodeType === 'resource';
 }
 
-export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplorerNode> {
-    private onDidChangeTreeDataEmitter: vscode.EventEmitter<ClusterExplorerNode | undefined> = new vscode.EventEmitter<ClusterExplorerNode | undefined>();
-    readonly onDidChangeTreeData: vscode.Event<ClusterExplorerNode | undefined> = this.onDidChangeTreeDataEmitter.event;
+export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplorerNodev2> {
+    private onDidChangeTreeDataEmitter: vscode.EventEmitter<ClusterExplorerNodev2 | undefined> = new vscode.EventEmitter<ClusterExplorerNodev2 | undefined>();
+    readonly onDidChangeTreeData: vscode.Event<ClusterExplorerNodev2 | undefined> = this.onDidChangeTreeDataEmitter.event;
 
-    private readonly extenders = Array.of<ExplorerExtender<ClusterExplorerNode>>();
-    private readonly customisers = Array.of<ExplorerUICustomizer<ClusterExplorerNode>>();
+    private readonly extenders = Array.of<ExplorerExtender<ClusterExplorerNodev2>>();
+    private readonly customisers = Array.of<ExplorerUICustomizer<ClusterExplorerNodev2>>();
     private refreshTimer: NodeJS.Timer;
-    private readonly refreshQueue = Array<ClusterExplorerNode>();
+    private readonly refreshQueue = Array<ClusterExplorerNodev2>();
 
     constructor(private readonly kubectl: Kubectl, private readonly host: Host) {
         host.onDidChangeConfiguration((change) => {
@@ -111,7 +114,7 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         );
     }
 
-    getTreeItem(element: ClusterExplorerNode): vscode.TreeItem | Thenable<vscode.TreeItem> {
+    getTreeItem(element: ClusterExplorerNodev2): vscode.TreeItem | Thenable<vscode.TreeItem> {
         const baseTreeItem = element.getTreeItem();
 
         const extensionAwareTreeItem = providerResult.transform(baseTreeItem, (ti) => {
@@ -130,7 +133,7 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         return customisedTreeItem;
     }
 
-    getChildren(parent?: ClusterExplorerNode): vscode.ProviderResult<ClusterExplorerNode[]> {
+    getChildren(parent?: ClusterExplorerNodev2): vscode.ProviderResult<ClusterExplorerNodev2[]> {
         const baseChildren = this.getChildrenBase(parent);
         const contributedChildren = this.extenders
                                         .filter((e) => e.contributesChildren(parent))
@@ -138,7 +141,7 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         return providerResult.append(baseChildren, ...contributedChildren);
     }
 
-    async watch(node: ClusterExplorerNode): Promise<void> {
+    async watch(node: ClusterExplorerNodev2): Promise<void> {
         const id = this.getIdForWatch(node);
         if (!id) {
             console.log('Failed getting id for watch.');
@@ -159,7 +162,7 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         WatchManager.instance().addWatch(id, apiUri, undefined, onWatchNotification);
     }
 
-    stopWatching(node: ClusterExplorerNode): void
+    stopWatching(node: ClusterExplorerNodev2): void
     {
         const id = this.getIdForWatch(node);
         if (id) {
@@ -167,18 +170,18 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         }
     }
 
-    private getChildrenBase(parent?: ClusterExplorerNode): vscode.ProviderResult<ClusterExplorerNode[]> {
+    private getChildrenBase(parent?: ClusterExplorerNodev2): vscode.ProviderResult<ClusterExplorerNodev2[]> {
         if (parent) {
             return parent.getChildren(this.kubectl, this.host);
         }
         return this.getRootNodes();
     }
 
-    refresh(node?: ClusterExplorerNode): void {
+    refresh(node?: ClusterExplorerNodev2): void {
         this.onDidChangeTreeDataEmitter.fire(node);
     }
 
-    registerExtender(extender: ExplorerExtender<ClusterExplorerNode>): void {
+    registerExtender(extender: ExplorerExtender<ClusterExplorerNodev2>): void {
         this.extenders.push(extender);
         if (extender.contributesChildren(undefined)) {
             this.queueRefresh();
@@ -188,12 +191,12 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         // extension registers a contributor while the tree view is already open?
     }
 
-    registerUICustomiser(customiser: ExplorerUICustomizer<ClusterExplorerNode>): void {
+    registerUICustomiser(customiser: ExplorerUICustomizer<ClusterExplorerNodev2>): void {
         this.customisers.push(customiser);
         this.queueRefresh();
     }
 
-    queueRefresh(node?: ClusterExplorerNode): void {
+    queueRefresh(node?: ClusterExplorerNodev2): void {
         if (!node) {
             // In the case where an extender contributes at top level (sibling to cluster nodes),
             // the tree view can populate before the extender has time to register.  So in this
@@ -229,15 +232,15 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         }
     }
 
-    private onElementCollapsed(e: vscode.TreeViewExpansionEvent<ClusterExplorerNode>) {
+    private onElementCollapsed(e: vscode.TreeViewExpansionEvent<ClusterExplorerNodev2>) {
         this.collapse(e.element);
 	}
 
-	private onElementExpanded(e: vscode.TreeViewExpansionEvent<ClusterExplorerNode>) {
+	private onElementExpanded(e: vscode.TreeViewExpansionEvent<ClusterExplorerNodev2>) {
         this.expand(e.element);
     }
 
-    private expand(node: ClusterExplorerNode) {
+    private expand(node: ClusterExplorerNodev2) {
         const watchId = this.getIdForWatch(node);
         const treeItem = node.getTreeItem();
         providerResult.transform(treeItem, (ti) => {
@@ -247,7 +250,7 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         });
     }
 
-    private collapse(node: ClusterExplorerNode) {
+    private collapse(node: ClusterExplorerNodev2) {
         const watchId = this.getIdForWatch(node);
         if (watchId && WatchManager.instance().existsWatch(watchId)) {
             WatchManager.instance().removeWatch(watchId);
@@ -270,7 +273,7 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         return false;
     }
 
-    public getIdForWatch(node: ClusterExplorerNode): string | undefined {
+    public getIdForWatch(node: ClusterExplorerNodev2): string | undefined {
         switch (node.nodeType) {
             case 'folder.resource': {
                 return node.kind.abbreviation;
@@ -285,10 +288,10 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         return undefined;
     }
 
-    private async getRootNodes(): Promise<ClusterExplorerNode[]> {
+    private async getRootNodes(): Promise<ClusterExplorerNodev2[]> {
         const contexts = await kubectlUtils.getContexts(this.kubectl, { silent: false });  // TODO: turn it silent, cascade errors, and provide an error node
         const active = contexts.find((context) => context.active);
-        const rootNodes: ClusterExplorerNode[] = [new InactiveContextsFolderNode()];
+        const rootNodes: ClusterExplorerNodev2[] = [new InactiveContextsFolderNode()];
         // if there is no active context, the tree will only display the inactive contexts node
         if (active) {
             rootNodes.unshift(new ClusterNode(active.clusterName, active));

@@ -5,14 +5,18 @@ import { Kubectl } from '../../kubectl';
 import { KubectlContext } from '../../kubectlUtils';
 import { ResourceKind } from '../../kuberesources';
 import { ObjectMeta } from '../../kuberesources.objectmodel';
-import { KubernetesExplorerNodeType, KubernetesExplorerNodeTypeConfigItem, KubernetesExplorerNodeTypeContext, KubernetesExplorerNodeTypeError, KubernetesExplorerNodeTypeExtension, KubernetesExplorerNodeTypeGroupingFolder, KubernetesExplorerNodeTypeHelmHistory, KubernetesExplorerNodeTypeHelmRelease, KubernetesExplorerNodeTypeResource, KubernetesExplorerNodeTypeResourceFolder, KUBERNETES_EXPLORER_NODE_CATEGORY } from './explorer';
+import { KubernetesExplorerNodeType, KubernetesExplorerNodeTypeConfigItem, KubernetesExplorerNodeTypeContext, KubernetesExplorerNodeTypeError, KubernetesExplorerNodeTypeExtension, KubernetesExplorerNodeTypeGroupingFolder, KubernetesExplorerNodeTypeHelmHistory, KubernetesExplorerNodeTypeHelmRelease, KubernetesExplorerNodeTypeResource, KubernetesExplorerNodeTypeResourceFolder, KUBERNETES_EXPLORER_NODE_CATEGORY, KubernetesExplorerNodeTypeCluster } from './explorer';
 
 
 export interface ClusterExplorerNodeBase {
     readonly nodeCategory: 'kubernetes-explorer-node';
-    getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<ClusterExplorerNode[]>;
+    getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<ClusterExplorerNodev2[]>;
     getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem>;
     apiURI(kubectl: Kubectl, namespace: string): Promise<string | undefined>;
+}
+
+export interface ClusterExplorerClusterNode extends ClusterExplorerNodeBase {
+    readonly nodeType: KubernetesExplorerNodeTypeCluster;
 }
 
 export interface ClusterExplorerContextNode extends ClusterExplorerNodeBase {
@@ -71,6 +75,18 @@ export interface ClusterExplorerCustomNode extends ClusterExplorerNodeBase {
 
 export type ClusterExplorerNode =
     ClusterExplorerMessageNode |
+    ClusterExplorerContextNode |
+    ClusterExplorerResourceFolderNode |
+    ClusterExplorerGroupingFolderNode |
+    ClusterExplorerResourceNode |
+    ClusterExplorerConfigurationValueNode |
+    ClusterExplorerHelmReleaseNode |
+    ClusterExplorerHelmHistoryNode |
+    ClusterExplorerCustomNode;
+
+export type ClusterExplorerNodev2 =
+    ClusterExplorerMessageNode |
+    ClusterExplorerClusterNode |
     ClusterExplorerContextNode |
     ClusterExplorerResourceFolderNode |
     ClusterExplorerGroupingFolderNode |
