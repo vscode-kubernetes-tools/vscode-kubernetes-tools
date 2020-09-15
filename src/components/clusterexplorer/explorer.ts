@@ -124,14 +124,41 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
             if (ti.collapsibleState === vscode.TreeItemCollapsibleState.None && this.extenders.some((e) => e.contributesChildren(element))) {
                 ti.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
             }
+            if (!element.customizedTreeItem) {
+                this.customizePossibly(element, ti);
+            }
         });
 
-        let customisedTreeItem = extensionAwareTreeItem;
-        for (const c of this.customisers) {
-            customisedTreeItem = providerResult.transformPossiblyAsync(extensionAwareTreeItem, (ti) => c.customize(element, ti));
-        }
-        return customisedTreeItem;
+        return extensionAwareTreeItem;
     }
+
+    async customizePossibly(element: ClusterExplorerNodeV2, extensionAwareTreeItem: vscode.TreeItem) {
+        const customizedTreeItem = Object.assign({}, extensionAwareTreeItem);
+        for (const c of this.customisers) {
+            await c.customize(element, customizedTreeItem);
+        }
+        if (!this.shallowEqual(customizedTreeItem, extensionAwareTreeItem)) {
+            element.customizedTreeItem = customizedTreeItem;
+            this.refresh(element);
+        }
+    }
+
+    shallowEqual(customizedTreeItem: vscode.TreeItem, extensionAwareTreeItem: vscode.TreeItem) {
+        const extensionAwareTreeItemKeys: string[] = Object.keys(extensionAwareTreeItem);
+        const customizedTreeItemKeys: string[] = Object.keys(customizedTreeItem);
+
+        if (extensionAwareTreeItemKeys.length !== customizedTreeItemKeys.length) {
+          return false;
+        }
+
+        for (const key of extensionAwareTreeItemKeys) {
+          if ((extensionAwareTreeItem as any)[key] !== (customizedTreeItem as any)[key]) {
+            return false;
+          }
+        }
+
+        return true;
+      }
 
     getChildren(parent?: ClusterExplorerNodeV2): vscode.ProviderResult<ClusterExplorerNodeV2[]> {
         const baseChildren = this.getChildrenBase(parent);

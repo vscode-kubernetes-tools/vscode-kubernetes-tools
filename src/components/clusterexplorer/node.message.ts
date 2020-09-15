@@ -14,7 +14,7 @@ export class MessageNode extends ClusterExplorerNodeImpl implements ClusterExplo
         super(NODE_TYPES.error);
     }
     readonly nodeType = NODE_TYPES.error;
-    getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
+    getTreeItemInternal(): vscode.TreeItem | Thenable<vscode.TreeItem> {
         const treeItem = new vscode.TreeItem(this.text, vscode.TreeItemCollapsibleState.None);
         if (this.diagnostic) {
             treeItem.tooltip = this.diagnostic;

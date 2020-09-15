@@ -24,7 +24,7 @@ export class InactiveContextsFolderNode extends ClusterExplorerNodeImpl implemen
         });
     }
 
-    getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
+    getTreeItemInternal(): vscode.TreeItem | Thenable<vscode.TreeItem> {
         return new vscode.TreeItem('Contexts', vscode.TreeItemCollapsibleState.Collapsed);
     }
 

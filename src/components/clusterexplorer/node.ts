@@ -7,9 +7,9 @@ import { ResourceKind } from '../../kuberesources';
 import { ObjectMeta } from '../../kuberesources.objectmodel';
 import { KubernetesExplorerNodeType, KubernetesExplorerNodeTypeConfigItem, KubernetesExplorerNodeTypeContext, KubernetesExplorerNodeTypeError, KubernetesExplorerNodeTypeExtension, KubernetesExplorerNodeTypeGroupingFolder, KubernetesExplorerNodeTypeHelmHistory, KubernetesExplorerNodeTypeHelmRelease, KubernetesExplorerNodeTypeResource, KubernetesExplorerNodeTypeResourceFolder, KUBERNETES_EXPLORER_NODE_CATEGORY, KubernetesExplorerNodeTypeCluster } from './explorer';
 
-
 export interface ClusterExplorerNodeBase {
     readonly nodeCategory: 'kubernetes-explorer-node';
+    customizedTreeItem?: vscode.TreeItem;
     getChildren(kubectl: Kubectl, host: Host): vscode.ProviderResult<ClusterExplorerNode[]>;
     getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem>;
     apiURI(kubectl: Kubectl, namespace: string): Promise<string | undefined>;
@@ -98,5 +98,15 @@ export type ClusterExplorerNodeV2 =
 
 export class ClusterExplorerNodeImpl {
     readonly nodeCategory = KUBERNETES_EXPLORER_NODE_CATEGORY;
+    customizedTreeItem?: vscode.TreeItem;
     constructor(readonly nodeType: KubernetesExplorerNodeType) {}
+    getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
+        if (this.customizedTreeItem) {
+            return this.customizedTreeItem;
+        }
+        return this.getTreeItemInternal();
+    }
+    getTreeItemInternal(): vscode.TreeItem | Thenable<vscode.TreeItem> {
+        return new vscode.TreeItem('Failed Loading', vscode.TreeItemCollapsibleState.None);
+    }
 }

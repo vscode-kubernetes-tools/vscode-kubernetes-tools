@@ -26,16 +26,16 @@ export class ClusterNode extends ClusterExplorerNodeImpl implements ClusterExplo
     getChildren(_kubectl: Kubectl, _host: Host): vscode.ProviderResult<ClusterExplorerNode[]> {
         if (this.kubectlContext.active) {
             return [
-                ResourceFolderNode.create(kuberesources.allKinds.namespace),
-                ResourceFolderNode.create(kuberesources.allKinds.node),
                 ((this.kubectlContext.contextName === 'minikube') ?
                         new MiniKubeContextNode(this.kubectlContext.contextName, this.kubectlContext) :
-                        new ContextNode(this.kubectlContext.contextName, this.kubectlContext))
+                        new ContextNode(this.kubectlContext.contextName, this.kubectlContext)),
+                ResourceFolderNode.create(kuberesources.allKinds.namespace),
+                ResourceFolderNode.create(kuberesources.allKinds.node)
             ];
         }
         return [];
     }
-    getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
+    getTreeItemInternal(): vscode.TreeItem | Thenable<vscode.TreeItem> {
         const itemName = this.kubectlContext ? this.kubectlContext.clusterName : this.clusterName;
         const treeItem = new vscode.TreeItem(itemName, vscode.TreeItemCollapsibleState.Expanded);
         treeItem.contextValue = this.clusterType;

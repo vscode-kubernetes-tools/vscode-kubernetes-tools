@@ -37,7 +37,7 @@ export class ContextNode extends ClusterExplorerNodeImpl implements ClusterExplo
         }
         return [];
     }
-    getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
+    getTreeItemInternal(): vscode.TreeItem | Thenable<vscode.TreeItem> {
         let name = 'default';
         if (this.kubectlContext && this.kubectlContext.namespace) {
             name = this.kubectlContext.namespace;
