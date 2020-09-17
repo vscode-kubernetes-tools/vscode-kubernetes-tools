@@ -608,18 +608,23 @@
                 },
                 {
                     "command": "kubernetes.cloudExplorer.mergeIntoKubeconfig",
-                    "group": "7",
+                    "group": "7@1",
                     "when": "view == kubernetes.cloudExplorer && viewItem =~ /kubernetes\\.providesKubeconfig/i"
                 },
                 {
                     "command": "kubernetes.cloudExplorer.saveKubeconfig",
-                    "group": "7",
+                    "group": "7@3",
                     "when": "view == kubernetes.cloudExplorer && viewItem =~ /kubernetes\\.providesKubeconfig/i"
                 },
                 {
                     "command": "kubernetes.cloudExplorer.findProviders",
                     "when": "view == kubernetes.cloudExplorer && viewItem == kubernetes.noProviders",
                     "group": "1"
+                },
+                {
+                    "command": "extension.ConfigureAzureWebAppPipeline",
+                    "group": "7@2",
+                    "when": "view == kubernetes.cloudExplorer && viewItem =~ /kubernetes\\.providesKubeconfig/i"
                 }
             ],
             "commandPalette": [
@@ -706,6 +711,10 @@
                 {
                     "command": "kubernetes.portForwarding.showSessions",
                     "when": ""
+                },
+                {
+                    "command": "extension.ConfigureAzureWebAppPipeline",
+                    "when": "never"
                 }
             ]
         },
@@ -1113,6 +1122,11 @@
                 "command": "kubernetes.portForwarding.showSessions",
                 "title": "Show Port Forwarding Sessions",
                 "category": "Kubernetes"
+            },
+            {
+                "command": "extension.ConfigureAzureWebAppPipeline",
+                "title": "Configure CI/CD Pipeline",
+                "category": "Azure App Service"
             }
         ],
         "keybindings": [
@@ -1328,7 +1342,7 @@
     },
     "devDependencies": {
         "@types/mocha": "^2.2.32",
-        "@types/node": "^10.2.0",
+        "@types/node": "^10.17.35",
         "@types/request": "^2.48.1",
         "@types/unzipper": "^0.10.0",
         "@typescript-eslint/eslint-plugin": "^2.19.2",

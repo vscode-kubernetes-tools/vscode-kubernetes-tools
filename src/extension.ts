@@ -85,6 +85,7 @@ import { ClusterExplorerNode, ClusterExplorerConfigurationValueNode, ClusterExpl
 import { create as activeContextTrackerCreate } from './components/contextmanager/active-context-tracker';
 import { WatchManager } from './components/kubectl/watch';
 import { ExecResult } from './binutilplusplus';
+import * as utils from 'util';
 
 let explainActive = false;
 let swaggerSpecPromise: Promise<explainer.SwaggerModel | undefined> | null = null;
@@ -98,6 +99,8 @@ const clusterProviderRegistry = clusterproviderregistry.get();
 const configMapProvider = new configmaps.ConfigMapTextProvider(kubectl);
 const git = new Git(shell);
 const activeContextTracker = activeContextTrackerCreate(kubectl);
+const azurePipelinesExtensionId = 'ms-vscode-deploy-azure.azure-deploy';
+const configurePipelineCommand = 'configure-cicd-pipeline';
 
 export const overwriteMessageItems: vscode.MessageItem[] = [
     {
@@ -122,7 +125,7 @@ export const deleteMessageItems: vscode.MessageItem[] = [
 // Filters for different Helm file types.
 // TODO: Consistently apply these to the providers registered.
 export const HELM_MODE: vscode.DocumentFilter = { language: "helm", scheme: "file" };
-export const HELM_REQ_MODE: vscode.DocumentFilter = { language: "helm", scheme: "file", pattern: "**/requirements.yaml"};
+export const HELM_REQ_MODE: vscode.DocumentFilter = { language: "helm", scheme: "file", pattern: "**/requirements.yaml" };
 export const HELM_CHART_MODE: vscode.DocumentFilter = { language: "helm", scheme: "file", pattern: "**/Chart.yaml" };
 export const HELM_TPL_MODE: vscode.DocumentFilter = { language: "helm", scheme: "file", pattern: "**/templates/*.*" };
 
@@ -143,7 +146,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
     const completionProvider = new HelmTemplateCompletionProvider();
     const completionFilter = [
         "helm",
-        {pattern: "**/templates/NOTES.txt"}
+        { pattern: "**/templates/NOTES.txt" }
     ];
 
     const draftDebugProvider = new DraftConfigurationProvider();
@@ -195,7 +198,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.vsKubernetesUseKubeconfig', useKubeconfigKubernetes),
         registerCommand('extension.vsKubernetesClusterInfo', clusterInfoKubernetes),
         registerCommand('extension.vsKubernetesDeleteContext', deleteContextKubernetes),
-        registerCommand('extension.vsKubernetesUseNamespace', (explorerNode: ClusterExplorerNode) => { useNamespaceKubernetes(kubectl, explorerNode); } ),
+        registerCommand('extension.vsKubernetesUseNamespace', (explorerNode: ClusterExplorerNode) => { useNamespaceKubernetes(kubectl, explorerNode); }),
         registerCommand('extension.vsKubernetesDashboard', () => { dashboardKubernetes(kubectl); }),
         registerCommand('extension.vsKubernetesAddWatch', (explorerNode: ClusterExplorerNode) => { addWatch(treeProvider, explorerNode); }),
         registerCommand('extension.vsKubernetesDeleteWatch', (explorerNode: ClusterExplorerNode) => { deleteWatch(treeProvider, explorerNode); }),
@@ -238,6 +241,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.helmDependencies', helmexec.helmDependencies),
         registerCommand('extension.helmConvertToTemplate', helmConvertToTemplate),
         registerCommand('extension.helmParameterise', helmParameterise),
+        registerCommand('extension.ConfigureAzureWebAppPipeline', configurePipeline),
 
         // Commands - Draft
         registerCommand('extension.draftVersion', execDraftVersion),
@@ -250,7 +254,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('kubernetes.cloudExplorer.findProviders', kubernetesFindCloudProviders),
 
         // Commands - special no-op command for debouncing concurrent activations
-        vscode.commands.registerCommand('extension.vsKubernetesDebounceActivation', () => {}),
+        vscode.commands.registerCommand('extension.vsKubernetesDebounceActivation', () => { }),
 
         // Commands - general
         registerCommand('extension.showInfoMessage', showInfoMessage),
@@ -370,7 +374,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         previewProvider.update(u);
     });
 
-    vscode.debug.onDidChangeActiveDebugSession((e: vscode.DebugSession | undefined)=> {
+    vscode.debug.onDidChangeActiveDebugSession((e: vscode.DebugSession | undefined) => {
         if (e !== undefined) {
             // keep a copy of the initial Draft debug session
             if (e.name.indexOf('Draft') >= 0) {
@@ -535,6 +539,34 @@ async function explain(obj: any, field: string): Promise<string | null> {
     });
 }
 
+async function configurePipeline(node: CloudExplorerTreeNode): Promise<void> {
+    if (await isAzurePipelinesExtensionInstalled()) {
+        await executeAzurePipelineExtensionCommand(configurePipelineCommand, node);
+    }
+}
+
+async function isAzurePipelinesExtensionInstalled(): Promise<boolean> {
+    const pipelinesExtension = vscode.extensions.getExtension(azurePipelinesExtensionId);
+    if (!pipelinesExtension) {
+        try {
+            vscode.window.showWarningMessage('Please install/enable `Deploy to Azure` extension to continue.');
+        } catch (err) {
+            return false;
+        }
+        await vscode.commands.executeCommand('extension.open', azurePipelinesExtensionId);
+        return false;
+    }
+    return true;
+}
+
+async function executeAzurePipelineExtensionCommand(commandToRun: string, node: CloudExplorerTreeNode): Promise<unknown> {
+    const listOfCommands = await vscode.commands.getCommands();
+    if (listOfCommands.find((commmand) => commmand === commandToRun)) {
+        return vscode.commands.executeCommand(commandToRun, node);
+    }
+    throw new Error(utils.format('Unable to find command %s. Make sure `Deploy to Azure` extension is installed and enabled.', commandToRun));
+}
+
 function explainActiveWindow() {
     const editor = vscode.window.activeTextEditor;
     const bar = initStatusBar();
@@ -650,7 +682,7 @@ function maybeRunKubernetesCommandForActiveWindow(command: string, progressMessa
                 });
             }
         },
-        (err) => vscode.window.showErrorMessage(`Error confirming save: ${err}`));
+            (err) => vscode.window.showErrorMessage(`Error confirming save: ${err}`));
     } else {
         kubectlTextDocument(command, editor.document, progressMessage, resultHandler);
     }
@@ -772,11 +804,11 @@ function loadKubernetesCore(namespace: string | null, value: string) {
             vscode.window.showTextDocument(doc);
         }
     },
-    (err) => vscode.window.showErrorMessage(`Error loading document: ${err}`));
+        (err) => vscode.window.showErrorMessage(`Error loading document: ${err}`));
 }
 
 async function exposeKubernetes() {
-    const kindName = await findKindNameOrPrompt(kuberesources.exposableKinds, 'expose', { nameOptional: false});
+    const kindName = await findKindNameOrPrompt(kuberesources.exposableKinds, 'expose', { nameOptional: false });
     if (!kindName) {
         return;
     }
@@ -847,7 +879,7 @@ function findVersionInternal(fn: (text: string) => void): void {
     }
 
     shell.execCore('git describe --always --dirty', shell.execOpts()).then(
-        ({code, stdout, stderr}) => {
+        ({ code, stdout, stderr }) => {
             if (code !== 0) {
                 vscode.window.showErrorMessage('git log returned: ' + code);
                 console.log(stderr);
@@ -954,7 +986,7 @@ function promptScaleKubernetes(kindName: string) {
             }
         }
     },
-    (err) => vscode.window.showErrorMessage(`Error getting scale input: ${err}`));
+        (err) => vscode.window.showErrorMessage(`Error getting scale input: ${err}`));
 }
 
 async function invokeScaleKubernetes(kindName: string, replicas: number) {
@@ -1024,10 +1056,10 @@ function buildPushThenExec(fn: (name: string, image: string) => void): void {
 export function tryFindKindNameFromEditor(): Errorable<ResourceKindName> {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
-        return { succeeded: false, error: ['No open editor']};
+        return { succeeded: false, error: ['No open editor'] };
     }
     if (editor.document.languageId !== 'yaml' && editor.document.languageId !== 'json') {
-        return { succeeded: false, error: ['Not a YAML or JSON document']};
+        return { succeeded: false, error: ['Not a YAML or JSON document'] };
     }
     const text = editor.document.getText();
     return findKindNameForText(text);
@@ -1069,7 +1101,7 @@ function findKindNamesForText(text: string): Errorable<ResourceKindName[]> {
         return { succeeded: true, result: kindNames };
     } catch (ex) {
         console.log(ex);
-        return { succeeded: false, error: [ ex ] };
+        return { succeeded: false, error: [ex] };
     }
 }
 
@@ -1091,7 +1123,7 @@ export async function promptKindName(resourceKinds: kuberesources.ResourceKind[]
         prompt = opts.prompt || prompt;
     }
 
-    const resource = await vscode.window.showInputBox({ prompt, placeHolder});
+    const resource = await vscode.window.showInputBox({ prompt, placeHolder });
 
     if (resource === '') {
         return await quickPickKindName(resourceKinds, opts);
@@ -1243,11 +1275,13 @@ async function selectPod(scope: PodSelectionScope, fallback: PodSelectionFallbac
         return podList[0];
     }
 
-    const pickItems = podList.map((element) => { return {
-        label: `${element.metadata.namespace || "default"}/${element.metadata.name}`,
-        description: '',
-        pod: element
-    }; });
+    const pickItems = podList.map((element) => {
+        return {
+            label: `${element.metadata.namespace || "default"}/${element.metadata.name}`,
+            description: '',
+            pod: element
+        };
+    });
 
     const value = await vscode.window.showQuickPick(pickItems);
 
@@ -1292,7 +1326,7 @@ async function describeKubernetes(explorerNode?: ClusterExplorerResourceNode) {
             vscode.window.showTextDocument(doc);
         }
     },
-    (err) => vscode.window.showErrorMessage(`Error loading document: ${err}`));
+        (err) => vscode.window.showErrorMessage(`Error loading document: ${err}`));
 }
 
 async function refreshDescribeKubernetes(resourceDocProvider: KubernetesResourceVirtualFileSystemProvider) {
@@ -1347,12 +1381,14 @@ export async function selectContainerForResource(resource: ContainerContainer): 
         return containers[0];
     }
 
-    const pickItems = containers.map((element) => { return {
-        label: element.name,
-        description: '',
-        detail: element.image,
-        container: element
-    }; });
+    const pickItems = containers.map((element) => {
+        return {
+            label: element.name,
+            description: '',
+            detail: element.image,
+            container: element
+        };
+    });
 
     const value = await vscode.window.showQuickPick(pickItems, { placeHolder: "Select container" });
 
@@ -1425,7 +1461,7 @@ function execTerminalOnContainer(podName: string, podNamespace: string | undefin
         terminalExecCmd.push('--container', containerName);
     }
     terminalExecCmd.push('--', terminalCmd);
-    const terminalName = `${terminalCmd} on ${podName}` + (containerName ? `/${containerName}`: '');
+    const terminalName = `${terminalCmd} on ${podName}` + (containerName ? `/${containerName}` : '');
     kubectl.runAsTerminal(terminalExecCmd, terminalName);
 }
 
@@ -1472,7 +1508,7 @@ async function reportDeleteResult(resourceId: string, execResult: ExecResult) {
 
 async function deleteKubernetes(delMode: KubernetesDeleteMode, explorerNode?: ClusterExplorerResourceNode) {
 
-    const delModeArg = delMode ===  KubernetesDeleteMode.Now ? ' --now' : '';
+    const delModeArg = delMode === KubernetesDeleteMode.Now ? ' --now' : '';
 
     if (explorerNode) {
         const answer = await vscode.window.showWarningMessage(`Do you want to delete the resource '${explorerNode.kindName}'?`, ...deleteMessageItems);
@@ -1717,7 +1753,7 @@ function diffKubernetesCore(callback: (r: DiffResult) => void): void {
                     console.log(result);
                     callback({ result: DiffResultKind.Succeeded });
                 },
-                (err) => vscode.window.showErrorMessage(`Error running command: ${err}`));
+                    (err) => vscode.window.showErrorMessage(`Error running command: ${err}`));
         });
     });
 }
@@ -1757,7 +1793,8 @@ const debugInternal = (name: string, image: string) => {
     // TODO: make this smarter.
     vscode.window.showInputBox({
         prompt: 'Debug command for your container:',
-        placeHolder: 'Example: node debug server.js' }
+        placeHolder: 'Example: node debug server.js'
+    }
     ).then((cmd) => {
         if (!cmd) {
             return;
@@ -1765,7 +1802,7 @@ const debugInternal = (name: string, image: string) => {
 
         doDebug(name, image, cmd);
     },
-    (err) => vscode.window.showErrorMessage(`Error getting input: ${err}`));
+        (err) => vscode.window.showErrorMessage(`Error getting input: ${err}`));
 };
 
 const doDebug = async (name: string, image: string, cmd: string) => {
@@ -1775,7 +1812,7 @@ const doDebug = async (name: string, image: string, cmd: string) => {
 
     const er = await kubectl.invokeCommand(runCmd);
     if (ExecResult.failed(er)) {
-        await kubectl.reportFailure(er, { whatFailed: 'Failed to start debug container'});
+        await kubectl.reportFailure(er, { whatFailed: 'Failed to start debug container' });
         return;
     }
 
@@ -1836,7 +1873,7 @@ const doDebug = async (name: string, image: string, cmd: string) => {
                     });
                 });
             },
-            (err) => vscode.window.showErrorMessage(`Error getting port info: ${err}`));
+                (err) => vscode.window.showErrorMessage(`Error getting port info: ${err}`));
         }, (err) => vscode.window.showErrorMessage(`Error getting expose info: ${err.message}`));
     });
 };
@@ -1896,7 +1933,7 @@ function removeDebugKubernetes() {
                         kubectl.invokeCommandThen('delete deployment ' + deploymentName, (er) => kubectl.reportResult(er, {}));
                     }
                 },
-                (err) => vscode.window.showErrorMessage(`Error getting confirmation of delete: ${err}`));
+                    (err) => vscode.window.showErrorMessage(`Error getting confirmation of delete: ${err}`));
             });
         });
     });
@@ -1958,7 +1995,7 @@ async function getKubeconfigSelection(kubeconfig?: string): Promise<string | und
         return kubeconfig;
     }
     const knownKubeconfigs = getKnownKubeconfigs();
-    const picks = [ ADD_NEW_KUBECONFIG_PICK, ...knownKubeconfigs ];
+    const picks = [ADD_NEW_KUBECONFIG_PICK, ...knownKubeconfigs];
     const pick = await vscode.window.showQuickPick(picks);
 
     if (pick === ADD_NEW_KUBECONFIG_PICK) {
@@ -2054,7 +2091,7 @@ async function execDraftCreate() {
         return;
     }
     const proposedAppName = path.basename(vscode.workspace.rootPath);
-    const appName = await vscode.window.showInputBox({ value: proposedAppName, prompt: "Choose a name for the Helm release"});
+    const appName = await vscode.window.showInputBox({ value: proposedAppName, prompt: "Choose a name for the Helm release" });
     if (appName) {
         await execDraftCreateApp(appName, undefined);
     }
@@ -2294,5 +2331,3 @@ function kubernetesFindCloudProviders() {
     const searchUrl = 'https://marketplace.visualstudio.com/search?term=kubernetes-extension-cloud-provider&target=VSCode&category=All%20categories&sortBy=Relevance';
     browser.open(searchUrl);
 }
-
-
