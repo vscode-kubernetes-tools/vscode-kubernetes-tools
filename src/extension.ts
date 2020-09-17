@@ -101,6 +101,7 @@ const git = new Git(shell);
 const activeContextTracker = activeContextTrackerCreate(kubectl);
 const azurePipelinesExtensionId = 'ms-vscode-deploy-azure.azure-deploy';
 const configurePipelineCommand = 'configure-cicd-pipeline';
+const browsePipelineCommand = 'browse-cicd-pipeline';
 
 export const overwriteMessageItems: vscode.MessageItem[] = [
     {
@@ -241,7 +242,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.helmDependencies', helmexec.helmDependencies),
         registerCommand('extension.helmConvertToTemplate', helmConvertToTemplate),
         registerCommand('extension.helmParameterise', helmParameterise),
-        registerCommand('extension.ConfigureAzureWebAppPipeline', configurePipeline),
+        registerCommand('extension.ConfigureKubernetesPipeline', configurePipeline),
+        registerCommand('extension.BrowseKubernetesPipeline', browsePipeline),
 
         // Commands - Draft
         registerCommand('extension.draftVersion', execDraftVersion),
@@ -539,6 +541,12 @@ async function explain(obj: any, field: string): Promise<string | null> {
     });
 }
 
+async function browsePipeline(node: CloudExplorerTreeNode): Promise<void> {
+    if (await isAzurePipelinesExtensionInstalled()) {
+        await executeAzurePipelineExtensionCommand(browsePipelineCommand, node);
+    }
+}
+
 async function configurePipeline(node: CloudExplorerTreeNode): Promise<void> {
     if (await isAzurePipelinesExtensionInstalled()) {
         await executeAzurePipelineExtensionCommand(configurePipelineCommand, node);
@@ -549,7 +557,7 @@ async function isAzurePipelinesExtensionInstalled(): Promise<boolean> {
     const pipelinesExtension = vscode.extensions.getExtension(azurePipelinesExtensionId);
     if (!pipelinesExtension) {
         try {
-            vscode.window.showWarningMessage('Please install/enable `Deploy to Azure` extension to continue.');
+            vscode.window.showWarningMessage('Please install/enable `Deploy to Azure` extension and then retry.');
         } catch (err) {
             return false;
         }

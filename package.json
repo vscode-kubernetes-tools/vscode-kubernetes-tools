@@ -613,7 +613,7 @@
                 },
                 {
                     "command": "kubernetes.cloudExplorer.saveKubeconfig",
-                    "group": "7@3",
+                    "group": "7@4",
                     "when": "view == kubernetes.cloudExplorer && viewItem =~ /kubernetes\\.providesKubeconfig/i"
                 },
                 {
@@ -622,8 +622,13 @@
                     "group": "1"
                 },
                 {
-                    "command": "extension.ConfigureAzureWebAppPipeline",
+                    "command": "extension.ConfigureKubernetesPipeline",
                     "group": "7@2",
+                    "when": "view == kubernetes.cloudExplorer && viewItem =~ /kubernetes\\.providesKubeconfig/i"
+                },
+                {
+                    "command": "extension.BrowseKubernetesPipeline",
+                    "group": "7@3",
                     "when": "view == kubernetes.cloudExplorer && viewItem =~ /kubernetes\\.providesKubeconfig/i"
                 }
             ],
@@ -713,7 +718,11 @@
                     "when": ""
                 },
                 {
-                    "command": "extension.ConfigureAzureWebAppPipeline",
+                    "command": "extension.ConfigureKubernetesPipeline",
+                    "when": "never"
+                },
+                {
+                    "command": "extension.BrowseKubernetesPipeline",
                     "when": "never"
                 }
             ]
@@ -1124,8 +1133,13 @@
                 "category": "Kubernetes"
             },
             {
-                "command": "extension.ConfigureAzureWebAppPipeline",
-                "title": "Configure CI/CD Pipeline",
+                "command": "extension.ConfigureKubernetesPipeline",
+                "title": "Configure CI/CD",
+                "category": "Azure App Service"
+            },
+            {
+                "command": "extension.BrowseKubernetesPipeline",
+                "title": "Browse All Pipelines",
                 "category": "Azure App Service"
             }
         ],
