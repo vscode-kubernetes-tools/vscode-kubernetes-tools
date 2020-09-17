@@ -1356,7 +1356,7 @@
     },
     "devDependencies": {
         "@types/mocha": "^2.2.32",
-        "@types/node": "^10.17.35",
+        "@types/node": "^10.2.0",
         "@types/request": "^2.48.1",
         "@types/unzipper": "^0.10.0",
         "@typescript-eslint/eslint-plugin": "^2.19.2",
