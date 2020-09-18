@@ -99,7 +99,7 @@ const clusterProviderRegistry = clusterproviderregistry.get();
 const configMapProvider = new configmaps.ConfigMapTextProvider(kubectl);
 const git = new Git(shell);
 const activeContextTracker = activeContextTrackerCreate(kubectl);
-const azurePipelinesExtensionId = 'ms-vscode-deploy-azure.azure-deploy';
+const deployToAzureExtensionId = 'ms-vscode-deploy-azure.azure-deploy';
 const configurePipelineCommand = 'configure-cicd-pipeline';
 const browsePipelineCommand = 'browse-cicd-pipeline';
 
@@ -242,8 +242,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.helmDependencies', helmexec.helmDependencies),
         registerCommand('extension.helmConvertToTemplate', helmConvertToTemplate),
         registerCommand('extension.helmParameterise', helmParameterise),
-        registerCommand('extension.ConfigureKubernetesPipeline', configurePipeline),
-        registerCommand('extension.BrowseKubernetesPipeline', browsePipeline),
+        registerCommand('extension.ConfigueCICDPipeline', configurePipeline),
+        registerCommand('extension.BrowseCICDPipeline', browsePipeline),
 
         // Commands - Draft
         registerCommand('extension.draftVersion', execDraftVersion),
@@ -542,32 +542,32 @@ async function explain(obj: any, field: string): Promise<string | null> {
 }
 
 async function browsePipeline(node: CloudExplorerTreeNode): Promise<void> {
-    if (await isAzurePipelinesExtensionInstalled()) {
-        await executeAzurePipelineExtensionCommand(browsePipelineCommand, node);
+    if (await isDeployToAzureExtensionInstalled()) {
+        await executeDeployToAzureExtensionInstalled(browsePipelineCommand, node);
     }
 }
 
 async function configurePipeline(node: CloudExplorerTreeNode): Promise<void> {
-    if (await isAzurePipelinesExtensionInstalled()) {
-        await executeAzurePipelineExtensionCommand(configurePipelineCommand, node);
+    if (await isDeployToAzureExtensionInstalled()) {
+        await executeDeployToAzureExtensionInstalled(configurePipelineCommand, node);
     }
 }
 
-async function isAzurePipelinesExtensionInstalled(): Promise<boolean> {
-    const pipelinesExtension = vscode.extensions.getExtension(azurePipelinesExtensionId);
+async function isDeployToAzureExtensionInstalled(): Promise<boolean> {
+    const pipelinesExtension = vscode.extensions.getExtension(deployToAzureExtensionId);
     if (!pipelinesExtension) {
         try {
             vscode.window.showWarningMessage('Please install/enable `Deploy to Azure` extension and then retry.');
         } catch (err) {
             return false;
         }
-        await vscode.commands.executeCommand('extension.open', azurePipelinesExtensionId);
+        await vscode.commands.executeCommand('extension.open', deployToAzureExtensionId);
         return false;
     }
     return true;
 }
 
-async function executeAzurePipelineExtensionCommand(commandToRun: string, node: CloudExplorerTreeNode): Promise<unknown> {
+async function executeDeployToAzureExtensionInstalled(commandToRun: string, node: CloudExplorerTreeNode): Promise<unknown> {
     const listOfCommands = await vscode.commands.getCommands();
     if (listOfCommands.find((commmand) => commmand === commandToRun)) {
         return vscode.commands.executeCommand(commandToRun, node);

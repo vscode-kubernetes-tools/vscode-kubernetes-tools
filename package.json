@@ -622,14 +622,14 @@
                     "group": "1"
                 },
                 {
-                    "command": "extension.ConfigureKubernetesPipeline",
+                    "command": "extension.ConfigueCICDPipeline",
                     "group": "7@2",
-                    "when": "view == kubernetes.cloudExplorer && viewItem =~ /kubernetes\\.providesKubeconfig/i"
+                    "when": "view == kubernetes.cloudExplorer && viewItem =~ /kubernetes/i"
                 },
                 {
-                    "command": "extension.BrowseKubernetesPipeline",
+                    "command": "extension.BrowseCICDPipeline",
                     "group": "7@3",
-                    "when": "view == kubernetes.cloudExplorer && viewItem =~ /kubernetes\\.providesKubeconfig/i"
+                    "when": "view == kubernetes.cloudExplorer && viewItem =~ /kubernetes/i"
                 }
             ],
             "commandPalette": [
@@ -718,11 +718,11 @@
                     "when": ""
                 },
                 {
-                    "command": "extension.ConfigureKubernetesPipeline",
+                    "command": "extension.ConfigueCICDPipeline",
                     "when": "never"
                 },
                 {
-                    "command": "extension.BrowseKubernetesPipeline",
+                    "command": "extension.BrowseCICDPipeline",
                     "when": "never"
                 }
             ]
@@ -1133,14 +1133,14 @@
                 "category": "Kubernetes"
             },
             {
-                "command": "extension.ConfigureKubernetesPipeline",
+                "command": "extension.ConfigueCICDPipeline",
                 "title": "Configure CI/CD",
-                "category": "Azure App Service"
+                "category": "Deploy to Azure"
             },
             {
-                "command": "extension.BrowseKubernetesPipeline",
+                "command": "extension.BrowseCICDPipeline",
                 "title": "Browse All Pipelines",
-                "category": "Azure App Service"
+                "category": "Deploy to Azure"
             }
         ],
         "keybindings": [
