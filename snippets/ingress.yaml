@@ -1,0 +1,21 @@
+name: ingress
+label: Kubernetes Ingress
+description: Kubernetes Ingress
+body: |2 
+  apiVersion: extensions/v1beta1
+  kind: Ingress
+  metadata:
+    name: ${1:myingress}
+    labels:
+        name: ${1:myingress}
+  spec:
+    rules:
+    - host: ${2:<Host>}
+      http:
+        paths:
+        - pathType: Prefix
+          path: "/"
+          backend:
+            service:
+              serviceName: ${3:<Service>}
+              servicePort: ${4:<Port>}

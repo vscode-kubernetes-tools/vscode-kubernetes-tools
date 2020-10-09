@@ -1,0 +1,37 @@
+
+name: statefulset
+label: Kubernetes StatefulSet
+description: Kubernetes StatefulSet
+body: |2 
+  apiVersion: apps/v1
+  kind: StatefulSet
+  metadata:
+    name: ${1:mystatefulset}
+  spec:
+    selector:
+      matchLabels:
+        app: ${2:myapp}
+    serviceName: ${3:<ServiceName>}
+    replicas: 2
+    template:
+      metadata:
+        labels:
+          app: ${2:myapp}
+      spec:
+        containers:
+        - name: ${2:myapp}
+          image: k8s.gcr.io/nginx-slim:0.8
+          ports:
+          - containerPort: 80
+            name: web
+          volumeMounts:
+          - name: www
+            mountPath: /usr/share/nginx/html
+    volumeClaimTemplates:
+    - metadata:
+        name: www
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 1Gi
