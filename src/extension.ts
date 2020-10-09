@@ -1986,18 +1986,6 @@ async function setContextKubernetes(targetContext: string) {
     }
 }
 
-async function setContextKubernetes(targetContext: string) {
-    const er = await kubectl.invokeCommand(`config use-context ${targetContext}`);
-    if (ExecResult.succeeded(er)) {
-        telemetry.invalidateClusterType(targetContext);
-        activeContextTracker.setActive(targetContext);
-        refreshExplorer();
-        WatchManager.instance().clear();
-    } else {
-        kubectl.reportFailure(er, { whatFailed: `Failed to set '${targetContext}' as current cluster` });
-    }
-}
-
 async function switchContextKubernetes(tree: explorer.KubernetesExplorer) {
     const inactiveContexts = await tree.getInactiveContexts();
     const selected = await vscode.window.showQuickPick(inactiveContexts, { placeHolder: 'Pick the context you want to switch to' });
