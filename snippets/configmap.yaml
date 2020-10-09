@@ -1,4 +1,4 @@
-name: service
+name: configmap
 label: Kubernetes ConfigMap
 description: Kubernetes ConfigMap
 body: |2
