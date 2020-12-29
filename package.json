@@ -849,6 +849,11 @@
                 "category": "Kubernetes"
             },
             {
+                "command": "extension.vsKubernetesDebugLocalTunnel",
+                "title": "Debug (Local Tunnel)",
+                "category": "Kubernetes"
+            },
+            {
                 "command": "extension.vsKubernetesRemoveDebug",
                 "title": "Remove Debug",
                 "category": "Kubernetes"
