@@ -193,9 +193,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.vsKubernetesDebug', debugKubernetes),
         registerCommand('extension.vsKubernetesRemoveDebug', removeDebugKubernetes),
         registerCommand('extension.vsKubernetesDebugAttach', debugAttachKubernetes),
-        registerCommand('extension.vsKubernetesDebugLocalTunnel', () => {
-            vscode.window.showInformationMessage('Hello World!'); // TODO: import local redirection debugger, call method
-        }),
+        registerCommand('extension.vsKubernetesDebugLocalTunnel', debugLocalTunnelKubernetes),
         registerCommand('extension.vsKubernetesConfigureFromCluster', configureFromClusterKubernetes),
         registerCommand('extension.vsKubernetesCreateCluster', createClusterKubernetes),
         registerCommand('extension.vsKubernetesRefreshExplorer', () => treeProvider.refresh()),
@@ -1777,6 +1775,21 @@ const debugAttachKubernetes = async (explorerNode: ClusterExplorerResourceNode) 
     }
 };
 
+const debugLocalTunnelKubernetes = async (target?: any) => {
+    // if no providers installed:
+    const browseExtensions = "Find Local Redirection Debugging Providers on Marketplace";
+    vscode.window.showInformationMessage('You do not have a Local Redirection Debugging Provider installed.', browseExtensions)
+    .then((selection: string | undefined) => {
+        if (selection === browseExtensions) {
+            kubernetesFindLocalRedirectionDebuggerProviders();
+        }
+    });
+
+    // else:
+    // choose a debugger
+    // startDebugging(target);
+};
+
 const debugInternal = (name: string, image: string) => {
     // TODO: optionalize/customize the '-debug'
     // TODO: make this smarter.
@@ -2327,7 +2340,15 @@ async function showInfoMessage(message: string) {
 }
 
 function kubernetesFindCloudProviders() {
-    const searchUrl = 'https://marketplace.visualstudio.com/search?term=kubernetes-extension-cloud-provider&target=VSCode&category=All%20categories&sortBy=Relevance';
+    searchMarketPlace("kubernetes-extension-cloud-provider");
+}
+
+function kubernetesFindLocalRedirectionDebuggerProviders() {
+    searchMarketPlace("kubernetes-extension-local-redirection-provider");
+;}
+
+function searchMarketPlace(searchTerm: string) {
+    const searchUrl = `https://marketplace.visualstudio.com/search?term=${searchTerm}&target=VSCode&category=All%20categories&sortBy=Relevance`;
     browser.open(searchUrl);
 }
 
