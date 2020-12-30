@@ -49,6 +49,8 @@
         "onCommand:extension.vsKubernetesDiff",
         "onCommand:extension.vsKubernetesScale",
         "onCommand:extension.vsKubernetesDebug",
+        "onCommand:extension.vsKubernetesDebugLocalTunnel",
+        "onCommand:extension.vsKubernetesFindLocalTunnelDebugProviders",
         "onCommand:extension.vsKubernetesRemoveDebug",
         "onCommand:extension.vsKubernetesConfigureFromCluster",
         "onCommand:extension.vsKubernetesCreateCluster",
@@ -856,6 +858,11 @@
             {
                 "command": "extension.vsKubernetesDebugLocalTunnel",
                 "title": "Debug (Local Tunnel)",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesFindLocalTunnelDebugProviders",
+                "title": "Find Local Redirection Debug Providers on Marketplace",
                 "category": "Kubernetes"
             },
             {

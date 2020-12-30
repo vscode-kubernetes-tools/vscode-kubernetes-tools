@@ -11,4 +11,8 @@ class LocalRedirectionDebuggerV1Impl implements LocalRedirectionDebuggerV1 {
     register(provider: LocalRedirectionDebuggerV1.LocalRedirectionDebugger): void {
         this.localDebugger.register(provider);
     }
+
+    startLocalRedirectionDebugProvider(target?: any): void {
+        this.localDebugger.startLocalRedirectionDebugProvider(target);
+    }
 }

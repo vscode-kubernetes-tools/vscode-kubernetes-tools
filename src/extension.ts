@@ -86,6 +86,7 @@ import { create as activeContextTrackerCreate } from './components/contextmanage
 import { WatchManager } from './components/kubectl/watch';
 import { ExecResult } from './binutilplusplus';
 import { getCurrentContext } from './kubectlUtils';
+import { LocalRedirectionDebugger } from './components/localredirectiondebugger/localredirectiondebugger';
 
 let explainActive = false;
 let swaggerSpecPromise: Promise<explainer.SwaggerModel | undefined> | null = null;
@@ -135,6 +136,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
     const treeProvider = explorer.create(kubectl, host);
     const helmRepoTreeProvider = helmRepoExplorer.create(host);
     const cloudExplorer = new CloudExplorer();
+    const localRedirectionDebugger = new LocalRedirectionDebugger();
     const resourceDocProvider = new KubernetesResourceVirtualFileSystemProvider(kubectl, host);
     const resourceLinkProvider = new KubernetesResourceLinkProvider();
     const previewProvider = new HelmTemplatePreviewDocumentProvider();
@@ -193,7 +195,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.vsKubernetesDebug', debugKubernetes),
         registerCommand('extension.vsKubernetesRemoveDebug', removeDebugKubernetes),
         registerCommand('extension.vsKubernetesDebugAttach', debugAttachKubernetes),
-        registerCommand('extension.vsKubernetesDebugLocalTunnel', debugLocalTunnelKubernetes),
+        registerCommand('extension.vsKubernetesDebugLocalTunnel', (target?: any) => { localRedirectionDebugger.startLocalRedirectionDebugProvider(target); }),
+        registerCommand('extension.vsKubernetesFindLocalTunnelDebugProviders', kubernetesFindLocalRedirectionDebugProviders),
         registerCommand('extension.vsKubernetesConfigureFromCluster', configureFromClusterKubernetes),
         registerCommand('extension.vsKubernetesCreateCluster', createClusterKubernetes),
         registerCommand('extension.vsKubernetesRefreshExplorer', () => treeProvider.refresh()),
@@ -1775,21 +1778,6 @@ const debugAttachKubernetes = async (explorerNode: ClusterExplorerResourceNode) 
     }
 };
 
-const debugLocalTunnelKubernetes = async (target?: any) => {
-    // if no providers installed:
-    const browseExtensions = "Find Local Redirection Debugging Providers on Marketplace";
-    vscode.window.showInformationMessage('You do not have a Local Redirection Debugging Provider installed.', browseExtensions)
-    .then((selection: string | undefined) => {
-        if (selection === browseExtensions) {
-            kubernetesFindLocalRedirectionDebuggerProviders();
-        }
-    });
-
-    // else:
-    // choose a debugger
-    // startDebugging(target);
-};
-
 const debugInternal = (name: string, image: string) => {
     // TODO: optionalize/customize the '-debug'
     // TODO: make this smarter.
@@ -2343,7 +2331,7 @@ function kubernetesFindCloudProviders() {
     searchMarketPlace("kubernetes-extension-cloud-provider");
 }
 
-function kubernetesFindLocalRedirectionDebuggerProviders() {
+function kubernetesFindLocalRedirectionDebugProviders() {
     searchMarketPlace("kubernetes-extension-local-redirection-provider");
 ;}
 

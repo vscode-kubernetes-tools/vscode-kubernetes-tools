@@ -4,6 +4,7 @@
 
 export interface LocalRedirectionDebuggerV1 {
     register(localRedirectionDebugger: LocalRedirectionDebuggerV1.LocalRedirectionDebugger): void;
+    startLocalRedirectionDebugProvider(target?: any): void;
 }
 
 export namespace LocalRedirectionDebuggerV1 {
