@@ -77,4 +77,4 @@ snippet. In terms of the TypeScript typings from the NPM package, `activate` ret
 * [Configuration API](configuration.md) - used for working with Kubernetes configuration
   * ID: `configuration`
   * Versions: `v1`
-* [Local Redirection Debugger API](localredirectiondebugger.md) - used for working with tunnel debugging
+* [Local Tunnel Debugger API](localtunneldebugger.md) - used for setting up and managing local tunnel debugging

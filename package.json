@@ -867,7 +867,7 @@
             },
             {
                 "command": "extension.vsKubernetesFindLocalTunnelDebugProviders",
-                "title": "Find Local Redirection Debug Providers on Marketplace",
+                "title": "Find Local Tunnel Debug Providers on Marketplace",
                 "category": "Kubernetes"
             },
             {

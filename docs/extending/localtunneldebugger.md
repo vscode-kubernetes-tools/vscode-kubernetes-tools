@@ -204,7 +204,7 @@ displayed.  To do this, your `package.json` must include the following activatio
 
 Depending on your extension you may have other activation events as well.
 
-### Registering local redirection debug providers with the Kubernetes extension
+### Registering local tunnel debug providers with the Kubernetes extension
 
 In your extension's `activate` function, you must register your provider(s) using the
 Kubernetes extension API.  The following sample shows how to do this using the NPM
@@ -234,9 +234,9 @@ Your cloud provider is now ready for testing!
 
 ## Tagging your cloud provider extension
 
-The Local Redirection Debugger has a link for users to find providers on the Visual Studio
+The Local Tunnel Debugger has a link for users to find providers on the Visual Studio
 Marketplace.  If you'd like to appear in this link, please tag your extension
-with the keyword `kubernetes-extension-local-redirection-provider` in `package.json`.
+with the keyword `kubernetes-extension-local-tunnel-provider` in `package.json`.
 For example:
 
 ```json
@@ -245,7 +245,7 @@ For example:
         "kubernetes",
         "contoso",
         "megafloof",
-        "kubernetes-extension-local-redirection-provider"
+        "kubernetes-extension-local-tunnel-provider"
     ]
 }
 ```

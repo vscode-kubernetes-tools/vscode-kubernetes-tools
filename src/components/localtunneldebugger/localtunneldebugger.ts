@@ -1,17 +1,17 @@
 import * as vscode from 'vscode';
 
-import { LocalRedirectionDebuggerProvider } from './localredirectiondebugger.extension';
+import { LocalTunnelDebugProvider } from './localtunneldebugger.extension';
 import { getLocalTunnelDebugProvider } from '../config/config';
 
-export class LocalRedirectionDebugger {
-    private readonly providers = Array.of<LocalRedirectionDebuggerProvider>();
+export class LocalTunnelDebugger {
+    private readonly providers = Array.of<LocalTunnelDebugProvider>();
 
-    register(provider: LocalRedirectionDebuggerProvider): void {
-        console.log(`Registered local redirection debugger type ${provider.id}`);
+    register(provider: LocalTunnelDebugProvider): void {
+        console.log(`Registered local tunnel debugger type ${provider.id}`);
         this.providers.push(provider);
     }
 
-    startLocalRedirectionDebugProvider(target?: any): void {
+    startLocalTunnelDebugProvider(target?: any): void {
         const browseExtensions = "Find Providers on Marketplace";
         if (this.providers.length === 0)
         {
@@ -27,10 +27,9 @@ export class LocalRedirectionDebugger {
         let providerName = getLocalTunnelDebugProvider();
         if (providerName === "") {
             // If no provider is configured in the settings, take the first one that's registered
-            // alphabetically
             providerName = this.providers.map((p) => p.id).sort()[0];
         }
-        const providerToUse: LocalRedirectionDebuggerProvider | undefined = this.providers.find((p) => p.id === providerName);
+        const providerToUse: LocalTunnelDebugProvider | undefined = this.providers.find((p) => p.id === providerName);
         if (providerToUse === undefined) {
             vscode.window.showWarningMessage(`You have configured VSCode to use Local Tunnel debugger '${providerName}', but it is not installed.`, browseExtensions)
             .then((selection: string | undefined) => {

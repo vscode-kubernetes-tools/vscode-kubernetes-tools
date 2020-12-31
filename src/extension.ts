@@ -86,7 +86,7 @@ import { create as activeContextTrackerCreate } from './components/contextmanage
 import { WatchManager } from './components/kubectl/watch';
 import { ExecResult } from './binutilplusplus';
 import { getCurrentContext } from './kubectlUtils';
-import { LocalRedirectionDebugger } from './components/localredirectiondebugger/localredirectiondebugger';
+import { LocalTunnelDebugger } from './components/localtunneldebugger/localtunneldebugger';
 
 let explainActive = false;
 let swaggerSpecPromise: Promise<explainer.SwaggerModel | undefined> | null = null;
@@ -136,7 +136,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
     const treeProvider = explorer.create(kubectl, host);
     const helmRepoTreeProvider = helmRepoExplorer.create(host);
     const cloudExplorer = new CloudExplorer();
-    const localRedirectionDebugger = new LocalRedirectionDebugger();
+    const localTunnelDebugger = new LocalTunnelDebugger();
     const resourceDocProvider = new KubernetesResourceVirtualFileSystemProvider(kubectl, host);
     const resourceLinkProvider = new KubernetesResourceLinkProvider();
     const previewProvider = new HelmTemplatePreviewDocumentProvider();
@@ -195,8 +195,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.vsKubernetesDebug', debugKubernetes),
         registerCommand('extension.vsKubernetesRemoveDebug', removeDebugKubernetes),
         registerCommand('extension.vsKubernetesDebugAttach', debugAttachKubernetes),
-        registerCommand('extension.vsKubernetesDebugLocalTunnel', (target?: any) => { localRedirectionDebugger.startLocalRedirectionDebugProvider(target); }),
-        registerCommand('extension.vsKubernetesFindLocalTunnelDebugProviders', kubernetesFindLocalRedirectionDebugProviders),
+        registerCommand('extension.vsKubernetesDebugLocalTunnel', (target?: any) => { localTunnelDebugger.startLocalTunnelDebugProvider(target); }),
+        registerCommand('extension.vsKubernetesFindLocalTunnelDebugProviders', kubernetesFindLocalTunnelDebugProviders),
         registerCommand('extension.vsKubernetesConfigureFromCluster', configureFromClusterKubernetes),
         registerCommand('extension.vsKubernetesCreateCluster', createClusterKubernetes),
         registerCommand('extension.vsKubernetesRefreshExplorer', () => treeProvider.refresh()),
@@ -2331,8 +2331,8 @@ function kubernetesFindCloudProviders() {
     searchMarketPlace("kubernetes-extension-cloud-provider");
 }
 
-function kubernetesFindLocalRedirectionDebugProviders() {
-    searchMarketPlace("kubernetes-extension-local-redirection-provider");
+function kubernetesFindLocalTunnelDebugProviders() {
+    searchMarketPlace("kubernetes-extension-local-tunnel-provider");
 ;}
 
 function searchMarketPlace(searchTerm: string) {
