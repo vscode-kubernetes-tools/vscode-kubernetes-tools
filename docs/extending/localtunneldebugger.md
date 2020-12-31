@@ -9,7 +9,7 @@ Local Tunnel Debug providers can be installed via the marketplace. Developers of
 tunnel debugging capabilities can register themselves as a Local Tunnel Debug provider in order
 to hook into the Kubernetes extension's API.
 
-## Elements of a cloud provider
+## Elements of a debug provider
 
 An object that provides content for the Local Tunnel Debugger is called a _local tunnel debug provider_.
 Providers must be hosted within a Visual Studio Code extension.  This table summarises what
@@ -50,7 +50,7 @@ API to do so (resolveCommandTarget method). This parameter will be undefined if 
 action is initiated through the Visual Studio command palette. Your provider controls
 the tunneling and debugging behavior of the command.
 
-## Registering the cloud provider
+## Registering the debug provider
 
 In order to hook into the Debug (Local Tunnel) option, a local debug provider must be _registered_
 with the Kubernetes extension. This is the responsibility of the VS Code extension that hosts
@@ -61,7 +61,7 @@ the debug provider. To do this, the extension must:
 * Request the Kubernetes extension's Local Tunnel Debug Provider API
 * Call the `register` method for each cloud provider it wants to display
 
-### Activating the cloud provider extension
+### Activating the debug provider extension
 
 Your extension needs to activate in response to the cluster explorer and command palette
 commands, so that it can register as a debug provider before the debug session is started.
