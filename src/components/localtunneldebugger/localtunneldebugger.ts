@@ -24,7 +24,7 @@ export class LocalTunnelDebugger {
             return;
         }
 
-        let providerName = getLocalTunnelDebugProvider();
+        let providerName: string = getLocalTunnelDebugProvider();
         if (providerName === "") {
             // If no provider is configured in the settings, take the first one that's registered
             providerName = this.providers.map((p) => p.id).sort()[0];

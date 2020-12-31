@@ -8,7 +8,7 @@ export function impl(localDebugger: LocalTunnelDebugger): LocalTunnelDebuggerV1 
 class LocalTunnelDebuggerV1Impl implements LocalTunnelDebuggerV1 {
     constructor(private readonly localDebugger: LocalTunnelDebugger) {}
 
-    register(provider: LocalTunnelDebuggerV1.LocalTunnelDebugger): void {
+    registerLocalTunnelDebugProvider(provider: LocalTunnelDebuggerV1.LocalTunnelDebugger): void {
         this.localDebugger.register(provider);
     }
 
