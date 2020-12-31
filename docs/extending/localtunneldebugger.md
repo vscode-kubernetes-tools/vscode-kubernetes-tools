@@ -11,7 +11,7 @@ to hook into the Kubernetes extension's API.
 
 ## Elements of a cloud provider
 
-An object that provides content for the Local Tunnel Debugger is called a _local tunnel gdebug provider_.
+An object that provides content for the Local Tunnel Debugger is called a _local tunnel debug provider_.
 Providers must be hosted within a Visual Studio Code extension.  This table summarises what
 your providers and their hosting extension need to do; the rest of this article goes into detail.
 
