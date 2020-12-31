@@ -3,12 +3,12 @@
 // at all times.
 
 export interface LocalTunnelDebuggerV1 {
-    registerLocalTunnelDebugProvider(localRedirectionDebugger: LocalTunnelDebuggerV1.LocalTunnelDebugger): void;
+    registerLocalTunnelDebugProvider(localRedirectionDebugger: LocalTunnelDebuggerV1.LocalTunnelDebugProvider): void;
     startLocalTunnelDebugProvider(target?: any): void;
 }
 
 export namespace LocalTunnelDebuggerV1 {
-    export interface LocalTunnelDebugger {
+    export interface LocalTunnelDebugProvider {
         readonly id: string;
         startDebugging(target?: any): void;
     }

@@ -44,13 +44,16 @@ The id will allow users to configure a default local tunnel debugger to use.
 
 ### Implementing the debugger
 
-Your provider is responsible for resolving the debug target (such as a pod or service) when a resource
-is targeted via the Cluster explorer, and controls the tunneling and debugging behavior of the command.
+Your provider is responsible for resolving the debug target (such as a pod or service)
+when a resource is targeted via the Cluster explorer. You can use the cluster explorer
+API to do so (resolveCommandTarget method). This parameter will be undefined if the debugging
+action is initiated through the Visual Studio command palette. Your provider controls
+the tunneling and debugging behavior of the command.
 
 ## Registering the cloud provider
 
 In order to hook into the Debug (Local Tunnel) option, a local debug provider must be _registered_
-with the Kubernetes extension. This is the responsibility of the VS Code extension that hosts 
+with the Kubernetes extension. This is the responsibility of the VS Code extension that hosts
 the debug provider. To do this, the extension must:
 
 * Activate in response to the `kubernetes.cloudExplorer` view
