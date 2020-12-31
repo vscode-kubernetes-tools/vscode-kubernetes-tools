@@ -11,7 +11,7 @@ to hook into the Kubernetes extension's API.
 
 ## Elements of a cloud provider
 
-An object that provides content for the Local Tunnel Debugger is called a _debug provider_. 
+An object that provides content for the Local Tunnel Debugger is called a _local tunnel gdebug provider_.
 Providers must be hosted within a Visual Studio Code extension.  This table summarises what
 your providers and their hosting extension need to do; the rest of this article goes into detail.
 
@@ -22,7 +22,7 @@ your providers and their hosting extension need to do; the rest of this article 
 |                      | Tag itself as a local tunnel debug provider in the Visual Studio Marketplace      |
 | Local Tunnel Debug provider       | Implement the local tunnel debug provider interface                               |
 |                      | Allow users to configure which debug provider to use                   |
-| Kubernetes extension | Display the Debug (Local Tunnel) command in the palette or when interacting with supported objects                                 |
+| Kubernetes extension | Display the Debug (Local Tunnel) command in the palette or when interacting with supported resources in the Cluster Explorer                                 |
 
 ## Implementing the local tunnel debug provider
 
@@ -31,7 +31,7 @@ the interface is written in TypeScript terms but any JavaScript object that prov
 the specified properties and methods will do.)
 
 ```javascript
-interface LocalTunnelDebugger {
+interface LocalTunnelDebugProvider {
     readonly id: string;
     startDebugging(target?: any): void;
 }
