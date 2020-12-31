@@ -24,32 +24,22 @@ export class LocalRedirectionDebugger {
             return;
         }
 
-        let providerToUse: LocalRedirectionDebuggerProvider | null = null;
-        const providerName = getLocalTunnelDebugProvider();
+        let providerName = getLocalTunnelDebugProvider();
         if (providerName === "") {
             // If no provider is configured in the settings, take the first one that's registered
             // alphabetically
-            providerToUse = this.providers.sort((p1, p2): number => {
-                if (p1.id < p2.id) { return -1; }
-                if (p1.id > p2.id) { return 1; }
-                return 0;
-            })[0];
+            providerName = this.providers.map((p) => p.id).sort()[0];
         }
-        else {
-            const provider = this.providers.find((p) => p.id === providerName);
-            if (provider === undefined) {
-                // TODO: make this smarter / add the option to edit the configuration
-                vscode.window.showWarningMessage(`You have configured VSCode to use Local Tunnel debugger '${providerName}', but it is not installed.`, browseExtensions)
-                .then((selection: string | undefined) => {
-                    if (selection === browseExtensions) {
-                        vscode.commands.executeCommand('extension.vsKubernetesFindLocalTunnelDebugProviders');
-                    }
-                });
-                return;
-            }
-            providerToUse = provider;
+        const providerToUse: LocalRedirectionDebuggerProvider | undefined = this.providers.find((p) => p.id === providerName);
+        if (providerToUse === undefined) {
+            vscode.window.showWarningMessage(`You have configured VSCode to use Local Tunnel debugger '${providerName}', but it is not installed.`, browseExtensions)
+            .then((selection: string | undefined) => {
+                if (selection === browseExtensions) {
+                    vscode.commands.executeCommand('extension.vsKubernetesFindLocalTunnelDebugProviders');
+                }
+            });
+            return;
         }
-
         providerToUse.startDebugging(target);
     };
 }
