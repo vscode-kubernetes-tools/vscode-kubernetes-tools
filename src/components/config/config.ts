@@ -262,3 +262,8 @@ export function isContextStatusBarDisabled(): boolean {
 export function isNamespaceStatusBarDisabled(): boolean {
     return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.disable-namespace-info-status-bar'];
 }
+
+// gets the default local tunnel debug provider to use
+export function getLocalTunnelDebugProvider(): string {
+    return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.local-tunnel-debug-provider'];
+}

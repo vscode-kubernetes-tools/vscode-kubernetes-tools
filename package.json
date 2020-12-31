@@ -277,6 +277,10 @@
                         "vs-kubernetes.disable-namespace-info-status-bar": {
                             "type": "boolean",
                             "description": "Disable displaying your current Kubernetes namespace in VS Code's status bar."
+                        },
+                        "vs-kubernetes.local-tunnel-debug-provider": {
+                            "type": "string",
+                            "description": "Configure the Local Tunnel debug provider you want to use by default."
                         }
                     },
                     "default": {
@@ -293,6 +297,7 @@
                         "vs-kubernetes.nodejs-autodetect-remote-root": true,
                         "vs-kubernetes.nodejs-remote-root": "",
                         "vs-kubernetes.nodejs-debug-port": 9229,
+                        "vs-kubernetes.local-tunnel-debug-provider": "",
                         "checkForMinikubeUpgrade": true,
                         "logsDisplay": "webview",
                         "imageBuildTool": "Docker"
@@ -529,7 +534,7 @@
                 {
                     "command": "extension.vsKubernetesDebugLocalTunnel",
                     "group": "2@5",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.pod/i"
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.(pod|job|service)/i"
                 },
                 {
                     "command": "extension.vsKubernetesPortForward",
