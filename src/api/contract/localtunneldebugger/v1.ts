@@ -3,7 +3,7 @@
 // at all times.
 
 export interface LocalTunnelDebuggerV1 {
-    registerLocalTunnelDebugProvider(localRedirectionDebugger: LocalTunnelDebuggerV1.LocalTunnelDebugProvider): void;
+    registerLocalTunnelDebugProvider(localTunnelDebugProvider: LocalTunnelDebuggerV1.LocalTunnelDebugProvider): void;
     startLocalTunnelDebugProvider(target?: any): void;
 }
 

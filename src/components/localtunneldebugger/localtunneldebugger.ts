@@ -13,8 +13,7 @@ export class LocalTunnelDebugger {
 
     startLocalTunnelDebugProvider(target?: any): void {
         const browseExtensions = "Find Providers on Marketplace";
-        if (this.providers.length === 0)
-        {
+        if (this.providers.length === 0) {
             vscode.window.showInformationMessage('You do not have a Local Tunnel Debug Provider installed.', browseExtensions)
             .then((selection: string | undefined) => {
                 if (selection === browseExtensions) {
@@ -24,8 +23,8 @@ export class LocalTunnelDebugger {
             return;
         }
 
-        let providerName: string = getLocalTunnelDebugProvider();
-        if (providerName === "") {
+        let providerName: string | undefined = getLocalTunnelDebugProvider();
+        if (!providerName) {
             // If no provider is configured in the settings, take the first one that's registered
             providerName = this.providers.map((p) => p.id).sort()[0];
         }

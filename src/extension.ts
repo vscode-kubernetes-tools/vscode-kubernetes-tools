@@ -2332,8 +2332,8 @@ function kubernetesFindCloudProviders() {
 }
 
 function kubernetesFindLocalTunnelDebugProviders() {
-    searchMarketPlace("kubernetes-extension-local-tunnel-provider");
-;}
+    searchMarketPlace("kubernetes-extension-local-tunnel-debug-provider");
+}
 
 function searchMarketPlace(searchTerm: string) {
     const searchUrl = `https://marketplace.visualstudio.com/search?term=${searchTerm}&target=VSCode&category=All%20categories&sortBy=Relevance`;

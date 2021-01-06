@@ -1,7 +1,7 @@
 # Adding Providers to the Local Tunnel Debugger
 
 The Local Tunnel Debugger is intended to provide a local debugging option that includes
-the benefits of remote debugging. Traffic from the cluster is rerouted to the version of the service 
+the benefits of remote debugging. Traffic from the cluster is rerouted to the version of the application 
 running locally, so that developers can run and debug their code while freely communicating
 with resources in the cluster.
 
@@ -107,7 +107,7 @@ Your debug provider is now ready for testing!
 
 The Local Tunnel Debugger has a link for users to find providers on the Visual Studio
 Marketplace.  If you'd like to appear in this link, please tag your extension
-with the keyword `kubernetes-extension-local-tunnel-provider` in `package.json`.
+with the keyword `kubernetes-extension-local-tunnel-debug-provider` in `package.json`.
 For example:
 
 ```json
@@ -116,7 +116,7 @@ For example:
         "kubernetes",
         "contoso",
         "megafloof",
-        "kubernetes-extension-local-tunnel-provider"
+        "kubernetes-extension-local-tunnel-debug-provider"
     ]
 }
 ```
