@@ -12,34 +12,32 @@ export class LocalTunnelDebugger {
     }
 
     startLocalTunnelDebugProvider(target?: any): void {
-        const browseExtensions = "Find Providers on Marketplace";
+        const providerName: string | undefined = getLocalTunnelDebugProvider() ?? this.providers.map((p) => p.id).sort()[0];
+        const providerToUse: LocalTunnelDebugProvider | undefined = this.providers.find((p) => p.id === providerName);
+
         if (this.providers.length === 0) {
-            vscode.window.showInformationMessage('You do not have a Local Tunnel Debug Provider installed.', browseExtensions)
-            .then((selection: string | undefined) => {
-                if (selection === browseExtensions) {
-                    vscode.commands.executeCommand('extension.vsKubernetesFindLocalTunnelDebugProviders');
-                }
-            });
-            return;
+            const message = 'You do not have a Local Tunnel Debug Provider installed.';
+            LocalTunnelDebugger.displayUIandExecuteCommand(message);
         }
 
-        let providerName: string | undefined = getLocalTunnelDebugProvider();
-        if (!providerName) {
-            // If no provider is configured in the settings, take the first one that's registered
-            providerName = this.providers.map((p) => p.id).sort()[0];
-        }
-        const providerToUse: LocalTunnelDebugProvider | undefined = this.providers.find((p) => p.id === providerName);
         if (providerToUse === undefined) {
-            vscode.window.showWarningMessage(`You have configured VSCode to use Local Tunnel debugger '${providerName}', but it is not installed.`, browseExtensions)
+            const message = `You have configured VSCode to use Local Tunnel debugger '${providerName}', but it is not installed.`;
+            LocalTunnelDebugger.displayUIandExecuteCommand(message);
+        } else {
+            providerToUse.startDebugging(target);
+        }
+    };
+
+    static displayUIandExecuteCommand(message: string) {
+        const browseExtensions = "Find Providers on Marketplace";
+
+        vscode.window.showInformationMessage(message, browseExtensions)
             .then((selection: string | undefined) => {
                 if (selection === browseExtensions) {
                     vscode.commands.executeCommand('extension.vsKubernetesFindLocalTunnelDebugProviders');
                 }
             });
-            return;
-        }
-        providerToUse.startDebugging(target);
-    };
+    }
 }
 
 
