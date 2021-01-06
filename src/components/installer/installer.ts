@@ -40,7 +40,7 @@ export async function installKubectl(shell: Shell): Promise<Errorable<null>> {
     }
 
     if (shell.isUnix()) {
-        fs.chmodSync(downloadFile, '0777');
+        fs.chmodSync(downloadFile, '0755');
     }
 
     await addPathToConfig(toolPathOSKey(platform, tool), downloadFile);
