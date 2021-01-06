@@ -5,12 +5,12 @@ import { getLocalTunnelDebugProvider } from '../config/config';
 export class LocalTunnelDebugger {
     private readonly providers = Array.of<LocalTunnelDebugProvider>();
 
-    register(provider: LocalTunnelDebugProvider): void {
+    register(provider: LocalTunnelDebugProvider) {
         console.log(`Registered local tunnel debugger type ${provider.id}`);
         this.providers.push(provider);
     }
 
-    startLocalTunnelDebugProvider(target?: any): void {
+    startLocalTunnelDebugProvider(target?: any) {
         const providerName: string | undefined = getLocalTunnelDebugProvider() ?? this.providers.map((p) => p.id).sort()[0];
         const providerToUse: LocalTunnelDebugProvider | undefined = this.providers.find((p) => p.id === providerName);
 
@@ -20,11 +20,11 @@ export class LocalTunnelDebugger {
         }
 
         // Handle failure scenarios.
-        let message = 'You do not have a Local Tunnel Debug Provider installed.';
-        if (this.providers.length === 0) {
+        let message = "";
+        if (!this.providers.length) {
             message = 'You do not have a Local Tunnel Debug Provider installed.';
         }
-        if (providerToUse === undefined) {
+        if (!providerToUse) {
             message = `You have configured VSCode to use Local Tunnel debugger '${providerName}', but it is not installed.`;
         }
 
