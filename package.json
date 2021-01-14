@@ -534,7 +534,7 @@
                 {
                     "command": "extension.vsKubernetesDebugLocalTunnel",
                     "group": "2@5",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.(pod|job|service)/i"
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.(pod|job|service|deployment)/i"
                 },
                 {
                     "command": "extension.vsKubernetesPortForward",

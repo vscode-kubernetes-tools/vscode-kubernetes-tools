@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { LocalTunnelDebugProvider } from './localtunneldebugger.extension';
+import { LocalTunnelDebugProvider } from './localtunneldebugprovider.extension';
 import { getLocalTunnelDebugProvider } from '../config/config';
 
 export class LocalTunnelDebugger {
