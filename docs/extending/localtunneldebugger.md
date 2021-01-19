@@ -17,12 +17,9 @@ your providers and their hosting extension need to do; the rest of this article 
 
 | Component            | Responsibilities                                                     |
 |----------------------|----------------------------------------------------------------------|
-| Your extension       | Activate when the Cluster Explorer is displayed or when the Debug (Local Tunnel) option is selected in the command palette                          |
-|                      | Register debug providers with Kubernetes extension                   |
-|                      | Tag itself as a local tunnel debug provider in the Visual Studio Marketplace      |
-| Local Tunnel Debug provider       | Implement the local tunnel debug provider interface                               |
-|                      | Allow users to configure which debug provider to use                   |
-| Kubernetes extension | Display the Debug (Local Tunnel) command in the palette or when interacting with supported resources in the Cluster Explorer                                 |
+| Your extension       | <ul><li>Activate when the Cluster Explorer is displayed or when the Debug (Local Tunnel) option is selected in the command palette</li><li>Register debug providers with Kubernetes extension</li><li>Tag itself as a local tunnel debug provider in the Visual Studio Marketplace</li></ul>        |
+| Local Tunnel Debug Provider| <ul><li>Implement the local tunnel debug provider interface</li><li>Resolve the command target</li><li>Gather choices from the user in order to generate or select the debug configuration to use</li><li>Start a Local Tunnel debugging session in response to the Debug (Local Tunnel) command</li></ul>  |
+| Kubernetes extension | <ul><li>Display the Debug (Local Tunnel) command in the palette or when interacting with supported resources in the Cluster Explorer</li><li>Allow users to configure which debug provider to use</li></ul>                               |                              |
 
 ## Implementing the local tunnel debug provider
 
@@ -40,15 +37,39 @@ interface LocalTunnelDebugProvider {
 ### Implementing the metadata
 
 The `id` should be a user-friendly name for your debug provider, such as `Contoso Trampoline Debugger`.  
-The id will allow users to configure a default local tunnel debugger to use.
+The `id` will allow users to configure a default local tunnel debugger to use by setting the `vs-kubernetes.local-tunnel-debug-provider` field under `vs-kubernetes` in settings.json.
 
 ### Implementing the debugger
 
-Your provider is responsible for resolving the debug target (such as a pod or service)
-when a resource is targeted via the Cluster explorer. You can use the cluster explorer
-API to do so (resolveCommandTarget method). This parameter will be undefined if the debugging
-action is initiated through the Visual Studio command palette. Your provider controls
-the tunneling and debugging behavior of the command.
+Your provider's implementation of `startDebugging(target?: any)` is responsible for resolving the debug target (such as a pod or service) and starting the debug session. You can use the cluster explorer API to resolve the target (see [commandtargets.md](commandtargets.md) for more info). An example implementation is given below:
+
+```javascript
+const MY_PROVIDER = {
+    id: "Contoso Trampoline Debugger",
+    startDebugging: (target?: any) => startDebugSession(target)
+};
+
+function startDebugSession(target?: any) {
+    const clusterExplorer = await k8s.extension.clusterExplorer.v1;
+    const commandTarget = clusterExplorer.resolveCommandTarget(target);
+
+    if (commandTarget) {
+        if (commandTarget.nodeType === 'resource') {
+            if (commandTarget.resourceKind.manifestKind === 'Pod') {
+
+                // Custom logic for selecting or generating the Local Tunnel debug configuration goes here
+                const configToUse: string | vscode.DebugConfiguration = this.resolveLocalTunnelDebugConfigurationForPod(commandTarget);
+
+                // Start the debug session
+                vscode.debug.startDebugging(folder, configToUse);
+            }
+        }
+    } else {
+        // The user selected the Debug (Local Tunnel) command from the command palette or from
+        // somewhere else that you were displaying it.
+    }
+}
+```
 
 ## Registering the debug provider
 

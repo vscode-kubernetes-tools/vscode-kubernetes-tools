@@ -18,6 +18,7 @@ export class LocalTunnelDebugger {
         // On success start early.
         if (this.providers.length && providerToUse) {
             providerToUse.startDebugging(target);
+            return;
         }
 
         // Handle failure scenarios.
