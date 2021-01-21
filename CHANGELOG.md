@@ -1,5 +1,28 @@
 # Change Log
 
+## 1.2.2
+
+* It now (finally!) works with Snap
+* New snippets for:
+  * ingress
+  * jobs
+  * persistent volumes
+  * persistent volume claims
+  * stateful sets
+* You can now see and change context and namespace from the status bar
+* We now show job pods as children of the job node
+* We've improved Describe output to make it more usable
+* New Collapse All button on Cluster Explorer
+* Fixed permissions on auto-installed kubectl
+* Fixed linter issue with multi-object file
+* Fixed an error handling kubectl output with empty columns
+* Fixed an error that could prevent other extensions handling YAML files
+* Fixed an error with the terminal shell path
+* Fixed the tooltip for the Helm `has` function
+* Fixed issue where strings from Helm repo could be passed to shell
+
+Thanks to Tatsat Mishra, Bhargav Nookala and Luca Stocchi.
+
 ## 1.2.1
 
 * Helm releases now have Uninstall and Rollback commands
