@@ -21,7 +21,7 @@
 * Fixed the tooltip for the Helm `has` function
 * Fixed issue where strings from Helm repo could be passed to shell
 
-Thanks to Tatsat Mishra, Bhargav Nookala and Luca Stocchi.
+Thanks to Jonas Goronczy, Tatsat Mishra, Bhargav Nookala and Luca Stocchi.
 
 ## 1.2.1
 
