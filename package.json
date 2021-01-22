@@ -1298,6 +1298,7 @@
         "lodash": "^4.17.15",
         "mixin-deep": "^1.3.2",
         "mkdirp": "^0.5.1",
+        "moment": "^2.29.1",
         "natives": "^1.1.3",
         "node-yaml-parser": "^0.0.9",
         "opn": "^5.2.0",

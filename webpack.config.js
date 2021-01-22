@@ -23,7 +23,8 @@ const config = {
     'utf-8-validate': 'commonjs utf-8-validate'
   },
   plugins: [
-      new webpack.IgnorePlugin(/^electron$/)
+      new webpack.IgnorePlugin(/^electron$/),
+      new webpack.IgnorePlugin(/^\.\/locale$/, /moment$/)
   ],
   resolve: {
     extensions: ['.ts', '.js', '.json']
