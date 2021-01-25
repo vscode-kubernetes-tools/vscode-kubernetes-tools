@@ -259,6 +259,16 @@ The extension supports linting Kubernetes YAML files for potential problems or s
 Here are the various linters, you can enable or disable them individually using the `disable-linters` configuration value.
   * `resource-limits`: Warn when a Pod is missing resource limits
 
+```json
+{
+  "vs-kubernetes": {
+    "disable-linters": [
+      "resource-limits"
+    ]
+  }
+}
+```
+
 ## Known issues
 
   * `Kubernetes: Debug` command currently works only with Node.js, Java, Python and .NET applications
