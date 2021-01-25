@@ -1,5 +1,15 @@
 # Change Log
 
+## [1.2.3]
+
+* We now pack the extension to improve load times.  _This was quite an invasive change -
+  please let us know if you run into any funnies._
+* Added example of setings JSON for disabling linters
+* Fixed a missing contribution credit in 1.2.2
+* Fixed typo in debugger documentation
+
+Thanks to Jason Behnke and Willem Odendaal.
+
 ## 1.2.2
 
 * It now (finally!) works with Snap
