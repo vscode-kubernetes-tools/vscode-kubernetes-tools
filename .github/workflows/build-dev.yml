@@ -37,13 +37,13 @@ jobs:
       run: gulp tslint
     # TODO: smoke test
     - name: Package extension
-      if: github.event_name == 'push' && matrix.os == 'ubuntu-latest' && matrix.node_version = 14
+      if: github.event_name == 'push' && matrix.os == 'ubuntu-latest' && matrix.node_version == 14
       run: |
         vsce package
         mkdir vsix
         mv *.vsix vsix
     - name: Archive extension
-      if: github.event_name == 'push' && matrix.os == 'ubuntu-latest' && matrix.node_version = 14
+      if: github.event_name == 'push' && matrix.os == 'ubuntu-latest' && matrix.node_version == 14
       uses: actions/upload-artifact@v1
       with:
         name: vsix
