@@ -1,0 +1,55 @@
+name: Build & Publish
+on: [workflow_dispatch]
+
+jobs:
+  build:
+    name: release
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Use Node.js
+      uses: actions/setup-node@v1
+      with:
+        node-version: 14
+    # Run install dependencies
+    - name: Install dependencies
+      run: npm install
+    # Run tests
+    - name: Build 
+      run: npm run compile
+    - name: Get current package version
+      id: package_version
+      uses: martinbeentjes/npm-get-version-action@v1.1.0
+    - name: Check version is mentioned in Changelog
+      uses: mindsers/changelog-reader-action@v2.0.0
+      with:
+        version: ${{ steps.package_version.outputs.current-version }}
+        path: 'CHANGELOG.md'
+    - name: Create a Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+      with:
+        tag_name : ${{ steps.package_version.outputs.current-version}}
+        release_name: ${{ steps.package_version.outputs.current-version}}
+        body: Publish ${{ steps.package_version.outputs.current-version}}
+    - name: Create vsix and publish to marketplace
+      id: create_vsix
+      uses: HaaLeo/publish-vscode-extension@v0
+      with:
+        pat: ${{ secrets.VS_MARKETPLACE_TOKEN }}
+        registryUrl: https://marketplace.visualstudio.com
+    - name: Attach vsix to release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ${{ steps.create_vsix.outputs.vsixPath}}
+        asset_name: ${{ steps.create_vsix.outputs.vsixPath}}
+        asset_content_type: application/vsix
+    
+
