@@ -23,7 +23,7 @@ jobs:
     - name: Use node.js
       uses: actions/setup-node@v1
       with:
-        noe-version: ${{ node_version }}
+        node-version: ${{ node_version }}
     - name: Install dependencies
       run: npm install
     - name: Prepare environment
