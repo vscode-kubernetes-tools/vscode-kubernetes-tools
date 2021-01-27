@@ -1,6 +1,6 @@
 .vscode/**
 .vscode-test/**
-out/test/**
+out/**
 test/**
 src/**
 **/*.map
@@ -11,3 +11,8 @@ vsc-extension-quickstart.md
 images/screenshots/**
 docs/**
 site/**
+node_modules/**
+!node_modules/vscode/**
+!node_modules/bufferutil/**
+!node_modules/cross-spawn/**
+!node_modules/utf-8-validate/**

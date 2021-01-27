@@ -43,7 +43,7 @@ async function findBinary(shell: Shell, binName: string): Promise<FindBinaryResu
 export function execPath(shell: Shell, basePath: string): string {
     let bin = basePath;
     if (shell.isWindows() && bin && !(bin.endsWith('.exe'))) {
-        bin = bin + '.exe';
+        bin = bin.slice(-1) === '"' ? `${bin.slice(0, -1)}.exe"` : `${bin}.exe`;
     }
     return bin;
 }

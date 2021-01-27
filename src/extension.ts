@@ -22,7 +22,6 @@ import { addKubernetesConfigFile, deleteKubernetesConfigFile } from './configMap
 import * as explainer from './explainer';
 import { shell, ShellResult } from './shell';
 import * as configmaps from './configMap';
-import { DescribePanel } from './components/describe/describeWebview';
 import * as kuberesources from './kuberesources';
 import { useNamespaceKubernetes } from './components/kubectl/namespace';
 import { EventDisplayMode, getEvents } from './components/kubectl/events';
@@ -64,7 +63,7 @@ import { refreshExplorer } from './components/clusterprovider/common/explorer';
 import { KubernetesCompletionProvider } from "./yaml-support/yaml-snippet";
 import { showWorkspaceFolderPick } from './hostutils';
 import { DraftConfigurationProvider } from './draft/draftConfigurationProvider';
-import { KubernetesResourceVirtualFileSystemProvider, K8S_RESOURCE_SCHEME, kubefsUri } from './kuberesources.virtualfs';
+import { KubernetesResourceVirtualFileSystemProvider, K8S_RESOURCE_SCHEME, kubefsUri, K8S_RESOURCE_SCHEME_READONLY, KUBECTL_DESCRIBE_AUTHORITY } from './kuberesources.virtualfs';
 import { KubernetesResourceLinkProvider } from './kuberesources.linkprovider';
 import { Container, isKubernetesResource, KubernetesCollection, Pod, KubernetesResource } from './kuberesources.objectmodel';
 import { setActiveKubeconfig, getKnownKubeconfigs, addKnownKubeconfig } from './components/config/config';
@@ -86,6 +85,8 @@ import { ClusterExplorerNode, ClusterExplorerConfigurationValueNode, ClusterExpl
 import { create as activeContextTrackerCreate } from './components/contextmanager/active-context-tracker';
 import { WatchManager } from './components/kubectl/watch';
 import { ExecResult } from './binutilplusplus';
+import { getCurrentContext } from './kubectlUtils';
+import { setAssetContext } from './assets';
 
 let explainActive = false;
 let swaggerSpecPromise: Promise<explainer.SwaggerModel | undefined> | null = null;
@@ -131,6 +132,8 @@ export const HELM_TPL_MODE: vscode.DocumentFilter = { language: "helm", scheme: 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export async function activate(context: vscode.ExtensionContext): Promise<APIBroker> {
+    setAssetContext(context);
+
     kubectl.ensurePresent({ warningIfNotPresent: 'Kubectl not found. Many features of the Kubernetes extension will not work.' });
 
     const treeProvider = explorer.create(kubectl, host);
@@ -151,8 +154,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
     const draftDebugProvider = new DraftConfigurationProvider();
     let draftDebugSession: vscode.DebugSession;
 
-    const portForwardStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+    const portForwardStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 0);
     const portForwardStatusBarManager = PortForwardStatusBarManager.init(portForwardStatusBarItem);
+
+    const activeNamespaceStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 1);
+    activeNamespaceStatusBarItem.command = 'extension.vsKubernetesUseNamespace';
+
+    const activeContextStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 2);
+    activeContextStatusBarItem.command = 'extension.vsKubernetesUseContext';
 
     minikube.checkUpgradeAvailable();
 
@@ -170,7 +179,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
             (uri: vscode.Uri) => kubectlUtils.applyResourceFromUri(uri, kubectl)),
         registerCommand('extension.vsKubernetesDelete', (explorerNode: ClusterExplorerResourceNode) => { deleteKubernetes(KubernetesDeleteMode.Graceful, explorerNode); }),
         registerCommand('extension.vsKubernetesDeleteNow', (explorerNode: ClusterExplorerResourceNode) => { deleteKubernetes(KubernetesDeleteMode.Now, explorerNode); }),
-        registerCommand('extension.vsKubernetesDescribe.Refresh', DescribePanel.refreshCommand),
+        registerCommand('extension.vsKubernetesDescribe.Refresh', () => refreshDescribeKubernetes(resourceDocProvider)),
         registerCommand('extension.vsKubernetesApply', applyKubernetes),
         registerCommand('extension.vsKubernetesExplain', explainActiveWindow),
         registerCommand('extension.vsKubernetesLoad', loadKubernetes),
@@ -268,7 +277,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
 
         // Completion providers
         vscode.languages.registerCompletionItemProvider(completionFilter, completionProvider),
-        vscode.languages.registerCompletionItemProvider('yaml', new KubernetesCompletionProvider()),
+        vscode.languages.registerCompletionItemProvider('yaml', new KubernetesCompletionProvider(context)),
 
         // Symbol providers
         vscode.languages.registerDocumentSymbolProvider({ language: 'helm' }, helmSymbolProvider),
@@ -291,6 +300,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
 
         // Temporarily loaded resource providers
         vscode.workspace.registerFileSystemProvider(K8S_RESOURCE_SCHEME, resourceDocProvider, { /* TODO: case sensitive? */ }),
+        vscode.workspace.registerFileSystemProvider(K8S_RESOURCE_SCHEME_READONLY, resourceDocProvider, { isReadonly: true }),
 
         // Link from resources to referenced resources
         vscode.languages.registerDocumentLinkProvider({ scheme: K8S_RESOURCE_SCHEME }, resourceLinkProvider),
@@ -300,6 +310,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
 
         // Status bar
         portForwardStatusBarItem,
+        activeNamespaceStatusBarItem,
+        activeContextStatusBarItem,
 
         // Telemetry
         registerTelemetry(context),
@@ -389,6 +401,19 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
     subscriptions.forEach((element) => {
         context.subscriptions.push(element);
     });
+
+    activeContextTracker.activeChanged(async (context) => {
+        const currentContext = await getCurrentContext(kubectl, { silent: true });
+        if (!currentContext) { return; }
+        updateStatusBarItem(activeContextStatusBarItem, context!, `${currentContext.contextName}\nCluster: ${currentContext.clusterName}`, !config.isContextStatusBarDisabled());
+    });
+
+    kubectlUtils.onDidChangeNamespaceEmitter.event((namespace) => {
+        updateStatusBarItem(activeNamespaceStatusBarItem, namespace, 'Current active namespace', !config.isNamespaceStatusBarDisabled());
+    });
+    const currentNS = await kubectlUtils.currentNamespace(kubectl);
+    updateStatusBarItem(activeNamespaceStatusBarItem, currentNS, 'Current active namespace', !config.isNamespaceStatusBarDisabled());
+
     await registerYamlSchemaSupport(activeContextTracker, kubectl);
 
     vscode.workspace.registerTextDocumentContentProvider(configmaps.uriScheme, configMapProvider);
@@ -1275,30 +1300,41 @@ function getPorts() {
 }
 
 async function describeKubernetes(explorerNode?: ClusterExplorerResourceNode) {
-    async function describeSettings() {
-        if (explorerNode) {
-            const nsarg = explorerNode.namespace ? `--namespace ${explorerNode.namespace}` : '';
-            return { cmd: `describe ${explorerNode.kindName} ${nsarg}`, resourceKindName: explorerNode.kindName };
-        } else {
-            const value = await findKindNameOrPrompt(kuberesources.commonKinds, 'describe', { nameOptional: true });
-            if (value) {
-                return { cmd: `describe ${value}`, resourceKindName: value };
-            }
-            return undefined;
-        }
-    }
-    const settings = await describeSettings();
-    if (!settings) {
-        return;
+    let ns: string | null, value: string | undefined;
+    if (explorerNode) {
+        ns = explorerNode.namespace ? explorerNode.namespace : '';
+        value = explorerNode.kindName;
+    } else {
+        ns = null;
+        value = await findKindNameOrPrompt(kuberesources.commonKinds, 'describe', { nameOptional: true });
     }
 
-    const describe = () => kubectl.invokeCommand(settings.cmd);
-    const er = await describe();
-    if (ExecResult.failed(er)) {
-        await kubectl.reportFailure(er, { whatFailed: 'Describe failed' });
+    if (!value) {
         return;
     }
-    DescribePanel.createOrShow(er.stdout, settings.resourceKindName, describe);
+    const uri = kubefsUri(ns, value, '', 'describe');
+    vscode.workspace.openTextDocument(uri).then((doc) => {
+        if (doc) {
+            vscode.window.showTextDocument(doc);
+        }
+    },
+    (err) => vscode.window.showErrorMessage(`Error loading document: ${err}`));
+}
+
+async function refreshDescribeKubernetes(resourceDocProvider: KubernetesResourceVirtualFileSystemProvider) {
+    const editor = vscode.window.activeTextEditor;
+    if (editor) {
+        const uri = editor.document.uri;
+        if (uri.authority === KUBECTL_DESCRIBE_AUTHORITY) {
+            const newContent = await resourceDocProvider.loadResource(uri);
+            const edit = new vscode.WorkspaceEdit();
+            edit.replace(
+                uri,
+                new vscode.Range(0, 0, editor.document.lineCount, 0),
+                newContent);
+            vscode.workspace.applyEdit(edit);
+        }
+    }
 }
 
 export interface PodSummary {
@@ -1966,11 +2002,22 @@ async function getKubeconfigSelection(kubeconfig?: string): Promise<string | und
 }
 
 async function useContextKubernetes(explorerNode: ClusterExplorerNode) {
-    if (!explorerNode || explorerNode.nodeType !== explorer.NODE_TYPES.context) {
+    if (explorerNode && explorerNode.nodeType === explorer.NODE_TYPES.context) {
+        const contextObj = explorerNode.kubectlContext;
+        const targetContext = contextObj.contextName;
+        setContextKubernetes(targetContext);
         return;
     }
-    const contextObj = explorerNode.kubectlContext;
-    const targetContext = contextObj.contextName;
+
+    const contexts = await kubectlUtils.getContexts(kubectl, { silent: false });  // TODO: turn it silent, cascade errors, and provide an error node
+    const inactiveContexts = contexts.filter((context) => !context.active).map((context) => context.contextName);
+    const selected = await vscode.window.showQuickPick(inactiveContexts, { placeHolder: 'Pick the context you want to switch to' });
+    if (selected) {
+        setContextKubernetes(selected);
+    }
+}
+
+async function setContextKubernetes(targetContext: string) {
     const er = await kubectl.invokeCommand(`config use-context ${targetContext}`);
     if (ExecResult.succeeded(er)) {
         telemetry.invalidateClusterType(targetContext);
@@ -2286,4 +2333,12 @@ function kubernetesFindCloudProviders() {
     browser.open(searchUrl);
 }
 
-
+function updateStatusBarItem(statusBarItem: vscode.StatusBarItem, text: string, tooltip: string, show: boolean): void {
+    statusBarItem.text = text;
+    statusBarItem.tooltip = tooltip;
+	if (show) {
+		statusBarItem.show();
+	} else {
+		statusBarItem.hide();
+	}
+}

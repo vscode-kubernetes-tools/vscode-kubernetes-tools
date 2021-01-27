@@ -1,0 +1,17 @@
+name: job
+label: Kubernetes Job
+description: Kubernetes Job
+body: |2 
+  apiVersion: batch/v1
+  kind: Job
+  metadata:
+    name: ${1:myjob}
+  spec:
+    ttlSecondsAfterFinished: 100
+    template:
+      spec:
+        containers:
+        - name: pi
+          image: perl
+          command: ["perl",  "-Mbignum=bpi", "-wle", "print bpi(2000)"]
+        restartPolicy: Never

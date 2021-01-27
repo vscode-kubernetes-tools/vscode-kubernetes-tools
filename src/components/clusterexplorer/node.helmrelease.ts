@@ -1,13 +1,17 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
+import moment = require('moment');
+
 import { failed } from '../../errorable';
 import * as helmexec from '../../helm.exec';
+
 import { Host } from '../../host';
 import { Kubectl } from '../../kubectl';
+
 import { NODE_TYPES } from './explorer';
 import { ClusterExplorerHelmHistoryNode, ClusterExplorerHelmReleaseNode, ClusterExplorerNode, ClusterExplorerNodeImpl } from './node';
 import { MessageNode } from './node.message';
-import moment = require('moment');
+import { assetUri } from '../../assets';
 
 export class HelmHistoryNode extends ClusterExplorerNodeImpl implements ClusterExplorerHelmHistoryNode {
     constructor(readonly releaseName: string, readonly revision: number, readonly updated:  string, readonly status: string) {
@@ -66,13 +70,13 @@ export class HelmReleaseNode extends ClusterExplorerNodeImpl implements ClusterE
 
 function getIconForHelmRelease(status: string): vscode.Uri {
     if (status === "deployed") {
-        return vscode.Uri.file(path.join(__dirname, "../../../../images/helmDeployed.svg"));
+        return assetUri("images/helmDeployed.svg");
     }
-    if (status === "superseeded") {
-        return vscode.Uri.file(path.join(__dirname, "../../../../images/helmDeployed.svg"));
+    if (status === "superseded") {
+        return assetUri("images/helmDeployed.svg");
     }
     if (status === "failed") {
-        return vscode.Uri.file(path.join(__dirname, "../../../../images/helmFailed.svg"));
+        return assetUri("images/helmFailed.svg");
     }
     return vscode.Uri.file(path.join(__dirname, "../../../../images/helmDeployed.svg"));
 }

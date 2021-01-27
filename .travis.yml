@@ -7,6 +7,9 @@ os:
 - linux
 - osx
 
+env:
+- NODE_OPTIONS=--max_old_space_size=4096
+
 before_install:
 - if [ $TRAVIS_OS_NAME == "linux" ]; then
       export CXX="g++-4.9" CC="gcc-4.9" DISPLAY=:99.0;

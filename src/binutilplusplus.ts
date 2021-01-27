@@ -5,7 +5,7 @@ import { Host } from './host';
 import { FS } from './fs';
 import { Shell } from './shell';
 import { installDependencies } from "./components/installer/installdependencies";
-import { getToolPath, getUseWsl } from './components/config/config';
+import { getEnableSnapFlag, getToolPath, getUseWsl } from './components/config/config';
 import { Errorable } from './errorable';
 import { parseLineOutput } from './outputUtils';
 import { Dictionary } from './utils/dictionary';
@@ -234,9 +234,13 @@ export async function invokeForResult(context: Context, command: string, stdin: 
     if (!fbr.found) {
         return { resultKind: 'exec-bin-not-found', execProgram: context.binary, command, findResult: fbr };
     }
-
+    const enableSnapFlag = getEnableSnapFlag();
     const bin = await baseBinPath(context);
-    const cmd = `${bin} ${command}`;
+    let cmd = `${bin} ${command}`;
+    // Hack to make kubectl cmds returns the output when it is installed using snap
+    if (enableSnapFlag && context.shell.isUnix()) {
+        cmd = `${cmd} | cat`;
+    }
     const sr = await context.shell.exec(cmd, stdin);
 
     if (!sr) {

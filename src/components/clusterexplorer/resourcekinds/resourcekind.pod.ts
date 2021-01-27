@@ -1,4 +1,3 @@
-import * as path from 'path';
 import * as vscode from 'vscode';
 
 import { ResourceNode } from '../node.resource';
@@ -8,6 +7,7 @@ import { ClusterExplorerNode } from '../node';
 import { MessageNode } from '../node.message';
 import { Pod } from '../../../kuberesources.objectmodel';
 import { ResourceKind } from '../../../kuberesources';
+import { assetUri } from '../../../assets';
 
 export const podUICustomiser = {
     customiseTreeItem(resource: ResourceNode, treeItem: vscode.TreeItem): void {
@@ -20,9 +20,9 @@ export const podUICustomiser = {
 
 function getIconForPodStatus(status: string): vscode.Uri {
     if (status === "running" || status === "completed") {
-        return vscode.Uri.file(path.join(__dirname, "../../../../../images/runningPod.svg"));
+        return assetUri("images/runningPod.svg");
     } else {
-        return vscode.Uri.file(path.join(__dirname, "../../../../../images/errorPod.svg"));
+        return assetUri("images/errorPod.svg");
     }
 }
 

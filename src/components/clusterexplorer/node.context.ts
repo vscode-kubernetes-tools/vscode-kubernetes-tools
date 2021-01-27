@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import * as path from 'path';
 
 import { Kubectl } from '../../kubectl';
 import * as kuberesources from '../../kuberesources';
@@ -11,6 +10,7 @@ import { CRDTypesFolderNode } from "./node.folder.crdtypes";
 import { workloadsGroupingFolder, networkGroupingFolder, storageGroupingFolder, configurationGroupingFolder } from "./node.folder.grouping";
 import { ResourceFolderNode } from './node.folder.resource';
 import { NODE_TYPES } from './explorer';
+import { assetUri } from '../../assets';
 
 const KUBERNETES_CLUSTER = "vsKubernetes.cluster";
 const MINIKUBE_CLUSTER = "vsKubernetes.minikubeCluster";
@@ -21,7 +21,7 @@ export class ContextNode extends ClusterExplorerNodeImpl implements ClusterExplo
     }
     readonly nodeType = NODE_TYPES.context;
     get icon(): vscode.Uri {
-        return vscode.Uri.file(path.join(__dirname, "../../../../images/k8s-logo.png"));
+        return assetUri("images/k8s-logo.png");
     }
     get clusterType(): string {
         return KUBERNETES_CLUSTER;
@@ -60,7 +60,7 @@ export class ContextNode extends ClusterExplorerNodeImpl implements ClusterExplo
 }
 export class MiniKubeContextNode extends ContextNode {
     get icon(): vscode.Uri {
-        return vscode.Uri.file(path.join(__dirname, "../../../../images/minikube-logo.png"));
+        return assetUri("images/minikube-logo.png");
     }
     get clusterType(): string {
         return MINIKUBE_CLUSTER;
