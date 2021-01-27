@@ -263,23 +263,26 @@ export async function invokeTracking(context: Context, args: string[]): Promise<
     const linesSubject = new rx.Subject<string>();
 
     const fbr = await findBinary(context);
-    if (!fbr.found) {
+
+    if (fbr.found) {
+        const bin = await baseBinPath(context);
+        const execOpts = context.shell.execOpts();
+
+        let pending = '';
+        const stdout = spawnrx.spawn(bin, args, execOpts);
+        stdout.subscribe((chunk) => {
+            const todo = pending + chunk;
+            const lines = todo.split('\n').map((l) => l.trim());
+            const lastIsWholeLine = todo.endsWith('\n');
+            pending = lastIsWholeLine ? '' : lines.pop()!;
+            for (const line of lines) {
+                linesSubject.next(line);
+            }
+        });
+    } else {
         linesSubject.error({ resultKind: 'exec-bin-not-found', execProgram: context.binary, command: args.join(' '), findResult: fbr });
     }
 
-    const bin = await baseBinPath(context);
-
-    let pending = '';
-    const stdout = spawnrx.spawn(bin, args);
-    stdout.subscribe((chunk) => {
-        const todo = pending + chunk;
-        const lines = todo.split('\n').map((l) => l.trim());
-        const lastIsWholeLine = todo.endsWith('\n');
-        pending = lastIsWholeLine ? '' : lines.pop()!;
-        for (const line of lines) {
-            linesSubject.next(line);
-        }
-    });
     return { lines: linesSubject, terminate: () => linesSubject.unsubscribe() };
 }
 
