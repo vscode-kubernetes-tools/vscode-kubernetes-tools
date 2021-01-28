@@ -5,7 +5,7 @@ import { Kubectl } from '../../kubectl';
 import { KubectlContext } from '../../kubectlUtils';
 import { ResourceKind } from '../../kuberesources';
 import { ObjectMeta } from '../../kuberesources.objectmodel';
-import { KubernetesExplorerNodeType, KubernetesExplorerNodeTypeConfigItem, KubernetesExplorerNodeTypeContext, KubernetesExplorerNodeTypeError, KubernetesExplorerNodeTypeExtension, KubernetesExplorerNodeTypeGroupingFolder, KubernetesExplorerNodeTypeHelmHistory, KubernetesExplorerNodeTypeHelmRelease, KubernetesExplorerNodeTypeResource, KubernetesExplorerNodeTypeResourceFolder, KUBERNETES_EXPLORER_NODE_CATEGORY, KubernetesExplorerNodeTypeCluster } from './explorer';
+import { KubernetesExplorerNodeType, KubernetesExplorerNodeTypeConfigItem, KubernetesExplorerNodeTypeContext, KubernetesExplorerNodeTypeError, KubernetesExplorerNodeTypeExtension, KubernetesExplorerNodeTypeGroupingFolder, KubernetesExplorerNodeTypeHelmHistory, KubernetesExplorerNodeTypeHelmRelease, KubernetesExplorerNodeTypeResource, KubernetesExplorerNodeTypeResourceFolder, KUBERNETES_EXPLORER_NODE_CATEGORY, KubernetesExplorerNodeTypeNamespace } from './explorer';
 
 export interface ClusterExplorerNodeBase {
     readonly nodeCategory: 'kubernetes-explorer-node';
@@ -15,14 +15,14 @@ export interface ClusterExplorerNodeBase {
     apiURI(kubectl: Kubectl, namespace: string): Promise<string | undefined>;
 }
 
-export interface ClusterExplorerClusterNode extends ClusterExplorerNodeBase {
-    readonly nodeType: KubernetesExplorerNodeTypeCluster;
-}
-
 export interface ClusterExplorerContextNode extends ClusterExplorerNodeBase {
     readonly nodeType: KubernetesExplorerNodeTypeContext;
     readonly kubectlContext: KubectlContext;
     readonly contextName: string;
+}
+
+export interface ClusterExplorerNamespaceNode extends ClusterExplorerNodeBase {
+    readonly nodeType: KubernetesExplorerNodeTypeNamespace;
 }
 
 export interface ClusterExplorerResourceFolderNode extends ClusterExplorerNodeBase {
@@ -76,6 +76,7 @@ export interface ClusterExplorerCustomNode extends ClusterExplorerNodeBase {
 export type ClusterExplorerNode =
     ClusterExplorerMessageNode |
     ClusterExplorerContextNode |
+    ClusterExplorerNamespaceNode |
     ClusterExplorerResourceFolderNode |
     ClusterExplorerGroupingFolderNode |
     ClusterExplorerResourceNode |
@@ -84,19 +85,7 @@ export type ClusterExplorerNode =
     ClusterExplorerHelmHistoryNode |
     ClusterExplorerCustomNode;
 
-export type ClusterExplorerNodeV2 =
-    ClusterExplorerMessageNode |
-    ClusterExplorerClusterNode |
-    ClusterExplorerContextNode |
-    ClusterExplorerResourceFolderNode |
-    ClusterExplorerGroupingFolderNode |
-    ClusterExplorerResourceNode |
-    ClusterExplorerConfigurationValueNode |
-    ClusterExplorerHelmReleaseNode |
-    ClusterExplorerHelmHistoryNode |
-    ClusterExplorerCustomNode;
-
-export class ClusterExplorerNodeImpl {
+export abstract class ClusterExplorerNodeImpl {
     readonly nodeCategory = KUBERNETES_EXPLORER_NODE_CATEGORY;
     customizedTreeItem?: vscode.TreeItem;
     constructor(readonly nodeType: KubernetesExplorerNodeType) {}
@@ -104,9 +93,7 @@ export class ClusterExplorerNodeImpl {
         if (this.customizedTreeItem) {
             return this.customizedTreeItem;
         }
-        return this.getTreeItemInternal();
+        return this.getBaseTreeItem();
     }
-    getTreeItemInternal(): vscode.TreeItem | Thenable<vscode.TreeItem> {
-        return new vscode.TreeItem('Failed Loading', vscode.TreeItemCollapsibleState.None);
-    }
+    abstract getBaseTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem>;
 }

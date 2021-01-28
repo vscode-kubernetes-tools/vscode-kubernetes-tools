@@ -11,7 +11,7 @@ export class ConfigurationValueNode extends ClusterExplorerNodeImpl implements C
         super(NODE_TYPES.configitem);
     }
     readonly nodeType = NODE_TYPES.configitem;
-    getTreeItemInternal(): vscode.TreeItem | Thenable<vscode.TreeItem> {
+    getBaseTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
         const treeItem = new vscode.TreeItem(this.key, vscode.TreeItemCollapsibleState.None);
         treeItem.command = {
             command: "extension.vsKubernetesLoadConfigMapData",

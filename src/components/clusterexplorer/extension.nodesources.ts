@@ -1,6 +1,6 @@
 import * as kuberesources from '../../kuberesources';
 import { ExplorerExtender } from './explorer.extension';
-import { ClusterExplorerNode, ClusterExplorerNodeV2 } from './node';
+import { ClusterExplorerNode } from './node';
 import { ContributedGroupingFolderNode } from './node.folder.grouping.custom';
 import { ResourceFolderNode } from './node.folder.resource';
 import { NODE_TYPES } from './explorer';
@@ -58,19 +58,19 @@ class ConditionalNodeSource extends NodeSourceImpl {
 
 export class ContributedNodeSourceExtender implements ExplorerExtender<ClusterExplorerNode> {
     constructor(private readonly under: string | undefined, private readonly nodeSource: NodeSourceImpl) { }
-    contributesChildren(parent?: ClusterExplorerNodeV2 | undefined): boolean {
+    contributesChildren(parent?: ClusterExplorerNode | undefined): boolean {
         if (!parent) {
             return false;
         }
-        if (this.under === 'active.cluster') {
-            return parent.nodeType === NODE_TYPES.cluster;
+        if (this.under && this.under.startsWith('vsKubernetes.cluster')) {
+            return parent.nodeType === NODE_TYPES.namespace;
         }
         if (this.under) {
             return parent.nodeType === NODE_TYPES.folder.grouping && parent.displayName === this.under;
         }
         return parent.nodeType === NODE_TYPES.context && parent.kubectlContext.active;
     }
-    getChildren(_parent?: ClusterExplorerNodeV2 | undefined): Promise<ClusterExplorerNode[]> {
+    getChildren(_parent?: ClusterExplorerNode | undefined): Promise<ClusterExplorerNode[]> {
         return this.nodeSource.nodes();
     }
 }

@@ -56,7 +56,6 @@
         "onCommand:extension.vsKubernetesCreateCluster",
         "onCommand:extension.vsKubernetesUseKubeconfig",
         "onCommand:extension.vsKubernetesSwitchContext",
-        "onCommand:extension.vsKubernetesSwitchNamespace",
         "onCommand:extension.vsKubernetesDashboard",
         "onCommand:extension.vsMinikubeStop",
         "onCommand:extension.vsMinikubeStart",
@@ -673,10 +672,6 @@
                     "when": ""
                 },
                 {
-                    "command": "extension.vsKubernetesSwitchNamespace",
-                    "when": ""
-                },
-                {
                     "command": "extension.vsKubernetesCopy",
                     "when": "view == extension.vsKubernetesExplorer"
                 },
@@ -902,11 +897,6 @@
             {
                 "command": "extension.vsKubernetesUseNamespace",
                 "title": "Use Namespace",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesSwitchNamespace",
-                "title": "Switch Namespace",
                 "category": "Kubernetes"
             },
             {
