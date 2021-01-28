@@ -1,5 +1,5 @@
 import * as path from 'path';
-import * as sha256 from 'fast-sha256';
+import * as crypto from 'crypto';
 
 import * as download from '../download/download';
 import { Shell, shell } from "../../shell";
@@ -119,13 +119,8 @@ async function getKubeconfigPathHash(): Promise<string | undefined> {
     if (!await fs.existsAsync(kubeconfigFilePath)) {
         return undefined;
     }
-    const kubeconfigPathHash = sha256.hash(Buffer.from(kubeconfigFilePath));
-    const kubeconfigHashText = hashToString(kubeconfigPathHash);
+    const kubeconfigHashText = crypto.createHash('sha256').update(Buffer.from(kubeconfigFilePath)).digest('hex');
     return kubeconfigHashText;
-}
-
-function hashToString(hash: Uint8Array): string {
-    return Buffer.from(hash).toString('hex');
 }
 
 async function getServerVersion(kubectl: Kubectl, context: string): Promise<string | undefined> {

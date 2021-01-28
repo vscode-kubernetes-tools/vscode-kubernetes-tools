@@ -13,9 +13,22 @@ import { KubernetesExplorer } from "../../components/clusterexplorer/explorer";
 import { CloudExplorer } from "../../components/cloudexplorer/cloudexplorer";
 import { PortForwardStatusBarManager } from "../../components/kubectl/port-forward-ui";
 import { LocalTunnelDebugger } from "../../components/localtunneldebugger/localtunneldebugger";
+import { EventEmitter } from "vscode";
+import { ActiveValueTracker } from "../../components/contextmanager/active-value-tracker";
+import { KubeconfigPath } from "../../components/kubectl/kubeconfig";
 
-export function apiBroker(clusterProviderRegistry: ClusterProviderRegistry, kubectlImpl: Kubectl, portForwardStatusBarManager: PortForwardStatusBarManager, 
-    explorer: KubernetesExplorer, cloudExplorer: CloudExplorer, localTunnelDebugger: LocalTunnelDebugger): APIBroker {
+
+export function apiBroker(
+    clusterProviderRegistry: ClusterProviderRegistry,
+    kubectlImpl: Kubectl,
+    portForwardStatusBarManager: PortForwardStatusBarManager,
+    explorer: KubernetesExplorer,
+    cloudExplorer: CloudExplorer,
+    localTunnelDebugger: LocalTunnelDebugger,
+    onDidChangeKubeconfigEmitter: EventEmitter<KubeconfigPath>,
+    activeContextTracker: ActiveValueTracker<string | null>,
+    onDidChangeNamespaceEmitter: EventEmitter<string>): APIBroker {
+
     return {
         get(component: string, version: string): API<any> {
             switch (component) {
@@ -25,7 +38,7 @@ export function apiBroker(clusterProviderRegistry: ClusterProviderRegistry, kube
                 case "clusterexplorer": return clusterexplorer.apiVersion(explorer, version);
                 case "cloudexplorer": return cloudexplorer.apiVersion(cloudExplorer, version);
                 case "localtunneldebugger": return localtunneldebugger.apiVersion(localTunnelDebugger, version);
-                case "configuration": return configuration.apiVersion(version);
+                case "configuration": return configuration.apiVersion(version, onDidChangeKubeconfigEmitter, activeContextTracker, onDidChangeNamespaceEmitter);
                 default: return versionUnknown;
             }
         },

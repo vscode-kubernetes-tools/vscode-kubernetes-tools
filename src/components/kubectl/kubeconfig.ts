@@ -12,6 +12,18 @@ interface Named {
     readonly name: string;
 }
 
+export interface HostKubeconfigPath {
+    readonly pathType: 'host';
+    readonly hostPath: string;
+}
+
+export interface WSLKubeconfigPath {
+    readonly pathType: 'wsl';
+    readonly wslPath: string;
+}
+
+export type KubeconfigPath = HostKubeconfigPath | WSLKubeconfigPath;
+
 export async function loadKubeconfig(): Promise<kubernetes.KubeConfig> {
     const kubeconfig = new kubernetes.KubeConfig();
     const kubeconfigPath = getKubeconfigPath();
@@ -36,7 +48,7 @@ export async function loadKubeconfig(): Promise<kubernetes.KubeConfig> {
     return kubeconfig;
 }
 
-export function getKubeconfigPath(): { readonly pathType: 'host'; readonly hostPath: string; } | { readonly pathType: 'wsl'; readonly wslPath: string; } {
+export function getKubeconfigPath(): KubeconfigPath {
     // If the user specified a kubeconfig path -WSL or not-, let's use it.
     let kubeconfigPath: string | undefined = getActiveKubeconfig();
 

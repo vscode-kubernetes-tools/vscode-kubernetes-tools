@@ -77,7 +77,7 @@ import { APIBroker } from './api/contract/api';
 import { apiBroker } from './api/implementation/apibroker';
 import { sleep } from './sleep';
 import { CloudExplorer, CloudExplorerTreeNode } from './components/cloudexplorer/cloudexplorer';
-import { mergeToKubeconfig } from './components/kubectl/kubeconfig';
+import { mergeToKubeconfig, getKubeconfigPath, KubeconfigPath } from './components/kubectl/kubeconfig';
 import { PortForwardStatusBarManager } from './components/kubectl/port-forward-ui';
 import { getBuildCommand, getPushCommand } from './image/imageUtils';
 import { getImageBuildTool } from './components/config/config';
@@ -87,6 +87,7 @@ import { WatchManager } from './components/kubectl/watch';
 import { ExecResult } from './binutilplusplus';
 import { getCurrentContext } from './kubectlUtils';
 import { LocalTunnelDebugger } from './components/localtunneldebugger/localtunneldebugger';
+import { setAssetContext } from './assets';
 
 let explainActive = false;
 let swaggerSpecPromise: Promise<explainer.SwaggerModel | undefined> | null = null;
@@ -100,6 +101,7 @@ const clusterProviderRegistry = clusterproviderregistry.get();
 const configMapProvider = new configmaps.ConfigMapTextProvider(kubectl);
 const git = new Git(shell);
 const activeContextTracker = activeContextTrackerCreate(kubectl);
+const onDidChangeKubeconfigEmitter = new vscode.EventEmitter<KubeconfigPath>();
 
 export const overwriteMessageItems: vscode.MessageItem[] = [
     {
@@ -131,6 +133,8 @@ export const HELM_TPL_MODE: vscode.DocumentFilter = { language: "helm", scheme: 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export async function activate(context: vscode.ExtensionContext): Promise<APIBroker> {
+    setAssetContext(context);
+
     kubectl.ensurePresent({ warningIfNotPresent: 'Kubectl not found. Many features of the Kubernetes extension will not work.' });
 
     const treeProvider = explorer.create(kubectl, host);
@@ -277,7 +281,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
 
         // Completion providers
         vscode.languages.registerCompletionItemProvider(completionFilter, completionProvider),
-        vscode.languages.registerCompletionItemProvider('yaml', new KubernetesCompletionProvider()),
+        vscode.languages.registerCompletionItemProvider('yaml', new KubernetesCompletionProvider(context)),
 
         // Symbol providers
         vscode.languages.registerDocumentSymbolProvider({ language: 'helm' }, helmSymbolProvider),
@@ -417,7 +421,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
     await registerYamlSchemaSupport(activeContextTracker, kubectl);
 
     vscode.workspace.registerTextDocumentContentProvider(configmaps.uriScheme, configMapProvider);
-    return apiBroker(clusterProviderRegistry, kubectl, portForwardStatusBarManager, treeProvider, cloudExplorer, localTunnelDebugger);
+
+    return apiBroker(clusterProviderRegistry, kubectl, portForwardStatusBarManager, treeProvider, cloudExplorer, localTunnelDebugger, onDidChangeKubeconfigEmitter, activeContextTracker, kubectlUtils.onDidChangeNamespaceEmitter);
 }
 
 // this method is called when your extension is deactivated
@@ -1976,6 +1981,7 @@ async function useKubeconfigKubernetes(kubeconfig?: string | { isTrusted: boolea
         return;
     }
     await setActiveKubeconfig(kc);
+    onDidChangeKubeconfigEmitter.fire(getKubeconfigPath());
     telemetry.invalidateClusterType(undefined, kubectl);
 }
 

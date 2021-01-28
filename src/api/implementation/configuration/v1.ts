@@ -6,7 +6,7 @@ export function impl(): ConfigurationV1 {
 }
 
 class ConfigurationV1Impl implements ConfigurationV1 {
-    getKubeconfigPath(): ConfigurationV1.KubeconfigPath  {
+    getKubeconfigPath(): ConfigurationV1.KubeconfigPath {
         return getKubeconfigPath();
     }
 }
