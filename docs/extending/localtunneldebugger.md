@@ -30,7 +30,7 @@ the specified properties and methods will do.)
 ```javascript
 interface LocalTunnelDebugProvider {
     readonly id: string;
-    startDebugging(target?: any): void;
+    startLocalTunnelDebugging(target?: any): void;
 }
 ```
 
@@ -41,12 +41,17 @@ The `id` will allow users to configure a default local tunnel debugger to use by
 
 ### Implementing the debugger
 
-Your provider's implementation of `startDebugging(target?: any)` is responsible for resolving the debug target (such as a pod or service) and starting the debug session. You can use the cluster explorer API to resolve the target (see [commandtargets.md](commandtargets.md) for more info). An example implementation is given below:
+Your provider's implementation of `startLocalTunnelDebugging(target?: any)` is responsible for resolving the debug target (such as a pod or service) and starting the debug session. You can use the cluster explorer API to resolve the target (see [commandtargets.md](commandtargets.md) for more info).
+
+Currently, Debug (Local Tunnel) is offered on services, deployments, pods and jobs. A provider is expected to handle debugging
+on these types.
+
+An example implementation is given below:
 
 ```javascript
 const MY_PROVIDER = {
     id: "Contoso Trampoline Debugger",
-    startDebugging: (target?: any) => startDebugSession(target)
+    startLocalTunnelDebugging: (target?: any) => startDebugSession(target)
 };
 
 function startDebugSession(target?: any) {
@@ -77,25 +82,28 @@ In order to hook into the Debug (Local Tunnel) option, a local debug provider mu
 with the Kubernetes extension. This is the responsibility of the VS Code extension that hosts
 the debug provider. To do this, the extension must:
 
-* Activate in response to the `kubernetes.cloudExplorer` view
 * Activate in response to the `Debug (Local Tunnel)` command
 * Request the Kubernetes extension's Local Tunnel Debug Provider API
-* Call the `register` method for each cloud provider it wants to display
+* Call the `register` method for each debug provider it wants to display
+
+Activating in response to the `kubernetes.clusterExplorer` view may give a better performance the first
+time the command is selected, but is not required.
 
 ### Activating the debug provider extension
 
-Your extension needs to activate in response to the cluster explorer and command palette
-commands, so that it can register as a debug provider before the debug session is started.
-To do this, your `package.json` must include the following activation events:
+Your extension needs to activate in response to the Debug (Local Tunnel) command when
+called from the cluster explorer or the command palette, so that it can register as a
+debug provider before the debug session is started. To do this, your `package.json` must
+include the following activation event:
 
 ```json
     "activationEvents": [
-        "onView:extension.vsKubernetesExplorer",
         "onCommand:extension.vsKubernetesDebugLocalTunnel",
     ],
 ```
-
-Depending on your extension you may have other activation events as well.
+To optionally activate in response to the cluster explorer view, you may use
+the `onView:extension.vsKubernetesExplorer` event. Depending on your extension you
+may have other activation events as well.
 
 ### Registering local tunnel debug providers with the Kubernetes extension
 
@@ -107,7 +115,7 @@ more manual but the registration is the same.
 ```javascript
 const MY_PROVIDER = {
     id: "Contoso Trampoline Debugger",
-    startDebugging: (target?: any) => startDebugSession(target)
+    startLocalTunnelDebugging: (target?: any) => startDebugSession(target)
 };
 
 export async function activate(context: vscode.ExtensionContext) {

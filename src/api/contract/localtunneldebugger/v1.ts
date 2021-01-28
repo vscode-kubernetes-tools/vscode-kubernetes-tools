@@ -4,12 +4,12 @@
 
 export interface LocalTunnelDebuggerV1 {
     registerLocalTunnelDebugProvider(localTunnelDebugProvider: LocalTunnelDebuggerV1.LocalTunnelDebugProvider): void;
-    startLocalTunnelDebugProvider(target?: any): void;
+    startLocalTunnelDebugSession(target?: any): void;
 }
 
 export namespace LocalTunnelDebuggerV1 {
     export interface LocalTunnelDebugProvider {
         readonly id: string;
-        startDebugging(target?: any): void;
+        startLocalTunnelDebugging(target?: any): void;
     }
 }

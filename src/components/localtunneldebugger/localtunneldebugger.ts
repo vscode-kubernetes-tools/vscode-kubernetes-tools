@@ -10,14 +10,14 @@ export class LocalTunnelDebugger {
         this.providers.push(provider);
     }
 
-    startLocalTunnelDebugProvider(target?: any) {
+    startLocalTunnelDebugSession(target?: any) {
         const providerSetting: string | undefined = getLocalTunnelDebugProvider();
         const providerName: string | undefined = providerSetting ? providerSetting : this.providers.map((p) => p.id).sort()[0];
         const providerToUse: LocalTunnelDebugProvider | undefined = this.providers.find((p) => p.id === providerName);
 
         // On success start early.
-        if (this.providers.length && providerToUse) {
-            providerToUse.startDebugging(target);
+        if (providerToUse) {
+            providerToUse.startLocalTunnelDebugging(target);
             return;
         }
 
@@ -30,10 +30,10 @@ export class LocalTunnelDebugger {
             message = 'You do not have a Local Tunnel Debug Provider installed.';
         }
 
-        LocalTunnelDebugger.displayUIandExecuteCommand(message);
+        LocalTunnelDebugger.promptToFindOnMarketplace(message);
     };
 
-    static displayUIandExecuteCommand(message: string) {
+    static promptToFindOnMarketplace(message: string) {
         const browseExtensions = "Find Providers on Marketplace";
 
         vscode.window.showInformationMessage(message, browseExtensions)

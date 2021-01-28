@@ -199,7 +199,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.vsKubernetesDebug', debugKubernetes),
         registerCommand('extension.vsKubernetesRemoveDebug', removeDebugKubernetes),
         registerCommand('extension.vsKubernetesDebugAttach', debugAttachKubernetes),
-        registerCommand('extension.vsKubernetesDebugLocalTunnel', (target?: any) => { localTunnelDebugger.startLocalTunnelDebugProvider(target); }),
+        registerCommand('extension.vsKubernetesDebugLocalTunnel', (target?: any) => { localTunnelDebugger.startLocalTunnelDebugSession(target); }),
         registerCommand('extension.vsKubernetesFindLocalTunnelDebugProviders', kubernetesFindLocalTunnelDebugProviders),
         registerCommand('extension.vsKubernetesConfigureFromCluster', configureFromClusterKubernetes),
         registerCommand('extension.vsKubernetesCreateCluster', createClusterKubernetes),
@@ -2334,14 +2334,14 @@ async function showInfoMessage(message: string) {
 }
 
 function kubernetesFindCloudProviders() {
-    searchMarketPlace("kubernetes-extension-cloud-provider");
+    searchMarketplace("kubernetes-extension-cloud-provider");
 }
 
 function kubernetesFindLocalTunnelDebugProviders() {
-    searchMarketPlace("kubernetes-extension-local-tunnel-debug-provider");
+    searchMarketplace("kubernetes-extension-local-tunnel-debug-provider");
 }
 
-function searchMarketPlace(searchTerm: string) {
+function searchMarketplace(searchTerm: string) {
     const searchUrl = `https://marketplace.visualstudio.com/search?term=${searchTerm}&target=VSCode&category=All%20categories&sortBy=Relevance`;
     browser.open(searchUrl);
 }

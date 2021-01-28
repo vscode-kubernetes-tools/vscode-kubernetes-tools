@@ -12,7 +12,7 @@ class LocalTunnelDebuggerV1Impl implements LocalTunnelDebuggerV1 {
         this.localDebugger.register(localTunnelDebugProvider);
     }
 
-    startLocalTunnelDebugProvider(target?: any): void {
-        this.localDebugger.startLocalTunnelDebugProvider(target);
+    startLocalTunnelDebugSession(target?: any): void {
+        this.localDebugger.startLocalTunnelDebugSession(target);
     }
 }
