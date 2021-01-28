@@ -27,8 +27,11 @@ export function parseLineOutput(lineOutput: string[], columnSeparator: RegExp): 
 function findPositionHeaders(headers: string, columnSeparator: RegExp): number[] {
     const posHeaders: number[] = [];
     const parsedHeaders = headers.replace(columnSeparator, '|').split('|');
+    let takenTo = 0;
     parsedHeaders.forEach((header) => {
-        posHeaders.push(headers.indexOf(header));
+        const headerPos = headers.indexOf(header, takenTo);
+        takenTo = headerPos + header.length;
+        posHeaders.push(headerPos);
     });
     return posHeaders;
 }
