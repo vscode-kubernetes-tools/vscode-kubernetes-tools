@@ -4,7 +4,7 @@ suite("foo", () => {
     suite("biscuit method", () => {
         suite("when eating the biscuits", () => {
             test("...it noms them", () => {
-                assert.strictEqual(7, 2 + 2);
+                assert.strictEqual(4, 2 + 2);
             });
         });
     });
