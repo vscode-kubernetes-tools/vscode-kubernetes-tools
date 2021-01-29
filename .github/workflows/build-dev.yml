@@ -35,7 +35,8 @@ jobs:
       run: npm run compile
     - name: Lint extension source
       run: gulp tslint
-    # TODO: smoke test
+    - name: Smoke test
+      run: npm run test
     - name: Package extension
       if: github.event_name == 'push' && matrix.os == 'ubuntu-latest' && matrix.node_version == 14
       run: |
