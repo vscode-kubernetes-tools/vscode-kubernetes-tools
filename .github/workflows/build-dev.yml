@@ -35,10 +35,10 @@ jobs:
       run: npm run compile
     - name: Lint extension source
       run: gulp tslint
-    - name: Smoke test
+    - name: Smoke test (Linux)
       run: xvfb-run -a npm run test
       if: runner.os == 'Linux'
-    - name: Smoke test
+    - name: Smoke test (Mac, Windows)
       run: npm run test
       if: runner.os != 'Linux'
     - name: Package extension
