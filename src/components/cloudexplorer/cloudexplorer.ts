@@ -45,7 +45,7 @@ export class CloudExplorer implements vscode.TreeDataProvider<CloudExplorerTreeN
     }
 
     refresh(): void {
-        this.onDidChangeTreeDataEmitter.fire();
+        this.onDidChangeTreeDataEmitter.fire(undefined);
     }
 
     register(provider: CloudExplorerProvider): void {
