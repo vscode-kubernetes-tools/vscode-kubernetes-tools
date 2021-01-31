@@ -102,8 +102,8 @@ export class KubernetesClusterSchemaHolder {
             // if the schema contains 'x-kubernetes-group-version-kind'. then it is a direct kubernetes manifest,
             getManifestStyleSchemas(originalSchema).forEach((schema: KubernetesSchema) =>  {
                 this.saveSchema({
-                    name,
-                    ...schema
+                    ...schema,
+                    name
                 });
             });
 
