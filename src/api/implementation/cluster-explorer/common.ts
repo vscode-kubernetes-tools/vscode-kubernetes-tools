@@ -2,12 +2,12 @@
 
 import * as vscode from 'vscode';
 // import { KubernetesExplorer, KUBERNETES_EXPLORER_NODE_CATEGORY } from "../../../components/clusterexplorer/explorer";
-import { ExplorerExtender /* , ExplorerUICustomizer */ } from "../../../components/clusterexplorer/explorer.extension";
-import { /* CustomGroupingFolderNodeSource, CustomResourceFolderNodeSource, */ NodeSourceImpl } from "../../../components/clusterexplorer/extension.nodesources";
+import { ExplorerExtender, ExplorerUICustomizer } from "../../../components/clusterexplorer/explorer.extension";
+import { CustomGroupingFolderNodeSource, CustomResourceFolderNodeSource, NodeSourceImpl } from "../../../components/clusterexplorer/extension.nodesources";
 import { ClusterExplorerCustomNode, ClusterExplorerNode, ClusterExplorerResourceNode } from "../../../components/clusterexplorer/node";
 import { Host } from "../../../host";
 import { Kubectl } from "../../../kubectl";
-// import { ResourceKind } from '../../../kuberesources';
+import { ResourceKind } from '../../../kuberesources';
 
 import { ClusterExplorerV1 } from '../../contract/cluster-explorer/v1';
 import { ClusterExplorerV1_1 } from '../../contract/cluster-explorer/v1_1';
@@ -26,6 +26,27 @@ export interface NodeSource {
     at(parentFolder: string | undefined): NodeContributor;
     if(condition: () => boolean | Thenable<boolean>): NodeSource;
     nodes(): Promise<Node[]>;
+}
+
+
+export function adaptToExplorerUICustomizer(nodeUICustomizer: ClusterExplorerV1_1.NodeUICustomizer): ExplorerUICustomizer<ClusterExplorerNode> {
+    return new NodeUICustomizerAdapter(nodeUICustomizer);
+}
+
+class NodeUICustomizerAdapter implements ExplorerUICustomizer<ClusterExplorerNode> {
+    constructor(private readonly impl: ClusterExplorerV1_1.NodeUICustomizer) {}
+    customize(element: ClusterExplorerNode, treeItem: vscode.TreeItem): true | Thenable<true> {
+        const waiter = this.impl.customize(adaptKubernetesExplorerNode(element), treeItem);
+        if (waiter) {
+            return waitFor(waiter);
+        }
+        return true;
+    }
+}
+
+async function waitFor(waiter: Thenable<void>): Promise<true> {
+    await waiter;
+    return true;
 }
 
 export class NodeContributorAdapter implements ExplorerExtender<ClusterExplorerNode> {
@@ -164,4 +185,14 @@ export function internalNodeOf(node: ClusterExplorerV1_1.Node): ClusterExplorerN
         return (node as unknown as BuiltInNode).impl;
     }
     return new ContributedNode(node);
+}
+
+export function resourceFolderContributor(displayName: string, pluralDisplayName: string, manifestKind: string, abbreviation: string, apiName?: string): NodeSource {
+    const nodeSource = new CustomResourceFolderNodeSource(new ResourceKind(displayName, pluralDisplayName, manifestKind, abbreviation, apiName));
+    return apiNodeSourceOf(nodeSource);
+}
+
+export function groupingFolderContributor(displayName: string, contextValue: string | undefined, ...children: ClusterExplorerV1_1.NodeSource[]): NodeSource {
+    const nodeSource = new CustomGroupingFolderNodeSource(displayName, contextValue, children.map(internalNodeSourceOf));
+    return apiNodeSourceOf(nodeSource);
 }

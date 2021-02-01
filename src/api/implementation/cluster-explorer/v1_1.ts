@@ -1,14 +1,10 @@
 /* eslint-disable camelcase */
 
-import * as vscode from 'vscode';
 import { KubernetesExplorer, KUBERNETES_EXPLORER_NODE_CATEGORY } from "../../../components/clusterexplorer/explorer";
-import { ExplorerUICustomizer } from "../../../components/clusterexplorer/explorer.extension";
-import { CustomGroupingFolderNodeSource, CustomResourceFolderNodeSource } from "../../../components/clusterexplorer/extension.nodesources";
 import { ClusterExplorerNode } from "../../../components/clusterexplorer/node";
-import { ResourceKind } from '../../../kuberesources';
 import { ClusterExplorerV1_1 } from '../../contract/cluster-explorer/v1_1';
 
-import { adaptKubernetesExplorerNode, apiNodeSourceOf, internalNodeContributorOf, internalNodeSourceOf } from './common';
+import { adaptKubernetesExplorerNode, adaptToExplorerUICustomizer, internalNodeContributorOf, resourceFolderContributor, groupingFolderContributor } from './common';
 
 export function impl(explorer: KubernetesExplorer): ClusterExplorerV1_1 {
     return new ClusterExplorerV1_1Impl(explorer);
@@ -49,34 +45,4 @@ class ClusterExplorerV1_1Impl implements ClusterExplorerV1_1 {
     refresh(): void {
         this.explorer.refresh();
     }
-}
-
-function adaptToExplorerUICustomizer(nodeUICustomizer: ClusterExplorerV1_1.NodeUICustomizer): ExplorerUICustomizer<ClusterExplorerNode> {
-    return new NodeUICustomizerAdapter(nodeUICustomizer);
-}
-
-class NodeUICustomizerAdapter implements ExplorerUICustomizer<ClusterExplorerNode> {
-    constructor(private readonly impl: ClusterExplorerV1_1.NodeUICustomizer) {}
-    customize(element: ClusterExplorerNode, treeItem: vscode.TreeItem): true | Thenable<true> {
-        const waiter = this.impl.customize(adaptKubernetesExplorerNode(element), treeItem);
-        if (waiter) {
-            return waitFor(waiter);
-        }
-        return true;
-    }
-}
-
-async function waitFor(waiter: Thenable<void>): Promise<true> {
-    await waiter;
-    return true;
-}
-
-function resourceFolderContributor(displayName: string, pluralDisplayName: string, manifestKind: string, abbreviation: string, apiName?: string): ClusterExplorerV1_1.NodeSource {
-    const nodeSource = new CustomResourceFolderNodeSource(new ResourceKind(displayName, pluralDisplayName, manifestKind, abbreviation, apiName));
-    return apiNodeSourceOf(nodeSource);
-}
-
-function groupingFolderContributor(displayName: string, contextValue: string | undefined, ...children: ClusterExplorerV1_1.NodeSource[]): ClusterExplorerV1_1.NodeSource {
-    const nodeSource = new CustomGroupingFolderNodeSource(displayName, contextValue, children.map(internalNodeSourceOf));
-    return apiNodeSourceOf(nodeSource);
 }
