@@ -1,8 +1,12 @@
-import { KubernetesExplorer, KUBERNETES_EXPLORER_NODE_CATEGORY } from "../../../components/clusterexplorer/explorer";
-import { ClusterExplorerNode } from "../../../components/clusterexplorer/node";
+import { KubernetesExplorer } from "../../../components/clusterexplorer/explorer";
 import { ClusterExplorerV1 } from "../../contract/cluster-explorer/v1";
 
-import { adaptKubernetesExplorerNode, adaptToExplorerUICustomizer, internalNodeContributorOf, resourceFolderContributor, groupingFolderContributor } from './common';
+import {
+    resolveCommandTarget,
+    adaptToExplorerUICustomizer,
+    internalNodeContributorOf,
+    allNodeSources
+} from './common';
 
 export function impl(explorer: KubernetesExplorer): ClusterExplorerV1 {
     return new ClusterExplorerV1Impl(explorer);
@@ -12,15 +16,7 @@ class ClusterExplorerV1Impl implements ClusterExplorerV1 {
     constructor(private readonly explorer: KubernetesExplorer) {}
 
     resolveCommandTarget(target?: any): ClusterExplorerV1.ClusterExplorerNode | undefined {
-        if (!target) {
-            return undefined;
-        }
-        if (target.nodeCategory === KUBERNETES_EXPLORER_NODE_CATEGORY) {
-            const implNode = target as ClusterExplorerNode;
-            const apiNode = adaptKubernetesExplorerNode(implNode);
-            return apiNode;
-        }
-        return undefined;
+        return resolveCommandTarget(target);
     }
 
     registerNodeContributor(nodeContributor: ClusterExplorerV1.NodeContributor): void {
@@ -34,10 +30,7 @@ class ClusterExplorerV1Impl implements ClusterExplorerV1 {
     }
 
     get nodeSources(): ClusterExplorerV1.NodeSources {
-        return {
-            resourceFolder: resourceFolderContributor,
-            groupingFolder: groupingFolderContributor
-        };
+        return allNodeSources();
     }
 
     refresh(): void {
