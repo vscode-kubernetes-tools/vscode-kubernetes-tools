@@ -201,7 +201,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.vsKubernetesRefreshHelmRepoExplorer', () => helmRepoTreeProvider.refresh()),
         registerCommand('extension.vsKubernetesRefreshCloudExplorer', () => cloudExplorer.refresh()),
         registerCommand('extension.vsKubernetesUseContext', useContextKubernetes),
-        registerCommand('extension.vsKubernetesSwitchContext', () => switchContextKubernetes(treeProvider)),
         registerCommand('extension.vsKubernetesUseKubeconfig', useKubeconfigKubernetes),
         registerCommand('extension.vsKubernetesClusterInfo', clusterInfoKubernetes),
         registerCommand('extension.vsKubernetesDeleteContext', deleteContextKubernetes),
@@ -1983,15 +1982,6 @@ async function setContextKubernetes(targetContext: string) {
     } else {
         kubectl.reportFailure(er, { whatFailed: `Failed to set '${targetContext}' as current cluster` });
     }
-}
-
-async function switchContextKubernetes(tree: explorer.KubernetesExplorer) {
-    const inactiveContexts = await tree.getInactiveContexts();
-    const selected = await vscode.window.showQuickPick(inactiveContexts, { placeHolder: 'Pick the context you want to switch to' });
-    if (!selected) {
-        return;
-    }
-    setContextKubernetes(selected);
 }
 
 async function clusterInfoKubernetes(_explorerNode: ClusterExplorerNode) {

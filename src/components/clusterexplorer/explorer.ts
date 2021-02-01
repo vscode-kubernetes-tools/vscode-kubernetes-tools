@@ -325,9 +325,4 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         }
         return rootNodes;
     }
-
-    public async getInactiveContexts(): Promise<string[]> {
-        const contexts = await kubectlUtils.getContexts(this.kubectl, { silent: false });  // TODO: turn it silent, cascade errors, and provide an error node
-        return contexts.filter((context) => !context.active).map((context) => context.contextName);
-    }
 }

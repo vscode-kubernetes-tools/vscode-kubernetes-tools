@@ -55,7 +55,7 @@
         "onCommand:extension.vsKubernetesConfigureFromCluster",
         "onCommand:extension.vsKubernetesCreateCluster",
         "onCommand:extension.vsKubernetesUseKubeconfig",
-        "onCommand:extension.vsKubernetesSwitchContext",
+        "onCommand:extension.vsKubernetesUseContext",
         "onCommand:extension.vsKubernetesDashboard",
         "onCommand:extension.vsMinikubeStop",
         "onCommand:extension.vsMinikubeStart",
@@ -653,10 +653,6 @@
                 },
                 {
                     "command": "extension.vsKubernetesUseContext",
-                    "when": "view == extension.vsKubernetesExplorer"
-                },
-                {
-                    "command": "extension.vsKubernetesSwitchContext",
                     "when": ""
                 },
                 {
@@ -872,11 +868,6 @@
             {
                 "command": "extension.vsKubernetesUseContext",
                 "title": "Set as Current Cluster",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesSwitchContext",
-                "title": "Switch Context",
                 "category": "Kubernetes"
             },
             {

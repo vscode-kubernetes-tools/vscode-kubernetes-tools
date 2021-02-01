@@ -7,7 +7,7 @@
 import * as vscode from 'vscode';
 
 export interface ClusterExplorerV1_2 {
-    resolveCommandTarget(target?: any): ClusterExplorerV1_2.ClusterExplorerNodeV2 | undefined;
+    resolveCommandTarget(target?: any): ClusterExplorerV1_2.ClusterExplorerNode | undefined;
     registerNodeContributor(nodeContributor: ClusterExplorerV1_2.NodeContributor): void;
     readonly nodeSources: ClusterExplorerV1_2.NodeSources;
     registerNodeUICustomizer(nodeUICustomizer: ClusterExplorerV1_2.NodeUICustomizer): void;
@@ -16,12 +16,12 @@ export interface ClusterExplorerV1_2 {
 
 export namespace ClusterExplorerV1_2 {
     export interface NodeContributor {
-        contributesChildren(parent: ClusterExplorerNodeV2 | undefined): boolean;
-        getChildren(parent: ClusterExplorerNodeV2 | undefined): Promise<Node[]>;
+        contributesChildren(parent: ClusterExplorerNode | undefined): boolean;
+        getChildren(parent: ClusterExplorerNode | undefined): Promise<Node[]>;
     }
 
     export interface NodeUICustomizer {
-        customize(node: ClusterExplorerNodeV2, treeItem: vscode.TreeItem): void | Thenable<void>;
+        customize(node: ClusterExplorerNode, treeItem: vscode.TreeItem): void | Thenable<void>;
     }
 
     export interface Node {
@@ -37,8 +37,8 @@ export namespace ClusterExplorerV1_2 {
         readonly metadata: object;
     }
 
-    export interface ClusterExplorerClusterNode {
-        readonly nodeType: 'cluster';
+    export interface ClusterExplorerNamespaceNode {
+        readonly nodeType: 'namespace';
     }
 
     export interface ClusterExplorerGroupingFolderNode {
@@ -89,12 +89,12 @@ export namespace ClusterExplorerV1_2 {
         readonly nodeType: 'extension';
     }
 
-    export type ClusterExplorerNodeV2 =
+    export type ClusterExplorerNode =
         ClusterExplorerResourceNode |
-        ClusterExplorerClusterNode |
         ClusterExplorerGroupingFolderNode |
         ClusterExplorerResourceFolderNode |
         ClusterExplorerContextNode |
+        ClusterExplorerNamespaceNode |
         ClusterExplorerInactiveContextNode |
         ClusterExplorerConfigDataItemNode |
         ClusterExplorerErrorNode |
