@@ -11,8 +11,4 @@ class LocalTunnelDebuggerV1Impl implements LocalTunnelDebuggerV1 {
     registerLocalTunnelDebugProvider(localTunnelDebugProvider: LocalTunnelDebuggerV1.LocalTunnelDebugProvider): void {
         this.localDebugger.register(localTunnelDebugProvider);
     }
-
-    startLocalTunnelDebugSession(target?: any): void {
-        this.localDebugger.startLocalTunnelDebugSession(target);
-    }
 }
