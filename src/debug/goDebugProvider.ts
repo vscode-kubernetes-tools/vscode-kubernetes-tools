@@ -101,8 +101,9 @@ export class GoDebugProvider implements IDebugProvider {
         };
     }
 
-    public filterSupportedProcesses(_processes: debugUtils.ProcessInfo[]): debugUtils.ProcessInfo[] | undefined {
-        return undefined;
+    public filterSupportedProcesses(processes: debugUtils.ProcessInfo[]): debugUtils.ProcessInfo[] | undefined {
+        return processes.filter((processInfo) => (processInfo.command.toLowerCase().startsWith('dlv ') ||
+                                                  processInfo.command.indexOf('/dlv ') >= 0)); // full path
     }
 
     public isPortRequired(): boolean {
