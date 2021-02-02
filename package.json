@@ -83,9 +83,6 @@
         "onCommand:extension.helmDependencies",
         "onCommand:extension.helmConvertToTemplate",
         "onCommand:extension.helmParameterise",
-        "onCommand:extension.draftVersion",
-        "onCommand:extension.draftCreate",
-        "onCommand:extension.draftUp",
         "onView:extension.vsKubernetesExplorer",
         "onView:extension.vsKubernetesHelmRepoExplorer",
         "onView:kubernetes.cloudExplorer",
@@ -95,8 +92,7 @@
         "onCommand:kubernetes.portForwarding.showSessions",
         "onLanguage:helm",
         "onLanguage:yaml",
-        "onFileSystem:k8smsx",
-        "onDebugResolve:draft"
+        "onFileSystem:k8smsx"
     ],
     "main": "./dist/extension",
     "contributes": {
@@ -120,10 +116,6 @@
                             "type": "string",
                             "description": "File path to a helm binary."
                         },
-                        "vs-kubernetes.draft-path": {
-                            "type": "string",
-                            "description": "File path to a draft binary."
-                        },
                         "vs-kubernetes.minikube-path": {
                             "type": "string",
                             "description": "File path to a minikube binary."
@@ -135,10 +127,6 @@
                         "vs-kubernetes.helm-path.windows": {
                             "type": "string",
                             "description": "File path to a helm binary."
-                        },
-                        "vs-kubernetes.draft-path.windows": {
-                            "type": "string",
-                            "description": "File path to a draft binary."
                         },
                         "vs-kubernetes.minikube-path.windows": {
                             "type": "string",
@@ -152,10 +140,6 @@
                             "type": "string",
                             "description": "File path to a helm binary."
                         },
-                        "vs-kubernetes.draft-path.mac": {
-                            "type": "string",
-                            "description": "File path to a draft binary."
-                        },
                         "vs-kubernetes.minikube-path.mac": {
                             "type": "string",
                             "description": "File path to a minikube binary."
@@ -167,10 +151,6 @@
                         "vs-kubernetes.helm-path.linux": {
                             "type": "string",
                             "description": "File path to a helm binary."
-                        },
-                        "vs-kubernetes.draft-path.linux": {
-                            "type": "string",
-                            "description": "File path to a draft binary."
                         },
                         "vs-kubernetes.minikube-path.linux": {
                             "type": "string",
@@ -281,7 +261,6 @@
                         "vs-kubernetes.namespace": "",
                         "vs-kubernetes.kubectl-path": "",
                         "vs-kubernetes.helm-path": "",
-                        "vs-kubernetes.draft-path": "",
                         "vs-kubernetes.minikube-path": "",
                         "vs-kubernetes.kubectlVersioning": "user-provided",
                         "vs-kubernetes.outputFormat": "yaml",
@@ -934,24 +913,6 @@
                 "category": "Kubernetes"
             },
             {
-                "command": "extension.draftVersion",
-                "title": "Version",
-                "description": "Get the version of the local Draft client.",
-                "category": "Draft"
-            },
-            {
-                "command": "extension.draftUp",
-                "title": "Up",
-                "description": "Build, deploy, and run the app in-cluster.",
-                "category": "Draft"
-            },
-            {
-                "command": "extension.draftCreate",
-                "title": "Create",
-                "description": "Create a new Draft project",
-                "category": "Draft"
-            },
-            {
                 "command": "extension.vsKubernetesRefreshExplorer",
                 "title": "Refresh",
                 "category": "Kubernetes",
@@ -1179,95 +1140,7 @@
                 "path": "./snippets/helm.json"
             }
         ],
-        "debuggers": [
-            {
-                "type": "draft",
-                "label": "Draft Debug",
-                "program": "./out/src/draft/debugAdapter.js",
-                "runtime": "node",
-                "configurationAttributes": {
-                    "launch": {
-                        "required": [
-                            "type",
-                            "name",
-                            "original-debug"
-                        ],
-                        "properties": {
-                            "type": {
-                                "type": "string",
-                                "description": "The type of launch configuration",
-                                "default": "draft"
-                            },
-                            "name": {
-                                "type": "string",
-                                "description": "The name of the debug configuration",
-                                "default": "Draft debug"
-                            },
-                            "original-debug": {
-                                "type": "object",
-                                "description": "Actual debug configuration VS Code will launch after app is deployed.",
-                                "default": {
-                                    "type": "node",
-                                    "request": "attach",
-                                    "name": "Attach to remote",
-                                    "address": "localhost",
-                                    "port": 9229,
-                                    "remoteRoot": "/usr/src/app/"
-                                }
-                            }
-                        }
-                    }
-                },
-                "initialConfigurations": [
-                    {
-                        "type": "draft",
-                        "request": "launch",
-                        "name": "Draft Debug",
-                        "original-debug": {}
-                    }
-                ],
-                "configurationSnippets": [
-                    {
-                        "label": "Draft Debug: NodeJS",
-                        "description": "Configuration for debugging NodeJS apps on Kubernetes using Draft",
-                        "body": {
-                            "type": "draft",
-                            "request": "launch",
-                            "name": "Draft Debug",
-                            "original-debug": {
-                                "type": "node",
-                                "request": "attach",
-                                "name": "Attach to remote",
-                                "address": "localhost",
-                                "port": 9229,
-                                "remoteRoot": "/usr/src/app/"
-                            }
-                        }
-                    },
-                    {
-                        "label": "Draft Debug: Golang",
-                        "description": "Configuration for debugging Golang apps on Kubernetes, using Draft",
-                        "body": {
-                            "type": "draft",
-                            "request": "launch",
-                            "name": "Draft Debug",
-                            "original-debug": {
-                                "name": "Kubernetes remote debugging",
-                                "type": "go",
-                                "request": "launch",
-                                "mode": "remote",
-                                "remotePath": "/go/src/app",
-                                "port": 2345,
-                                "host": "127.0.0.1",
-                                "program": "${workspaceRoot}",
-                                "env": {},
-                                "args": []
-                            }
-                        }
-                    }
-                ]
-            }
-        ]
+        "debuggers": []
     },
     "scripts": {
         "vscode:prepublish": "webpack --mode production",
