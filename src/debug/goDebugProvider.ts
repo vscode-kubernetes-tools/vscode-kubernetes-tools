@@ -54,16 +54,13 @@ export class GoDebugProvider implements IDebugProvider {
     }
 
     public async resolvePortsFromFile(dockerfile: IDockerfile, env: {}): Promise<PortInfo | undefined> {
-        let rawDebugPortInfo: string | undefined;
-        let rawAppPortInfo: string | undefined;
-
         // Resolve the debug port.
-        rawDebugPortInfo = await debugUtils.promptForDebugPort(defaultGoDebugPort);
+        const rawDebugPortInfo = await debugUtils.promptForDebugPort(defaultGoDebugPort);
 
         // Resolve the app port.
         const exposedPorts = dockerfile.getExposedPorts();
         const possiblePorts = exposedPorts.length ? exposedPorts.filter((port) => port !== defaultGoDebugPort) : [];
-        rawAppPortInfo = await debugUtils.promptForAppPort(possiblePorts, defaultGoAppPort, env);
+        const rawAppPortInfo = await debugUtils.promptForAppPort(possiblePorts, defaultGoAppPort, env);
 
         return {
             debugPort: Number(rawDebugPortInfo),
@@ -88,7 +85,7 @@ export class GoDebugProvider implements IDebugProvider {
         }
 
         // if --listen=127.0.0.1:0 was specified, we cannot determine the correct listening port as it is randomly selected from the ephemeral port range.
-        if (!rawDebugPortInfo || rawDebugPortInfo == "0") {
+        if (!rawDebugPortInfo || rawDebugPortInfo === "0") {
             rawDebugPortInfo = await debugUtils.promptForDebugPort(defaultGoDebugPort);
         }
 
