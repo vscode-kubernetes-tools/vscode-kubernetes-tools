@@ -38,9 +38,17 @@ export class GoDebugProvider implements IDebugProvider {
             request: "attach",
             name: sessionName,
             hostName: "127.0.0.1",
-            remotePath: "/go/src/app",
+            remotePath: "${inputs.remotePath}",
             processId,
-            port
+            port,
+            inputs: [
+                {
+                    id: "remotePath",
+                    type: "promptString",
+                    description: "What is the remote dirpath for your app?",
+                    default: "/go/src/${workspaceFolderBasename}"
+                }
+            ]
         };
         const currentFolder = (vscode.workspace.workspaceFolders || []).find((folder) => folder.name === path.basename(workspaceFolder));
         if (!currentFolder) {
