@@ -31,12 +31,15 @@ export class GoDebugProvider implements IDebugProvider {
         return false;
     }
 
-    public async startDebugging(workspaceFolder: string, sessionName: string, port: number): Promise<boolean> {
+    public async startDebugging(workspaceFolder: string, sessionName: string, port: number | undefined, _pod: string, pidToDebug: number | undefined): Promise<boolean> {
+        const processId = pidToDebug ? pidToDebug.toString() : "1";
         const debugConfiguration = {
             type: "go",
             request: "attach",
             name: sessionName,
             hostName: "127.0.0.1",
+            remotePath: "/go/src/app",
+            processId,
             port
         };
         const currentFolder = (vscode.workspace.workspaceFolders || []).find((folder) => folder.name === path.basename(workspaceFolder));
