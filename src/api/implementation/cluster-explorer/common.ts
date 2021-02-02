@@ -92,7 +92,6 @@ function adaptKubernetesExplorerNode(node: ClusterExplorerNode): ClusterExplorer
         case 'helm.release':
             return { nodeType: 'helm.release', name: node.releaseName };
         case 'helm.history':
-            return { nodeType: 'helm.history', name: node.releaseName };
         case 'extension':
             return { nodeType: 'extension' };
     }
