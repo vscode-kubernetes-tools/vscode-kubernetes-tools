@@ -47,7 +47,11 @@ export function adaptToExplorerUICustomizer(nodeUICustomizer: ClusterExplorerV1.
 class NodeUICustomizerAdapter implements ExplorerUICustomizer<ClusterExplorerNode> {
     constructor(private readonly impl: ClusterExplorerV1.NodeUICustomizer | ClusterExplorerV1_1.NodeUICustomizer) {}
     customize(element: ClusterExplorerNode, treeItem: vscode.TreeItem): true | Thenable<true> {
-        const waiter = this.impl.customize(adaptKubernetesExplorerNode(element), treeItem);
+        const node = adaptKubernetesExplorerNode(element);
+        if (!node) {
+            return true;
+        }
+        const waiter = this.impl.customize(node, treeItem);
         if (waiter) {
             return waitFor(waiter);
         }
@@ -73,7 +77,7 @@ export class NodeContributorAdapter implements ExplorerExtender<ClusterExplorerN
     }
 }
 
-function adaptKubernetesExplorerNode(node: ClusterExplorerNode): ClusterExplorerV1.ClusterExplorerNode & ClusterExplorerV1_1.ClusterExplorerNode {
+function adaptKubernetesExplorerNode(node: ClusterExplorerNode): (ClusterExplorerV1.ClusterExplorerNode & ClusterExplorerV1_1.ClusterExplorerNode) | undefined {
     switch (node.nodeType) {
         case 'error':
             return { nodeType: 'error' };
@@ -94,6 +98,8 @@ function adaptKubernetesExplorerNode(node: ClusterExplorerNode): ClusterExplorer
         case 'helm.history':
         case 'extension':
             return { nodeType: 'extension' };
+        default:
+            return undefined;
     }
 }
 
