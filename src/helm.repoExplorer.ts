@@ -111,7 +111,7 @@ class HelmError extends HelmExplorerNodeImpl implements HelmObject {
             title: 'Show details',
             command: 'extension.showInfoMessage',
             arguments: [this.detail]
-        }
+        };
         return treeItem;
     }
 
