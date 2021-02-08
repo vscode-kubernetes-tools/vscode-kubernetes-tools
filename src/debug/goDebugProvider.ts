@@ -31,15 +31,14 @@ export class GoDebugProvider implements IDebugProvider {
         return false;
     }
 
-    public async startDebugging(workspaceFolder: string, sessionName: string, port: number | undefined, _pod: string, pidToDebug: number | undefined): Promise<boolean> {
-        const processId = pidToDebug ? pidToDebug.toString() : "1";
+    public async startDebugging(workspaceFolder: string, sessionName: string, port: number | undefined, _pod: string, _pidToDebug: number | undefined): Promise<boolean> {
         const debugConfiguration = {
             type: "go",
             request: "attach",
+            mode: "remote",
             name: sessionName,
-            hostName: "127.0.0.1",
+            hostName: "localhost",
             remotePath: "${inputs.remotePath}",
-            processId,
             port,
             inputs: [
                 {
