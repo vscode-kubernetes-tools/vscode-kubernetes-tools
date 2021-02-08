@@ -180,7 +180,7 @@ function unquotedPath(path: string): string {
 export function shellEnvironment(baseEnvironment: any): any {
     const env = Object.assign({}, baseEnvironment);
     const pathVariable = pathVariableName(env);
-    for (const tool of ['kubectl', 'helm', 'draft', 'minikube']) {
+    for (const tool of ['kubectl', 'helm', 'minikube']) {
         const toolPath = getToolPath(host, shell, tool);
         if (toolPath) {
             const toolDirectory = path.dirname(toolPath);

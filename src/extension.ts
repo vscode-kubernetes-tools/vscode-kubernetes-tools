@@ -20,7 +20,7 @@ import { pullAll } from 'lodash';
 import { host } from './host';
 import { addKubernetesConfigFile, deleteKubernetesConfigFile } from './configMap';
 import * as explainer from './explainer';
-import { shell, ShellResult } from './shell';
+import { shell } from './shell';
 import * as configmaps from './configMap';
 import * as kuberesources from './kuberesources';
 import { useNamespaceKubernetes } from './components/kubectl/namespace';
@@ -31,7 +31,6 @@ import { create as kubectlCreate } from './kubectl';
 import * as kubectlUtils from './kubectlUtils';
 import * as explorer from './components/clusterexplorer/explorer';
 import * as helmRepoExplorer from './helm.repoExplorer';
-import { create as draftCreate, CheckPresentMode as DraftCheckPresentMode } from './draft/draft';
 import { create as minikubeCreate } from './components/clusterprovider/minikube/minikube';
 import * as logger from './logger';
 import * as helm from './helm';
@@ -62,7 +61,6 @@ import { MinikubeOptions } from './components/clusterprovider/minikube/minikube'
 import { refreshExplorer } from './components/clusterprovider/common/explorer';
 import { KubernetesCompletionProvider } from "./yaml-support/yaml-snippet";
 import { showWorkspaceFolderPick } from './hostutils';
-import { DraftConfigurationProvider } from './draft/draftConfigurationProvider';
 import { KubernetesResourceVirtualFileSystemProvider, K8S_RESOURCE_SCHEME, kubefsUri, K8S_RESOURCE_SCHEME_READONLY, KUBECTL_DESCRIBE_AUTHORITY } from './kuberesources.virtualfs';
 import { KubernetesResourceLinkProvider } from './kuberesources.linkprovider';
 import { Container, isKubernetesResource, KubernetesCollection, Pod, KubernetesResource } from './kuberesources.objectmodel';
@@ -94,7 +92,6 @@ let swaggerSpecPromise: Promise<explainer.SwaggerModel | undefined> | null = nul
 const kubernetesDiagnostics = vscode.languages.createDiagnosticCollection("Kubernetes");
 
 const kubectl = kubectlCreate(config.getKubectlVersioning(), host, fs, shell);
-const draft = draftCreate(host, fs, shell);
 const minikube = minikubeCreate(host, fs, shell);
 const clusterProviderRegistry = clusterproviderregistry.get();
 const configMapProvider = new configmaps.ConfigMapTextProvider(kubectl);
@@ -150,9 +147,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         "helm",
         {pattern: "**/templates/NOTES.txt"}
     ];
-
-    const draftDebugProvider = new DraftConfigurationProvider();
-    let draftDebugSession: vscode.DebugSession;
 
     const portForwardStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 0);
     const portForwardStatusBarManager = PortForwardStatusBarManager.init(portForwardStatusBarItem);
@@ -250,11 +244,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.helmConvertToTemplate', helmConvertToTemplate),
         registerCommand('extension.helmParameterise', helmParameterise),
 
-        // Commands - Draft
-        registerCommand('extension.draftVersion', execDraftVersion),
-        registerCommand('extension.draftCreate', execDraftCreate),
-        registerCommand('extension.draftUp', execDraftUp),
-
         // Commands - API
         registerCommand('kubernetes.cloudExplorer.mergeIntoKubeconfig', kubernetesMergeIntoKubeconfig),
         registerCommand('kubernetes.cloudExplorer.saveKubeconfig', kubernetesSaveKubeconfig),
@@ -265,9 +254,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
 
         // Commands - general
         registerCommand('extension.showInfoMessage', showInfoMessage),
-
-        // Draft debug configuration provider
-        vscode.debug.registerDebugConfigurationProvider('draft', draftDebugProvider),
 
         // HTML renderers
         vscode.workspace.registerTextDocumentContentProvider(helm.PREVIEW_SCHEME, previewProvider),
@@ -340,33 +326,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
             const u = vscode.Uri.parse(helm.PREVIEW_URI);
             previewProvider.update(u);
         }
-
-        // if there is an active Draft debugging session, restart the cycle
-        if (draftDebugSession !== undefined) {
-            const session = vscode.debug.activeDebugSession;
-
-            // TODO - how do we make sure this doesn't affect all other debugging sessions?
-            // TODO - maybe check to see if `draft.toml` is present in the workspace
-            // TODO - check to make sure we enable this only when Draft is installed
-            if (session !== undefined) {
-                draftDebugSession.customRequest('evaluate', { restart: true });
-            }
-        }
-    });
-
-    vscode.debug.onDidTerminateDebugSession((_e) => {
-
-        // if there is an active Draft debugging session, restart the cycle
-        if (draftDebugSession !== undefined) {
-            const session = vscode.debug.activeDebugSession;
-
-            // TODO - how do we make sure this doesn't affect all other debugging sessions?
-            // TODO - maybe check to see if `draft.toml` is present in the workspace
-            // TODO - check to make sure we enable this only when Draft is installed
-            if (session !== undefined) {
-                draftDebugSession.customRequest('evaluate', { stop: true });
-            }
-        }
     });
 
     // On editor change, refresh the Helm YAML preview
@@ -381,15 +340,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         }
         const u = vscode.Uri.parse(helm.PREVIEW_URI);
         previewProvider.update(u);
-    });
-
-    vscode.debug.onDidChangeActiveDebugSession((e: vscode.DebugSession | undefined)=> {
-        if (e !== undefined) {
-            // keep a copy of the initial Draft debug session
-            if (e.name.indexOf('Draft') >= 0) {
-                draftDebugSession = e;
-            }
-        }
     });
 
     vscode.workspace.onDidOpenTextDocument(kubernetesLint);
@@ -2063,106 +2013,6 @@ function copiableName(explorerNode: ClusterExplorerNode): string | undefined {
         case explorer.NODE_TYPES.configitem: return explorerNode.key;
         default: return undefined;
     }
-}
-
-async function execDraftVersion() {
-    if (!(await draft.checkPresent(DraftCheckPresentMode.Alert))) {
-        return;
-    }
-
-    const dvResult = await draft.version();
-
-    if (succeeded(dvResult)) {
-        host.showInformationMessage(dvResult.result);
-    } else if (dvResult.error[0]) {
-        host.showErrorMessage(dvResult.error[0]);
-    }
-}
-
-async function execDraftCreate() {
-    if (vscode.workspace.rootPath === undefined) {
-        vscode.window.showErrorMessage('This command requires an open folder.');
-        return;
-    }
-    if (draft.isFolderMapped(vscode.workspace.rootPath)) {
-        vscode.window.showInformationMessage('This folder is already configured for draft. Run draft up to deploy.');
-        return;
-    }
-    if (!(await draft.checkPresent(DraftCheckPresentMode.Alert))) {
-        return;
-    }
-    const proposedAppName = path.basename(vscode.workspace.rootPath);
-    const appName = await vscode.window.showInputBox({ value: proposedAppName, prompt: "Choose a name for the Helm release"});
-    if (appName) {
-        await execDraftCreateApp(appName, undefined);
-    }
-}
-
-enum DraftCreateResult {
-    Succeeded,
-    Fatal,
-    NeedsPack,
-}
-
-async function execDraftCreateApp(appName: string, pack?: string): Promise<void> {
-    const folder = await showWorkspaceFolderPick();
-    if (!folder) {
-        return;
-    }
-
-    const dcResult = await draft.create(appName, pack, folder.uri.fsPath);
-    if (!dcResult) {
-        host.showErrorMessage(`Unable to run Draft`);
-        return;
-    }
-
-    switch (draftCreateResult(dcResult, !!pack)) {
-        case DraftCreateResult.Succeeded:
-            host.showInformationMessage("draft " + dcResult.stdout);
-            return;
-        case DraftCreateResult.Fatal:
-            host.showErrorMessage(`draft failed: ${dcResult.stderr}`);
-            return;
-        case DraftCreateResult.NeedsPack:
-            const packs = await draft.packs();
-            if (packs && packs.length > 0) {
-                const packSel = await host.showQuickPick(packs, { placeHolder: `Choose the Draft starter pack for ${appName}` });
-                if (packSel) {
-                    await execDraftCreateApp(appName, packSel);
-                }
-            } else {
-                host.showErrorMessage("Unable to determine starter pack, and no starter packs found to choose from.");
-            }
-            return;
-    }
-}
-
-function draftCreateResult(sr: ShellResult, hadPack: boolean) {
-    if (sr.code === 0) {
-        return DraftCreateResult.Succeeded;
-    }
-    if (!hadPack && draftErrorMightBeSolvedByChoosingPack(sr.stderr)) {
-        return DraftCreateResult.NeedsPack;
-    }
-    return DraftCreateResult.Fatal;
-}
-
-function draftErrorMightBeSolvedByChoosingPack(draftError: string) {
-    return draftError.indexOf('Unable to select a starter pack') >= 0
-        || draftError.indexOf('Error: no languages were detected') >= 0;
-}
-
-async function execDraftUp() {
-    if (vscode.workspace.rootPath === undefined) {
-        vscode.window.showErrorMessage('This command requires an open folder.');
-        return;
-    }
-    if (!draft.isFolderMapped(vscode.workspace.rootPath)) {
-        vscode.window.showInformationMessage('This folder is not configured for draft. Run draft create to configure it.');
-        return;
-    }
-
-    await draft.up();
 }
 
 async function helmConvertToTemplate(arg?: any) {

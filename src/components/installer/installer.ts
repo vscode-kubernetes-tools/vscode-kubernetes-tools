@@ -103,12 +103,6 @@ export async function installHelm(shell: Shell, warn: (message: string) => void)
     return await installToolFromArchive(tool, urlTemplate, shell, archiveKind);
 }
 
-export async function installDraft(shell: Shell): Promise<Errorable<null>> {
-    const tool = 'draft';
-    const urlTemplate = 'https://azuredraft.blob.core.windows.net/draft/draft-v0.15.0-{os_placeholder}-amd64.tar.gz';
-    return await installToolFromArchive(tool, urlTemplate, shell, ArchiveKind.Tar);
-}
-
 export async function installMinikube(shell: Shell, version: string | null): Promise<Errorable<null>> {
     const tool = 'minikube';
     const os = platformUrlString(shell.platform());
