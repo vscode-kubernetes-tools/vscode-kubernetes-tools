@@ -71,10 +71,11 @@ export class KubernetesResourceVirtualFileSystemProvider implements FileSystemPr
 
         const outputFormat = config.getOutputFormat();
         const value = query.value as string;
+        const revision = query.revision as string | undefined;
         const ns = query.ns as string | undefined;
         const resourceAuthority = uri.authority;
 
-        const eer = await this.execLoadResource(resourceAuthority, ns, value, outputFormat);
+        const eer = await this.execLoadResource(resourceAuthority, ns, value, revision, outputFormat);
 
         if (Errorable.failed(eer)) {
             this.host.showErrorMessage(eer.error[0]);
@@ -96,7 +97,7 @@ export class KubernetesResourceVirtualFileSystemProvider implements FileSystemPr
         return er.stdout;
     }
 
-    async execLoadResource(resourceAuthority: string, ns: string | undefined, value: string, outputFormat: string): Promise<Errorable<ExecResult>> {
+    async execLoadResource(resourceAuthority: string, ns: string | undefined, value: string, revision: string | undefined, outputFormat: string): Promise<Errorable<ExecResult>> {
         const nsarg = ns ? `--namespace ${ns}` : '';
         switch (resourceAuthority) {
             case KUBECTL_RESOURCE_AUTHORITY:
@@ -104,7 +105,8 @@ export class KubernetesResourceVirtualFileSystemProvider implements FileSystemPr
                 return { succeeded: true, result: ker };
             case HELM_RESOURCE_AUTHORITY:
                 const scopearg = ((await helmSyntaxVersion()) === HelmSyntaxVersion.V2) ? '' : 'all';
-                const her = await helmInvokeCommandWithFeedback(`get ${scopearg} ${value}`, `Loading ${value}...`);
+                const revarg = revision ? ` --revision=${revision}` : '';
+                const her = await helmInvokeCommandWithFeedback(`get ${scopearg} ${value}${revarg}`, `Loading ${value}...`);
                 return { succeeded: true, result: her };
             case KUBECTL_DESCRIBE_AUTHORITY:
                 const describe = await this.kubectl.invokeCommandWithFeedback(`describe ${value} ${nsarg}`, `Loading ${value}...`);
