@@ -84,6 +84,7 @@ import { create as activeContextTrackerCreate } from './components/contextmanage
 import { WatchManager } from './components/kubectl/watch';
 import { ExecResult } from './binutilplusplus';
 import { getCurrentContext } from './kubectlUtils';
+import { LocalTunnelDebugger } from './components/localtunneldebugger/localtunneldebugger';
 import { setAssetContext } from './assets';
 
 let explainActive = false;
@@ -136,6 +137,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
     const treeProvider = explorer.create(kubectl, host);
     const helmRepoTreeProvider = helmRepoExplorer.create(host);
     const cloudExplorer = new CloudExplorer();
+    const localTunnelDebugger = new LocalTunnelDebugger();
     const resourceDocProvider = new KubernetesResourceVirtualFileSystemProvider(kubectl, host);
     const resourceLinkProvider = new KubernetesResourceLinkProvider();
     const previewProvider = new HelmTemplatePreviewDocumentProvider();
@@ -191,6 +193,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.vsKubernetesDebug', debugKubernetes),
         registerCommand('extension.vsKubernetesRemoveDebug', removeDebugKubernetes),
         registerCommand('extension.vsKubernetesDebugAttach', debugAttachKubernetes),
+        registerCommand('extension.vsKubernetesDebugLocalTunnel', (target?: any) => { localTunnelDebugger.startLocalTunnelDebugSession(target); }),
+        registerCommand('extension.vsKubernetesFindLocalTunnelDebugProviders', kubernetesFindLocalTunnelDebugProviders),
         registerCommand('extension.vsKubernetesConfigureFromCluster', configureFromClusterKubernetes),
         registerCommand('extension.vsKubernetesCreateCluster', createClusterKubernetes),
         registerCommand('extension.vsKubernetesRefreshExplorer', () => treeProvider.refresh()),
@@ -367,7 +371,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
     await registerYamlSchemaSupport(activeContextTracker, kubectl);
 
     vscode.workspace.registerTextDocumentContentProvider(configmaps.uriScheme, configMapProvider);
-    return apiBroker(clusterProviderRegistry, kubectl, portForwardStatusBarManager, treeProvider, cloudExplorer, onDidChangeKubeconfigEmitter, activeContextTracker, kubectlUtils.onDidChangeNamespaceEmitter);
+
+    return apiBroker(clusterProviderRegistry, kubectl, portForwardStatusBarManager, treeProvider, cloudExplorer, localTunnelDebugger, onDidChangeKubeconfigEmitter, activeContextTracker, kubectlUtils.onDidChangeNamespaceEmitter);
 }
 
 // this method is called when your extension is deactivated
@@ -2179,7 +2184,15 @@ async function showInfoMessage(message: string) {
 }
 
 function kubernetesFindCloudProviders() {
-    const searchUrl = 'https://marketplace.visualstudio.com/search?term=kubernetes-extension-cloud-provider&target=VSCode&category=All%20categories&sortBy=Relevance';
+    searchMarketplace("kubernetes-extension-cloud-provider");
+}
+
+function kubernetesFindLocalTunnelDebugProviders() {
+    searchMarketplace("kubernetes-extension-local-tunnel-debug-provider");
+}
+
+function searchMarketplace(searchTerm: string) {
+    const searchUrl = `https://marketplace.visualstudio.com/search?term=${searchTerm}&target=VSCode&category=All%20categories&sortBy=Relevance`;
     browser.open(searchUrl);
 }
 

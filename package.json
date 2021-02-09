@@ -49,6 +49,8 @@
         "onCommand:extension.vsKubernetesDiff",
         "onCommand:extension.vsKubernetesScale",
         "onCommand:extension.vsKubernetesDebug",
+        "onCommand:extension.vsKubernetesDebugLocalTunnel",
+        "onCommand:extension.vsKubernetesFindLocalTunnelDebugProviders",
         "onCommand:extension.vsKubernetesRemoveDebug",
         "onCommand:extension.vsKubernetesConfigureFromCluster",
         "onCommand:extension.vsKubernetesCreateCluster",
@@ -255,6 +257,10 @@
                         "vs-kubernetes.disable-namespace-info-status-bar": {
                             "type": "boolean",
                             "description": "Disable displaying your current Kubernetes namespace in VS Code's status bar."
+                        },
+                        "vs-kubernetes.local-tunnel-debug-provider": {
+                            "type": "string",
+                            "description": "Configure the Local Tunnel debug provider you want to use by default."
                         }
                     },
                     "default": {
@@ -270,6 +276,7 @@
                         "vs-kubernetes.nodejs-autodetect-remote-root": true,
                         "vs-kubernetes.nodejs-remote-root": "",
                         "vs-kubernetes.nodejs-debug-port": 9229,
+                        "vs-kubernetes.local-tunnel-debug-provider": "",
                         "checkForMinikubeUpgrade": true,
                         "logsDisplay": "webview",
                         "imageBuildTool": "Docker"
@@ -502,6 +509,11 @@
                     "command": "extension.vsKubernetesDebugAttach",
                     "group": "2@5",
                     "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.pod/i"
+                },
+                {
+                    "command": "extension.vsKubernetesDebugLocalTunnel",
+                    "group": "2@5",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.(pod|job|service|deployment)/i"
                 },
                 {
                     "command": "extension.vsKubernetesPortForward",
@@ -825,6 +837,16 @@
             {
                 "command": "extension.vsKubernetesDebugAttach",
                 "title": "Debug (Attach)",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesDebugLocalTunnel",
+                "title": "Debug (Local Tunnel)",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesFindLocalTunnelDebugProviders",
+                "title": "Find Local Tunnel Debug Providers on Marketplace",
                 "category": "Kubernetes"
             },
             {
