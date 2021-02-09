@@ -283,7 +283,8 @@ export function helmGet(resourceNode?: ClusterExplorerNode) {
         return;
     }
     const releaseName = resourceNode.releaseName;
-    const uri = helmfsUri(releaseName);
+    const revisionNumber = (resourceNode.nodeType === NODE_TYPES.helm.history ? resourceNode.revision : undefined);
+    const uri = helmfsUri(releaseName, revisionNumber);
     vscode.workspace.openTextDocument(uri).then((doc) => {
         if (doc) {
             vscode.window.showTextDocument(doc);
@@ -358,10 +359,13 @@ export async function helmRollback(resourceNode?: HelmHistoryNode) {
 });
 }
 
-export function helmfsUri(releaseName: string): vscode.Uri {
-    const docname = `helmrelease-${releaseName}.txt`;
+export function helmfsUri(releaseName: string, revision: number | undefined): vscode.Uri {
+    const revisionSuffix = revision ? `-${revision}` : '';
+    const revisionQuery = revision ? `&revision=${revision}` : '';
+
+    const docname = `helmrelease-${releaseName}${revisionSuffix}.txt`;
     const nonce = new Date().getTime();
-    const uri = `${K8S_RESOURCE_SCHEME}://${HELM_RESOURCE_AUTHORITY}/${docname}?value=${releaseName}&_=${nonce}`;
+    const uri = `${K8S_RESOURCE_SCHEME}://${HELM_RESOURCE_AUTHORITY}/${docname}?value=${releaseName}${revisionQuery}&_=${nonce}`;
     return vscode.Uri.parse(uri);
 }
 

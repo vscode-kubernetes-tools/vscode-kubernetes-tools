@@ -112,7 +112,7 @@ function getLinkFromPair(document: vscode.TextDocument, sourceKind: string, node
 function getLinkUri(sourceKind: string, node: yl.YamlMappingItem): vscode.Uri | undefined {
     // Things that apply to all source resource types
     if (key(node) === 'release' && parentKey(node) === 'labels') {
-        return helmfsUri(node.value.raw);
+        return helmfsUri(node.value.raw, undefined);
     }
     if (key(node) === 'namespace' && parentKey(node) === 'metadata') {
         return kubefsUri(null, `ns/${node.value.raw}`, 'yaml');
