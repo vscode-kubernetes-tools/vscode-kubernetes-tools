@@ -1,5 +1,20 @@
 # Change Log
 
+## [1.2.4]
+
+* We have removed Draft support from the extension, because the underlying Draft tool
+  had been archived
+* The Configuration API now allows other extensions to detect config/context changes
+* Fixed node pods having the wrong names and namespaces (which may also have affected
+  other features such as log retrieval)
+* Fixed an issue where a couple of API contract files were incorrectly modified
+* Fixed Follow Logs not working with nondefault kubeconfig
+* Fixed some Helm completion items
+* Internal changes to the implementation of the Cluster Explorer API
+* Internal changes to the build and publish process
+
+Thanks to Adrian Bolt, Matt Fisher, Luca Stocchi and Yevhen Vydolob.
+
 ## [1.2.3]
 
 * We now pack the extension to improve load times.  _This was quite an invasive change -
