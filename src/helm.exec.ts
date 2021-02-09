@@ -287,7 +287,7 @@ export function helmGet(resourceNode?: ClusterExplorerNode) {
         return;
     }
     const releaseName = resourceNode.releaseName;
-    const revisionNumber = (resourceNode.nodeType === NODE_TYPES.helm.history ? resourceNode.revision : undefined);
+    const revisionNumber = (resourceNode.nodeType === NODE_TYPES.helm.history ? resourceNode.release.revision : undefined);
     const uri = helmfsUri(releaseName, revisionNumber);
     vscode.workspace.openTextDocument(uri).then((doc) => {
         if (doc) {

@@ -20,7 +20,8 @@ export class HelmHistoryNode extends ClusterExplorerNodeImpl implements ClusterE
     readonly nodeType = NODE_TYPES.helm.history;
     getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
         const updatedTime = moment(this.release.updated).fromNow();
-        const treeItem = new vscode.TreeItem(`${this.release.revision} - ${this.release.status} (${updatedTime})`, vscode.TreeItemCollapsibleState.None);
+        const treeItem = new vscode.TreeItem(`${this.release.revision}`, vscode.TreeItemCollapsibleState.None);
+        treeItem.description = `${this.release.status} (${updatedTime})`;
         treeItem.command = {
             command: "extension.helmGet",
             title: "Get",
