@@ -1,5 +1,15 @@
 # Change Log
 
+## [1.3.0]
+
+* New API for local tunnel debugger integration
+* Helm release history now shows version of chart and app (in tooltip)
+* Clicking Helm release history node now shows that release not latest
+* Install Dependencies now fetches the correct binaries for arm and arm64 architectures
+* We now ignore tool paths at workspace level
+
+Thanks to Michelle Soedal.
+
 ## [1.2.4]
 
 * We have removed Draft support from the extension, because the underlying Draft tool
