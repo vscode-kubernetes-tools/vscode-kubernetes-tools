@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { HelmRelease } from '../../helm.exec';
 import { Host } from '../../host';
 import { Kubectl } from '../../kubectl';
 import { KubectlContext } from '../../kubectlUtils';
@@ -61,9 +62,7 @@ export interface ClusterExplorerHelmReleaseNode extends ClusterExplorerNodeBase 
 export interface ClusterExplorerHelmHistoryNode extends ClusterExplorerNodeBase {
     readonly nodeType: KubernetesExplorerNodeTypeHelmHistory;
     readonly releaseName: string;
-    readonly revision: number;
-    readonly updated:  string;
-    readonly status: string;
+    readonly release: HelmRelease;
 }
 
 export interface ClusterExplorerCustomNode extends ClusterExplorerNodeBase {
