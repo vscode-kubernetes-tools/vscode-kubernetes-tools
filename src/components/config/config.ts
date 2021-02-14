@@ -105,11 +105,11 @@ export function getToolPath(_host: Host, shell: Shell, tool: string): string | u
 
     const baseBackCompatKey = toolPathBackCompatBaseKey(tool);
     const osBackCompatKey = osOverrideKey(os, baseBackCompatKey);
-    const backCompatSettings = config.inspect<Dictionary<any>>(EXTENSION_CONFIG_KEY);
-    const wsFolderValues = backCompatSettings?.workspaceFolderValue || {};
-    const wsValues = backCompatSettings?.workspaceValue || {};
-    const userValues = backCompatSettings?.globalValue || {};
-    const defaultValues = backCompatSettings?.defaultValue || {};
+    const backCompatSettings = config.inspect<Dictionary<any>>(EXTENSION_CONFIG_KEY) || Dictionary.of<any>();
+    const wsFolderValues = backCompatSettings.workspaceFolderValue || {};
+    const wsValues = backCompatSettings.workspaceValue || {};
+    const userValues = backCompatSettings.globalValue || {};
+    const defaultValues = backCompatSettings.defaultValue || {};
 
     const localBackCompatSetting =
         wsFolderValues[osBackCompatKey] ||
