@@ -5,7 +5,7 @@
     "version": "1.2.4",
     "publisher": "ms-kubernetes-tools",
     "engines": {
-        "vscode": "^1.31.0"
+        "vscode": "^1.52.0"
     },
     "license": "MIT",
     "categories": [
