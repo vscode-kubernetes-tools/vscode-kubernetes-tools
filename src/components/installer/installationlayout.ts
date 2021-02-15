@@ -17,9 +17,21 @@ export function formatBin(tool: string, platform: Platform): string | null {
     if (!platformString) {
         return null;
     }
-    const toolPath = `${platformString}-amd64/${tool}`;
+    const platformArchString = platformArch(platformString);
+    const toolPath = `${platformString}-${platformArchString}/${tool}`;
     if (platform === Platform.Windows) {
         return toolPath + '.exe';
     }
     return toolPath;
+}
+
+export function platformArch(os: string) {
+    if (os !== 'linux') {
+        return 'amd64';
+    }
+    switch (process.arch) {
+        case 'arm': return 'arm';
+        case 'arm64': return 'arm64';
+        default: return 'amd64';
+    }
 }
