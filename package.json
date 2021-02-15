@@ -100,10 +100,11 @@
     "contributes": {
         "configuration": {
             "type": "object",
-            "title": "Kubernetes configuration",
+            "title": "Kubernetes",
             "properties": {
                 "vs-kubernetes": {
                     "type": "object",
+                    "title": "Additional settings",
                     "description": "Kubernetes configuration",
                     "properties": {
                         "vs-kubernetes.namespace": {
@@ -112,51 +113,51 @@
                         },
                         "vs-kubernetes.kubectl-path": {
                             "type": "string",
-                            "description": "File path to a kubectl binary."
+                            "description": "[deprecated - use top level property] File path to a kubectl binary."
                         },
                         "vs-kubernetes.helm-path": {
                             "type": "string",
-                            "description": "File path to a helm binary."
+                            "description": "[deprecated - use top level property] File path to a helm binary."
                         },
                         "vs-kubernetes.minikube-path": {
                             "type": "string",
-                            "description": "File path to a minikube binary."
+                            "description": "[deprecated - use top level property] File path to a minikube binary."
                         },
                         "vs-kubernetes.kubectl-path.windows": {
                             "type": "string",
-                            "description": "File path to a kubectl binary."
+                            "description": "[deprecated - use top level property] File path to a kubectl binary."
                         },
                         "vs-kubernetes.helm-path.windows": {
                             "type": "string",
-                            "description": "File path to a helm binary."
+                            "description": "[deprecated - use top level property] File path to a helm binary."
                         },
                         "vs-kubernetes.minikube-path.windows": {
                             "type": "string",
-                            "description": "File path to a minikube binary."
+                            "description": "[deprecated - use top level property] File path to a minikube binary."
                         },
                         "vs-kubernetes.kubectl-path.mac": {
                             "type": "string",
-                            "description": "File path to a kubectl binary."
+                            "description": "[deprecated - use top level property] File path to a kubectl binary."
                         },
                         "vs-kubernetes.helm-path.mac": {
                             "type": "string",
-                            "description": "File path to a helm binary."
+                            "description": "[deprecated - use top level property] File path to a helm binary."
                         },
                         "vs-kubernetes.minikube-path.mac": {
                             "type": "string",
-                            "description": "File path to a minikube binary."
+                            "description": "[deprecated - use top level property] File path to a minikube binary."
                         },
                         "vs-kubernetes.kubectl-path.linux": {
                             "type": "string",
-                            "description": "File path to a kubectl binary."
+                            "description": "[deprecated - use top level property] File path to a kubectl binary."
                         },
                         "vs-kubernetes.helm-path.linux": {
                             "type": "string",
-                            "description": "File path to a helm binary."
+                            "description": "[deprecated - use top level property] File path to a helm binary."
                         },
                         "vs-kubernetes.minikube-path.linux": {
                             "type": "string",
-                            "description": "File path to a minikube binary."
+                            "description": "[deprecated - use top level property] File path to a minikube binary."
                         },
                         "vs-kubernetes.kubectlVersioning": {
                             "type": "string",
@@ -286,6 +287,78 @@
                     "type": "string",
                     "default": null,
                     "description": "Image prefix for docker images ie 'docker.io/brendanburns'"
+                },
+                "vscode-kubernetes.kubectl-path": {
+                    "type": "string",
+                    "scope": "machine",
+                    "title": "Path to kubectl",
+                    "description": "File path to a kubectl binary. (You can override this on a per-OS basis if required)."
+                },
+                "vscode-kubernetes.helm-path": {
+                    "type": "string",
+                    "scope": "machine",
+                    "title": "Helm path",
+                    "description": "File path to a helm binary. (You can override this on a per-OS basis if required)."
+                },
+                "vscode-kubernetes.minikube-path": {
+                    "type": "string",
+                    "scope": "machine",
+                    "title": "Minikube path",
+                    "description": "File path to a minikube binary. (You can override this on a per-OS basis if required)."
+                },
+                "vscode-kubernetes.kubectl-path.windows": {
+                    "type": "string",
+                    "scope": "machine",
+                    "title": "Path to kubectl (Windows)",
+                    "description": "File path to a kubectl binary."
+                },
+                "vscode-kubernetes.helm-path.windows": {
+                    "type": "string",
+                    "scope": "machine",
+                    "title": "Helm path (Windows)",
+                    "description": "File path to a helm binary."
+                },
+                "vscode-kubernetes.minikube-path.windows": {
+                    "type": "string",
+                    "scope": "machine",
+                    "title": "Minikube path (Windows)",
+                    "description": "File path to a minikube binary."
+                },
+                "vscode-kubernetes.kubectl-path.mac": {
+                    "type": "string",
+                    "scope": "machine",
+                    "title": "Path to kubectl (Mac)",
+                    "description": "File path to a kubectl binary."
+                },
+                "vscode-kubernetes.helm-path.mac": {
+                    "type": "string",
+                    "scope": "machine",
+                    "title": "Helm path (Mac)",
+                    "description": "File path to a helm binary."
+                },
+                "vscode-kubernetes.minikube-path.mac": {
+                    "type": "string",
+                    "scope": "machine",
+                    "title": "Minikube path (Mac)",
+                    "description": "File path to a minikube binary."
+                },
+                "vscode-kubernetes.kubectl-path.linux": {
+                    "type": "string",
+                    "scope": "machine",
+                    "title": "Path to kubectl (Linux)",
+                    "description": "File path to a kubectl binary."
+                },
+                "vscode-kubernetes.helm-path.linux": {
+                    "type": "string",
+                    "scope": "machine",
+                    "title": "Helm path (Linux)",
+                    "description": "File path to a helm binary."
+                },
+                "vscode-kubernetes.minikube-path.linux": {
+                    "type": "string",
+                    "scope": "machine",
+                    "title": "Minikube path (Linux)",
+                    "description": "File path to a minikube binary."
                 }
             }
         },

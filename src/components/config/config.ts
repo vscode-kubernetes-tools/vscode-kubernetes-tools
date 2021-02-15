@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { Host } from '../../host';
 import { Shell, Platform } from '../../shell';
+import { Dictionary } from '../../utils/dictionary';
 
 const EXTENSION_CONFIG_KEY = "vs-kubernetes";
 const KUBECONFIG_PATH_KEY = "vs-kubernetes.kubeconfig";
@@ -97,25 +98,54 @@ export function getActiveKubeconfig(): string {
 
 // Functions for working with tool paths
 
-export function getToolPath(host: Host, shell: Shell, tool: string): string | undefined {
-    const baseKey = toolPathBaseKey(tool);
-    return getPathSetting(host, shell, baseKey);
-}
-
-function getPathSetting(host: Host, shell: Shell, baseKey: string): string | undefined {
+export function getToolPath(_host: Host, shell: Shell, tool: string): string | undefined {
     const os = shell.platform();
-    const osOverridePath = host.getConfiguration(EXTENSION_CONFIG_KEY)[osOverrideKey(os, baseKey)];
-    return osOverridePath || host.getConfiguration(EXTENSION_CONFIG_KEY)[baseKey];
+
+    const config = vscode.workspace.getConfiguration();
+
+    const baseBackCompatKey = toolPathBackCompatBaseKey(tool);
+    const osBackCompatKey = osOverrideKey(os, baseBackCompatKey);
+    const backCompatSettings = config.inspect<Dictionary<any>>(EXTENSION_CONFIG_KEY) || Dictionary.of<any>();
+    const wsFolderValues = backCompatSettings.workspaceFolderValue || {};
+    const wsValues = backCompatSettings.workspaceValue || {};
+    const userValues = backCompatSettings.globalValue || {};
+    const defaultValues = backCompatSettings.defaultValue || {};
+
+    const localBackCompatSetting =
+        wsFolderValues[osBackCompatKey] ||
+        wsFolderValues[baseBackCompatKey] ||
+        wsValues[osBackCompatKey] ||
+        wsValues[baseBackCompatKey];
+
+    if (localBackCompatSetting) {
+        console.warn(`Ignoring workspace-level setting ${baseBackCompatKey}; paths are not allowed at workspace level`);
+    }
+
+    const globalBackCompatSetting =
+        userValues[osBackCompatKey] ||
+        userValues[baseBackCompatKey] ||
+        defaultValues[osBackCompatKey] ||
+        defaultValues[baseBackCompatKey];
+
+    const baseKey = toolPathNewBaseKey(tool);
+    const osKey = osOverrideKey(os, baseKey);
+    const topLevelToolPath = config.get<string>(osKey) || config.get<string>(baseKey);
+
+    return topLevelToolPath || globalBackCompatSetting;
 }
 
 export function toolPathOSKey(os: Platform, tool: string): string {
-    const baseKey = toolPathBaseKey(tool);
+    const baseKey = toolPathNewBaseKey(tool);
     const osSpecificKey = osOverrideKey(os, baseKey);
     return osSpecificKey;
 }
 
-function toolPathBaseKey(tool: string): string {
+function toolPathBackCompatBaseKey(tool: string): string {
     return `vs-kubernetes.${tool}-path`;
+}
+
+function toolPathNewBaseKey(tool: string): string {
+    return `vscode-kubernetes.${tool}-path`;
 }
 
 function osOverrideKey(os: Platform, baseKey: string): string {
