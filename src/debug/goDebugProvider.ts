@@ -69,7 +69,7 @@ export class GoDebugProvider implements IDebugProvider {
 
         // Resolve the app port.
         const exposedPorts = dockerfile.getExposedPorts();
-        const possiblePorts = exposedPorts.length ? exposedPorts.filter((port) => port !== defaultGoDebugPort) : [];
+        const possiblePorts = exposedPorts.length ? exposedPorts.filter((port) => port !== rawDebugPortInfo) : [];
         const rawAppPortInfo = await debugUtils.promptForAppPort(possiblePorts, defaultGoAppPort, env);
 
         return {
