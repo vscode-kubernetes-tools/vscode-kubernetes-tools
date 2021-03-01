@@ -256,7 +256,7 @@ Here are the various linters, you can enable or disable them individually using 
 
 ## Known issues
 
-  * `Kubernetes: Debug` command currently works only with Node.js, Java, Python and .NET applications
+  * `Kubernetes: Debug` command currently works only with Go, Node.js, Java, Python and .NET applications
   * For deeply nested Helm charts, template previews are generated against highest (umbrella) chart values (though for `Helm: Template` calls you can pick your chart)
   * When installing VS Code and/or kubectl through `snap` on a Linux system, you may face some permissions error which will prevent this extension to work correctly. As a workaround you can set up the `vs-kubernetes.enable-snap-flag` setting to `true` in your user or workspace settings. 
 

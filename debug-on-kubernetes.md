@@ -4,13 +4,14 @@ One of the key features of VS Code Kubernetes Extension is its one-click debuggi
 
 ## 1. Supported languages
    * `dotnet` (Required: [C# for Visual Studio Code (powered by OmniSharp).](https://marketplace.visualstudio.com/items?itemName=ms-dotnettools.csharp)
+   * `go` (Required: [Go](https://marketplace.visualstudio.com/items?itemName=golang.Go))
    * `java` (Required: [Debugger for Java](https://marketplace.visualstudio.com/items?itemName=vscjava.vscode-java-debug) extension)
    * `python` (Required: [Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python) extension)
    * `node`
 
 ## 2. Commands for debugging
    * `Kubernetes: Debug (Launch)` - Run the current application as a Kubernetes Deployment and attach a debugging session to it (currently works only for Java/Node.js deployments)
-   * `Kubernetes: Debug (Attach)` - Attach a debugging session to an existing Kubernetes Deployment (currently works only for dotnet deployments, Java deployments and Python deployments running `ptvsd`)
+   * `Kubernetes: Debug (Attach)` - Attach a debugging session to an existing Kubernetes Deployment (currently works only for dotnet deployments, Go deployments, Java deployments, and Python deployments running `ptvsd`)
 
 ## 3. Extension Settings for debugging
    * `vs-kubernetes` - Parent for Kubernetes-related extension settings
@@ -146,3 +147,16 @@ When the prompts finish, the extension will start to build a Docker image from y
 Here is a GIF showing the full workflow:
 
 ![launch nodejs debug on minikube](https://raw.githubusercontent.com/Azure/vscode-kubernetes-tools/master/images/screenshots/debug-launch-nodejs.gif)
+
+## 8. Go debugging
+### 8.1 Launch a Go application on Kubernetes and debug it
+   * Launch VS Code.
+   * Open a Go application.
+   * Install the [Go extension](https://marketplace.visualstudio.com/items?itemName=golang.Go) (if not already installed).
+   * Run the VS Code command `"Kubernetes: Debug (Attach)"`.
+
+You have to select the debug environment first. Then select the target pod that your application runs on. And if your pod contains multiple containers, you'll have to select the target container too. 
+
+After that, the extension will try to resolve the debug port from the container's process list. If this fails, you'll have to specify it manually.
+
+When the prompts finish, the extension will create port-forwarding for the debug port and attach a debug session to it.
