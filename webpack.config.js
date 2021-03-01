@@ -45,6 +45,9 @@ const config = {
           use: ['file-loader']
       }
     ]
+  },
+  node: {
+    __dirname: false
   }
 };
 module.exports = config;
