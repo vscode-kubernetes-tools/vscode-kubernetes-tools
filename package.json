@@ -262,6 +262,10 @@
                         "vs-kubernetes.local-tunnel-debug-provider": {
                             "type": "string",
                             "description": "Configure the Local Tunnel debug provider you want to use by default."
+                        },
+                        "vs-kubernetes.enable-minimal-describe-workflow": {
+                            "type": "boolean",
+                            "description": "Enables the minimal describe workflow. It reduces the queries to the cluster but the guided prompt has limited options."
                         }
                     },
                     "default": {

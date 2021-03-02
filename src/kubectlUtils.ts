@@ -6,6 +6,7 @@ import { ObjectMeta, KubernetesCollection, DataResource, Namespace, Pod, Kuberne
 import { failed, Errorable } from "./errorable";
 import { ExecResult } from "./binutilplusplus";
 import { shellMessage } from "./shell";
+import { ResourceKind } from "./kuberesources";
 
 export interface KubectlContext {
     readonly clusterName: string;
@@ -460,6 +461,19 @@ export async function namespaceResources(kubectl: Kubectl, ns: string): Promise<
     return ExecResult.tryMap<string[]>(getresult, (text) =>
         text.split('\n').map((s) => s.trim()).filter((s) => s.length > 0)
     );
+}
+
+export async function allResourceKinds(kubectl: Kubectl, verbs: string[]): Promise<Errorable<ResourceKind[]>> {
+    const arresult = await kubectl.readTable('api-resources -o wide');
+    if (ExecResult.failed(arresult)) {
+        return { succeeded: false, error: [ExecResult.failureMessage(arresult, {})] };
+    }
+
+    const resourceKinds: ResourceKind[] = arresult.result.filter((r) => verbs.every((verb) => r.verbs.includes(verb)))
+                                         .map((r) =>
+                                            new ResourceKind(r.name, r.name, r.kind, r.name));
+
+    return { succeeded: true, result: resourceKinds };
 }
 
 export async function getResourceVersion(kubectl: Kubectl, resource: string): Promise<string | undefined> {
