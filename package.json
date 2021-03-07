@@ -76,6 +76,7 @@
         "onCommand:extension.helmDepUp",
         "onCommand:extension.helmInspectChart",
         "onCommand:extension.helmInspectValues",
+        "onCommand:extension.helmGetValues",
         "onCommand:extension.helmGet",
         "onCommand:extension.helmPackage",
         "onCommand:extension.helmFetch",
@@ -673,6 +674,11 @@
                     "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem =~ /vsKubernetes\\.((chart)|(chartversion))/i"
                 },
                 {
+                    "command": "extension.helmGetValues",
+                    "group": "0@3",
+                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem =~ /vsKubernetes\\.((chart)|(chartversion))/i"
+                },
+                {
                     "command": "extension.helmRollback",
                     "group": "3@1",
                     "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.helmhistory/i"
@@ -1085,6 +1091,12 @@
                 "command": "extension.helmInspectValues",
                 "title": "Inspect Values",
                 "description": "Inspect a Helm Chart",
+                "category": "Helm"
+            },
+            {
+                "command": "extension.helmGetValues",
+                "title": "Generate values.yaml",
+                "description": "Generate values.yaml from the chart",
                 "category": "Helm"
             },
             {

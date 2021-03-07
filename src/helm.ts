@@ -6,6 +6,7 @@ export const INSPECT_REPO_AUTHORITY = 'repo-chart';
 export const INSPECT_FILE_AUTHORITY = 'chart-file';
 export const DEPENDENCIES_SCHEME = 'helm-dependencies';
 export const DEPENDENCIES_REPO_AUTHORITY = 'repo-chart';
+export const GET_VALUES_SCHEME = "helm-get-values";
 export const HELM_OUTPUT_COLUMN_SEPARATOR = /\t+/g;
 
 let previewShown = false;

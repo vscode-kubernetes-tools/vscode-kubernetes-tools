@@ -14,3 +14,9 @@ async function getHTML(uri: vscode.Uri): Promise<string> {
     const doc = await vscode.workspace.openTextDocument(uri);
     return doc.getText();
 }
+
+export async function getFile(uri: vscode.Uri): Promise<void> {
+    return vscode.workspace.openTextDocument(uri).then((document) => {
+        vscode.window.showTextDocument(document);
+    });
+}
