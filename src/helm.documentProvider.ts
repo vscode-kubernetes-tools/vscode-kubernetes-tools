@@ -1,15 +1,15 @@
-import * as vscode from "vscode";
-import * as filepath from "path";
-import * as exec from "./helm.exec";
-import * as YAML from "yamljs";
-import * as fs from "./wsl-fs";
-import { escape as htmlEscape } from "lodash";
-import * as querystring from "querystring";
+import * as vscode from 'vscode';
+import * as filepath from 'path';
+import * as exec from './helm.exec';
+import * as YAML from 'yamljs';
+import * as fs from './wsl-fs';
+import { escape as htmlEscape } from 'lodash';
+import * as querystring from 'querystring';
 
-import * as helm from "./helm";
-import * as logger from "./logger";
-import { failed } from "./errorable";
-import * as shell from "./shell";
+import * as helm from './helm';
+import * as logger from './logger';
+import { failed } from './errorable';
+import * as shell from './shell';
 
 interface HelmDocumentResult {
     readonly title: string;
