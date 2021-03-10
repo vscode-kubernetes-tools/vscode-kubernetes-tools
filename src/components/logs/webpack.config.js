@@ -7,8 +7,7 @@ module.exports = {
   entry: {
     index: "./src/components/logs/app/main.js",
     webviewElements: [
-      "./node_modules/@bendera/vscode-webview-elements/dist/bundled.js",
-      "./node_modules/vscode-codicons/dist/codicon.css"
+      "./node_modules/@bendera/vscode-webview-elements/dist/bundled.js"
     ]
   },
   output: {
@@ -16,7 +15,7 @@ module.exports = {
   },
   devtool: "eval-source-map",
   resolve: {
-    extensions: [".js", ".ts", ".json", ".css"]
+    extensions: [".js", ".ts", ".json"]
   },
   module: {
     rules: [
@@ -24,29 +23,7 @@ module.exports = {
             test: /\.(ts|tsx)$/,
             loader: "ts-loader",
             options: {}
-        },
-        {
-            test: /\.css$/,
-            use: [
-            {
-                loader: "style-loader"
-            },
-            {
-                loader: "css-loader"
-            }
-            ]
-        },
-        {
-          test: /\.ttf$/,
-          use: [
-            {
-              loader: 'ttf-loader',
-              options: {
-                name: './font/[hash].[ext]',
-              },
-            },
-          ]
-      }
+        }
     ]
   },
   performance: {

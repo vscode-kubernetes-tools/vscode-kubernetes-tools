@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import { RpcExtension } from '@sap-devx/webview-rpc/out.ext/rpc-extension';
 import { Container } from '../../kuberesources.objectmodel';
 
 export abstract class WebPanel {
@@ -9,7 +8,6 @@ export abstract class WebPanel {
     protected namespace: string | undefined;
     protected kindName: string;
     protected webView: vscode.Webview;
-    protected rpc: RpcExtension;
 
     protected static createOrShowInternal<T extends WebPanel>(content: string, namespace: string | undefined, kindName: string, viewType: string, title: string, containers: Container[], currentPanels: Map<string, T>, localResourceRoots: vscode.Uri[], fn: (p: vscode.WebviewPanel, content: string, namespace: string | undefined, kindName: string, containers: Container[]) => T): T {
         const column = vscode.window.activeTextEditor ? vscode.window.activeTextEditor.viewColumn : undefined;
@@ -44,7 +42,6 @@ export abstract class WebPanel {
         this.namespace = namespace;
         this.kindName = kindName;
         this.webView = panel.webview;
-        this.rpc = new RpcExtension(this.webView);
 
         this.update();
         this.panel.onDidDispose(() => this.dispose(currentPanels), null, this.disposables);

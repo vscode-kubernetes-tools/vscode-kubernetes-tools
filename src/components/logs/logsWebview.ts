@@ -72,8 +72,6 @@ export class LogsPanel extends WebPanel {
     }
 
     public addContent(content: string) {
-        this.content += content;
-
         this.panel.webview.postMessage({
             command: 'content',
             text: content,
@@ -104,17 +102,15 @@ export class LogsPanel extends WebPanel {
 
     private getHtmlForWebview(): string {
         // Local path to main script run in the webview
-        const reactAppRootOnDisk = path.join(LogsPanel.extensionPath, 'dist', 'logView');
-        const reactAppPathOnDisk = vscode.Uri.file(
-            path.join(reactAppRootOnDisk, 'index.js'),
+        const logViewAppRootOnDisk = path.join(LogsPanel.extensionPath, 'dist', 'logView');
+        const logViewAppPathOnDisk = vscode.Uri.file(
+            path.join(logViewAppRootOnDisk, 'index.js'),
         ).with({ scheme: 'vscode-resource' });
 
         const jsPath = vscode.Uri.file(
-            path.join(reactAppRootOnDisk, 'webviewElements.js')
+            path.join(logViewAppRootOnDisk, 'webviewElements.js')
         ).with({ scheme: 'vscode-resource' });
-        // const scriptUri = this.webView.asWebviewUri(jsPath);
-        const htmlString: string = fs.readFileSync(path.join(reactAppRootOnDisk, 'index.html'), 'utf8');
-        // const { cspSource } = this.webView;
+        const htmlString: string = fs.readFileSync(path.join(logViewAppRootOnDisk, 'index.html'), 'utf8');
         const meta = `<meta http-equiv="Content-Security-Policy"
         content="connect-src *;
             default-src 'none';
@@ -122,7 +118,7 @@ export class LogsPanel extends WebPanel {
             script-src 'unsafe-eval' 'unsafe-inline' vscode-resource:;
             style-src vscode-resource: 'unsafe-inline';">`;
         return `${htmlString}`
-            .replace('index.js', `${reactAppPathOnDisk}`)
+            .replace('index.js', `${logViewAppPathOnDisk}`)
             .replace('webviewElements.js', `${jsPath}`)
             .replace('<!-- meta http-equiv="Content-Security-Policy" -->', meta);
     }
