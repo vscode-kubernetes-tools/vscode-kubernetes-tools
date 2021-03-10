@@ -288,6 +288,7 @@ function changeVisibilityAfterRun() {
     if (isFollow()) {
         switchClass('stopBtn', 'display-none', 'display-inline-block');
     }
+    switchClass('clearBtn', 'display-none', 'display-inline-block');
 }
 
 function changeVisibilityAfterClear() {
