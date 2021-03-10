@@ -286,31 +286,34 @@ function changeVisibilityAfterRun() {
     }
     document.getElementById('runBtn').classList.add('display-none');
     if (isFollow()) {
-        const stopBtn = document.getElementById('stopBtn');
-        switchClass(stopBtn, 'display-none', 'display-inline-block');
+        switchClass('stopBtn', 'display-none', 'display-inline-block');
     }
-    const clearBtn = document.getElementById('clearBtn');
-    switchClass(clearBtn, 'display-none', 'display-inline-block');
 }
 
 function changeVisibilityAfterClear() {
-    const clearBtn = document.getElementById('clearBtn');
-    switchClass(clearBtn, 'display-inline-block', 'display-none');
+    switchClass('clearBtn', 'display-inline-block', 'display-none');
 
     if (!isFollow()) {
-        const runBtn = document.getElementById('runBtn');
-        switchClass(runBtn, 'display-none', 'display-inline-block');
+        switchClass('runBtn', 'display-none', 'display-inline-block');
     }
 }
 
 function changeVisibilityAfterStop() {
-    const stopBtn = document.getElementById('stopBtn');
-    switchClass(stopBtn, 'display-inline-block', 'display-none');
+    switchClass('stopBtn', 'display-inline-block', 'display-none');
+
+    if (isFollow()) {
+        switchClass('runBtn', 'display-none', 'display-inline-block');
+    }
 }
 
-function switchClass(element, classToRemove, classToAdd) {
-    element.classList.remove(classToRemove);
-    element.classList.add(classToAdd);
+function switchClass(id, classToRemove, classToAdd) {
+    const element = document.getElementById(id);
+    if (element.classList.contains(classToRemove)) {
+        element.classList.remove(classToRemove);
+    }
+    if (!element.classList.contains(classToAdd)) {
+        element.classList.add(classToAdd);
+    }
 }
 
 function startLog() {
@@ -360,10 +363,13 @@ function updateContent(newContent, clear) {
     }
 
     newContent.forEach((line) => {
-        fullPageContent.push(line);
+        if (line.length > 0) {
+            fullPageContent.push(line);
+        }
     });
     const beautifiedLines = beautifyLines(filterNewLogs(newContent));
     setContentDiv(beautifiedLines);
+    switchClass('clearBtn', 'display-none', 'display-inline-block');
 }
 
 function setContentDiv(content) {
