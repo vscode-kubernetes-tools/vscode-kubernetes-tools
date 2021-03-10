@@ -99,8 +99,7 @@ If you want to skip TLS verification for a particular cluster, you can edit your
 
    * `Kubernetes: Load` - Load a resource from the Kubernetes API and create a new editor window.
    * `Kubernetes: Get` - Get the status for a specific resource.
-   * `Kubernetes: Follow Logs` - Follow logs for a pod in an output window.
-   * `Kubernetes: Show Logs` - Show logs for a pod in an output window.
+   * `Kubernetes: Logs` - Open a view with a set of options to display/follow logs.
    * `Kubernetes: Follow Events` - Follow events on a selected namespace.
    * `Kubernetes: Show Events` - Show events on a selected namespace.
    * `Kubernetes: Watch` - Watch a specific resource or all resources of that object type, and update the cluster explorer as they change

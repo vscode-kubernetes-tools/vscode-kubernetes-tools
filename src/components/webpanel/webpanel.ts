@@ -1,19 +1,16 @@
 import * as vscode from 'vscode';
-import { Container } from '../../kuberesources.objectmodel';
 
 export abstract class WebPanel {
     private disposables: vscode.Disposable[] = [];
     protected content: string;
     protected resource: string;
-    protected namespace: string | undefined;
-    protected kindName: string;
     protected webView: vscode.Webview;
 
-    protected static createOrShowInternal<T extends WebPanel>(content: string, namespace: string | undefined, kindName: string, viewType: string, title: string, containers: Container[], currentPanels: Map<string, T>, localResourceRoots: vscode.Uri[], fn: (p: vscode.WebviewPanel, content: string, namespace: string | undefined, kindName: string, containers: Container[]) => T): T {
+    protected static createOrShowInternal<T extends WebPanel>(content: string, resource: string, viewType: string, title: string, currentPanels: Map<string, T>, localResourceRoots: vscode.Uri[], fn: (p: vscode.WebviewPanel, content: string, resource: string) => T): T {
         const column = vscode.window.activeTextEditor ? vscode.window.activeTextEditor.viewColumn : undefined;
 
         // If we already have a panel, show it.
-        const currentPanel = currentPanels.get(`${namespace}/${kindName}`);
+        const currentPanel = currentPanels.get(resource);
         if (currentPanel) {
             currentPanel.setContent(content);
             currentPanel.panel.reveal(column);
@@ -25,22 +22,19 @@ export abstract class WebPanel {
             // And restrict the webview to only loading content from our extension's `media` directory.
             localResourceRoots
         });
-        const result = fn(panel, content, namespace, kindName, containers);
-        currentPanels.set(`${namespace}/${kindName}`, result);
+        const result = fn(panel, content, resource);
+        currentPanels.set(resource, result);
         return result;
     }
 
     protected constructor(
         protected readonly panel: vscode.WebviewPanel,
         content: string,
-        namespace: string | undefined,
-        kindName: string,
+        resource: string,
         currentPanels: Map<string, WebPanel>
     ) {
         this.content = content;
-        this.resource = `${namespace}/${kindName}`;
-        this.namespace = namespace;
-        this.kindName = kindName;
+        this.resource = resource;
         this.webView = panel.webview;
 
         this.update();

@@ -12,18 +12,19 @@ export class LogsPanel extends WebPanel {
     public static currentPanels = new Map<string, LogsPanel>();
     private static extensionPath: string;
     private static kubectl: Kubectl;
+    private namespace: string | undefined;
+    private kindName: string;
 
     public appendContentProcess: RunningProcess | undefined;
 
     public static createOrShow(content: string, namespace: string | undefined, kindName: string, containers: Container[], kubectl: Kubectl): LogsPanel {
-        const fn = (panel: vscode.WebviewPanel, content: string, namespace: string | undefined, kindName: string, containers: Container[]): LogsPanel => {
+        const fn = (panel: vscode.WebviewPanel, content: string, _resource: string): LogsPanel => {
             return new LogsPanel(panel, content, namespace, kindName, containers);
         };
         LogsPanel.kubectl = kubectl;
         LogsPanel.extensionPath = vscode.extensions.getExtension('ms-kubernetes-tools.vscode-kubernetes-tools')!.extensionPath;
         const localResourceRoot = vscode.Uri.file(path.join(LogsPanel.extensionPath, 'dist', 'logView'));
-        const localResourceRootN = vscode.Uri.file(path.join(LogsPanel.extensionPath, 'node_modules'));
-        return WebPanel.createOrShowInternal<LogsPanel>(content, namespace, kindName, LogsPanel.viewType, "Kubernetes Logs", containers, LogsPanel.currentPanels, [localResourceRoot, localResourceRootN], fn);
+        return WebPanel.createOrShowInternal<LogsPanel>(content, `${namespace}/${kindName}`, LogsPanel.viewType, "Kubernetes Logs", LogsPanel.currentPanels, [localResourceRoot], fn);
     }
 
     private constructor(
@@ -33,7 +34,9 @@ export class LogsPanel extends WebPanel {
         kindName: string,
         containers: Container[]
     ) {
-        super(panel, content, namespace, kindName, LogsPanel.currentPanels);
+        super(panel, content, `${namespace}/${kindName}`, LogsPanel.currentPanels);
+        this.namespace = namespace;
+        this.kindName = kindName;
         this.addActions(panel);
         this.setContainers(containers);
     }
