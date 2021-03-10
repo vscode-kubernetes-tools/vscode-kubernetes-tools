@@ -1,30 +1,79 @@
 import * as vscode from 'vscode';
 import { WebPanel } from '../webpanel/webpanel';
 import { RunningProcess } from '../../binutilplusplus';
+import * as path from 'path';
+import { fs } from '../../fs';
+import { Container } from '../../kuberesources.objectmodel';
+import { Kubectl } from '../../kubectl';
+import { getLogsForContainer, LogsDisplayMode } from '../kubectl/logs';
 
 export class LogsPanel extends WebPanel {
     public static readonly viewType = 'vscodeKubernetesLogs';
     public static currentPanels = new Map<string, LogsPanel>();
+    private static extensionPath: string;
+    private static kubectl: Kubectl;
 
     public appendContentProcess: RunningProcess | undefined;
 
-    public static createOrShow(content: string, resource: string): LogsPanel {
-        const fn = (panel: vscode.WebviewPanel, content: string, resource: string): LogsPanel => {
-            return new LogsPanel(panel, content, resource);
+    public static createOrShow(content: string, namespace: string | undefined, kindName: string, containers: Container[], kubectl: Kubectl): LogsPanel {
+        const fn = (panel: vscode.WebviewPanel, content: string, namespace: string | undefined, kindName: string, containers: Container[]): LogsPanel => {
+            return new LogsPanel(panel, content, namespace, kindName, containers);
         };
-        return WebPanel.createOrShowInternal<LogsPanel>(content, resource, LogsPanel.viewType, "Kubernetes Logs", LogsPanel.currentPanels, fn);
+        LogsPanel.kubectl = kubectl;
+        LogsPanel.extensionPath = vscode.extensions.getExtension('ms-kubernetes-tools.vscode-kubernetes-tools')!.extensionPath;
+        const localResourceRoot = vscode.Uri.file(path.join(LogsPanel.extensionPath, 'dist', 'logView'));
+        const localResourceRootN = vscode.Uri.file(path.join(LogsPanel.extensionPath, 'node_modules'));
+        return WebPanel.createOrShowInternal<LogsPanel>(content, namespace, kindName, LogsPanel.viewType, "Kubernetes Logs", containers, LogsPanel.currentPanels, [localResourceRoot, localResourceRootN], fn);
     }
 
     private constructor(
         panel: vscode.WebviewPanel,
         content: string,
-        resource: string
+        namespace: string | undefined,
+        kindName: string,
+        containers: Container[]
     ) {
-        super(panel, content, resource, LogsPanel.currentPanels);
+        super(panel, content, namespace, kindName, LogsPanel.currentPanels);
+        this.addActions(panel);
+        this.setContainers(containers);
+    }
+
+    public addActions(panel: vscode.WebviewPanel) {
+        panel.webview.onDidReceiveMessage(async (event)  => {
+            if (event.command === 'start') {
+                const options = JSON.parse(event.options);
+                getLogsForContainer(
+                    this,
+                    LogsPanel.kubectl,
+                    this.namespace,
+                    this.kindName,
+                    options.container,
+                    options.follow ? LogsDisplayMode.Follow : LogsDisplayMode.Show,
+                    options.timestamp,
+                    options.since,
+                    options.tail,
+                    options.terminal);
+            } else if (event.command === 'stop') {
+                this.deleteAppendContentProcess();
+            }
+        });
+    }
+
+    private setContainers(containers: Container[]) {
+        this.panel.webview.postMessage({
+            command: 'init',
+            containers: containers.map((container) => container.name),
+            colors: this.getColors()
+        });
+    }
+
+    private getColors() {
+        return fs.readFileSync(path.join(LogsPanel.extensionPath, 'schema', 'colors.json'), 'utf8');
     }
 
     public addContent(content: string) {
         this.content += content;
+
         this.panel.webview.postMessage({
             command: 'content',
             text: content,
@@ -45,217 +94,37 @@ export class LogsPanel extends WebPanel {
 
     protected update() {
         this.panel.title = `Logs - ${this.resource}`;
-        this.panel.webview.html = `
-        <!doctype html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <title>Kubernetes logs ${this.resource}</title>
-        </head>
-        <body>
-            <div style='position: fixed; top: 15px; left: 2%; width: 100%'>
-                <span style='position: absolute; left: 0%'>Show log entries</span>
-                <select id='mode' style='margin-bottom: 5px; position: absolute; left: 110px' onchange='eval()'>
-                    <option value='all'>all</option>
-                    <option value='include'>that match</option>
-                    <option value='exclude'>that don't match</option>
-                    <option value='after'>after match</option>
-                    <option value='before'>before match</option>
-                </select>
-                <span style='position: absolute; left: 240px'>Match expression</span>
-                <input style='left:350px; position: absolute' type='text' id='regexp' onkeyup='eval()' placeholder='Filter' size='25'/>
-                <input style='left:575px; position: absolute' type='button' id='goToBottom' size='25' value='Scroll To Bottom'/>
-            </div>
-            <div style='position: absolute; top: 55px; bottom: 10px; width: 97%'>
-              <div id="logPanel" style="overflow-y: scroll; height: 100%">
-                  <code>
-                    <pre id='content'>
-                    </pre>
-                    <a id='bottom' />
-                  </code>
-                </div>
-            </div>
-            <script>
-              let renderNonce = 0;
-              let orig = \`${this.content}\`.split('\\n');
-
-              const filterAll = () => {
-                return filter(orig, false);
-              }
-
-              const filterNewLogs = (logsText) => {
-                return filter(logsText, true);
-              }
-
-              const filter = (text, isNewLog) => {
-                const regexp = document.getElementById('regexp').value;
-                const mode = document.getElementById('mode').value;
-                let content;
-                if (regexp.length > 0 && mode !== 'all') {
-                    const regex = new RegExp(regexp);
-                    switch (mode) {
-                        case 'include':
-                            content = text.filter((line) => regex.test(line));
-                            break;
-                        case 'exclude':
-                            content = text.filter((line) => !regex.test(line));
-                            break;
-                        case 'before':
-                            content = [];
-                            if (!isNewLog) {
-                                for (const line of text) {
-                                    if (regex.test(line)) {
-                                        break;
-                                    }
-                                    content.push(line);
-                                }
-                            }
-                            break;
-                        case 'after':
-                            if (isNewLog) {
-                                content = text;
-                            } else {
-                                const i = text.findIndex((line) => {
-                                    return regex.test(line)
-                                });
-                                content = text.slice(i+1);
-                            }
-                            break;
-                        default:
-                            content = []
-                            break;
-                    }
-                } else {
-                    content = text;
-                }
-
-                return content;
-              };
-
-              const beautifyContentLineRange = (contentLines, ix, end) => {
-                if (ix && end) {
-                    contentLines = contentLines.slice(ix, end);
-                }
-                return beautifyLines(contentLines);
-              }
-
-              const beautifyLines = (contentLines) => {
-                let content = contentLines.join('\\n');
-                if (content) {
-                    content = content.match(/\\n$/) ? content : content + '\\n';
-                }
-                return content;
-              };
-
-              var lastMode = '';
-              var lastRegexp = '';
-              var isToBottom = true;
-
-              function debounce(func, wait, immediate) {
-                var timeout;
-                return function() {
-                  var context = this, args = arguments;
-                  var later = function() {
-                    timeout = null;
-                    if (!immediate) func.apply(context, args);
-                  };
-                  var callNow = immediate && !timeout;
-                  clearTimeout(timeout);
-                  timeout = setTimeout(later, wait);
-                  if (callNow) func.apply(context, args);
-                };
-              };
-
-              const elem = document.getElementById('logPanel');
-              let lastScrollTop = 0;
-              let toBottom = debounce(function() {
-                const st = elem.scrollTop;
-                if (st > lastScrollTop){
-                  // scroll down
-                  isToBottom = (elem.scrollTop + window.innerHeight) >= elem.scrollHeight;
-                } else {
-                  // scroll up
-                  isToBottom = false;
-                }
-                lastScrollTop = st <= 0 ? 0 : st;
-              }, 250);
-
-              elem.addEventListener("scroll", toBottom);
-
-              const button = document.getElementById('goToBottom');
-
-              function scrollToBottom () {
-                document.getElementById('bottom').scrollIntoView();
-              }
-
-              button.addEventListener('click', function(){
-                scrollToBottom();
-              });
-
-              window.addEventListener('message', event => {
-                const message = event.data;
-                switch (message.command) {
-                    case 'content':
-                    const elt = document.getElementById('content');
-                    const text = message.text.split('\\n');
-                    text.forEach((line) => {
-                        if (line.trim() != "" && line.length > 0) {
-                            orig.push(line);
-                        }
-                    });
-                    const content = beautifyLines(filterNewLogs(text));
-                    elt.appendChild(document.createTextNode(content));
-
-                    // handle auto-scroll on/off
-                    if (isToBottom) scrollToBottom();
-                }
-              });
-
-              const eval = () => {
-                setTimeout(evalInternal, 0);
-              };
-
-              const evalInternal = () => {
-                // We use this to abort renders in progress if a new render starts
-                renderNonce = Math.random();
-                const currentNonce = renderNonce;
-
-                const content = filterAll();
-
-                const elt = document.getElementById('content');
-                elt.textContent = '';
-
-                // This is probably seems more complicated than necessary.
-                // However, rendering large blocks of text are _slow_ and kill the UI thread.
-                // So we split it up into manageable chunks to keep the UX lively.
-                // Of course the trouble is then we could interleave multiple different filters.
-                // So we use the random nonce to detect and pre-empt previous renders.
-                let ix = 0;
-                const step = 1000;
-                const fn = () => {
-                    if (renderNonce != currentNonce) {
-                        return;
-                    }
-                    if (ix >= content.length) {
-                        return;
-                    }
-                    const end = Math.min(content.length, ix + step);
-                    elt.appendChild(document.createTextNode(beautifyContentLineRange(content, ix, end)));
-                    ix += step;
-                    setTimeout(fn, 0);
-                }
-                fn();
-              };
-              eval();
-
-            </script>
-            </body>
-        </html>`;
+        this.panel.webview.html = this.getHtmlForWebview();
     }
 
     protected dispose() {
         this.deleteAppendContentProcess();
         super.dispose(LogsPanel.currentPanels);
+    }
+
+    private getHtmlForWebview(): string {
+        // Local path to main script run in the webview
+        const reactAppRootOnDisk = path.join(LogsPanel.extensionPath, 'dist', 'logView');
+        const reactAppPathOnDisk = vscode.Uri.file(
+            path.join(reactAppRootOnDisk, 'index.js'),
+        ).with({ scheme: 'vscode-resource' });
+
+        const jsPath = vscode.Uri.file(
+            path.join(reactAppRootOnDisk, 'webviewElements.js')
+        ).with({ scheme: 'vscode-resource' });
+        // const scriptUri = this.webView.asWebviewUri(jsPath);
+        const htmlString: string = fs.readFileSync(path.join(reactAppRootOnDisk, 'index.html'), 'utf8');
+        // const { cspSource } = this.webView;
+        const meta = `<meta http-equiv="Content-Security-Policy"
+        content="connect-src *;
+            default-src 'none';
+            img-src https:;
+            script-src 'unsafe-eval' 'unsafe-inline' vscode-resource:;
+            style-src vscode-resource: 'unsafe-inline';">`;
+        return `${htmlString}`
+            .replace('index.js', `${reactAppPathOnDisk}`)
+            .replace('webviewElements.js', `${jsPath}`)
+            .replace('<!-- meta http-equiv="Content-Security-Policy" -->', meta);
     }
 
 }

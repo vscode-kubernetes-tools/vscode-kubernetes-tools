@@ -220,11 +220,6 @@ export function getDisabledLinters(): string[] {
     return config['disable-linters'] as string[] || [];
 }
 
-export function logsDisplay(): LogsDisplay {
-    const config = vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY);
-    return (config['logsDisplay'] === 'terminal') ? LogsDisplay.Terminal : LogsDisplay.Webview;
-}
-
 // nodejs debugger attach  options
 
 // if true will try to automatically get the root location of the source code in the container

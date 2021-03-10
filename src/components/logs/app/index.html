@@ -1,0 +1,164 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Kubernetes logs</title>
+    <!-- meta http-equiv="Content-Security-Policy" -->
+    <style>
+        vscode-select.w-130 {
+            width: 130px;
+        }
+        vscode-select.w-80 {
+            width: 80px;
+        }
+        .float-right {
+            float: right;
+        }
+        .mt-5 {
+            margin-top: 5px;
+        }
+        .ml-5 {
+            margin-left: 5px;
+        }
+        .ml-10 {
+            margin-left: 10px;
+        }
+        .mr-10 {
+            margin-right: 10px;
+        }
+        .mr-50 {
+            margin-right: 50px;
+        }
+        .display-inline-block {
+            display: inline-block;
+        }
+        .display-none {
+            display: none;
+        }
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            text-align: center;
+            background-color: var(--vscode-settings-textInputBackground);
+            color: var(--vscode-foreground);
+            border-radius: 6px;
+            padding: 5px 0;
+            position: absolute;
+            z-index: 1;
+            width: 200px;
+            top: 100%;
+            left: 50%;
+            margin-left: -60px;
+        }
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+        }
+        .white-space-pre {
+            white-space: pre;
+        }
+        .white-space-wrap {
+            white-space: pre-wrap;
+        }
+        #content {
+            color: var(--vscode-foreground)
+        }
+    </style>
+</head>
+<body>
+    <div style='position: fixed; top: 15px; left: 2%; width: 100%; z-index: 9999'>
+        <div>
+            <div id="containers-panel" class="mr-10 display-none">
+                <div class="tooltip">Container:
+                    <span class="tooltiptext">Print the logs of this container. Defaults show all logs.</span>
+                </div>
+            </div>
+           
+            <div class="tooltip">Follow Logs:
+                <span class="tooltiptext">Logs should be streamed.</span>
+            </div>  
+            <vscode-checkbox id="follow-chk"></vscode-checkbox>
+
+            <div class="tooltip">Show timestamp:
+                <span class="tooltiptext">Include timestamps on each line in the log output.</span>
+            </div>  
+            <vscode-checkbox id="timestamp-chk"></vscode-checkbox>
+
+            <div class="tooltip">Since:
+                <span class="tooltiptext">Only return logs newer than a relative duration like 5s, 2m, or 3h. Defaults to all logs.</span>
+            </div>          
+            <div style="width: 50px; display: inline-block">
+                <vscode-inputbox id="since-input" value="0"></vscode-inputbox>
+            </div>
+            <vscode-select id="since-select" class="w-80">
+                <vscode-option value='' selected>&nbsp;</vscode-option>
+                <vscode-option value='s'>seconds</vscode-option>
+                <vscode-option value='m'>minutes</vscode-option>
+                <vscode-option value='h'>hours</vscode-option>
+            </vscode-select>
+
+            <div class="tooltip ml-10">Tail:
+                <span class="tooltiptext">Lines of recent log file to display. Defaults show all log lines.</span>
+            </div>
+            <div style="width: 50px; display: inline-block">
+                <vscode-inputbox id="tail-input" value="-1"></vscode-inputbox>
+            </div>
+            <div class="float-right mr-50">
+                <vscode-button id="runBtn">Run</vscode-button>
+                <vscode-button id="stopBtn" class="display-none">Stop</vscode-button>
+                <vscode-button id="clearBtn" class="display-none">Clear</vscode-button>
+                <vscode-button id="resetBtn">Reset</vscode-button>                
+            </div>
+            <div class="tooltip ml-10">To terminal:
+                <span class="tooltiptext">Redirect logs to terminal.</span>
+            </div>  
+            <vscode-checkbox id="terminal-chk"></vscode-checkbox>
+        </div>
+        <div class="mt-5">
+            <!-- <span style='position: absolute; left: 0%'>Show log entries</span>
+                    <select id='mode' style='margin-bottom: 5px; position: absolute; left: 110px' onchange='eval2()'>
+                        <option value='all'>all</option>
+                        <option value='include'>that match</option>
+                        <option value='exclude'>that don't match</option>
+                        <option value='after'>after match</option>
+                        <option value='before'>before match</option>
+                    </select> -->
+            <span>Filter:</span>
+            <vscode-select id="filter-select" class="w-130">
+                <vscode-option value='all' selected>all</vscode-option>
+                <vscode-option value='include'>that match</vscode-option>
+                <vscode-option value='exclude'>that don't match</vscode-option>
+                <vscode-option value='after'>after match</vscode-option>
+                <vscode-option value='before'>before match</vscode-option>
+            </vscode-select>
+            <div style="width: 350px; display: inline-block">
+                <vscode-inputbox placeholder="Enter your key words" id='filter-input'></vscode-inputbox>
+            </div>
+            
+            <div class="tooltip ml-10">Wrap lines:
+                <span class="tooltiptext">Long words should be broken and wrap onto the next line.</span>
+            </div>  
+            <vscode-checkbox id="wrap-chk"></vscode-checkbox>
+            
+            
+        
+            
+            <!-- <span style='position: absolute; left: 240px'>Match expression</span>
+            <input style='left:350px; position: absolute' type='text' id='regexp' onkeyup='eval2()' placeholder='Filter' size='25'/> -->
+            <vscode-button id="bottomBtn" class="float-right mr-50">Scroll To Bottom</vscode-button>
+            <!-- <input style='left:575px; position: absolute' type='button' id='goToBottom' size='25' value='Scroll To Bottom'/> -->
+        </div>
+        
+    </div>
+    <div style='position: absolute; top: 90px; bottom: 10px; width: 97%'>
+        <div id="logPanel" style="overflow-y: scroll; height: 100%">
+            <code>
+            <div id='content' class='white-space-pre'></div>
+            <a id='bottom'></a>
+            </code>
+        </div>
+    </div>
+    </body>
+</html>

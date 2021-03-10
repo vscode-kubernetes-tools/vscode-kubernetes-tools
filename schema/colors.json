@@ -1,0 +1,107 @@
+[
+    {
+        "regex": "\\b(HINT|INFO|INFORMATION|Info|NOTICE|II)\\b",
+        "color": "#b5cea8"
+    },
+    {
+        "regex": "\\[(information|info|inf|in|i)\\]",
+        "color": "#b5cea8"
+    },
+    {
+        "regex": "(?<=^[\\s\\d\\p]*)\\bI\\b",
+        "color": "#b5cea8"
+    },
+    {
+        "regex": "\\b(Trace)\\b:",
+        "color": "#6a9955"
+    },
+    {
+        "regex": "\\[(verbose|verb|vrb|vb|v)\\]",
+        "color": "#6a9955"
+    },
+    {
+        "regex": "\\[(verbose|verb|vrb|vb|v)\\]",
+        "color": "#6a9955"
+    },
+    {
+        "regex": "(?<=^[\\s\\d\\p]*)\\bV\\b",
+        "color": "#6a9955"
+    },
+    {
+        "regex": "\\b(DEBUG|Debug)\\b",
+        "color": "#569cd6"
+    },
+    {
+        "regex": "\\[(debug|dbug|dbg|de|d)\\]",
+        "color": "#569cd6"
+    },
+    {
+        "regex": "(?<=^[\\s\\d\\p]*)\\bD\\b",
+        "color": "#569cd6"
+    },
+    {
+        "regex": "\\b(WARNING|WARN|Warn|WW)\\b",
+        "color": "#ce9178"
+    },
+    {
+        "regex": "\\[(warning|warn|wrn|wn|w)\\]",
+        "color": "#ce9178"
+    },
+    {
+        "regex": "(?<=^[\\s\\d\\p]*)\\bW\\b",
+        "color": "#ce9178"
+    },
+    {
+        "regex": "\\b(ALERT|CRITICAL|EMERGENCY|ERROR|FAILURE|FAIL|Fatal|FATAL|Error|EE)\\b",
+        "color": "#c50313"
+    },
+    {
+        "regex": "\\[(error|eror|err|er|e|fatal|fatl|ftl|fa|f)\\]",
+        "color": "#c50313"
+    },
+    {
+        "regex": "(?<=^[\\s\\d\\p]*)\\bE\\b",
+        "color": "#c50313"
+    },
+    {
+        "regex": "\\b\\d{4}-\\d{2}-\\d{2}(T|\\b)",
+        "color": "#6a9955"
+    },
+    {
+        "regex": "(?<=(^|\\s))\\d{2}[^\\w\\s]\\d{2}[^\\w\\s]\\d{4}\\b",
+        "color": "#6a9955"
+    },
+    {
+        "regex": "\\d{1,2}:\\d{2}(:\\d{2}([.,]\\d{1,})?)?(Z| ?[+-]\\d{1,2}:\\d{2})?\\b",
+        "color": "#6a9955"
+    },
+    {
+        "regex": "\\b([0-9a-fA-F]{40}|[0-9a-fA-F]{10}|[0-9a-fA-F]{7})\\b",
+        "color": "#569cd6"
+    },
+    {
+        "regex": "\\b[0-9a-fA-F]{8}[-]?([0-9a-fA-F]{4}[-]?){3}[0-9a-fA-F]{12}\\b",
+        "color": "#569cd6"
+    },
+    {
+        "regex": "\\b([0-9]+|true|false|null)\\b",
+        "color": "#569cd6"
+    },
+    {
+        "regex": "\"[^\"]*\"",
+        "color": "#ce9178"
+    },
+    {
+        "regex": "(?<![\\w])'[^']*'",
+        "color": "#ce9178"
+    },
+    {
+        "regex": "\\b([a-zA-Z.]*Exception)\\b",
+        "color": "#c36741"
+    },
+    {
+        "regex": "\\b[a-z]+://\\S+\\b/?",
+        "color": "#569cd6"
+    }
+    
+]
