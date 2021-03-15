@@ -1,8 +1,4 @@
-name: ingress
-label: Kubernetes Ingress
-description: Kubernetes Ingress
-body: |2 
-  apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1
   kind: Ingress
   metadata:
     name: ${1:myingress}
@@ -17,5 +13,6 @@ body: |2
           path: "/"
           backend:
             service:
-              serviceName: ${3:<Service>}
-              servicePort: ${4:<Port>}
+              name: ${3:<Service>}
+              port: 
+                number: ${4:<Port>}
