@@ -6,7 +6,7 @@
 * Helm release history now shows version of chart and app (in tooltip)
 * Clicking Helm release history node now shows that release not latest
 * Install Dependencies now fetches the correct binaries for arm and arm64 architectures
-* We now ignore tool paths at workspace level
+* We now ignore tool paths at workspace level. This patches [CVE-2021-28448](https://msrc.microsoft.com/update-guide/vulnerability/CVE-2021-28448)
 
 Thanks to Michelle Soedal.
 
