@@ -100,7 +100,8 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
 
     initialize() {
         const viewer = vscode.window.createTreeView('extension.vsKubernetesExplorer', {
-            treeDataProvider: this
+            treeDataProvider: this,
+            showCollapseAll: true
         });
         return vscode.Disposable.from(
 			viewer,
@@ -252,7 +253,7 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         }
     }
 
-    private shouldCreateWatch(label: string | undefined, watchId: string | undefined): boolean {
+    private shouldCreateWatch(label: string | vscode.TreeItemLabel | undefined, watchId: string | undefined): boolean {
         if (!watchId) {
             return false;
         }
@@ -262,7 +263,7 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         const resourcesToWatch = getResourcesToBeWatched();
         if (label &&
             resourcesToWatch.length > 0 &&
-            resourcesToWatch.indexOf(label) !== -1) {
+            resourcesToWatch.indexOf(treeItemLabel(label)) !== -1) {
             return true;
         }
         return false;
@@ -294,4 +295,15 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
             return new ContextNode(context.contextName, context);
         });
     }
+}
+
+function treeItemLabel(label: string | vscode.TreeItemLabel): string {
+    if (isTreeItemLabel(label)) {
+        return label.label;
+    }
+    return label;
+}
+
+function isTreeItemLabel(label: string | vscode.TreeItemLabel): label is vscode.TreeItemLabel {
+    return (label as any).label !== undefined;
 }

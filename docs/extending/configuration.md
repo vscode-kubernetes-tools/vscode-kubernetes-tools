@@ -58,3 +58,93 @@ async function runMyTool() {
     }
 }
 ```
+
+## Detecting Kubernetes context change
+
+If your extension needs to know if the current context changes, you can subscribe to the `onDidChangeContext` event.
+This event fires when the extension changes the current Kubernetes context.
+
+*Note that this event is heuristic*. It is only reliable when the user changes the current Kubernetes context through the extension and therefore there could be inconsistencies when the user changes it `behind our backs`, for example by using `kubectl` at the command line.
+
+To subscribe to the `onDidChangeContext` event through the extension API:
+
+* Request the Kubernetes extension's Configuration API
+* Use `onDidChangeContext` to pass your event listener function.
+
+Your listener will receive the new cluster identifier or `null` if there is no active cluster.
+
+Example:
+
+```javascript
+import * as k8s from 'vscode-kubernetes-tools-api';
+
+async function refreshWhenK8sContextChange() {
+    const configuration = await k8s.extension.configuration.v1_1;
+    if (!configuration.available) {
+        return;
+    }
+    configuration.api.onDidChangeContext((context) => {
+        // current context is changed, do something with it
+    });
+}
+```
+
+## Detecting Kubernetes namespace change
+
+If your extension needs to know if the current namespace changes, you can subscribe to the `onDidChangeNamespace` event.
+This event fires when the extension changes the current Kubernetes namespace.
+
+*Note that this event is heuristic*. It is only reliable when the user changes the current Kubernetes namespace through the extension and therefore there could be inconsistencies when the user changes it `behind our backs`, for example by using `kubectl` at the command line.
+
+To subscribe to the `onDidChangeNamespace` event through the extension API:
+
+* Request the Kubernetes extension's Configuration API
+* Use `onDidChangeNamespace` to pass your event listener function.
+
+Your listener will receive the new namespace name.
+
+Example:
+
+```javascript
+import * as k8s from 'vscode-kubernetes-tools-api';
+
+async function refreshWhenK8sNamespaceChange() {
+    const configuration = await k8s.extension.configuration.v1_1;
+    if (!configuration.available) {
+        return;
+    }
+    configuration.api.onDidChangeNamespace((namespace) => {
+        // current namespace is changed, do something with it
+    });
+}
+```
+
+## Detecting Kubernetes config path change
+
+If your extension needs to know if the current Kubernetes config file used changes, you can subscribe to the `onDidChangeKubeconfigPath` event.
+This event fires when the extension changes the reference Kubernetes config file.
+
+*Note that this event is heuristic*. It is only reliable when the user changes the current Kubernetes config file through the extension and therefore there could be inconsistencies when the user changes it `behind our backs`, for example by using `kubectl` at the command line.
+
+To subscribe to the `onDidChangeKubeconfigPath` event through the extension API:
+
+* Request the Kubernetes extension's Configuration API
+* Use `onDidChangeKubeconfigPath` to pass your event listener function.
+
+Your event listener will receive an object containing a `pathType` attribute as described for the `getKubeconfigPath` method [above](#Detecting-the-kubernetes-configuration).
+
+Example:
+
+```javascript
+import * as k8s from 'vscode-kubernetes-tools-api';
+
+async function detectK8sConfigPathChange() {
+    const configuration = await k8s.extension.configuration.v1_1;
+    if (!configuration.available) {
+        return;
+    }
+    configuration.api.onDidChangeKubeconfigPath((path) => {
+        // path to config file is changed, do something with it
+    });
+}
+```

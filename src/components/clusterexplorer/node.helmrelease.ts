@@ -1,27 +1,33 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
+import moment = require('moment');
+
 import { failed } from '../../errorable';
 import * as helmexec from '../../helm.exec';
+
 import { Host } from '../../host';
 import { Kubectl } from '../../kubectl';
+
 import { NODE_TYPES } from './explorer';
 import { ClusterExplorerHelmHistoryNode, ClusterExplorerHelmReleaseNode, ClusterExplorerNode, ClusterExplorerNodeImpl } from './node';
 import { MessageNode } from './node.message';
-import moment = require('moment');
+import { assetUri } from '../../assets';
 
 export class HelmHistoryNode extends ClusterExplorerNodeImpl implements ClusterExplorerHelmHistoryNode {
-    constructor(readonly releaseName: string, readonly revision: number, readonly updated:  string, readonly status: string) {
+    constructor(readonly releaseName: string, readonly release: helmexec.HelmRelease) {
         super(NODE_TYPES.helm.history);
     }
     readonly nodeType = NODE_TYPES.helm.history;
     getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
-        const updatedTime = moment(this.updated).fromNow();
-        const treeItem = new vscode.TreeItem(`${this.revision} - ${this.status} (${updatedTime})`, vscode.TreeItemCollapsibleState.None);
+        const updatedTime = moment(this.release.updated).fromNow();
+        const treeItem = new vscode.TreeItem(`${this.release.revision}`, vscode.TreeItemCollapsibleState.None);
+        treeItem.description = `${this.release.status} (${updatedTime})`;
         treeItem.command = {
             command: "extension.helmGet",
             title: "Get",
             arguments: [this]
         };
+        treeItem.tooltip = `Chart version: ${this.release.chart}\nApp version: ${this.release.appVersion || "not specified in chart"}`;
         treeItem.contextValue = "vsKubernetes.helmHistory";
         return treeItem;
     }
@@ -46,7 +52,7 @@ export class HelmReleaseNode extends ClusterExplorerNodeImpl implements ClusterE
         if (failed(history)) {
             return [new MessageNode("Helm history list error", history.error[0])];
         }
-        return history.result.map((r) => new HelmHistoryNode(this.releaseName, r.revision, r.updated, r.status));
+        return history.result.map((r) => new HelmHistoryNode(this.releaseName, r));
     }
     getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
         const treeItem = new vscode.TreeItem(this.releaseName, vscode.TreeItemCollapsibleState.Collapsed);
@@ -66,13 +72,13 @@ export class HelmReleaseNode extends ClusterExplorerNodeImpl implements ClusterE
 
 function getIconForHelmRelease(status: string): vscode.Uri {
     if (status === "deployed") {
-        return vscode.Uri.file(path.join(__dirname, "../../../../images/helmDeployed.svg"));
+        return assetUri("images/helmDeployed.svg");
     }
-    if (status === "superseeded") {
-        return vscode.Uri.file(path.join(__dirname, "../../../../images/helmDeployed.svg"));
+    if (status === "superseded") {
+        return assetUri("images/helmDeployed.svg");
     }
     if (status === "failed") {
-        return vscode.Uri.file(path.join(__dirname, "../../../../images/helmFailed.svg"));
+        return assetUri("images/helmFailed.svg");
     }
     return vscode.Uri.file(path.join(__dirname, "../../../../images/helmDeployed.svg"));
 }

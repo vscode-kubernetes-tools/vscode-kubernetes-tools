@@ -180,7 +180,7 @@ function unquotedPath(path: string): string {
 export function shellEnvironment(baseEnvironment: any): any {
     const env = Object.assign({}, baseEnvironment);
     const pathVariable = pathVariableName(env);
-    for (const tool of ['kubectl', 'helm', 'draft', 'minikube']) {
+    for (const tool of ['kubectl', 'helm', 'minikube']) {
         const toolPath = getToolPath(host, shell, tool);
         if (toolPath) {
             const toolDirectory = path.dirname(toolPath);
@@ -249,4 +249,10 @@ export function shellMessage(er: ExecResult, invocationFailureMessage: string): 
         return invocationFailureMessage;
     }
     return er.resultKind === 'exec-succeeded' ? er.stdout : er.stderr;
+}
+
+const SAFE_CHARS_REGEX = /^[-,._+:@%/\w]*$/;
+
+export function isSafe(s: string): boolean {
+    return SAFE_CHARS_REGEX.test(s);
 }

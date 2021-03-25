@@ -11,14 +11,18 @@ import { ExecResult } from './binutilplusplus';
 import { Errorable } from './errorable';
 
 export const K8S_RESOURCE_SCHEME = "k8smsx";
+export const K8S_RESOURCE_SCHEME_READONLY = "k8smsxro";
 export const KUBECTL_RESOURCE_AUTHORITY = "loadkubernetescore";
+export const KUBECTL_DESCRIBE_AUTHORITY = "kubernetesdescribe";
 export const HELM_RESOURCE_AUTHORITY = "helmget";
 
-export function kubefsUri(namespace: string | null | undefined /* TODO: rationalise null and undefined */, value: string, outputFormat: string): Uri {
-    const docname = `${value.replace('/', '-')}.${outputFormat}`;
+export function kubefsUri(namespace: string | null | undefined /* TODO: rationalise null and undefined */, value: string, outputFormat: string, action?: string): Uri {
+    const docname = `${value.replace('/', '-')}${outputFormat !== '' ? '.' + outputFormat : ''}`;
     const nonce = new Date().getTime();
     const nsquery = namespace ? `ns=${namespace}&` : '';
-    const uri = `${K8S_RESOURCE_SCHEME}://${KUBECTL_RESOURCE_AUTHORITY}/${docname}?${nsquery}value=${value}&_=${nonce}`;
+    const scheme = action === 'describe' ? K8S_RESOURCE_SCHEME_READONLY : K8S_RESOURCE_SCHEME;
+    const authority = action === 'describe' ? KUBECTL_DESCRIBE_AUTHORITY : KUBECTL_RESOURCE_AUTHORITY;
+    const uri = `${scheme}://${authority}/${docname}?${nsquery}value=${value}&_=${nonce}`;
     return Uri.parse(uri);
 }
 
@@ -67,10 +71,11 @@ export class KubernetesResourceVirtualFileSystemProvider implements FileSystemPr
 
         const outputFormat = config.getOutputFormat();
         const value = query.value as string;
+        const revision = query.revision as string | undefined;
         const ns = query.ns as string | undefined;
         const resourceAuthority = uri.authority;
 
-        const eer = await this.execLoadResource(resourceAuthority, ns, value, outputFormat);
+        const eer = await this.execLoadResource(resourceAuthority, ns, value, revision, outputFormat);
 
         if (Errorable.failed(eer)) {
             this.host.showErrorMessage(eer.error[0]);
@@ -92,16 +97,20 @@ export class KubernetesResourceVirtualFileSystemProvider implements FileSystemPr
         return er.stdout;
     }
 
-    async execLoadResource(resourceAuthority: string, ns: string | undefined, value: string, outputFormat: string): Promise<Errorable<ExecResult>> {
+    async execLoadResource(resourceAuthority: string, ns: string | undefined, value: string, revision: string | undefined, outputFormat: string): Promise<Errorable<ExecResult>> {
+        const nsarg = ns ? `--namespace ${ns}` : '';
         switch (resourceAuthority) {
             case KUBECTL_RESOURCE_AUTHORITY:
-                const nsarg = ns ? `--namespace ${ns}` : '';
                 const ker = await this.kubectl.invokeCommandWithFeedback(`-o ${outputFormat} ${nsarg} get ${value}`, `Loading ${value}...`);
                 return { succeeded: true, result: ker };
             case HELM_RESOURCE_AUTHORITY:
                 const scopearg = ((await helmSyntaxVersion()) === HelmSyntaxVersion.V2) ? '' : 'all';
-                const her = await helmInvokeCommandWithFeedback(`get ${scopearg} ${value}`, `Loading ${value}...`);
+                const revarg = revision ? ` --revision=${revision}` : '';
+                const her = await helmInvokeCommandWithFeedback(`get ${scopearg} ${value}${revarg}`, `Loading ${value}...`);
                 return { succeeded: true, result: her };
+            case KUBECTL_DESCRIBE_AUTHORITY:
+                const describe = await this.kubectl.invokeCommandWithFeedback(`describe ${value} ${nsarg}`, `Loading ${value}...`);
+                return { succeeded: true, result: describe };
             default:
                 return { succeeded: false, error: [`Internal error: please raise an issue with the error code InvalidObjectLoadURI and report authority ${resourceAuthority}.`] };
         }

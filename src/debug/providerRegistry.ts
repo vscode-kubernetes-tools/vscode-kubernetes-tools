@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 
 import { IDebugProvider } from "./debugProvider";
 import { DotNetDebugProvider } from "./dotNetDebugProvider";
+import { GoDebugProvider } from "./goDebugProvider";
 import { JavaDebugProvider } from "./javaDebugProvider";
 import { NodejsDebugProvider } from "./nodejsDebugProvider";
 import { PythonDebugProvider } from "./pythonDebugProvider";
@@ -9,6 +10,7 @@ import { ProcessInfo } from "./debugUtils";
 
 const supportedProviders: IDebugProvider[] = [
     new DotNetDebugProvider(),
+    new GoDebugProvider(),
     new JavaDebugProvider(),
     new NodejsDebugProvider(),
     new PythonDebugProvider()

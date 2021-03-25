@@ -5,7 +5,7 @@ import { Host } from './host';
 import { FS } from './fs';
 import { Shell } from './shell';
 import { installDependencies } from "./components/installer/installdependencies";
-import { getToolPath, getUseWsl } from './components/config/config';
+import { getEnableSnapFlag, getToolPath, getUseWsl } from './components/config/config';
 import { Errorable } from './errorable';
 import { parseLineOutput } from './outputUtils';
 import { Dictionary } from './utils/dictionary';
@@ -234,9 +234,13 @@ export async function invokeForResult(context: Context, command: string, stdin: 
     if (!fbr.found) {
         return { resultKind: 'exec-bin-not-found', execProgram: context.binary, command, findResult: fbr };
     }
-
+    const enableSnapFlag = getEnableSnapFlag();
     const bin = await baseBinPath(context);
-    const cmd = `${bin} ${command}`;
+    let cmd = `${bin} ${command}`;
+    // Hack to make kubectl cmds returns the output when it is installed using snap
+    if (enableSnapFlag && context.shell.isUnix()) {
+        cmd = `${cmd} | cat`;
+    }
     const sr = await context.shell.exec(cmd, stdin);
 
     if (!sr) {
@@ -259,23 +263,26 @@ export async function invokeTracking(context: Context, args: string[]): Promise<
     const linesSubject = new rx.Subject<string>();
 
     const fbr = await findBinary(context);
-    if (!fbr.found) {
+
+    if (fbr.found) {
+        const bin = await baseBinPath(context);
+        const execOpts = context.shell.execOpts();
+
+        let pending = '';
+        const stdout = spawnrx.spawn(bin, args, execOpts);
+        stdout.subscribe((chunk) => {
+            const todo = pending + chunk;
+            const lines = todo.split('\n').map((l) => l.trim());
+            const lastIsWholeLine = todo.endsWith('\n');
+            pending = lastIsWholeLine ? '' : lines.pop()!;
+            for (const line of lines) {
+                linesSubject.next(line);
+            }
+        });
+    } else {
         linesSubject.error({ resultKind: 'exec-bin-not-found', execProgram: context.binary, command: args.join(' '), findResult: fbr });
     }
 
-    const bin = await baseBinPath(context);
-
-    let pending = '';
-    const stdout = spawnrx.spawn(bin, args);
-    stdout.subscribe((chunk) => {
-        const todo = pending + chunk;
-        const lines = todo.split('\n').map((l) => l.trim());
-        const lastIsWholeLine = todo.endsWith('\n');
-        pending = lastIsWholeLine ? '' : lines.pop()!;
-        for (const line of lines) {
-            linesSubject.next(line);
-        }
-    });
     return { lines: linesSubject, terminate: () => linesSubject.unsubscribe() };
 }
 

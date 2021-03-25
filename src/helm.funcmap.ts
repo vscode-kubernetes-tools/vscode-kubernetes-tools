@@ -77,7 +77,7 @@ export class FuncMap {
             this.f("toToml", "toToml $var", "convert $var to TOML"),
             this.f("fromYaml", "fromYaml $str", "parse YAML into a dict or list"),
             this.f("fromJson", "fromJson $str", "parse JSON $str into a dict or list"),
-            this.f("required", "required $val", "fail template if $val is not provided or is empty"),
+            this.f("required", "required $str $val", "fail template with message $str if $val is not provided or is empty"),
         ];
     }
 
@@ -148,7 +148,7 @@ export class FuncMap {
 
             // String list
             this.f("plural", "plural $singular $plural $count", "if $count is 1, return $singular, else return $plural"),
-            this.f("join", "join $sep $str1 $str2 ...", "concatenate all given strings into one, separated by $sep"),
+            this.f("join", "join $sep $list", "concatenate list of strings into one, separated by $sep"),
             this.f("splitList", "splitList $sep $str", "split $str into a list of strings, separating at $sep"),
             this.f("split", "split $sep $str", "split $str on $sep and store results in a dictionary"),
             this.f("sortAlpha", "sortAlpha $strings", "sort a list of strings into alphabetical order"),
@@ -192,7 +192,7 @@ export class FuncMap {
             this.f("reverse", "reverse $list", "reverse $list item order"),
             this.f("uniq", "uniq $list", "remove duplicates from list"),
             this.f("without", "without $list $item ...", "return $list with $item(s) removed"),
-            this.f("has", "has $list $item", "return true if $item is in $list"),
+            this.f("has", "has $item $list", "return true if $item is in $list"),
             // Dictionaries
             this.f("dict", "dict $key $val $key2 $val2 ...", "create dictionary with $key/$val pairs"),
             this.f("set", "set $dict $key $val", "set $key=$val in $dict (mutates dict)"),

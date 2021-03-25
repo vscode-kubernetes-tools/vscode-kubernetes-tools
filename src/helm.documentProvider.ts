@@ -8,6 +8,7 @@ import { escape as htmlEscape } from 'lodash';
 import * as helm from './helm';
 import * as logger from './logger';
 import { failed } from './errorable';
+import * as shell from './shell';
 
 interface HelmDocumentResult {
     readonly title: string;
@@ -78,6 +79,16 @@ export class HelmInspectDocumentProvider implements vscode.TextDocumentContentPr
             } else if (uri.authority === helm.INSPECT_REPO_AUTHORITY) {
                 const id = uri.path.substring(1);
                 const version = uri.query;
+
+                if (!shell.isSafe(id)) {
+                    vscode.window.showWarningMessage(`Unexpected characters in chart name ${id}. Use Helm CLI to inspect this chart.`);
+                    return;
+                }
+                if (version && !shell.isSafe(version)) {
+                    vscode.window.showWarningMessage(`Unexpected characters in chart version ${version}. Use Helm CLI to inspect this chart.`);
+                    return;
+                }
+
                 const versionArg = version ? `--version ${version}` : '';
                 exec.helmSyntaxVersion().then((sv) => {
                     const helm3Scope = (sv === exec.HelmSyntaxVersion.V2) ? '' : 'all';
@@ -151,7 +162,7 @@ export class HelmTemplatePreviewDocumentProvider implements vscode.TextDocumentC
                         exec.helmExec(`template "${chartPath}" --show-only "${reltpl}" ${notesarg}`, displayResultAfterCommandExecution);
                     } else {
                         exec.helmExec(`template "${chartPath}" --execute "${reltpl}" ${notesarg}`, displayResultAfterCommandExecution);
-                    }                    
+                    }
                 });
             });
         });

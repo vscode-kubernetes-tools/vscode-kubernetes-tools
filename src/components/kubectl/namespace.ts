@@ -7,6 +7,7 @@ import { Kubectl } from '../../kubectl';
 import { ClusterExplorerNode } from '../clusterexplorer/node';
 import { NODE_TYPES } from '../clusterexplorer/explorer';
 
+
 export async function useNamespaceKubernetes(kubectl: Kubectl, explorerNode: ClusterExplorerNode) {
     if (explorerNode && explorerNode.nodeType === NODE_TYPES.resource) {
         if (await kubectlUtils.switchNamespace(kubectl, explorerNode.name)) {
@@ -28,11 +29,11 @@ export async function useNamespaceKubernetes(kubectl: Kubectl, explorerNode: Clu
     );
 
     if (kindName) {
-        switchToNamespace(kubectl, currentNS, kindName)
+        switchToNamespace(kubectl, currentNS, kindName);
     }
 }
 
-async function switchToNamespace (kubectl: Kubectl, currentNS: string, resource: string) {
+async function switchToNamespace(kubectl: Kubectl, currentNS: string, resource: string) {
     if (!resource) {
         return;
     }

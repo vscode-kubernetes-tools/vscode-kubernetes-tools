@@ -1,0 +1,55 @@
+name: Development build
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    env:
+      NODE_OPTIONS: --max_old_space_size=4096
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        node_version: [10, 12, 14]
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Use node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: ${{ matrix.node_version }}
+    - name: Install dependencies
+      run: npm install
+    - name: Prepare environment
+      run: |
+        npm install -g typescript
+        npm install -g gulp
+        npm install -g vsce
+    - name: Build
+      run: npm run compile
+    - name: Lint extension source
+      run: gulp tslint
+    - name: Smoke test (Linux)
+      run: xvfb-run -a npm run test
+      if: runner.os == 'Linux'
+    - name: Smoke test (Mac, Windows)
+      run: npm run test
+      if: runner.os != 'Linux'
+    - name: Package extension
+      if: github.event_name == 'push' && matrix.os == 'ubuntu-latest' && matrix.node_version == 14
+      run: |
+        vsce package
+        mkdir vsix
+        mv *.vsix vsix
+    - name: Archive extension
+      if: github.event_name == 'push' && matrix.os == 'ubuntu-latest' && matrix.node_version == 14
+      uses: actions/upload-artifact@v1
+      with:
+        name: vsix
+        path: vsix

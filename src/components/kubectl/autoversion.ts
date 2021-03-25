@@ -1,5 +1,5 @@
 import * as path from 'path';
-import * as sha256 from 'fast-sha256';
+import * as crypto from 'crypto';
 
 import * as download from '../download/download';
 import { Shell, shell } from "../../shell";
@@ -13,7 +13,7 @@ import { getKubeconfigPath } from '../kubectl/kubeconfig';
 import { getToolPath } from '../config/config';
 import { Host } from '../../host';
 import { mkdirpAsync } from '../../utils/mkdirp';
-import { platformUrlString, formatBin } from '../installer/installationlayout';
+import { platformUrlString, formatBin, platformArch } from '../installer/installationlayout';
 import * as installer from '../installer/installer';
 import { ExecResult } from '../../binutilplusplus';
 
@@ -76,8 +76,9 @@ async function downloadKubectlVersion(shell: Shell, host: Host, serverVersion: s
         return false;
     }
     const os = platformUrlString(shell.platform())!;
+    const arch = platformArch(os);
     const binFile = (shell.isUnix()) ? 'kubectl' : 'kubectl.exe';
-    const kubectlUrl = `https://storage.googleapis.com/kubernetes-release/release/${serverVersion}/bin/${os}/amd64/${binFile}`;
+    const kubectlUrl = `https://storage.googleapis.com/kubernetes-release/release/${serverVersion}/bin/${os}/${arch}/${binFile}`;
     // TODO: this feels a bit ugly and over-complicated - should perhaps be up to download.once to manage
     // showing the progress UI so we don't need all the operationKey mess
     const downloadResult = await host.longRunning({ title: `Downloading kubectl ${serverVersion}`, operationKey: binPath }, () =>
@@ -119,13 +120,8 @@ async function getKubeconfigPathHash(): Promise<string | undefined> {
     if (!await fs.existsAsync(kubeconfigFilePath)) {
         return undefined;
     }
-    const kubeconfigPathHash = sha256.hash(Buffer.from(kubeconfigFilePath));
-    const kubeconfigHashText = hashToString(kubeconfigPathHash);
+    const kubeconfigHashText = crypto.createHash('sha256').update(Buffer.from(kubeconfigFilePath)).digest('hex');
     return kubeconfigHashText;
-}
-
-function hashToString(hash: Uint8Array): string {
-    return Buffer.from(hash).toString('hex');
 }
 
 async function getServerVersion(kubectl: Kubectl, context: string): Promise<string | undefined> {

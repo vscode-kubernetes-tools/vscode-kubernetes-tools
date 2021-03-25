@@ -10,7 +10,7 @@ import * as tar from 'tar';
 import { Shell, Platform } from '../../shell';
 import { Errorable, failed, succeeded } from '../../errorable';
 import { addPathToConfig, toolPathOSKey, getUseWsl } from '../config/config';
-import { platformUrlString, formatBin } from './installationlayout';
+import { platformUrlString, formatBin, platformArch } from './installationlayout';
 import { IncomingMessage } from 'http';
 
 enum ArchiveKind {
@@ -23,6 +23,10 @@ export async function installKubectl(shell: Shell): Promise<Errorable<null>> {
     const binFile = (shell.isUnix()) ? 'kubectl' : 'kubectl.exe';
     const platform = shell.platform();
     const os = platformUrlString(platform);
+    if (!os) {
+        return { succeeded: false, error: ['Not supported on this OS'] };
+    }
+    const arch = platformArch(os);
 
     const version = await getStableKubectlVersion();
     if (failed(version)) {
@@ -32,7 +36,7 @@ export async function installKubectl(shell: Shell): Promise<Errorable<null>> {
     const installFolder = getInstallFolder(shell, tool);
     mkdirp.sync(installFolder);
 
-    const kubectlUrl = `https://storage.googleapis.com/kubernetes-release/release/${version.result.trim()}/bin/${os}/amd64/${binFile}`;
+    const kubectlUrl = `https://storage.googleapis.com/kubernetes-release/release/${version.result.trim()}/bin/${os}/${arch}/${binFile}`;
     const downloadFile = path.join(installFolder, binFile);
     const downloadResult = await download.to(kubectlUrl, downloadFile);
     if (failed(downloadResult)) {
@@ -40,7 +44,7 @@ export async function installKubectl(shell: Shell): Promise<Errorable<null>> {
     }
 
     if (shell.isUnix()) {
-        fs.chmodSync(downloadFile, '0777');
+        fs.chmodSync(downloadFile, '0755');
     }
 
     await addPathToConfig(toolPathOSKey(platform, tool), downloadFile);
@@ -99,14 +103,8 @@ export async function installHelm(shell: Shell, warn: (message: string) => void)
     const latestVersion = succeeded(latestVersionInfo) ? latestVersionInfo.result : DEFAULT_HELM_VERSION;
     const fileExtension = shell.isWindows() ? 'zip' : 'tar.gz';
     const archiveKind = shell.isWindows() ? ArchiveKind.Zip : ArchiveKind.Tar;
-    const urlTemplate = `https://get.helm.sh/helm-${latestVersion}-{os_placeholder}-amd64.${fileExtension}`;
+    const urlTemplate = `https://get.helm.sh/helm-${latestVersion}-{os_placeholder}-{arch}.${fileExtension}`;
     return await installToolFromArchive(tool, urlTemplate, shell, archiveKind);
-}
-
-export async function installDraft(shell: Shell): Promise<Errorable<null>> {
-    const tool = 'draft';
-    const urlTemplate = 'https://azuredraft.blob.core.windows.net/draft/draft-v0.15.0-{os_placeholder}-amd64.tar.gz';
-    return await installToolFromArchive(tool, urlTemplate, shell, ArchiveKind.Tar);
 }
 
 export async function installMinikube(shell: Shell, version: string | null): Promise<Errorable<null>> {
@@ -122,9 +120,9 @@ export async function installMinikube(shell: Shell, version: string | null): Pro
         }
         version = versionRes.result;
     }
+    const arch = platformArch(os);
     const exe = (shell.isWindows() ? '.exe' : '');
-    const urlTemplate = `https://storage.googleapis.com/minikube/releases/${version}/minikube-{os_placeholder}-amd64${exe}`;
-    const url = urlTemplate.replace('{os_placeholder}', os);
+    const url = `https://storage.googleapis.com/minikube/releases/${version}/minikube-${os}-${arch}${exe}`;
     const installFolder = getInstallFolder(shell, tool);
     const executable = formatBin(tool, shell.platform())!;  // safe because we checked platform earlier
     const executableFullPath = path.join(installFolder, executable);
@@ -147,9 +145,10 @@ async function installToolFromArchive(tool: string, urlTemplate: string, shell: 
     if (!os) {
         return { succeeded: false, error: ['Not supported on this OS'] };
     }
+    const arch = platformArch(os);
     const installFolder = getInstallFolder(shell, tool);
     const executable = formatBin(tool, shell.platform())!;  // safe because we have already checked the platform
-    const url = urlTemplate.replace('{os_placeholder}', os);
+    const url = urlTemplate.replace('{os_placeholder}', os).replace('{arch}', arch);
     const configKey = toolPathOSKey(shell.platform(), tool);
     return installFromArchive(url, installFolder, executable, configKey, shell, archiveKind);
 }

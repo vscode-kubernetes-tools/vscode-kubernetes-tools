@@ -118,7 +118,7 @@ export async function portForwardKubernetes(kubectl: Kubectl, explorerNode?: any
  */
 function extractPodPorts(podJson: string): string | undefined {
     const pod = JSON.parse(podJson) as kubernetes.V1Pod;
-    const containers = pod.spec.containers;
+    const containers = pod.spec ? pod.spec.containers : [];
     const ports = Array.of<number>();
     containers.forEach((container) => {
         if (container.ports) {

@@ -38,7 +38,7 @@ export function create(host: Host, fs: FS, shell: Shell): Minikube {
     return new MinikubeImpl(host, fs, shell, false);
 }
 
-// TODO: these are the same as we are using for Draft (and kubectl?) -
+// TODO: these are the same as we are using for kubectl -
 // we really need to unify them (and the designs).
 
 export enum CheckPresentMode {

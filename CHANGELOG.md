@@ -1,5 +1,63 @@
 # Change Log
 
+## [1.3.0]
+
+* New API for local tunnel debugger integration
+* Helm release history now shows version of chart and app (in tooltip)
+* Clicking Helm release history node now shows that release not latest
+* Install Dependencies now fetches the correct binaries for arm and arm64 architectures
+* We now ignore tool paths at workspace level. This patches [CVE-2021-28448](https://msrc.microsoft.com/update-guide/vulnerability/CVE-2021-28448)
+
+Thanks to Michelle Soedal.
+
+## [1.2.4]
+
+* We have removed Draft support from the extension, because the underlying Draft tool
+  had been archived
+* The Configuration API now allows other extensions to detect config/context changes
+* Fixed node pods having the wrong names and namespaces (which may also have affected
+  other features such as log retrieval)
+* Fixed an issue where a couple of API contract files were incorrectly modified
+* Fixed Follow Logs not working with nondefault kubeconfig
+* Fixed some Helm completion items
+* Internal changes to the implementation of the Cluster Explorer API
+* Internal changes to the build and publish process
+
+Thanks to Adrian Bolt, Matt Fisher, Luca Stocchi and Yevhen Vydolob.
+
+## [1.2.3]
+
+* We now pack the extension to improve load times.  _This was quite an invasive change -
+  please let us know if you run into any funnies._
+* Added example of setings JSON for disabling linters
+* Fixed a missing contribution credit in 1.2.2
+* Fixed typo in debugger documentation
+
+Thanks to Jason Behnke and Willem Odendaal.
+
+## 1.2.2
+
+* It now (finally!) works with Snap
+* New snippets for:
+  * ingress
+  * jobs
+  * persistent volumes
+  * persistent volume claims
+  * stateful sets
+* You can now see and change context and namespace from the status bar
+* We now show job pods as children of the job node
+* We've improved Describe output to make it more usable
+* New Collapse All button on Cluster Explorer
+* Fixed permissions on auto-installed kubectl
+* Fixed linter issue with multi-object file
+* Fixed an error handling kubectl output with empty columns
+* Fixed an error that could prevent other extensions handling YAML files
+* Fixed an error with the terminal shell path
+* Fixed the tooltip for the Helm `has` function
+* Fixed issue where strings from Helm repo could be passed to shell
+
+Thanks to Jonas Goronczy, Tatsat Mishra, Bhargav Nookala and Luca Stocchi.
+
 ## 1.2.1
 
 * Helm releases now have Uninstall and Rollback commands

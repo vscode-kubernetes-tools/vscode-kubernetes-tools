@@ -2,6 +2,7 @@
 // It should be in sync with vscode-kubernetes-tools-api/ts/configuration/v1.ts
 // at all times.
 
+
 export interface ConfigurationV1 {
     getKubeconfigPath(): ConfigurationV1.KubeconfigPath;
 }

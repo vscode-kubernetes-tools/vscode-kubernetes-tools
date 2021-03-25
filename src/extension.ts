@@ -20,9 +20,8 @@ import { pullAll } from 'lodash';
 import { host } from './host';
 import { addKubernetesConfigFile, deleteKubernetesConfigFile } from './configMap';
 import * as explainer from './explainer';
-import { shell, ShellResult } from './shell';
+import { shell } from './shell';
 import * as configmaps from './configMap';
-import { DescribePanel } from './components/describe/describeWebview';
 import * as kuberesources from './kuberesources';
 import { useNamespaceKubernetes } from './components/kubectl/namespace';
 import { EventDisplayMode, getEvents } from './components/kubectl/events';
@@ -32,7 +31,6 @@ import { create as kubectlCreate } from './kubectl';
 import * as kubectlUtils from './kubectlUtils';
 import * as explorer from './components/clusterexplorer/explorer';
 import * as helmRepoExplorer from './helm.repoExplorer';
-import { create as draftCreate, CheckPresentMode as DraftCheckPresentMode } from './draft/draft';
 import { create as minikubeCreate } from './components/clusterprovider/minikube/minikube';
 import * as logger from './logger';
 import * as helm from './helm';
@@ -63,8 +61,7 @@ import { MinikubeOptions } from './components/clusterprovider/minikube/minikube'
 import { refreshExplorer } from './components/clusterprovider/common/explorer';
 import { KubernetesCompletionProvider } from "./yaml-support/yaml-snippet";
 import { showWorkspaceFolderPick } from './hostutils';
-import { DraftConfigurationProvider } from './draft/draftConfigurationProvider';
-import { KubernetesResourceVirtualFileSystemProvider, K8S_RESOURCE_SCHEME, kubefsUri } from './kuberesources.virtualfs';
+import { KubernetesResourceVirtualFileSystemProvider, K8S_RESOURCE_SCHEME, kubefsUri, K8S_RESOURCE_SCHEME_READONLY, KUBECTL_DESCRIBE_AUTHORITY } from './kuberesources.virtualfs';
 import { KubernetesResourceLinkProvider } from './kuberesources.linkprovider';
 import { Container, isKubernetesResource, KubernetesCollection, Pod, KubernetesResource } from './kuberesources.objectmodel';
 import { setActiveKubeconfig, getKnownKubeconfigs, addKnownKubeconfig } from './components/config/config';
@@ -78,7 +75,7 @@ import { APIBroker } from './api/contract/api';
 import { apiBroker } from './api/implementation/apibroker';
 import { sleep } from './sleep';
 import { CloudExplorer, CloudExplorerTreeNode } from './components/cloudexplorer/cloudexplorer';
-import { mergeToKubeconfig } from './components/kubectl/kubeconfig';
+import { mergeToKubeconfig, getKubeconfigPath, KubeconfigPath } from './components/kubectl/kubeconfig';
 import { PortForwardStatusBarManager } from './components/kubectl/port-forward-ui';
 import { getBuildCommand, getPushCommand } from './image/imageUtils';
 import { getImageBuildTool } from './components/config/config';
@@ -87,6 +84,9 @@ import { create as activeContextTrackerCreate } from './components/contextmanage
 import { WatchManager } from './components/kubectl/watch';
 import { ExecResult } from './binutilplusplus';
 import { recommendExtensions } from './components/extexplorer/explorer';
+import { getCurrentContext } from './kubectlUtils';
+import { LocalTunnelDebugger } from './components/localtunneldebugger/localtunneldebugger';
+import { setAssetContext } from './assets';
 
 let explainActive = false;
 let swaggerSpecPromise: Promise<explainer.SwaggerModel | undefined> | null = null;
@@ -94,12 +94,12 @@ let swaggerSpecPromise: Promise<explainer.SwaggerModel | undefined> | null = nul
 const kubernetesDiagnostics = vscode.languages.createDiagnosticCollection("Kubernetes");
 
 const kubectl = kubectlCreate(config.getKubectlVersioning(), host, fs, shell);
-const draft = draftCreate(host, fs, shell);
 const minikube = minikubeCreate(host, fs, shell);
 const clusterProviderRegistry = clusterproviderregistry.get();
 const configMapProvider = new configmaps.ConfigMapTextProvider(kubectl);
 const git = new Git(shell);
 const activeContextTracker = activeContextTrackerCreate(kubectl);
+const onDidChangeKubeconfigEmitter = new vscode.EventEmitter<KubeconfigPath>();
 
 export const overwriteMessageItems: vscode.MessageItem[] = [
     {
@@ -131,11 +131,14 @@ export const HELM_TPL_MODE: vscode.DocumentFilter = { language: "helm", scheme: 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export async function activate(context: vscode.ExtensionContext): Promise<APIBroker> {
+    setAssetContext(context);
+
     kubectl.ensurePresent({ warningIfNotPresent: 'Kubectl not found. Many features of the Kubernetes extension will not work.' });
 
     const treeProvider = explorer.create(kubectl, host);
     const helmRepoTreeProvider = helmRepoExplorer.create(host);
     const cloudExplorer = new CloudExplorer();
+    const localTunnelDebugger = new LocalTunnelDebugger();
     const resourceDocProvider = new KubernetesResourceVirtualFileSystemProvider(kubectl, host);
     const resourceLinkProvider = new KubernetesResourceLinkProvider();
     const previewProvider = new HelmTemplatePreviewDocumentProvider();
@@ -149,11 +152,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         {pattern: "**/templates/NOTES.txt"}
     ];
 
-    const draftDebugProvider = new DraftConfigurationProvider();
-    let draftDebugSession: vscode.DebugSession;
-
-    const portForwardStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+    const portForwardStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 0);
     const portForwardStatusBarManager = PortForwardStatusBarManager.init(portForwardStatusBarItem);
+
+    const activeNamespaceStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 1);
+    activeNamespaceStatusBarItem.command = 'extension.vsKubernetesUseNamespace';
+
+    const activeContextStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 2);
+    activeContextStatusBarItem.command = 'extension.vsKubernetesUseContext';
 
     minikube.checkUpgradeAvailable();
 
@@ -171,7 +177,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
             (uri: vscode.Uri) => kubectlUtils.applyResourceFromUri(uri, kubectl)),
         registerCommand('extension.vsKubernetesDelete', (explorerNode: ClusterExplorerResourceNode) => { deleteKubernetes(KubernetesDeleteMode.Graceful, explorerNode); }),
         registerCommand('extension.vsKubernetesDeleteNow', (explorerNode: ClusterExplorerResourceNode) => { deleteKubernetes(KubernetesDeleteMode.Now, explorerNode); }),
-        registerCommand('extension.vsKubernetesDescribe.Refresh', DescribePanel.refreshCommand),
+        registerCommand('extension.vsKubernetesDescribe.Refresh', () => refreshDescribeKubernetes(resourceDocProvider)),
         registerCommand('extension.vsKubernetesApply', applyKubernetes),
         registerCommand('extension.vsKubernetesExplain', explainActiveWindow),
         registerCommand('extension.vsKubernetesLoad', loadKubernetes),
@@ -189,6 +195,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.vsKubernetesDebug', debugKubernetes),
         registerCommand('extension.vsKubernetesRemoveDebug', removeDebugKubernetes),
         registerCommand('extension.vsKubernetesDebugAttach', debugAttachKubernetes),
+        registerCommand('extension.vsKubernetesDebugLocalTunnel', (target?: any) => { localTunnelDebugger.startLocalTunnelDebugSession(target); }),
+        registerCommand('extension.vsKubernetesFindLocalTunnelDebugProviders', kubernetesFindLocalTunnelDebugProviders),
         registerCommand('extension.vsKubernetesConfigureFromCluster', configureFromClusterKubernetes),
         registerCommand('extension.vsKubernetesCreateCluster', createClusterKubernetes),
         registerCommand('extension.vsKubernetesRefreshExplorer', () => treeProvider.refresh()),
@@ -242,11 +250,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.helmConvertToTemplate', helmConvertToTemplate),
         registerCommand('extension.helmParameterise', helmParameterise),
 
-        // Commands - Draft
-        registerCommand('extension.draftVersion', execDraftVersion),
-        registerCommand('extension.draftCreate', execDraftCreate),
-        registerCommand('extension.draftUp', execDraftUp),
-
         // Commands - API
         registerCommand('kubernetes.cloudExplorer.mergeIntoKubeconfig', kubernetesMergeIntoKubeconfig),
         registerCommand('kubernetes.cloudExplorer.saveKubeconfig', kubernetesSaveKubeconfig),
@@ -258,9 +261,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         // Commands - general
         registerCommand('extension.showInfoMessage', showInfoMessage),
 
-        // Draft debug configuration provider
-        vscode.debug.registerDebugConfigurationProvider('draft', draftDebugProvider),
-
         // HTML renderers
         vscode.workspace.registerTextDocumentContentProvider(helm.PREVIEW_SCHEME, previewProvider),
         vscode.workspace.registerTextDocumentContentProvider(helm.INSPECT_VALUES_SCHEME, inspectProvider),
@@ -269,7 +269,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
 
         // Completion providers
         vscode.languages.registerCompletionItemProvider(completionFilter, completionProvider),
-        vscode.languages.registerCompletionItemProvider('yaml', new KubernetesCompletionProvider()),
+        vscode.languages.registerCompletionItemProvider('yaml', new KubernetesCompletionProvider(context)),
 
         // Symbol providers
         vscode.languages.registerDocumentSymbolProvider({ language: 'helm' }, helmSymbolProvider),
@@ -292,6 +292,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
 
         // Temporarily loaded resource providers
         vscode.workspace.registerFileSystemProvider(K8S_RESOURCE_SCHEME, resourceDocProvider, { /* TODO: case sensitive? */ }),
+        vscode.workspace.registerFileSystemProvider(K8S_RESOURCE_SCHEME_READONLY, resourceDocProvider, { isReadonly: true }),
 
         // Link from resources to referenced resources
         vscode.languages.registerDocumentLinkProvider({ scheme: K8S_RESOURCE_SCHEME }, resourceLinkProvider),
@@ -301,6 +302,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
 
         // Status bar
         portForwardStatusBarItem,
+        activeNamespaceStatusBarItem,
+        activeContextStatusBarItem,
 
         // Telemetry
         registerTelemetry(context),
@@ -329,33 +332,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
             const u = vscode.Uri.parse(helm.PREVIEW_URI);
             previewProvider.update(u);
         }
-
-        // if there is an active Draft debugging session, restart the cycle
-        if (draftDebugSession !== undefined) {
-            const session = vscode.debug.activeDebugSession;
-
-            // TODO - how do we make sure this doesn't affect all other debugging sessions?
-            // TODO - maybe check to see if `draft.toml` is present in the workspace
-            // TODO - check to make sure we enable this only when Draft is installed
-            if (session !== undefined) {
-                draftDebugSession.customRequest('evaluate', { restart: true });
-            }
-        }
-    });
-
-    vscode.debug.onDidTerminateDebugSession((_e) => {
-
-        // if there is an active Draft debugging session, restart the cycle
-        if (draftDebugSession !== undefined) {
-            const session = vscode.debug.activeDebugSession;
-
-            // TODO - how do we make sure this doesn't affect all other debugging sessions?
-            // TODO - maybe check to see if `draft.toml` is present in the workspace
-            // TODO - check to make sure we enable this only when Draft is installed
-            if (session !== undefined) {
-                draftDebugSession.customRequest('evaluate', { stop: true });
-            }
-        }
     });
 
     // On editor change, refresh the Helm YAML preview
@@ -372,15 +348,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         previewProvider.update(u);
     });
 
-    vscode.debug.onDidChangeActiveDebugSession((e: vscode.DebugSession | undefined)=> {
-        if (e !== undefined) {
-            // keep a copy of the initial Draft debug session
-            if (e.name.indexOf('Draft') >= 0) {
-                draftDebugSession = e;
-            }
-        }
-    });
-
     vscode.workspace.onDidOpenTextDocument(kubernetesLint);
     vscode.workspace.onDidChangeTextDocument((e) => kubernetesLint(e.document));  // TODO: we could use the change hint
     vscode.workspace.onDidSaveTextDocument(kubernetesLint);
@@ -390,10 +357,24 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
     subscriptions.forEach((element) => {
         context.subscriptions.push(element);
     });
+
+    activeContextTracker.activeChanged(async (context) => {
+        const currentContext = await getCurrentContext(kubectl, { silent: true });
+        if (!currentContext) { return; }
+        updateStatusBarItem(activeContextStatusBarItem, context!, `${currentContext.contextName}\nCluster: ${currentContext.clusterName}`, !config.isContextStatusBarDisabled());
+    });
+
+    kubectlUtils.onDidChangeNamespaceEmitter.event((namespace) => {
+        updateStatusBarItem(activeNamespaceStatusBarItem, namespace, 'Current active namespace', !config.isNamespaceStatusBarDisabled());
+    });
+    const currentNS = await kubectlUtils.currentNamespace(kubectl);
+    updateStatusBarItem(activeNamespaceStatusBarItem, currentNS, 'Current active namespace', !config.isNamespaceStatusBarDisabled());
+
     await registerYamlSchemaSupport(activeContextTracker, kubectl);
 
     vscode.workspace.registerTextDocumentContentProvider(configmaps.uriScheme, configMapProvider);
-    return apiBroker(clusterProviderRegistry, kubectl, portForwardStatusBarManager, treeProvider, cloudExplorer);
+
+    return apiBroker(clusterProviderRegistry, kubectl, portForwardStatusBarManager, treeProvider, cloudExplorer, localTunnelDebugger, onDidChangeKubeconfigEmitter, activeContextTracker, kubectlUtils.onDidChangeNamespaceEmitter);
 }
 
 // this method is called when your extension is deactivated
@@ -1068,6 +1049,9 @@ function findKindNamesForText(text: string): Errorable<ResourceKindName[]> {
                 resourceName: obj.metadata.name,
                 namespace: obj.metadata.namespace
             }));
+        if (kindNames.length === 0) {
+            return { succeeded: false, error: [ 'the open document doesn\'t contain a valid kind name'] };
+        }
         return { succeeded: true, result: kindNames };
     } catch (ex) {
         console.log(ex);
@@ -1078,6 +1062,9 @@ function findKindNamesForText(text: string): Errorable<ResourceKindName[]> {
 export async function findKindNameOrPrompt(resourceKinds: kuberesources.ResourceKind[], descriptionVerb: string, opts: vscode.InputBoxOptions & QuickPickKindNameOptions): Promise<string | undefined> {
     const kindObject = tryFindKindNameFromEditor();
     if (failed(kindObject)) {
+        if (opts.skipFreeTextPrompt) {
+            return await quickPickKindName(resourceKinds, opts);
+        }
         return await promptKindName(resourceKinds, descriptionVerb, opts);
     } else {
         return `${kindObject.result.kind}/${kindObject.result.resourceName}`;
@@ -1120,6 +1107,7 @@ export async function quickPickKindName(resourceKinds: kuberesources.ResourceKin
 interface QuickPickKindNameOptions {
     readonly filterNames?: string[];
     readonly nameOptional?: boolean;
+    readonly skipFreeTextPrompt?: boolean;
 }
 
 async function quickPickKindNameFromKind(resourceKind: kuberesources.ResourceKind, opts: QuickPickKindNameOptions): Promise<string | undefined> {
@@ -1276,30 +1264,55 @@ function getPorts() {
 }
 
 async function describeKubernetes(explorerNode?: ClusterExplorerResourceNode) {
-    async function describeSettings() {
-        if (explorerNode) {
-            const nsarg = explorerNode.namespace ? `--namespace ${explorerNode.namespace}` : '';
-            return { cmd: `describe ${explorerNode.kindName} ${nsarg}`, resourceKindName: explorerNode.kindName };
+    let ns: string | null, value: string | undefined;
+    if (explorerNode) {
+        ns = explorerNode.namespace ? explorerNode.namespace : '';
+        value = explorerNode.kindName;
+    } else {
+        let resourceKinds;
+        let skipFreeTextPrompt;
+        const isMinimalDescribeWorkflow = config.isMinimalDescribeWorkflow();
+        if (isMinimalDescribeWorkflow) {
+            resourceKinds = kuberesources.commonKinds;
+            skipFreeTextPrompt = false;
         } else {
-            const value = await findKindNameOrPrompt(kuberesources.commonKinds, 'describe', { nameOptional: true });
-            if (value) {
-                return { cmd: `describe ${value}`, resourceKindName: value };
+            const allResourceKinds = await kubectlUtils.allResourceKinds(kubectl, ['get', 'list']);
+            if (!allResourceKinds.succeeded) {
+                return;
             }
-            return undefined;
+            resourceKinds = allResourceKinds.result;
+            skipFreeTextPrompt = true;
         }
-    }
-    const settings = await describeSettings();
-    if (!settings) {
-        return;
+        ns = null;
+        value = await findKindNameOrPrompt(resourceKinds, 'describe', { nameOptional: true, skipFreeTextPrompt });
     }
 
-    const describe = () => kubectl.invokeCommand(settings.cmd);
-    const er = await describe();
-    if (ExecResult.failed(er)) {
-        await kubectl.reportFailure(er, { whatFailed: 'Describe failed' });
+    if (!value) {
         return;
     }
-    DescribePanel.createOrShow(er.stdout, settings.resourceKindName, describe);
+    const uri = kubefsUri(ns, value, '', 'describe');
+    vscode.workspace.openTextDocument(uri).then((doc) => {
+        if (doc) {
+            vscode.window.showTextDocument(doc);
+        }
+    },
+    (err) => vscode.window.showErrorMessage(`Error loading document: ${err}`));
+}
+
+async function refreshDescribeKubernetes(resourceDocProvider: KubernetesResourceVirtualFileSystemProvider) {
+    const editor = vscode.window.activeTextEditor;
+    if (editor) {
+        const uri = editor.document.uri;
+        if (uri.authority === KUBECTL_DESCRIBE_AUTHORITY) {
+            const newContent = await resourceDocProvider.loadResource(uri);
+            const edit = new vscode.WorkspaceEdit();
+            edit.replace(
+                uri,
+                new vscode.Range(0, 0, editor.document.lineCount, 0),
+                newContent);
+            vscode.workspace.applyEdit(edit);
+        }
+    }
 }
 
 export interface PodSummary {
@@ -1941,6 +1954,7 @@ async function useKubeconfigKubernetes(kubeconfig?: string | { isTrusted: boolea
         return;
     }
     await setActiveKubeconfig(kc);
+    onDidChangeKubeconfigEmitter.fire(getKubeconfigPath());
     telemetry.invalidateClusterType(undefined, kubectl);
 }
 
@@ -1966,11 +1980,22 @@ async function getKubeconfigSelection(kubeconfig?: string): Promise<string | und
 }
 
 async function useContextKubernetes(explorerNode: ClusterExplorerNode) {
-    if (!explorerNode || explorerNode.nodeType !== explorer.NODE_TYPES.context) {
+    if (explorerNode && explorerNode.nodeType === explorer.NODE_TYPES.context) {
+        const contextObj = explorerNode.kubectlContext;
+        const targetContext = contextObj.contextName;
+        setContextKubernetes(targetContext);
         return;
     }
-    const contextObj = explorerNode.kubectlContext;
-    const targetContext = contextObj.contextName;
+
+    const contexts = await kubectlUtils.getContexts(kubectl, { silent: false });  // TODO: turn it silent, cascade errors, and provide an error node
+    const inactiveContexts = contexts.filter((context) => !context.active).map((context) => context.contextName);
+    const selected = await vscode.window.showQuickPick(inactiveContexts, { placeHolder: 'Pick the context you want to switch to' });
+    if (selected) {
+        setContextKubernetes(selected);
+    }
+}
+
+async function setContextKubernetes(targetContext: string) {
     const er = await kubectl.invokeCommand(`config use-context ${targetContext}`);
     if (ExecResult.succeeded(er)) {
         telemetry.invalidateClusterType(targetContext);
@@ -2016,106 +2041,6 @@ function copiableName(explorerNode: ClusterExplorerNode): string | undefined {
         case explorer.NODE_TYPES.configitem: return explorerNode.key;
         default: return undefined;
     }
-}
-
-async function execDraftVersion() {
-    if (!(await draft.checkPresent(DraftCheckPresentMode.Alert))) {
-        return;
-    }
-
-    const dvResult = await draft.version();
-
-    if (succeeded(dvResult)) {
-        host.showInformationMessage(dvResult.result);
-    } else if (dvResult.error[0]) {
-        host.showErrorMessage(dvResult.error[0]);
-    }
-}
-
-async function execDraftCreate() {
-    if (vscode.workspace.rootPath === undefined) {
-        vscode.window.showErrorMessage('This command requires an open folder.');
-        return;
-    }
-    if (draft.isFolderMapped(vscode.workspace.rootPath)) {
-        vscode.window.showInformationMessage('This folder is already configured for draft. Run draft up to deploy.');
-        return;
-    }
-    if (!(await draft.checkPresent(DraftCheckPresentMode.Alert))) {
-        return;
-    }
-    const proposedAppName = path.basename(vscode.workspace.rootPath);
-    const appName = await vscode.window.showInputBox({ value: proposedAppName, prompt: "Choose a name for the Helm release"});
-    if (appName) {
-        await execDraftCreateApp(appName, undefined);
-    }
-}
-
-enum DraftCreateResult {
-    Succeeded,
-    Fatal,
-    NeedsPack,
-}
-
-async function execDraftCreateApp(appName: string, pack?: string): Promise<void> {
-    const folder = await showWorkspaceFolderPick();
-    if (!folder) {
-        return;
-    }
-
-    const dcResult = await draft.create(appName, pack, folder.uri.fsPath);
-    if (!dcResult) {
-        host.showErrorMessage(`Unable to run Draft`);
-        return;
-    }
-
-    switch (draftCreateResult(dcResult, !!pack)) {
-        case DraftCreateResult.Succeeded:
-            host.showInformationMessage("draft " + dcResult.stdout);
-            return;
-        case DraftCreateResult.Fatal:
-            host.showErrorMessage(`draft failed: ${dcResult.stderr}`);
-            return;
-        case DraftCreateResult.NeedsPack:
-            const packs = await draft.packs();
-            if (packs && packs.length > 0) {
-                const packSel = await host.showQuickPick(packs, { placeHolder: `Choose the Draft starter pack for ${appName}` });
-                if (packSel) {
-                    await execDraftCreateApp(appName, packSel);
-                }
-            } else {
-                host.showErrorMessage("Unable to determine starter pack, and no starter packs found to choose from.");
-            }
-            return;
-    }
-}
-
-function draftCreateResult(sr: ShellResult, hadPack: boolean) {
-    if (sr.code === 0) {
-        return DraftCreateResult.Succeeded;
-    }
-    if (!hadPack && draftErrorMightBeSolvedByChoosingPack(sr.stderr)) {
-        return DraftCreateResult.NeedsPack;
-    }
-    return DraftCreateResult.Fatal;
-}
-
-function draftErrorMightBeSolvedByChoosingPack(draftError: string) {
-    return draftError.indexOf('Unable to select a starter pack') >= 0
-        || draftError.indexOf('Error: no languages were detected') >= 0;
-}
-
-async function execDraftUp() {
-    if (vscode.workspace.rootPath === undefined) {
-        vscode.window.showErrorMessage('This command requires an open folder.');
-        return;
-    }
-    if (!draft.isFolderMapped(vscode.workspace.rootPath)) {
-        vscode.window.showInformationMessage('This folder is not configured for draft. Run draft create to configure it.');
-        return;
-    }
-
-    await draft.up();
 }
 
 async function helmConvertToTemplate(arg?: any) {
@@ -2282,8 +2207,24 @@ async function showInfoMessage(message: string) {
 }
 
 function kubernetesFindCloudProviders() {
-    const searchUrl = 'https://marketplace.visualstudio.com/search?term=kubernetes-extension-cloud-provider&target=VSCode&category=All%20categories&sortBy=Relevance';
+    searchMarketplace("kubernetes-extension-cloud-provider");
+}
+
+function kubernetesFindLocalTunnelDebugProviders() {
+    searchMarketplace("kubernetes-extension-local-tunnel-debug-provider");
+}
+
+function searchMarketplace(searchTerm: string) {
+    const searchUrl = `https://marketplace.visualstudio.com/search?term=${searchTerm}&target=VSCode&category=All%20categories&sortBy=Relevance`;
     browser.open(searchUrl);
 }
 
-
+function updateStatusBarItem(statusBarItem: vscode.StatusBarItem, text: string, tooltip: string, show: boolean): void {
+    statusBarItem.text = text;
+    statusBarItem.tooltip = tooltip;
+	if (show) {
+		statusBarItem.show();
+	} else {
+		statusBarItem.hide();
+	}
+}

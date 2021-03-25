@@ -24,6 +24,7 @@ import { parseLineOutput } from './outputUtils';
 import { ExecCallback, shell as sh, ShellResult } from './shell';
 import { preview } from './utils/preview';
 import * as fs from './wsl-fs';
+import * as shell from './shell';
 
 export interface PickChartUIOptions {
     readonly warnIfNoCharts: boolean;
@@ -45,13 +46,17 @@ interface HelmRepositoriesFile {
 
 // Schema for Helm release
 // added to support rollback feature
-interface HelmRelease {
-    revision:    number;
-    updated:     string;
-    status:      string;
-    chart:       string;
-    appVersion: string;
-    description: string;
+export interface HelmRelease {
+    readonly revision:    number;
+    readonly updated:     string;
+    readonly status:      string;
+    readonly chart:       string;
+    readonly appVersion:  string;
+    readonly description: string;
+}
+
+function helmReleaseFromJSON(json: any): HelmRelease {
+    return { appVersion: json.app_version, ...json };
 }
 
 // This file contains utilities for executing command line tools, notably Helm.
@@ -282,7 +287,8 @@ export function helmGet(resourceNode?: ClusterExplorerNode) {
         return;
     }
     const releaseName = resourceNode.releaseName;
-    const uri = helmfsUri(releaseName);
+    const revisionNumber = (resourceNode.nodeType === NODE_TYPES.helm.history ? resourceNode.release.revision : undefined);
+    const uri = helmfsUri(releaseName, revisionNumber);
     vscode.workspace.openTextDocument(uri).then((doc) => {
         if (doc) {
             vscode.window.showTextDocument(doc);
@@ -320,47 +326,52 @@ export async function helmGetHistory(release: string): Promise<Errorable<HelmRel
     if (!ensureHelm(EnsureMode.Alert)) {
         return { succeeded: false, error: [ "Helm client is not installed" ] };
     }
-    const releases: HelmRelease[] = [];
     const sr = await helmExecAsync(`history ${release} --output json`);
     if (!sr || sr.code !== 0) {
-        await vscode.window.showErrorMessage(`Helm fetch history failed: ${sr ? sr.stderr : "Unable to run Helm"}`);
+        const message = `Helm fetch history failed: ${sr ? sr.stderr : "Unable to run Helm"}`;
+        await vscode.window.showErrorMessage(message);
+        return { succeeded: false, error: [message] };
     } else {
-        const hist: HelmRelease[] = JSON.parse(sr.stdout);
-        releases.push(...hist);
+        const releasesJSON: any[] = JSON.parse(sr.stdout);
+        const releases = releasesJSON.map(helmReleaseFromJSON);
+        return { succeeded: true, result: releases.reverse() };
     }
-    return { succeeded: true, result: releases.reverse() };
 }
 
 export async function helmRollback(resourceNode?: HelmHistoryNode) {
     if (!resourceNode) {
         return;
     }
-    if (resourceNode.status === "deployed") {
+    if (resourceNode.release.status === "deployed") {
         vscode.window.showInformationMessage('This is the currently deployed release');
         return;
     }
     const releaseName = resourceNode.releaseName;
-    vscode.window.showWarningMessage(`You are about to rollback ${releaseName} to release version ${resourceNode.revision}. Continue?`, 'Rollback').then((opt) => {
+    const release = resourceNode.release;
+    vscode.window.showWarningMessage(`You are about to rollback ${releaseName} to release version ${release.revision}. Continue?`, 'Rollback').then((opt) => {
         if (opt === "Rollback") {
-            helmExec(`rollback ${releaseName} ${resourceNode.revision} --cleanup-on-fail`, async (code, out, err) => {
+            helmExec(`rollback ${releaseName} ${release.revision} --cleanup-on-fail`, async (code, out, err) => {
             logger.log(out);
             logger.log(err);
             if (out !== "") {
-                vscode.window.showInformationMessage(`Release ${releaseName} successfully rolled back to ${resourceNode.revision}.`);
+                vscode.window.showInformationMessage(`Release ${releaseName} successfully rolled back to ${release.revision}.`);
                 refreshExplorer();
             }
             if (code !== 0) {
-                vscode.window.showErrorMessage(`Error rolling back to ${resourceNode.revision} for ${releaseName} ${err}`);
+                vscode.window.showErrorMessage(`Error rolling back to ${release.revision} for ${releaseName} ${err}`);
             }
         });
     }
 });
 }
 
-export function helmfsUri(releaseName: string): vscode.Uri {
-    const docname = `helmrelease-${releaseName}.txt`;
+export function helmfsUri(releaseName: string, revision: number | undefined): vscode.Uri {
+    const revisionSuffix = revision ? `-${revision}` : '';
+    const revisionQuery = revision ? `&revision=${revision}` : '';
+
+    const docname = `helmrelease-${releaseName}${revisionSuffix}.txt`;
     const nonce = new Date().getTime();
-    const uri = `${K8S_RESOURCE_SCHEME}://${HELM_RESOURCE_AUTHORITY}/${docname}?value=${releaseName}&_=${nonce}`;
+    const uri = `${K8S_RESOURCE_SCHEME}://${HELM_RESOURCE_AUTHORITY}/${docname}?value=${releaseName}${revisionQuery}&_=${nonce}`;
     return vscode.Uri.parse(uri);
 }
 
@@ -403,6 +414,15 @@ export async function helmFetch(helmObject: helmrepoexplorer.HelmObject | undefi
 }
 
 async function helmFetchCore(chartId: string, version: string | undefined): Promise<void> {
+    if (!shell.isSafe(chartId)) {
+        vscode.window.showWarningMessage(`Unexpected characters in chart name ${chartId}. Use Helm CLI to fetch this chart.`);
+        return;
+    }
+    if (version && !shell.isSafe(version)) {
+        vscode.window.showWarningMessage(`Unexpected characters in chart version ${version}. Use Helm CLI to fetch this chart.`);
+        return;
+    }
+
     const projectFolder = await showWorkspaceFolderPick();
     if (!projectFolder) {
         return;
@@ -432,6 +452,15 @@ export async function helmInstall(kubectl: Kubectl, helmObject: helmrepoexplorer
 }
 
 async function helmInstallCore(kubectl: Kubectl, chartId: string, version: string | undefined): Promise<void> {
+    if (!shell.isSafe(chartId)) {
+        vscode.window.showWarningMessage(`Unexpected characters in chart name ${chartId}. Use Helm CLI to install this chart.`);
+        return;
+    }
+    if (version && !shell.isSafe(version)) {
+        vscode.window.showWarningMessage(`Unexpected characters in chart version ${version}. Use Helm CLI to install this chart.`);
+        return;
+    }
+
     const syntaxVersion = await helmSyntaxVersion();
     const ns = await currentNamespace(kubectl);
     const nsArg = ns ? `--namespace ${ns}` : '';
@@ -475,6 +504,15 @@ export async function helmDependencies(helmObject: helmrepoexplorer.HelmObject |
 }
 
 async function helmDependenciesLaunchViewer(chartId: string, version: string | undefined): Promise<void> {
+    if (!shell.isSafe(chartId)) {
+        vscode.window.showWarningMessage(`Unexpected characters in chart name ${chartId}. Use Helm CLI to install this chart.`);
+        return;
+    }
+    if (version && !shell.isSafe(version)) {
+        vscode.window.showWarningMessage(`Unexpected characters in chart version ${version}. Use Helm CLI to install this chart.`);
+        return;
+    }
+
     // Boing it back through a HTML preview window
     const versionQuery = version ? `?${version}` : '';
     const uri = vscode.Uri.parse(`${helm.DEPENDENCIES_SCHEME}://${helm.DEPENDENCIES_REPO_AUTHORITY}/${chartId}${versionQuery}`);
