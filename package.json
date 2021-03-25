@@ -379,11 +379,6 @@
                 {
                     "id": "kubernetes.cloudExplorer",
                     "name": "Clouds"
-                },
-                {
-                    "id": "kubernetes.RecommendedExtensions",
-                    "name": "Recommended Extensions",
-                    "when": "kubernetes:recommendedExtensions"
                 }
             ]
         },

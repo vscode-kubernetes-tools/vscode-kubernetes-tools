@@ -1,24 +1,8 @@
 {
-    "crdApiToExtensions": {
-        "tekton.dev": [
-            "redhat.vscode-tekton-pipelines"
-        ],
-        "operator.knative.dev": [
-            "redhat.vscode-knative"
-        ]
-    },
-    "extensions": [
-        {
-            "id": "redhat.vscode-tekton-pipelines",
-            "label": "Tekton Pipelines",
-            "description": "Tekton Pipelines extension by Red Hat",
-            "icon": "https://raw.githubusercontent.com/redhat-developer/vscode-tekton/master/images/tekton.png"
-        },
-        {
-            "id": "redhat.vscode-knative",
-            "label": "Knative",
-            "description": "Knative extension for vscode",
-            "icon": "https://redhat.gallerycdn.vsassets.io/extensions/redhat/vscode-knative/0.4.1/1590073776034/Microsoft.VisualStudio.Services.Icons.Default"
-        }
+    "tekton.dev": [
+        "tekton"
+    ],
+    "operator.knative.dev": [
+        "knative"
     ]
 }
