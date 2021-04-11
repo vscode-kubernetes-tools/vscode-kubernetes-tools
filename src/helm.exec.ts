@@ -228,7 +228,7 @@ export function helmInspectValues(arg: any) {
     });
 }
 
-export function helmGetValues(arg: any) {
+export function helmGenerateValues(arg: any) {
     helmInspect(arg, {
         noTargetMessage:
             "Helm generate values.yaml is for packaged charts and directories. Launch the command from a file or directory in the file explorer. or a chart or version in the Helm Repos explorer.",
