@@ -76,7 +76,7 @@
         "onCommand:extension.helmDepUp",
         "onCommand:extension.helmInspectChart",
         "onCommand:extension.helmInspectValues",
-        "onCommand:extension.helmGenerateValues",
+        "onCommand:extension.helmGetValues",
         "onCommand:extension.helmGet",
         "onCommand:extension.helmPackage",
         "onCommand:extension.helmFetch",
@@ -674,7 +674,7 @@
                     "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem =~ /vsKubernetes\\.((chart)|(chartversion))/i"
                 },
                 {
-                    "command": "extension.helmGenerateValues",
+                    "command": "extension.helmGetValues",
                     "group": "0@3",
                     "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem =~ /vsKubernetes\\.((chart)|(chartversion))/i"
                 },
@@ -1094,7 +1094,7 @@
                 "category": "Helm"
             },
             {
-                "command": "extension.helmGenerateValues",
+                "command": "extension.helmGetValues",
                 "title": "Generate values.yaml",
                 "description": "Generate values.yaml from the chart",
                 "category": "Helm"
