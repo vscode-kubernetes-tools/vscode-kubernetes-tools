@@ -22,7 +22,7 @@ import { HELM_RESOURCE_AUTHORITY, K8S_RESOURCE_SCHEME } from './kuberesources.vi
 import { helm as logger } from './logger';
 import { parseLineOutput } from './outputUtils';
 import { ExecCallback, shell as sh, ShellResult } from './shell';
-import { getFile, preview } from "./utils/preview";
+import { openHelmGeneratedValuesFile, preview } from "./utils/preview";
 import * as fs from './wsl-fs';
 import * as shell from './shell';
 
@@ -263,12 +263,17 @@ function helmInspect(arg: any, s: InspectionStrategy) {
     if (helmrepoexplorer.isHelmRepoChart(arg) || helmrepoexplorer.isHelmRepoChartVersion(arg)) {
         const id = arg.id;
         let versionQuery = helmrepoexplorer.isHelmRepoChartVersion(arg) ? `?version=${arg.version}` : "";
-        const generateFile = s.generateFile ? `&generateFile=values.yaml` : "";
-        let uri = vscode.Uri.parse(`${s.inspectionScheme}://${helm.INSPECT_REPO_AUTHORITY}/${id}${versionQuery}${generateFile}`);
+        let uri = vscode.Uri.parse(`${s.inspectionScheme}://${helm.INSPECT_REPO_AUTHORITY}/${id}${versionQuery}`);
         if (s.generateFile) {
             versionQuery = helmrepoexplorer.isHelmRepoChartVersion(arg) ? `&version=${arg.version}` : "";
-            uri = vscode.Uri.parse(`${s.inspectionScheme}://${helm.INSPECT_REPO_AUTHORITY}/values.yaml?chart=${id}${versionQuery}`);
-            getFile(uri);
+            let valuesFileName = `${id}-values.yaml`;
+            if (versionQuery !== "") {
+                valuesFileName = `${id}-${versionQuery.replace('&version=', "")}-values.yaml`;
+            }
+            uri = vscode.Uri.parse(
+                `${s.inspectionScheme}://${helm.INSPECT_REPO_AUTHORITY}/${valuesFileName}?chart=${id}${versionQuery}`
+            );
+            openHelmGeneratedValuesFile(uri);
         } else {
             preview(uri, vscode.ViewColumn.Two, "Inspect");
         }

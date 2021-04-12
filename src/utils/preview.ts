@@ -15,7 +15,7 @@ async function getHTML(uri: vscode.Uri): Promise<string> {
     return doc.getText();
 }
 
-export async function getFile(uri: vscode.Uri): Promise<void> {
+export async function openHelmGeneratedValuesFile(uri: vscode.Uri): Promise<void> {
     return vscode.workspace.openTextDocument(uri).then((document) => {
         vscode.window.showTextDocument(document);
     });

@@ -89,7 +89,7 @@ export class HelmInspectDocumentProvider implements vscode.TextDocumentContentPr
                 const id = uri.path.substring(1);
                 const query = querystring.parse(uri.query);
                 const version = query.version as string;
-                const generateFile = (query.generateFile as string) ? true : false;
+                const generateFile = query.generateFile  ? true : false;
                 if (!shell.isSafe(id)) {
                     vscode.window.showWarningMessage(`Unexpected characters in chart name ${id}. Use Helm CLI to inspect this chart.`);
                     return;
@@ -135,7 +135,8 @@ export class HelmValuesDocumentProvider implements vscode.TextDocumentContentPro
             ) {
                 const query = querystring.parse(uri.query);
                 const id = query.chart as string;
-                const version = query.version as string;
+                const version = query.version ? `${query.version}` : "";
+                const versionArg = version ? `--version ${version}` : "";
                 if (!shell.isSafe(id)) {
                     vscode.window.showWarningMessage(`Unexpected characters in chart name ${id}. Use Helm CLI to inspect this chart.`);
                     return;
@@ -144,7 +145,6 @@ export class HelmValuesDocumentProvider implements vscode.TextDocumentContentPro
                     vscode.window.showWarningMessage(`Unexpected characters in chart version ${version}. Use Helm CLI to inspect this chart.`);
                     return;
                 }
-                const versionArg = version ? `--version ${version}` : "";
                 exec.helmExec(`inspect values ${id} ${versionArg}`, filePrinter);
             }
         });
