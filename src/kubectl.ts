@@ -2,6 +2,7 @@ import { Terminal, Disposable } from 'vscode';
 import { ChildProcess, spawn as spawnChildProcess } from "child_process";
 import { Host, host, LongRunningUIOptions } from './host';
 import { FS } from './fs';
+import * as fs from 'fs';
 import { Shell, ShellResult } from './shell';
 import * as binutil from './binutil';
 import { Errorable } from './errorable';
@@ -179,6 +180,12 @@ class KubectlImpl implements Kubectl {
     }
 
     async ensurePresent(options: EnsurePresentOptions): Promise<boolean> {
+        // Do we have a configured location?
+        const configuredPath = getToolPath(this.context.host, this.context.shell, this.context.binary.configKeyName);
+        if (configuredPath) {
+            fs.chmodSync(configuredPath, '0755');
+        }
+
         if (this.context.pathfinder) {
             return true;
         }
