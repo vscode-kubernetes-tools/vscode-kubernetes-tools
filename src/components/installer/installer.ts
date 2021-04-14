@@ -10,7 +10,7 @@ import * as tar from 'tar';
 import { Shell, Platform } from '../../shell';
 import { Errorable, failed, succeeded } from '../../errorable';
 import { addPathToConfig, toolPathOSKey, getUseWsl } from '../config/config';
-import { platformUrlString, formatBin, platformArch } from './installationlayout';
+import { getInstallFolder, platformUrlString, formatBin, platformArch } from './installationlayout';
 import { IncomingMessage } from 'http';
 
 enum ArchiveKind {
@@ -151,10 +151,6 @@ async function installToolFromArchive(tool: string, urlTemplate: string, shell: 
     const url = urlTemplate.replace('{os_placeholder}', os).replace('{arch}', arch);
     const configKey = toolPathOSKey(shell.platform(), tool);
     return installFromArchive(url, installFolder, executable, configKey, shell, archiveKind);
-}
-
-function getInstallFolder(shell: Shell, tool: string): string {
-    return path.join(shell.home(), `.vs-kubernetes/tools/${tool}`);
 }
 
 async function installFromArchive(sourceUrl: string, destinationFolder: string, executablePath: string, configKey: string, shell: Shell, archiveKind: ArchiveKind): Promise<Errorable<null>> {
