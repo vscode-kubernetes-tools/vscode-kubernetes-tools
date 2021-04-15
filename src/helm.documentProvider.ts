@@ -62,14 +62,6 @@ export class HelmInspectDocumentProvider implements vscode.TextDocumentContentPr
                 console.log(`Inspect failed: ${out} ${err}`);
                 reject(err);
             };
-            const filePrinter = (code: number, out: string, err: string) => {
-                if (code === 0) {
-                    resolve(out);
-                    return;
-                }
-                console.log(`failed to generate values.yaml: ${out} ${err}`);
-                reject(err);
-            };
 
             if (uri.authority === helm.INSPECT_FILE_AUTHORITY) {
                 // currently always INSPECT_VALUES_SCHEME
@@ -89,7 +81,6 @@ export class HelmInspectDocumentProvider implements vscode.TextDocumentContentPr
                 const id = uri.path.substring(1);
                 const query = querystring.parse(uri.query);
                 const version = query.version as string;
-                const generateFile = query.generateFile  ? true : false;
                 if (!shell.isSafe(id)) {
                     vscode.window.showWarningMessage(`Unexpected characters in chart name ${id}. Use Helm CLI to inspect this chart.`);
                     return;
@@ -105,8 +96,20 @@ export class HelmInspectDocumentProvider implements vscode.TextDocumentContentPr
                     if (uri.scheme === helm.INSPECT_CHART_SCHEME) {
                         exec.helmExec(`inspect ${helm3Scope} ${id} ${versionArg}`, printer);
                     } else if (uri.scheme === helm.INSPECT_VALUES_SCHEME) {
-                        if (generateFile) {
-                            exec.helmExec(`inspect values ${id} ${versionArg}`, filePrinter);
+                        if (query.generateFile) {
+                            exec.helmExec(
+                                `inspect values ${id} ${versionArg}`,
+                                (code: number, out: string, err: string) => {
+                                    if (code === 0) {
+                                        resolve(out);
+                                        return;
+                                    }
+                                    console.log(
+                                        `failed to generate values.yaml: ${out} ${err}`
+                                    );
+                                    reject(err);
+                                }
+                            );
                         } else {
                             exec.helmExec(`inspect values ${id} ${versionArg}`, printer);
                         }
@@ -121,14 +124,6 @@ export class HelmInspectDocumentProvider implements vscode.TextDocumentContentPr
 export class HelmValuesDocumentProvider implements vscode.TextDocumentContentProvider {
     public provideTextDocumentContent(uri: vscode.Uri, _token: vscode.CancellationToken): vscode.ProviderResult<string> {
         return new Promise<string>((resolve, reject) => {
-            const filePrinter = (code: number, out: string, err: string) => {
-                if (code === 0) {
-                    resolve(out);
-                    return;
-                }
-                console.log(`failed to generate values.yaml: ${out} ${err}`);
-                reject(err);
-            };
             if (
                 uri.authority === helm.INSPECT_REPO_AUTHORITY &&
                 uri.scheme === helm.GET_VALUES_SCHEME
@@ -145,7 +140,19 @@ export class HelmValuesDocumentProvider implements vscode.TextDocumentContentPro
                     vscode.window.showWarningMessage(`Unexpected characters in chart version ${version}. Use Helm CLI to inspect this chart.`);
                     return;
                 }
-                exec.helmExec(`inspect values ${id} ${versionArg}`, filePrinter);
+                exec.helmExec(
+                    `inspect values ${id} ${versionArg}`,
+                    (code: number, out: string, err: string) => {
+                        if (code === 0) {
+                            resolve(out);
+                            return;
+                        }
+                        console.log(
+                            `failed to inspect values: ${out} ${err}`
+                        );
+                        reject(err);
+                    }
+                );
             }
         });
     }
