@@ -14,12 +14,13 @@ interface KubernetesSchema {
     readonly apiVersion?: string;
     readonly kind?: string;
     readonly 'x-kubernetes-group-version-kind'?: any[];
-    readonly properties?: { [key: string]: any };
+    properties?: { [key: string]: any };
 }
 
 export class KubernetesClusterSchemaHolder {
     private definitions: { [key: string]: KubernetesSchema } = {};
     private schemaEnums: { [key: string]: { [key: string]: [string[]] } };
+    private crdSchemas: { [key: string]: object | undefined};
 
     public static async fromActiveCluster(kubectl: Kubectl): Promise<KubernetesClusterSchemaHolder> {
         const holder = new KubernetesClusterSchemaHolder();
@@ -30,14 +31,18 @@ export class KubernetesClusterSchemaHolder {
     public static fallback(): KubernetesClusterSchemaHolder {
         const holder = new KubernetesClusterSchemaHolder();
         const fallbackSchema = util.loadJson(FALLBACK_SCHEMA_FILE());
-        holder.loadSchemaFromRaw(fallbackSchema, KUBERNETES_SCHEMA_ENUM_FILE());
+        holder.loadSchemaFromRaw(fallbackSchema, KUBERNETES_SCHEMA_ENUM_FILE(), undefined);
         return holder;
     }
 
     private async loadSchemaFromActiveCluster(kubectl: Kubectl, schemaEnumFile?: string): Promise<void> {
         const clusterSwagger = await swagger.getClusterSwagger(kubectl);
+        const crdSchemas = await swagger.getCrdSchemas(kubectl);
+        if (crdSchemas) {
+            this.crdSchemas = crdSchemas;
+        }
         const schemaRaw = succeeded(clusterSwagger) ? this.definitionsObject(clusterSwagger.result) : util.loadJson(FALLBACK_SCHEMA_FILE());
-        this.loadSchemaFromRaw(schemaRaw, schemaEnumFile);
+        this.loadSchemaFromRaw(schemaRaw, schemaEnumFile, kubectl);
     }
 
     private definitionsObject(swagger: any): any {
@@ -46,7 +51,7 @@ export class KubernetesClusterSchemaHolder {
         };
     }
 
-    private loadSchemaFromRaw(schemaRaw: any, schemaEnumFile?: string): void {
+    private loadSchemaFromRaw(schemaRaw: any, schemaEnumFile?: string, kubectl?: Kubectl): void {
         this.schemaEnums = schemaEnumFile ? util.loadJson(schemaEnumFile) : {};
         const definitions = schemaRaw.definitions;
         makeSafeIntOrString(definitions);
@@ -55,6 +60,15 @@ export class KubernetesClusterSchemaHolder {
         }
 
         for (const schema of _.values(this.definitions) ) {
+            if (kubectl &&
+                this.crdSchemas &&
+                schema.id &&
+                schema.id.toLowerCase() in this.crdSchemas)  {
+                    const crdProperties = this.crdSchemas[schema.id.toLowerCase()];
+                    if (crdProperties) {
+                        schema.properties = crdProperties;
+                    }
+            }
             if (schema.properties) {
                 // the swagger schema has very short description on properties, we need to get the actual type of
                 // the property and provide more description/properties details, just like `kubernetes explain` do.
