@@ -3,6 +3,7 @@ import { Errorable, failed } from "../../errorable";
 import { Kubectl } from "../../kubectl";
 import { proxy } from "../kubectl/proxy";
 import { fs } from '../../fs';
+import * as kubectlUtils from '../../kubectlUtils';
 import { ExecResult } from '../../binutilplusplus';
 
 export type Swagger = any;
@@ -53,9 +54,12 @@ export async function getCrdSchemas(kubectl: Kubectl): Promise<{[key: string]: o
             const singular = crdInfoAsArray[2].trim();
             const versions = crdInfoAsArray[3].trim() !== '' ? crdInfoAsArray[3].trim().split(' ') : [];
             if (versions.length > 0) {
-                const crdSchemas = await getSchemas(kubectl, `${plural}.${group}`);
+                const crd =  await kubectlUtils.getResourceAsJson<any>(kubectl, `crd ${plural}.${group}`, '', true);
+                if (!crd) {
+                    continue;
+                }
                 for (const version of versions) {
-                    const versionObject = crdSchemas.spec.versions.filter((v: { name: string }) => v.name === version);
+                    const versionObject = crd.spec.versions ? crd.spec.versions.filter((v: { name: string }) => v.name === version) : [];
                     crdSchemasMapping[`${group}/${version}@${singular}`] = versionObject.length > 0 ? versionObject[0].schema.openAPIV3Schema.properties : undefined;
                 }
             }
@@ -63,13 +67,4 @@ export async function getCrdSchemas(kubectl: Kubectl): Promise<{[key: string]: o
         return crdSchemasMapping;
     } catch (e) { }
     return;
-}
-
-async function getSchemas(kubectl: Kubectl, crd: string) {
-    const json = await kubectl.asJson<any>(`get crd ${crd} -o json`);
-    if (failed(json)) {
-        return;
-    }
-    return json.result;
-
 }

@@ -406,11 +406,13 @@ function isTransientPodState(status: string): boolean {
  * @param resourceId the resource id.
  * @return the result as a json object, or undefined if errors happen.
  */
-export async function getResourceAsJson<T extends KubernetesResource | KubernetesCollection<KubernetesResource>>(kubectl: Kubectl, resourceId: string, resourceNamespace?: string): Promise<T | undefined> {
+export async function getResourceAsJson<T extends KubernetesResource | KubernetesCollection<KubernetesResource>>(kubectl: Kubectl, resourceId: string, resourceNamespace?: string, silent?: boolean): Promise<T | undefined> {
     const nsarg = resourceNamespace ? `--namespace ${resourceNamespace}` : '';
     const shellResult = await kubectl.asJson<T>(`get ${resourceId} ${nsarg} -o json`);
     if (failed(shellResult)) {
-        vscode.window.showErrorMessage(shellResult.error[0]);
+        if (!silent) {
+            vscode.window.showErrorMessage(shellResult.error[0]);
+        }
         return undefined;
     }
     return shellResult.result;
