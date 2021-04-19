@@ -1,4 +1,14 @@
-import { Platform } from "../../shell";
+import * as path from 'path';
+
+import { Platform, Shell } from "../../shell";
+
+export function baseInstallFolder(shell: Shell): string {
+    return path.join(shell.home(), `.vs-kubernetes/tools`);
+}
+
+export function getInstallFolder(shell: Shell, tool: string): string {
+    return path.join(baseInstallFolder(shell), tool);
+}
 
 export function platformUrlString(platform: Platform, supported?: Platform[]): string | null {
     if (supported && supported.indexOf(platform) < 0) {
