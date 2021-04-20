@@ -71,7 +71,7 @@ export class LogsPanel extends WebPanel {
     }
 
     private getColors() {
-        return fs.readFileSync(path.join(LogsPanel.extensionPath, 'schema', 'colors.json'), 'utf8');
+        return fs.readFileSync(path.join(LogsPanel.extensionPath, 'log-colors-rules.json'), 'utf8');
     }
 
     public addContent(content: string) {

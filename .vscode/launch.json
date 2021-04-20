@@ -16,7 +16,7 @@
             "outFiles": [
                 "${workspaceFolder}/dist/**/*.js"
             ],
-            "preLaunchTask": "npm: test-compile",
+            "preLaunchTask": "npm: watch",
             "skipFiles": [
                 "<node_internals>/**/*.js"
             ]

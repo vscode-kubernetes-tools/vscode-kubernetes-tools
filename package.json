@@ -1220,8 +1220,7 @@
     "scripts": {
         "vscode:prepublish": "webpack --mode production",
         "lint": "eslint -c .eslintrc.js --ext .ts ./src",
-        "compile": "npm run compile:ext && npm run compile:view",
-        "compile:ext": "webpack --mode none",
+        "compile": "webpack --mode none",
         "compile:view": "webpack --mode none --config src/components/logs/webpack.config.js",
         "watch": "webpack --mode development --watch --info-verbosity verbose",
         "test-compile": "tsc -p ./",
