@@ -1199,7 +1199,6 @@
                     "helm"
                 ],
                 "filenamePatterns": [
-                    "values.yaml",
                     "Chart.yaml",
                     "requirements.yaml",
                     "**/templates/*.yaml",
