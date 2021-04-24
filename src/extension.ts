@@ -233,8 +233,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.helmTemplate', helmexec.helmTemplate),
         registerCommand('extension.helmTemplatePreview', helmexec.helmTemplatePreview),
         registerCommand('extension.helmLint', helmexec.helmLint),
-        registerCommand('extension.helmInspectValues', helmexec.helmInspectValues),
-        registerCommand('extension.helmGenerateValues', helmexec.helmGenerateValues),
+        registerCommand('extension.helmFetchValues', helmexec.helmFetchValues),
         registerCommand('extension.helmInspectChart', helmexec.helmInspectChart),
         registerCommand('extension.helmDryRun', helmexec.helmDryRun),
         registerCommand('extension.helmDepUp', helmexec.helmDepUp),
@@ -263,9 +262,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
 
         // HTML renderers
         vscode.workspace.registerTextDocumentContentProvider(helm.PREVIEW_SCHEME, previewProvider),
-        vscode.workspace.registerTextDocumentContentProvider(helm.INSPECT_VALUES_SCHEME, inspectProvider),
         vscode.workspace.registerTextDocumentContentProvider(helm.INSPECT_CHART_SCHEME, inspectProvider),
-        vscode.workspace.registerTextDocumentContentProvider(helm.GET_VALUES_SCHEME, helmValuesProvider),
+        vscode.workspace.registerTextDocumentContentProvider(helm.FETCH_VALUES_SCHEME, helmValuesProvider),
         vscode.workspace.registerTextDocumentContentProvider(helm.DEPENDENCIES_SCHEME, dependenciesProvider),
 
         // Completion providers

@@ -220,19 +220,11 @@ export function helmLint() {
     });
 }
 
-export function helmInspectValues(arg: any) {
-    helmInspect(arg, {
-        noTargetMessage: "Helm Inspect Values is for packaged charts and directories. Launch the command from a file or directory in the file explorer. or a chart or version in the Helm Repos explorer.",
-        inspectionScheme: helm.INSPECT_VALUES_SCHEME,
-        generateFile: false
-    });
-}
-
-export function helmGenerateValues(arg: any) {
+export function helmFetchValues(arg: any) {
     helmInspect(arg, {
         noTargetMessage:
             "Helm generate values.yaml is for packaged charts and directories. Launch the command from a file or directory in the file explorer. or a chart or version in the Helm Repos explorer.",
-        inspectionScheme: helm.GET_VALUES_SCHEME,
+        inspectionScheme: helm.FETCH_VALUES_SCHEME,
         generateFile: true,
     });
 }

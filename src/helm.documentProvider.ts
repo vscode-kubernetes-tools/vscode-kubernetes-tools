@@ -126,7 +126,7 @@ export class HelmValuesDocumentProvider implements vscode.TextDocumentContentPro
         return new Promise<string>((resolve, reject) => {
             if (
                 uri.authority === helm.INSPECT_REPO_AUTHORITY &&
-                uri.scheme === helm.GET_VALUES_SCHEME
+                uri.scheme === helm.FETCH_VALUES_SCHEME
             ) {
                 const query = querystring.parse(uri.query);
                 const id = query.chart as string;
