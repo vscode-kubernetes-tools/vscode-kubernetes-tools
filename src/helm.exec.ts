@@ -22,7 +22,7 @@ import { HELM_RESOURCE_AUTHORITY, K8S_RESOURCE_SCHEME } from './kuberesources.vi
 import { helm as logger } from './logger';
 import { parseLineOutput } from './outputUtils';
 import { ExecCallback, shell as sh, ShellResult } from './shell';
-import { preview } from './utils/preview';
+import { openHelmGeneratedValuesFile, preview } from './utils/preview';
 import * as fs from './wsl-fs';
 import * as shell from './shell';
 
@@ -220,23 +220,27 @@ export function helmLint() {
     });
 }
 
-export function helmInspectValues(arg: any) {
+export function helmFetchValues(arg: any) {
     helmInspect(arg, {
-        noTargetMessage: "Helm Inspect Values is for packaged charts and directories. Launch the command from a file or directory in the file explorer. or a chart or version in the Helm Repos explorer.",
-        inspectionScheme: helm.INSPECT_VALUES_SCHEME
+        noTargetMessage:
+            "Helm generate values.yaml is for packaged charts and directories. Launch the command from a file or directory in the file explorer. or a chart or version in the Helm Repos explorer.",
+        inspectionScheme: helm.FETCH_VALUES_SCHEME,
+        generateFile: true,
     });
 }
 
 export function helmInspectChart(arg: any) {
     helmInspect(arg, {
         noTargetMessage: "Helm Inspect Chart is for packaged charts and directories. Launch the command from a chart or version in the Helm Repos explorer.",
-        inspectionScheme: helm.INSPECT_CHART_SCHEME
+        inspectionScheme: helm.INSPECT_CHART_SCHEME,
+        generateFile: false
     });
 }
 
 interface InspectionStrategy {
     readonly noTargetMessage: string;
     readonly inspectionScheme: string;
+    readonly generateFile: boolean;
 }
 
 function helmInspect(arg: any, s: InspectionStrategy) {
@@ -250,9 +254,21 @@ function helmInspect(arg: any, s: InspectionStrategy) {
 
     if (helmrepoexplorer.isHelmRepoChart(arg) || helmrepoexplorer.isHelmRepoChartVersion(arg)) {
         const id = arg.id;
-        const versionQuery = helmrepoexplorer.isHelmRepoChartVersion(arg) ? `?${arg.version}` : '';
-        const uri = vscode.Uri.parse(`${s.inspectionScheme}://${helm.INSPECT_REPO_AUTHORITY}/${id}${versionQuery}`);
-        preview(uri, vscode.ViewColumn.Two, "Inspect");
+        if (s.generateFile) {
+            const versionQuery = helmrepoexplorer.isHelmRepoChartVersion(arg) ? `&version=${arg.version}` : "";
+            let valuesFileName = `${id}-values.yaml`;
+            if (versionQuery !== "") {
+                valuesFileName = `${id}-${versionQuery.replace('&version=', "")}-values.yaml`;
+            }
+            const uri = vscode.Uri.parse(
+                `${s.inspectionScheme}://${helm.INSPECT_REPO_AUTHORITY}/${valuesFileName}?chart=${id}${versionQuery}`
+            );
+            openHelmGeneratedValuesFile(uri);
+        } else {
+             const versionQuery = helmrepoexplorer.isHelmRepoChartVersion(arg) ? `?version=${arg.version}` : "";
+             const uri = vscode.Uri.parse(`${s.inspectionScheme}://${helm.INSPECT_REPO_AUTHORITY}/${id}${versionQuery}`);
+            preview(uri, vscode.ViewColumn.Two, "Inspect");
+        }
     } else {
         const u = arg as vscode.Uri;
         const uri = vscode.Uri.parse(`${s.inspectionScheme}://${helm.INSPECT_FILE_AUTHORITY}/?${u.fsPath}`);

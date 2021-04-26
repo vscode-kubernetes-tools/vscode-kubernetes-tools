@@ -14,3 +14,12 @@ async function getHTML(uri: vscode.Uri): Promise<string> {
     const doc = await vscode.workspace.openTextDocument(uri);
     return doc.getText();
 }
+
+export async function openHelmGeneratedValuesFile(uri: vscode.Uri): Promise<void> {
+    return vscode.workspace.openTextDocument(uri).then((document) => {
+            if (document) {
+                vscode.window.showTextDocument(document);
+            }
+        },
+        (err) => vscode.window.showErrorMessage(`Error loading document: ${err}`));
+}

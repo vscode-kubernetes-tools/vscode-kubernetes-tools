@@ -75,7 +75,7 @@
         "onCommand:extension.helmInsertReq",
         "onCommand:extension.helmDepUp",
         "onCommand:extension.helmInspectChart",
-        "onCommand:extension.helmInspectValues",
+        "onCommand:extension.helmFetchValues",
         "onCommand:extension.helmGet",
         "onCommand:extension.helmPackage",
         "onCommand:extension.helmFetch",
@@ -425,11 +425,6 @@
                 },
                 {
                     "when": "",
-                    "command": "extension.helmInspectValues",
-                    "group": "2_helm@98"
-                },
-                {
-                    "when": "",
                     "command": "extension.helmConvertToTemplate",
                     "group": "2_helm@98"
                 }
@@ -668,8 +663,8 @@
                     "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem =~ /vsKubernetes\\.((chart)|(chartversion))/i"
                 },
                 {
-                    "command": "extension.helmInspectValues",
-                    "group": "0@2",
+                    "command": "extension.helmFetchValues",
+                    "group": "0@3",
                     "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem =~ /vsKubernetes\\.((chart)|(chartversion))/i"
                 },
                 {
@@ -758,14 +753,6 @@
                 {
                     "command": "extension.helmGet",
                     "when": "view == extension.vsKubernetesExplorer"
-                },
-                {
-                    "command": "extension.helmInspectValues",
-                    "when": "filesExplorerFocus"
-                },
-                {
-                    "command": "extension.helmInspectValues",
-                    "when": "view === extension.vsKubernetesHelmRepoExplorer"
                 },
                 {
                     "command": "extension.helmInspectChart",
@@ -1082,9 +1069,9 @@
                 "category": "Helm"
             },
             {
-                "command": "extension.helmInspectValues",
-                "title": "Inspect Values",
-                "description": "Inspect a Helm Chart",
+                "command": "extension.helmFetchValues",
+                "title": "Fetch values",
+                "description": "Fetches values.yaml from the chart",
                 "category": "Helm"
             },
             {

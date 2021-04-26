@@ -4,6 +4,7 @@ import * as exec from './helm.exec';
 import * as YAML from 'yamljs';
 import * as fs from './wsl-fs';
 import { escape as htmlEscape } from 'lodash';
+import * as querystring from 'querystring';
 
 import * as helm from './helm';
 import * as logger from './logger';
@@ -78,8 +79,8 @@ export class HelmInspectDocumentProvider implements vscode.TextDocumentContentPr
                 });
             } else if (uri.authority === helm.INSPECT_REPO_AUTHORITY) {
                 const id = uri.path.substring(1);
-                const version = uri.query;
-
+                const query = querystring.parse(uri.query);
+                const version = query.version as string;
                 if (!shell.isSafe(id)) {
                     vscode.window.showWarningMessage(`Unexpected characters in chart name ${id}. Use Helm CLI to inspect this chart.`);
                     return;
@@ -95,12 +96,65 @@ export class HelmInspectDocumentProvider implements vscode.TextDocumentContentPr
                     if (uri.scheme === helm.INSPECT_CHART_SCHEME) {
                         exec.helmExec(`inspect ${helm3Scope} ${id} ${versionArg}`, printer);
                     } else if (uri.scheme === helm.INSPECT_VALUES_SCHEME) {
-                        exec.helmExec(`inspect values ${id} ${versionArg}`, printer);
+                        if (query.generateFile) {
+                            exec.helmExec(
+                                `inspect values ${id} ${versionArg}`,
+                                (code: number, out: string, err: string) => {
+                                    if (code === 0) {
+                                        resolve(out);
+                                        return;
+                                    }
+                                    console.log(
+                                        `failed to generate values.yaml: ${out} ${err}`
+                                    );
+                                    reject(err);
+                                }
+                            );
+                        } else {
+                            exec.helmExec(`inspect values ${id} ${versionArg}`, printer);
+                        }
                     }
                 });
             }
         });
 
+    }
+}
+
+export class HelmValuesDocumentProvider implements vscode.TextDocumentContentProvider {
+    public provideTextDocumentContent(uri: vscode.Uri, _token: vscode.CancellationToken): vscode.ProviderResult<string> {
+        return new Promise<string>((resolve, reject) => {
+            if (
+                uri.authority === helm.INSPECT_REPO_AUTHORITY &&
+                uri.scheme === helm.FETCH_VALUES_SCHEME
+            ) {
+                const query = querystring.parse(uri.query);
+                const id = query.chart as string;
+                const version = query.version ? `${query.version}` : "";
+                const versionArg = version ? `--version ${version}` : "";
+                if (!shell.isSafe(id)) {
+                    vscode.window.showWarningMessage(`Unexpected characters in chart name ${id}. Use Helm CLI to inspect this chart.`);
+                    return;
+                }
+                if (version && !shell.isSafe(version)) {
+                    vscode.window.showWarningMessage(`Unexpected characters in chart version ${version}. Use Helm CLI to inspect this chart.`);
+                    return;
+                }
+                exec.helmExec(
+                    `inspect values ${id} ${versionArg}`,
+                    (code: number, out: string, err: string) => {
+                        if (code === 0) {
+                            resolve(out);
+                            return;
+                        }
+                        console.log(
+                            `failed to inspect values: ${out} ${err}`
+                        );
+                        reject(err);
+                    }
+                );
+            }
+        });
     }
 }
 
