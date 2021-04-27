@@ -1,0 +1,25 @@
+{
+    "compilerOptions": {
+        "module": "commonjs",
+        "moduleResolution": "node",
+        "target": "es6",
+        "outDir": "logView",
+        "lib": [
+            "es5",
+            "es6",
+            "dom"
+        ],
+        "sourceMap": true,
+        "noUnusedLocals": true,
+        "noImplicitReturns": true,
+        "noFallthroughCasesInSwitch": true,
+        "experimentalDecorators": true,
+        "baseUrl": ".",
+        "typeRoots": [
+            "../../../../node_modules/@types"
+        ],
+    },
+    "exclude": [
+        "node_modules"
+    ]
+}

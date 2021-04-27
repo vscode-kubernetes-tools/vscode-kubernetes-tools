@@ -44,7 +44,7 @@ import { Reporter } from './telemetry';
 import * as telemetry from './telemetry-helper';
 import { dashboardKubernetes } from './components/kubectl/dashboard';
 import { portForwardKubernetes } from './components/kubectl/port-forward';
-import { logsKubernetes, LogsDisplayMode } from './components/kubectl/logs';
+import { logsKubernetes } from './components/kubectl/logs';
 import { Errorable, failed, succeeded } from './errorable';
 import { Git } from './components/git/git';
 import { DebugSession } from './debug/debugSession';
@@ -185,8 +185,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.vsKubernetesLoad', loadKubernetes),
         registerCommand('extension.vsKubernetesGet', getKubernetes),
         registerCommand('extension.vsKubernetesRun', runKubernetes),
-        registerCommand('extension.vsKubernetesShowLogs', (explorerNode: ClusterExplorerResourceNode) => { logsKubernetes(kubectl, explorerNode, LogsDisplayMode.Show); }),
-        registerCommand('extension.vsKubernetesFollowLogs', (explorerNode: ClusterExplorerResourceNode) => { logsKubernetes(kubectl, explorerNode, LogsDisplayMode.Follow); }),
+        registerCommand('extension.vsKubernetesLogs', (explorerNode: ClusterExplorerResourceNode) => { logsKubernetes(kubectl, explorerNode); }),
         registerCommand('extension.vsKubernetesExpose', exposeKubernetes),
         registerCommand('extension.vsKubernetesDescribe', describeKubernetes),
         registerCommand('extension.vsKubernetesSync', syncKubernetes),
@@ -1338,12 +1337,8 @@ export async function selectContainerForPod(pod: PodSummary): Promise<Container 
     return selectContainerForResource(resource);
 }
 
-export async function selectContainerForResource(resource: ContainerContainer): Promise<Container | null> {
-    if (!resource) {
-        return null;
-    }
-
-    const containers = (resource.containers) ? resource.containers : await getContainers(resource);
+async function selectContainerForResource(resource: ContainerContainer): Promise<Container | null> {
+    const containers = await getContainersForResource(resource);
 
     if (!containers) {
         return null;
@@ -1367,6 +1362,20 @@ export async function selectContainerForResource(resource: ContainerContainer): 
     }
 
     return value.container;
+}
+
+export async function getContainersForResource(resource: ContainerContainer): Promise<Container[] | null> {
+    if (!resource) {
+        return null;
+    }
+
+    const containers = (resource.containers) ? resource.containers : await getContainers(resource);
+
+    if (!containers) {
+        return null;
+    }
+
+    return containers;
 }
 
 function execKubernetes() {

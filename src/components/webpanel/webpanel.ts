@@ -4,8 +4,9 @@ export abstract class WebPanel {
     private disposables: vscode.Disposable[] = [];
     protected content: string;
     protected resource: string;
+    protected webView: vscode.Webview;
 
-    protected static createOrShowInternal<T extends WebPanel>(content: string, resource: string, viewType: string, title: string, currentPanels: Map<string, T>, fn: (p: vscode.WebviewPanel, content: string, resource: string) => T): T {
+    protected static createOrShowInternal<T extends WebPanel>(content: string, resource: string, viewType: string, title: string, currentPanels: Map<string, T>, localResourceRoots: vscode.Uri[], fn: (p: vscode.WebviewPanel, content: string, resource: string) => T): T {
         const column = vscode.window.activeTextEditor ? vscode.window.activeTextEditor.viewColumn : undefined;
 
         // If we already have a panel, show it.
@@ -18,10 +19,8 @@ export abstract class WebPanel {
         const panel = vscode.window.createWebviewPanel(viewType, title, column || vscode.ViewColumn.One, {
             enableScripts: true,
             retainContextWhenHidden: true,
-
             // And restrict the webview to only loading content from our extension's `media` directory.
-            localResourceRoots: [
-            ]
+            localResourceRoots
         });
         const result = fn(panel, content, resource);
         currentPanels.set(resource, result);
@@ -36,6 +35,7 @@ export abstract class WebPanel {
     ) {
         this.content = content;
         this.resource = resource;
+        this.webView = panel.webview;
 
         this.update();
         this.panel.onDidDispose(() => this.dispose(currentPanels), null, this.disposables);
@@ -66,4 +66,5 @@ export abstract class WebPanel {
     }
 
     protected abstract update(): void;
+
 }
