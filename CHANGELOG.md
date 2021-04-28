@@ -1,5 +1,20 @@
 # Change Log
 
+## [1.3.1]
+
+* We now have a unified Logs command and view, replacing the old Follow and Show commands.
+  The new view has plenty of new options for a much better integrated experience!
+* We also have a new Helm Fetch Values command which replaces Inspect Values and supports
+  syntax highlighting and editing of the values
+* The debug integration now works with Go
+* Updated the ingress snippet to the new API version
+* The Describe command now does more comprehensive prompting so you shouldn't need to
+  type freeform resource names
+* Fixed the dashboard command not working
+* Fixed over-permissive permissions on installed binaries
+
+Thanks to Dakota Clark, Matt Fisher, Shreyas Karnik and Luca Stocchi.
+
 ## [1.3.0]
 
 * New API for local tunnel debugger integration
