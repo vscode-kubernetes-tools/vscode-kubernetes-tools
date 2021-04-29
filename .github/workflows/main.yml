@@ -40,8 +40,9 @@ jobs:
       id: create_vsix
       uses: HaaLeo/publish-vscode-extension@v0
       with:
-        pat: ${{ secrets.VS_MARKETPLACE_TOKEN }}
+        pat: 'token'
         registryUrl: https://marketplace.visualstudio.com
+        dryRun: true
     - name: Attach vsix to release
       uses: actions/upload-release-asset@v1
       env:
