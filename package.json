@@ -1209,9 +1209,12 @@
         "debuggers": []
     },
     "scripts": {
-        "vscode:prepublish": "webpack --mode production",
+        "vscode:prepublish": "npm run vscode:prepublish:ext && npm run vscode:prepublish:view",
+        "vscode:prepublish:ext": "webpack --mode production",
+        "vscode:prepublish:view": "webpack --mode production --config src/components/logs/webpack.config.js",
         "lint": "eslint -c .eslintrc.js --ext .ts ./src",
-        "compile": "webpack --mode none",
+        "compile": "npm run compile:ext && npm run compile:view",
+        "compile:ext": "webpack --mode none",
         "compile:view": "webpack --mode none --config src/components/logs/webpack.config.js",
         "watch": "webpack --mode development --watch --info-verbosity verbose",
         "test-compile": "tsc -p ./",
