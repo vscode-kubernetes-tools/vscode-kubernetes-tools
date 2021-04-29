@@ -1,5 +1,11 @@
 # Change Log
 
+## [1.3.2]
+
+* Fixed a bug in the release build of the new logs screen.
+
+Thanks to Luca Stocchi.
+
 ## [1.3.1]
 
 * We now have a unified Logs command and view, replacing the old Follow and Show commands.
