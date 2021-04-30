@@ -3,20 +3,20 @@ label: Kubernetes Ingress
 description: Kubernetes Ingress
 body: |2
   apiVersion: networking.k8s.io/v1
-    kind: Ingress
-    metadata:
-      name: ${1:myingress}
-      labels:
-          name: ${1:myingress}
-    spec:
-      rules:
-      - host: ${2:<Host>}
-        http:
-          paths:
-          - pathType: Prefix
-            path: "/"
-            backend:
-              service:
-                name: ${3:<Service>}
-                port: 
-                  number: ${4:<Port>}
+  kind: Ingress
+  metadata:
+    name: ${1:myingress}
+    labels:
+        name: ${1:myingress}
+  spec:
+    rules:
+    - host: ${2:<Host>}
+      http:
+        paths:
+        - pathType: Prefix
+          path: "/"
+          backend:
+            service:
+              name: ${3:<Service>}
+              port: 
+                number: ${4:<Port>}
