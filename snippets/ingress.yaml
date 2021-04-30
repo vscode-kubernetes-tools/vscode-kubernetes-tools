@@ -7,7 +7,7 @@ body: |2
   metadata:
     name: ${1:myingress}
     labels:
-        name: ${1:myingress}
+      name: ${1:myingress}
   spec:
     rules:
     - host: ${2:<Host>}
