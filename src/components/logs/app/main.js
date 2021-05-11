@@ -79,10 +79,15 @@ function beautifyLines(contentLines) {
     if (!contentLines) {
         return '';
     }
-    let content = contentLines.join('\n');
-    if (content) {
-        content = content.match(/\n$/) ? content : content + '\n';
-        content = highlightWords(content);
+    const isToBeHighlighted = contentLines.length < 50000;
+    let content = '';
+    for (let row of contentLines) {
+        row = row.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        if (isToBeHighlighted) {
+            row = highlightWords(row);
+        }
+        row = /\n$/.test(row) ? row : `${row}\n`;
+        content += row;
     }
     return content;
 }
@@ -99,18 +104,17 @@ function highlightWords(content) {
     return content;
 }
 
-function repl(match, _word, offset, originalString) {
+function repl() {
+    const match = arguments[0];
+    const offset = arguments[arguments.length - 2];
+    const originalString = arguments[arguments.length - 1];
     if (!originalString) {
         return match;
     }
     const indexOpenSpan = originalString.substring(0, offset + match.length).lastIndexOf("<span");
     const indexCloseSpan = originalString.substring(0, offset + match.length).lastIndexOf("</span>");
-    if (indexOpenSpan === -1) {
+    if (indexOpenSpan === -1 || indexOpenSpan < indexCloseSpan) {
         return `<span style="color:#ruleColor">${match}</span>`;
-    } else if (indexOpenSpan !== -1 && indexCloseSpan === -1) {
-        return match;
-    } else if (indexOpenSpan < indexCloseSpan) {
-            return `<span style="color:#ruleColor">${match}</span>`;
     } else {
         return match;
     }
