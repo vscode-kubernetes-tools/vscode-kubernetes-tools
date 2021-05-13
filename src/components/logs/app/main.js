@@ -1,10 +1,12 @@
 const vscode = acquireVsCodeApi();
-const fullPageContent = [];
+let fullPageContent = {};
+let fpcCounter = 0;
 let schemaColors;
 let defaultContainer;
 let renderNonce = 0;
 let isToBottom = true;
 let lastScrollTop = 0;
+let typingTimer;
 
 window.addEventListener('message', (event) => {
     const message = event.data;
@@ -39,21 +41,16 @@ window.addEventListener('message', (event) => {
                 return;
             }
             const newContent = text.split('\n');
-            updateContent(newContent, false);
-
-            // handle auto-scroll on/off
-            if (isToBottom) {
-                scrollToBottom();
-            }
+            updateContent(newContent);
         }
     }
 });
 
 function debounce(func, wait, immediate) {
     let timeout;
-    return function() {
+    return function () {
         const context = this, args = arguments;
-        const later = function() {
+        const later = function () {
             timeout = null;
             if (!immediate) {
                 func.apply(context, args);
@@ -68,40 +65,40 @@ function debounce(func, wait, immediate) {
     };
 }
 
-function beautifyContentLineRange(contentLines, ix, end) {
-    if (ix && end) {
-        contentLines = contentLines.slice(ix, end);
+function beautifyLines(contentLines, from, to) {
+    const content = {};
+    if (Object.keys(contentLines).length === 0) {
+        return content;
     }
-    return beautifyLines(contentLines);
-};
-
-function beautifyLines(contentLines) {
-    if (!contentLines) {
-        return '';
-    }
-    const isToBeHighlighted = contentLines.length < 50000;
-    let content = '';
-    for (let row of contentLines) {
+    for (let i = from; i < to; i += 1) {
+        let row = contentLines[i];
+        if (!row) {
+            break;
+        }
         row = row.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        if (isToBeHighlighted) {
+        if (isHighlightEnabled()) {
             row = highlightWords(row);
         }
         row = /\n$/.test(row) ? row : `${row}\n`;
-        content += row;
+        content[i] = row;
     }
     return content;
 }
 
-function highlightWords(content) {
+function highlightWords(row) {
     if (!schemaColors) {
-        return content;
+        return row;
     }
-    for (const rule of schemaColors) {
+    // eslint-disable-next-line @typescript-eslint/prefer-for-of
+    for (let i = 0; i < schemaColors.length; i += 1) {
+        const rule = schemaColors[i];
         const regexp = new RegExp(rule.regex, "gi");
-        content = content.replaceAll(regexp, repl);
-        content = content.replaceAll('#ruleColor', rule.color);
+        if (regexp.test(row)) {
+            row = row.replaceAll(regexp, repl);
+            row = row.replaceAll('#ruleColor', rule.color);
+        }
     }
-    return content;
+    return row;
 }
 
 function repl() {
@@ -114,65 +111,10 @@ function repl() {
     const indexOpenSpan = originalString.substring(0, offset + match.length).lastIndexOf("<span");
     const indexCloseSpan = originalString.substring(0, offset + match.length).lastIndexOf("</span>");
     if (indexOpenSpan === -1 || indexOpenSpan < indexCloseSpan) {
-        return `<span style="color:#ruleColor">${match}</span>`;
+        return `<span class="#ruleColor">${match}</span>`;
     } else {
         return match;
     }
-}
-
-function filterNewLogs(logsText) {
-    return filter(logsText);
-}
-
-function filter(logs) {
-    let isNewLog = false;
-    let text = fullPageContent;
-    if (logs) {
-        isNewLog = true;
-        text = logs;
-    }
-    const filterInput = document.getElementById('filter-input').value;
-    const mode = document.getElementById('filter-select').value;
-    let content;
-    if (filterInput.length > 0 && mode !== 'all') {
-        const regex = new RegExp(filterInput);
-        switch (mode) {
-            case 'include':
-                content = text.filter((line) => regex.test(line));
-                break;
-            case 'exclude':
-                content = text.filter((line) => !regex.test(line));
-                break;
-            case 'before':
-                content = [];
-                if (!isNewLog) {
-                    for (const line of text) {
-                        if (regex.test(line)) {
-                            break;
-                        }
-                        content.push(line);
-                    }
-                }
-                break;
-            case 'after':
-                if (isNewLog) {
-                    content = text;
-                } else {
-                    const i = text.findIndex((line) => {
-                        return regex.test(line);
-                    });
-                    content = text.slice(i+1);
-                }
-                break;
-            default:
-                content = [];
-                break;
-        }
-    } else {
-        content = text;
-    }
-
-    return content;
 }
 
 function createElement(type, value, content) {
@@ -206,37 +148,44 @@ function init() {
         reset();
     });
 
-    const bottomBtn= document.getElementById('bottomBtn');
+    const bottomBtn = document.getElementById('bottomBtn');
     bottomBtn.addEventListener('click', (_event) => {
         scrollToBottom();
     });
 
     const wrapChk = document.getElementById('wrap-chk');
-    wrapChk.addEventListener('vsc-change', function(event) {
-        const contentDiv = document.getElementById('content');
+    wrapChk.addEventListener('vsc-change', function (event) {
         if (event.detail.checked) {
-            contentDiv.classList.remove('white-space-pre');
-            contentDiv.classList.add('white-space-wrap');
+            document.getElementById('content').classList.remove('white-space-pre');
+            document.getElementById('content').classList.add('white-space-wrap');
         } else {
-            contentDiv.classList.remove('white-space-wrap');
-            contentDiv.classList.add('white-space-pre');
+            document.getElementById('content').classList.remove('white-space-wrap');
+            document.getElementById('content').classList.add('white-space-pre');
         }
     });
 
     const filterSelect = document.getElementById('filter-select');
     filterSelect.addEventListener('vsc-change', (_event) => {
-        runFilter();
+        if (document.getElementById('filter-input').value) {
+            runFilter();
+        }
     });
 
     const filterInput = document.getElementById('filter-input');
     filterInput.addEventListener('keyup', (_event) => {
-        runFilter();
+        if (document.getElementById('filter-select').value === 'all') {
+            return;
+        }
+        if (typingTimer) {
+            clearTimeout(typingTimer);
+        }
+        typingTimer = setTimeout(runFilter, 500);
     });
 
     const logPanel = document.getElementById('logPanel');
-    const toBottom = debounce(function() {
+    const toBottom = debounce(function () {
         const st = logPanel.scrollTop;
-        if (st > lastScrollTop){
+        if (st > lastScrollTop) {
             // scroll down
             isToBottom = (logPanel.scrollTop + window.innerHeight) >= logPanel.scrollHeight;
         } else {
@@ -249,39 +198,8 @@ function init() {
 }
 
 function runFilter() {
-    setTimeout(runFilterInternal, 0);
-}
-
-function runFilterInternal() {
-// We use this to abort renders in progress if a new render starts
-    renderNonce = Math.random();
-    const currentNonce = renderNonce;
-
-    const content = filter();
-
-    const contentDiv = document.getElementById('content');
-    contentDiv.textContent = !isFollow() ? 'No logs ...' : '';
-
-    // This is probably seems more complicated than necessary.
-    // However, rendering large blocks of text are _slow_ and kill the UI thread.
-    // So we split it up into manageable chunks to keep the UX lively.
-    // Of course the trouble is then we could interleave multiple different filters.
-    // So we use the random nonce to detect and pre-empt previous renders.
-    let ix = 0;
-    const step = 1000;
-    const fn = () => {
-        if (renderNonce !== currentNonce) {
-            return;
-        }
-        if (ix >= content.length) {
-            return;
-        }
-        const end = Math.min(content.length, ix + step);
-        setContentDiv(beautifyContentLineRange(content, ix, end));
-        ix += step;
-        setTimeout(fn, 0);
-    };
-    fn();
+    emptyContent();
+    setContentDiv(filter());
 }
 
 function changeVisibilityAfterRun() {
@@ -343,8 +261,9 @@ function stopLog() {
 }
 
 function clear() {
-    fullPageContent.length = 0;
-    updateContent(undefined, true);
+    fullPageContent = {};
+    fpcCounter = 0;
+    emptyContent();
 }
 
 function reset() {
@@ -358,39 +277,186 @@ function reset() {
     document.getElementById('since-select').selectedIndex = 0;
     document.getElementById('tail-input').value = '-1';
     document.getElementById('terminal-chk').checked = false;
+    document.getElementById('highlight-chk').checked = false;
 }
 
-function updateContent(newContent, clear) {
-    const contentDiv = document.getElementById('content');
-    if (clear) {
-        contentDiv.innerHTML = '';
-        return;
+function updateContent(newContent) {
+    const content = {};
+    let counter = 0;
+
+    // eslint-disable-next-line @typescript-eslint/prefer-for-of
+    for (let i = 0; i < newContent.length; i += 1) {
+        if (newContent[i].length > 0) {
+            content[counter] = newContent[i];
+            fullPageContent[fpcCounter] = newContent[i];
+            fpcCounter++;
+            counter++;
+        }
     }
 
-    newContent.forEach((line) => {
-        if (line.length > 0) {
-            fullPageContent.push(line);
-        }
-    });
-    const beautifiedLines = beautifyLines(filterNewLogs(newContent));
-    setContentDiv(beautifiedLines);
+    setContentDiv(filter(content));
     switchClass('clearBtn', 'display-none', 'display-inline-block');
 }
 
-function setContentDiv(content) {
-    const contentDiv = document.getElementById('content');
-    if (!isFollow()) {
-        if (content === '') {
-            contentDiv.innerHTML = 'No logs ...';
-        } else {
-            contentDiv.innerHTML = content;
+function filter(logs) {
+    const isNewLog = !!logs;
+    const text = logs ? logs : fullPageContent;
+    const filterInput = document.getElementById('filter-input').value;
+    const mode = document.getElementById('filter-select').value;
+    let content = {};
+    if (filterInput.length > 0 && mode !== 'all') {
+        const regex = new RegExp(filterInput);
+        switch (mode) {
+            case 'include':
+                content = filterByFunction(text, (value) => regex.test(value));
+                break;
+            case 'exclude':
+                content = filterByFunction(text, (value) => !regex.test(value));
+                break;
+            case 'before':
+                if (document.getElementById('content').textContent.length === 0 || !isNewLog) {
+                    content = filterBefore(text, regex);
+                }
+                break;
+            case 'after':
+                if (isNewLog && document.getElementById('content').textContent.length !== 0) {
+                    content = text;
+                } else {
+                    content = filterAfter(text, regex);
+                }
+                break;
+            default:
+                break;
         }
     } else {
-        contentDiv.innerHTML += content;
+        content = text;
+    }
+
+    return content;
+}
+
+function filterByFunction(text, func) {
+    const content = {};
+    let counter = 0;
+    let innerCounter = 0;
+    while (true) {
+        const value = text[counter];
+        if (!value) {
+            break;
+        }
+        if (func(value)) {
+            content[innerCounter] = value;
+            innerCounter++;
+        }
+        counter++;
+    }
+    return content;
+}
+
+function filterBefore(text, regex) {
+    const content = {};
+    let counter = 0;
+    while (true) {
+        const value = text[counter];
+        if (!value || regex.test(value)) {
+            break;
+        }
+        content[counter] = value;
+        counter++;
+    }
+    return content;
+}
+
+function filterAfter(text, regex) {
+    const content = {};
+    let counter = 0;
+    let innerCounter = 0;
+    let start = false;
+    while (true) {
+        const value = text[counter];
+        if (!value) {
+            break;
+        }
+        if (!start && regex.test(value)) {
+            start = true;
+        }
+        if (start) {
+            content[innerCounter] = value;
+            innerCounter++;
+        }
+        counter++;
+    }
+    return content;
+}
+
+function emptyContent() {
+    const contentDiv = document.getElementById('logPanel');
+    let i = contentDiv.childNodes.length;
+    while (i--) {
+        contentDiv.removeChild(contentDiv.lastChild);
+    }
+    contentDiv.innerHTML = `<code id='content' class='white-space-pre'></code><a id='bottom'></a>`;
+}
+
+function setContentDiv(content) {
+    setTimeout(setContentDivInternal, 0, content);
+}
+
+function setContentDivInternal(content) {
+    renderNonce = Math.random();
+    const currentNonce = renderNonce;
+
+    // This is probably seems more complicated than necessary.
+    // However, rendering large blocks of text are _slow_ and kill the UI thread.
+    // So we split it up into manageable chunks to keep the UX lively.
+    // Of course the trouble is then we could interleave multiple different filters.
+    // So we use the random nonce to detect and pre-empt previous renders.
+    let ix = 0;
+    const step = isHighlightEnabled() ? 3000 : 80000;
+    const fn = () => {
+        if (renderNonce !== currentNonce) {
+            return;
+        }
+        if (!content[ix]) {
+            return;
+        }
+        const end = ix + step;
+        const rows = beautifyLines(content, ix, end);
+        setTimeout(render, 1, rows, ix);
+        ix = end;
+        setTimeout(fn, 0);
+    };
+    fn();
+}
+
+function render(content, from) {
+    if (Object.keys(content).length === 0) {
+        const fragment = document.createRange().createContextualFragment('No logs ...');
+        document.getElementById('content').appendChild(fragment);
+    } else {
+        const contentToDisplay = concatenateObjectValuesAsString(content, from);
+        const fragment = document.createRange().createContextualFragment(contentToDisplay);
+        document.getElementById('content').appendChild(fragment);
+        if (isToBottom) {
+            scrollToBottom();
+        }
     }
 }
 
-function scrollToBottom () {
+function concatenateObjectValuesAsString(object, ix) {
+    let valuesConcatenated = '';
+    while (true) {
+        const value = object[ix];
+        if (!value) {
+            break;
+        }
+        valuesConcatenated += value;
+        ix++;
+    }
+    return valuesConcatenated;
+}
+
+function scrollToBottom() {
     document.getElementById('bottom').scrollIntoView();
 }
 
@@ -427,6 +493,10 @@ function getToTerminal() {
     return document.getElementById('terminal-chk').checked;
 }
 
-(function() {
+function isHighlightEnabled() {
+    return document.getElementById('highlight-chk').checked;
+}
+
+(function () {
     init();
 })();

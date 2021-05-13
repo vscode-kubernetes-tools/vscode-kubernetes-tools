@@ -68,6 +68,24 @@
         #content {
             color: var(--vscode-foreground)
         }
+        .gl {
+            color: #b5cea8;
+        }
+        .g {
+            color: #6a9955;
+        }
+        .b {
+            color: #569cd6;
+        }
+        .ol {
+            color: #ce9178;
+        }
+        .r {
+            color: #c50313;
+        }
+        .o {
+            color: #c36741;
+        }
     </style>
 </head>
 <body>
@@ -136,6 +154,10 @@
                 <span class="tooltiptext">Long words should be broken and wrap onto the next line.</span>
             </div>  
             <vscode-checkbox id="wrap-chk"></vscode-checkbox>
+            <div class="tooltip ml-10 mr-2">Enable highlighting:
+                <span class="tooltiptext">Highlight logs words. Warning: it may slow the ui when working with a big log file (>40k rows).</span>
+            </div>  
+            <vscode-checkbox id="highlight-chk"></vscode-checkbox>
             
             <vscode-button id="bottomBtn" class="float-right mr-50">Scroll To Bottom</vscode-button>
         </div>
@@ -143,10 +165,9 @@
     </div>
     <div style='position: absolute; top: 90px; bottom: 10px; width: 97%'>
         <div id="logPanel" style="overflow-y: scroll; height: 100%">
-            <code>
-            <div id='content' class='white-space-pre'></div>
-            <a id='bottom'></a>
-            </code>
+            <code id='content' class='white-space-pre'>           
+            </code>             
+            <a id='bottom'></a>    
         </div>
     </div>
     </body>
