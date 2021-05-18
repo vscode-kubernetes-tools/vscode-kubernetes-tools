@@ -1,5 +1,13 @@
 # Change Log
 
+## [1.3.3]
+
+* Fixed dependency installation in remote containers
+* Fixed ingress snippet indentation
+* Fixed `values.yaml` files getting Helm language binding
+
+Thanks to Ezra Morris, markszente and Rakesh Vanga.
+
 ## [1.3.2]
 
 * Fixed a bug in the release build of the new logs screen.
