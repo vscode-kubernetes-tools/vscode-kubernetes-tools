@@ -83,6 +83,7 @@ function init() {
 
     const stopBtn = document.getElementById('stopBtn');
     stopBtn.addEventListener('click', (_event) => {
+        isFollowRun = false;
         changeVisibilityAfterStop();
         stopLog();
     });
@@ -235,6 +236,10 @@ function stopLog() {
 }
 
 function clear() {
+    if (!isFollowRun) {
+        resetContent();
+        resetFilter();
+    }
     setHeightContentPanel(true);
     emptyContent();
 }
