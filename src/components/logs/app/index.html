@@ -32,6 +32,9 @@
         .mr-50 {
             margin-right: 50px;
         }
+        .position-relative {
+            position: relative;
+        }
         .display-inline-block {
             display: inline-block;
         }
@@ -89,7 +92,7 @@
     </style>
 </head>
 <body>
-    <div style='position: fixed; top: 15px; left: 2%; width: 100%; z-index: 9999'>
+    <div style='position: fixed; top: 15px; left: 2%; width: 100%; z-index: 9999;'>
         <div>
             <div id="containers-panel" class="mr-10 display-none">
                 <div class="tooltip mr-2">Container:
@@ -97,7 +100,7 @@
                 </div>
             </div>
            
-            <div class="tooltip mr-2">Follow Logs:
+            <div id="follow-lbl" class="tooltip mr-2">Follow Logs:
                 <span class="tooltiptext">Logs should be streamed.</span>
             </div>  
             <vscode-checkbox id="follow-chk"></vscode-checkbox>
@@ -165,9 +168,11 @@
     </div>
     <div style='position: absolute; top: 90px; bottom: 10px; width: 97%'>
         <div id="logPanel" style="overflow-y: scroll; height: 100%">
-            <code id='content' class='white-space-pre'>           
-            </code>             
-            <a id='bottom'></a>    
+            <div id="innerLogPanel">
+                <code id='content' class='white-space-pre position-relative'>           
+                </code>
+            </div>
+            <a id='bottom'></a> 
         </div>
     </div>
     </body>

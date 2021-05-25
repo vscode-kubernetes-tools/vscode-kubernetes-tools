@@ -1,10 +1,12 @@
 const vscode = acquireVsCodeApi();
 let fullPageContent = {};
-let fpcCounter = 0;
+let filteredContent = {};
+let fpcCounter = -1;
+let filterMatched = false;
 let schemaColors;
 let defaultContainer;
-let renderNonce = 0;
-let isToBottom = true;
+let isToBottom = false;
+let isFollowRun = false;
 let lastScrollTop = 0;
 let typingTimer;
 
@@ -36,7 +38,7 @@ window.addEventListener('message', (event) => {
             containersPanel.appendChild(select);
         }
         case 'content': {
-            const text = message.text;
+            const text = message.text.replace(/\n$/, '');
             if (!text) {
                 return;
             }
@@ -63,58 +65,6 @@ function debounce(func, wait, immediate) {
             func.apply(context, args);
         }
     };
-}
-
-function beautifyLines(contentLines, from, to) {
-    const content = {};
-    if (Object.keys(contentLines).length === 0) {
-        return content;
-    }
-    for (let i = from; i < to; i += 1) {
-        let row = contentLines[i];
-        if (!row) {
-            break;
-        }
-        row = row.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        if (isHighlightEnabled()) {
-            row = highlightWords(row);
-        }
-        row = /\n$/.test(row) ? row : `${row}\n`;
-        content[i] = row;
-    }
-    return content;
-}
-
-function highlightWords(row) {
-    if (!schemaColors) {
-        return row;
-    }
-    // eslint-disable-next-line @typescript-eslint/prefer-for-of
-    for (let i = 0; i < schemaColors.length; i += 1) {
-        const rule = schemaColors[i];
-        const regexp = new RegExp(rule.regex, "gi");
-        if (regexp.test(row)) {
-            row = row.replaceAll(regexp, repl);
-            row = row.replaceAll('#ruleColor', rule.color);
-        }
-    }
-    return row;
-}
-
-function repl() {
-    const match = arguments[0];
-    const offset = arguments[arguments.length - 2];
-    const originalString = arguments[arguments.length - 1];
-    if (!originalString) {
-        return match;
-    }
-    const indexOpenSpan = originalString.substring(0, offset + match.length).lastIndexOf("<span");
-    const indexCloseSpan = originalString.substring(0, offset + match.length).lastIndexOf("</span>");
-    if (indexOpenSpan === -1 || indexOpenSpan < indexCloseSpan) {
-        return `<span class="#ruleColor">${match}</span>`;
-    } else {
-        return match;
-    }
 }
 
 function createElement(type, value, content) {
@@ -166,14 +116,16 @@ function init() {
 
     const filterSelect = document.getElementById('filter-select');
     filterSelect.addEventListener('vsc-change', (_event) => {
-        if (document.getElementById('filter-input').value) {
+        resetFilter();
+        if (isRun() && document.getElementById('filter-input').value) {
             runFilter();
         }
     });
 
     const filterInput = document.getElementById('filter-input');
     filterInput.addEventListener('keyup', (_event) => {
-        if (document.getElementById('filter-select').value === 'all') {
+        resetFilter();
+        if (!isRun() || document.getElementById('filter-select').value === 'all') {
             return;
         }
         if (typingTimer) {
@@ -193,13 +145,26 @@ function init() {
             isToBottom = false;
         }
         lastScrollTop = st <= 0 ? 0 : st;
+        renderByPagination();
     }, 250);
     logPanel.addEventListener("scroll", toBottom);
 }
 
+function resetContent() {
+    fullPageContent = {};
+    fpcCounter = -1;
+}
+
+function resetFilter() {
+    filteredContent = {};
+    filterMatched = false;
+}
+
 function runFilter() {
     emptyContent();
-    setContentDiv(filter());
+    saveFilteredContent();
+    setHeightContentPanel();
+    renderByPagination();
 }
 
 function changeVisibilityAfterRun() {
@@ -214,19 +179,14 @@ function changeVisibilityAfterRun() {
 }
 
 function changeVisibilityAfterClear() {
-    switchClass('clearBtn', 'display-inline-block', 'display-none');
-
-    if (!isFollow()) {
+    if (document.getElementById('stopBtn').classList.contains('display-none')) {
+        switchClass('clearBtn', 'display-inline-block', 'display-none');
         switchClass('runBtn', 'display-none', 'display-inline-block');
     }
 }
 
 function changeVisibilityAfterStop() {
     switchClass('stopBtn', 'display-inline-block', 'display-none');
-
-    if (isFollow()) {
-        switchClass('runBtn', 'display-none', 'display-inline-block');
-    }
 }
 
 function switchClass(id, classToRemove, classToAdd) {
@@ -239,10 +199,24 @@ function switchClass(id, classToRemove, classToAdd) {
     }
 }
 
+function isRun() {
+    return document.getElementById('runBtn').classList.contains('display-none');
+}
+
+function isFilterEnabled() {
+    const filterInput = document.getElementById('filter-input').value;
+    const mode = document.getElementById('filter-select').value;
+    return filterInput.length > 0 && mode !== 'all';
+}
+
 function startLog() {
+    resetContent();
+    resetFilter();
+    clear();
+    isFollowRun = isFollow();
     const options = {
         container: getContainer(),
-        follow: isFollow(),
+        follow: isFollowRun,
         timestamp: document.getElementById('timestamp-chk').checked,
         since: getSinceDuration(),
         tail: getTail(),
@@ -261,8 +235,7 @@ function stopLog() {
 }
 
 function clear() {
-    fullPageContent = {};
-    fpcCounter = 0;
+    setHeightContentPanel(true);
     emptyContent();
 }
 
@@ -281,25 +254,55 @@ function reset() {
 }
 
 function updateContent(newContent) {
-    const content = {};
+    let content = {};
     let counter = 0;
 
     // eslint-disable-next-line @typescript-eslint/prefer-for-of
     for (let i = 0; i < newContent.length; i += 1) {
         if (newContent[i].length > 0) {
             content[counter] = newContent[i];
-            fullPageContent[fpcCounter] = newContent[i];
             fpcCounter++;
+            fullPageContent[fpcCounter] = newContent[i];
             counter++;
         }
     }
-
-    setContentDiv(filter(content));
+    content = saveFilteredContent(content);
+    setHeightContentPanel();
+    renderByPagination(content);
     switchClass('clearBtn', 'display-none', 'display-inline-block');
 }
 
+function setHeightContentPanel(removeStyle) {
+    if (removeStyle) {
+        document.getElementById('innerLogPanel').style.removeProperty('height');
+    } else {
+        const content = isFilterEnabled() ? filteredContent : fullPageContent;
+        const rows = Object.keys(content).length;
+        const heightDiv = getDefaultDivHeightValue();
+        document.getElementById('innerLogPanel').style.height = `${heightDiv * rows}px`;
+    }
+}
+
+function saveFilteredContent(content) {
+    const filterInput = document.getElementById('filter-input').value;
+    const mode = document.getElementById('filter-select').value;
+    let contentAfterFilter;
+    if (filterInput.length > 0 && mode !== 'all') {
+        contentAfterFilter = filter(content);
+        let fcRows = Object.keys(filteredContent).length - 1;
+        if (fcRows === -1) {
+            filteredContent = contentAfterFilter;
+            return contentAfterFilter;
+        }
+        for (let i = 0; i < Object.keys(contentAfterFilter).length; i += 1) {
+            fcRows++;
+            filteredContent[fcRows] = contentAfterFilter[i];
+        }
+    }
+    return contentAfterFilter;
+}
+
 function filter(logs) {
-    const isNewLog = !!logs;
     const text = logs ? logs : fullPageContent;
     const filterInput = document.getElementById('filter-input').value;
     const mode = document.getElementById('filter-select').value;
@@ -314,15 +317,19 @@ function filter(logs) {
                 content = filterByFunction(text, (value) => !regex.test(value));
                 break;
             case 'before':
-                if (document.getElementById('content').textContent.length === 0 || !isNewLog) {
-                    content = filterBefore(text, regex);
+                if (!filterMatched) {
+                    const filterBeforeResult = filterBefore(text, regex);
+                    content = filterBeforeResult.content;
+                    filterMatched = filterBeforeResult.matched;
                 }
                 break;
             case 'after':
-                if (isNewLog && document.getElementById('content').textContent.length !== 0) {
-                    content = text;
+                if (!filterMatched) {
+                    const filterAfterResult = filterAfter(text, regex);
+                    content = filterAfterResult.content;
+                    filterMatched = filterAfterResult.matched;
                 } else {
-                    content = filterAfter(text, regex);
+                    content = text;
                 }
                 break;
             default:
@@ -356,15 +363,17 @@ function filterByFunction(text, func) {
 function filterBefore(text, regex) {
     const content = {};
     let counter = 0;
+    let matched = false;
     while (true) {
         const value = text[counter];
-        if (!value || regex.test(value)) {
+        matched = regex.test(value);
+        if (!value || matched) {
             break;
         }
         content[counter] = value;
         counter++;
     }
-    return content;
+    return { matched, content };
 }
 
 function filterAfter(text, regex) {
@@ -372,12 +381,14 @@ function filterAfter(text, regex) {
     let counter = 0;
     let innerCounter = 0;
     let start = false;
+    let matched = false;
     while (true) {
         const value = text[counter];
         if (!value) {
             break;
         }
-        if (!start && regex.test(value)) {
+        matched = regex.test(value);
+        if (!start && matched) {
             start = true;
         }
         if (start) {
@@ -386,57 +397,154 @@ function filterAfter(text, regex) {
         }
         counter++;
     }
-    return content;
+    return { matched, content };
 }
 
 function emptyContent() {
-    const contentDiv = document.getElementById('logPanel');
+    const contentDiv = document.getElementById('innerLogPanel');
     let i = contentDiv.childNodes.length;
     while (i--) {
-        contentDiv.removeChild(contentDiv.lastChild);
+        contentDiv.removeChild(contentDiv.firstChild);
     }
-    contentDiv.innerHTML = `<code id='content' class='white-space-pre'></code><a id='bottom'></a>`;
+    contentDiv.innerHTML = `<code id='content' class='${isWrapEnabled() ? 'white-space-wrap' : 'white-space-pre'} position-relative'></code>`;
 }
 
-function setContentDiv(content) {
-    setTimeout(setContentDivInternal, 0, content);
-}
+function renderByPagination(contentToAdd) {
+    if (contentToAdd && Object.keys(contentToAdd).length === 0) {
+        return;
+    }
+    const fullFilteredContent = isFilterEnabled() ? filteredContent : fullPageContent;
+    const totalRows = Object.keys(fullFilteredContent).length - 1;
+    const heightDiv = getDefaultDivHeightValue();
+    const currentPosition = document.getElementById('logPanel').scrollTop;
+    const referenceRow = Math.floor(currentPosition / heightDiv);
+    // identify rows range to draw
+    let lowerRange = referenceRow - 250 < 0 ? 0 : referenceRow - 250;
+    let upperRange = referenceRow + 250 > totalRows ? totalRows : referenceRow + 250;
+    let isPrepend = false;
 
-function setContentDivInternal(content) {
-    renderNonce = Math.random();
-    const currentNonce = renderNonce;
-
-    // This is probably seems more complicated than necessary.
-    // However, rendering large blocks of text are _slow_ and kill the UI thread.
-    // So we split it up into manageable chunks to keep the UX lively.
-    // Of course the trouble is then we could interleave multiple different filters.
-    // So we use the random nonce to detect and pre-empt previous renders.
-    let ix = 0;
-    const step = isHighlightEnabled() ? 3000 : 80000;
-    const fn = () => {
-        if (renderNonce !== currentNonce) {
-            return;
+    const children = document.getElementById('content').children;
+    if (children.length !== 0) {
+        // identify rows range present in DOM
+        const lowestRowInDOM = parseInt(children.item(0).id);
+        const uppestRowInDOM = parseInt(children.item(children.length - 1).id);
+        if (lowerRange < lowestRowInDOM) {
+            if (upperRange >= lowestRowInDOM) {
+                removeChildren(upperRange + 1, uppestRowInDOM);
+                upperRange = lowestRowInDOM - 1;
+                isPrepend = true;
+                document.getElementById('content').style.top = `${lowerRange * heightDiv}px`;
+            } else {
+                emptyContent();
+                document.getElementById('content').style.top = `${lowerRange * heightDiv}px`;
+            }
+            const content = extractRowsToDraw(fullFilteredContent, lowerRange, upperRange);
+            render(beautifyLines(content), lowerRange, isPrepend);
+        } else if (upperRange > uppestRowInDOM) {
+            if (lowerRange <= uppestRowInDOM) {
+                removeChildren(lowestRowInDOM, lowerRange - 1);
+                document.getElementById('content').style.top = `${lowerRange * heightDiv}px`;
+                lowerRange = uppestRowInDOM + 1;
+            } else {
+                emptyContent();
+                document.getElementById('content').style.top = `${lowerRange * heightDiv}px`;
+            }
+            const content = extractRowsToDraw(fullFilteredContent, lowerRange, upperRange);
+            render(beautifyLines(content), lowerRange, isPrepend);
         }
-        if (!content[ix]) {
-            return;
-        }
-        const end = ix + step;
-        const rows = beautifyLines(content, ix, end);
-        setTimeout(render, 1, rows, ix);
-        ix = end;
-        setTimeout(fn, 0);
-    };
-    fn();
+    } else {
+        const content = extractRowsToDraw(fullFilteredContent, lowerRange, upperRange);
+        document.getElementById('content').style.top = `${lowerRange * heightDiv}px`;
+        render(beautifyLines(content), lowerRange, isPrepend);
+    }
 }
 
-function render(content, from) {
+function extractRowsToDraw(content, from, to) {
+    const contentExtracted = {};
+    for (let i = from; i <= to; i += 1) {
+        contentExtracted[i] = content[i];
+    }
+    return contentExtracted;
+}
+
+function beautifyLines(contentLines) {
+    const content = {};
+    if (Object.keys(contentLines).length === 0) {
+        return content;
+    }
+
+    const heightDiv = getDefaultDivHeightValue();
+    // eslint-disable-next-line prefer-const
+    for (let [key, value] of Object.entries(contentLines)) {
+        if (!value) {
+            continue;
+        }
+        value = value.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        if (isHighlightEnabled()) {
+            value = highlightWords(value);
+        }
+        value = /\n$/.test(value) ? value : `${value}\n`;
+        content[key] = `<div id="${key}" style="min-height: ${heightDiv}px">${value}</div>`;
+    }
+    return content;
+}
+
+function highlightWords(row) {
+    if (!schemaColors) {
+        return row;
+    }
+    // eslint-disable-next-line @typescript-eslint/prefer-for-of
+    for (let i = 0; i < schemaColors.length; i += 1) {
+        const rule = schemaColors[i];
+        const regexp = new RegExp(rule.regex, "gi");
+        if (regexp.test(row)) {
+            row = row.replaceAll(regexp, repl);
+            row = row.replaceAll('#ruleColor', rule.color);
+        }
+    }
+    return row;
+}
+
+function repl() {
+    const match = arguments[0];
+    const offset = arguments[arguments.length - 2];
+    const originalString = arguments[arguments.length - 1];
+    if (!originalString) {
+        return match;
+    }
+    const indexOpenSpan = originalString.substring(0, offset + match.length).lastIndexOf("<span");
+    const indexCloseSpan = originalString.substring(0, offset + match.length).lastIndexOf("</span>");
+    if (indexOpenSpan === -1 || indexOpenSpan < indexCloseSpan) {
+        return `<span class="#ruleColor">${match}</span>`;
+    } else {
+        return match;
+    }
+}
+
+function removeChildren(from, to) {
+    if (to < from) {
+        return;
+    }
+    for (let i=from; i<=to; i++) {
+        const toDelete = document.getElementById(i.toString());
+        if (toDelete) {
+            toDelete.remove();
+        }
+    }
+}
+
+function render(content, from, prepend) {
     if (Object.keys(content).length === 0) {
         const fragment = document.createRange().createContextualFragment('No logs ...');
         document.getElementById('content').appendChild(fragment);
     } else {
         const contentToDisplay = concatenateObjectValuesAsString(content, from);
         const fragment = document.createRange().createContextualFragment(contentToDisplay);
-        document.getElementById('content').appendChild(fragment);
+        if (prepend) {
+            document.getElementById('content').prepend(fragment);
+        } else {
+            document.getElementById('content').appendChild(fragment);
+        }
         if (isToBottom) {
             scrollToBottom();
         }
@@ -495,6 +603,14 @@ function getToTerminal() {
 
 function isHighlightEnabled() {
     return document.getElementById('highlight-chk').checked;
+}
+
+function isWrapEnabled() {
+    return document.getElementById('wrap-chk').checked;
+}
+
+function getDefaultDivHeightValue() {
+    return document.getElementById('follow-lbl').offsetHeight;
 }
 
 (function () {
