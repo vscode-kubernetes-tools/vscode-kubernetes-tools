@@ -255,7 +255,6 @@ function reset() {
     document.getElementById('since-select').selectedIndex = 0;
     document.getElementById('tail-input').value = '-1';
     document.getElementById('terminal-chk').checked = false;
-    document.getElementById('highlight-chk').checked = false;
 }
 
 function updateContent(newContent) {
@@ -485,9 +484,7 @@ function beautifyLines(contentLines) {
             continue;
         }
         value = value.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        if (isHighlightEnabled()) {
-            value = highlightWords(value);
-        }
+        value = highlightWords(value);
         value = /\n$/.test(value) ? value : `${value}\n`;
         content[key] = `<div id="${key}" style="min-height: ${heightDiv}px">${value}</div>`;
     }
@@ -604,10 +601,6 @@ function getTail() {
 
 function getToTerminal() {
     return document.getElementById('terminal-chk').checked;
-}
-
-function isHighlightEnabled() {
-    return document.getElementById('highlight-chk').checked;
 }
 
 function isWrapEnabled() {
