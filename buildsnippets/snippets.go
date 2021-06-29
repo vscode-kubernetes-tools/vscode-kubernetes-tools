@@ -97,10 +97,11 @@ var snippets = map[string]Snippet{
 
 func load(loc string) []string {
 	loc = filepath.Join("rawsnippets", loc)
-	f, err := os.Open(loc)
+	f, err := os.Open(filepath.Clean(loc))
 	if err != nil {
 		panic(err)
 	}
+	/* #nosec G307 */
 	defer f.Close()
 
 	r := bufio.NewScanner(f)
