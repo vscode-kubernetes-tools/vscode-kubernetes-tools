@@ -25,7 +25,7 @@ Thanks to Luca Stocchi.
 * The Describe command now does more comprehensive prompting so you shouldn't need to
   type freeform resource names
 * Fixed the dashboard command not working
-* Fixed over-permissive permissions on installed binaries
+* Fixed over-permissive permissions on installed binaries. Resolves [CVE-2021-31938](https://msrc.microsoft.com/update-guide/vulnerability/CVE-2021-31938).
 
 Thanks to Dakota Clark, Matt Fisher, Shreyas Karnik and Luca Stocchi.
 
