@@ -11,7 +11,7 @@ body: |2
   spec:
     rules:
     - host: ${2:<Host>}
-      http:
+    - http:
         paths:
         - pathType: Prefix
           path: "/"
