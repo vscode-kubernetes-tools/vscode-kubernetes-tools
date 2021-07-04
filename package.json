@@ -234,6 +234,10 @@
                             "type": "number",
                             "description": "Remote debugging port for Python. Usually 5678."
                         },
+                        "vs-kubernetes.dotnet-source-file-map": {
+                            "type": "string",
+                            "description": "The compilation root for the vsdbg debugger in order to have a sourceFileMap in the attach configuration of debug (.NET)."
+                        },
                         "vs-kubernetes.resources-to-watch": {
                             "type": "array",
                             "description": "List of resources to be watched."
