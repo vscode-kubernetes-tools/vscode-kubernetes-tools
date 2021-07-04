@@ -234,6 +234,10 @@
                             "type": "number",
                             "description": "Remote debugging port for Python. Usually 5678."
                         },
+                        "vs-kubernetes.dotnet-vsdbg-path": {
+                            "type": "string",
+                            "description": "The path to the vsdbg debugger in the container (.NET)."
+                        },
                         "vs-kubernetes.dotnet-source-file-map": {
                             "type": "string",
                             "description": "The compilation root for the vsdbg debugger in order to have a sourceFileMap in the attach configuration of debug (.NET)."
@@ -276,6 +280,7 @@
                         "vs-kubernetes.nodejs-autodetect-remote-root": true,
                         "vs-kubernetes.nodejs-remote-root": "",
                         "vs-kubernetes.nodejs-debug-port": 9229,
+                        "vs-kubernetes.dotnet-vsdbg-path": "~/vsdbg/vsdbg",
                         "vs-kubernetes.local-tunnel-debug-provider": "",
                         "checkForMinikubeUpgrade": true,
                         "imageBuildTool": "Docker"

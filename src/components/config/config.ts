@@ -261,6 +261,10 @@ export function getPythonDebugPort(): number | undefined {
     return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.python-debug-port'];
 }
 
+// remote debugging path to dotnet debugger (vsdbg)
+export function getDotnetVsdbgPath(): string {
+    return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.dotnet-vsdbg-path'];
+}
 
 // remote debugging sourceFileMap for dotnet. An entry "sourceFileMap": {"<vs-kubernetes.dotnet-source-file-map>":"$workspaceFolder"} will be added to the debug configuration
 export function getDotnetDebugSourceFileMap(): string | undefined {
