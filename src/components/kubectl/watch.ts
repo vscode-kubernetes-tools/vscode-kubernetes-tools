@@ -45,7 +45,7 @@ export class WatchManager {
         if (!params) {
             params = {};
         }
-        const req: Request = kcWatch.watch(apiUri, params, callback, restartWatchOnConnectionError);
+        const req: Request = await kcWatch.watch(apiUri, params, callback, restartWatchOnConnectionError);
         this.watchers.set(id, { active: true, request: req } );
     }
 
