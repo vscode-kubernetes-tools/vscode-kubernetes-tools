@@ -1,10 +1,14 @@
 const vscode = acquireVsCodeApi();
-const fullPageContent = [];
+let fullPageContent = {};
+let filteredContent = {};
+let fpcCounter = -1;
+let filterMatched = false;
 let schemaColors;
 let defaultContainer;
-let renderNonce = 0;
-let isToBottom = true;
+let isToBottom = false;
+let isFollowRun = false;
 let lastScrollTop = 0;
+let typingTimer;
 
 window.addEventListener('message', (event) => {
     const message = event.data;
@@ -34,26 +38,21 @@ window.addEventListener('message', (event) => {
             containersPanel.appendChild(select);
         }
         case 'content': {
-            const text = message.text;
+            const text = message.text.replace(/\n$/, '');
             if (!text) {
                 return;
             }
             const newContent = text.split('\n');
-            updateContent(newContent, false);
-
-            // handle auto-scroll on/off
-            if (isToBottom) {
-                scrollToBottom();
-            }
+            updateContent(newContent);
         }
     }
 });
 
 function debounce(func, wait, immediate) {
     let timeout;
-    return function() {
+    return function () {
         const context = this, args = arguments;
-        const later = function() {
+        const later = function () {
             timeout = null;
             if (!immediate) {
                 func.apply(context, args);
@@ -66,109 +65,6 @@ function debounce(func, wait, immediate) {
             func.apply(context, args);
         }
     };
-}
-
-function beautifyContentLineRange(contentLines, ix, end) {
-    if (ix && end) {
-        contentLines = contentLines.slice(ix, end);
-    }
-    return beautifyLines(contentLines);
-};
-
-function beautifyLines(contentLines) {
-    if (!contentLines) {
-        return '';
-    }
-    let content = contentLines.join('\n');
-    if (content) {
-        content = content.match(/\n$/) ? content : content + '\n';
-        content = highlightWords(content);
-    }
-    return content;
-}
-
-function highlightWords(content) {
-    if (!schemaColors) {
-        return content;
-    }
-    for (const rule of schemaColors) {
-        const regexp = new RegExp(rule.regex, "gi");
-        content = content.replaceAll(regexp, repl);
-        content = content.replaceAll('#ruleColor', rule.color);
-    }
-    return content;
-}
-
-function repl(match, _word, offset, originalString) {
-    if (!originalString) {
-        return match;
-    }
-    const indexOpenSpan = originalString.substring(0, offset + match.length).lastIndexOf("<span");
-    const indexCloseSpan = originalString.substring(0, offset + match.length).lastIndexOf("</span>");
-    if (indexOpenSpan === -1) {
-        return `<span style="color:#ruleColor">${match}</span>`;
-    } else if (indexOpenSpan !== -1 && indexCloseSpan === -1) {
-        return match;
-    } else if (indexOpenSpan < indexCloseSpan) {
-            return `<span style="color:#ruleColor">${match}</span>`;
-    } else {
-        return match;
-    }
-}
-
-function filterNewLogs(logsText) {
-    return filter(logsText);
-}
-
-function filter(logs) {
-    let isNewLog = false;
-    let text = fullPageContent;
-    if (logs) {
-        isNewLog = true;
-        text = logs;
-    }
-    const filterInput = document.getElementById('filter-input').value;
-    const mode = document.getElementById('filter-select').value;
-    let content;
-    if (filterInput.length > 0 && mode !== 'all') {
-        const regex = new RegExp(filterInput);
-        switch (mode) {
-            case 'include':
-                content = text.filter((line) => regex.test(line));
-                break;
-            case 'exclude':
-                content = text.filter((line) => !regex.test(line));
-                break;
-            case 'before':
-                content = [];
-                if (!isNewLog) {
-                    for (const line of text) {
-                        if (regex.test(line)) {
-                            break;
-                        }
-                        content.push(line);
-                    }
-                }
-                break;
-            case 'after':
-                if (isNewLog) {
-                    content = text;
-                } else {
-                    const i = text.findIndex((line) => {
-                        return regex.test(line);
-                    });
-                    content = text.slice(i+1);
-                }
-                break;
-            default:
-                content = [];
-                break;
-        }
-    } else {
-        content = text;
-    }
-
-    return content;
 }
 
 function createElement(type, value, content) {
@@ -187,6 +83,7 @@ function init() {
 
     const stopBtn = document.getElementById('stopBtn');
     stopBtn.addEventListener('click', (_event) => {
+        isFollowRun = false;
         changeVisibilityAfterStop();
         stopLog();
     });
@@ -202,37 +99,46 @@ function init() {
         reset();
     });
 
-    const bottomBtn= document.getElementById('bottomBtn');
+    const bottomBtn = document.getElementById('bottomBtn');
     bottomBtn.addEventListener('click', (_event) => {
         scrollToBottom();
     });
 
     const wrapChk = document.getElementById('wrap-chk');
-    wrapChk.addEventListener('vsc-change', function(event) {
-        const contentDiv = document.getElementById('content');
+    wrapChk.addEventListener('vsc-change', function (event) {
         if (event.detail.checked) {
-            contentDiv.classList.remove('white-space-pre');
-            contentDiv.classList.add('white-space-wrap');
+            document.getElementById('content').classList.remove('white-space-pre');
+            document.getElementById('content').classList.add('white-space-wrap');
         } else {
-            contentDiv.classList.remove('white-space-wrap');
-            contentDiv.classList.add('white-space-pre');
+            document.getElementById('content').classList.remove('white-space-wrap');
+            document.getElementById('content').classList.add('white-space-pre');
         }
     });
 
     const filterSelect = document.getElementById('filter-select');
     filterSelect.addEventListener('vsc-change', (_event) => {
-        runFilter();
+        resetFilter();
+        if (isRun() && document.getElementById('filter-input').value) {
+            runFilter();
+        }
     });
 
     const filterInput = document.getElementById('filter-input');
     filterInput.addEventListener('keyup', (_event) => {
-        runFilter();
+        resetFilter();
+        if (!isRun() || document.getElementById('filter-select').value === 'all') {
+            return;
+        }
+        if (typingTimer) {
+            clearTimeout(typingTimer);
+        }
+        typingTimer = setTimeout(runFilter, 500);
     });
 
     const logPanel = document.getElementById('logPanel');
-    const toBottom = debounce(function() {
+    const toBottom = debounce(function () {
         const st = logPanel.scrollTop;
-        if (st > lastScrollTop){
+        if (st > lastScrollTop) {
             // scroll down
             isToBottom = (logPanel.scrollTop + window.innerHeight) >= logPanel.scrollHeight;
         } else {
@@ -240,44 +146,26 @@ function init() {
             isToBottom = false;
         }
         lastScrollTop = st <= 0 ? 0 : st;
+        renderByPagination();
     }, 250);
     logPanel.addEventListener("scroll", toBottom);
 }
 
-function runFilter() {
-    setTimeout(runFilterInternal, 0);
+function resetContent() {
+    fullPageContent = {};
+    fpcCounter = -1;
 }
 
-function runFilterInternal() {
-// We use this to abort renders in progress if a new render starts
-    renderNonce = Math.random();
-    const currentNonce = renderNonce;
+function resetFilter() {
+    filteredContent = {};
+    filterMatched = false;
+}
 
-    const content = filter();
-
-    const contentDiv = document.getElementById('content');
-    contentDiv.textContent = !isFollow() ? 'No logs ...' : '';
-
-    // This is probably seems more complicated than necessary.
-    // However, rendering large blocks of text are _slow_ and kill the UI thread.
-    // So we split it up into manageable chunks to keep the UX lively.
-    // Of course the trouble is then we could interleave multiple different filters.
-    // So we use the random nonce to detect and pre-empt previous renders.
-    let ix = 0;
-    const step = 1000;
-    const fn = () => {
-        if (renderNonce !== currentNonce) {
-            return;
-        }
-        if (ix >= content.length) {
-            return;
-        }
-        const end = Math.min(content.length, ix + step);
-        setContentDiv(beautifyContentLineRange(content, ix, end));
-        ix += step;
-        setTimeout(fn, 0);
-    };
-    fn();
+function runFilter() {
+    emptyContent();
+    saveFilteredContent();
+    setHeightContentPanel();
+    renderByPagination();
 }
 
 function changeVisibilityAfterRun() {
@@ -292,19 +180,14 @@ function changeVisibilityAfterRun() {
 }
 
 function changeVisibilityAfterClear() {
-    switchClass('clearBtn', 'display-inline-block', 'display-none');
-
-    if (!isFollow()) {
+    if (document.getElementById('stopBtn').classList.contains('display-none')) {
+        switchClass('clearBtn', 'display-inline-block', 'display-none');
         switchClass('runBtn', 'display-none', 'display-inline-block');
     }
 }
 
 function changeVisibilityAfterStop() {
     switchClass('stopBtn', 'display-inline-block', 'display-none');
-
-    if (isFollow()) {
-        switchClass('runBtn', 'display-none', 'display-inline-block');
-    }
 }
 
 function switchClass(id, classToRemove, classToAdd) {
@@ -317,10 +200,24 @@ function switchClass(id, classToRemove, classToAdd) {
     }
 }
 
+function isRun() {
+    return document.getElementById('runBtn').classList.contains('display-none');
+}
+
+function isFilterEnabled() {
+    const filterInput = document.getElementById('filter-input').value;
+    const mode = document.getElementById('filter-select').value;
+    return filterInput.length > 0 && mode !== 'all';
+}
+
 function startLog() {
+    resetContent();
+    resetFilter();
+    clear();
+    isFollowRun = isFollow();
     const options = {
         container: getContainer(),
-        follow: isFollow(),
+        follow: isFollowRun,
         timestamp: document.getElementById('timestamp-chk').checked,
         since: getSinceDuration(),
         tail: getTail(),
@@ -339,8 +236,12 @@ function stopLog() {
 }
 
 function clear() {
-    fullPageContent.length = 0;
-    updateContent(undefined, true);
+    if (!isFollowRun) {
+        resetContent();
+        resetFilter();
+    }
+    setHeightContentPanel(true);
+    emptyContent();
 }
 
 function reset() {
@@ -356,37 +257,316 @@ function reset() {
     document.getElementById('terminal-chk').checked = false;
 }
 
-function updateContent(newContent, clear) {
-    const contentDiv = document.getElementById('content');
-    if (clear) {
-        contentDiv.innerHTML = '';
-        return;
-    }
+function updateContent(newContent) {
+    let content = {};
+    let counter = 0;
 
-    newContent.forEach((line) => {
-        if (line.length > 0) {
-            fullPageContent.push(line);
+    // eslint-disable-next-line @typescript-eslint/prefer-for-of
+    for (let i = 0; i < newContent.length; i += 1) {
+        if (newContent[i].length > 0) {
+            content[counter] = newContent[i];
+            fpcCounter++;
+            fullPageContent[fpcCounter] = newContent[i];
+            counter++;
         }
-    });
-    const beautifiedLines = beautifyLines(filterNewLogs(newContent));
-    setContentDiv(beautifiedLines);
+    }
+    content = saveFilteredContent(content);
+    setHeightContentPanel();
+    renderByPagination(content);
     switchClass('clearBtn', 'display-none', 'display-inline-block');
 }
 
-function setContentDiv(content) {
-    const contentDiv = document.getElementById('content');
-    if (!isFollow()) {
-        if (content === '') {
-            contentDiv.innerHTML = 'No logs ...';
-        } else {
-            contentDiv.innerHTML = content;
-        }
+function setHeightContentPanel(removeStyle) {
+    if (removeStyle) {
+        document.getElementById('innerLogPanel').style.removeProperty('height');
     } else {
-        contentDiv.innerHTML += content;
+        const content = isFilterEnabled() ? filteredContent : fullPageContent;
+        const rows = Object.keys(content).length;
+        const heightDiv = getDefaultDivHeightValue();
+        document.getElementById('innerLogPanel').style.height = `${heightDiv * rows}px`;
     }
 }
 
-function scrollToBottom () {
+function saveFilteredContent(content) {
+    const filterInput = document.getElementById('filter-input').value;
+    const mode = document.getElementById('filter-select').value;
+    let contentAfterFilter;
+    if (filterInput.length > 0 && mode !== 'all') {
+        contentAfterFilter = filter(content);
+        let fcRows = Object.keys(filteredContent).length - 1;
+        if (fcRows === -1) {
+            filteredContent = contentAfterFilter;
+            return contentAfterFilter;
+        }
+        for (let i = 0; i < Object.keys(contentAfterFilter).length; i += 1) {
+            fcRows++;
+            filteredContent[fcRows] = contentAfterFilter[i];
+        }
+    }
+    return contentAfterFilter;
+}
+
+function filter(logs) {
+    const text = logs ? logs : fullPageContent;
+    const filterInput = document.getElementById('filter-input').value;
+    const mode = document.getElementById('filter-select').value;
+    let content = {};
+    if (filterInput.length > 0 && mode !== 'all') {
+        const regex = new RegExp(filterInput);
+        switch (mode) {
+            case 'include':
+                content = filterByFunction(text, (value) => regex.test(value));
+                break;
+            case 'exclude':
+                content = filterByFunction(text, (value) => !regex.test(value));
+                break;
+            case 'before':
+                if (!filterMatched) {
+                    const filterBeforeResult = filterBefore(text, regex);
+                    content = filterBeforeResult.content;
+                    filterMatched = filterBeforeResult.matched;
+                }
+                break;
+            case 'after':
+                if (!filterMatched) {
+                    const filterAfterResult = filterAfter(text, regex);
+                    content = filterAfterResult.content;
+                    filterMatched = filterAfterResult.matched;
+                } else {
+                    content = text;
+                }
+                break;
+            default:
+                break;
+        }
+    } else {
+        content = text;
+    }
+
+    return content;
+}
+
+function filterByFunction(text, func) {
+    const content = {};
+    let counter = 0;
+    let innerCounter = 0;
+    while (true) {
+        const value = text[counter];
+        if (!value) {
+            break;
+        }
+        if (func(value)) {
+            content[innerCounter] = value;
+            innerCounter++;
+        }
+        counter++;
+    }
+    return content;
+}
+
+function filterBefore(text, regex) {
+    const content = {};
+    let counter = 0;
+    let matched = false;
+    while (true) {
+        const value = text[counter];
+        matched = regex.test(value);
+        if (!value || matched) {
+            break;
+        }
+        content[counter] = value;
+        counter++;
+    }
+    return { matched, content };
+}
+
+function filterAfter(text, regex) {
+    const content = {};
+    let counter = 0;
+    let innerCounter = 0;
+    let start = false;
+    let matched = false;
+    while (true) {
+        const value = text[counter];
+        if (!value) {
+            break;
+        }
+        matched = regex.test(value);
+        if (!start && matched) {
+            start = true;
+        }
+        if (start) {
+            content[innerCounter] = value;
+            innerCounter++;
+        }
+        counter++;
+    }
+    return { matched, content };
+}
+
+function emptyContent() {
+    const contentDiv = document.getElementById('innerLogPanel');
+    let i = contentDiv.childNodes.length;
+    while (i--) {
+        contentDiv.removeChild(contentDiv.firstChild);
+    }
+    contentDiv.innerHTML = `<code id='content' class='${isWrapEnabled() ? 'white-space-wrap' : 'white-space-pre'} position-relative'></code>`;
+}
+
+function renderByPagination(contentToAdd) {
+    if (contentToAdd && Object.keys(contentToAdd).length === 0) {
+        return;
+    }
+    const fullFilteredContent = isFilterEnabled() ? filteredContent : fullPageContent;
+    const totalRows = Object.keys(fullFilteredContent).length - 1;
+    const heightDiv = getDefaultDivHeightValue();
+    const currentPosition = document.getElementById('logPanel').scrollTop;
+    const referenceRow = Math.floor(currentPosition / heightDiv);
+    // identify rows range to draw
+    let lowerRange = referenceRow - 250 < 0 ? 0 : referenceRow - 250;
+    let upperRange = referenceRow + 250 > totalRows ? totalRows : referenceRow + 250;
+    let isPrepend = false;
+
+    const children = document.getElementById('content').children;
+    if (children.length !== 0) {
+        // identify rows range present in DOM
+        const lowestRowInDOM = parseInt(children.item(0).id);
+        const uppestRowInDOM = parseInt(children.item(children.length - 1).id);
+        if (lowerRange < lowestRowInDOM) {
+            if (upperRange >= lowestRowInDOM) {
+                removeChildren(upperRange + 1, uppestRowInDOM);
+                upperRange = lowestRowInDOM - 1;
+                isPrepend = true;
+                document.getElementById('content').style.top = `${lowerRange * heightDiv}px`;
+            } else {
+                emptyContent();
+                document.getElementById('content').style.top = `${lowerRange * heightDiv}px`;
+            }
+            const content = extractRowsToDraw(fullFilteredContent, lowerRange, upperRange);
+            render(beautifyLines(content), lowerRange, isPrepend);
+        } else if (upperRange > uppestRowInDOM) {
+            if (lowerRange <= uppestRowInDOM) {
+                removeChildren(lowestRowInDOM, lowerRange - 1);
+                document.getElementById('content').style.top = `${lowerRange * heightDiv}px`;
+                lowerRange = uppestRowInDOM + 1;
+            } else {
+                emptyContent();
+                document.getElementById('content').style.top = `${lowerRange * heightDiv}px`;
+            }
+            const content = extractRowsToDraw(fullFilteredContent, lowerRange, upperRange);
+            render(beautifyLines(content), lowerRange, isPrepend);
+        }
+    } else {
+        const content = extractRowsToDraw(fullFilteredContent, lowerRange, upperRange);
+        document.getElementById('content').style.top = `${lowerRange * heightDiv}px`;
+        render(beautifyLines(content), lowerRange, isPrepend);
+    }
+}
+
+function extractRowsToDraw(content, from, to) {
+    const contentExtracted = {};
+    for (let i = from; i <= to; i += 1) {
+        contentExtracted[i] = content[i];
+    }
+    return contentExtracted;
+}
+
+function beautifyLines(contentLines) {
+    const content = {};
+    if (Object.keys(contentLines).length === 0) {
+        return content;
+    }
+
+    const heightDiv = getDefaultDivHeightValue();
+    // eslint-disable-next-line prefer-const
+    for (let [key, value] of Object.entries(contentLines)) {
+        if (!value) {
+            continue;
+        }
+        value = value.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        value = highlightWords(value);
+        value = /\n$/.test(value) ? value : `${value}\n`;
+        content[key] = `<div id="${key}" style="min-height: ${heightDiv}px">${value}</div>`;
+    }
+    return content;
+}
+
+function highlightWords(row) {
+    if (!schemaColors) {
+        return row;
+    }
+    // eslint-disable-next-line @typescript-eslint/prefer-for-of
+    for (let i = 0; i < schemaColors.length; i += 1) {
+        const rule = schemaColors[i];
+        const regexp = new RegExp(rule.regex, "gi");
+        if (regexp.test(row)) {
+            row = row.replaceAll(regexp, repl);
+            row = row.replaceAll('#ruleColor', rule.color);
+        }
+    }
+    return row;
+}
+
+function repl() {
+    const match = arguments[0];
+    const offset = arguments[arguments.length - 2];
+    const originalString = arguments[arguments.length - 1];
+    if (!originalString) {
+        return match;
+    }
+    const indexOpenSpan = originalString.substring(0, offset + match.length).lastIndexOf("<span");
+    const indexCloseSpan = originalString.substring(0, offset + match.length).lastIndexOf("</span>");
+    if (indexOpenSpan === -1 || indexOpenSpan < indexCloseSpan) {
+        return `<span class="#ruleColor">${match}</span>`;
+    } else {
+        return match;
+    }
+}
+
+function removeChildren(from, to) {
+    if (to < from) {
+        return;
+    }
+    for (let i=from; i<=to; i++) {
+        const toDelete = document.getElementById(i.toString());
+        if (toDelete) {
+            toDelete.remove();
+        }
+    }
+}
+
+function render(content, from, prepend) {
+    if (Object.keys(content).length === 0) {
+        const fragment = document.createRange().createContextualFragment('No logs ...');
+        document.getElementById('content').appendChild(fragment);
+    } else {
+        const contentToDisplay = concatenateObjectValuesAsString(content, from);
+        const fragment = document.createRange().createContextualFragment(contentToDisplay);
+        if (prepend) {
+            document.getElementById('content').prepend(fragment);
+        } else {
+            document.getElementById('content').appendChild(fragment);
+        }
+        if (isToBottom) {
+            scrollToBottom();
+        }
+    }
+}
+
+function concatenateObjectValuesAsString(object, ix) {
+    let valuesConcatenated = '';
+    while (true) {
+        const value = object[ix];
+        if (!value) {
+            break;
+        }
+        valuesConcatenated += value;
+        ix++;
+    }
+    return valuesConcatenated;
+}
+
+function scrollToBottom() {
     document.getElementById('bottom').scrollIntoView();
 }
 
@@ -423,6 +603,14 @@ function getToTerminal() {
     return document.getElementById('terminal-chk').checked;
 }
 
-(function() {
+function isWrapEnabled() {
+    return document.getElementById('wrap-chk').checked;
+}
+
+function getDefaultDivHeightValue() {
+    return document.getElementById('follow-lbl').offsetHeight;
+}
+
+(function () {
     init();
 })();
