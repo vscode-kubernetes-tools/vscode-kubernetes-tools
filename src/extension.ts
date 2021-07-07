@@ -83,7 +83,7 @@ import { ClusterExplorerNode, ClusterExplorerConfigurationValueNode, ClusterExpl
 import { create as activeContextTrackerCreate } from './components/contextmanager/active-context-tracker';
 import { WatchManager } from './components/kubectl/watch';
 import { ExecResult } from './binutilplusplus';
-import { recommendExtensions } from './components/extexplorer/explorer';
+import { recommendExtensions } from './components/recommender/extension-recommender';
 import { getCurrentContext } from './kubectlUtils';
 import { LocalTunnelDebugger } from './components/localtunneldebugger/localtunneldebugger';
 import { setAssetContext } from './assets';
@@ -146,7 +146,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
     const dependenciesProvider = new HelmDependencyDocumentProvider();
     const helmSymbolProvider = new HelmDocumentSymbolProvider();
     const completionProvider = new HelmTemplateCompletionProvider();
-    recommendExtensions(kubectl, context);
+
     const completionFilter = [
         "helm",
         {pattern: "**/templates/NOTES.txt"}
@@ -373,6 +373,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
     await registerYamlSchemaSupport(activeContextTracker, kubectl);
 
     vscode.workspace.registerTextDocumentContentProvider(configmaps.uriScheme, configMapProvider);
+
+    recommendExtensions(kubectl, context);
 
     return apiBroker(clusterProviderRegistry, kubectl, portForwardStatusBarManager, treeProvider, cloudExplorer, localTunnelDebugger, onDidChangeKubeconfigEmitter, activeContextTracker, kubectlUtils.onDidChangeNamespaceEmitter);
 }
