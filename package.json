@@ -1221,7 +1221,7 @@
         "redhat.vscode-yaml"
     ],
     "dependencies": {
-        "@kubernetes/client-node": "^0.15.0",
+        "@kubernetes/client-node": "^0.14.0",
         "ajv": "^6.9.1",
         "await-notify": "^1.0.1",
         "clipboardy": "^1.2.3",
