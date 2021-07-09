@@ -7,12 +7,12 @@ import { ResourceKind } from "../../../kuberesources";
 
 export const configItemsChildSource = {
     async children(_kubectl: Kubectl, parent: ResourceNode): Promise<ClusterExplorerNode[]> {
-        const configData = parent.extraInfo!.configData;  // TODO: unbang
-        if (!configData || configData.length === 0) {
+        const resource = await kubectlUtils.getAsDataResource(parent.name, parent.kind.abbreviation, _kubectl);
+        if (!resource || Object.keys(resource).length === 0 || Object.keys(resource.data).length === 0) {
             return [];
         }
-        const files = Object.keys(configData);
-        return files.map((f) => new ConfigurationValueNode(configData, f, parent.kind, parent.name));
+        const files = Object.keys(resource.data);
+        return files.map((f) => new ConfigurationValueNode(resource.data, f, parent.kind, parent.name));
     }
 };
 
