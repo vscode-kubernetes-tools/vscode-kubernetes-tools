@@ -22,11 +22,11 @@ async function recommendExtensionsToUser(tags: string[]): Promise<void> {
 
 async function getCRDApiGroups(kubectl: Kubectl): Promise<string[]> {
     const result = new Set<string>();
-    const invokeResult = await kubectl.invokeCommand('get crd -o json');
+    const invokeResult = await kubectl.invokeCommand('api-versions');
     if (invokeResult.resultKind === 'exec-succeeded') {
         try {
-            const res = JSON.parse(invokeResult.stdout);
-            res.items.forEach((i: any) => result.add(i.spec.group));
+            const res = invokeResult.stdout.split('\n');
+            res.forEach((i: any) => result.add(i));
         } catch (err) {
             // ignore
         }

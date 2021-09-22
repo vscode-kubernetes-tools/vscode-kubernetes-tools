@@ -4,5 +4,8 @@
     ],
     "operator.knative.dev": [
         "knative"
+    ],
+    "project.openshift.io": [
+        "openshift"
     ]
 }
