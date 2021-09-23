@@ -10,7 +10,7 @@ interface Recommendations {
 
 async function recommendExtensionsToUser(tags: string[]): Promise<void> {
     if (tags.length > 0) { // do not prompt if we cannot recommend anything
-        const answer = await vscode.window.showInformationMessage('Do you want to view recommended extensions for your Kubernetes cluster?', 'Don\'t ask again', 'Ignore', 'Search for Extensions');
+        const answer = await vscode.window.showInformationMessage('Do you want to search for extensions based on CRDs that exist on your kubernetes cluster?', 'Don\'t ask again', 'Ignore', 'Search for Extensions');
         if (answer === 'Search for Extensions') {
             const searchValue = tags.map((it) => `@tag:${it}`).join(' ');
             vscode.commands.executeCommand('workbench.extensions.search', searchValue);
@@ -35,8 +35,8 @@ async function getCRDApiGroups(kubectl: Kubectl): Promise<string[]> {
 }
 
 async function readRecommendation(extPath: string): Promise<Recommendations> {
-    const fileContent = await fs.readFile(path.join(extPath, 'recommendation', 'recommended-tags.json'), 'utf8');
-    return JSON.parse(fileContent);
+    const fileContent = await vscode.workspace.fs.readFile(vscode.Uri.file(path.join(extPath, 'recommendation', 'recommended-tags.json')));
+    return JSON.parse(Buffer.from(fileContent).toString());
 }
 
 export async function recommendExtensions(kubectl: Kubectl, context: vscode.ExtensionContext): Promise<void> {
