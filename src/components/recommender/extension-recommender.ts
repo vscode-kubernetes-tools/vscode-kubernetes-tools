@@ -1,6 +1,5 @@
 
 import * as vscode from 'vscode';
-import { promises as fs } from 'fs';
 import * as path from 'path';
 import { Kubectl } from '../../kubectl';
 
