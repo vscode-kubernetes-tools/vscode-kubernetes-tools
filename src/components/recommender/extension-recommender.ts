@@ -20,17 +20,15 @@ async function recommendExtensionsToUser(tags: string[]): Promise<void> {
 }
 
 async function getCRDApiGroups(kubectl: Kubectl): Promise<string[]> {
-    const result = new Set<string>();
     const invokeResult = await kubectl.invokeCommand('api-versions');
     if (invokeResult.resultKind === 'exec-succeeded') {
         try {
-            const res = invokeResult.stdout.split('\n');
-            res.forEach((i: any) => result.add(i));
+            return invokeResult.stdout.split('\n').filter((s) => s);
         } catch (err) {
             // ignore
         }
     }
-    return Array.from(result);
+    return [];
 }
 
 async function readRecommendation(extPath: string): Promise<Recommendations> {
@@ -50,11 +48,9 @@ export async function recommendExtensions(kubectl: Kubectl, context: vscode.Exte
         // collect extension id to promote based on installed operators
         for (const crdApi of crdApiGroups) {
             for (const key in recommendation) {
-                if (recommendation.hasOwnProperty(key)) {
-                    const value = recommendation[key];
-                    if (crdApi.startsWith(key)) {
-                        value.forEach((val: string) => extensionToPromote.add(val));
-                    }
+                const value = recommendation[key];
+                if (crdApi.startsWith(key)) {
+                    value.forEach((val: string) => extensionToPromote.add(val));
                 }
             }
         }
