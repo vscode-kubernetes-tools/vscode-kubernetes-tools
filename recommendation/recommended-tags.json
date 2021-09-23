@@ -2,7 +2,7 @@
     "tekton.dev": [
         "tekton"
     ],
-    "operator.knative.dev": [
+    "serving.knative.dev": [
         "knative"
     ],
     "project.openshift.io": [
