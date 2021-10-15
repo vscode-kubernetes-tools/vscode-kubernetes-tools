@@ -124,7 +124,7 @@ export class HelmTemplateCompletionProvider implements vscode.CompletionItemProv
                 }
                 cache = cache[cur];
             }
-            if (!cache || typeof cache === "string") {
+            if (!cache || typeof cache === "string" || cache.constructor.name === 'Array') {
                 return [];
             }
             const k = _.keys(cache).map((item) =>
