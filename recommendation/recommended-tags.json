@@ -1,0 +1,11 @@
+{
+    "tekton.dev": [
+        "tekton"
+    ],
+    "serving.knative.dev": [
+        "knative"
+    ],
+    "project.openshift.io": [
+        "openshift"
+    ]
+}

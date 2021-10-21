@@ -50,3 +50,7 @@ To implement a provider for the 'Create Cluster' and/or 'Add Existing Cluster' c
 * When your HTML calls `onNext()`, your `next` method will be called again, and this time the message will contain a map of the form fields.
 
 For an example of this, see the `components/clusterprovider/azure` directory.  If you have any questions or run into any problems, please post an issue - we'll be very happy to help.
+
+##Extension Recommendation
+
+The [recommended-tags.json](./recommendation/recommended-tags.json) format is key is [CRD](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) name, the value is array of `Tags` on the Marketplace.
