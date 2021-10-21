@@ -14,7 +14,7 @@ export interface ObjectMeta {
 }
 
 export interface KeyValuePairs {
-    readonly [key: string]: string;
+    [key: string]: string;
 }
 
 export interface DataResource extends KubernetesResource {
