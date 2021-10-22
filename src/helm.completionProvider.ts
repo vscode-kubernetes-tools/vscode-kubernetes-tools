@@ -12,7 +12,6 @@ export class HelmTemplateCompletionProvider implements vscode.CompletionItemProv
     private valuesMatcher = new RegExp('\\s+\\.Values\\.([a-zA-Z0-9\\._-]+)?$');
     private funcmap = new FuncMap();
 
-    // TODO: On focus, rebuild the values.yaml cache
     private valuesCache: any;  // pulled in from YAML, no schema
     private valuesWatcher: vscode.FileSystemWatcher;
 
@@ -26,7 +25,6 @@ export class HelmTemplateCompletionProvider implements vscode.CompletionItemProv
     }
 
     public initializeValues(options: exec.PickChartUIOptions) {
-        logger.helm.log("Initialize values.");
         const ed = vscode.window.activeTextEditor;
         if (!ed) {
             return;
@@ -37,7 +35,6 @@ export class HelmTemplateCompletionProvider implements vscode.CompletionItemProv
             if (!existsSync(valsYaml)) {
                 return;
             }
-            // initialize values cache and rebuild values cache when changes are detected
             this.refreshValues(valsYaml);
             this.valuesWatcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(f, "values.yaml"));
             this.valuesWatcher.onDidChange((uri) => this.refreshValues(uri.fsPath));
@@ -45,7 +42,7 @@ export class HelmTemplateCompletionProvider implements vscode.CompletionItemProv
     }
 
     private refreshValues(valsYaml: string) {
-        logger.helm.log(`Refresh cache. Reading ${valsYaml}.`);
+        logger.helm.log(`Refresh values cache. Reading ${valsYaml}.`);
         try {
             this.valuesCache = YAML.load(valsYaml);
         } catch (err) {
