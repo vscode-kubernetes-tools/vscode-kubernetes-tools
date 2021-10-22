@@ -57,12 +57,12 @@ export class HelmTemplateCompletionProvider implements vscode.CompletionItemProv
     public provideCompletionItems(doc: vscode.TextDocument, pos: vscode.Position): vscode.CompletionList | vscode.CompletionItem[] {
         // If the preceding character is a '.', we kick it into dot resolution mode.
         // Otherwise, we go with function completion.
-        const wordPos = doc.getWordRangeAtPosition(pos);
-        if (!wordPos) {
-            return [];
-        }
         const line = doc.lineAt(pos.line).text;
-        const lineUntil = line.substr(0, wordPos.start.character);
+        const wordPos = doc.getWordRangeAtPosition(pos);
+        let lineUntil = line.substr(0, pos.character);
+        if (wordPos) {
+            lineUntil = line.substr(0, wordPos.start.character);
+        }
 
         if (lineUntil.endsWith(".")) {
             return this.dotCompletionItems(lineUntil);
@@ -133,7 +133,7 @@ export class HelmTemplateCompletionProvider implements vscode.CompletionItemProv
                 }
                 cache = cache[cur];
             }
-            if (!cache) {
+            if (!cache || typeof cache === "string" || cache.constructor.name === 'Array') {
                 return [];
             }
             const k = _.keys(cache).map((item) =>

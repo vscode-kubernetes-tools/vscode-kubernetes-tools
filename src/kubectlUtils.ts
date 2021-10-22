@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { Kubectl } from "./kubectl";
 import { kubeChannel } from "./kubeChannel";
 import { sleep } from "./sleep";
-import { ObjectMeta, KubernetesCollection, DataResource, Namespace, Pod, KubernetesResource, CRD } from './kuberesources.objectmodel';
+import { ObjectMeta, KubernetesCollection, DataResource, Namespace, Pod, KubernetesResource, CRD, KeyValuePairs } from './kuberesources.objectmodel';
 import { failed, Errorable } from "./errorable";
 import { ExecResult } from "./binutilplusplus";
 import { shellMessage } from "./shell";
@@ -158,15 +158,54 @@ export async function deleteCluster(kubectl: Kubectl, context: KubectlContext): 
     return true;
 }
 
+export async function getAsDataResource(resourceId: string, kind: string, kubectl: Kubectl): Promise<DataResource> {
+    const currentNS = await currentNamespace(kubectl);
+
+    const dataResource = await kubectl.asJson<DataResource>(`get ${kind} ${resourceId} -o json --namespace=${currentNS}`);
+    if (failed(dataResource)) {
+        vscode.window.showErrorMessage(dataResource.error[0]);
+        return {
+            data: {},
+            kind,
+            metadata: {
+                name: resourceId,
+                namespace: currentNS
+            }
+        };
+    }
+    return dataResource.result;
+}
+
 export async function getAsDataResources(resource: string, kubectl: Kubectl): Promise<DataResource[]> {
     const currentNS = await currentNamespace(kubectl);
 
-    const resources = await kubectl.asJson<KubernetesCollection<DataResource>>(`get ${resource} -o json --namespace=${currentNS}`);
+    const resources = await kubectl.asLines(`get ${resource} --show-labels --namespace=${currentNS}`);
     if (failed(resources)) {
         vscode.window.showErrorMessage(resources.error[0]);
         return [];
     }
-    return resources.result.items;
+
+    const resourcesAsDataResource: DataResource[] = resources.result.map((s) => {
+        const bits = s.split(/\s+/);
+        const labels = bits[bits.length -1];
+        const pairs = labels.split('&');
+        const labelsAsObj = pairs.reduce((obj: KeyValuePairs, data) => {
+            const [k, v] = data.split('=');
+            obj[k] = v;
+            return obj;
+        }, {});
+        return {
+            data: {},
+            kind: resource,
+            metadata: {
+                name: bits[0],
+                namespace: currentNS,
+                labels: labelsAsObj
+            }
+        };
+    });
+
+    return resourcesAsDataResource;
 }
 
 export async function getGlobalResources(kubectl: Kubectl, resource: string): Promise<KubernetesResource[]> {
