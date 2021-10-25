@@ -1,5 +1,20 @@
 # Change Log
 
+## [1.3.4]
+
+* We can now suggest other VS Code extensions for you based on your installed CRDs
+* You can now configure the path to vsdbg
+* Improved fetching of custom CRD schemas from active cluster
+* Improved performance of the log viewer
+* Fixed when Helm completions pop up
+* Fixed an issue with displaying many large secrets
+* Fixed a packaging issue
+* Fixed `chart.yaml` and `requirements.yaml` being treated as Helm templates
+* Updated the snippet builder
+* Updated some old Node packages
+
+Contributors: brendandburns, evidolob, flowftw, itowlson, ivolzhevbt, lstocchi, pantosha, remcohaszing
+
 ## [1.3.3]
 
 * Fixed dependency installation in remote containers
