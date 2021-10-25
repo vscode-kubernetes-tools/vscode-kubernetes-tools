@@ -276,6 +276,10 @@ If you are building and running the extension from source, see [CONTRIBUTING.md]
 
 If you are installing the extension from its VSIX, note that the machine will still need to reach the Visual Studio Marketplace in order to download extension dependencies.  If the machine cannot reach the Marketplace, you will need to install these dependencies manually using their VSIXes.  The list of extension dependencies can be found in `package.json`, in the `extensionDependencies` section.
 
+## Github Pages Website
+
+This project has a simple landing page website (visible at [azure.github.io/vscode-kubernetes-tools](https://azure.github.io/vscode-kubernetes-tools/)) which is [detailed here](https://github.com/Azure/vscode-kubernetes-tools/tree/master/site).
+
 ## Contributing
 
 This project welcomes contributions and suggestions.  Most contributions require you to agree to a
