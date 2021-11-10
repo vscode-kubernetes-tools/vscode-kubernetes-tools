@@ -257,7 +257,7 @@ Here are the various linters, you can enable or disable them individually using 
 
   * `Kubernetes: Debug` command currently works only with Go, Node.js, Java, Python and .NET applications
   * For deeply nested Helm charts, template previews are generated against highest (umbrella) chart values (though for `Helm: Template` calls you can pick your chart)
-  * When installing VS Code and/or kubectl through `snap` on a Linux system, you may face some permissions error which will prevent this extension to work correctly. As a workaround you can set up the `vs-kubernetes.enable-snap-flag` setting to `true` in your user or workspace settings. 
+  * When installing VS Code and/or kubectl through `snap` on a Linux system, you may face some permissions error which will prevent this extension to work correctly. As a workaround you can set up the `vs-kubernetes.enable-snap-flag` setting to `true` in your user or workspace settings.
 
 ## Release notes
 
@@ -294,9 +294,8 @@ When you submit a pull request, a CLA-bot will automatically determine whether y
 a CLA and decorate the PR appropriately (e.g., label, comment). Simply follow the instructions
 provided by the bot. You will only need to do this once across all repos using our CLA.
 
-This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
-For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
-contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
+See [Code of Conduct](CODE_OF_CONDUCT.md) for the standards by which we ask community members
+to abide.
 
 For technical information about contributing, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
