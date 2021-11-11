@@ -8,6 +8,7 @@ import { host } from './host';
 import { ChildProcess } from 'child_process';
 import { getKubeconfigPath } from './components/kubectl/kubeconfig';
 import { ExecResult } from './binutilplusplus';
+import { AbortSignal } from 'abort-controller';
 
 export enum Platform {
     Windows,
@@ -27,7 +28,7 @@ export interface Shell {
     fileUri(filePath: string): vscode.Uri;
     execOpts(): any;
     exec(cmd: string, stdin?: string): Promise<ShellResult | undefined>;
-    execStreaming(cmd: string, callback: ((proc: ChildProcess) => void) | undefined): Promise<ShellResult | undefined>;
+    execStreaming(cmd: string, abortSignal: AbortSignal | undefined, callback: ((proc: ChildProcess) => void) | undefined): Promise<ShellResult | undefined>;
     execCore(cmd: string, opts: any, callback?: (proc: ChildProcess) => void, stdin?: string): Promise<ShellResult>;
     unquotedPath(path: string): string;
     which(bin: string): string | null;
@@ -123,7 +124,7 @@ function fileUri(filePath: string): vscode.Uri {
     return vscode.Uri.parse('file://' + filePath);
 }
 
-function execOpts(): any {
+function execOpts(signal?: AbortSignal): any {
     let env = process.env;
     if (isWindows()) {
         env = Object.assign({ }, env, { HOME: home() });
@@ -132,7 +133,8 @@ function execOpts(): any {
     const opts = {
         cwd: vscode.workspace.rootPath,
         env: env,
-        async: true
+        async: true,
+        signal: signal
     };
     return opts;
 }
@@ -146,9 +148,9 @@ async function exec(cmd: string, stdin?: string): Promise<ShellResult | undefine
     }
 }
 
-async function execStreaming(cmd: string, callback: (proc: ChildProcess) => void): Promise<ShellResult | undefined> {
+async function execStreaming(cmd: string, signal: AbortSignal, callback: (proc: ChildProcess) => void): Promise<ShellResult | undefined> {
     try {
-        return await execCore(cmd, execOpts(), callback);
+        return await execCore(cmd, execOpts(signal), callback);
     } catch (ex) {
         vscode.window.showErrorMessage(ex);
         return undefined;

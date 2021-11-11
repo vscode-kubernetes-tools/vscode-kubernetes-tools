@@ -384,7 +384,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
 }
 
 // this method is called when your extension is deactivated
-export const deactivate = () => { };
+export const deactivate = () => {
+    kubectl.dispose();
+};
 
 function registerCommand(command: string, callback: (...args: any[]) => any): vscode.Disposable {
     const wrappedCallback = telemetry.telemetrise(command, kubectl, callback);
