@@ -12,8 +12,8 @@ export class HelmTemplateCompletionProvider implements vscode.CompletionItemProv
     private valuesMatcher = new RegExp('\\s+\\.Values\\.([a-zA-Z0-9\\._-]+)?$');
     private funcmap = new FuncMap();
 
-    // TODO: On focus, rebuild the values.yaml cache
     private valuesCache: any;  // pulled in from YAML, no schema
+    private valuesWatcher: vscode.FileSystemWatcher;
 
     public constructor() {
         // The extension activates on things like 'Kubernetes tree visible',
@@ -21,28 +21,34 @@ export class HelmTemplateCompletionProvider implements vscode.CompletionItemProv
         // manifests or Helm charts). So we don't want the mere initialisation
         // of the completion provider to trigger an error message if there are
         // no charts - this will actually be the *probable* case.
-        this.refreshValues({ warnIfNoCharts: false });
+        this.initializeValues({ warnIfNoCharts: false });
     }
 
-    public refreshValues(options: exec.PickChartUIOptions) {
+    public initializeValues(options: exec.PickChartUIOptions) {
         const ed = vscode.window.activeTextEditor;
         if (!ed) {
             return;
         }
 
-        const self = this;
         exec.pickChartForFile(ed.document.fileName, options, (f) => {
             const valsYaml = path.join(f, "values.yaml");
             if (!existsSync(valsYaml)) {
                 return;
             }
-            try {
-                self.valuesCache = YAML.load(valsYaml);
-            } catch (err) {
-                logger.helm.log(err.message);
-                return;
-            }
+            this.refreshValues(valsYaml);
+            this.valuesWatcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(f, "values.yaml"));
+            this.valuesWatcher.onDidChange((uri) => this.refreshValues(uri.fsPath));
         });
+    }
+
+    private refreshValues(valsYaml: string) {
+        logger.helm.log(`Refresh values cache. Reading ${valsYaml}.`);
+        try {
+            this.valuesCache = YAML.load(valsYaml);
+        } catch (err) {
+            logger.helm.log(err.message);
+            return;
+        }
     }
 
     public provideCompletionItems(doc: vscode.TextDocument, pos: vscode.Position): vscode.CompletionList | vscode.CompletionItem[] {
