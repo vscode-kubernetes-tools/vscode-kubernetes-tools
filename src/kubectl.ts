@@ -12,7 +12,7 @@ import { ensureSuitableKubectl } from './components/kubectl/autoversion';
 import { invokeForResult, ExternalBinary, FindBinaryStatus, ExecResult, ExecSucceeded, discardFailureInteractive, logText, parseJSON, findBinary, showErrorMessageWithInstallPrompt, parseTable, ExecBinNotFound, invokeTracking, FailedExecResult, ParsedExecResult, parseLinedText, BackgroundExecResult, invokeBackground, RunningProcess } from './binutilplusplus';
 import { updateYAMLSchema } from './yaml-support/yaml-schema';
 import { Dictionary } from './utils/dictionary';
-import AbortController from "abort-controller";
+import { AbortController } from '@azure/abort-controller';
 
 const KUBECTL_OUTPUT_COLUMN_SEPARATOR = /\s\s+/g;
 
@@ -111,7 +111,6 @@ class KubectlImpl implements Kubectl {
     private readonly context: Context;
     private sharedTerminal: Terminal | null = null;
     private childProcesses: ChildProcess[] = [];
-    private runningProcesses: RunningProcess[] = [];
     private abortControllers: AbortController[] = [];
 
     checkPresent(errorMessageMode: CheckPresentMessageMode): Promise<boolean> {
@@ -147,6 +146,11 @@ class KubectlImpl implements Kubectl {
         return fromLines(this.context, command, this.createAbortController());
     }
     asJson<T>(command: string): Promise<Errorable<T>> {
+        if (command.indexOf("aemon")>0) {
+            this.abortControllers.forEach((controller) => {
+                controller.abort();
+            });
+        }
         return asJson(this.context, command, this.createAbortController());
     }
     private getSharedTerminal(): Terminal {
@@ -216,8 +220,8 @@ class KubectlImpl implements Kubectl {
     }
 
     async observeCommand(args: string[]): Promise<RunningProcess> {
-        const invokeResult = await invokeTracking(this.context, args);
-        this.runningProcesses.push(invokeResult);
+        const controller = this.createAbortController();
+        const invokeResult = await invokeTracking(this.context, args, controller);
         return invokeResult;
     }
 
@@ -305,9 +309,6 @@ class KubectlImpl implements Kubectl {
         this.abortControllers.forEach((controller) => {
             controller.abort();
         });
-        this.runningProcesses.forEach((process) => {
-            process.terminate();
-        });
     }
 }
 
@@ -387,7 +388,7 @@ async function invokeAsync(context: Context, command: string, stdin?: string, ca
         if (stdin) {
             sr = await context.shell.exec(cmd, stdin);
         } else {
-            sr = await context.shell.execStreaming(cmd, abortController ? abortController.signal : undefined, callback);
+            sr = await context.shell.execStreaming(cmd, callback, abortController);
         }
         if (sr && sr.code !== 0) {
             checkPossibleIncompatibilityLegacy(context);

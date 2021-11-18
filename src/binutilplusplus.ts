@@ -9,6 +9,7 @@ import { getEnableSnapFlag, getToolPath, getUseWsl } from './components/config/c
 import { Errorable } from './errorable';
 import { parseLineOutput } from './outputUtils';
 import { Dictionary } from './utils/dictionary';
+import { AbortController } from '@azure/abort-controller';
 
 export interface ExternalBinary {
     readonly displayName: string;
@@ -259,7 +260,7 @@ export interface RunningProcess {
     terminate(): void;
 }
 
-export async function invokeTracking(context: Context, args: string[]): Promise<RunningProcess> {
+export async function invokeTracking(context: Context, args: string[], abortController?: AbortController): Promise<RunningProcess> {
     const linesSubject = new rx.Subject<string>();
 
     const fbr = await findBinary(context);
@@ -279,6 +280,14 @@ export async function invokeTracking(context: Context, args: string[]): Promise<
                 linesSubject.next(line);
             }
         });
+        if (abortController) {
+            abortController.signal.onabort = (_) => {
+                if (!linesSubject.closed) {
+                    linesSubject.complete();
+                    linesSubject.unsubscribe();
+                }
+            };
+        }
     } else {
         linesSubject.error({ resultKind: 'exec-bin-not-found', execProgram: context.binary, command: args.join(' '), findResult: fbr });
     }
