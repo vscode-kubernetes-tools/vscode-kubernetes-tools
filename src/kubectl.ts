@@ -146,11 +146,6 @@ class KubectlImpl implements Kubectl {
         return fromLines(this.context, command, this.createAbortController());
     }
     asJson<T>(command: string): Promise<Errorable<T>> {
-        if (command.indexOf("aemon")>0) {
-            this.abortControllers.forEach((controller) => {
-                controller.abort();
-            });
-        }
         return asJson(this.context, command, this.createAbortController());
     }
     private getSharedTerminal(): Terminal {
