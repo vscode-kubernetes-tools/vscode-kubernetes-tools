@@ -41,10 +41,10 @@ export class DotNetDebugProvider implements IDebugProvider {
             processId: processId,
             pipeTransport: {
                 pipeProgram: "kubectl",
-                pipeArgs: [ "exec", "-i", pod, "--" ],
+                pipeArgs: [ "exec", "-i", pod, "--", "/bin/sh", "-c" ],
                 debuggerPath: extensionConfig.getDotnetVsdbgPath(),
                 pipeCwd: workspaceFolder,
-                quoteArgs: false
+                quoteArgs: true
             }
         };
         const map = extensionConfig.getDotnetDebugSourceFileMap();
