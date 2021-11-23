@@ -767,7 +767,8 @@ function loadKubernetesCore(namespace: string | null, value: string) {
 }
 
 async function exposeKubernetes() {
-    const kindName = await findKindNameOrPrompt(kuberesources.exposableKinds, 'expose', { nameOptional: false});
+    const isMinimalWorkflow = config.isMinimalWorkflow();
+    const kindName = await findKindNameOrPrompt(kuberesources.exposableKinds, 'expose', { nameOptional: false, skipFreeTextPrompt: isMinimalWorkflow});
     if (!kindName) {
         return;
     }
@@ -799,7 +800,8 @@ async function getKubernetes(explorerNode?: any) {
         const nsarg = (node.nodeType === explorer.NODE_TYPES.resource && node.namespace) ? `--namespace ${node.namespace}` : '';
         kubectl.invokeInSharedTerminal(`get ${id} ${nsarg} -o wide`);
     } else {
-        const value = await findKindNameOrPrompt(kuberesources.commonKinds, 'get', { nameOptional: true });
+        const isMinimalWorkflow = config.isMinimalWorkflow();
+        const value = await findKindNameOrPrompt(kuberesources.commonKinds, 'get', { nameOptional: true, skipFreeTextPrompt: isMinimalWorkflow });
         if (value) {
             kubectl.invokeInSharedTerminal(` get ${value} -o wide`);
         }
@@ -927,7 +929,8 @@ async function scaleKubernetes(target?: any) {
         const kindName = target.kindName;
         promptScaleKubernetes(kindName);
     } else {
-        const kindName = await findKindNameOrPrompt(kuberesources.scaleableKinds, 'scale', {});
+        const isMinimalWorkflow = config.isMinimalWorkflow();
+        const kindName = await findKindNameOrPrompt(kuberesources.scaleableKinds, 'scale', { skipFreeTextPrompt: isMinimalWorkflow });
         if (kindName) {
             promptScaleKubernetes(kindName);
         }
@@ -1082,13 +1085,18 @@ export async function findKindNameOrPrompt(resourceKinds: kuberesources.Resource
 export async function promptKindName(resourceKinds: kuberesources.ResourceKind[], descriptionVerb: string, opts: vscode.InputBoxOptions & QuickPickKindNameOptions): Promise<string | undefined> {
     let placeHolder: string = 'Empty string to be prompted';
     let prompt: string = `What resource do you want to ${descriptionVerb}?`;
+    let skipFreeTextPrompt = false;
 
     if (opts) {
         placeHolder = opts.placeHolder || placeHolder;
         prompt = opts.prompt || prompt;
+        skipFreeTextPrompt = opts.skipFreeTextPrompt || skipFreeTextPrompt;
     }
 
-    const resource = await vscode.window.showInputBox({ prompt, placeHolder});
+    let resource: string | undefined = '';
+    if (!skipFreeTextPrompt) {
+        resource = await vscode.window.showInputBox({ prompt, placeHolder});
+    }
 
     if (resource === '') {
         return await quickPickKindName(resourceKinds, opts);
@@ -1279,7 +1287,7 @@ async function describeKubernetes(explorerNode?: ClusterExplorerResourceNode) {
     } else {
         let resourceKinds;
         let skipFreeTextPrompt;
-        const isMinimalDescribeWorkflow = config.isMinimalDescribeWorkflow();
+        const isMinimalDescribeWorkflow = config.isMinimalWorkflow();
         if (isMinimalDescribeWorkflow) {
             resourceKinds = kuberesources.commonKinds;
             skipFreeTextPrompt = false;
@@ -1519,7 +1527,8 @@ async function deleteKubernetes(delMode: KubernetesDeleteMode, explorerNode?: Cl
         const execResult = await kubectl.invokeCommandWithFeedback(`delete ${explorerNode.kindName} ${nsarg} ${delModeArg}`, `Deleting ${explorerNode.kindName}...`);
         await reportDeleteResult(explorerNode.kindName, execResult);
     } else {
-        const kindName = await promptKindName(kuberesources.commonKinds, 'delete', { nameOptional: true });
+        const isMinimalWorkflow = config.isMinimalWorkflow();
+        const kindName = await promptKindName(kuberesources.commonKinds, 'delete', { nameOptional: true, skipFreeTextPrompt: isMinimalWorkflow });
         if (kindName) {
             let commandArgs = kindName;
             if (!containsName(kindName)) {

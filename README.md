@@ -198,10 +198,10 @@ Minikube tools to be installed and available on your PATH.
        * `vscode-kubernetes.enable-snap-flag` - Enables compatibility with instances of VS Code that were installed using snap.
        * `vs-kubernetes.disable-context-info-status-bar` - Disable displaying your current Kubernetes context in VS Code's status bar. When active, it can be used to switch context from the status bar.
        * `vs-kubernetes.disable-namespace-info-status-bar` - Disable displaying your current Kubernetes namespace in VS Code's status bar. When active, it can be used to switch namespace from the status bar.
-       * `vs-kubernetes.enable-minimal-describe-workflow` - Enables the minimal describe workflow. By executing the describe command the queries to the cluster are reduced at minimum and users are able to freely type the resource name to describe. Guided prompt options are limited to Deployments, Jobs, Pods and Services.
        * `vs-kubernetes.suppress-kubectl-not-found-alerts` - Turns off the warning (and installation prompt) if `kubectl` was not found. You should not normally set this, as most of the extension depends on `kubectl`, but it can be useful if working primarily with Helm.
        * `vs-kubernetes.ignore-recommendations` - Set to true to silence Kubernetes extension recommendation notifications.
        * `vs-kubernetes.minikube-show-information-expiration` - Set to valid expiration date for minikube install to show information dialog box to display.
+       * `vs-kubernetes.enable-minimal-workflow` - Enables the minimal workflow for several actions (Get, Describe, Scale, Expose, Switch). By executing one of those commands the queries to the cluster are reduced at minimum and users are able to freely type the resource name to use.
    * `vsdocker.imageUser` - Image prefix for the container images e.g. 'docker.io/brendanburns'
    * `checkForMinikubeUpgrade` - On extension startup, notify if a minikube upgrade is available. Defaults to true.
    * `disable-lint` - Disable all linting of Kubernetes files
