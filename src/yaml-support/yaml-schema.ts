@@ -9,6 +9,7 @@ import { Kubectl } from '../kubectl';
 import { ActiveValueTracker } from '../components/contextmanager/active-value-tracker';
 import { BackgroundContextCache } from '../components/contextmanager/background-context-cache';
 import { KubernetesClusterSchemaHolder } from './schema-holder';
+import { shouldSkip } from './consideration-filter';
 
 // The function signature exposed by vscode-yaml:
 // 1. the requestSchema api will be called by vscode-yaml extension to decide whether the schema can be handled by this
@@ -40,6 +41,9 @@ export async function registerYamlSchemaSupport(activeContextTracker: ActiveValu
 function requestYamlSchemaUriCallback(resource: string): string | undefined {
     const textEditor = vscode.window.visibleTextEditors.find((editor) => editor.document.uri.toString() === resource);
     if (textEditor) {
+        if (shouldSkip(textEditor.document)) {
+            return undefined;
+        }
         const yamlDocs = yamlLocator.getYamlDocuments(textEditor.document);
         const choices: string[] = [];
         const activeSchema = schemas && schemas.active();
