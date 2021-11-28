@@ -253,6 +253,18 @@ Here are the various linters, you can enable or disable them individually using 
 }
 ```
 
+## YAML processing directives
+
+You can customise how the extension processes a YAML file by putting a comment of the form
+`# vscode-kubernetes-tools: ...directive(s)...` at the top of the file. The comment must appear before
+any YAML elements (this saves us having to scan the whole of YAML files that could easily
+be tens of thousands of lines!). Other comments and blank lines are okay.
+
+The following directives are supported:
+
+* `exclude`: Do not treat this file as a Kubernetes manifest. This is useful when you have
+  files that look a lot like Kubernetes manifests but aren't, such as Kustomize patch files.
+
 ## Known issues
 
   * `Kubernetes: Debug` command currently works only with Go, Node.js, Java, Python and .NET applications
