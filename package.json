@@ -7,7 +7,7 @@
     "engines": {
         "vscode": "^1.52.0"
     },
-    "license": "MIT",
+    "license": "Apache-2.0",
     "categories": [
         "Snippets",
         "Linters",
