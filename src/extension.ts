@@ -200,6 +200,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.vsKubernetesDebugAttach', debugAttachKubernetes),
         registerCommand('extension.vsKubernetesDebugLocalTunnel', (target?: any) => { localTunnelDebugger.startLocalTunnelDebugSession(target); }),
         registerCommand('extension.vsKubernetesFindLocalTunnelDebugProviders', kubernetesFindLocalTunnelDebugProviders),
+        registerCommand('extension.vsKubernetesSelectPod', selectPodKubernetes),
         registerCommand('extension.vsKubernetesConfigureFromCluster', configureFromClusterKubernetes),
         registerCommand('extension.vsKubernetesCreateCluster', createClusterKubernetes),
         registerCommand('extension.vsKubernetesRefreshExplorer', () => treeProvider.refresh()),
@@ -1769,6 +1770,28 @@ const debugAttachKubernetes = async (explorerNode: ClusterExplorerResourceNode) 
     if (workspaceFolder) {
         new DebugSession(kubectl).attach(workspaceFolder, explorerNode ? explorerNode.name : undefined, explorerNode ? explorerNode.namespace || undefined : undefined);  // TODO: rationalise the nulls and undefineds
     }
+};
+
+async function selectPodKubernetes(): Promise<string | undefined> {
+    const pods =  await kubectlUtils.getResourceAsJson<KubernetesCollection<Pod>>(kubectl, "pods");
+    if (!pods) {
+        vscode.window.showInformationMessage('Unable to list any pods. No pod found in the current namespace.');
+        return;
+    }
+
+    const podPickItems = pods.items.map((pod) => {
+        return {
+            label: `${pod.metadata.name} (on ${pod.spec.nodeName})`,
+            name: pod.metadata.name
+        };
+    });
+
+    const selectedPod = await vscode.window.showQuickPick(podPickItems, { placeHolder: `Select a pod` });
+    if (!selectedPod) {
+        return;
+    }
+
+    return selectedPod.name;
 };
 
 const debugInternal = (name: string, image: string) => {
