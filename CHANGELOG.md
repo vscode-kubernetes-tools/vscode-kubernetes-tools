@@ -1,5 +1,19 @@
 # Change Log
 
+## [1.3.5]
+
+* Added a command to select pods, which you can use to be prompted when debugging
+* Improved port forwarding
+* Added Camel Yaml CRD recommendation
+* If you have YAML file that looks like a k8s resource, but isn't (e.g. kustomize), you
+  can now put a comment at the top to stop us complaining about it
+* We now watch for changes in Helm's values.yaml
+* We now install Arm64 tool builds on M1 Macs
+* Fixed issue with vsdbg path not working
+* Updates to the maintainer list and the microsite
+
+Contributors: apupier, flowftw, flynnduism, itowlson, loligans, lstocchi, pantosha, paroga
+
 ## [1.3.4]
 
 * We can now suggest other VS Code extensions for you based on your installed CRDs
