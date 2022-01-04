@@ -22,6 +22,11 @@ export interface PortMapping {
     readonly targetPort: number;
 }
 
+interface ExtractedPort {
+    readonly name: string;
+    readonly port: number;
+}
+
 interface ValidationResult {
     readonly valid: boolean;
     readonly error?: string;
@@ -32,6 +37,11 @@ interface PodFromDocument {
     readonly pod: string;
     readonly fromOpenDocument: true;
     readonly namespace?: string;
+}
+
+enum PortSpecifier {
+    Required,
+    AllowEmpty,
 }
 
 type PortForwardFindPodsResult = PodFromDocument | FindPodsResult;
@@ -49,19 +59,10 @@ export async function portForwardKubernetes(kubectl: Kubectl, explorerNode?: any
     if (explorerNode) {
         // The port forward option only appears on pod level workloads in the tree view.
         const resourceNode = explorerNode as ClusterExplorerResourceNode;
-        const podName = resourceNode.name;
+        const kind = resourceNode.kind.apiName || 'pods';
+        const resourceName = resourceNode.name;
         const namespace = resourceNode.namespace || await kubectlUtils.currentNamespace(kubectl);
-        const portMapping = await promptForPort(kubectl, podName, namespace);
-        if (portMapping.length !== 0) {
-            if (explorerNode.kind === kuberesources.allKinds.pod) {
-                portForwardToPod(kubectl, podName, portMapping, namespace);
-            } else if (explorerNode.kind === kuberesources.allKinds.service) {
-                portForwardToService(kubectl, resourceNode.name, portMapping, namespace);
-            } else if (explorerNode.kind === kuberesources.allKinds.deployment) {
-                portForwardToDeployment(kubectl, resourceNode.name, portMapping, namespace);
-            }
-        }
-        return;
+        return await promptAndForwardPort(kubectl, kind, resourceName, namespace);
     } else {
         let portForwardablePods: PortForwardFindPodsResult;
 
@@ -79,11 +80,7 @@ export async function portForwardKubernetes(kubectl: Kubectl, explorerNode?: any
         if (isFindResultFromDocument(portForwardablePods)) {
             // The pod is described by the open document. Skip asking which pod to use and go straight to port-forward.
             const podSelection = portForwardablePods.pod;
-            const portMapping = await promptForPort(kubectl, podSelection, portForwardablePods.namespace);
-            if (portMapping.length !== 0) {
-                portForwardToPod(kubectl, podSelection, portMapping, portForwardablePods.namespace);
-            }
-            return;
+            return await promptAndForwardPort(kubectl, 'pods', podSelection, portForwardablePods.namespace);
         }
 
         let podSelection: string | undefined;
@@ -105,53 +102,94 @@ export async function portForwardKubernetes(kubectl: Kubectl, explorerNode?: any
             return;
         }
         const namespace = await kubectlUtils.currentNamespace(kubectl);
-        const portMapping = await promptForPort(kubectl, podSelection, namespace);
-        if (portMapping.length !== 0) {
-            portForwardToPod(kubectl, podSelection, portMapping, namespace);
-        }
+        await promptAndForwardPort(kubectl, 'pods', podSelection, namespace);
     }
 }
 
 /**
- * Given a JSON representation of a Pod, extract the ports to suggest to the user for
+ * Prompts the user on what port to port-forward to, and sets up the forwarding
+ * if a valid input was provided.
+ */
+async function promptAndForwardPort(kubectl: Kubectl, kind: string, resourceName: string, namespace?: string): Promise<void> {
+    const portMapping = await promptForPort(kubectl, kind, resourceName, namespace);
+    if (portMapping.length !== 0) {
+        portForwardToResource(kubectl, kind, resourceName, portMapping, namespace);
+    }
+}
+
+/**
+ * Given a array of containers, extract the ports to suggest to the user
  * for port forwarding.
  */
-function extractPodPorts(podJson: string): string | undefined {
-    const pod = JSON.parse(podJson) as kubernetes.V1Pod;
-    const containers = pod.spec ? pod.spec.containers : [];
-    const ports = Array.of<number>();
+function extractContainerPorts(containers: kubernetes.V1Container[]): ExtractedPort[] {
+    const ports = Array.of<ExtractedPort>();
     containers.forEach((container) => {
         if (container.ports) {
-            const containerPorts = container.ports.map((port) => port.containerPort);
+            const containerPorts = container.ports.map(({name, containerPort}) => ({name, port: containerPort}));
             ports.push(...containerPorts);
         }
     });
-    if (ports.length > 0) {
-        const portPairs = ports.map((port) => `${port}:${port}`);
-        return portPairs.join(' ');
-    }
-    return;
+    return ports;
+}
+
+/**
+ * Given a JSON representation of a Pod, extract the ports to suggest to the user
+ * for port forwarding.
+ */
+function extractPodPorts(podJson: string): ExtractedPort[] {
+    const pod = JSON.parse(podJson) as kubernetes.V1Pod;
+    const containers = pod.spec ? pod.spec.containers : [];
+    return extractContainerPorts(containers);
+}
+
+/**
+ * Given a JSON representation of a Service, extract the ports to suggest to the user
+ * for port forwarding.
+ */
+function extractServicePorts(serviceJson: string): ExtractedPort[] {
+    const service = JSON.parse(serviceJson) as kubernetes.V1Service;
+    return service.spec.ports;
+}
+
+/**
+ * Given a JSON representation of a Deployment, extract the ports to suggest to the user
+ * for port forwarding.
+ */
+function extractDeploymentPorts(podJson: string): ExtractedPort[] {
+    const deployment = JSON.parse(podJson) as kubernetes.V1Deployment;
+    const containers = deployment.spec.template.spec.containers;
+    return extractContainerPorts(containers);
 }
 
 /**
  * Prompts the user on what port to port-forward to, and validates numeric input.
  * @returns An array of PortMapping objects.
  */
-async function promptForPort(kubectl?: Kubectl, podName?: string, namespace?: string): Promise<PortMapping[]> {
+async function promptForPort(kubectl: Kubectl, kind: string, resourceName: string, namespace?: string): Promise<PortMapping[]> {
     let portString: string | undefined;
-    let defaultValue: string | undefined = undefined;
-    if (podName && kubectl) {
+    let extractedPorts = Array.of<ExtractedPort>();
+    if (resourceName && kubectl) {
         const ns = namespace || 'default';
         try {
-            const result = await kubectl.invokeCommand(`get pods ${podName} --namespace ${ns} -o json`);
+            const result = await kubectl.invokeCommand(`get ${kind} ${resourceName} --namespace ${ns} -o json`);
             if (ExecResult.failed(result)) {
                 console.log(ExecResult.failureMessage(result, { whatFailed: 'Error getting ports' }));
-            } else {
-                defaultValue = extractPodPorts(result.stdout);
+            } else if (kind === kuberesources.allKinds.pod.apiName) {
+                extractedPorts = extractPodPorts(result.stdout);
+            } else if (kind === kuberesources.allKinds.service.apiName) {
+                extractedPorts = extractServicePorts(result.stdout);
+            } else if (kind === kuberesources.allKinds.deployment.apiName) {
+                extractedPorts = extractDeploymentPorts(result.stdout);
             }
         } catch (err) {
             console.log(err);
         }
+    }
+
+    let defaultValue: string | undefined = undefined;
+    if (extractedPorts.length > 0) {
+        const portPairs = extractedPorts.map(({name, port}) => `${port}:${name||port}`);
+        defaultValue = portPairs.join(' ');
     }
 
     try {
@@ -160,7 +198,7 @@ async function promptForPort(kubectl?: Kubectl, podName?: string, namespace?: st
             value: defaultValue,
             prompt: `Port mappings in the format LOCAL:REMOTE. Separate multiple port mappings with spaces.`,
             validateInput: (portMapping: string) => {
-                const validatedPortMapping = validatePortMapping(portMapping);
+                const validatedPortMapping = validatePortMapping(portMapping, extractedPorts);
 
                 if (validatedPortMapping && validatedPortMapping.error) {
                     return validatedPortMapping.error;
@@ -176,31 +214,33 @@ async function promptForPort(kubectl?: Kubectl, podName?: string, namespace?: st
     if (!portString) {
         return [];
     }
-    return buildPortMapping(portString);
+    return buildPortMapping(portString, extractedPorts);
 }
 
 /**
  * Validates the user supplied port mapping(s)
  * @param portMapping The portMapping string captured from an input field
+ * @param validPorts List of valid named ports
  * @returns A ValidationResult object describing the first error found.
  */
-function validatePortMapping(portMapping: string): ValidationResult | undefined {
+function validatePortMapping(portMapping: string, validPorts: ExtractedPort[] = []): ValidationResult | undefined {
     const portPairs = portMapping.split(' ');
-    const validationResults: ValidationResult[] = portPairs.map(validatePortPair);
+    const validationResults = portPairs.map((pair) => validatePortPair(validPorts, pair));
 
     return validationResults.find((result) => !result.valid);
 }
 
 /**
  * Validates a single port mapping
+ * @param validPorts List of valid named ports
  * @param portPair The port pair to validate
  * @returns An error to be displayed, or undefined
  */
-function validatePortPair(portPair: string): ValidationResult {
+function validatePortPair(validPorts: ExtractedPort[], portPair: string): ValidationResult {
     const splitMapping = portPair.split(':');
 
     // User provided only the target port
-    if (!portPair.includes(':') && Number(portPair)) {
+    if (!portPair.includes(':') && isPortValid(validPorts, portPair, PortSpecifier.Required)) {
         return {
             valid: true
         };
@@ -218,10 +258,8 @@ function validatePortPair(portPair: string): ValidationResult {
     const targetPort = splitMapping[1];
 
     if (
-        Number(localPort) &&
-        Number(localPort) <= MAX_PORT_COUNT &&
-        Number(targetPort) &&
-        Number(targetPort) <= MAX_PORT_COUNT
+        isPortValid(validPorts, localPort, PortSpecifier.AllowEmpty) &&
+        isPortValid(validPorts, targetPort, PortSpecifier.Required)
     ) {
         return {
             valid: true
@@ -235,25 +273,44 @@ function validatePortPair(portPair: string): ValidationResult {
 }
 
 /**
+ * Validates if the port is a named port or withing the valid range
+ * @param validPorts List of valid named ports
+ * @param port The port to validate
+ * @param portSpecifier Can the port be empty or zero
+ * @returns Boolean identifying if the port is valid
+ */
+function isPortValid(validPorts: ExtractedPort[], port: string, portSpecifier: PortSpecifier): boolean {
+    if (validPorts.map(({name}) => name).includes(port)) {
+        return true;
+    }
+    if (portSpecifier === PortSpecifier.AllowEmpty && ['', '0'].includes(port)) {
+        return true;
+    }
+    return 0 < Number(port) && Number(port) <= MAX_PORT_COUNT;
+}
+
+/**
  * Builds and returns multiple PortMapping objects
  * @param portString A validated, user provided string containing the port mappings
+ * @param namedPorts List of valid named ports
  * @returns An array containing the requested PortMappings
  */
-export function buildPortMapping(portString: string): PortMapping[] {
+export function buildPortMapping(portString: string, namedPorts: ExtractedPort[] = []): PortMapping[] {
     const portPairs = portString.split(' ');
-    return portPairs.map(buildPortPair);
+    return portPairs.map((pair) => buildPortPair(namedPorts, pair));
 }
 
 /**
  * Builds a single PortMapping object from the captured user input
+ * @param validPorts List of valid named ports
  * @param portString The port string provided by the user
  * @returns PortMapping object
  */
-function buildPortPair(portPair: string): PortMapping {
+function buildPortPair(validPorts: ExtractedPort[], portPair: string): PortMapping {
     // Only target port supplied.
     if (!portPair.includes(':')) {
         return {
-            targetPort: Number(portPair),
+            targetPort: buildPort(validPorts, portPair),
             localPort: undefined
         };
     }
@@ -264,9 +321,36 @@ function buildPortPair(portPair: string): PortMapping {
     const targetPort = splitString[1];
 
     return {
-        localPort: Number(localPort),
-        targetPort: Number(targetPort)
+        localPort: buildNullablePort(validPorts, localPort),
+        targetPort: buildPort(validPorts, targetPort)
     };
+}
+
+/**
+ * Builds a single numberic port for a PortMapping object from the captured user input allowing empty or zero value
+ * @param validPorts List of valid named ports
+ * @param portString The port provided by the user
+ * @returns numberic port number
+ */
+function buildNullablePort(validPorts: ExtractedPort[], port: string): number | undefined {
+    if (['', '0'].includes(port)) {
+        return undefined;
+    }
+    return buildPort(validPorts, port);
+}
+
+/**
+ * Builds a single numberic port for a PortMapping object from the captured user input
+ * @param validPorts List of valid named ports
+ * @param portString The port provided by the user
+ * @returns numberic port number
+ */
+function buildPort(validPorts: ExtractedPort[], port: string): number {
+    const validPort = validPorts.find(({name}) => name === port);
+    if (validPort) {
+        return validPort.port;
+    }
+    return Number(port);
 }
 
 /**
