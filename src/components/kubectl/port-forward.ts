@@ -125,7 +125,10 @@ function extractContainerPorts(containers: kubernetes.V1Container[]): ExtractedP
     const ports = Array.of<ExtractedPort>();
     containers.forEach((container) => {
         if (container.ports) {
-            const containerPorts = container.ports.map(({name, containerPort}) => ({name, port: containerPort}));
+            const containerPorts = container.ports.map(({name, containerPort}) => ({
+                name: name || `port-${containerPort}`,
+                port: containerPort
+            }));
             ports.push(...containerPorts);
         }
     });
@@ -148,7 +151,11 @@ function extractPodPorts(podJson: string): ExtractedPort[] {
  */
 function extractServicePorts(serviceJson: string): ExtractedPort[] {
     const service = JSON.parse(serviceJson) as kubernetes.V1Service;
-    return service.spec.ports;
+    const k8sPorts = service.spec ? (service.spec.ports || []) : [];  // TODO: upgrade TypeScript so we can use ?.
+    return k8sPorts.map((k8sport) => ({
+        name: k8sport.name || `port-${k8sport.port}`,
+        port: k8sport.port,
+    }));
 }
 
 /**
@@ -157,7 +164,9 @@ function extractServicePorts(serviceJson: string): ExtractedPort[] {
  */
 function extractDeploymentPorts(podJson: string): ExtractedPort[] {
     const deployment = JSON.parse(podJson) as kubernetes.V1Deployment;
-    const containers = deployment.spec.template.spec.containers;
+    // TODO: upgrade TypeScript so we can use ?.
+    const spec = deployment.spec ? deployment.spec.template.spec : undefined;
+    const containers = spec ? spec.containers : [];
     return extractContainerPorts(containers);
 }
 
