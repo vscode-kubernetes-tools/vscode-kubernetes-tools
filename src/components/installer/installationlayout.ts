@@ -36,12 +36,11 @@ export function formatBin(tool: string, platform: Platform): string | null {
 }
 
 export function platformArch(os: string) {
-    if (os !== 'linux') {
+    if (process.arch === 'arm' && os === 'linux') {
+        return 'arm';
+    } else if (process.arch === 'arm64') {
+        return 'arm64';
+    } else {
         return 'amd64';
-    }
-    switch (process.arch) {
-        case 'arm': return 'arm';
-        case 'arm64': return 'arm64';
-        default: return 'amd64';
     }
 }
