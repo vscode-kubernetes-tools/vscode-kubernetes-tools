@@ -42,7 +42,6 @@ export class HelmTemplateCompletionProvider implements vscode.CompletionItemProv
     }
 
     private refreshValues(valsYaml: string) {
-        logger.helm.log(`Refresh values cache. Reading ${valsYaml}.`);
         try {
             this.valuesCache = YAML.load(valsYaml);
         } catch (err) {
