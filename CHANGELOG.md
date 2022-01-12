@@ -1,5 +1,11 @@
 # Change Log
 
+## [1.3.6]
+
+* Removed logging from Helm values refresh
+
+Contributors: flowftw
+
 ## [1.3.5]
 
 * Added a command to select pods, which you can use to be prompted when debugging
