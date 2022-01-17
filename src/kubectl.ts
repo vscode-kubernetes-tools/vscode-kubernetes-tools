@@ -7,7 +7,7 @@ import * as binutil from './binutil';
 import { Errorable } from './errorable';
 import { parseLineOutput } from './outputUtils';
 import * as compatibility from './components/kubectl/compatibility';
-import { getToolPath, affectsUs, getUseWsl, KubectlVersioning } from './components/config/config';
+import { getToolPath, affectsUs, getUseWsl, KubectlVersioning, suppressKubectlNotFound } from './components/config/config';
 import { ensureSuitableKubectl } from './components/kubectl/autoversion';
 import { invokeForResult, ExternalBinary, FindBinaryStatus, ExecResult, ExecSucceeded, discardFailureInteractive, logText, parseJSON, findBinary, showErrorMessageWithInstallPrompt, parseTable, ExecBinNotFound, invokeTracking, FailedExecResult, ParsedExecResult, parseLinedText, BackgroundExecResult, invokeBackground, RunningProcess } from './binutilplusplus';
 import { updateYAMLSchema } from './yaml-support/yaml-schema';
@@ -188,8 +188,7 @@ class KubectlImpl implements Kubectl {
             return true;
         }
 
-        if (!options.silent) {
-            // TODO: suppressible once refactoring complete!
+        if (!options.silent && !suppressKubectlNotFound()) {
             showErrorMessageWithInstallPrompt(this.context, status, options.warningIfNotPresent);
         }
 
@@ -245,7 +244,10 @@ class KubectlImpl implements Kubectl {
 
     async reportFailure(execResult: FailedExecResult, options: ReportResultOptions): Promise<void> {
         const discardFailureOptions = { whatFailed: options.whatFailed };
-        await discardFailureInteractive(this.context, execResult, discardFailureOptions);
+        const allowInteractive = !(execResult.resultKind === 'exec-bin-not-found' && suppressKubectlNotFound());
+        if (allowInteractive) {
+            await discardFailureInteractive(this.context, execResult, discardFailureOptions);
+        }
         console.log(logText(this.context, execResult));
         this.checkPossibleIncompatibility(execResult);
     }

@@ -305,3 +305,7 @@ export function getLocalTunnelDebugProvider(): string | undefined {
 export function isMinimalDescribeWorkflow(): boolean {
     return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.enable-minimal-describe-workflow'];
 }
+
+export function suppressKubectlNotFound(): boolean {
+    return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.suppress-kubectl-not-found-alerts'];
+}
