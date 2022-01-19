@@ -32,13 +32,11 @@ export class DotNetDebugProvider implements IDebugProvider {
         return false;
     }
 
-    public async startDebugging(workspaceFolder: string, _sessionName: string, _port: number | undefined, pod: string, pidToDebug: number | undefined): Promise<boolean> {
-        const processId = pidToDebug ? pidToDebug.toString() : "${command:pickRemoteProcess}";
+    public async startDebugging(workspaceFolder: string, _sessionName: string, _port: number | undefined, pod: string, _pidToDebug: number | undefined): Promise<boolean> {
         const debugConfiguration: vscode.DebugConfiguration = {
             name: ".NET Core Kubernetes Attach",
             type: "coreclr",
             request: "attach",
-            processId: processId,
             pipeTransport: {
                 pipeProgram: "kubectl",
                 pipeArgs: [ "exec", "-i", pod, "--", "/bin/sh", "-c" ],
@@ -78,9 +76,8 @@ export class DotNetDebugProvider implements IDebugProvider {
         return undefined;
     }
 
-    public filterSupportedProcesses(processes: ProcessInfo[]): ProcessInfo[] | undefined {
-        return processes.filter((processInfo) => (processInfo.command.toLowerCase().startsWith('dotnet ') ||
-                                                  processInfo.command.indexOf('/dotnet ') >= 0)); // full path
+    public filterSupportedProcesses(_processes: ProcessInfo[]): ProcessInfo[] | undefined {
+        return undefined;
     }
 
     public isPortRequired(): boolean {
