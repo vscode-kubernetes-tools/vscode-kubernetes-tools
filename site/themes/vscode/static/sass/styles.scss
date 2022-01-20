@@ -612,6 +612,29 @@ body.list.noscroll {
   }
 }
 
+.row.cncf-wrap {
+  max-width: 100% !important;
+}
+
+.cncf {
+  background: #f0f0f0;
+  min-height: 2rem;
+  padding-left: 300px;
+  border-top: 1px solid #fff;
+  
+  img {
+    float: left;
+    max-width: 10rem;
+    margin: 1.5rem 0 1.5rem 7.5%;
+  }
+
+  p {
+    float: right;
+    margin: 1.5rem 2.5% 0 0;
+    color: #277a9f;
+  }
+}
+
 
 // Media Queries
 // ---------------------------------------
