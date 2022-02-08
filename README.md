@@ -296,7 +296,7 @@ If you are installing the extension from its VSIX, note that the machine will st
 
 ## Github Pages Website
 
-This project has a simple landing page website (visible at [azure.github.io/vscode-kubernetes-tools](https://azure.github.io/vscode-kubernetes-tools/)) which is [detailed here](https://github.com/Azure/vscode-kubernetes-tools/tree/master/site).
+This project has a simple landing page website (visible at [vscode-kubernetes-tools.github.io/vscode-kubernetes-tools](https://vscode-kubernetes-tools.github.io/vscode-kubernetes-tools/)) which is [detailed here](https://github.com/vscode-kubernetes-tools/vscode-kubernetes-tools/tree/master/site).
 
 ## Contributing
 
