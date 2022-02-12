@@ -675,7 +675,9 @@ export function pickChartForFile(file: string, options: PickChartUIOptions, fn: 
 }
 
 function findChartFiles() {
-    return vscode.workspace.findFiles("**/Chart.yaml", "", 1024)
+    // Excluding "**/node_modules/**" as a common cause of excessive CPU usage.
+    // https://github.com/microsoft/vscode/issues/75314#issuecomment-503195666
+    return vscode.workspace.findFiles("**/Chart.yaml", "**/node_modules/**", 1024)
 }
 
 // helmExec appends 'args' to a Helm command (helm args...), executes it, and then sends the result to te callback.
