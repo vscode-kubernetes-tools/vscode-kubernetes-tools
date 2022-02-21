@@ -19047,7 +19047,7 @@ export default {
      },
      "gitRepo": {
       "$ref": "v1.GitRepoVolumeSource",
-      "description": "GitRepo represents a git repository at a particular revision."
+      "description": "GitRepo represents a git repository at a particular revision. Warning: this feature is deprecated."
      },
      "secret": {
       "$ref": "v1.SecretVolumeSource",
@@ -19059,11 +19059,11 @@ export default {
      },
      "iscsi": {
       "$ref": "v1.ISCSIVolumeSource",
-      "description": "ISCSI represents an ISCSI Disk resource that is attached to a kubelet's host machine and then exposed to the pod. More info: https://releases.k8s.io/HEAD/examples/volumes/iscsi/README.md"
+      "description": "ISCSI represents an ISCSI Disk resource that is attached to a kubelet's host machine and then exposed to the pod. More info: https://kubernetes.io/docs/concepts/storage/volumes/#iscsi"
      },
      "glusterfs": {
       "$ref": "v1.GlusterfsVolumeSource",
-      "description": "Glusterfs represents a Glusterfs mount on the host that shares a pod's lifetime. More info: https://releases.k8s.io/HEAD/examples/volumes/glusterfs/README.md"
+      "description": "Glusterfs represents a Glusterfs mount on the host that shares a pod's lifetime. More info: https://kubernetes.io/docs/concepts/storage/volumes/#glusterfs"
      },
      "persistentVolumeClaim": {
       "$ref": "v1.PersistentVolumeClaimVolumeSource",
@@ -19071,11 +19071,11 @@ export default {
      },
      "rbd": {
       "$ref": "v1.RBDVolumeSource",
-      "description": "RBD represents a Rados Block Device mount on the host that shares a pod's lifetime. More info: https://releases.k8s.io/HEAD/examples/volumes/rbd/README.md"
+      "description": "RBD represents a Rados Block Device mount on the host that shares a pod's lifetime. More info: https://kubernetes.io/docs/concepts/storage/volumes/#rbd"
      },
      "flexVolume": {
       "$ref": "v1.FlexVolumeSource",
-      "description": "FlexVolume represents a generic volume resource that is provisioned/attached using an exec based plugin. This is an alpha feature and may change in future."
+      "description": "FlexVolume represents a generic volume resource that is provisioned/attached using an exec based plugin. This feature is deprecated."
      },
      "cinder": {
       "$ref": "v1.CinderVolumeSource",
@@ -19083,15 +19083,15 @@ export default {
      },
      "cephfs": {
       "$ref": "v1.CephFSVolumeSource",
-      "description": "CephFS represents a Ceph FS mount on the host that shares a pod's lifetime"
+      "description": "CephFS represents a Ceph FS mount on the host that shares a pod's lifetime. More info: https://kubernetes.io/docs/concepts/storage/volumes/#cephfs"
      },
      "flocker": {
       "$ref": "v1.FlockerVolumeSource",
-      "description": "Flocker represents a Flocker volume attached to a kubelet's host machine. This depends on the Flocker control service being running"
+      "description": "Flocker represents a Flocker volume attached to a kubelet's host machine. This depends on the Flocker control service being running. Warning: this feature is deprecated. More info: https://kubernetes.io/docs/concepts/storage/volumes/#flocker"
      },
      "downwardAPI": {
       "$ref": "v1.DownwardAPIVolumeSource",
-      "description": "DownwardAPI represents downward API about the pod that should populate this volume"
+      "description": "DownwardAPI represents downward API about the pod that should populate this volume. More info: https://kubernetes.io/docs/concepts/storage/volumes/#downwardapi"
      },
      "fc": {
       "$ref": "v1.FCVolumeSource",
@@ -19099,23 +19099,23 @@ export default {
      },
      "azureFile": {
       "$ref": "v1.AzureFileVolumeSource",
-      "description": "AzureFile represents an Azure File Service mount on the host and bind mount to the pod."
+      "description": "AzureFile represents an Azure File Service mount on the host and bind mount to the pod. More info: https://github.com/kubernetes/examples/blob/master/staging/volumes/azure_file/README.md"
      },
      "configMap": {
       "$ref": "v1.ConfigMapVolumeSource",
-      "description": "ConfigMap represents a configMap that should populate this volume"
+      "description": "ConfigMap represents a configMap that should populate this volume. More info: https://kubernetes.io/docs/concepts/storage/volumes/#configmap"
      },
      "vsphereVolume": {
       "$ref": "v1.VsphereVirtualDiskVolumeSource",
-      "description": "VsphereVolume represents a vSphere volume attached and mounted on kubelets host machine"
+      "description": "VsphereVolume represents a vSphere volume attached and mounted on kubelets host machine. More info: https://kubernetes.io/docs/concepts/storage/volumes/#vspherevolume"
      },
      "quobyte": {
       "$ref": "v1.QuobyteVolumeSource",
-      "description": "Quobyte represents a Quobyte mount on the host that shares a pod's lifetime"
+      "description": "Quobyte represents a Quobyte mount on the host that shares a pod's lifetime. Warning: this feature is deprecated."
      },
      "azureDisk": {
       "$ref": "v1.AzureDiskVolumeSource",
-      "description": "AzureDisk represents an Azure Data Disk mount on the host and bind mount to the pod."
+      "description": "AzureDisk represents an Azure Data Disk mount on the host and bind mount to the pod. More info: https://github.com/kubernetes/examples/blob/master/staging/volumes/azure_disk/README.md"
      },
      "photonPersistentDisk": {
       "$ref": "v1.PhotonPersistentDiskVolumeSource",
