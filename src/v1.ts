@@ -16755,7 +16755,7 @@ export default {
      },
      "metadata": {
       "$ref": "v1.ObjectMeta",
-      "description": "Standard object's metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#metadata"
+      "description": "Standard object's metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#metadata"
      },
      "target": {
       "$ref": "v1.ObjectReference",
@@ -16879,7 +16879,7 @@ export default {
     "properties": {
      "kind": {
       "type": "string",
-      "description": "Kind of the referent. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#types-kinds"
+      "description": "Kind of the referent. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
      },
      "namespace": {
       "type": "string",
@@ -16899,7 +16899,7 @@ export default {
      },
      "resourceVersion": {
       "type": "string",
-      "description": "Specific resourceVersion to which this reference is made, if any. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#concurrency-control-and-consistency"
+      "description": "Specific resourceVersion to which this reference is made, if any. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency"
      },
      "fieldPath": {
       "type": "string",
@@ -16924,7 +16924,7 @@ export default {
      },
      "metadata": {
       "$ref": "v1.ListMeta",
-      "description": "Standard list metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#types-kinds"
+      "description": "Standard list metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
      },
      "items": {
       "type": "array",
@@ -16963,7 +16963,7 @@ export default {
      },
      "metadata": {
       "$ref": "v1.ObjectMeta",
-      "description": "Standard object's metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#metadata"
+      "description": "Standard object's metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#metadata"
      },
      "conditions": {
       "type": "array",
@@ -17017,7 +17017,7 @@ export default {
      },
      "metadata": {
       "$ref": "v1.ListMeta",
-      "description": "More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#metadata"
+      "description": "More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#metadata"
      },
      "items": {
       "type": "array",
@@ -17042,7 +17042,7 @@ export default {
      },
      "metadata": {
       "$ref": "v1.ObjectMeta",
-      "description": "Standard object's metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#metadata"
+      "description": "Standard object's metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#metadata"
      },
      "data": {
       "type": "object",
@@ -17227,7 +17227,7 @@ export default {
      },
      "metadata": {
       "$ref": "v1.ListMeta",
-      "description": "Standard list metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#types-kinds"
+      "description": "Standard list metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
      },
      "items": {
       "type": "array",
@@ -17255,7 +17255,7 @@ export default {
      },
      "metadata": {
       "$ref": "v1.ObjectMeta",
-      "description": "Standard object's metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#metadata"
+      "description": "Standard object's metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#metadata"
      },
      "subsets": {
       "type": "array",
@@ -17357,7 +17357,7 @@ export default {
      },
      "metadata": {
       "$ref": "v1.ListMeta",
-      "description": "Standard list metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#types-kinds"
+      "description": "Standard list metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
      },
      "items": {
       "type": "array",
@@ -17386,7 +17386,7 @@ export default {
      },
      "metadata": {
       "$ref": "v1.ObjectMeta",
-      "description": "Standard object's metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#metadata"
+      "description": "Standard object's metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#metadata"
      },
      "involvedObject": {
       "$ref": "v1.ObjectReference",
@@ -17454,7 +17454,7 @@ export default {
      },
      "metadata": {
       "$ref": "v1.ListMeta",
-      "description": "Standard list metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#types-kinds"
+      "description": "Standard list metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
      },
      "items": {
       "type": "array",
@@ -17479,11 +17479,11 @@ export default {
      },
      "metadata": {
       "$ref": "v1.ObjectMeta",
-      "description": "Standard object's metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#metadata"
+      "description": "Standard object's metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#metadata"
      },
      "spec": {
       "$ref": "v1.LimitRangeSpec",
-      "description": "Spec defines the limits enforced. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#spec-and-status"
+      "description": "Spec defines the limits enforced. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status"
      }
     }
    },
@@ -17550,7 +17550,7 @@ export default {
      },
      "metadata": {
       "$ref": "v1.ListMeta",
-      "description": "Standard list metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#types-kinds"
+      "description": "Standard list metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
      },
      "items": {
       "type": "array",
@@ -17575,15 +17575,15 @@ export default {
      },
      "metadata": {
       "$ref": "v1.ObjectMeta",
-      "description": "Standard object's metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#metadata"
+      "description": "Standard object's metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#metadata"
      },
      "spec": {
       "$ref": "v1.NamespaceSpec",
-      "description": "Spec defines the behavior of the Namespace. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#spec-and-status"
+      "description": "Spec defines the behavior of the Namespace. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status"
      },
      "status": {
       "$ref": "v1.NamespaceStatus",
-      "description": "Status describes the current status of a Namespace. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#spec-and-status"
+      "description": "Status describes the current status of a Namespace. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status"
      }
     }
    },
@@ -17631,7 +17631,7 @@ export default {
      },
      "metadata": {
       "$ref": "v1.ListMeta",
-      "description": "Standard list metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#types-kinds"
+      "description": "Standard list metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
      },
      "items": {
       "type": "array",
@@ -17656,15 +17656,15 @@ export default {
      },
      "metadata": {
       "$ref": "v1.ObjectMeta",
-      "description": "Standard object's metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#metadata"
+      "description": "Standard object's metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#metadata"
      },
      "spec": {
       "$ref": "v1.NodeSpec",
-      "description": "Spec defines the behavior of a node. https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#spec-and-status"
+      "description": "Spec defines the behavior of a node. https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status"
      },
      "status": {
       "$ref": "v1.NodeStatus",
-      "description": "Most recently observed status of the node. Populated by the system. Read-only. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#spec-and-status"
+      "description": "Most recently observed status of the node. Populated by the system. Read-only. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status"
      }
     }
    },
@@ -17978,7 +17978,7 @@ export default {
      },
      "metadata": {
       "$ref": "v1.ListMeta",
-      "description": "Standard list metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#types-kinds"
+      "description": "Standard list metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
      },
      "items": {
       "type": "array",
@@ -18003,7 +18003,7 @@ export default {
      },
      "metadata": {
       "$ref": "v1.ObjectMeta",
-      "description": "Standard object's metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#metadata"
+      "description": "Standard object's metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#metadata"
      },
      "spec": {
       "$ref": "v1.PersistentVolumeClaimSpec",
@@ -18142,7 +18142,7 @@ export default {
      },
      "metadata": {
       "$ref": "v1.ListMeta",
-      "description": "Standard list metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#types-kinds"
+      "description": "Standard list metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
      },
      "items": {
       "type": "array",
@@ -18167,7 +18167,7 @@ export default {
      },
      "metadata": {
       "$ref": "v1.ObjectMeta",
-      "description": "Standard object's metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#metadata"
+      "description": "Standard object's metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#metadata"
      },
      "spec": {
       "$ref": "v1.PersistentVolumeSpec",
@@ -18860,14 +18860,14 @@ export default {
      },
      "metadata": {
       "$ref": "v1.ListMeta",
-      "description": "Standard list metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#types-kinds"
+      "description": "Standard list metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
      },
      "items": {
       "type": "array",
       "items": {
        "$ref": "v1.Pod"
       },
-      "description": "List of pods. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md"
+      "description": "List of pods. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md"
      }
     }
    },
@@ -18885,15 +18885,15 @@ export default {
      },
      "metadata": {
       "$ref": "v1.ObjectMeta",
-      "description": "Standard object's metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#metadata"
+      "description": "Standard object's metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#metadata"
      },
      "spec": {
       "$ref": "v1.PodSpec",
-      "description": "Specification of the desired behavior of the pod. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#spec-and-status"
+      "description": "Specification of the desired behavior of the pod. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status"
      },
      "status": {
       "$ref": "v1.PodStatus",
-      "description": "Most recently observed status of the pod. This data may not be up to date. Populated by the system. Read-only. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#spec-and-status"
+      "description": "Most recently observed status of the pod. This data may not be up to date. Populated by the system. Read-only. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status"
      }
     }
    },
@@ -19047,7 +19047,7 @@ export default {
      },
      "gitRepo": {
       "$ref": "v1.GitRepoVolumeSource",
-      "description": "GitRepo represents a git repository at a particular revision."
+      "description": "GitRepo represents a git repository at a particular revision. Warning: this feature is deprecated."
      },
      "secret": {
       "$ref": "v1.SecretVolumeSource",
@@ -19059,11 +19059,11 @@ export default {
      },
      "iscsi": {
       "$ref": "v1.ISCSIVolumeSource",
-      "description": "ISCSI represents an ISCSI Disk resource that is attached to a kubelet's host machine and then exposed to the pod. More info: https://releases.k8s.io/HEAD/examples/volumes/iscsi/README.md"
+      "description": "ISCSI represents an ISCSI Disk resource that is attached to a kubelet's host machine and then exposed to the pod. More info: https://kubernetes.io/docs/concepts/storage/volumes/#iscsi"
      },
      "glusterfs": {
       "$ref": "v1.GlusterfsVolumeSource",
-      "description": "Glusterfs represents a Glusterfs mount on the host that shares a pod's lifetime. More info: https://releases.k8s.io/HEAD/examples/volumes/glusterfs/README.md"
+      "description": "Glusterfs represents a Glusterfs mount on the host that shares a pod's lifetime. More info: https://kubernetes.io/docs/concepts/storage/volumes/#glusterfs"
      },
      "persistentVolumeClaim": {
       "$ref": "v1.PersistentVolumeClaimVolumeSource",
@@ -19071,11 +19071,11 @@ export default {
      },
      "rbd": {
       "$ref": "v1.RBDVolumeSource",
-      "description": "RBD represents a Rados Block Device mount on the host that shares a pod's lifetime. More info: https://releases.k8s.io/HEAD/examples/volumes/rbd/README.md"
+      "description": "RBD represents a Rados Block Device mount on the host that shares a pod's lifetime. More info: https://kubernetes.io/docs/concepts/storage/volumes/#rbd"
      },
      "flexVolume": {
       "$ref": "v1.FlexVolumeSource",
-      "description": "FlexVolume represents a generic volume resource that is provisioned/attached using an exec based plugin. This is an alpha feature and may change in future."
+      "description": "FlexVolume represents a generic volume resource that is provisioned/attached using an exec based plugin. This feature is deprecated."
      },
      "cinder": {
       "$ref": "v1.CinderVolumeSource",
@@ -19083,15 +19083,15 @@ export default {
      },
      "cephfs": {
       "$ref": "v1.CephFSVolumeSource",
-      "description": "CephFS represents a Ceph FS mount on the host that shares a pod's lifetime"
+      "description": "CephFS represents a Ceph FS mount on the host that shares a pod's lifetime. More info: https://kubernetes.io/docs/concepts/storage/volumes/#cephfs"
      },
      "flocker": {
       "$ref": "v1.FlockerVolumeSource",
-      "description": "Flocker represents a Flocker volume attached to a kubelet's host machine. This depends on the Flocker control service being running"
+      "description": "Flocker represents a Flocker volume attached to a kubelet's host machine. This depends on the Flocker control service being running. Warning: this feature is deprecated. More info: https://kubernetes.io/docs/concepts/storage/volumes/#flocker"
      },
      "downwardAPI": {
       "$ref": "v1.DownwardAPIVolumeSource",
-      "description": "DownwardAPI represents downward API about the pod that should populate this volume"
+      "description": "DownwardAPI represents downward API about the pod that should populate this volume. More info: https://kubernetes.io/docs/concepts/storage/volumes/#downwardapi"
      },
      "fc": {
       "$ref": "v1.FCVolumeSource",
@@ -19099,23 +19099,23 @@ export default {
      },
      "azureFile": {
       "$ref": "v1.AzureFileVolumeSource",
-      "description": "AzureFile represents an Azure File Service mount on the host and bind mount to the pod."
+      "description": "AzureFile represents an Azure File Service mount on the host and bind mount to the pod. More info: https://github.com/kubernetes/examples/blob/master/staging/volumes/azure_file/README.md"
      },
      "configMap": {
       "$ref": "v1.ConfigMapVolumeSource",
-      "description": "ConfigMap represents a configMap that should populate this volume"
+      "description": "ConfigMap represents a configMap that should populate this volume. More info: https://kubernetes.io/docs/concepts/storage/volumes/#configmap"
      },
      "vsphereVolume": {
       "$ref": "v1.VsphereVirtualDiskVolumeSource",
-      "description": "VsphereVolume represents a vSphere volume attached and mounted on kubelets host machine"
+      "description": "VsphereVolume represents a vSphere volume attached and mounted on kubelets host machine. More info: https://kubernetes.io/docs/concepts/storage/volumes/#vspherevolume"
      },
      "quobyte": {
       "$ref": "v1.QuobyteVolumeSource",
-      "description": "Quobyte represents a Quobyte mount on the host that shares a pod's lifetime"
+      "description": "Quobyte represents a Quobyte mount on the host that shares a pod's lifetime. Warning: this feature is deprecated."
      },
      "azureDisk": {
       "$ref": "v1.AzureDiskVolumeSource",
-      "description": "AzureDisk represents an Azure Data Disk mount on the host and bind mount to the pod."
+      "description": "AzureDisk represents an Azure Data Disk mount on the host and bind mount to the pod. More info: https://github.com/kubernetes/examples/blob/master/staging/volumes/azure_disk/README.md"
      },
      "photonPersistentDisk": {
       "$ref": "v1.PhotonPersistentDiskVolumeSource",
@@ -20487,7 +20487,7 @@ export default {
      },
      "metadata": {
       "$ref": "v1.ListMeta",
-      "description": "Standard list metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#types-kinds"
+      "description": "Standard list metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
      },
      "items": {
       "type": "array",
@@ -20512,11 +20512,11 @@ export default {
      },
      "metadata": {
       "$ref": "v1.ObjectMeta",
-      "description": "Standard object's metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#metadata"
+      "description": "Standard object's metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#metadata"
      },
      "template": {
       "$ref": "v1.PodTemplateSpec",
-      "description": "Template defines the pods that will be created from this pod template. https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#spec-and-status"
+      "description": "Template defines the pods that will be created from this pod template. https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status"
      }
     }
    },
@@ -20526,11 +20526,11 @@ export default {
     "properties": {
      "metadata": {
       "$ref": "v1.ObjectMeta",
-      "description": "Standard object's metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#metadata"
+      "description": "Standard object's metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#metadata"
      },
      "spec": {
       "$ref": "v1.PodSpec",
-      "description": "Specification of the desired behavior of the pod. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#spec-and-status"
+      "description": "Specification of the desired behavior of the pod. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status"
      }
     }
    },
@@ -20551,7 +20551,7 @@ export default {
      },
      "metadata": {
       "$ref": "v1.ListMeta",
-      "description": "Standard list metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#types-kinds"
+      "description": "Standard list metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
      },
      "items": {
       "type": "array",
@@ -20576,15 +20576,15 @@ export default {
      },
      "metadata": {
       "$ref": "v1.ObjectMeta",
-      "description": "If the Labels of a ReplicationController are empty, they are defaulted to be the same as the Pod(s) that the replication controller manages. Standard object's metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#metadata"
+      "description": "If the Labels of a ReplicationController are empty, they are defaulted to be the same as the Pod(s) that the replication controller manages. Standard object's metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#metadata"
      },
      "spec": {
       "$ref": "v1.ReplicationControllerSpec",
-      "description": "Spec defines the specification of the desired behavior of the replication controller. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#spec-and-status"
+      "description": "Spec defines the specification of the desired behavior of the replication controller. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status"
      },
      "status": {
       "$ref": "v1.ReplicationControllerStatus",
-      "description": "Status is the most recently observed status of the replication controller. This data may be out of date by some window of time. Populated by the system. Read-only. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#spec-and-status"
+      "description": "Status is the most recently observed status of the replication controller. This data may be out of date by some window of time. Populated by the system. Read-only. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status"
      }
     }
    },
@@ -20755,7 +20755,7 @@ export default {
      },
      "metadata": {
       "$ref": "v1.ListMeta",
-      "description": "Standard list metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#types-kinds"
+      "description": "Standard list metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
      },
      "items": {
       "type": "array",
@@ -20780,15 +20780,15 @@ export default {
      },
      "metadata": {
       "$ref": "v1.ObjectMeta",
-      "description": "Standard object's metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#metadata"
+      "description": "Standard object's metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#metadata"
      },
      "spec": {
       "$ref": "v1.ResourceQuotaSpec",
-      "description": "Spec defines the desired quota. https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#spec-and-status"
+      "description": "Spec defines the desired quota. https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status"
      },
      "status": {
       "$ref": "v1.ResourceQuotaStatus",
-      "description": "Status defines the actual enforced quota and its current usage. https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#spec-and-status"
+      "description": "Status defines the actual enforced quota and its current usage. https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status"
      }
     }
    },
@@ -20844,7 +20844,7 @@ export default {
      },
      "metadata": {
       "$ref": "v1.ListMeta",
-      "description": "Standard list metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#types-kinds"
+      "description": "Standard list metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
      },
      "items": {
       "type": "array",
@@ -20869,7 +20869,7 @@ export default {
      },
      "metadata": {
       "$ref": "v1.ObjectMeta",
-      "description": "Standard object's metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#metadata"
+      "description": "Standard object's metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#metadata"
      },
      "data": {
       "type": "object",
@@ -20902,7 +20902,7 @@ export default {
      },
      "metadata": {
       "$ref": "v1.ListMeta",
-      "description": "Standard list metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#types-kinds"
+      "description": "Standard list metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
      },
      "items": {
       "type": "array",
@@ -20927,7 +20927,7 @@ export default {
      },
      "metadata": {
       "$ref": "v1.ObjectMeta",
-      "description": "Standard object's metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#metadata"
+      "description": "Standard object's metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#metadata"
      },
      "secrets": {
       "type": "array",
@@ -20966,7 +20966,7 @@ export default {
      },
      "metadata": {
       "$ref": "v1.ListMeta",
-      "description": "Standard list metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#types-kinds"
+      "description": "Standard list metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
      },
      "items": {
       "type": "array",
@@ -20991,15 +20991,15 @@ export default {
      },
      "metadata": {
       "$ref": "v1.ObjectMeta",
-      "description": "Standard object's metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#metadata"
+      "description": "Standard object's metadata. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#metadata"
      },
      "spec": {
       "$ref": "v1.ServiceSpec",
-      "description": "Spec defines the behavior of a service. https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#spec-and-status"
+      "description": "Spec defines the behavior of a service. https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status"
      },
      "status": {
       "$ref": "v1.ServiceStatus",
-      "description": "Most recently observed status of the service. Populated by the system. Read-only. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#spec-and-status"
+      "description": "Most recently observed status of the service. Populated by the system. Read-only. More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status"
      }
     }
    },
