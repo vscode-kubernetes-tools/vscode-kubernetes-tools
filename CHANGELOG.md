@@ -1,5 +1,17 @@
 # Change Log
 
+## [1.3.7]
+
+* Improved .NET process identification
+* New setting to suppress the "no kubectl binary" warning
+* Fixed possible high CPU use when scanning Node project for charts
+* Fixed links in fallback schema file
+* Fixed dead links to old site
+* Fixed CSS links in site
+* Added CNCF footer to site
+
+Contributors: flynnduism, gluxon, itowlson, lstocchi, oradwell, pantosha, piotr-sk
+
 ## [1.3.6]
 
 * Removed logging from Helm values refresh
