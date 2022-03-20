@@ -46,6 +46,11 @@ var snippets = map[string]Snippet{
 		Description: "Create a Ingress manifest",
 		Body:        load("ingress.yaml"),
 	},
+	"HorizontalPodAutoscaler": {
+		Prefix:      "kindHpa",
+		Description: "Create a HorizontalPodAutoscaler (HPA) manifest",
+		Body:        load("hpa.yaml"),
+	},
 	"Chart.yaml": {
 		Prefix:      "Chart.yaml",
 		Description: "Create a Chart.yaml file",
