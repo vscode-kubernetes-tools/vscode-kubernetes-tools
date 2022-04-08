@@ -61,6 +61,6 @@ export async function recommendExtensions(kubectl: Kubectl, context: vscode.Exte
 
         recommendExtensionsToUser(Array.from(extensionToPromote.values()));
     } catch (err) {
-        console.log(err);
+        // ignore
     }
 }

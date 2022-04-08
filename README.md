@@ -200,7 +200,7 @@ Minikube tools to be installed and available on your PATH.
        * `vs-kubernetes.disable-namespace-info-status-bar` - Disable displaying your current Kubernetes namespace in VS Code's status bar. When active, it can be used to switch namespace from the status bar.
        * `vs-kubernetes.enable-minimal-describe-workflow` - Enables the minimal describe workflow. By executing the describe command the queries to the cluster are reduced at minimum and users are able to freely type the resource name to describe. Guided prompt options are limited to Deployments, Jobs, Pods and Services.
        * `vs-kubernetes.suppress-kubectl-not-found-alerts` - Turns off the warning (and installation prompt) if `kubectl` was not found. You should not normally set this, as most of the extension depends on `kubectl`, but it can be useful if working primarily with Helm.
-       * `vs-kubernetes.ignoreK8sRecommendations` - Set to true to silence Kubernetes extension recommendation notifications.
+       * `vs-kubernetes.ignore-recommendations` - Set to true to silence Kubernetes extension recommendation notifications.
    * `vsdocker.imageUser` - Image prefix for the container images e.g. 'docker.io/brendanburns'
    * `checkForMinikubeUpgrade` - On extension startup, notify if a minikube upgrade is available. Defaults to true.
    * `disable-lint` - Disable all linting of Kubernetes files
