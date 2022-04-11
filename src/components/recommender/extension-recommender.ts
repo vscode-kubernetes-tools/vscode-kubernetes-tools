@@ -2,6 +2,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { Kubectl } from '../../kubectl';
+import { ignoreK8sRecommendations, setConfigValue } from '../config/config';
 
 interface Recommendations {
     [crdApi: string]: string[];
@@ -14,7 +15,7 @@ async function recommendExtensionsToUser(tags: string[]): Promise<void> {
             const searchValue = tags.map((it) => `@tag:${it}`).join(' ');
             vscode.commands.executeCommand('workbench.extensions.search', searchValue);
         } else if (answer === 'Don\'t ask again') {
-            await vscode.workspace.getConfiguration('extensions').update('ignoreRecommendations', true);
+            setConfigValue('vs-kubernetes.ignore-recommendations', true);
         }
     }
 }
@@ -37,7 +38,10 @@ async function readRecommendation(extPath: string): Promise<Recommendations> {
 }
 
 export async function recommendExtensions(kubectl: Kubectl, context: vscode.ExtensionContext): Promise<void> {
-    if (vscode.workspace.getConfiguration('extensions').get('ignoreRecommendations')) {
+    const setting = vscode.workspace.getConfiguration('extensions').inspect('ignoreRecommendations');
+    const globalValue = setting && setting.globalValue ? setting.globalValue : false;
+    if (globalValue
+        || ignoreK8sRecommendations()) {
         return;
     }
     try {
@@ -57,6 +61,6 @@ export async function recommendExtensions(kubectl: Kubectl, context: vscode.Exte
 
         recommendExtensionsToUser(Array.from(extensionToPromote.values()));
     } catch (err) {
-
+        // ignore
     }
 }

@@ -271,6 +271,11 @@
                             "type": "boolean",
                             "default": false,
                             "description": "Suppresses the display of warnings if no kubectl binary is available"
+                        },
+                        "vs-kubernetes.ignore-recommendations": {
+                            "type": "boolean",
+                            "default": false,
+                            "description": "Set to true to silence Kubernetes extension recommendation notifications."
                         }
                     },
                     "default": {

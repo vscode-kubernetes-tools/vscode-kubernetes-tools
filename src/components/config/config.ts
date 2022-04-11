@@ -23,7 +23,7 @@ export async function addPathToConfig(configKey: string, value: string): Promise
     await setConfigValue(configKey, value);
 }
 
-async function setConfigValue(configKey: string, value: any): Promise<void> {
+export async function setConfigValue(configKey: string, value: any): Promise<void> {
     await atAllConfigScopes(addValueToConfigAtScope, configKey, value);
 }
 
@@ -308,4 +308,8 @@ export function isMinimalDescribeWorkflow(): boolean {
 
 export function suppressKubectlNotFound(): boolean {
     return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.suppress-kubectl-not-found-alerts'];
+}
+
+export function ignoreK8sRecommendations(): boolean {
+    return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.ignore-recommendations'];
 }
