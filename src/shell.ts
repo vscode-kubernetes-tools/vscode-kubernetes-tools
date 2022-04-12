@@ -148,7 +148,7 @@ async function exec(cmd: string, stdin?: string): Promise<ShellResult | undefine
 
 async function execStreaming(cmd: string, callback: (proc: ChildProcess) => void): Promise<ShellResult | undefined> {
     try {
-        return await execCore(cmd, execOpts(), callback, undefined);
+        return await execCore(cmd, execOpts(), callback);
     } catch (ex) {
         vscode.window.showErrorMessage(ex);
         return undefined;

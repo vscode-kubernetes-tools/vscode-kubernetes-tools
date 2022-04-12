@@ -213,8 +213,7 @@ class KubectlImpl implements Kubectl {
     }
 
     async observeCommand(args: string[]): Promise<RunningProcess> {
-        const invokeResult = await invokeTracking(this.context, args);
-        return invokeResult;
+        return await invokeTracking(this.context, args);
     }
 
     async spawnCommand(args: string[]): Promise<BackgroundExecResult> {
