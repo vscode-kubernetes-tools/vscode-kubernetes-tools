@@ -9,7 +9,6 @@ import { getEnableSnapFlag, getToolPath, getUseWsl } from './components/config/c
 import { Errorable } from './errorable';
 import { parseLineOutput } from './outputUtils';
 import { Dictionary } from './utils/dictionary';
-import { AbortController } from '@azure/abort-controller';
 
 export interface ExternalBinary {
     readonly displayName: string;
@@ -260,10 +259,11 @@ export interface RunningProcess {
     terminate(): void;
 }
 
-export async function invokeTracking(context: Context, args: string[], abortController?: AbortController): Promise<RunningProcess> {
+export async function invokeTracking(context: Context, args: string[]): Promise<RunningProcess> {
     const linesSubject = new rx.Subject<string>();
 
     const fbr = await findBinary(context);
+    let disposer: () => void;
 
     if (fbr.found) {
         const bin = await baseBinPath(context);
@@ -271,7 +271,7 @@ export async function invokeTracking(context: Context, args: string[], abortCont
 
         let pending = '';
         const stdout = spawnrx.spawn(bin, args, execOpts);
-        stdout.subscribe((chunk) => {
+        const sub = stdout.subscribe((chunk) => {
             const todo = pending + chunk;
             const lines = todo.split('\n').map((l) => l.trim());
             const lastIsWholeLine = todo.endsWith('\n');
@@ -280,19 +280,18 @@ export async function invokeTracking(context: Context, args: string[], abortCont
                 linesSubject.next(line);
             }
         });
-        if (abortController) {
-            abortController.signal.onabort = (_) => {
-                if (!linesSubject.closed) {
-                    linesSubject.complete();
-                    linesSubject.unsubscribe();
-                }
-            };
-        }
+        disposer = () => sub.unsubscribe();
     } else {
         linesSubject.error({ resultKind: 'exec-bin-not-found', execProgram: context.binary, command: args.join(' '), findResult: fbr });
     }
 
-    return { lines: linesSubject, terminate: () => linesSubject.unsubscribe() };
+    return { lines: linesSubject, terminate: () => {
+            linesSubject.unsubscribe();
+            if (disposer) {
+                disposer();
+            }
+        }
+    };
 }
 
 export async function invokeBackground(context: Context, args: string[]): Promise<BackgroundExecResult> {

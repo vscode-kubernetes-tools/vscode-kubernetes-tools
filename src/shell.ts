@@ -8,7 +8,6 @@ import { host } from './host';
 import { ChildProcess } from 'child_process';
 import { getKubeconfigPath } from './components/kubectl/kubeconfig';
 import { ExecResult } from './binutilplusplus';
-import { AbortController } from '@azure/abort-controller';
 
 export enum Platform {
     Windows,
@@ -28,7 +27,7 @@ export interface Shell {
     fileUri(filePath: string): vscode.Uri;
     execOpts(): any;
     exec(cmd: string, stdin?: string): Promise<ShellResult | undefined>;
-    execStreaming(cmd: string, callback: ((proc: ChildProcess) => void) | undefined, abortController?: AbortController): Promise<ShellResult | undefined>;
+    execStreaming(cmd: string, callback: ((proc: ChildProcess) => void) | undefined): Promise<ShellResult | undefined>;
     execCore(cmd: string, opts: any, callback?: (proc: ChildProcess) => void, stdin?: string): Promise<ShellResult>;
     unquotedPath(path: string): string;
     which(bin: string): string | null;
@@ -147,16 +146,16 @@ async function exec(cmd: string, stdin?: string): Promise<ShellResult | undefine
     }
 }
 
-async function execStreaming(cmd: string, callback: (proc: ChildProcess) => void, abortController?: AbortController): Promise<ShellResult | undefined> {
+async function execStreaming(cmd: string, callback: (proc: ChildProcess) => void): Promise<ShellResult | undefined> {
     try {
-        return await execCore(cmd, execOpts(), callback, undefined, abortController);
+        return await execCore(cmd, execOpts(), callback, undefined);
     } catch (ex) {
         vscode.window.showErrorMessage(ex);
         return undefined;
     }
 }
 
-function execCore(cmd: string, opts: any, callback?: ((proc: ChildProcess) => void) | null, stdin?: string, abortController?: AbortController): Promise<ShellResult> {
+function execCore(cmd: string, opts: any, callback?: ((proc: ChildProcess) => void) | null, stdin?: string): Promise<ShellResult> {
     return new Promise<ShellResult>((resolve) => {
         if (getUseWsl()) {
             cmd = 'wsl ' + cmd;
@@ -164,11 +163,6 @@ function execCore(cmd: string, opts: any, callback?: ((proc: ChildProcess) => vo
         const proc = shelljs.exec(cmd, opts, (code, stdout, stderr) => resolve({code : code, stdout : stdout, stderr : stderr}));
         if (stdin) {
             proc.stdin.end(stdin);
-        }
-        if (abortController) {
-            abortController.signal.onabort = (_) => {
-                proc.kill();
-            };
         }
         if (callback) {
             callback(proc);

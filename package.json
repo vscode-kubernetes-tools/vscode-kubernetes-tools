@@ -1241,7 +1241,6 @@
         "redhat.vscode-yaml"
     ],
     "dependencies": {
-        "@azure/abort-controller": "^1.0.4",
         "@kubernetes/client-node": "^0.14.0",
         "ajv": "^6.9.1",
         "await-notify": "^1.0.1",
