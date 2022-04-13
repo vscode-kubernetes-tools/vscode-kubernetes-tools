@@ -263,6 +263,7 @@ export async function invokeTracking(context: Context, args: string[]): Promise<
     const linesSubject = new rx.Subject<string>();
 
     const fbr = await findBinary(context);
+    let disposer: () => void;
 
     if (fbr.found) {
         const bin = await baseBinPath(context);
@@ -270,7 +271,7 @@ export async function invokeTracking(context: Context, args: string[]): Promise<
 
         let pending = '';
         const stdout = spawnrx.spawn(bin, args, execOpts);
-        stdout.subscribe((chunk) => {
+        const sub = stdout.subscribe((chunk) => {
             const todo = pending + chunk;
             const lines = todo.split('\n').map((l) => l.trim());
             const lastIsWholeLine = todo.endsWith('\n');
@@ -279,11 +280,18 @@ export async function invokeTracking(context: Context, args: string[]): Promise<
                 linesSubject.next(line);
             }
         });
+        disposer = () => sub.unsubscribe();
     } else {
         linesSubject.error({ resultKind: 'exec-bin-not-found', execProgram: context.binary, command: args.join(' '), findResult: fbr });
     }
 
-    return { lines: linesSubject, terminate: () => linesSubject.unsubscribe() };
+    return { lines: linesSubject, terminate: () => {
+            linesSubject.unsubscribe();
+            if (disposer) {
+                disposer();
+            }
+        }
+    };
 }
 
 export async function invokeBackground(context: Context, args: string[]): Promise<BackgroundExecResult> {
