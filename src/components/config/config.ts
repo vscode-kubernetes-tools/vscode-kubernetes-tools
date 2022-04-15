@@ -313,3 +313,7 @@ export function suppressKubectlNotFound(): boolean {
 export function ignoreK8sRecommendations(): boolean {
     return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.ignore-recommendations'];
 }
+
+export function getSmartCodeCompletionState(): string | undefined {
+    return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.smart-code-completion'];
+}

@@ -276,6 +276,14 @@
                             "type": "boolean",
                             "default": false,
                             "description": "Set to true to silence Kubernetes extension recommendation notifications."
+                        },
+                        "vs-kubernetes.smart-code-completion": {
+                            "type": "string",
+                            "enum": [
+                                "enabled",
+                                "disabled"
+                            ],
+                            "description": "Set the smart code completion for CRDs. This would always prevent/allow the plugin to fetch all custom schemas from all CRDs on cluster, despite of their number."
                         }
                     },
                     "default": {
