@@ -41,7 +41,7 @@ export class KubernetesClusterSchemaHolder {
     private async loadSchemaFromActiveCluster(kubectl: Kubectl, schemaEnumFile?: string): Promise<void> {
         const clusterSwagger = await swagger.getClusterSwagger(kubectl);
         const fetchCRDSchemasEnabled = await this.isFetchingCRDsAllowed(kubectl);
-        if (!fetchCRDSchemasEnabled) {
+        if (fetchCRDSchemasEnabled) {
             const crdSchemas = await swagger.getCrdSchemas(kubectl);
             if (crdSchemas) {
                 this.crdSchemas = crdSchemas;
