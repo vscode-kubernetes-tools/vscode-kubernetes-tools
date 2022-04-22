@@ -8,7 +8,7 @@ import * as swagger from '../components/swagger/swagger';
 import { succeeded } from '../errorable';
 import * as vscode from "vscode";
 import * as util from "./yaml-util";
-import { getSmartCodeCompletionState, setConfigValue } from '../components/config/config';
+import { getCRDCodeCompletionState, setConfigValue, setCRDCodeCompletion } from '../components/config/config';
 
 interface KubernetesSchema {
     readonly name: string;
@@ -52,7 +52,7 @@ export class KubernetesClusterSchemaHolder {
     }
 
     private async isFetchingCRDsAllowed(kubectl: Kubectl): Promise<boolean> {
-        const codeCompletionState = await getSmartCodeCompletionState();
+        const codeCompletionState = await getCRDCodeCompletionState();
         if (codeCompletionState !== undefined) {
             return codeCompletionState === 'enabled';
         }
@@ -62,8 +62,8 @@ export class KubernetesClusterSchemaHolder {
         if (crdsTypesNumber > 50) {
             action = await vscode.window.showInformationMessage(
                 "This cluster contains many CRDs and by fetching them your VSCode instance could slow down. " +
-                "However by disabling CRDs analisys the smart code completion for CR would be automatically disable. " +
-                "Do you want to disable the smart code completion? ",
+                "You may skip fetching the CRDs, but this will disable code completion for custom resources. " +
+                "Do you want to disable the CRD code completion? ",
                 "Disable Once",
                 "Always Disabled",
                 "Enable Once",
@@ -73,10 +73,10 @@ export class KubernetesClusterSchemaHolder {
                 || action === 'Disable Once') {
                 return false;
             } else if (action === 'Always Disabled') {
-                setConfigValue('vs-kubernetes.smart-code-completion', 'disabled');
+                setCRDCodeCompletion(false);
                 return false;
             } else if (action === 'Always Enabled') {
-                setConfigValue('vs-kubernetes.smart-code-completion', 'enabled');
+                setCRDCodeCompletion(true);
             }
         }
 

@@ -314,6 +314,14 @@ export function ignoreK8sRecommendations(): boolean {
     return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.ignore-recommendations'];
 }
 
-export function getSmartCodeCompletionState(): string | undefined {
-    return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.smart-code-completion'];
+export function getCRDCodeCompletionState(): string | undefined {
+    return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.crd-code-completion'];
+}
+
+export function setCRDCodeCompletion(enable: boolean): void {
+    if (enable) {
+        setConfigValue('vs-kubernetes.crd-code-completion', 'enabled');
+    } else {
+        setConfigValue('vs-kubernetes.crd-code-completion', 'disabled');
+    }
 }

@@ -277,7 +277,7 @@
                             "default": false,
                             "description": "Set to true to silence Kubernetes extension recommendation notifications."
                         },
-                        "vs-kubernetes.smart-code-completion": {
+                        "vs-kubernetes.crd-code-completion": {
                             "type": "string",
                             "enum": [
                                 "enabled",
