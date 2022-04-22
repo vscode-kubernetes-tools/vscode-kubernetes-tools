@@ -8,7 +8,7 @@ import * as swagger from '../components/swagger/swagger';
 import { succeeded } from '../errorable';
 import * as vscode from "vscode";
 import * as util from "./yaml-util";
-import { getCRDCodeCompletionState, setConfigValue, setCRDCodeCompletion } from '../components/config/config';
+import { getCRDCodeCompletionState, setCRDCodeCompletion } from '../components/config/config';
 
 interface KubernetesSchema {
     readonly name: string;
