@@ -43,21 +43,35 @@ export class LogsPanel extends WebPanel {
 
     public addActions(panel: vscode.WebviewPanel) {
         panel.webview.onDidReceiveMessage(async (event)  => {
-            if (event.command === 'start') {
-                const options = JSON.parse(event.options);
-                getLogsForContainer(
-                    this,
-                    LogsPanel.kubectl,
-                    this.namespace,
-                    this.kindName,
-                    options.container,
-                    options.follow ? LogsDisplayMode.Follow : LogsDisplayMode.Show,
-                    options.timestamp,
-                    options.since,
-                    options.tail,
-                    options.terminal);
-            } else if (event.command === 'stop') {
-                this.deleteAppendContentProcess();
+            switch (event.command) {
+                case 'start': {
+                    const options = JSON.parse(event.options);
+                    getLogsForContainer(
+                        this,
+                        LogsPanel.kubectl,
+                        this.namespace,
+                        this.kindName,
+                        options.container,
+                        options.follow ? LogsDisplayMode.Follow : LogsDisplayMode.Show,
+                        options.timestamp,
+                        options.since,
+                        options.tail,
+                        options.terminal);
+                    break;
+                }
+                case 'stop': {
+                    this.deleteAppendContentProcess();
+                    break;
+                }
+                case 'reset': {
+                    const logViewerOptions = this.getLogViewerOptions();
+
+                    this.panel.webview.postMessage({
+                        command: 'reset',
+                        ...logViewerOptions
+                    });
+                    break;
+                }
             }
         });
     }
@@ -126,4 +140,16 @@ export class LogsPanel extends WebPanel {
             .replace('<!-- meta http-equiv="Content-Security-Policy" -->', meta);
     }
 
+    private getLogViewerOptions(): object {
+        const configuration = vscode.workspace.getConfiguration();
+        const follow = configuration.get('vscode-kubernetes.log-viewer.follow', false);
+        const timestamp = configuration.get('vscode-kubernetes.log-viewer.timestamp', false);
+        const wrap = configuration.get('vscode-kubernetes.log-viewer.wrap', false);
+
+        return {
+            follow,
+            timestamp,
+            wrap
+        };
+    }
 }

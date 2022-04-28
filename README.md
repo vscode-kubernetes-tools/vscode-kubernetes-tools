@@ -147,7 +147,7 @@ If you want to skip TLS verification for a particular cluster, you can edit your
 
    * `Kubernetes: Open Dashboard` - Opens the Kubernetes Dashboard in your browser.
    * `Kubernetes: Port Forward` - Prompts user for a local port and a remote port to bind to on a Pod.
-   * `Kubernetes: Select Pod` - It allows to select a pod from a list of pods belonging to the "current" namespace. It can be invoked through command substitution `${command:extension.vsKubernetesSelectPod}`. See [Commands for debugging](https://github.com/Azure/vscode-kubernetes-tools/blob/master/debug-on-kubernetes.md#2-commands-for-debugging) for more details. 
+   * `Kubernetes: Select Pod` - It allows to select a pod from a list of pods belonging to the "current" namespace. It can be invoked through command substitution `${command:extension.vsKubernetesSelectPod}`. See [Commands for debugging](https://github.com/Azure/vscode-kubernetes-tools/blob/master/debug-on-kubernetes.md#2-commands-for-debugging) for more details.
 
 ### Minikube
 
@@ -205,6 +205,9 @@ Minikube tools to be installed and available on your PATH.
    * `checkForMinikubeUpgrade` - On extension startup, notify if a minikube upgrade is available. Defaults to true.
    * `disable-lint` - Disable all linting of Kubernetes files
    * `disable-linters` - Disable specific linters by name
+   * `vscode-kubernetes.log-viewer.follow` - Set to true to follow logs by default in the log viewer.
+   * `vscode-kubernetes.log-viewer.timestamp` - Set to true to show timestamps by default in the log viewer.
+   * `vscode-kubernetes.log-viewer.wrap` - Set to true to wrap lines by default in the log viewer.
 
 ## Custom tool locations
 
