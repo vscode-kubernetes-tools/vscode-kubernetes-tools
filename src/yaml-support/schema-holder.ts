@@ -5,7 +5,7 @@ import * as kubectlUtils from '../kubectlUtils';
 import { KUBERNETES_SCHEMA_ENUM_FILE, FALLBACK_SCHEMA_FILE, KUBERNETES_GROUP_VERSION_KIND } from "./yaml-constant";
 import { formatComplex, formatOne, formatType } from '../schema-formatting';
 import * as swagger from '../components/swagger/swagger';
-import { succeeded } from '../errorable';
+import { failed, succeeded } from '../errorable';
 import * as vscode from "vscode";
 import * as util from "./yaml-util";
 import { getCRDCodeCompletionState, setCRDCodeCompletion } from '../components/config/config';
@@ -58,8 +58,11 @@ export class KubernetesClusterSchemaHolder {
         }
 
         const crdsTypesNumber = await kubectlUtils.getCRDTypesNumber(kubectl);
+        if (failed(crdsTypesNumber)) {
+            return false;
+        }
         let action: string | undefined;
-        if (crdsTypesNumber > 50) {
+        if (crdsTypesNumber.result > 50) {
             action = await vscode.window.showInformationMessage(
                 "This cluster contains many CRDs and by fetching them your VSCode instance could slow down. " +
                 "You may skip fetching the CRDs, but this will disable code completion for custom resources. " +
