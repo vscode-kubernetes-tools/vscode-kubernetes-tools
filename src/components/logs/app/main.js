@@ -251,7 +251,7 @@ function reset() {
     }
     document.getElementById('follow-chk').checked = false;
     document.getElementById('timestamp-chk').checked = false;
-    document.getElementById('since-input').value = '0';
+    document.getElementById('since-input').value = '-1';
     document.getElementById('since-select').selectedIndex = 0;
     document.getElementById('tail-input').value = '-1';
     document.getElementById('terminal-chk').checked = false;
@@ -261,12 +261,11 @@ function updateContent(newContent) {
     let content = {};
     let counter = 0;
 
-    // eslint-disable-next-line @typescript-eslint/prefer-for-of
-    for (let i = 0; i < newContent.length; i += 1) {
-        if (newContent[i].length > 0) {
-            content[counter] = newContent[i];
+    for (const element of newContent) {
+        if (element.length > 0) {
+            content[counter] = element;
             fpcCounter++;
-            fullPageContent[fpcCounter] = newContent[i];
+            fullPageContent[fpcCounter] = element;
             counter++;
         }
     }
@@ -495,9 +494,8 @@ function highlightWords(row) {
     if (!schemaColors) {
         return row;
     }
-    // eslint-disable-next-line @typescript-eslint/prefer-for-of
-    for (let i = 0; i < schemaColors.length; i += 1) {
-        const rule = schemaColors[i];
+
+    for (const rule of schemaColors) {
         const regexp = new RegExp(rule.regex, "gi");
         if (regexp.test(row)) {
             row = row.replaceAll(regexp, repl);
@@ -508,26 +506,31 @@ function highlightWords(row) {
 }
 
 function repl() {
+    const argsLength = arguments.length;
     const match = arguments[0];
-    const offset = arguments[arguments.length - 2];
-    const originalString = arguments[arguments.length - 1];
+    const originalString = arguments[argsLength - 1];
+
     if (!originalString) {
         return match;
     }
-    const indexOpenSpan = originalString.substring(0, offset + match.length).lastIndexOf("<span");
-    const indexCloseSpan = originalString.substring(0, offset + match.length).lastIndexOf("</span>");
+
+    const offset = arguments[argsLength - 2];
+
+    const substring = originalString.substring(0, offset + match.length);
+    const indexOpenSpan = substring.lastIndexOf("<span");
+    const indexCloseSpan = substring.lastIndexOf("</span>");
     if (indexOpenSpan === -1 || indexOpenSpan < indexCloseSpan) {
         return `<span class="#ruleColor">${match}</span>`;
-    } else {
-        return match;
     }
+
+    return match;
 }
 
 function removeChildren(from, to) {
     if (to < from) {
         return;
     }
-    for (let i=from; i<=to; i++) {
+    for (let i = from; i <= to; i++) {
         const toDelete = document.getElementById(i.toString());
         if (toDelete) {
             toDelete.remove();
@@ -536,16 +539,18 @@ function removeChildren(from, to) {
 }
 
 function render(content, from, prepend) {
+    const contentElement = document.getElementById('content');
+
     if (Object.keys(content).length === 0) {
         const fragment = document.createRange().createContextualFragment('No logs ...');
-        document.getElementById('content').appendChild(fragment);
+        contentElement.appendChild(fragment);
     } else {
         const contentToDisplay = concatenateObjectValuesAsString(content, from);
         const fragment = document.createRange().createContextualFragment(contentToDisplay);
         if (prepend) {
-            document.getElementById('content').prepend(fragment);
+            contentElement.prepend(fragment);
         } else {
-            document.getElementById('content').appendChild(fragment);
+            contentElement.appendChild(fragment);
         }
         if (isToBottom) {
             scrollToBottom();
@@ -572,10 +577,7 @@ function scrollToBottom() {
 
 function getContainer() {
     const containersSelect = document.getElementById('containers-select');
-    if (containersSelect) {
-        return containersSelect.value;
-    }
-    return defaultContainer;
+    return (containersSelect) ? containersSelect.value : defaultContainer;
 }
 
 function isFollow() {
