@@ -6,6 +6,7 @@ import { fs } from '../../fs';
 import { Container } from '../../kuberesources.objectmodel';
 import { Kubectl } from '../../kubectl';
 import { getLogsForContainer, LogsDisplayMode } from '../kubectl/logs';
+import { isLogViewerFollowEnabled, isLogViewerTimestampEnabled, isLogViewerWrapEnabled } from '../config/config';
 
 export class LogsPanel extends WebPanel {
     public static readonly viewType = 'vscodeKubernetesLogs';
@@ -141,10 +142,9 @@ export class LogsPanel extends WebPanel {
     }
 
     private getLogViewerOptions(): object {
-        const configuration = vscode.workspace.getConfiguration();
-        const follow = configuration.get('vscode-kubernetes.log-viewer.follow', false);
-        const timestamp = configuration.get('vscode-kubernetes.log-viewer.timestamp', false);
-        const wrap = configuration.get('vscode-kubernetes.log-viewer.wrap', false);
+        const follow = isLogViewerFollowEnabled();
+        const timestamp = isLogViewerTimestampEnabled();
+        const wrap = isLogViewerWrapEnabled();
 
         return {
             follow,
