@@ -327,10 +327,22 @@ export function isLogViewerFollowEnabled(): boolean {
     return vscode.workspace.getConfiguration('vscode-kubernetes.log-viewer').get('follow', false);
 }
 
+export function setLogViewerFollowEnabled(follow: boolean) {
+    vscode.workspace.getConfiguration('vscode-kubernetes.log-viewer').update('follow', follow, true);
+}
+
 export function isLogViewerTimestampEnabled(): boolean {
     return vscode.workspace.getConfiguration('vscode-kubernetes.log-viewer').get('timestamp', false);
 }
 
+export function setLogViewerTimestampEnabled(timestamp: boolean) {
+    vscode.workspace.getConfiguration('vscode-kubernetes.log-viewer').update('timestamp', timestamp, true);
+}
+
 export function isLogViewerWrapEnabled(): boolean {
     return vscode.workspace.getConfiguration('vscode-kubernetes.log-viewer').get('wrap', false);
+}
+
+export function setLogViewerWrapEnabled(wrap: boolean) {
+    vscode.workspace.getConfiguration('vscode-kubernetes.log-viewer').update('wrap', wrap, true);
 }

@@ -145,6 +145,16 @@ function init() {
         reset();
     });
 
+    const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+    saveSettingsBtn.addEventListener('click', (_event) => {
+        vscode.postMessage({
+            command: 'saveSettings',
+            follow: document.getElementById('follow-chk').checked,
+            timestamp: document.getElementById('timestamp-chk').checked,
+            wrap: document.getElementById('wrap-chk').checked
+        });
+    });
+
     const bottomBtn = document.getElementById('bottomBtn');
     bottomBtn.addEventListener('click', (_event) => {
         scrollToBottom();
