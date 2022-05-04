@@ -1,11 +1,14 @@
 import * as _ from 'lodash';
 
 import { Kubectl } from "../kubectl";
+import * as kubectlUtils from '../kubectlUtils';
 import { KUBERNETES_SCHEMA_ENUM_FILE, FALLBACK_SCHEMA_FILE, KUBERNETES_GROUP_VERSION_KIND } from "./yaml-constant";
 import { formatComplex, formatOne, formatType } from '../schema-formatting';
 import * as swagger from '../components/swagger/swagger';
-import { succeeded } from '../errorable';
+import { failed, succeeded } from '../errorable';
+import * as vscode from "vscode";
 import * as util from "./yaml-util";
+import { getCRDCodeCompletionState, setCRDCodeCompletion } from '../components/config/config';
 
 interface KubernetesSchema {
     readonly name: string;
@@ -37,12 +40,50 @@ export class KubernetesClusterSchemaHolder {
 
     private async loadSchemaFromActiveCluster(kubectl: Kubectl, schemaEnumFile?: string): Promise<void> {
         const clusterSwagger = await swagger.getClusterSwagger(kubectl);
-        const crdSchemas = await swagger.getCrdSchemas(kubectl);
-        if (crdSchemas) {
-            this.crdSchemas = crdSchemas;
+        const fetchCRDSchemasEnabled = await this.isFetchingCRDsAllowed(kubectl);
+        if (fetchCRDSchemasEnabled) {
+            const crdSchemas = await swagger.getCrdSchemas(kubectl);
+            if (crdSchemas) {
+                this.crdSchemas = crdSchemas;
+            }
         }
         const schemaRaw = succeeded(clusterSwagger) ? this.definitionsObject(clusterSwagger.result) : util.loadJson(FALLBACK_SCHEMA_FILE());
         this.loadSchemaFromRaw(schemaRaw, schemaEnumFile, kubectl);
+    }
+
+    private async isFetchingCRDsAllowed(kubectl: Kubectl): Promise<boolean> {
+        const codeCompletionState = await getCRDCodeCompletionState();
+        if (codeCompletionState !== undefined) {
+            return codeCompletionState === 'enabled';
+        }
+
+        const crdsTypesNumber = await kubectlUtils.getCRDTypesNumber(kubectl);
+        if (failed(crdsTypesNumber)) {
+            return false;
+        }
+        let action: string | undefined;
+        if (crdsTypesNumber.result > 50) {
+            action = await vscode.window.showInformationMessage(
+                "This cluster contains many CRDs and by fetching them your VSCode instance could slow down. " +
+                "You may skip fetching the CRDs, but this will disable code completion for custom resources. " +
+                "Do you want to disable the CRD code completion? ",
+                "Disable Once",
+                "Always Disabled",
+                "Enable Once",
+                "Always Enabled"
+                );
+            if (!action
+                || action === 'Disable Once') {
+                return false;
+            } else if (action === 'Always Disabled') {
+                setCRDCodeCompletion(false);
+                return false;
+            } else if (action === 'Always Enabled') {
+                setCRDCodeCompletion(true);
+            }
+        }
+
+        return true;
     }
 
     private definitionsObject(swagger: any): any {

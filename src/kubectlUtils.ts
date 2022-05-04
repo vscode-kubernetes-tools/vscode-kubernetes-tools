@@ -222,6 +222,21 @@ export async function getGlobalResources(kubectl: Kubectl, resource: string): Pr
     });
 }
 
+export async function getCRDTypesNumber(kubectl: Kubectl): Promise<Errorable<number>> {
+    const crdTypes = await kubectl.asJson<KubernetesCollection<any>>(`get crd -o json`);
+    if (failed(crdTypes)) {
+        return {
+            succeeded: false,
+            error: crdTypes.error
+        };
+    }
+
+    return {
+        succeeded: true,
+        result: crdTypes.result.items.length
+    };
+}
+
 export async function getCRDTypes(kubectl: Kubectl): Promise<CRD[]> {
     const crdTypes = await kubectl.asJson<KubernetesCollection<any>>(`get crd -o json`);
     if (failed(crdTypes)) {
