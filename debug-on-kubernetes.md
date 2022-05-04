@@ -15,7 +15,7 @@ One of the key features of VS Code Kubernetes Extension is its one-click debuggi
 
       ### Miscellaneous commands
       * `Kubernetes: Select Pod` - It allows to select a pod from a list of pods belonging to the "current" namespace. It can be invoked through command substitution (`${command:extension.vsKubernetesSelectPod}`) inside files such as launch.json or tasks.json.
-   
+
          An example of how to use the command inside a launch.json configuration can be found below.
 
 ```javascript
@@ -91,7 +91,7 @@ Here is a GIF showing the full workflow:
    * Install [Debugger for Java](https://marketplace.visualstudio.com/items?itemName=vscjava.vscode-java-debug) extension (if not already installed).
    * Run the VS Code command `"Kubernetes: Debug (Attach)"`.
 
-You have to select the debug environment first. Then select the target pod that your application runs on. And if your pod contains multiple containers, you'll have to select the target container too. 
+You have to select the debug environment first. Then select the target pod that your application runs on. And if your pod contains multiple containers, you'll have to select the target container too.
 
 ![select the pod](https://raw.githubusercontent.com/Azure/vscode-kubernetes-tools/master/images/screenshots/select-the-pod.png)
 
@@ -148,7 +148,7 @@ https://github.com/OmniSharp/omnisharp-vscode/wiki/Attaching-to-remote-processes
    * Launch VS Code.
    * Open a NodeJS application.
    * If your application doesn't already have a Dockerfile, create one for it.
-   * Set up the image repository on the VS Code user or workspace settings, using the `vsdocker.imageUser` configuration setting. 
+   * Set up the image repository on the VS Code user or workspace settings, using the `vsdocker.imageUser` configuration setting.
 ```javascript
   {
     ...
@@ -183,7 +183,7 @@ Here is a GIF showing the full workflow:
    * Install the [Go extension](https://marketplace.visualstudio.com/items?itemName=golang.Go) (if not already installed).
    * Run the VS Code command `"Kubernetes: Debug (Attach)"`.
 
-You have to select the debug environment first. Then select the target pod that your application runs on. And if your pod contains multiple containers, you'll have to select the target container too. 
+You have to select the debug environment first. Then select the target pod that your application runs on. And if your pod contains multiple containers, you'll have to select the target container too.
 
 After that, the extension will try to resolve the debug port from the container's process list. If this fails, you'll have to specify it manually.
 
