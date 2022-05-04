@@ -1,5 +1,15 @@
 # Change Log
 
+## [1.3.8]
+
+* Added snippet for Horizontal Pod Autoscaler
+* Added setting to disable fetching all CRDs
+* Tweaked log viewer initial settings plus internal rework
+* Better closing of kubectl processes when extension deactivates
+* Fixed setting to silence CRD extension recommendations
+
+Contributors: Fcmam5, lstocchi, SethFalco
+
 ## [1.3.7]
 
 * Improved .NET process identification
