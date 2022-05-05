@@ -129,7 +129,7 @@ export function getToolPath(_host: Host, shell: Shell, tool: string): string | u
 
     const baseKey = toolPathNewBaseKey(tool);
     const osKey = osOverrideKey(os, baseKey);
-    const topLevelToolPath = 
+    const topLevelToolPath =
         userValues[osKey] ||
         defaultValues[osKey] ||
         userValues[baseKey] ||
@@ -319,9 +319,30 @@ export function getCRDCodeCompletionState(): string | undefined {
 }
 
 export function setCRDCodeCompletion(enable: boolean): void {
-    if (enable) {
-        setConfigValue('vs-kubernetes.crd-code-completion', 'enabled');
-    } else {
-        setConfigValue('vs-kubernetes.crd-code-completion', 'disabled');
-    }
+    const value = (enable) ? 'enabled' : 'disabled';
+    setConfigValue('vs-kubernetes.crd-code-completion', value);
+}
+
+export function isLogViewerFollowEnabled(): boolean {
+    return vscode.workspace.getConfiguration('vscode-kubernetes.log-viewer').get('follow', false);
+}
+
+export function setLogViewerFollowEnabled(follow: boolean) {
+    vscode.workspace.getConfiguration('vscode-kubernetes.log-viewer').update('follow', follow, true);
+}
+
+export function isLogViewerTimestampEnabled(): boolean {
+    return vscode.workspace.getConfiguration('vscode-kubernetes.log-viewer').get('timestamp', false);
+}
+
+export function setLogViewerTimestampEnabled(timestamp: boolean) {
+    vscode.workspace.getConfiguration('vscode-kubernetes.log-viewer').update('timestamp', timestamp, true);
+}
+
+export function isLogViewerWrapEnabled(): boolean {
+    return vscode.workspace.getConfiguration('vscode-kubernetes.log-viewer').get('wrap', false);
+}
+
+export function setLogViewerWrapEnabled(wrap: boolean) {
+    vscode.workspace.getConfiguration('vscode-kubernetes.log-viewer').update('wrap', wrap, true);
 }

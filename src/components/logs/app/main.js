@@ -14,8 +14,8 @@ window.addEventListener('message', (event) => {
     const message = event.data;
     switch (message.command) {
         case 'init': {
-            const containers = message.containers;
-            schemaColors = JSON.parse(message.colors);
+            const { containers, colors } = message;
+            schemaColors = JSON.parse(colors);
             if (containers.length === 1) {
                 defaultContainer = containers[0];
                 return;
@@ -44,9 +44,55 @@ window.addEventListener('message', (event) => {
             }
             const newContent = text.split('\n');
             updateContent(newContent);
+            break;
+        }
+        case 'reset': {
+            const { follow, timestamp, wrap } = message;
+            setSettings({
+                follow,
+                timestamp,
+                sinceInput: '-1',
+                sinceSelect: 0,
+                tailInput: '-1',
+                terminal: false,
+                wrap
+            });
+            break;
         }
     }
 });
+
+function setSettings(settings) {
+    const { follow, timestamp, sinceInput, sinceSelect, tailInput, terminal, wrap } = settings;
+
+    if (follow !== undefined) {
+        document.getElementById('follow-chk').checked = follow;
+    }
+
+    if (timestamp !== undefined) {
+        document.getElementById('timestamp-chk').checked = timestamp;
+    }
+
+    if (sinceInput !== undefined) {
+        document.getElementById('since-input').value = sinceInput;
+    }
+
+    if (sinceSelect !== undefined) {
+        document.getElementById('since-select').selectedIndex = sinceSelect;
+    }
+
+    if (tailInput !== undefined) {
+        document.getElementById('tail-input').value = tailInput;
+    }
+
+    if (terminal !== undefined) {
+        document.getElementById('terminal-chk').checked = terminal;
+    }
+
+    if (wrap !== undefined) {
+        document.getElementById('wrap-chk').checked = wrap;
+    }
+}
 
 function debounce(func, wait, immediate) {
     let timeout;
@@ -99,6 +145,16 @@ function init() {
         reset();
     });
 
+    const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+    saveSettingsBtn.addEventListener('click', (_event) => {
+        vscode.postMessage({
+            command: 'saveSettings',
+            follow: document.getElementById('follow-chk').checked,
+            timestamp: document.getElementById('timestamp-chk').checked,
+            wrap: document.getElementById('wrap-chk').checked
+        });
+    });
+
     const bottomBtn = document.getElementById('bottomBtn');
     bottomBtn.addEventListener('click', (_event) => {
         scrollToBottom();
@@ -149,6 +205,10 @@ function init() {
         renderByPagination();
     }, 250);
     logPanel.addEventListener("scroll", toBottom);
+
+    vscode.postMessage({
+        command: 'reset'
+    });
 }
 
 function resetContent() {
@@ -249,12 +309,10 @@ function reset() {
     if (containersSelect) {
         containersSelect.selectedIndex = 0;
     }
-    document.getElementById('follow-chk').checked = false;
-    document.getElementById('timestamp-chk').checked = false;
-    document.getElementById('since-input').value = '-1';
-    document.getElementById('since-select').selectedIndex = 0;
-    document.getElementById('tail-input').value = '-1';
-    document.getElementById('terminal-chk').checked = false;
+
+    vscode.postMessage({
+        command: 'reset'
+    });
 }
 
 function updateContent(newContent) {
@@ -269,6 +327,7 @@ function updateContent(newContent) {
             counter++;
         }
     }
+
     content = saveFilteredContent(content);
     setHeightContentPanel();
     renderByPagination(content);

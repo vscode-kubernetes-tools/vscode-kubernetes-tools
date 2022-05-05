@@ -6,6 +6,7 @@ import { fs } from '../../fs';
 import { Container } from '../../kuberesources.objectmodel';
 import { Kubectl } from '../../kubectl';
 import { getLogsForContainer, LogsDisplayMode } from '../kubectl/logs';
+import { isLogViewerFollowEnabled, setLogViewerFollowEnabled, isLogViewerTimestampEnabled, setLogViewerTimestampEnabled, isLogViewerWrapEnabled, setLogViewerWrapEnabled } from '../config/config';
 
 export class LogsPanel extends WebPanel {
     public static readonly viewType = 'vscodeKubernetesLogs';
@@ -43,21 +44,40 @@ export class LogsPanel extends WebPanel {
 
     public addActions(panel: vscode.WebviewPanel) {
         panel.webview.onDidReceiveMessage(async (event)  => {
-            if (event.command === 'start') {
-                const options = JSON.parse(event.options);
-                getLogsForContainer(
-                    this,
-                    LogsPanel.kubectl,
-                    this.namespace,
-                    this.kindName,
-                    options.container,
-                    options.follow ? LogsDisplayMode.Follow : LogsDisplayMode.Show,
-                    options.timestamp,
-                    options.since,
-                    options.tail,
-                    options.terminal);
-            } else if (event.command === 'stop') {
-                this.deleteAppendContentProcess();
+            switch (event.command) {
+                case 'start': {
+                    const options = JSON.parse(event.options);
+                    getLogsForContainer(
+                        this,
+                        LogsPanel.kubectl,
+                        this.namespace,
+                        this.kindName,
+                        options.container,
+                        options.follow ? LogsDisplayMode.Follow : LogsDisplayMode.Show,
+                        options.timestamp,
+                        options.since,
+                        options.tail,
+                        options.terminal);
+                    break;
+                }
+                case 'stop': {
+                    this.deleteAppendContentProcess();
+                    break;
+                }
+                case 'reset': {
+                    const logViewerOptions = this.getLogViewerSettings();
+
+                    this.panel.webview.postMessage({
+                        command: 'reset',
+                        ...logViewerOptions
+                    });
+                    break;
+                }
+                case 'saveSettings': {
+                    const { follow, timestamp, wrap } = event;
+                    this.saveLogViewerSettings(follow, timestamp, wrap);
+                    break;
+                }
             }
         });
     }
@@ -126,4 +146,23 @@ export class LogsPanel extends WebPanel {
             .replace('<!-- meta http-equiv="Content-Security-Policy" -->', meta);
     }
 
+    private getLogViewerSettings(): object {
+        const follow = isLogViewerFollowEnabled();
+        const timestamp = isLogViewerTimestampEnabled();
+        const wrap = isLogViewerWrapEnabled();
+
+        return {
+            follow,
+            timestamp,
+            wrap
+        };
+    }
+
+    private saveLogViewerSettings(follow: boolean, timestamp: boolean, wrap: boolean): void {
+        setLogViewerFollowEnabled(follow);
+        setLogViewerTimestampEnabled(timestamp);
+        setLogViewerWrapEnabled(wrap);
+
+        vscode.window.showInformationMessage('Succesfully saved default log viewer settings.');
+    }
 }

@@ -381,6 +381,21 @@
                     "scope": "machine",
                     "title": "Minikube path (Linux)",
                     "description": "File path to a minikube binary."
+                },
+                "vscode-kubernetes.log-viewer.follow": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Set to true to follow logs by default in the log viewer."
+                },
+                "vscode-kubernetes.log-viewer.timestamp": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Set to true to show timestamps by default in the log viewer."
+                },
+                "vscode-kubernetes.log-viewer.wrap": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Set to true to wrap lines by default in the log viewer."
                 }
             }
         },
