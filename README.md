@@ -208,6 +208,7 @@ Minikube tools to be installed and available on your PATH.
    * `vscode-kubernetes.log-viewer.follow` - Set to true to follow logs by default in the log viewer.
    * `vscode-kubernetes.log-viewer.timestamp` - Set to true to show timestamps by default in the log viewer.
    * `vscode-kubernetes.log-viewer.wrap` - Set to true to wrap lines by default in the log viewer.
+   * `vscode-kubernetes.log-viewer.autorun` - Set to true to automatically begin fetching logs once the log viewer is opened using the default settings.
 
 ## Custom tool locations
 

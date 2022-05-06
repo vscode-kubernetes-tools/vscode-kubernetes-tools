@@ -396,6 +396,11 @@
                     "type": "boolean",
                     "default": false,
                     "description": "Set to true to wrap lines by default in the log viewer."
+                },
+                "vscode-kubernetes.log-viewer.autorun": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Set to true to automatically begin fetching logs once the log viewer is opened using the default settings."
                 }
             }
         },
