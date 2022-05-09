@@ -346,3 +346,7 @@ export function isLogViewerWrapEnabled(): boolean {
 export function setLogViewerWrapEnabled(wrap: boolean) {
     vscode.workspace.getConfiguration('vscode-kubernetes.log-viewer').update('wrap', wrap, true);
 }
+
+export function isLogViewerAutorunEnabled(): boolean {
+    return vscode.workspace.getConfiguration('vscode-kubernetes.log-viewer').get('autorun', false);
+}

@@ -6,7 +6,7 @@ import { fs } from '../../fs';
 import { Container } from '../../kuberesources.objectmodel';
 import { Kubectl } from '../../kubectl';
 import { getLogsForContainer, LogsDisplayMode } from '../kubectl/logs';
-import { isLogViewerFollowEnabled, setLogViewerFollowEnabled, isLogViewerTimestampEnabled, setLogViewerTimestampEnabled, isLogViewerWrapEnabled, setLogViewerWrapEnabled } from '../config/config';
+import { isLogViewerFollowEnabled, setLogViewerFollowEnabled, isLogViewerTimestampEnabled, setLogViewerTimestampEnabled, isLogViewerWrapEnabled, setLogViewerWrapEnabled, isLogViewerAutorunEnabled } from '../config/config';
 
 export class LogsPanel extends WebPanel {
     public static readonly viewType = 'vscodeKubernetesLogs';
@@ -65,12 +65,18 @@ export class LogsPanel extends WebPanel {
                     break;
                 }
                 case 'reset': {
-                    const logViewerOptions = this.getLogViewerSettings();
+                    this.resetWebviewSettings();
+                    break;
+                }
+                case 'postInitialize': {
+                    this.resetWebviewSettings();
+                    const isAutorunEnabled = isLogViewerAutorunEnabled();
 
-                    this.panel.webview.postMessage({
-                        command: 'reset',
-                        ...logViewerOptions
-                    });
+                    if (isAutorunEnabled) {
+                        this.panel.webview.postMessage({
+                            command: 'run',
+                        });
+                    }
                     break;
                 }
                 case 'saveSettings': {
@@ -79,6 +85,15 @@ export class LogsPanel extends WebPanel {
                     break;
                 }
             }
+        });
+    }
+
+    private resetWebviewSettings() {
+        const logViewerOptions = this.getLogViewerSettings();
+
+        this.panel.webview.postMessage({
+            command: 'reset',
+            ...logViewerOptions
         });
     }
 

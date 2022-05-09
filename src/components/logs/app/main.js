@@ -59,6 +59,10 @@ window.addEventListener('message', (event) => {
             });
             break;
         }
+        case 'run': {
+            onRun();
+            break;
+        }
     }
 });
 
@@ -120,12 +124,14 @@ function createElement(type, value, content) {
     return element;
 }
 
+function onRun() {
+    changeVisibilityAfterRun();
+    startLog();
+}
+
 function init() {
     const runBtn = document.getElementById('runBtn');
-    runBtn.addEventListener('click', (_event) => {
-        changeVisibilityAfterRun();
-        startLog();
-    });
+    runBtn.addEventListener('click', onRun);
 
     const stopBtn = document.getElementById('stopBtn');
     stopBtn.addEventListener('click', (_event) => {
@@ -207,7 +213,7 @@ function init() {
     logPanel.addEventListener("scroll", toBottom);
 
     vscode.postMessage({
-        command: 'reset'
+        command: 'postInitialize'
     });
 }
 
