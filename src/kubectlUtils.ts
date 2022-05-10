@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { Kubectl } from "./kubectl";
 import { kubeChannel } from "./kubeChannel";
 import { sleep } from "./sleep";
-import { ObjectMeta, KubernetesCollection, DataResource, Namespace, Pod, KubernetesResource, CRD, KeyValuePairs } from './kuberesources.objectmodel';
+import { ObjectMeta, KubernetesCollection, DataResource, Namespace, Pod, KubernetesResource, KeyValuePairs } from './kuberesources.objectmodel';
 import { failed, Errorable } from "./errorable";
 import { ExecResult } from "./binutilplusplus";
 import { shellMessage } from "./shell";
@@ -223,7 +223,7 @@ export async function getGlobalResources(kubectl: Kubectl, resource: string): Pr
 }
 
 export async function getCRDTypesNumber(kubectl: Kubectl): Promise<Errorable<number>> {
-    const crdTypes = await kubectl.asJson<KubernetesCollection<any>>(`get crd -o json`);
+    const crdTypes = await kubectl.asLines(`get crd -o name`);
     if (failed(crdTypes)) {
         return {
             succeeded: false,
@@ -233,24 +233,32 @@ export async function getCRDTypesNumber(kubectl: Kubectl): Promise<Errorable<num
 
     return {
         succeeded: true,
-        result: crdTypes.result.items.length
+        result: crdTypes.result.length
     };
 }
 
-export async function getCRDTypes(kubectl: Kubectl): Promise<CRD[]> {
-    const crdTypes = await kubectl.asJson<KubernetesCollection<any>>(`get crd -o json`);
-    if (failed(crdTypes)) {
-        vscode.window.showErrorMessage(crdTypes.error[0]);
+export async function getCRDTypes(kubectl: Kubectl): Promise<ResourceKind[]> {
+    const crds = await kubectl.asLines(`get crd -o jsonpath="{range .items[*]}{.metadata.name}{\\" \\"}{.spec.names.kind}{\\" \\"}{.spec.names.singular}{\\" \\"}{.spec.names.plural}{\\" \\"}{.spec.names.shortNames}{\\"\\n\\"}{end}"`);
+    if (failed(crds)) {
+        vscode.window.showErrorMessage(crds.error[0]);
         return [];
     }
 
-    return crdTypes.result.items.map((item) => {
-        return {
-            metadata: item.metadata,
-            kind: item.spec.names.kind,
-            spec: item.spec
-        };
+    return crds.result.map(line => {
+        const parts = line.split(" ");
+        const metadataName = parts[0];
+        const kind = parts[1];
+        const singularName = parts[2];
+        const pluralName = parts[3];
+        const shortNameString = parts[4];
+        const shortNames: string[] = shortNameString ? (JSON.parse(shortNameString) as string[]) : [];
+        const abbreviation = getSafeAbbreviation(shortNames, metadataName);
+        return new ResourceKind(singularName, pluralName, kind, abbreviation, pluralName);
     });
+
+    function getSafeAbbreviation(shortNames: string[], metadataName: string) {
+        return (shortNames && shortNames.length > 0) ? shortNames[0] : metadataName;
+    }
 }
 
 export async function getNamespaces(kubectl: Kubectl): Promise<NamespaceInfo[]> {
