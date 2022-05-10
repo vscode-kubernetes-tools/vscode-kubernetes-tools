@@ -238,7 +238,7 @@ export async function getCRDTypesNumber(kubectl: Kubectl): Promise<Errorable<num
 }
 
 export async function getCRDTypes(kubectl: Kubectl): Promise<ResourceKind[]> {
-    const crds = await kubectl.asLines(`get crd -o jsonpath="{range .items[*]}{.metadata.name}{\\" \\"}{.spec.names.kind}{\\" \\"}{.spec.names.singular}{\\" \\"}{.spec.names.plural}{\\" \\"}{.spec.names.shortNames}{\\"\\n\\"}{end}"`);
+    const crds = await kubectl.asLines(`get crd -o jsonpath="{range .items[*]}{.metadata.name}{\\" \\"}{.spec.names.kind}{\\" \\"}{.spec.names.singular}{\\" \\"}{.spec.names.plural}{\\" \\"}{range .spec.names.shortNames}{@}{end}{\\"\\n\\"}{end}"`);
     if (failed(crds)) {
         vscode.window.showErrorMessage(crds.error[0]);
         return [];
