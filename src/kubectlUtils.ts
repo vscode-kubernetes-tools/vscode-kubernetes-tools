@@ -223,42 +223,41 @@ export async function getGlobalResources(kubectl: Kubectl, resource: string): Pr
 }
 
 export async function getCRDTypesNumber(kubectl: Kubectl): Promise<Errorable<number>> {
-    const crdTypes = await kubectl.asLines(`get crd -o name`);
-    if (failed(crdTypes)) {
-        return {
-            succeeded: false,
-            error: crdTypes.error
-        };
+    const crdExecResult = await kubectl.invokeCommand("get crd -o name");
+    if (ExecResult.failed(crdExecResult)) {
+        return ExecResult.asErrorable<number>(crdExecResult, {});
     }
 
     return {
         succeeded: true,
-        result: crdTypes.result.length
+        result: crdExecResult.stdout.split('\n').length
     };
 }
 
 export async function getCRDTypes(kubectl: Kubectl): Promise<ResourceKind[]> {
-    const crds = await kubectl.asLines(`get crd -o jsonpath="{range .items[*]}{.metadata.name}{\\" \\"}{.spec.names.kind}{\\" \\"}{.spec.names.singular}{\\" \\"}{.spec.names.plural}{\\" \\"}{range .spec.names.shortNames}{@}{end}{\\"\\n\\"}{end}"`);
-    if (failed(crds)) {
-        vscode.window.showErrorMessage(crds.error[0]);
+    // Some kubectl versions discard everything after a null/missing value within a jsonpath `range`,
+    // meaning trailing newlines get omitted from the output and we can't split lines correctly.
+    // For this reason, we make the newline the *first* component of the range, and ensure the value
+    // which might be null (shortNames[0] in this case) is right at the end.
+    // This means we end up with a blank line at the start of the output, but it's otherwise consistent.
+    const crdExecResult = await kubectl.invokeCommand(`get crd -o jsonpath="{range .items[*]}{\\"\\n\\"}{.metadata.name}{\\" \\"}{.spec.names.kind}{\\" \\"}{.spec.names.singular}{\\" \\"}{.spec.names.plural}{\\" \\"}{.spec.names.shortNames[0]}{end}"`);
+    if (ExecResult.failed(crdExecResult)) {
+        vscode.window.showErrorMessage(ExecResult.failureMessage(crdExecResult, {}));
         return [];
     }
 
-    return crds.result.map(line => {
+    const lines = crdExecResult.stdout.split('\n').filter(l => l.length > 0);
+
+    return lines.map(line => {
         const parts = line.split(" ");
         const metadataName = parts[0];
         const kind = parts[1];
         const singularName = parts[2];
         const pluralName = parts[3];
-        const shortNameString = parts[4];
-        const shortNames: string[] = shortNameString ? (JSON.parse(shortNameString) as string[]) : [];
-        const abbreviation = getSafeAbbreviation(shortNames, metadataName);
+        const shortName = parts[4];
+        const abbreviation = shortName || metadataName;
         return new ResourceKind(singularName, pluralName, kind, abbreviation, pluralName);
     });
-
-    function getSafeAbbreviation(shortNames: string[], metadataName: string) {
-        return (shortNames && shortNames.length > 0) ? shortNames[0] : metadataName;
-    }
 }
 
 export async function getNamespaces(kubectl: Kubectl): Promise<NamespaceInfo[]> {
