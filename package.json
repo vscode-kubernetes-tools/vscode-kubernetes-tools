@@ -392,6 +392,25 @@
                     "default": false,
                     "description": "Set to true to show timestamps by default in the log viewer."
                 },
+                "vscode-kubernetes.log-viewer.since": {
+                    "type": "integer",
+                    "default": -1,
+                    "description": "The default value for the since field in the log viewer. Set to -1 for all logs."
+                },
+                "vscode-kubernetes.log-viewer.tail": {
+                    "type": "integer",
+                    "default": -1,
+                    "description": "The number of recent logs to display by default in the log viewer. Set to -1 for all log lines."
+                },
+                "vscode-kubernetes.log-viewer.destination": {
+                    "type": "string",
+                    "default": "Webview",
+                    "description": "Where to display logs, defaults to the dedicated Webview.",
+                    "enum": [
+                        "Webview",
+                        "Terminal"
+                    ]
+                },
                 "vscode-kubernetes.log-viewer.wrap": {
                     "type": "boolean",
                     "default": false,

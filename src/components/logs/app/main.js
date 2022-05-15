@@ -47,14 +47,14 @@ window.addEventListener('message', (event) => {
             break;
         }
         case 'reset': {
-            const { follow, timestamp, wrap } = message;
+            const { follow, timestamp, since, tail, destination, wrap } = message;
             setSettings({
                 follow,
                 timestamp,
-                sinceInput: '-1',
+                sinceInput: since,
                 sinceSelect: 0,
-                tailInput: '-1',
-                terminal: false,
+                tail,
+                destination,
                 wrap
             });
             break;
@@ -67,7 +67,7 @@ window.addEventListener('message', (event) => {
 });
 
 function setSettings(settings) {
-    const { follow, timestamp, sinceInput, sinceSelect, tailInput, terminal, wrap } = settings;
+    const { follow, timestamp, sinceInput, sinceSelect, tail, destination, wrap } = settings;
 
     if (follow !== undefined) {
         document.getElementById('follow-chk').checked = follow;
@@ -85,12 +85,12 @@ function setSettings(settings) {
         document.getElementById('since-select').selectedIndex = sinceSelect;
     }
 
-    if (tailInput !== undefined) {
-        document.getElementById('tail-input').value = tailInput;
+    if (tail !== undefined) {
+        document.getElementById('tail-input').value = tail;
     }
 
-    if (terminal !== undefined) {
-        document.getElementById('terminal-chk').checked = terminal;
+    if (destination !== undefined) {
+        document.getElementById('destination-select').value = destination;
     }
 
     if (wrap !== undefined) {
@@ -155,9 +155,12 @@ function init() {
     saveSettingsBtn.addEventListener('click', (_event) => {
         vscode.postMessage({
             command: 'saveSettings',
-            follow: document.getElementById('follow-chk').checked,
+            follow: isFollow(),
             timestamp: document.getElementById('timestamp-chk').checked,
-            wrap: document.getElementById('wrap-chk').checked
+            since: Number.parseInt(document.getElementById('since-input').value, 10),
+            tail: getTail(),
+            destination: getDestinationValue(),
+            wrap: isWrapEnabled()
         });
     });
 
@@ -235,7 +238,7 @@ function runFilter() {
 }
 
 function changeVisibilityAfterRun() {
-    if (getToTerminal()) {
+    if (getDestinationValue() === 'Terminal') {
         return;
     }
     document.getElementById('runBtn').classList.add('display-none');
@@ -287,7 +290,7 @@ function startLog() {
         timestamp: document.getElementById('timestamp-chk').checked,
         since: getSinceDuration(),
         tail: getTail(),
-        terminal: getToTerminal()
+        destination: getDestinationValue()
     };
     vscode.postMessage({
         command: 'start',
@@ -650,24 +653,24 @@ function isFollow() {
 }
 
 function getSinceDuration() {
-    const sinceType = document.getElementById('since-select').value;
     const sinceInput = document.getElementById('since-input').value;
-    if (isNaN(sinceInput) || sinceInput <= 0 || sinceType.trim() === '') {
+
+    if (sinceInput <= 0) {
         return 0;
     }
+
+    const sinceType = document.getElementById('since-select').value;
     return `${sinceInput}${sinceType}`;
 }
 
 function getTail() {
-    const tailValue = document.getElementById('tail-input').value;
-    if (isNaN(tailValue) || tailValue <= 0) {
-        return -1;
-    }
-    return tailValue;
+    const inputValue = document.getElementById('tail-input').value;
+    const tail = Number.parseInt(inputValue, 10);
+    return (tail > 0) ? tail : -1;
 }
 
-function getToTerminal() {
-    return document.getElementById('terminal-chk').checked;
+function getDestinationValue() {
+    return document.getElementById('destination-select').value;
 }
 
 function isWrapEnabled() {

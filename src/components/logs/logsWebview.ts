@@ -6,7 +6,7 @@ import { fs } from '../../fs';
 import { Container } from '../../kuberesources.objectmodel';
 import { Kubectl } from '../../kubectl';
 import { getLogsForContainer, LogsDisplayMode } from '../kubectl/logs';
-import { isLogViewerFollowEnabled, setLogViewerFollowEnabled, isLogViewerTimestampEnabled, setLogViewerTimestampEnabled, isLogViewerWrapEnabled, setLogViewerWrapEnabled, isLogViewerAutorunEnabled } from '../config/config';
+import { isLogViewerFollowEnabled, setLogViewerFollowEnabled, isLogViewerTimestampEnabled, setLogViewerTimestampEnabled, getLogViewerSince, setLogViewerSince, getLogViewerTail, setLogViewerTail, getLogViewerDestination, setLogViewerDestination, isLogViewerWrapEnabled, setLogViewerWrapEnabled, isLogViewerAutorunEnabled, LogsDestination } from '../config/config';
 
 export class LogsPanel extends WebPanel {
     public static readonly viewType = 'vscodeKubernetesLogs';
@@ -57,7 +57,7 @@ export class LogsPanel extends WebPanel {
                         options.timestamp,
                         options.since,
                         options.tail,
-                        options.terminal);
+                        options.destination);
                     break;
                 }
                 case 'stop': {
@@ -80,8 +80,8 @@ export class LogsPanel extends WebPanel {
                     break;
                 }
                 case 'saveSettings': {
-                    const { follow, timestamp, wrap } = event;
-                    this.saveLogViewerSettings(follow, timestamp, wrap);
+                    const { follow, timestamp, since, tail, destination, wrap } = event;
+                    this.saveLogViewerSettings(follow, timestamp, since, tail, destination, wrap);
                     break;
                 }
             }
@@ -164,18 +164,27 @@ export class LogsPanel extends WebPanel {
     private getLogViewerSettings(): object {
         const follow = isLogViewerFollowEnabled();
         const timestamp = isLogViewerTimestampEnabled();
+        const since = getLogViewerSince();
+        const tail = getLogViewerTail();
+        const destination = getLogViewerDestination();
         const wrap = isLogViewerWrapEnabled();
 
         return {
             follow,
             timestamp,
+            since,
+            tail,
+            destination,
             wrap
         };
     }
 
-    private saveLogViewerSettings(follow: boolean, timestamp: boolean, wrap: boolean): void {
+    private saveLogViewerSettings(follow: boolean, timestamp: boolean, since: number, tail: number, destination: LogsDestination, wrap: boolean): void {
         setLogViewerFollowEnabled(follow);
         setLogViewerTimestampEnabled(timestamp);
+        setLogViewerSince(since);
+        setLogViewerTail(tail);
+        setLogViewerDestination(destination);
         setLogViewerWrapEnabled(wrap);
 
         vscode.window.showInformationMessage('Succesfully saved default log viewer settings.');

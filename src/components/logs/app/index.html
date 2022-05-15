@@ -135,10 +135,13 @@
                 <vscode-button id="resetBtn" class="mr-2">Reset</vscode-button>
                 <vscode-button id="saveSettingsBtn" class="mr-2">Save Settings</vscode-button>
             </div>
-            <div class="tooltip ml-10 mr-2">To terminal:
-                <span class="tooltiptext">Redirect logs to terminal.</span>
+            <div class="tooltip ml-10 mr-2">Destination:
+                <span class="tooltiptext">Where to display logs.</span>
             </div>
-            <vscode-checkbox id="terminal-chk"></vscode-checkbox>
+            <vscode-select id="destination-select" class="w-130 mr-2">
+                <vscode-option value="Webview" selected>Webview</vscode-option>
+                <vscode-option value="Terminal">Terminal</vscode-option>
+            </vscode-select>
         </div>
         <div class="mt-5">
             <span class="mr-2">Filter:</span>
