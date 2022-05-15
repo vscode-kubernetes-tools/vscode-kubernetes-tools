@@ -637,7 +637,7 @@ function concatenateObjectValuesAsString(object, ix) {
 }
 
 function scrollToBottom() {
-    document.getElementById('bottom').scrollIntoView();
+    document.querySelector('#innerLogPanel code div:last-of-type').scrollIntoView();
 }
 
 function getContainer() {
