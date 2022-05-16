@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { Kubectl } from "./kubectl";
 import { kubeChannel } from "./kubeChannel";
 import { sleep } from "./sleep";
-import { ObjectMeta, KubernetesCollection, DataResource, Namespace, Pod, KubernetesResource, CRD, KeyValuePairs } from './kuberesources.objectmodel';
+import { ObjectMeta, KubernetesCollection, DataResource, Namespace, Pod, KubernetesResource, KeyValuePairs } from './kuberesources.objectmodel';
 import { failed, Errorable } from "./errorable";
 import { ExecResult } from "./binutilplusplus";
 import { shellMessage } from "./shell";
@@ -223,33 +223,40 @@ export async function getGlobalResources(kubectl: Kubectl, resource: string): Pr
 }
 
 export async function getCRDTypesNumber(kubectl: Kubectl): Promise<Errorable<number>> {
-    const crdTypes = await kubectl.asJson<KubernetesCollection<any>>(`get crd -o json`);
-    if (failed(crdTypes)) {
-        return {
-            succeeded: false,
-            error: crdTypes.error
-        };
+    const crdExecResult = await kubectl.invokeCommand("get crd -o name");
+    if (ExecResult.failed(crdExecResult)) {
+        return ExecResult.asErrorable<number>(crdExecResult, {});
     }
 
     return {
         succeeded: true,
-        result: crdTypes.result.items.length
+        result: crdExecResult.stdout.split('\n').length
     };
 }
 
-export async function getCRDTypes(kubectl: Kubectl): Promise<CRD[]> {
-    const crdTypes = await kubectl.asJson<KubernetesCollection<any>>(`get crd -o json`);
-    if (failed(crdTypes)) {
-        vscode.window.showErrorMessage(crdTypes.error[0]);
+export async function getCRDTypes(kubectl: Kubectl): Promise<ResourceKind[]> {
+    // Some kubectl versions discard everything after a null/missing value within a jsonpath `range`,
+    // meaning trailing newlines get omitted from the output and we can't split lines correctly.
+    // For this reason, we make the newline the *first* component of the range, and ensure the value
+    // which might be null (shortNames[0] in this case) is right at the end.
+    // This means we end up with a blank line at the start of the output, but it's otherwise consistent.
+    const crdExecResult = await kubectl.invokeCommand(`get crd -o jsonpath="{range .items[*]}{\\"\\n\\"}{.metadata.name}{\\" \\"}{.spec.names.kind}{\\" \\"}{.spec.names.singular}{\\" \\"}{.spec.names.plural}{\\" \\"}{.spec.names.shortNames[0]}{end}"`);
+    if (ExecResult.failed(crdExecResult)) {
+        vscode.window.showErrorMessage(ExecResult.failureMessage(crdExecResult, {}));
         return [];
     }
 
-    return crdTypes.result.items.map((item) => {
-        return {
-            metadata: item.metadata,
-            kind: item.spec.names.kind,
-            spec: item.spec
-        };
+    const lines = crdExecResult.stdout.split('\n').filter(l => l.length > 0);
+
+    return lines.map(line => {
+        const parts = line.split(" ");
+        const metadataName = parts[0];
+        const kind = parts[1];
+        const singularName = parts[2];
+        const pluralName = parts[3];
+        const shortName = parts[4];
+        const abbreviation = shortName || metadataName;
+        return new ResourceKind(singularName, pluralName, kind, abbreviation, pluralName);
     });
 }
 
