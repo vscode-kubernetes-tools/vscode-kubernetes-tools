@@ -1,4 +1,11 @@
 const vscode = acquireVsCodeApi();
+
+const CHRONO_UNITS = [
+    { symbol: 'h', seconds: 3600 },
+    { symbol: 'm', seconds: 60 },
+    { symbol: 's', seconds: 1 }
+];
+
 let fullPageContent = {};
 let filteredContent = {};
 let fpcCounter = -1;
@@ -51,8 +58,7 @@ window.addEventListener('message', (event) => {
             setSettings({
                 follow,
                 timestamp,
-                sinceInput: since,
-                sinceSelect: 0,
+                since,
                 tail,
                 destination,
                 wrap
@@ -67,7 +73,7 @@ window.addEventListener('message', (event) => {
 });
 
 function setSettings(settings) {
-    const { follow, timestamp, sinceInput, sinceSelect, tail, destination, wrap } = settings;
+    const { follow, timestamp, since, tail, destination, wrap } = settings;
 
     if (follow !== undefined) {
         document.getElementById('follow-chk').checked = follow;
@@ -77,12 +83,10 @@ function setSettings(settings) {
         document.getElementById('timestamp-chk').checked = timestamp;
     }
 
-    if (sinceInput !== undefined) {
-        document.getElementById('since-input').value = sinceInput;
-    }
-
-    if (sinceSelect !== undefined) {
-        document.getElementById('since-select').selectedIndex = sinceSelect;
+    if (since !== undefined) {
+        const split = splitSinceDuration(since);
+        document.getElementById('since-input').value = split.number;
+        document.getElementById('since-select').value = split.unit;
     }
 
     if (tail !== undefined) {
@@ -157,7 +161,7 @@ function init() {
             command: 'saveSettings',
             follow: isFollow(),
             timestamp: document.getElementById('timestamp-chk').checked,
-            since: Number.parseInt(document.getElementById('since-input').value, 10),
+            since: getSinceDurationSeconds(),
             tail: getTail(),
             destination: getDestinationValue(),
             wrap: isWrapEnabled()
@@ -288,7 +292,7 @@ function startLog() {
         container: getContainer(),
         follow: isFollowRun,
         timestamp: document.getElementById('timestamp-chk').checked,
-        since: getSinceDuration(),
+        since: getSinceDurationString(),
         tail: getTail(),
         destination: getDestinationValue()
     };
@@ -652,7 +656,7 @@ function isFollow() {
     return document.getElementById('follow-chk').checked;
 }
 
-function getSinceDuration() {
+function getSinceDurationString() {
     const sinceInput = document.getElementById('since-input').value;
 
     if (sinceInput <= 0) {
@@ -661,6 +665,35 @@ function getSinceDuration() {
 
     const sinceType = document.getElementById('since-select').value;
     return `${sinceInput}${sinceType}`;
+}
+
+function getSinceDurationSeconds() {
+    const sinceInput = document.getElementById('since-input').value;
+    const since = Number.parseInt(sinceInput, 10);
+
+    if (since <= 0) {
+        return -1;
+    }
+
+    const sinceType = document.getElementById('since-select').value;
+    const unit = CHRONO_UNITS.find((chronoUnit) => sinceType === chronoUnit.symbol);
+
+    return since * unit.seconds;
+}
+
+function splitSinceDuration(since) {
+    const effectiveSince = Math.floor(since);
+
+    for (const chronoUnit of CHRONO_UNITS) {
+        const { seconds, symbol } = chronoUnit;
+
+        if (effectiveSince % seconds === 0) {
+            return {
+                unit: symbol,
+                number: effectiveSince / seconds
+            };
+        }
+    }
 }
 
 function getTail() {

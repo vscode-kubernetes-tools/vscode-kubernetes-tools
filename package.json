@@ -395,11 +395,13 @@
                 "vscode-kubernetes.log-viewer.since": {
                     "type": "integer",
                     "default": -1,
-                    "description": "The default value for the since field in the log viewer. Set to -1 for all logs."
+                    "minimum": -1,
+                    "description": "How far back to fetch logs from in seconds by default. Set to -1 for all logs."
                 },
                 "vscode-kubernetes.log-viewer.tail": {
                     "type": "integer",
                     "default": -1,
+                    "minimum": -1,
                     "description": "The number of recent logs to display by default in the log viewer. Set to -1 for all log lines."
                 },
                 "vscode-kubernetes.log-viewer.destination": {

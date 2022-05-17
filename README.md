@@ -207,7 +207,7 @@ Minikube tools to be installed and available on your PATH.
    * `disable-linters` - Disable specific linters by name
    * `vscode-kubernetes.log-viewer.follow` - Set to true to follow logs by default in the log viewer.
    * `vscode-kubernetes.log-viewer.timestamp` - Set to true to show timestamps by default in the log viewer.
-   * `vscode-kubernetes.log-viewer.since` - The default value for the since field in the log viewer. Set to -1 for all logs.
+   * `vscode-kubernetes.log-viewer.since` - How far back to fetch logs from in seconds by default. Set to -1 for all logs.
    * `vscode-kubernetes.log-viewer.tail` - The number of recent logs to display by default in the log viewer. Set to -1 for all log lines.
    * `vscode-kubernetes.log-viewer.destination` - Where to display logs, defaults to the dedicated Webview.
    * `vscode-kubernetes.log-viewer.wrap` - Set to true to wrap lines by default in the log viewer.
