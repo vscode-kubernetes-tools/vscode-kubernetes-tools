@@ -187,7 +187,7 @@ function init() {
     const filterSelect = document.getElementById('filter-select');
     filterSelect.addEventListener('vsc-change', (_event) => {
         resetFilter();
-        if (isRun() && document.getElementById('filter-input').value) {
+        if (isRun() && isFiltering()) {
             runFilter();
         }
     });
@@ -195,7 +195,7 @@ function init() {
     const filterInput = document.getElementById('filter-input');
     filterInput.addEventListener('keyup', (_event) => {
         resetFilter();
-        if (!isRun() || document.getElementById('filter-select').value === 'all') {
+        if (!isRun()) {
             return;
         }
         if (typingTimer) {
@@ -277,10 +277,9 @@ function isRun() {
     return document.getElementById('runBtn').classList.contains('display-none');
 }
 
-function isFilterEnabled() {
+function isFiltering() {
     const filterInput = document.getElementById('filter-input').value;
-    const mode = document.getElementById('filter-select').value;
-    return filterInput.length > 0 && mode !== 'all';
+    return filterInput.length > 0;
 }
 
 function startLog() {
@@ -351,7 +350,7 @@ function setHeightContentPanel(removeStyle) {
     if (removeStyle) {
         document.getElementById('innerLogPanel').style.removeProperty('height');
     } else {
-        const content = isFilterEnabled() ? filteredContent : fullPageContent;
+        const content = isFiltering() ? filteredContent : fullPageContent;
         const rows = Object.keys(content).length;
         const heightDiv = getDefaultDivHeightValue();
         document.getElementById('innerLogPanel').style.height = `${heightDiv * rows}px`;
@@ -359,10 +358,8 @@ function setHeightContentPanel(removeStyle) {
 }
 
 function saveFilteredContent(content) {
-    const filterInput = document.getElementById('filter-input').value;
-    const mode = document.getElementById('filter-select').value;
     let contentAfterFilter;
-    if (filterInput.length > 0 && mode !== 'all') {
+    if (isFiltering()) {
         contentAfterFilter = filter(content);
         let fcRows = Object.keys(filteredContent).length - 1;
         if (fcRows === -1) {
@@ -382,7 +379,7 @@ function filter(logs) {
     const filterInput = document.getElementById('filter-input').value;
     const mode = document.getElementById('filter-select').value;
     let content = {};
-    if (filterInput.length > 0 && mode !== 'all') {
+    if (filterInput.length > 0) {
         const regex = new RegExp(filterInput);
         switch (mode) {
             case 'include':
@@ -488,7 +485,7 @@ function renderByPagination(contentToAdd) {
     if (contentToAdd && Object.keys(contentToAdd).length === 0) {
         return;
     }
-    const fullFilteredContent = isFilterEnabled() ? filteredContent : fullPageContent;
+    const fullFilteredContent = isFiltering() ? filteredContent : fullPageContent;
     const totalRows = Object.keys(fullFilteredContent).length - 1;
     const heightDiv = getDefaultDivHeightValue();
     const currentPosition = document.getElementById('logPanel').scrollTop;
