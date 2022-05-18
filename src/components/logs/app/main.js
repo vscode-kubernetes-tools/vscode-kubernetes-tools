@@ -174,13 +174,11 @@ function init() {
     });
 
     const wrapChk = document.getElementById('wrap-chk');
-    wrapChk.addEventListener('vsc-change', function (event) {
+    wrapChk.addEventListener('vsc-change', (event) => {
         if (event.detail.checked) {
-            document.getElementById('content').classList.remove('white-space-pre');
-            document.getElementById('content').classList.add('white-space-wrap');
+            switchClass('content', 'white-space-pre', 'white-space-wrap');
         } else {
-            document.getElementById('content').classList.remove('white-space-wrap');
-            document.getElementById('content').classList.add('white-space-pre');
+            switchClass('content', 'white-space-wrap', 'white-space-pre');
         }
     });
 
