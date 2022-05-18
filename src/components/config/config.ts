@@ -14,9 +14,9 @@ export enum KubectlVersioning {
     Infer = 2,
 }
 
-export enum LogsDisplay {
-    Webview = 1,
-    Terminal = 2,
+export enum LogsDestination {
+    Webview = 'Webview',
+    Terminal = 'Terminal',
 }
 
 export async function addPathToConfig(configKey: string, value: string): Promise<void> {
@@ -337,6 +337,30 @@ export function isLogViewerTimestampEnabled(): boolean {
 
 export function setLogViewerTimestampEnabled(timestamp: boolean) {
     vscode.workspace.getConfiguration('vscode-kubernetes.log-viewer').update('timestamp', timestamp, true);
+}
+
+export function getLogViewerSince(): number {
+    return vscode.workspace.getConfiguration('vscode-kubernetes.log-viewer').get('since', -1);
+}
+
+export function setLogViewerSince(since: number) {
+    vscode.workspace.getConfiguration('vscode-kubernetes.log-viewer').update('since', since, true);
+}
+
+export function getLogViewerTail(): number {
+    return vscode.workspace.getConfiguration('vscode-kubernetes.log-viewer').get('tail', -1);
+}
+
+export function setLogViewerTail(tail: number) {
+    vscode.workspace.getConfiguration('vscode-kubernetes.log-viewer').update('tail', tail, true);
+}
+
+export function getLogViewerDestination(): LogsDestination {
+    return vscode.workspace.getConfiguration('vscode-kubernetes.log-viewer').get('destination', LogsDestination.Webview);
+}
+
+export function setLogViewerDestination(destination: LogsDestination) {
+    vscode.workspace.getConfiguration('vscode-kubernetes.log-viewer').update('destination', destination, true);
 }
 
 export function isLogViewerWrapEnabled(): boolean {

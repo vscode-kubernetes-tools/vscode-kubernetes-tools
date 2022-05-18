@@ -9,6 +9,7 @@ import { LogsPanel } from '../../components/logs/logsWebview';
 import { ContainerContainer } from '../../utils/containercontainer';
 import { ClusterExplorerResourceNode } from '../clusterexplorer/node';
 import { ExecResult } from '../../binutilplusplus';
+import { LogsDestination } from '../config/config';
 
 export enum LogsDisplayMode {
     Show,
@@ -42,7 +43,7 @@ async function getLogsForExplorerNode(
         return;
     }
 
-    return await getLogsForResource(kubectl, resource);
+    return getLogsForResource(kubectl, resource);
 }
 
 /**
@@ -94,7 +95,7 @@ export async function getLogsForContainer(
     showTimestamp: boolean,
     since: string,
     tail: number,
-    toTerminal: boolean
+    destination: LogsDestination
 ) {
     const args = ['logs', kindName];
 
@@ -124,7 +125,7 @@ export async function getLogsForContainer(
 
     const cmd = args.join(' ');
 
-    if (toTerminal) {
+    if (destination === LogsDestination.Terminal) {
         if (displayMode === LogsDisplayMode.Follow) {
             const title = `Logs: ${kindName}${containerName ? ('/' + containerName) : ''}`;
             kubectl.invokeInNewTerminal(cmd, title);
@@ -168,10 +169,10 @@ async function logsForPod(kubectl: Kubectl): Promise<void> {
     const editor = vscode.window.activeTextEditor;
 
     if (editor) {
-        return await logsForPodFromOpenDocument(kubectl, editor);
+        return logsForPodFromOpenDocument(kubectl, editor);
     }
 
-    return await logsForPodFromCurrentNamespace(kubectl);
+    return logsForPodFromCurrentNamespace(kubectl);
 }
 
 /**
@@ -194,7 +195,7 @@ async function logsForPodFromOpenDocument(kubectl: Kubectl, editor: vscode.TextE
         // pass
     }
 
-    return await logsForPodFromCurrentNamespace(kubectl);
+    return logsForPodFromCurrentNamespace(kubectl);
 }
 
 /**

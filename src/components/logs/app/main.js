@@ -1,4 +1,11 @@
 const vscode = acquireVsCodeApi();
+
+const CHRONO_UNITS = [
+    { symbol: 'h', seconds: 3600 },
+    { symbol: 'm', seconds: 60 },
+    { symbol: 's', seconds: 1 }
+];
+
 let fullPageContent = {};
 let filteredContent = {};
 let fpcCounter = -1;
@@ -47,14 +54,13 @@ window.addEventListener('message', (event) => {
             break;
         }
         case 'reset': {
-            const { follow, timestamp, wrap } = message;
+            const { follow, timestamp, since, tail, destination, wrap } = message;
             setSettings({
                 follow,
                 timestamp,
-                sinceInput: '-1',
-                sinceSelect: 0,
-                tailInput: '-1',
-                terminal: false,
+                since,
+                tail,
+                destination,
                 wrap
             });
             break;
@@ -67,7 +73,7 @@ window.addEventListener('message', (event) => {
 });
 
 function setSettings(settings) {
-    const { follow, timestamp, sinceInput, sinceSelect, tailInput, terminal, wrap } = settings;
+    const { follow, timestamp, since, tail, destination, wrap } = settings;
 
     if (follow !== undefined) {
         document.getElementById('follow-chk').checked = follow;
@@ -77,20 +83,18 @@ function setSettings(settings) {
         document.getElementById('timestamp-chk').checked = timestamp;
     }
 
-    if (sinceInput !== undefined) {
-        document.getElementById('since-input').value = sinceInput;
+    if (since !== undefined) {
+        const split = splitSinceDuration(since);
+        document.getElementById('since-input').value = split.number;
+        document.getElementById('since-select').value = split.unit;
     }
 
-    if (sinceSelect !== undefined) {
-        document.getElementById('since-select').selectedIndex = sinceSelect;
+    if (tail !== undefined) {
+        document.getElementById('tail-input').value = tail;
     }
 
-    if (tailInput !== undefined) {
-        document.getElementById('tail-input').value = tailInput;
-    }
-
-    if (terminal !== undefined) {
-        document.getElementById('terminal-chk').checked = terminal;
+    if (destination !== undefined) {
+        document.getElementById('destination-select').value = destination;
     }
 
     if (wrap !== undefined) {
@@ -155,9 +159,12 @@ function init() {
     saveSettingsBtn.addEventListener('click', (_event) => {
         vscode.postMessage({
             command: 'saveSettings',
-            follow: document.getElementById('follow-chk').checked,
+            follow: isFollow(),
             timestamp: document.getElementById('timestamp-chk').checked,
-            wrap: document.getElementById('wrap-chk').checked
+            since: getSinceDurationSeconds(),
+            tail: getTail(),
+            destination: getDestinationValue(),
+            wrap: isWrapEnabled()
         });
     });
 
@@ -235,7 +242,7 @@ function runFilter() {
 }
 
 function changeVisibilityAfterRun() {
-    if (getToTerminal()) {
+    if (getDestinationValue() === 'Terminal') {
         return;
     }
     document.getElementById('runBtn').classList.add('display-none');
@@ -285,9 +292,9 @@ function startLog() {
         container: getContainer(),
         follow: isFollowRun,
         timestamp: document.getElementById('timestamp-chk').checked,
-        since: getSinceDuration(),
+        since: getSinceDurationString(),
         tail: getTail(),
-        terminal: getToTerminal()
+        destination: getDestinationValue()
     };
     vscode.postMessage({
         command: 'start',
@@ -649,25 +656,54 @@ function isFollow() {
     return document.getElementById('follow-chk').checked;
 }
 
-function getSinceDuration() {
-    const sinceType = document.getElementById('since-select').value;
+function getSinceDurationString() {
     const sinceInput = document.getElementById('since-input').value;
-    if (isNaN(sinceInput) || sinceInput <= 0 || sinceType.trim() === '') {
+
+    if (sinceInput <= 0) {
         return 0;
     }
+
+    const sinceType = document.getElementById('since-select').value;
     return `${sinceInput}${sinceType}`;
 }
 
-function getTail() {
-    const tailValue = document.getElementById('tail-input').value;
-    if (isNaN(tailValue) || tailValue <= 0) {
+function getSinceDurationSeconds() {
+    const sinceInput = document.getElementById('since-input').value;
+    const since = Number.parseInt(sinceInput, 10);
+
+    if (since <= 0) {
         return -1;
     }
-    return tailValue;
+
+    const sinceType = document.getElementById('since-select').value;
+    const unit = CHRONO_UNITS.find((chronoUnit) => sinceType === chronoUnit.symbol);
+
+    return since * unit.seconds;
 }
 
-function getToTerminal() {
-    return document.getElementById('terminal-chk').checked;
+function splitSinceDuration(since) {
+    const effectiveSince = Math.floor(since);
+
+    for (const chronoUnit of CHRONO_UNITS) {
+        const { seconds, symbol } = chronoUnit;
+
+        if (effectiveSince % seconds === 0) {
+            return {
+                unit: symbol,
+                number: effectiveSince / seconds
+            };
+        }
+    }
+}
+
+function getTail() {
+    const inputValue = document.getElementById('tail-input').value;
+    const tail = Number.parseInt(inputValue, 10);
+    return (tail > 0) ? tail : -1;
+}
+
+function getDestinationValue() {
+    return document.getElementById('destination-select').value;
 }
 
 function isWrapEnabled() {
