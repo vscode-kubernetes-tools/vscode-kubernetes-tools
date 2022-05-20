@@ -1,5 +1,14 @@
 # Change Log
 
+## [1.3.9]
+
+* You can now configure default settings for log viewing, and have the log viewer automatically kick off log retrieval and display with your default settings
+* Many other improvements and fixes to log viewer
+* Fixed unresponsive UI when loading CRDs
+* Fixed intellisense (we had an incorrect snippet that threw _everything_ out, sorry)
+
+Contributors: lstocchi, peterbom, SethFalco
+
 ## [1.3.8]
 
 * Added snippet for Horizontal Pod Autoscaler
