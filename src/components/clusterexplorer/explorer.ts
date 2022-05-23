@@ -104,7 +104,7 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
             showCollapseAll: true
         });
         return vscode.Disposable.from(
-			viewer,
+            viewer,
             viewer.onDidCollapseElement(this.onElementCollapsed, this),
             viewer.onDidExpandElement(this.onElementExpanded, this)
         );
@@ -230,9 +230,9 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
 
     private onElementCollapsed(e: vscode.TreeViewExpansionEvent<ClusterExplorerNode>) {
         this.collapse(e.element);
-	}
+    }
 
-	private onElementExpanded(e: vscode.TreeViewExpansionEvent<ClusterExplorerNode>) {
+    private onElementExpanded(e: vscode.TreeViewExpansionEvent<ClusterExplorerNode>) {
         this.expand(e.element);
     }
 

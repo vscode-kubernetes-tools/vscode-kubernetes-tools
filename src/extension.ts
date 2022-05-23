@@ -2262,9 +2262,9 @@ function searchMarketplace(searchTerm: string) {
 function updateStatusBarItem(statusBarItem: vscode.StatusBarItem, text: string, tooltip: string, show: boolean): void {
     statusBarItem.text = text;
     statusBarItem.tooltip = tooltip;
-	if (show) {
-		statusBarItem.show();
-	} else {
-		statusBarItem.hide();
-	}
+    if (show) {
+        statusBarItem.show();
+    } else {
+        statusBarItem.hide();
+    }
 }
