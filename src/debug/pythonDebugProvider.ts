@@ -9,6 +9,7 @@ import { Kubectl } from "../kubectl";
 import { kubeChannel } from "../kubeChannel";
 import { ProcessInfo } from "./debugUtils";
 import { ExecResult } from "../binutilplusplus";
+import * as extensionConfig from '../components/config/config';
 
 const debuggerType = 'python';
 const defaultPythonDebuggerExtensionId = 'ms-python.python';
@@ -40,6 +41,7 @@ export class PythonDebugProvider implements IDebugProvider {
             hostName: "localhost",
             port
         };
+        debugConfiguration.justMyCode = extensionConfig.getDebugJustMyCode();
         const currentFolder = (vscode.workspace.workspaceFolders || []).find((folder) => folder.name === path.basename(workspaceFolder));
         if (currentFolder && this.remoteRoot) {
             debugConfiguration['pathMappings'] = [{

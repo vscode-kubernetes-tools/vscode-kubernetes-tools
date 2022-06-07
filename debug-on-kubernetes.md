@@ -50,6 +50,7 @@ One of the key features of VS Code Kubernetes Extension is its one-click debuggi
       * `vs-kubernetes.nodejs-debug-port` - Sets the nodejs remote debugging port. The default for node is 9229.
       * `vs-kubernetes.dotnet-vsdbg-path` - Sets the path to the vsdbg debugger in the container
       * `vs-kubernetes.dotnet-source-file-map` - Sets the compilation root for the vsdbg debugger in order to have a sourceFileMap in the attach configuration
+      * `vs-kubernetes.debug-just-my-code` - Enable/disable justMyCode debug configuration property for .NET, Python.
 
    * `vsdocker.imageUser` - Image prefix for docker images e.g. 'docker.io/brendanburns'.
 

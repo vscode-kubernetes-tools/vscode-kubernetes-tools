@@ -1,1375 +1,1385 @@
 {
-    "name": "vscode-kubernetes-tools",
-    "displayName": "Kubernetes",
-    "description": "Develop, deploy and debug Kubernetes applications",
-    "version": "1.3.9",
-    "publisher": "ms-kubernetes-tools",
-    "engines": {
-        "vscode": "^1.52.0"
-    },
-    "license": "MIT",
-    "categories": [
-        "Snippets",
-        "Linters",
-        "Debuggers",
-        "Azure",
-        "Other"
-    ],
-    "keywords": [
-        "kubernetes",
-        "helm",
-        "aks",
-        "gke",
-        "aws"
-    ],
-    "aiKey": "AIF-d9b70cd4-b9f9-4d70-929b-a071c400b217",
-    "icon": "images/k8s-logo.png",
-    "activationEvents": [
-        "onCommand:extension.vsKubernetesCreate",
-        "onCommand:extension.vsKubernetesCreateFile",
-        "onCommand:extension.vsKubernetesAddWatch",
-        "onCommand:extension.vsKubernetesDelete",
-        "onCommand:extension.vsKubernetesDeleteNow",
-        "onCommand:extension.vsKubernetesDeleteUri",
-        "onCommand:extension.vsKubernetesDeleteWatch",
-        "onCommand:extension.vsKubernetesDescribe.Refresh",
-        "onCommand:extension.vsKubernetesApply",
-        "onCommand:extension.vsKubernetesApplyFile",
-        "onCommand:extension.vsKubernetesExplain",
-        "onCommand:extension.vsKubernetesLoad",
-        "onCommand:extension.vsKubernetesGet",
-        "onCommand:extension.vsKubernetesRun",
-        "onCommand:extension.vsKubernetesLogs",
-        "onCommand:extension.vsKubernetesExpose",
-        "onCommand:extension.vsKubernetesDescribe",
-        "onCommand:extension.vsKubernetesSync",
-        "onCommand:extension.vsKubernetesExec",
-        "onCommand:extension.vsKubernetesTerminal",
-        "onCommand:extension.vsKubernetesDiff",
-        "onCommand:extension.vsKubernetesScale",
-        "onCommand:extension.vsKubernetesDebug",
-        "onCommand:extension.vsKubernetesDebugLocalTunnel",
-        "onCommand:extension.vsKubernetesFindLocalTunnelDebugProviders",
-        "onCommand:extension.vsKubernetesSelectPod",
-        "onCommand:extension.vsKubernetesRemoveDebug",
-        "onCommand:extension.vsKubernetesConfigureFromCluster",
-        "onCommand:extension.vsKubernetesCreateCluster",
-        "onCommand:extension.vsKubernetesUseKubeconfig",
-        "onCommand:extension.vsKubernetesDashboard",
-        "onCommand:extension.vsMinikubeStop",
-        "onCommand:extension.vsMinikubeStart",
-        "onCommand:extension.vsMinikubeStatus",
-        "onCommand:extension.vsKubernetesPortForward",
-        "onCommand:extension.vsKubernetesDeleteFile",
-        "onCommand:extension.vsKubernetesAddFile",
-        "onCommand:extension.vsKubernetesUseNamespace",
-        "onCommand:extension.vsKubernetesShowEvents",
-        "onCommand:extension.vsKubernetesFollowEvents",
-        "onCommand:extension.vsKubernetesCronJobRunNow",
-        "onCommand:extension.helmTemplate",
-        "onCommand:extension.helmTemplatePreview",
-        "onCommand:extension.helmLint",
-        "onCommand:extension.helmDryRun",
-        "onCommand:extension.helmVersion",
-        "onCommand:extension.helmCreate",
-        "onCommand:extension.helmInsertReq",
-        "onCommand:extension.helmDepUp",
-        "onCommand:extension.helmInspectChart",
-        "onCommand:extension.helmFetchValues",
-        "onCommand:extension.helmGet",
-        "onCommand:extension.helmPackage",
-        "onCommand:extension.helmFetch",
-        "onCommand:extension.helmInstall",
-        "onCommand:extension.helmUninstall",
-        "onCommand:extension.helmRollback",
-        "onCommand:extension.helmDependencies",
-        "onCommand:extension.helmConvertToTemplate",
-        "onCommand:extension.helmParameterise",
-        "onView:extension.vsKubernetesExplorer",
-        "onView:extension.vsKubernetesHelmRepoExplorer",
-        "onView:kubernetes.cloudExplorer",
-        "onCommand:kubernetes.cloudExplorer.mergeIntoKubeconfig",
-        "onCommand:kubernetes.cloudExplorer.saveKubeconfig",
-        "onCommand:kubernetes.cloudExplorer.findProviders",
-        "onCommand:kubernetes.portForwarding.showSessions",
-        "onLanguage:helm",
-        "onLanguage:yaml",
-        "onFileSystem:k8smsx"
-    ],
-    "main": "./dist/extension",
-    "contributes": {
-        "configuration": {
-            "type": "object",
-            "title": "Kubernetes",
-            "properties": {
-                "vs-kubernetes": {
-                    "type": "object",
-                    "title": "Additional settings",
-                    "description": "Kubernetes configuration",
-                    "properties": {
-                        "vs-kubernetes.namespace": {
-                            "type": "string",
-                            "description": "The namespace to use for all commands"
-                        },
-                        "vs-kubernetes.kubectl-path": {
-                            "type": "string",
-                            "description": "[deprecated - use top level property] File path to a kubectl binary."
-                        },
-                        "vs-kubernetes.helm-path": {
-                            "type": "string",
-                            "description": "[deprecated - use top level property] File path to a helm binary."
-                        },
-                        "vs-kubernetes.minikube-path": {
-                            "type": "string",
-                            "description": "[deprecated - use top level property] File path to a minikube binary."
-                        },
-                        "vs-kubernetes.kubectl-path.windows": {
-                            "type": "string",
-                            "description": "[deprecated - use top level property] File path to a kubectl binary."
-                        },
-                        "vs-kubernetes.helm-path.windows": {
-                            "type": "string",
-                            "description": "[deprecated - use top level property] File path to a helm binary."
-                        },
-                        "vs-kubernetes.minikube-path.windows": {
-                            "type": "string",
-                            "description": "[deprecated - use top level property] File path to a minikube binary."
-                        },
-                        "vs-kubernetes.kubectl-path.mac": {
-                            "type": "string",
-                            "description": "[deprecated - use top level property] File path to a kubectl binary."
-                        },
-                        "vs-kubernetes.helm-path.mac": {
-                            "type": "string",
-                            "description": "[deprecated - use top level property] File path to a helm binary."
-                        },
-                        "vs-kubernetes.minikube-path.mac": {
-                            "type": "string",
-                            "description": "[deprecated - use top level property] File path to a minikube binary."
-                        },
-                        "vs-kubernetes.kubectl-path.linux": {
-                            "type": "string",
-                            "description": "[deprecated - use top level property] File path to a kubectl binary."
-                        },
-                        "vs-kubernetes.helm-path.linux": {
-                            "type": "string",
-                            "description": "[deprecated - use top level property] File path to a helm binary."
-                        },
-                        "vs-kubernetes.minikube-path.linux": {
-                            "type": "string",
-                            "description": "[deprecated - use top level property] File path to a minikube binary."
-                        },
-                        "vs-kubernetes.kubectlVersioning": {
-                            "type": "string",
-                            "enum": [
-                                "user-provided",
-                                "infer"
-                            ],
-                            "description": "Whether to use the kubectl binary you provide ('user-provided'), or to automatically download the right version of kubectl for each cluster ('infer')."
-                        },
-                        "vs-kubernetes.kubeconfig": {
-                            "type": "string",
-                            "description": "File path to the kubeconfig file."
-                        },
-                        "vs-kubernetes.knownKubeconfigs": {
-                            "type": "array",
-                            "description": "File paths to kubeconfig files from which you can select."
-                        },
-                        "vs-kubernetes.autoCleanupOnDebugTerminate": {
-                            "type": "boolean",
-                            "description": "Once the debug session is terminated, automatically clean up the created Deployment and associated Pod by the command \"Kubernetes: Debug (Launch)\"."
-                        },
-                        "vs-kubernetes.outputFormat": {
-                            "enum": [
-                                "json",
-                                "yaml"
-                            ],
-                            "type": "string",
-                            "description": "Output format for Kubernetes specs. One of 'json' or 'yaml' (default)."
-                        },
-                        "vs-kubernetes.nodejs-autodetect-remote-root": {
-                            "type": "boolean",
-                            "description": "If true will try to automatically get the root location of the source code in the container (nodejs)."
-                        },
-                        "vs-kubernetes.nodejs-remote-root": {
-                            "type": "string",
-                            "description": "The root location of the source code in the container (nodejs)."
-                        },
-                        "vs-kubernetes.nodejs-debug-port": {
-                            "type": "number",
-                            "description": "Remote debugging port for nodejs. Usually 9229."
-                        },
-                        "checkForMinikubeUpgrade": {
-                            "type": "boolean",
-                            "description": "Notify on startup if update is available for minikube"
-                        },
-                        "disable-lint": {
-                            "type": "boolean",
-                            "description": "Disable all linting of Kubernetes files"
-                        },
-                        "disable-linters": {
-                            "type": "array",
-                            "description": "List of linters by name to disable"
-                        },
-                        "resource-commands-on-files": {
-                            "type": "boolean",
-                            "description": "If true, show Kubernetes resource commands on file context menu for all YAML files"
-                        },
-                        "imageBuildTool": {
-                            "type": "string",
-                            "enum": [
-                                "Docker",
-                                "Buildah"
-                            ],
-                            "description": "Container image build tool. By default, Docker."
-                        },
-                        "vs-kubernetes.python-autodetect-remote-root": {
-                            "type": "boolean",
-                            "description": "If true will try to automatically get the root location of the source code in the container (Python)."
-                        },
-                        "vs-kubernetes.python-remote-root": {
-                            "type": "string",
-                            "description": "The root location of the source code in the container (Python)."
-                        },
-                        "vs-kubernetes.python-debug-port": {
-                            "type": "number",
-                            "description": "Remote debugging port for Python. Usually 5678."
-                        },
-                        "vs-kubernetes.dotnet-vsdbg-path": {
-                            "type": "string",
-                            "description": "The path to the vsdbg debugger in the container (.NET)."
-                        },
-                        "vs-kubernetes.dotnet-source-file-map": {
-                            "type": "string",
-                            "description": "The compilation root for the vsdbg debugger in order to have a sourceFileMap in the attach configuration of debug (.NET)."
-                        },
-                        "vs-kubernetes.resources-to-watch": {
-                            "type": "array",
-                            "description": "List of resources to be watched."
-                        },
-                        "vs-kubernetes.enable-snap-flag": {
-                            "type": "boolean",
-                            "description": "Enables compatibility with instances of VS Code that were installed using snap."
-                        },
-                        "vs-kubernetes.disable-context-info-status-bar": {
-                            "type": "boolean",
-                            "description": "Disable displaying your current Kubernetes context in VS Code's status bar."
-                        },
-                        "vs-kubernetes.disable-namespace-info-status-bar": {
-                            "type": "boolean",
-                            "description": "Disable displaying your current Kubernetes namespace in VS Code's status bar."
-                        },
-                        "vs-kubernetes.local-tunnel-debug-provider": {
-                            "type": "string",
-                            "description": "Configure the Local Tunnel debug provider you want to use by default."
-                        },
-                        "vs-kubernetes.enable-minimal-describe-workflow": {
-                            "type": "boolean",
-                            "description": "Enables the minimal describe workflow. It reduces the queries to the cluster but the guided prompt has limited options."
-                        },
-                        "vs-kubernetes.suppress-kubectl-not-found-alerts": {
-                            "type": "boolean",
-                            "default": false,
-                            "description": "Suppresses the display of warnings if no kubectl binary is available"
-                        },
-                        "vs-kubernetes.ignore-recommendations": {
-                            "type": "boolean",
-                            "default": false,
-                            "description": "Set to true to silence Kubernetes extension recommendation notifications."
-                        },
-                        "vs-kubernetes.crd-code-completion": {
-                            "type": "string",
-                            "enum": [
-                                "enabled",
-                                "disabled"
-                            ],
-                            "description": "Set the smart code completion for CRDs. This would always prevent/allow the plugin to fetch all custom schemas from all CRDs on cluster, despite of their number."
-                        }
-                    },
-                    "default": {
-                        "vs-kubernetes.namespace": "",
-                        "vs-kubernetes.kubectl-path": "",
-                        "vs-kubernetes.helm-path": "",
-                        "vs-kubernetes.minikube-path": "",
-                        "vs-kubernetes.kubectlVersioning": "user-provided",
-                        "vs-kubernetes.outputFormat": "yaml",
-                        "vs-kubernetes.kubeconfig": "",
-                        "vs-kubernetes.knownKubeconfigs": [],
-                        "vs-kubernetes.autoCleanupOnDebugTerminate": false,
-                        "vs-kubernetes.nodejs-autodetect-remote-root": true,
-                        "vs-kubernetes.nodejs-remote-root": "",
-                        "vs-kubernetes.nodejs-debug-port": 9229,
-                        "vs-kubernetes.dotnet-vsdbg-path": "~/vsdbg/vsdbg",
-                        "vs-kubernetes.local-tunnel-debug-provider": "",
-                        "checkForMinikubeUpgrade": true,
-                        "imageBuildTool": "Docker"
-                    }
-                },
-                "vsdocker.imageUser": {
-                    "type": "string",
-                    "default": null,
-                    "description": "Image prefix for docker images ie 'docker.io/brendanburns'"
-                },
-                "vscode-kubernetes.kubectl-path": {
-                    "type": "string",
-                    "scope": "machine",
-                    "title": "Path to kubectl",
-                    "description": "File path to a kubectl binary. (You can override this on a per-OS basis if required)."
-                },
-                "vscode-kubernetes.helm-path": {
-                    "type": "string",
-                    "scope": "machine",
-                    "title": "Helm path",
-                    "description": "File path to a helm binary. (You can override this on a per-OS basis if required)."
-                },
-                "vscode-kubernetes.minikube-path": {
-                    "type": "string",
-                    "scope": "machine",
-                    "title": "Minikube path",
-                    "description": "File path to a minikube binary. (You can override this on a per-OS basis if required)."
-                },
-                "vscode-kubernetes.kubectl-path.windows": {
-                    "type": "string",
-                    "scope": "machine",
-                    "title": "Path to kubectl (Windows)",
-                    "description": "File path to a kubectl binary."
-                },
-                "vscode-kubernetes.helm-path.windows": {
-                    "type": "string",
-                    "scope": "machine",
-                    "title": "Helm path (Windows)",
-                    "description": "File path to a helm binary."
-                },
-                "vscode-kubernetes.minikube-path.windows": {
-                    "type": "string",
-                    "scope": "machine",
-                    "title": "Minikube path (Windows)",
-                    "description": "File path to a minikube binary."
-                },
-                "vscode-kubernetes.kubectl-path.mac": {
-                    "type": "string",
-                    "scope": "machine",
-                    "title": "Path to kubectl (Mac)",
-                    "description": "File path to a kubectl binary."
-                },
-                "vscode-kubernetes.helm-path.mac": {
-                    "type": "string",
-                    "scope": "machine",
-                    "title": "Helm path (Mac)",
-                    "description": "File path to a helm binary."
-                },
-                "vscode-kubernetes.minikube-path.mac": {
-                    "type": "string",
-                    "scope": "machine",
-                    "title": "Minikube path (Mac)",
-                    "description": "File path to a minikube binary."
-                },
-                "vscode-kubernetes.kubectl-path.linux": {
-                    "type": "string",
-                    "scope": "machine",
-                    "title": "Path to kubectl (Linux)",
-                    "description": "File path to a kubectl binary."
-                },
-                "vscode-kubernetes.helm-path.linux": {
-                    "type": "string",
-                    "scope": "machine",
-                    "title": "Helm path (Linux)",
-                    "description": "File path to a helm binary."
-                },
-                "vscode-kubernetes.minikube-path.linux": {
-                    "type": "string",
-                    "scope": "machine",
-                    "title": "Minikube path (Linux)",
-                    "description": "File path to a minikube binary."
-                },
-                "vscode-kubernetes.log-viewer.follow": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Set to true to follow logs by default in the log viewer."
-                },
-                "vscode-kubernetes.log-viewer.timestamp": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Set to true to show timestamps by default in the log viewer."
-                },
-                "vscode-kubernetes.log-viewer.since": {
-                    "type": "integer",
-                    "default": -1,
-                    "minimum": -1,
-                    "description": "How far back to fetch logs from in seconds by default. Set to -1 for all logs."
-                },
-                "vscode-kubernetes.log-viewer.tail": {
-                    "type": "integer",
-                    "default": -1,
-                    "minimum": -1,
-                    "description": "The number of recent logs to display by default in the log viewer. Set to -1 for all log lines."
-                },
-                "vscode-kubernetes.log-viewer.destination": {
-                    "type": "string",
-                    "default": "Webview",
-                    "description": "Where to display logs, defaults to the dedicated Webview.",
-                    "enum": [
-                        "Webview",
-                        "Terminal"
-                    ]
-                },
-                "vscode-kubernetes.log-viewer.wrap": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Set to true to wrap lines by default in the log viewer."
-                },
-                "vscode-kubernetes.log-viewer.autorun": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Set to true to automatically begin fetching logs once the log viewer is opened using the default settings."
-                }
-            }
-        },
-        "views": {
-            "kubernetesView": [
-                {
-                    "id": "extension.vsKubernetesExplorer",
-                    "name": "Clusters"
-                },
-                {
-                    "id": "extension.vsKubernetesHelmRepoExplorer",
-                    "name": "Helm Repos"
-                },
-                {
-                    "id": "kubernetes.cloudExplorer",
-                    "name": "Clouds"
-                }
-            ]
-        },
-        "viewsContainers": {
-            "activitybar": [
-                {
-                    "icon": "images/logo.svg",
-                    "id": "kubernetesView",
-                    "title": "Kubernetes"
-                }
-            ]
-        },
-        "menus": {
-            "editor/title": [
-                {
-                    "command": "extension.vsKubernetesDescribe.Refresh",
-                    "when": "vscodeKubernetesDescribeContext"
-                }
-            ],
-            "explorer/context": [
-                {
-                    "title": "Update Dependencies",
-                    "when": "resourceFilename == requirements.yaml",
-                    "command": "extension.helmDepUp",
-                    "group": "2_helm@99"
-                },
-                {
-                    "title": "Create Kubernetes resource",
-                    "when": "resourceLangId == yaml && config.vs-kubernetes.resource-commands-on-files",
-                    "command": "extension.vsKubernetesCreateFile",
-                    "group": "2_k8s_1"
-                },
-                {
-                    "title": "Apply Kubernetes resource",
-                    "when": "resourceLangId == yaml && config.vs-kubernetes.resource-commands-on-files",
-                    "command": "extension.vsKubernetesApplyFile",
-                    "group": "2_k8s_2"
-                },
-                {
-                    "title": "Delete Kubernetes resource",
-                    "when": "resourceLangId == yaml && config.vs-kubernetes.resource-commands-on-files",
-                    "command": "extension.vsKubernetesDeleteUri",
-                    "group": "2_k8s_3"
-                },
-                {
-                    "when": "",
-                    "command": "extension.helmConvertToTemplate",
-                    "group": "2_helm@98"
-                }
-            ],
-            "view/title": [
-                {
-                    "command": "extension.vsKubernetesRefreshExplorer",
-                    "when": "view == extension.vsKubernetesExplorer",
-                    "group": "navigation"
-                },
-                {
-                    "command": "extension.vsKubernetesCreateCluster",
-                    "when": "view == extension.vsKubernetesExplorer",
-                    "group": "0"
-                },
-                {
-                    "command": "extension.vsKubernetesConfigureFromCluster",
-                    "when": "view == extension.vsKubernetesExplorer",
-                    "group": "0"
-                },
-                {
-                    "command": "extension.vsKubernetesUseKubeconfig",
-                    "when": "view == extension.vsKubernetesExplorer",
-                    "group": "1"
-                },
-                {
-                    "command": "extension.vsKubernetesRefreshHelmRepoExplorer",
-                    "when": "view == extension.vsKubernetesHelmRepoExplorer",
-                    "group": "navigation"
-                },
-                {
-                    "command": "extension.vsKubernetesRefreshCloudExplorer",
-                    "when": "view == kubernetes.cloudExplorer",
-                    "group": "navigation"
-                },
-                {
-                    "command": "kubernetes.cloudExplorer.findProviders",
-                    "when": "view == kubernetes.cloudExplorer",
-                    "group": "1"
-                }
-            ],
-            "view/item/context": [
-                {
-                    "command": "extension.vsKubernetesUseContext",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.\\w*cluster\\.inactive/i",
-                    "group": "0@1"
-                },
-                {
-                    "command": "extension.vsKubernetesDeleteContext",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.\\w*cluster.*/i",
-                    "group": "0@2"
-                },
-                {
-                    "command": "extension.vsKubernetesCopy",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.\\w*cluster.*/i",
-                    "group": "1"
-                },
-                {
-                    "command": "extension.vsKubernetesClusterInfo",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.\\w*cluster($|\\s)/i",
-                    "group": "0@1"
-                },
-                {
-                    "command": "extension.vsKubernetesDashboard",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.\\w*cluster($|\\s)/i",
-                    "group": "0@3"
-                },
-                {
-                    "command": "extension.vsMinikubeStop",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.minikubeCluster/i",
-                    "group": "2@1"
-                },
-                {
-                    "command": "extension.vsMinikubeStart",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.minikubeCluster/i",
-                    "group": "2@0"
-                },
-                {
-                    "command": "extension.vsMinikubeStatus",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.minikubeCluster/i",
-                    "group": "2@3"
-                },
-                {
-                    "command": "extension.vsKubernetesUseNamespace",
-                    "group": "0",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.namespace\\.inactive/i"
-                },
-                {
-                    "command": "extension.vsKubernetesShowEvents",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.namespace/",
-                    "group": "1"
-                },
-                {
-                    "command": "extension.vsKubernetesFollowEvents",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.namespace/",
-                    "group": "1"
-                },
-                {
-                    "command": "extension.vsKubernetesCopy",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\./i",
-                    "group": "1"
-                },
-                {
-                    "command": "extension.vsKubernetesGet",
-                    "group": "1@1",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.kind/i"
-                },
-                {
-                    "command": "extension.vsKubernetesAddWatch",
-                    "group": "3@1",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /k8s-watchable/i"
-                },
-                {
-                    "command": "extension.vsKubernetesDeleteWatch",
-                    "group": "3@2",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /k8s-watchable/i"
-                },
-                {
-                    "command": "extension.vsKubernetesLoad",
-                    "group": "0",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource(?!\\.namespace).*/i"
-                },
-                {
-                    "command": "extension.vsKubernetesGet",
-                    "group": "2@1",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource(?!\\.namespace).*/i"
-                },
-                {
-                    "command": "extension.vsKubernetesDelete",
-                    "group": "2@2",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource.*/i"
-                },
-                {
-                    "command": "extension.vsKubernetesDescribe",
-                    "group": "3",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource(?!\\.namespace).*/i"
-                },
-                {
-                    "command": "extension.helmConvertToTemplate",
-                    "group": "2",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource(?!\\.namespace).*/i"
-                },
-                {
-                    "command": "extension.vsKubernetesDeleteNow",
-                    "group": "2@3",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.pod/i"
-                },
-                {
-                    "command": "extension.vsKubernetesTerminal",
-                    "group": "2@4",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.pod/i"
-                },
-                {
-                    "command": "extension.vsKubernetesDebugAttach",
-                    "group": "2@5",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.pod/i"
-                },
-                {
-                    "command": "extension.vsKubernetesDebugLocalTunnel",
-                    "group": "2@5",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.(pod|job|service|deployment)/i"
-                },
-                {
-                    "command": "extension.vsKubernetesPortForward",
-                    "group": "2@6",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.pod/i"
-                },
-                {
-                    "command": "extension.vsKubernetesPortForward",
-                    "group": "2@6",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.service/i"
-                },
-                {
-                    "command": "extension.vsKubernetesPortForward",
-                    "group": "2@6",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.deployment/i"
-                },
-                {
-                    "command": "extension.vsKubernetesScale",
-                    "group": "2@6",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.(deployment|job|rc|rs|statefulset)/i"
-                },
-                {
-                    "command": "extension.vsKubernetesLogs",
-                    "group": "3",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.(pod|job)/i"
-                },
-                {
-                    "command": "extension.vsKubernetesCronJobRunNow",
-                    "group": "3",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.cronjob/i"
-                },
-                {
-                    "command": "extension.vsKubernetesAddFile",
-                    "group": "3",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.configmap/i"
-                },
-                {
-                    "command": "extension.vsKubernetesAddFile",
-                    "group": "3",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.secret/i"
-                },
-                {
-                    "command": "extension.vsKubernetesDeleteFile",
-                    "group": "3",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.file/i"
-                },
-                {
-                    "command": "extension.vsKubernetesCopy",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.helmrelease/i",
-                    "group": "1"
-                },
-                {
-                    "command": "extension.helmFetch",
-                    "group": "1",
-                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem =~ /vsKubernetes\\.((chart)|(chartversion))/i"
-                },
-                {
-                    "command": "extension.helmInstall",
-                    "group": "2",
-                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem =~ /vsKubernetes\\.((chart)|(chartversion))/i"
-                },
-                {
-                    "command": "extension.helmDependencies",
-                    "group": "0@3",
-                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem =~ /vsKubernetes\\.((chart)|(chartversion))/i"
-                },
-                {
-                    "command": "extension.helmInspectChart",
-                    "group": "0@1",
-                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem =~ /vsKubernetes\\.((chart)|(chartversion))/i"
-                },
-                {
-                    "command": "extension.helmFetchValues",
-                    "group": "0@3",
-                    "when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem =~ /vsKubernetes\\.((chart)|(chartversion))/i"
-                },
-                {
-                    "command": "extension.helmRollback",
-                    "group": "3@1",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.helmhistory/i"
-                },
-                {
-                    "command": "extension.helmUninstall",
-                    "group": "3@2",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.helmrelease/i"
-                },
-                {
-                    "command": "kubernetes.cloudExplorer.mergeIntoKubeconfig",
-                    "group": "7",
-                    "when": "view == kubernetes.cloudExplorer && viewItem =~ /kubernetes\\.providesKubeconfig/i"
-                },
-                {
-                    "command": "kubernetes.cloudExplorer.saveKubeconfig",
-                    "group": "7",
-                    "when": "view == kubernetes.cloudExplorer && viewItem =~ /kubernetes\\.providesKubeconfig/i"
-                },
-                {
-                    "command": "kubernetes.cloudExplorer.findProviders",
-                    "when": "view == kubernetes.cloudExplorer && viewItem == kubernetes.noProviders",
-                    "group": "1"
-                }
-            ],
-            "commandPalette": [
-                {
-                    "command": "extension.vsKubernetesDebounceActivation",
-                    "when": "context == thiscontextdoesnotexist7603253285"
-                },
-                {
-                    "command": "extension.vsKubernetesApplyFile",
-                    "when": "filesExplorerFocus"
-                },
-                {
-                    "command": "extension.vsKubernetesCreateFile",
-                    "when": "filesExplorerFocus"
-                },
-                {
-                    "command": "extension.vsKubernetesDeleteUri",
-                    "when": "filesExplorerFocus"
-                },
-                {
-                    "command": "extension.vsKubernetesRefreshExplorer",
-                    "when": "view == extension.vsKubernetesExplorer"
-                },
-                {
-                    "command": "extension.vsKubernetesRefreshHelmRepoExplorer",
-                    "when": "view == extension.vsKubernetesHelmRepoExplorer"
-                },
-                {
-                    "command": "extension.vsKubernetesRefreshCloudExplorer",
-                    "when": "view == kubernetes.cloudExplorer"
-                },
-                {
-                    "command": "extension.vsKubernetesUseContext",
-                    "when": "view == extension.vsKubernetesExplorer"
-                },
-                {
-                    "command": "extension.vsKubernetesClusterInfo",
-                    "when": "view == extension.vsKubernetesExplorer"
-                },
-                {
-                    "command": "extension.vsKubernetesDeleteContext",
-                    "when": "view == extension.vsKubernetesExplorer"
-                },
-                {
-                    "command": "extension.vsKubernetesUseNamespace",
-                    "when": ""
-                },
-                {
-                    "command": "extension.vsKubernetesCopy",
-                    "when": "view == extension.vsKubernetesExplorer"
-                },
-                {
-                    "command": "extension.vsKubernetesAddFile",
-                    "when": "view == extension.vsKubernetesExplorer"
-                },
-                {
-                    "command": "extension.vsKubernetesDeleteFile",
-                    "when": "view == extension.vsKubernetesExplorer"
-                },
-                {
-                    "command": "extension.helmGet",
-                    "when": "view == extension.vsKubernetesExplorer"
-                },
-                {
-                    "command": "extension.helmInspectChart",
-                    "when": "view === extension.vsKubernetesHelmRepoExplorer"
-                },
-                {
-                    "command": "kubernetes.cloudExplorer.mergeIntoKubeconfig",
-                    "when": ""
-                },
-                {
-                    "command": "kubernetes.cloudExplorer.saveKubeconfig",
-                    "when": ""
-                },
-                {
-                    "command": "kubernetes.portForwarding.showSessions",
-                    "when": ""
-                }
-            ]
-        },
-        "commands": [
-            {
-                "command": "extension.vsKubernetesDebounceActivation",
-                "title": "Debounce Activation",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesDescribe.Refresh",
-                "title": "Refresh",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesCreate",
-                "title": "Create",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesCreateFile",
-                "title": "Create Kubernetes resource",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesAddWatch",
-                "title": "Watch",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesDelete",
-                "title": "Delete",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesDeleteNow",
-                "title": "Delete Now",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesDeleteUri",
-                "title": "Delete Kubernetes resource",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesDeleteWatch",
-                "title": "Stop Watching",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesApply",
-                "title": "Apply",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesApplyFile",
-                "title": "Apply Kubernetes resource",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesExplain",
-                "title": "Explain",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesLoad",
-                "title": "Load",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesGet",
-                "title": "Get",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesRun",
-                "title": "Run",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesLogs",
-                "title": "Logs",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesExpose",
-                "title": "Expose",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesDescribe",
-                "title": "Describe",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesSync",
-                "title": "Sync Working Copy to Cluster",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesExec",
-                "title": "Exec",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesTerminal",
-                "title": "Terminal",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesDiff",
-                "title": "Diff",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesScale",
-                "title": "Scale",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesDebug",
-                "title": "Debug (Launch)",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesDebugAttach",
-                "title": "Debug (Attach)",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesDebugLocalTunnel",
-                "title": "Debug (Local Tunnel)",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesFindLocalTunnelDebugProviders",
-                "title": "Find Local Tunnel Debug Providers on Marketplace",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesRemoveDebug",
-                "title": "Remove Debug",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesConfigureFromCluster",
-                "title": "Add Existing Cluster",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesCreateCluster",
-                "title": "Create Cluster",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesUseContext",
-                "title": "Set as Current Cluster",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesUseKubeconfig",
-                "title": "Set Kubeconfig",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesClusterInfo",
-                "title": "Show Cluster Info",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesDeleteContext",
-                "title": "Delete from kubeconfig",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesUseNamespace",
-                "title": "Use Namespace",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesDashboard",
-                "title": "Open Dashboard",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsMinikubeStop",
-                "title": "Stop minikube",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsMinikubeStart",
-                "title": "Start minikube",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsMinikubeStatus",
-                "title": "Minikube status",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesPortForward",
-                "title": "Port Forward",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesCopy",
-                "title": "Copy Name",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesAddFile",
-                "title": "Add File(s)",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesDeleteFile",
-                "title": "Delete File",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesCronJobRunNow",
-                "title": "Run CronJob Now",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesRefreshExplorer",
-                "title": "Refresh",
-                "category": "Kubernetes",
-                "icon": {
-                    "light": "images/light/refresh.svg",
-                    "dark": "images/dark/refresh.svg"
-                }
-            },
-            {
-                "command": "extension.vsKubernetesShowEvents",
-                "title": "Show Events",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesFollowEvents",
-                "title": "Follow Events",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesRefreshHelmRepoExplorer",
-                "title": "Refresh",
-                "category": "Helm",
-                "icon": {
-                    "light": "images/light/refresh.svg",
-                    "dark": "images/dark/refresh.svg"
-                }
-            },
-            {
-                "command": "extension.helmVersion",
-                "title": "Version",
-                "description": "Get the version of the local Helm client.",
-                "category": "Helm"
-            },
-            {
-                "command": "extension.helmLint",
-                "title": "Lint",
-                "description": "Run the Helm linter on this chart.",
-                "category": "Helm"
-            },
-            {
-                "command": "extension.helmDepUp",
-                "title": "Dependency Update",
-                "description": "Update the dependencies listed in requirements.yaml.",
-                "category": "Helm"
-            },
-            {
-                "command": "extension.helmDryRun",
-                "title": "Dry Run",
-                "description": "Run 'helm install --dry-run --debug' on this chart.",
-                "category": "Helm"
-            },
-            {
-                "command": "extension.helmTemplate",
-                "title": "Template",
-                "description": "Run 'helm template' on this chart.",
-                "category": "Helm"
-            },
-            {
-                "command": "extension.helmInsertReq",
-                "title": "Insert Dependency",
-                "description": "Insert a dependency YAML fragment",
-                "category": "Helm"
-            },
-            {
-                "command": "extension.helmTemplatePreview",
-                "title": "Preview Template",
-                "description": "Run 'helm template' on this chart and show only this file.",
-                "category": "Helm"
-            },
-            {
-                "command": "extension.helmFetchValues",
-                "title": "Fetch values",
-                "description": "Fetches values.yaml from the chart",
-                "category": "Helm"
-            },
-            {
-                "command": "extension.helmInspectChart",
-                "title": "Inspect Chart",
-                "description": "Inspect a Helm Chart",
-                "category": "Helm"
-            },
-            {
-                "command": "extension.helmCreate",
-                "title": "Create Chart",
-                "description": "Create a new Helm Chart",
-                "category": "Helm"
-            },
-            {
-                "command": "extension.helmConvertToTemplate",
-                "title": "Convert to Template",
-                "description": "Convert this manifest to a Helm template",
-                "category": "Helm"
-            },
-            {
-                "command": "extension.helmParameterise",
-                "title": "Convert to Template Parameter",
-                "description": "Convert this value to a Helm template parameter",
-                "category": "Helm"
-            },
-            {
-                "command": "extension.helmGet",
-                "title": "Get Release",
-                "description": "Get a Helm release from the cluster",
-                "category": "Helm"
-            },
-            {
-                "command": "extension.helmPackage",
-                "title": "Package",
-                "description": "Package a chart directory into a versioned chart archive file.",
-                "category": "Helm"
-            },
-            {
-                "command": "extension.helmFetch",
-                "title": "Fetch",
-                "description": "Fetch a Helm chart into the current project",
-                "category": "Helm"
-            },
-            {
-                "command": "extension.helmInstall",
-                "title": "Install",
-                "description": "Install a Helm chart into the cluster",
-                "category": "Helm"
-            },
-            {
-                "command": "extension.helmUninstall",
-                "title": "Uninstall",
-                "description": "Uninstall a Helm release",
-                "category": "Helm"
-            },
-            {
-                "command": "extension.helmRollback",
-                "title": "Rollback",
-                "description": "Rollback Helm Release",
-                "category": "Helm"
-            },
-            {
-                "command": "extension.helmDependencies",
-                "title": "Show Dependencies",
-                "description": "List the dependencies of a Helm chart",
-                "category": "Helm"
-            },
-            {
-                "command": "extension.vsKubernetesRefreshCloudExplorer",
-                "title": "Refresh",
-                "category": "Kubernetes",
-                "icon": {
-                    "light": "images/light/refresh.svg",
-                    "dark": "images/dark/refresh.svg"
-                }
-            },
-            {
-                "command": "kubernetes.cloudExplorer.mergeIntoKubeconfig",
-                "title": "Merge into Kubeconfig",
-                "description": "Merge the cluster's kubeconfig into your existing kubeconfig"
-            },
-            {
-                "command": "kubernetes.cloudExplorer.saveKubeconfig",
-                "title": "Save Kubeconfig",
-                "description": "Save the cluster's kubeconfig as a kubeconfig file"
-            },
-            {
-                "command": "kubernetes.cloudExplorer.findProviders",
-                "title": "Find Cloud Providers on Marketplace",
-                "description": "Find extensions that add clouds to the Cloud Explorer"
-            },
-            {
-                "command": "kubernetes.portForwarding.showSessions",
-                "title": "Show Port Forwarding Sessions",
-                "category": "Kubernetes"
-            }
-        ],
-        "keybindings": [
-            {
-                "command": "extension.vsKubernetesDescribe.Refresh",
-                "key": "shift+ctrl+r",
-                "mac": "shift+cmd+r",
-                "when": "vscodeKubernetesDescribeContext"
-            }
-        ],
-        "languages": [
-            {
-                "id": "helm",
-                "aliases": [
-                    "helm-template",
-                    "helm"
-                ],
-                "filenamePatterns": [
-                    "**/templates/*.yaml",
-                    "**/templates/*.yml",
-                    "**/templates/*.tpl",
-                    "**/templates/**/*.yaml",
-                    "**/templates/**/*.yml",
-                    "**/templates/**/*.tpl"
-                ],
-                "configuration": "./language-configuration.json"
-            },
-            {
-                "id": "ignore",
-                "filenames": [
-                    ".helmignore"
-                ]
-            },
-            {
-                "id": "yaml",
-                "filenames": [
-                    "Chart.lock",
-                    "requirements.lock",
-                    "**/.kube/config"
-                ]
-            }
-        ],
-        "grammars": [
-            {
-                "language": "helm",
-                "scopeName": "source.helm",
-                "path": "./syntaxes/helm.tmLanguage.json"
-            }
-        ],
-        "snippets": [
-            {
-                "language": "helm",
-                "path": "./snippets/helm.json"
-            }
-        ],
-        "debuggers": []
-    },
-    "scripts": {
-        "vscode:prepublish": "npm run vscode:prepublish:ext && npm run vscode:prepublish:view",
-        "vscode:prepublish:ext": "webpack --mode production",
-        "vscode:prepublish:view": "webpack --mode production --config src/components/logs/webpack.config.js",
-        "lint": "eslint -c .eslintrc.js --ext .ts ./src",
-        "compile": "npm run compile:ext && npm run compile:view",
-        "compile:ext": "webpack --mode none",
-        "compile:view": "webpack --mode none --config src/components/logs/webpack.config.js",
-        "watch": "webpack --mode development --watch --info-verbosity verbose",
-        "test-compile": "tsc -p ./",
-        "test": "npm run test-compile && node ./out/test/runTest.js"
-    },
-    "extensionDependencies": [
-        "redhat.vscode-yaml"
-    ],
-    "dependencies": {
-        "@kubernetes/client-node": "^0.14.0",
-        "ajv": "^6.9.1",
-        "await-notify": "^1.0.1",
-        "clipboardy": "^1.2.3",
-        "compare-versions": "^3.1.0",
-        "debug": "^3.1.0",
-        "docker-file-parser": "^1.0.3",
-        "dockerfile-parse": "^0.2.0",
-        "download": "^7.1.0",
-        "fuzzysearch": "^1.0.3",
-        "got": "^11.8.2",
-        "graceful-fs": "^4.1.11",
-        "js-yaml": "^3.13.1",
-        "lodash": "^4.17.21",
-        "mixin-deep": "^1.3.2",
-        "mkdirp": "^0.5.1",
-        "moment": "^2.29.1",
-        "natives": "^1.1.3",
-        "node-yaml-parser": "^0.0.9",
-        "opn": "^5.2.0",
-        "pluralize": "^4.0.0",
-        "portfinder": "^1.0.13",
-        "rxjs": "^6.5.4",
-        "semver": "^5.5.1",
-        "shelljs": "^0.7.7",
-        "spawn-rx": "^3.0.0",
-        "sshpk": "^1.13.2",
-        "tar": "^4.4.1",
-        "tmp": "^0.0.31",
-        "unzipper": "^0.10.5",
-        "url-parse": "^1.5.1",
-        "uuid": "^3.1.0",
-        "vscode-debugadapter": "1.27.0",
-        "vscode-debugprotocol": "1.27.0",
-        "vscode-extension-telemetry": "^0.1.1",
-        "vscode-uri": "^1.0.1",
-        "yaml-ast-parser": "^0.0.40",
-        "yamljs": "^0.3.0"
-    },
-    "devDependencies": {
-        "@bendera/vscode-webview-elements": "^0.2.0",
-        "@types/clipboardy": "^1.1.0",
-        "@types/js-yaml": "^3.12.0",
-        "@types/lodash": "^4.14.113",
-        "@types/mkdirp": "^0.5.2",
-        "@types/mocha": "^8.0.4",
-        "@types/node": "^10.2.0",
-        "@types/opn": "^5.1.0",
-        "@types/pluralize": "^0.0.29",
-        "@types/request": "^2.48.1",
-        "@types/semver": "^5.5.0",
-        "@types/shelljs": "^0.7.8",
-        "@types/sinon": "^7.0.0",
-        "@types/tar": "^4.0.0",
-        "@types/tmp": "^0.0.33",
-        "@types/unzipper": "^0.10.0",
-        "@types/uuid": "^3.4.4",
-        "@types/vscode": "^1.52.0",
-        "@types/websocket": "^0.0.40",
-        "@types/yamljs": "^0.2.30",
-        "@typescript-eslint/eslint-plugin": "^4.28.1",
-        "@typescript-eslint/eslint-plugin-tslint": "4.28.1",
-        "@typescript-eslint/parser": "^4.28.1",
-        "electron": "^13.1.4",
-        "eslint": "^7.29.0",
-        "file-loader": "^6.2.0",
-        "gulp": "^4.0.2",
-        "gulp-tslint": "^8.1.2",
-        "html-webpack-plugin": "^4.2.0",
-        "mocha": "^8.1.3",
-        "sinon": "^6.3.5",
-        "ts-loader": "^6.0.4",
-        "tslint": "^5.18.0",
-        "typescript": "^3.5.2",
-        "vscode-test": "^1.4.1",
-        "webpack": "^4.35.2",
-        "webpack-cli": "^3.3.5"
-    },
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/vscode-kubernetes-tools/vscode-kubernetes-tools"
-    }
+	"name": "vscode-kubernetes-tools",
+	"displayName": "Kubernetes",
+	"description": "Develop, deploy and debug Kubernetes applications",
+	"version": "1.3.9",
+	"publisher": "ms-kubernetes-tools",
+	"engines": {
+		"vscode": "^1.52.0"
+	},
+	"license": "MIT",
+	"categories": [
+		"Snippets",
+		"Linters",
+		"Debuggers",
+		"Azure",
+		"Other"
+	],
+	"keywords": [
+		"kubernetes",
+		"helm",
+		"aks",
+		"gke",
+		"aws"
+	],
+	"aiKey": "AIF-d9b70cd4-b9f9-4d70-929b-a071c400b217",
+	"icon": "images/k8s-logo.png",
+	"activationEvents": [
+		"onCommand:extension.vsKubernetesCreate",
+		"onCommand:extension.vsKubernetesCreateFile",
+		"onCommand:extension.vsKubernetesAddWatch",
+		"onCommand:extension.vsKubernetesDelete",
+		"onCommand:extension.vsKubernetesDeleteNow",
+		"onCommand:extension.vsKubernetesDeleteUri",
+		"onCommand:extension.vsKubernetesDeleteWatch",
+		"onCommand:extension.vsKubernetesDescribe.Refresh",
+		"onCommand:extension.vsKubernetesApply",
+		"onCommand:extension.vsKubernetesApplyFile",
+		"onCommand:extension.vsKubernetesExplain",
+		"onCommand:extension.vsKubernetesLoad",
+		"onCommand:extension.vsKubernetesGet",
+		"onCommand:extension.vsKubernetesRun",
+		"onCommand:extension.vsKubernetesLogs",
+		"onCommand:extension.vsKubernetesExpose",
+		"onCommand:extension.vsKubernetesDescribe",
+		"onCommand:extension.vsKubernetesSync",
+		"onCommand:extension.vsKubernetesExec",
+		"onCommand:extension.vsKubernetesTerminal",
+		"onCommand:extension.vsKubernetesDiff",
+		"onCommand:extension.vsKubernetesScale",
+		"onCommand:extension.vsKubernetesDebug",
+		"onCommand:extension.vsKubernetesDebugLocalTunnel",
+		"onCommand:extension.vsKubernetesFindLocalTunnelDebugProviders",
+		"onCommand:extension.vsKubernetesSelectPod",
+		"onCommand:extension.vsKubernetesRemoveDebug",
+		"onCommand:extension.vsKubernetesConfigureFromCluster",
+		"onCommand:extension.vsKubernetesCreateCluster",
+		"onCommand:extension.vsKubernetesUseKubeconfig",
+		"onCommand:extension.vsKubernetesDashboard",
+		"onCommand:extension.vsMinikubeStop",
+		"onCommand:extension.vsMinikubeStart",
+		"onCommand:extension.vsMinikubeStatus",
+		"onCommand:extension.vsKubernetesPortForward",
+		"onCommand:extension.vsKubernetesDeleteFile",
+		"onCommand:extension.vsKubernetesAddFile",
+		"onCommand:extension.vsKubernetesUseNamespace",
+		"onCommand:extension.vsKubernetesShowEvents",
+		"onCommand:extension.vsKubernetesFollowEvents",
+		"onCommand:extension.vsKubernetesCronJobRunNow",
+		"onCommand:extension.helmTemplate",
+		"onCommand:extension.helmTemplatePreview",
+		"onCommand:extension.helmLint",
+		"onCommand:extension.helmDryRun",
+		"onCommand:extension.helmVersion",
+		"onCommand:extension.helmCreate",
+		"onCommand:extension.helmInsertReq",
+		"onCommand:extension.helmDepUp",
+		"onCommand:extension.helmInspectChart",
+		"onCommand:extension.helmFetchValues",
+		"onCommand:extension.helmGet",
+		"onCommand:extension.helmPackage",
+		"onCommand:extension.helmFetch",
+		"onCommand:extension.helmInstall",
+		"onCommand:extension.helmUninstall",
+		"onCommand:extension.helmRollback",
+		"onCommand:extension.helmDependencies",
+		"onCommand:extension.helmConvertToTemplate",
+		"onCommand:extension.helmParameterise",
+		"onView:extension.vsKubernetesExplorer",
+		"onView:extension.vsKubernetesHelmRepoExplorer",
+		"onView:kubernetes.cloudExplorer",
+		"onCommand:kubernetes.cloudExplorer.mergeIntoKubeconfig",
+		"onCommand:kubernetes.cloudExplorer.saveKubeconfig",
+		"onCommand:kubernetes.cloudExplorer.findProviders",
+		"onCommand:kubernetes.portForwarding.showSessions",
+		"onLanguage:helm",
+		"onLanguage:yaml",
+		"onFileSystem:k8smsx"
+	],
+	"main": "./dist/extension",
+	"contributes": {
+		"configuration": {
+			"type": "object",
+			"title": "Kubernetes",
+			"properties": {
+				"vs-kubernetes": {
+					"type": "object",
+					"title": "Additional settings",
+					"description": "Kubernetes configuration",
+					"properties": {
+						"vs-kubernetes.namespace": {
+							"type": "string",
+							"description": "The namespace to use for all commands"
+						},
+						"vs-kubernetes.kubectl-path": {
+							"type": "string",
+							"description": "[deprecated - use top level property] File path to a kubectl binary."
+						},
+						"vs-kubernetes.helm-path": {
+							"type": "string",
+							"description": "[deprecated - use top level property] File path to a helm binary."
+						},
+						"vs-kubernetes.minikube-path": {
+							"type": "string",
+							"description": "[deprecated - use top level property] File path to a minikube binary."
+						},
+						"vs-kubernetes.kubectl-path.windows": {
+							"type": "string",
+							"description": "[deprecated - use top level property] File path to a kubectl binary."
+						},
+						"vs-kubernetes.helm-path.windows": {
+							"type": "string",
+							"description": "[deprecated - use top level property] File path to a helm binary."
+						},
+						"vs-kubernetes.minikube-path.windows": {
+							"type": "string",
+							"description": "[deprecated - use top level property] File path to a minikube binary."
+						},
+						"vs-kubernetes.kubectl-path.mac": {
+							"type": "string",
+							"description": "[deprecated - use top level property] File path to a kubectl binary."
+						},
+						"vs-kubernetes.helm-path.mac": {
+							"type": "string",
+							"description": "[deprecated - use top level property] File path to a helm binary."
+						},
+						"vs-kubernetes.minikube-path.mac": {
+							"type": "string",
+							"description": "[deprecated - use top level property] File path to a minikube binary."
+						},
+						"vs-kubernetes.kubectl-path.linux": {
+							"type": "string",
+							"description": "[deprecated - use top level property] File path to a kubectl binary."
+						},
+						"vs-kubernetes.helm-path.linux": {
+							"type": "string",
+							"description": "[deprecated - use top level property] File path to a helm binary."
+						},
+						"vs-kubernetes.minikube-path.linux": {
+							"type": "string",
+							"description": "[deprecated - use top level property] File path to a minikube binary."
+						},
+						"vs-kubernetes.kubectlVersioning": {
+							"type": "string",
+							"enum": [
+								"user-provided",
+								"infer"
+							],
+							"description": "Whether to use the kubectl binary you provide ('user-provided'), or to automatically download the right version of kubectl for each cluster ('infer')."
+						},
+						"vs-kubernetes.kubeconfig": {
+							"type": "string",
+							"description": "File path to the kubeconfig file."
+						},
+						"vs-kubernetes.knownKubeconfigs": {
+							"type": "array",
+							"description": "File paths to kubeconfig files from which you can select."
+						},
+						"vs-kubernetes.autoCleanupOnDebugTerminate": {
+							"type": "boolean",
+							"description": "Once the debug session is terminated, automatically clean up the created Deployment and associated Pod by the command \"Kubernetes: Debug (Launch)\"."
+						},
+						"vs-kubernetes.outputFormat": {
+							"enum": [
+								"json",
+								"yaml"
+							],
+							"type": "string",
+							"description": "Output format for Kubernetes specs. One of 'json' or 'yaml' (default)."
+						},
+						"vs-kubernetes.nodejs-autodetect-remote-root": {
+							"type": "boolean",
+							"description": "If true will try to automatically get the root location of the source code in the container (nodejs)."
+						},
+						"vs-kubernetes.nodejs-remote-root": {
+							"type": "string",
+							"description": "The root location of the source code in the container (nodejs)."
+						},
+						"vs-kubernetes.nodejs-debug-port": {
+							"type": "number",
+							"description": "Remote debugging port for nodejs. Usually 9229."
+						},
+						"checkForMinikubeUpgrade": {
+							"type": "boolean",
+							"description": "Notify on startup if update is available for minikube"
+						},
+						"disable-lint": {
+							"type": "boolean",
+							"description": "Disable all linting of Kubernetes files"
+						},
+						"disable-linters": {
+							"type": "array",
+							"description": "List of linters by name to disable"
+						},
+						"resource-commands-on-files": {
+							"type": "boolean",
+							"description": "If true, show Kubernetes resource commands on file context menu for all YAML files"
+						},
+						"imageBuildTool": {
+							"type": "string",
+							"enum": [
+								"Docker",
+								"Buildah"
+							],
+							"description": "Container image build tool. By default, Docker."
+						},
+						"vs-kubernetes.python-autodetect-remote-root": {
+							"type": "boolean",
+							"description": "If true will try to automatically get the root location of the source code in the container (Python)."
+						},
+						"vs-kubernetes.python-remote-root": {
+							"type": "string",
+							"description": "The root location of the source code in the container (Python)."
+						},
+						"vs-kubernetes.python-debug-port": {
+							"type": "number",
+							"description": "Remote debugging port for Python. Usually 5678."
+						},
+						"vs-kubernetes.dotnet-vsdbg-path": {
+							"type": "string",
+							"description": "The path to the vsdbg debugger in the container (.NET)."
+						},
+						"vs-kubernetes.dotnet-source-file-map": {
+							"type": "string",
+							"description": "The compilation root for the vsdbg debugger in order to have a sourceFileMap in the attach configuration of debug (.NET)."
+						},
+						"vs-kubernetes.debug-just-my-code": {
+							"type": "boolean",
+							"description": "Enable/disable justMyCode debug configuration property for .NET, Python."
+						},
+						"vs-kubernetes.resources-to-watch": {
+							"type": "array",
+							"description": "List of resources to be watched."
+						},
+						"vs-kubernetes.enable-snap-flag": {
+							"type": "boolean",
+							"description": "Enables compatibility with instances of VS Code that were installed using snap."
+						},
+						"vs-kubernetes.disable-context-info-status-bar": {
+							"type": "boolean",
+							"description": "Disable displaying your current Kubernetes context in VS Code's status bar."
+						},
+						"vs-kubernetes.disable-namespace-info-status-bar": {
+							"type": "boolean",
+							"description": "Disable displaying your current Kubernetes namespace in VS Code's status bar."
+						},
+						"vs-kubernetes.local-tunnel-debug-provider": {
+							"type": "string",
+							"description": "Configure the Local Tunnel debug provider you want to use by default."
+						},
+						"vs-kubernetes.enable-minimal-describe-workflow": {
+							"type": "boolean",
+							"description": "Enables the minimal describe workflow. It reduces the queries to the cluster but the guided prompt has limited options."
+						},
+						"vs-kubernetes.suppress-kubectl-not-found-alerts": {
+							"type": "boolean",
+							"default": false,
+							"description": "Suppresses the display of warnings if no kubectl binary is available"
+						},
+						"vs-kubernetes.ignore-recommendations": {
+							"type": "boolean",
+							"default": false,
+							"description": "Set to true to silence Kubernetes extension recommendation notifications."
+						},
+						"vs-kubernetes.crd-code-completion": {
+							"type": "string",
+							"enum": [
+								"enabled",
+								"disabled"
+							],
+							"description": "Set the smart code completion for CRDs. This would always prevent/allow the plugin to fetch all custom schemas from all CRDs on cluster, despite of their number."
+						}
+					},
+					"default": {
+						"vs-kubernetes.namespace": "",
+						"vs-kubernetes.kubectl-path": "",
+						"vs-kubernetes.helm-path": "",
+						"vs-kubernetes.minikube-path": "",
+						"vs-kubernetes.kubectlVersioning": "user-provided",
+						"vs-kubernetes.outputFormat": "yaml",
+						"vs-kubernetes.kubeconfig": "",
+						"vs-kubernetes.knownKubeconfigs": [],
+						"vs-kubernetes.autoCleanupOnDebugTerminate": false,
+						"vs-kubernetes.nodejs-autodetect-remote-root": true,
+						"vs-kubernetes.nodejs-remote-root": "",
+						"vs-kubernetes.nodejs-debug-port": 9229,
+						"vs-kubernetes.dotnet-vsdbg-path": "~/vsdbg/vsdbg",
+						"vs-kubernetes.local-tunnel-debug-provider": "",
+						"checkForMinikubeUpgrade": true,
+						"imageBuildTool": "Docker"
+					}
+				},
+				"vsdocker.imageUser": {
+					"type": "string",
+					"default": null,
+					"description": "Image prefix for docker images ie 'docker.io/brendanburns'"
+				},
+				"vscode-kubernetes.kubectl-path": {
+					"type": "string",
+					"scope": "machine",
+					"title": "Path to kubectl",
+					"description": "File path to a kubectl binary. (You can override this on a per-OS basis if required)."
+				},
+				"vscode-kubernetes.helm-path": {
+					"type": "string",
+					"scope": "machine",
+					"title": "Helm path",
+					"description": "File path to a helm binary. (You can override this on a per-OS basis if required)."
+				},
+				"vscode-kubernetes.minikube-path": {
+					"type": "string",
+					"scope": "machine",
+					"title": "Minikube path",
+					"description": "File path to a minikube binary. (You can override this on a per-OS basis if required)."
+				},
+				"vscode-kubernetes.kubectl-path.windows": {
+					"type": "string",
+					"scope": "machine",
+					"title": "Path to kubectl (Windows)",
+					"description": "File path to a kubectl binary."
+				},
+				"vscode-kubernetes.helm-path.windows": {
+					"type": "string",
+					"scope": "machine",
+					"title": "Helm path (Windows)",
+					"description": "File path to a helm binary."
+				},
+				"vscode-kubernetes.minikube-path.windows": {
+					"type": "string",
+					"scope": "machine",
+					"title": "Minikube path (Windows)",
+					"description": "File path to a minikube binary."
+				},
+				"vscode-kubernetes.kubectl-path.mac": {
+					"type": "string",
+					"scope": "machine",
+					"title": "Path to kubectl (Mac)",
+					"description": "File path to a kubectl binary."
+				},
+				"vscode-kubernetes.helm-path.mac": {
+					"type": "string",
+					"scope": "machine",
+					"title": "Helm path (Mac)",
+					"description": "File path to a helm binary."
+				},
+				"vscode-kubernetes.minikube-path.mac": {
+					"type": "string",
+					"scope": "machine",
+					"title": "Minikube path (Mac)",
+					"description": "File path to a minikube binary."
+				},
+				"vscode-kubernetes.kubectl-path.linux": {
+					"type": "string",
+					"scope": "machine",
+					"title": "Path to kubectl (Linux)",
+					"description": "File path to a kubectl binary."
+				},
+				"vscode-kubernetes.helm-path.linux": {
+					"type": "string",
+					"scope": "machine",
+					"title": "Helm path (Linux)",
+					"description": "File path to a helm binary."
+				},
+				"vscode-kubernetes.minikube-path.linux": {
+					"type": "string",
+					"scope": "machine",
+					"title": "Minikube path (Linux)",
+					"description": "File path to a minikube binary."
+				},
+				"vscode-kubernetes.log-viewer.follow": {
+					"type": "boolean",
+					"default": false,
+					"description": "Set to true to follow logs by default in the log viewer."
+				},
+				"vscode-kubernetes.log-viewer.timestamp": {
+					"type": "boolean",
+					"default": false,
+					"description": "Set to true to show timestamps by default in the log viewer."
+				},
+				"vscode-kubernetes.log-viewer.since": {
+					"type": "integer",
+					"default": -1,
+					"minimum": -1,
+					"description": "How far back to fetch logs from in seconds by default. Set to -1 for all logs."
+				},
+				"vscode-kubernetes.log-viewer.tail": {
+					"type": "integer",
+					"default": -1,
+					"minimum": -1,
+					"description": "The number of recent logs to display by default in the log viewer. Set to -1 for all log lines."
+				},
+				"vscode-kubernetes.log-viewer.destination": {
+					"type": "string",
+					"default": "Webview",
+					"description": "Where to display logs, defaults to the dedicated Webview.",
+					"enum": [
+						"Webview",
+						"Terminal"
+					]
+				},
+				"vscode-kubernetes.log-viewer.wrap": {
+					"type": "boolean",
+					"default": false,
+					"description": "Set to true to wrap lines by default in the log viewer."
+				},
+				"vscode-kubernetes.log-viewer.autorun": {
+					"type": "boolean",
+					"default": false,
+					"description": "Set to true to automatically begin fetching logs once the log viewer is opened using the default settings."
+				}
+			}
+		},
+		"views": {
+			"kubernetesView": [
+				{
+					"id": "extension.vsKubernetesExplorer",
+					"name": "Clusters"
+				},
+				{
+					"id": "extension.vsKubernetesHelmRepoExplorer",
+					"name": "Helm Repos"
+				},
+				{
+					"id": "kubernetes.cloudExplorer",
+					"name": "Clouds"
+				}
+			]
+		},
+		"viewsContainers": {
+			"activitybar": [
+				{
+					"icon": "images/logo.svg",
+					"id": "kubernetesView",
+					"title": "Kubernetes"
+				}
+			]
+		},
+		"menus": {
+			"editor/title": [
+				{
+					"command": "extension.vsKubernetesDescribe.Refresh",
+					"when": "vscodeKubernetesDescribeContext"
+				}
+			],
+			"explorer/context": [
+				{
+					"title": "Update Dependencies",
+					"when": "resourceFilename == requirements.yaml",
+					"command": "extension.helmDepUp",
+					"group": "2_helm@99"
+				},
+				{
+					"title": "Create Kubernetes resource",
+					"when": "resourceLangId == yaml && config.vs-kubernetes.resource-commands-on-files",
+					"command": "extension.vsKubernetesCreateFile",
+					"group": "2_k8s_1"
+				},
+				{
+					"title": "Apply Kubernetes resource",
+					"when": "resourceLangId == yaml && config.vs-kubernetes.resource-commands-on-files",
+					"command": "extension.vsKubernetesApplyFile",
+					"group": "2_k8s_2"
+				},
+				{
+					"title": "Delete Kubernetes resource",
+					"when": "resourceLangId == yaml && config.vs-kubernetes.resource-commands-on-files",
+					"command": "extension.vsKubernetesDeleteUri",
+					"group": "2_k8s_3"
+				},
+				{
+					"when": "",
+					"command": "extension.helmConvertToTemplate",
+					"group": "2_helm@98"
+				}
+			],
+			"view/title": [
+				{
+					"command": "extension.vsKubernetesRefreshExplorer",
+					"when": "view == extension.vsKubernetesExplorer",
+					"group": "navigation"
+				},
+				{
+					"command": "extension.vsKubernetesCreateCluster",
+					"when": "view == extension.vsKubernetesExplorer",
+					"group": "0"
+				},
+				{
+					"command": "extension.vsKubernetesConfigureFromCluster",
+					"when": "view == extension.vsKubernetesExplorer",
+					"group": "0"
+				},
+				{
+					"command": "extension.vsKubernetesUseKubeconfig",
+					"when": "view == extension.vsKubernetesExplorer",
+					"group": "1"
+				},
+				{
+					"command": "extension.vsKubernetesRefreshHelmRepoExplorer",
+					"when": "view == extension.vsKubernetesHelmRepoExplorer",
+					"group": "navigation"
+				},
+				{
+					"command": "extension.vsKubernetesRefreshCloudExplorer",
+					"when": "view == kubernetes.cloudExplorer",
+					"group": "navigation"
+				},
+				{
+					"command": "kubernetes.cloudExplorer.findProviders",
+					"when": "view == kubernetes.cloudExplorer",
+					"group": "1"
+				}
+			],
+			"view/item/context": [
+				{
+					"command": "extension.vsKubernetesUseContext",
+					"when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.\\w*cluster\\.inactive/i",
+					"group": "0@1"
+				},
+				{
+					"command": "extension.vsKubernetesDeleteContext",
+					"when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.\\w*cluster.*/i",
+					"group": "0@2"
+				},
+				{
+					"command": "extension.vsKubernetesCopy",
+					"when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.\\w*cluster.*/i",
+					"group": "1"
+				},
+				{
+					"command": "extension.vsKubernetesClusterInfo",
+					"when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.\\w*cluster($|\\s)/i",
+					"group": "0@1"
+				},
+				{
+					"command": "extension.vsKubernetesDashboard",
+					"when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.\\w*cluster($|\\s)/i",
+					"group": "0@3"
+				},
+				{
+					"command": "extension.vsMinikubeStop",
+					"when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.minikubeCluster/i",
+					"group": "2@1"
+				},
+				{
+					"command": "extension.vsMinikubeStart",
+					"when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.minikubeCluster/i",
+					"group": "2@0"
+				},
+				{
+					"command": "extension.vsMinikubeStatus",
+					"when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.minikubeCluster/i",
+					"group": "2@3"
+				},
+				{
+					"command": "extension.vsKubernetesUseNamespace",
+					"group": "0",
+					"when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.namespace\\.inactive/i"
+				},
+				{
+					"command": "extension.vsKubernetesShowEvents",
+					"when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.namespace/",
+					"group": "1"
+				},
+				{
+					"command": "extension.vsKubernetesFollowEvents",
+					"when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.namespace/",
+					"group": "1"
+				},
+				{
+					"command": "extension.vsKubernetesCopy",
+					"when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\./i",
+					"group": "1"
+				},
+				{
+					"command": "extension.vsKubernetesGet",
+					"group": "1@1",
+					"when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.kind/i"
+				},
+				{
+					"command": "extension.vsKubernetesAddWatch",
+					"group": "3@1",
+					"when": "view == extension.vsKubernetesExplorer && viewItem =~ /k8s-watchable/i"
+				},
+				{
+					"command": "extension.vsKubernetesDeleteWatch",
+					"group": "3@2",
+					"when": "view == extension.vsKubernetesExplorer && viewItem =~ /k8s-watchable/i"
+				},
+				{
+					"command": "extension.vsKubernetesLoad",
+					"group": "0",
+					"when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource(?!\\.namespace).*/i"
+				},
+				{
+					"command": "extension.vsKubernetesGet",
+					"group": "2@1",
+					"when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource(?!\\.namespace).*/i"
+				},
+				{
+					"command": "extension.vsKubernetesDelete",
+					"group": "2@2",
+					"when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource.*/i"
+				},
+				{
+					"command": "extension.vsKubernetesDescribe",
+					"group": "3",
+					"when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource(?!\\.namespace).*/i"
+				},
+				{
+					"command": "extension.helmConvertToTemplate",
+					"group": "2",
+					"when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource(?!\\.namespace).*/i"
+				},
+				{
+					"command": "extension.vsKubernetesDeleteNow",
+					"group": "2@3",
+					"when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.pod/i"
+				},
+				{
+					"command": "extension.vsKubernetesTerminal",
+					"group": "2@4",
+					"when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.pod/i"
+				},
+				{
+					"command": "extension.vsKubernetesDebugAttach",
+					"group": "2@5",
+					"when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.pod/i"
+				},
+				{
+					"command": "extension.vsKubernetesDebugLocalTunnel",
+					"group": "2@5",
+					"when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.(pod|job|service|deployment)/i"
+				},
+				{
+					"command": "extension.vsKubernetesPortForward",
+					"group": "2@6",
+					"when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.pod/i"
+				},
+				{
+					"command": "extension.vsKubernetesPortForward",
+					"group": "2@6",
+					"when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.service/i"
+				},
+				{
+					"command": "extension.vsKubernetesPortForward",
+					"group": "2@6",
+					"when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.deployment/i"
+				},
+				{
+					"command": "extension.vsKubernetesScale",
+					"group": "2@6",
+					"when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.(deployment|job|rc|rs|statefulset)/i"
+				},
+				{
+					"command": "extension.vsKubernetesLogs",
+					"group": "3",
+					"when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.(pod|job)/i"
+				},
+				{
+					"command": "extension.vsKubernetesCronJobRunNow",
+					"group": "3",
+					"when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.cronjob/i"
+				},
+				{
+					"command": "extension.vsKubernetesAddFile",
+					"group": "3",
+					"when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.configmap/i"
+				},
+				{
+					"command": "extension.vsKubernetesAddFile",
+					"group": "3",
+					"when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.secret/i"
+				},
+				{
+					"command": "extension.vsKubernetesDeleteFile",
+					"group": "3",
+					"when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.file/i"
+				},
+				{
+					"command": "extension.vsKubernetesCopy",
+					"when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.helmrelease/i",
+					"group": "1"
+				},
+				{
+					"command": "extension.helmFetch",
+					"group": "1",
+					"when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem =~ /vsKubernetes\\.((chart)|(chartversion))/i"
+				},
+				{
+					"command": "extension.helmInstall",
+					"group": "2",
+					"when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem =~ /vsKubernetes\\.((chart)|(chartversion))/i"
+				},
+				{
+					"command": "extension.helmDependencies",
+					"group": "0@3",
+					"when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem =~ /vsKubernetes\\.((chart)|(chartversion))/i"
+				},
+				{
+					"command": "extension.helmInspectChart",
+					"group": "0@1",
+					"when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem =~ /vsKubernetes\\.((chart)|(chartversion))/i"
+				},
+				{
+					"command": "extension.helmFetchValues",
+					"group": "0@3",
+					"when": "view == extension.vsKubernetesHelmRepoExplorer && viewItem =~ /vsKubernetes\\.((chart)|(chartversion))/i"
+				},
+				{
+					"command": "extension.helmRollback",
+					"group": "3@1",
+					"when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.helmhistory/i"
+				},
+				{
+					"command": "extension.helmUninstall",
+					"group": "3@2",
+					"when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.helmrelease/i"
+				},
+				{
+					"command": "kubernetes.cloudExplorer.mergeIntoKubeconfig",
+					"group": "7",
+					"when": "view == kubernetes.cloudExplorer && viewItem =~ /kubernetes\\.providesKubeconfig/i"
+				},
+				{
+					"command": "kubernetes.cloudExplorer.saveKubeconfig",
+					"group": "7",
+					"when": "view == kubernetes.cloudExplorer && viewItem =~ /kubernetes\\.providesKubeconfig/i"
+				},
+				{
+					"command": "kubernetes.cloudExplorer.findProviders",
+					"when": "view == kubernetes.cloudExplorer && viewItem == kubernetes.noProviders",
+					"group": "1"
+				}
+			],
+			"commandPalette": [
+				{
+					"command": "extension.vsKubernetesDebounceActivation",
+					"when": "context == thiscontextdoesnotexist7603253285"
+				},
+				{
+					"command": "extension.vsKubernetesApplyFile",
+					"when": "filesExplorerFocus"
+				},
+				{
+					"command": "extension.vsKubernetesCreateFile",
+					"when": "filesExplorerFocus"
+				},
+				{
+					"command": "extension.vsKubernetesDeleteUri",
+					"when": "filesExplorerFocus"
+				},
+				{
+					"command": "extension.vsKubernetesRefreshExplorer",
+					"when": "view == extension.vsKubernetesExplorer"
+				},
+				{
+					"command": "extension.vsKubernetesRefreshHelmRepoExplorer",
+					"when": "view == extension.vsKubernetesHelmRepoExplorer"
+				},
+				{
+					"command": "extension.vsKubernetesRefreshCloudExplorer",
+					"when": "view == kubernetes.cloudExplorer"
+				},
+				{
+					"command": "extension.vsKubernetesUseContext",
+					"when": "view == extension.vsKubernetesExplorer"
+				},
+				{
+					"command": "extension.vsKubernetesClusterInfo",
+					"when": "view == extension.vsKubernetesExplorer"
+				},
+				{
+					"command": "extension.vsKubernetesDeleteContext",
+					"when": "view == extension.vsKubernetesExplorer"
+				},
+				{
+					"command": "extension.vsKubernetesUseNamespace",
+					"when": ""
+				},
+				{
+					"command": "extension.vsKubernetesCopy",
+					"when": "view == extension.vsKubernetesExplorer"
+				},
+				{
+					"command": "extension.vsKubernetesAddFile",
+					"when": "view == extension.vsKubernetesExplorer"
+				},
+				{
+					"command": "extension.vsKubernetesDeleteFile",
+					"when": "view == extension.vsKubernetesExplorer"
+				},
+				{
+					"command": "extension.helmGet",
+					"when": "view == extension.vsKubernetesExplorer"
+				},
+				{
+					"command": "extension.helmInspectChart",
+					"when": "view === extension.vsKubernetesHelmRepoExplorer"
+				},
+				{
+					"command": "kubernetes.cloudExplorer.mergeIntoKubeconfig",
+					"when": ""
+				},
+				{
+					"command": "kubernetes.cloudExplorer.saveKubeconfig",
+					"when": ""
+				},
+				{
+					"command": "kubernetes.portForwarding.showSessions",
+					"when": ""
+				}
+			]
+		},
+		"commands": [
+			{
+				"command": "extension.vsKubernetesDebounceActivation",
+				"title": "Debounce Activation",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesDescribe.Refresh",
+				"title": "Refresh",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesCreate",
+				"title": "Create",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesCreateFile",
+				"title": "Create Kubernetes resource",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesAddWatch",
+				"title": "Watch",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesDelete",
+				"title": "Delete",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesDeleteNow",
+				"title": "Delete Now",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesDeleteUri",
+				"title": "Delete Kubernetes resource",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesDeleteWatch",
+				"title": "Stop Watching",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesApply",
+				"title": "Apply",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesApplyFile",
+				"title": "Apply Kubernetes resource",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesExplain",
+				"title": "Explain",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesLoad",
+				"title": "Load",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesGet",
+				"title": "Get",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesRun",
+				"title": "Run",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesLogs",
+				"title": "Logs",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesExpose",
+				"title": "Expose",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesDescribe",
+				"title": "Describe",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesSync",
+				"title": "Sync Working Copy to Cluster",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesExec",
+				"title": "Exec",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesTerminal",
+				"title": "Terminal",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesDiff",
+				"title": "Diff",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesScale",
+				"title": "Scale",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesDebug",
+				"title": "Debug (Launch)",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesDebugAttach",
+				"title": "Debug (Attach)",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesDebugLocalTunnel",
+				"title": "Debug (Local Tunnel)",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesFindLocalTunnelDebugProviders",
+				"title": "Find Local Tunnel Debug Providers on Marketplace",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesRemoveDebug",
+				"title": "Remove Debug",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesConfigureFromCluster",
+				"title": "Add Existing Cluster",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesCreateCluster",
+				"title": "Create Cluster",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesUseContext",
+				"title": "Set as Current Cluster",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesUseKubeconfig",
+				"title": "Set Kubeconfig",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesClusterInfo",
+				"title": "Show Cluster Info",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesDeleteContext",
+				"title": "Delete from kubeconfig",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesUseNamespace",
+				"title": "Use Namespace",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesDashboard",
+				"title": "Open Dashboard",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsMinikubeStop",
+				"title": "Stop minikube",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsMinikubeStart",
+				"title": "Start minikube",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsMinikubeStatus",
+				"title": "Minikube status",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesPortForward",
+				"title": "Port Forward",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesCopy",
+				"title": "Copy Name",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesAddFile",
+				"title": "Add File(s)",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesDeleteFile",
+				"title": "Delete File",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesCronJobRunNow",
+				"title": "Run CronJob Now",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesRefreshExplorer",
+				"title": "Refresh",
+				"category": "Kubernetes",
+				"icon": {
+					"light": "images/light/refresh.svg",
+					"dark": "images/dark/refresh.svg"
+				}
+			},
+			{
+				"command": "extension.vsKubernetesShowEvents",
+				"title": "Show Events",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesFollowEvents",
+				"title": "Follow Events",
+				"category": "Kubernetes"
+			},
+			{
+				"command": "extension.vsKubernetesRefreshHelmRepoExplorer",
+				"title": "Refresh",
+				"category": "Helm",
+				"icon": {
+					"light": "images/light/refresh.svg",
+					"dark": "images/dark/refresh.svg"
+				}
+			},
+			{
+				"command": "extension.helmVersion",
+				"title": "Version",
+				"description": "Get the version of the local Helm client.",
+				"category": "Helm"
+			},
+			{
+				"command": "extension.helmLint",
+				"title": "Lint",
+				"description": "Run the Helm linter on this chart.",
+				"category": "Helm"
+			},
+			{
+				"command": "extension.helmDepUp",
+				"title": "Dependency Update",
+				"description": "Update the dependencies listed in requirements.yaml.",
+				"category": "Helm"
+			},
+			{
+				"command": "extension.helmDryRun",
+				"title": "Dry Run",
+				"description": "Run 'helm install --dry-run --debug' on this chart.",
+				"category": "Helm"
+			},
+			{
+				"command": "extension.helmTemplate",
+				"title": "Template",
+				"description": "Run 'helm template' on this chart.",
+				"category": "Helm"
+			},
+			{
+				"command": "extension.helmInsertReq",
+				"title": "Insert Dependency",
+				"description": "Insert a dependency YAML fragment",
+				"category": "Helm"
+			},
+			{
+				"command": "extension.helmTemplatePreview",
+				"title": "Preview Template",
+				"description": "Run 'helm template' on this chart and show only this file.",
+				"category": "Helm"
+			},
+			{
+				"command": "extension.helmFetchValues",
+				"title": "Fetch values",
+				"description": "Fetches values.yaml from the chart",
+				"category": "Helm"
+			},
+			{
+				"command": "extension.helmInspectChart",
+				"title": "Inspect Chart",
+				"description": "Inspect a Helm Chart",
+				"category": "Helm"
+			},
+			{
+				"command": "extension.helmCreate",
+				"title": "Create Chart",
+				"description": "Create a new Helm Chart",
+				"category": "Helm"
+			},
+			{
+				"command": "extension.helmConvertToTemplate",
+				"title": "Convert to Template",
+				"description": "Convert this manifest to a Helm template",
+				"category": "Helm"
+			},
+			{
+				"command": "extension.helmParameterise",
+				"title": "Convert to Template Parameter",
+				"description": "Convert this value to a Helm template parameter",
+				"category": "Helm"
+			},
+			{
+				"command": "extension.helmGet",
+				"title": "Get Release",
+				"description": "Get a Helm release from the cluster",
+				"category": "Helm"
+			},
+			{
+				"command": "extension.helmPackage",
+				"title": "Package",
+				"description": "Package a chart directory into a versioned chart archive file.",
+				"category": "Helm"
+			},
+			{
+				"command": "extension.helmFetch",
+				"title": "Fetch",
+				"description": "Fetch a Helm chart into the current project",
+				"category": "Helm"
+			},
+			{
+				"command": "extension.helmInstall",
+				"title": "Install",
+				"description": "Install a Helm chart into the cluster",
+				"category": "Helm"
+			},
+			{
+				"command": "extension.helmUninstall",
+				"title": "Uninstall",
+				"description": "Uninstall a Helm release",
+				"category": "Helm"
+			},
+			{
+				"command": "extension.helmRollback",
+				"title": "Rollback",
+				"description": "Rollback Helm Release",
+				"category": "Helm"
+			},
+			{
+				"command": "extension.helmDependencies",
+				"title": "Show Dependencies",
+				"description": "List the dependencies of a Helm chart",
+				"category": "Helm"
+			},
+			{
+				"command": "extension.vsKubernetesRefreshCloudExplorer",
+				"title": "Refresh",
+				"category": "Kubernetes",
+				"icon": {
+					"light": "images/light/refresh.svg",
+					"dark": "images/dark/refresh.svg"
+				}
+			},
+			{
+				"command": "kubernetes.cloudExplorer.mergeIntoKubeconfig",
+				"title": "Merge into Kubeconfig",
+				"description": "Merge the cluster's kubeconfig into your existing kubeconfig"
+			},
+			{
+				"command": "kubernetes.cloudExplorer.saveKubeconfig",
+				"title": "Save Kubeconfig",
+				"description": "Save the cluster's kubeconfig as a kubeconfig file"
+			},
+			{
+				"command": "kubernetes.cloudExplorer.findProviders",
+				"title": "Find Cloud Providers on Marketplace",
+				"description": "Find extensions that add clouds to the Cloud Explorer"
+			},
+			{
+				"command": "kubernetes.portForwarding.showSessions",
+				"title": "Show Port Forwarding Sessions",
+				"category": "Kubernetes"
+			}
+		],
+		"keybindings": [
+			{
+				"command": "extension.vsKubernetesDescribe.Refresh",
+				"key": "shift+ctrl+r",
+				"mac": "shift+cmd+r",
+				"when": "vscodeKubernetesDescribeContext"
+			}
+		],
+		"languages": [
+			{
+				"id": "helm",
+				"aliases": [
+					"helm-template",
+					"helm"
+				],
+				"filenamePatterns": [
+					"**/templates/*.yaml",
+					"**/templates/*.yml",
+					"**/templates/*.tpl",
+					"**/templates/**/*.yaml",
+					"**/templates/**/*.yml",
+					"**/templates/**/*.tpl"
+				],
+				"configuration": "./language-configuration.json"
+			},
+			{
+				"id": "ignore",
+				"filenames": [
+					".helmignore"
+				]
+			},
+			{
+				"id": "yaml",
+				"filenames": [
+					"Chart.lock",
+					"requirements.lock",
+					"**/.kube/config"
+				]
+			}
+		],
+		"grammars": [
+			{
+				"language": "helm",
+				"scopeName": "source.helm",
+				"path": "./syntaxes/helm.tmLanguage.json"
+			}
+		],
+		"snippets": [
+			{
+				"language": "helm",
+				"path": "./snippets/helm.json"
+			}
+		],
+		"debuggers": []
+	},
+	"scripts": {
+		"vscode:prepublish": "npm run vscode:prepublish:ext && npm run vscode:prepublish:view",
+		"vscode:prepublish:ext": "webpack --mode production",
+		"vscode:prepublish:view": "webpack --mode production --config src/components/logs/webpack.config.js",
+		"lint": "eslint -c .eslintrc.js --ext .ts ./src",
+		"compile": "npm run compile:ext && npm run compile:view",
+		"compile:ext": "webpack --mode none",
+		"compile:view": "webpack --mode none --config src/components/logs/webpack.config.js",
+		"watch": "webpack --mode development --watch --info-verbosity verbose",
+		"test-compile": "tsc -p ./",
+		"test": "npm run test-compile && node ./out/test/runTest.js"
+	},
+	"extensionDependencies": [
+		"redhat.vscode-yaml"
+	],
+	"dependencies": {
+		"@kubernetes/client-node": "^0.14.0",
+		"ajv": "^6.9.1",
+		"await-notify": "^1.0.1",
+		"clipboardy": "^1.2.3",
+		"compare-versions": "^3.1.0",
+		"debug": "^3.1.0",
+		"docker-file-parser": "^1.0.3",
+		"dockerfile-parse": "^0.2.0",
+		"download": "^7.1.0",
+		"fuzzysearch": "^1.0.3",
+		"got": "^11.8.2",
+		"graceful-fs": "^4.1.11",
+		"js-yaml": "^3.13.1",
+		"lodash": "^4.17.21",
+		"mixin-deep": "^1.3.2",
+		"mkdirp": "^0.5.1",
+		"moment": "^2.29.1",
+		"natives": "^1.1.3",
+		"node-yaml-parser": "^0.0.9",
+		"opn": "^5.2.0",
+		"pluralize": "^4.0.0",
+		"portfinder": "^1.0.13",
+		"rxjs": "^6.5.4",
+		"semver": "^5.5.1",
+		"shelljs": "^0.7.7",
+		"spawn-rx": "^3.0.0",
+		"sshpk": "^1.13.2",
+		"tar": "^4.4.1",
+		"tmp": "^0.0.31",
+		"unzipper": "^0.10.5",
+		"url-parse": "^1.5.1",
+		"uuid": "^3.1.0",
+		"vscode-debugadapter": "1.27.0",
+		"vscode-debugprotocol": "1.27.0",
+		"vscode-extension-telemetry": "^0.1.1",
+		"vscode-uri": "^1.0.1",
+		"yaml-ast-parser": "^0.0.40",
+		"yamljs": "^0.3.0"
+	},
+	"devDependencies": {
+		"@bendera/vscode-webview-elements": "^0.2.0",
+		"@types/clipboardy": "^1.1.0",
+		"@types/js-yaml": "^3.12.0",
+		"@types/lodash": "^4.14.113",
+		"@types/mkdirp": "^0.5.2",
+		"@types/mocha": "^8.0.4",
+		"@types/node": "^10.2.0",
+		"@types/opn": "^5.1.0",
+		"@types/pluralize": "^0.0.29",
+		"@types/request": "^2.48.1",
+		"@types/semver": "^5.5.0",
+		"@types/shelljs": "^0.7.8",
+		"@types/sinon": "^7.0.0",
+		"@types/tar": "^4.0.0",
+		"@types/tmp": "^0.0.33",
+		"@types/unzipper": "^0.10.0",
+		"@types/uuid": "^3.4.4",
+		"@types/vscode": "^1.52.0",
+		"@types/websocket": "^0.0.40",
+		"@types/yamljs": "^0.2.30",
+		"@typescript-eslint/eslint-plugin": "^4.28.1",
+		"@typescript-eslint/eslint-plugin-tslint": "4.28.1",
+		"@typescript-eslint/parser": "^4.28.1",
+		"electron": "^13.1.4",
+		"eslint": "^7.29.0",
+		"file-loader": "^6.2.0",
+		"gulp": "^4.0.2",
+		"gulp-tslint": "^8.1.2",
+		"html-webpack-plugin": "^4.2.0",
+		"mocha": "^8.1.3",
+		"sinon": "^6.3.5",
+		"ts-loader": "^6.0.4",
+		"tslint": "^5.18.0",
+		"typescript": "^3.5.2",
+		"vscode-test": "^1.4.1",
+		"webpack": "^4.35.2",
+		"webpack-cli": "^3.3.5"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/vscode-kubernetes-tools/vscode-kubernetes-tools"
+	},
+	"__metadata": {
+		"id": "4837e4f3-1b01-4732-b1a6-daa57ef64cab",
+		"publisherDisplayName": "Microsoft",
+		"publisherId": "d5b943eb-b968-4c2d-b241-a117ce9c3961",
+		"isPreReleaseVersion": false
+	}
 }

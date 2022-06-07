@@ -55,6 +55,7 @@ export class DotNetDebugProvider implements IDebugProvider {
                 kubeChannel.showOutput(error.message);
             }
         }
+        debugConfiguration.justMyCode = extensionConfig.getDebugJustMyCode();
         const currentFolder = (vscode.workspace.workspaceFolders || []).find((folder) => folder.name === path.basename(workspaceFolder));
         const result = await vscode.debug.startDebugging(currentFolder, debugConfiguration);
         if (!result) {
