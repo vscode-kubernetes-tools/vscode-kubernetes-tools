@@ -9,7 +9,7 @@ body: |2
   spec:
     resources:
       requests:
-        storage: {2:<Size>}
+        storage: ${2:<Size>}
     volumeMode: Filesystem
     accessModes:
       - ReadWriteOnce

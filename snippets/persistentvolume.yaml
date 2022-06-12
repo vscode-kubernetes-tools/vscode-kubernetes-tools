@@ -8,7 +8,7 @@ body: |2
     name: ${1:mypv}
   spec:
     capacity:
-      storage: {2:<Size>}
+      storage: ${2:<Size>}
     volumeMode: Filesystem
     accessModes:
       - ReadWriteOnce
