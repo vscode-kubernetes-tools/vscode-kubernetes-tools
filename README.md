@@ -275,6 +275,10 @@ The following directives are supported:
 * `exclude`: Do not treat this file as a Kubernetes manifest. This is useful when you have
   files that look a lot like Kubernetes manifests but aren't, such as Kustomize patch files.
 
+## Extension data
+
+This extension stores its associated files and data in `$XDG_STATE_HOME/vs-kubernetes` (at `~/.local/state/vs-kubernetes` by default). However, if the legacy directory of `~/.vs-kubernetes` still exists, then that will be used instead. 
+
 ## Known issues
 
   * `Kubernetes: Debug` command currently works only with Go, Node.js, Java, Python and .NET applications

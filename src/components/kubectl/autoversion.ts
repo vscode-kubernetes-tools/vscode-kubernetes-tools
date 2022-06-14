@@ -13,7 +13,7 @@ import { getKubeconfigPath } from '../kubectl/kubeconfig';
 import { getToolPath } from '../config/config';
 import { Host } from '../../host';
 import { mkdirpAsync } from '../../utils/mkdirp';
-import { platformUrlString, formatBin, platformArch } from '../installer/installationlayout';
+import { platformUrlString, formatBin, platformArch, vsKubernetesFolder } from '../installer/installationlayout';
 import * as installer from '../installer/installer';
 import { ExecResult } from '../../binutilplusplus';
 
@@ -54,7 +54,7 @@ export async function ensureSuitableKubectl(kubectl: Kubectl, shell: Shell, host
 }
 
 function getBasePath(shell: Shell): string {
-    return path.join(shell.home(), `.vs-kubernetes/tools/kubectl/autoversion`);
+    return path.join(vsKubernetesFolder(shell), `tools/kubectl/autoversion`);
 }
 
 function getCachePath(shell: Shell): string {

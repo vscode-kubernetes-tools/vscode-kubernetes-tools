@@ -1,9 +1,25 @@
+import * as os from 'os';
 import * as path from 'path';
 
+import { fs } from '../../fs';
 import { Platform, Shell } from "../../shell";
 
+export function vsKubernetesFolder(shell: Shell): string {
+    const originalDir = path.join(shell.home(), `.vs-kubernetes`);
+
+    if (fs.existsSync(originalDir) || os.platform() !== `linux`) {
+        return originalDir;
+    }
+
+    let xdgStateHome = process.env.XDG_STATE_HOME || ``;
+    if (xdgStateHome[0] !== `/`) {
+        xdgStateHome = path.join(os.homedir(), `.local/state`);
+    }
+    return path.join(xdgStateHome, `vs-kubernetes`);
+}
+
 export function baseInstallFolder(shell: Shell): string {
-    return path.join(shell.home(), `.vs-kubernetes/tools`);
+    return path.join(vsKubernetesFolder(shell), `tools`);
 }
 
 export function getInstallFolder(shell: Shell, tool: string): string {
