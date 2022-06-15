@@ -275,6 +275,10 @@ The following directives are supported:
 * `exclude`: Do not treat this file as a Kubernetes manifest. This is useful when you have
   files that look a lot like Kubernetes manifests but aren't, such as Kustomize patch files.
 
+## Extension data
+
+This extension stores its associated files and data in `$XDG_STATE_HOME/vs-kubernetes` (at `~/.local/state/vs-kubernetes` by default). However, if the legacy directory of `~/.vs-kubernetes` still exists, then that will be used instead. 
+
 ## Known issues
 
   * `Kubernetes: Debug` command currently works only with Go, Node.js, Java, Python and .NET applications
@@ -302,7 +306,7 @@ If you are building and running the extension from source, see [CONTRIBUTING.md]
 
 If you are installing the extension from its VSIX, note that the machine will still need to reach the Visual Studio Marketplace in order to download extension dependencies.  If the machine cannot reach the Marketplace, you will need to install these dependencies manually using their VSIXes.  The list of extension dependencies can be found in `package.json`, in the `extensionDependencies` section.
 
-## Github Pages Website
+## GitHub Pages Website
 
 This project has a simple landing page website (visible at [vscode-kubernetes-tools.github.io/vscode-kubernetes-tools](https://vscode-kubernetes-tools.github.io/vscode-kubernetes-tools/)) which is [detailed here](https://github.com/vscode-kubernetes-tools/vscode-kubernetes-tools/tree/master/site).
 
