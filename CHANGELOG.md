@@ -1,5 +1,14 @@
 # Change Log
 
+## [1.3.10]
+
+* Use XDG Base Directory variables when creating the base installation directory
+* Added JustMyCode debug option for .NET and Python
+* Fixed broker placeholders in Persistent Volume and Perstistent Volume Claim snippets
+* Fixed typo in documentation
+
+Contributors: bbodenmiller, heitorlisboa, hyperupcall, yehiyam
+
 ## [1.3.9]
 
 * You can now configure default settings for log viewing, and have the log viewer automatically kick off log retrieval and display with your default settings
