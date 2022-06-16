@@ -243,6 +243,10 @@
                             "type": "string",
                             "description": "The compilation root for the vsdbg debugger in order to have a sourceFileMap in the attach configuration of debug (.NET)."
                         },
+                        "vs-kubernetes.debug-just-my-code": {
+                            "type": "boolean",
+                            "description": "Enable/disable justMyCode debug configuration property for .NET, Python."
+                        },
                         "vs-kubernetes.resources-to-watch": {
                             "type": "array",
                             "description": "List of resources to be watched."

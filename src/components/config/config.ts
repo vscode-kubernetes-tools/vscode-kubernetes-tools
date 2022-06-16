@@ -271,6 +271,11 @@ export function getDotnetDebugSourceFileMap(): string | undefined {
     return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.dotnet-source-file-map'];
 }
 
+// remote debugging justMyCode for dotnet, python. An entry "justMyCode": {"<vs-kubernetes.debug-just-my-code>": true/false} will be added to the debug configuration
+export function getDebugJustMyCode(): boolean | undefined {
+    return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.debug-just-my-code'];
+}
+
 // Functions for working with the list of resources to be watched
 
 export function getResourcesToBeWatched(): string[] {
