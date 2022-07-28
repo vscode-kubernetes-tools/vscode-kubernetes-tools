@@ -168,6 +168,12 @@ function init() {
         });
     });
 
+    const copyAllBtn = document.getElementById('copyAllBtn');
+    copyAllBtn.addEventListener('click', (_event) => {
+        const content = isFiltering() ? filteredContent : fullPageContent;
+        navigator.clipboard.writeText(Object.values(content).join("\n"));
+    });
+
     const bottomBtn = document.getElementById('bottomBtn');
     bottomBtn.addEventListener('click', (_event) => {
         scrollToBottom();
