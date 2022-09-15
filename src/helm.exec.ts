@@ -500,18 +500,15 @@ export async function helmGetValues(kubectl: Kubectl, res: ClusterExplorerHelmRe
         }
     }
     vscode.workspace.openTextDocument({language: "yaml", content}).then((doc) => {
-        doc.save = async () => {
-            vscode.window.showInformationMessage(`Helm: saved values for ${uri.toString()}`);
-            return true;
-        };
         vscode.window.showInformationMessage(`Helm: previewing values : ${uri.toString()}`);
+        vscode.window.showTextDocument(doc);
     });
 }
 
 export async function helmUpgradeWithValues(): Promise<void> {
     const content = vscode.window.activeTextEditor ? vscode.window.activeTextEditor.document.getText() : undefined;
     if (!content) {
-        vscode.window.showWarningMessage(`Invalid values, please check it.`);
+        vscode.window.showWarningMessage(`Invalid content values, please check it and try again.`);
         return;
     }
     const matched = content.match(/^#+([^\n]+)/);
@@ -520,7 +517,7 @@ export async function helmUpgradeWithValues(): Promise<void> {
         metadata = JSON.parse( matched ? matched[1] : "{}");
     } catch (e) {}
     if (!metadata || !metadata.namespace || !metadata.releaseName) {
-        vscode.window.showWarningMessage(`Invalid values content, please do not remove the first comment line.`);
+        vscode.window.showWarningMessage(`Missing metadata in values, please do not remove the first comment line and try again.`);
         return;
     }
 
