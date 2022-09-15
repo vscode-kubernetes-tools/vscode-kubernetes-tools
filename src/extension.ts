@@ -79,7 +79,7 @@ import { mergeToKubeconfig, getKubeconfigPath, KubeconfigPath } from './componen
 import { PortForwardStatusBarManager } from './components/kubectl/port-forward-ui';
 import { getBuildCommand, getPushCommand } from './image/imageUtils';
 import { getImageBuildTool } from './components/config/config';
-import { ClusterExplorerNode, ClusterExplorerConfigurationValueNode, ClusterExplorerResourceNode, ClusterExplorerResourceFolderNode } from './components/clusterexplorer/node';
+import { ClusterExplorerNode, ClusterExplorerConfigurationValueNode, ClusterExplorerResourceNode, ClusterExplorerResourceFolderNode, ClusterExplorerHelmReleaseNode } from './components/clusterexplorer/node';
 import { create as activeContextTrackerCreate } from './components/contextmanager/active-context-tracker';
 import { WatchManager } from './components/kubectl/watch';
 import { ExecResult } from './binutilplusplus';
@@ -166,6 +166,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
     activeContextStatusBarItem.command = 'extension.vsKubernetesUseContext';
 
     minikube.checkUpgradeAvailable();
+    helmexec.helmRegisterTextDocumentContentProvider();
 
     const subscriptions = [
 
@@ -225,6 +226,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
             }
         }),
         registerCommand('extension.vsKubernetesCopy', copyKubernetes),
+        registerCommand('extension.vsKubernetesUpdate', (o: ClusterExplorerHelmReleaseNode) => helmexec.helmUpgrade(kubectl, o)),
         registerCommand('extension.vsKubernetesPortForward', (explorerNode: ClusterExplorerResourceNode) => { portForwardKubernetes(kubectl, explorerNode); }),
         registerCommand('extension.vsKubernetesLoadConfigMapData', configmaps.loadConfigMapData),
         registerCommand('extension.vsKubernetesDeleteFile', (explorerNode: ClusterExplorerConfigurationValueNode) => { deleteKubernetesConfigFile(kubectl, explorerNode, treeProvider); }),

@@ -8,6 +8,7 @@ export const DEPENDENCIES_SCHEME = 'helm-dependencies';
 export const DEPENDENCIES_REPO_AUTHORITY = 'repo-chart';
 export const FETCH_VALUES_SCHEME = "helm-get-values";
 export const HELM_OUTPUT_COLUMN_SEPARATOR = /\t+/g;
+export const HELM_VALUES_SCHEMA = 'helm-values';
 
 let previewShown = false;
 

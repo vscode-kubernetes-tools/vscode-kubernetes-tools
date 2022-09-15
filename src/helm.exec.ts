@@ -5,7 +5,7 @@ import * as vscode from 'vscode';
 import * as YAML from 'yamljs';
 import { Context, ExecResult, ExternalBinary, invokeForResult } from './binutilplusplus';
 import { NODE_TYPES } from './components/clusterexplorer/explorer';
-import { ClusterExplorerNode } from './components/clusterexplorer/node';
+import { ClusterExplorerHelmReleaseNode, ClusterExplorerNode } from './components/clusterexplorer/node';
 import { HelmHistoryNode } from './components/clusterexplorer/node.helmrelease';
 import { refreshExplorer } from './components/clusterprovider/common/explorer';
 import { getToolPath } from './components/config/config';
@@ -466,6 +466,122 @@ export async function helmInstall(kubectl: Kubectl, helmObject: helmrepoexplorer
         await helmInstallCore(kubectl, helmObject.id, helmObject.version);
     }
 }
+
+interface LabsTextLine extends vscode.TextLine {
+    offset: number;
+}
+
+export async function helmRegisterTextDocumentContentProvider() {
+    vscode.workspace.registerTextDocumentContentProvider(helm.HELM_VALUES_SCHEMA, {
+        async provideTextDocumentContent(uri: vscode.Uri, token: vscode.CancellationToken): Promise<string> {
+            if (uri.scheme === helm.HELM_VALUES_SCHEMA && !token.isCancellationRequested) {
+                const ns = uri.authority;
+                const values = uri.fsPath;
+                const release = values.substring('helmrelease-'.length + 1, values.length - ".yml".length);
+                const sr = await helmExecAsync(`get values ${release} --namespace ${ns}`);
+                return sr ? (sr.stdout || sr.stderr) : `Unable to get values of ${ns}/${release}`;
+            }
+            return `Unable to get values of ${uri.toString}`;
+        }
+    });
+}
+
+export async function helmUpgrade(kubectl: Kubectl, res: ClusterExplorerHelmReleaseNode): Promise<void> {
+    const ns = await currentNamespace(kubectl);
+    const uri = vscode.Uri.parse(`${helm.HELM_VALUES_SCHEMA}://${ns}/helmrelease-${res.releaseName}.yml`);
+    const sr = await helmExecAsync(`get values ${res.releaseName} --namespace ${ns}`);
+    const content = sr ? (sr.stdout || sr.stderr) : `Unable to get values of ${ns}/${res.releaseName}`;
+    const contentLines: LabsTextLine[] = [];
+    const textLines = content.split("\n");
+    let offset = 0;
+    for (let row = 0; row < textLines.length ; ++ row) {
+        const line = content[row];
+        const lineText = line.trimRight();
+        const lineContent = lineText.trimLeft();
+        contentLines.push({
+            lineNumber: row,
+            text: lineText,
+            range: new vscode.Range(new vscode.Position(row, 0), new vscode.Position(row, lineText.length)),
+            rangeIncludingLineBreak: new vscode.Range(new vscode.Position(row, 0), new vscode.Position(row, lineText.length)),
+            firstNonWhitespaceCharacterIndex: lineText.length - lineContent.length,
+            isEmptyOrWhitespace: lineContent.length > 0,
+            offset: offset,
+        });
+        offset += line.length + 1;
+    }
+    const doc: vscode.TextDocument = {
+        uri: uri,
+        fileName: uri.fsPath,
+        isUntitled: false,
+        languageId: "YAML",
+        isClosed: false,
+        isDirty: true,
+        version: 0,
+        async save () {
+            vscode.window.showInformationMessage("Helm: values saved to cluster successfully.");
+            return true;
+        },
+        eol: vscode.EndOfLine.LF,
+        lineCount: contentLines.length,
+        lineAt (position: vscode.Position|number): vscode.TextLine {
+            const row = typeof position === 'number' ? position : position.line;
+            return contentLines[row];
+        },
+        offsetAt (position: vscode.Position): number {
+            return contentLines[position.line].offset + position.character;
+        },
+        positionAt(offset: number): vscode.Position {
+            for (const line of contentLines) {
+                if (line.offset > offset) {
+                    return new vscode.Position(line.lineNumber - 1, offset - line.offset);
+                }
+            }
+            return new vscode.Position(0, 0);
+        },
+        getText(range?: vscode.Range): string {
+            return range ? "" : "";
+        },
+        getWordRangeAtPosition(position: vscode.Position, regex?: RegExp): vscode.Range | undefined {
+            return position && regex ? undefined : undefined;
+        },
+        validateRange(range: vscode.Range): vscode.Range {
+            return range;
+        },
+        validatePosition(position: vscode.Position): vscode.Position {
+            return position;
+        }
+    };
+    vscode.window.showTextDocument(doc, { preview: true, preserveFocus: false }).then((editor) => {
+        vscode.window.showInformationMessage(`Helm: previewing values : ${uri.toString()}`);
+    });
+}
+
+// async function helmUpgradeCore(kubectl: Kubectl, release: string, chartId: string, version: string | undefined): Promise<void> {
+//   if (!shell.isSafe(chartId)) {
+//       vscode.window.showWarningMessage(`Unexpected characters in chart name ${chartId}. Use Helm CLI to install this chart.`);
+//       return;
+//   }
+//   if (version && !shell.isSafe(version)) {
+//       vscode.window.showWarningMessage(`Unexpected characters in chart version ${version}. Use Helm CLI to install this chart.`);
+//       return;
+//   }
+
+//   const syntaxVersion = await helmSyntaxVersion();
+//   const ns = await currentNamespace(kubectl);
+//   const nsArg = ns ? `--namespace ${ns}` : '';
+//   const versionArg = version ? `--version ${version}` : '';
+//   const generateNameArg = (syntaxVersion === HelmSyntaxVersion.V3) ? '--generate-name' : '';
+//   const sr = await helmExecAsync(`upgrade ${release} ${chartId} ${versionArg} ${nsArg} ${generateNameArg}`);
+//   if (!sr || sr.code !== 0) {
+//       const message = sr ? sr.stderr : "Unable to run Helm";
+//       logger.log(message);
+//       await vscode.window.showErrorMessage(`Helm install failed: ${message}`);
+//       return;
+//   }
+//   const releaseName = extractReleaseName(sr.stdout);
+//   logger.log(sr.stdout);
+//   await vscode.window.showInformationMessage(`Installed ${chartId} as release ${releaseName}`);
+// }
 
 async function helmInstallCore(kubectl: Kubectl, chartId: string, version: string | undefined): Promise<void> {
     if (!shell.isSafe(chartId)) {
