@@ -32,6 +32,17 @@ export async function logsKubernetes(
 }
 
 /**
+ * Fetches logs for a Pod. Handles use cases for fetching pods
+ * from an open document, or from the current namespace.
+ */
+ export function logsKubernetesWithLatest300RowsAndFollow(
+    kubectl: Kubectl,
+    explorerNode: ClusterExplorerResourceNode
+) {
+    kubectl.invokeInSharedTerminal(`logs --tail=300 -f -n ${explorerNode.namespace} ${explorerNode.name}`);
+}
+
+/**
  * Fetch logs from a Pod, when selected from the Explorer.
  */
 async function getLogsForExplorerNode(
