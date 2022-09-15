@@ -226,7 +226,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
             }
         }),
         registerCommand('extension.vsKubernetesCopy', copyKubernetes),
-        registerCommand('extension.vsKubernetesUpdate', (o: ClusterExplorerHelmReleaseNode) => helmexec.helmUpgrade(kubectl, o)),
         registerCommand('extension.vsKubernetesPortForward', (explorerNode: ClusterExplorerResourceNode) => { portForwardKubernetes(kubectl, explorerNode); }),
         registerCommand('extension.vsKubernetesLoadConfigMapData', configmaps.loadConfigMapData),
         registerCommand('extension.vsKubernetesDeleteFile', (explorerNode: ClusterExplorerConfigurationValueNode) => { deleteKubernetesConfigFile(kubectl, explorerNode, treeProvider); }),
@@ -240,6 +239,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.helmTemplate', helmexec.helmTemplate),
         registerCommand('extension.helmTemplatePreview', helmexec.helmTemplatePreview),
         registerCommand('extension.helmLint', helmexec.helmLint),
+        registerCommand('extension.helmGetValues', (o: ClusterExplorerHelmReleaseNode) => helmexec.helmGetValues(kubectl, o)),
         registerCommand('extension.helmFetchValues', helmexec.helmFetchValues),
         registerCommand('extension.helmInspectChart', helmexec.helmInspectChart),
         registerCommand('extension.helmDryRun', helmexec.helmDryRun),
@@ -250,6 +250,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.helmPackage', helmexec.helmPackage),
         registerCommand('extension.helmFetch', helmexec.helmFetch),
         registerCommand('extension.helmInstall', (o) => helmexec.helmInstall(kubectl, o)),
+        registerCommand("extension.helmUpgrade", helmexec.helmUpgradeWithValues),
         registerCommand("extension.helmUninstall", helmexec.helmUninstall),
         registerCommand("extension.helmRollback", helmexec.helmRollback),
         registerCommand('extension.helmDependencies', helmexec.helmDependencies),
