@@ -88,6 +88,7 @@ import { getCurrentContext } from './kubectlUtils';
 import { LocalTunnelDebugger } from './components/localtunneldebugger/localtunneldebugger';
 import { setAssetContext } from './assets';
 import { fixOldInstalledBinaryPermissions } from './components/installer/fixwriteablebinaries';
+import { HelmReleaseNode } from './components/clusterexplorer/node.helmrelease';
 
 let explainActive = false;
 let swaggerSpecPromise: Promise<explainer.SwaggerModel | undefined> | null = null;
@@ -243,7 +244,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.helmTemplatePreview', helmexec.helmTemplatePreview),
         registerCommand('extension.helmLint', helmexec.helmLint),
         registerCommand('extension.helmExportValues', (o: ClusterExplorerHelmReleaseNode) => helmexec.helmExportValues(kubectl, o)),
-        registerCommand('extension.helmGetValues', (o: ClusterExplorerHelmReleaseNode) => helmexec.helmGetValues(kubectl, o)),
+        registerCommand('extension.helmGetValues', (o: HelmReleaseNode) => helmexec.helmGetValues(kubectl, o)),
         registerCommand('extension.helmFetchValues', helmexec.helmFetchValues),
         registerCommand('extension.helmInspectChart', helmexec.helmInspectChart),
         registerCommand('extension.helmDryRun', helmexec.helmDryRun),

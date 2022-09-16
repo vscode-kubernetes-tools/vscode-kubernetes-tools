@@ -10,6 +10,7 @@ import { ContainerContainer } from '../../utils/containercontainer';
 import { ClusterExplorerResourceNode } from '../clusterexplorer/node';
 import { ExecResult } from '../../binutilplusplus';
 import { LogsDestination } from '../config/config';
+import { logger } from 'vscode-debugadapter/lib/logger';
 
 export enum LogsDisplayMode {
     Show,
@@ -46,7 +47,8 @@ export function logsKubernetesPreview(
     kubectl: Kubectl,
     explorerNode: ClusterExplorerResourceNode
 ) {
-    kubectl.invokeCommandWithFeedback(`logs -n ${explorerNode.namespace} ${explorerNode.name}`, {
+    const command = `logs -n ${explorerNode.namespace} ${explorerNode.name}`;
+    kubectl.invokeCommandWithFeedback(command, {
         title: `Fetching log of ${explorerNode.namespace}/${explorerNode.name} ... `
     }).then((er) => {
         if (ExecResult.succeeded(er)) {
@@ -55,6 +57,7 @@ export function logsKubernetesPreview(
             });
         } else {
             vscode.window.showErrorMessage(`Failed to fetch logs: ${ExecResult.failureMessage(er, {})}`);
+            logger.log(`Kubectl: ${command} : ${JSON.stringify(er)}`);
         }
     });
 }
