@@ -11,7 +11,7 @@ import { ClusterExplorerResourceNode } from '../clusterexplorer/node';
 import { ExecResult } from '../../binutilplusplus';
 import { LogsDestination } from '../config/config';
 import * as path from 'path';
-import { createWriteStream } from 'fs';
+import { createWriteStream, existsSync, unlinkSync } from 'fs';
 import { shell } from '../../shell';
 
 export enum LogsDisplayMode {
@@ -56,11 +56,16 @@ export function logsKubernetesPreview(
     }
     const logFile = path.join(vscode.workspace.workspaceFolders![0].uri.fsPath, `${explorerNode.name}.log`);
     const logUri = shell.fileUri(logFile);
-    kubectl.legacySpawnAsChild(command).then((proc) => {
+    if (existsSync(logFile)) {
+        unlinkSync(logFile);
+        vscode.window.showInformationMessage(`Kubectl: removed an existing file ${logFile}!`);
+    }
+    kubectl.legacySpawnAsChild(command, { title: `Kubectl: fetching logs ${explorerNode.name} to ${logFile} ... ` }).then((proc) => {
         if (proc) {
             proc.stdout.pipe(createWriteStream(logFile));
             proc.on('exit', () => {
                 vscode.workspace.openTextDocument(logUri).then((doc) => vscode.window.showTextDocument(doc));
+                vscode.window.showInformationMessage(`Kubectl: logs of ${explorerNode.name} successfully!`);
             });
         }
     });

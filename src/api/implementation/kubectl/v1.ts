@@ -21,7 +21,7 @@ class KubectlV1Impl implements KubectlV1 {
     async portForward(podName: string, podNamespace: string | undefined, localPort: number, remotePort: number, options: KubectlV1.PortForwardOptions): Promise<vscode.Disposable | undefined> {
         const nsarg = podNamespace ? ['--namespace', podNamespace] : [];
         const cmd = ['port-forward', podName, `${localPort}:${remotePort}`, ...nsarg];
-        const pfProcess = await this.kubectl.legacySpawnAsChild(cmd);
+        const pfProcess = await this.kubectl.legacySpawnAsChild(cmd, { title: `Kubectl: start port forwarding for ${podName} ... ` });
         if (!pfProcess) {
             return undefined;
         }

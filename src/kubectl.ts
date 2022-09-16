@@ -18,7 +18,7 @@ const KUBECTL_OUTPUT_COLUMN_SEPARATOR = /\s\s+/g;
 export interface Kubectl {
     // entangledly shouty but retained for API backcompat
     legacyInvokeAsync(command: string, stdin?: string): Promise<ShellResult | undefined>;
-    legacySpawnAsChild(command: string[]): Promise<ChildProcess | undefined>;
+    legacySpawnAsChild(command: string[], uiOptions: string | LongRunningUIOptions): Promise<ChildProcess | undefined>;
 
     invokeInNewTerminal(command: string, terminalName: string, onClose?: (e: Terminal) => any, pipeTo?: string): Promise<Disposable>;
     invokeInSharedTerminal(command: string): Promise<void>;
@@ -96,12 +96,12 @@ let checkedCompatibility = false;  // We don't want to spam the user (or CPU!) r
 class KubectlImpl implements Kubectl {
     constructor(host: Host, fs: FS, shell: Shell, pathfinder: (() => Promise<string>) | undefined, kubectlFound: false /* TODO: this is now safe to remove */) {
         this.context = {
-            host : host,
-            fs : fs,
-            shell : shell,
+            host: host,
+            fs: fs,
+            shell: shell,
             pathfinder: pathfinder,
-            binFound : kubectlFound,
-            binPath : 'kubectl',
+            binFound: kubectlFound,
+            binPath: 'kubectl',
             binary: KUBECTL_BINARY,
             status: undefined
         };
@@ -117,11 +117,13 @@ class KubectlImpl implements Kubectl {
     legacyInvokeAsync(command: string, stdin?: string, callback?: (proc: ChildProcess) => void): Promise<ShellResult | undefined> {
         return invokeAsync(this.context, command, stdin, callback);
     }
-    legacySpawnAsChild(command: string[]): Promise<ChildProcess | undefined> {
-        return spawnAsChild(this.context, command, (child) => {
-            if (child) {
-                this.childProcesses.push(child);
-            }
+    legacySpawnAsChild(command: string[], uiOptions: string | LongRunningUIOptions): Promise<ChildProcess | undefined> {
+        return this.context.host.longRunning(uiOptions, () => {
+            return spawnAsChild(this.context, command, (child) => {
+                if (child) {
+                    this.childProcesses.push(child);
+                }
+            });
         });
     }
     async invokeInNewTerminal(command: string, terminalName: string, onClose?: (e: Terminal) => any, pipeTo?: string): Promise<Disposable> {
@@ -463,7 +465,7 @@ async function asLines(context: Context, command: string): Promise<Errorable<str
         return { succeeded: true, result: lines };
 
     }
-    return { succeeded: false, error: [ shellResult.stderr ] };
+    return { succeeded: false, error: [shellResult.stderr] };
 }
 
 async function fromLines(context: Context, command: string): Promise<Errorable<{ [key: string]: string }[]>> {
@@ -478,7 +480,7 @@ async function fromLines(context: Context, command: string): Promise<Errorable<{
         const parsedOutput = parseLineOutput(lines, KUBECTL_OUTPUT_COLUMN_SEPARATOR);
         return { succeeded: true, result: parsedOutput };
     }
-    return { succeeded: false, error: [ shellResult.stderr ] };
+    return { succeeded: false, error: [shellResult.stderr] };
 }
 
 async function asJson<T>(context: Context, command: string): Promise<Errorable<T>> {
@@ -491,7 +493,7 @@ async function asJson<T>(context: Context, command: string): Promise<Errorable<T
         return { succeeded: true, result: JSON.parse(shellResult.stdout.trim()) as T };
 
     }
-    return { succeeded: false, error: [ shellResult.stderr ] };
+    return { succeeded: false, error: [shellResult.stderr] };
 }
 
 function killProcessCallback(): (process: ChildProcess) => void {
