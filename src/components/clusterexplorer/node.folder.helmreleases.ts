@@ -21,6 +21,6 @@ export class HelmReleasesFolder extends GroupingFolderNode /* TODO: not really *
         if (failed(releases)) {
             return [new MessageNode("Helm list error", releases.error[0])];
         }
-        return releases.result.map((r) => new HelmReleaseNode(r.name, r.status));
+        return releases.result.map((r) => new HelmReleaseNode(r.name, r.status, r.chart));
     }
 }
