@@ -550,6 +550,11 @@
                     "group": "1"
                 },
                 {
+                    "command": "extension.vsKubernetesRefresh",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.\\w*cluster.*/i",
+                    "group": "1"
+                },
+                {
                     "command": "extension.vsKubernetesClusterInfo",
                     "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.\\w*cluster($|\\s)/i",
                     "group": "0@1"
@@ -591,6 +596,11 @@
                 },
                 {
                     "command": "extension.vsKubernetesCopy",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\./i",
+                    "group": "1"
+                },
+                {
+                    "command": "extension.vsKubernetesRefresh",
                     "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\./i",
                     "group": "1"
                 },
@@ -715,6 +725,11 @@
                     "group": "1"
                 },
                 {
+                    "command": "extension.vsKubernetesRefresh",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.helmrelease/i",
+                    "group": "1"
+                },
+                {
                     "command": "extension.vsKubernetesRestart",
                     "group": "2@6",
                     "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.(deployment|job|rc|rs|statefulset)/i"
@@ -827,6 +842,10 @@
                 },
                 {
                     "command": "extension.vsKubernetesCopy",
+                    "when": "view == extension.vsKubernetesExplorer"
+                },
+                {
+                    "command": "extension.vsKubernetesRefresh",
                     "when": "view == extension.vsKubernetesExplorer"
                 },
                 {
@@ -1079,6 +1098,20 @@
                 "command": "extension.vsKubernetesCopy",
                 "title": "Copy Name",
                 "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesRefresh",
+                "title": "Refresh",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesRefresh",
+                "title": "Refresh",
+                "category": "Kubernetes",
+                "icon": {
+                    "light": "resources/light/refresh.svg",
+                    "dark": "resources/dark/refresh.svg"
+                }
             },
             {
                 "command": "extension.vsKubernetesAddFile",
