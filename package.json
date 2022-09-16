@@ -720,6 +720,11 @@
                     "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.(deployment|job|rc|rs|statefulset)/i"
                 },
                 {
+                    "command": "extension.helmExportValues",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.helmrelease/i",
+                    "group": "1"
+                },
+                {
                     "command": "extension.helmGetValues",
                     "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.helmrelease/i",
                     "group": "1"
@@ -1140,6 +1145,12 @@
                 "command": "extension.helmDryRun",
                 "title": "Dry Run",
                 "description": "Run 'helm install --dry-run --debug' on this chart.",
+                "category": "Helm"
+            },
+            {
+                "command": "extension.helmExportValues",
+                "title": "Export Values",
+                "description": "Run 'helm get values' on this release.",
                 "category": "Helm"
             },
             {

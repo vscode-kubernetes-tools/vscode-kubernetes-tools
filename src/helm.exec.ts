@@ -25,6 +25,7 @@ import { ExecCallback, shell as sh, ShellResult } from './shell';
 import { openHelmGeneratedValuesFile, preview } from './utils/preview';
 import * as fs from './wsl-fs';
 import * as shell from './shell';
+import { writeFileSync } from 'fs';
 
 export interface PickChartUIOptions {
     readonly warnIfNoCharts: boolean;
@@ -47,11 +48,11 @@ interface HelmRepositoriesFile {
 // Schema for Helm release
 // added to support rollback feature
 export interface HelmRelease {
-    readonly revision:    number;
-    readonly updated:     string;
-    readonly status:      string;
-    readonly chart:       string;
-    readonly appVersion:  string;
+    readonly revision: number;
+    readonly updated: string;
+    readonly status: string;
+    readonly chart: string;
+    readonly appVersion: string;
     readonly description: string;
 }
 
@@ -130,8 +131,8 @@ export function helmTemplatePreview() {
     }
 
     const filePath = editor.document.fileName;
-    if (filePath.indexOf("templates") < 0 ) {
-        vscode.window.showInformationMessage("Not a template: " +filePath);
+    if (filePath.indexOf("templates") < 0) {
+        vscode.window.showInformationMessage("Not a template: " + filePath);
         return;
     }
 
@@ -141,7 +142,7 @@ export function helmTemplatePreview() {
 
     const u = vscode.Uri.parse(helm.PREVIEW_URI);
     const f = filepath.basename(filePath);
-    preview(u, vscode.ViewColumn.Two, `Preview ${ f }`);
+    preview(u, vscode.ViewColumn.Two, `Preview ${f}`);
     helm.recordPreviewHasBeenShown();
 }
 
@@ -180,7 +181,7 @@ export async function helmCreate(): Promise<void> {
     }
 }
 
-export async function helmCreateCore(prompt: string, sampleName: string): Promise<Errorable<{ name: string; path: string}> | undefined> {
+export async function helmCreateCore(prompt: string, sampleName: string): Promise<Errorable<{ name: string; path: string }> | undefined> {
     const folder = await showWorkspaceFolderPick();
     if (!folder) {
         return undefined;
@@ -200,7 +201,7 @@ export async function helmCreateCore(prompt: string, sampleName: string): Promis
     const sr = await helmExecAsync(`create "${fullpath}"`);
 
     if (!sr || sr.code !== 0) {
-        return { succeeded: false, error: [ sr ? sr.stderr : "Unable to run Helm" ] };
+        return { succeeded: false, error: [sr ? sr.stderr : "Unable to run Helm"] };
     }
 
     return { succeeded: true, result: { name: name, path: fullpath } };
@@ -265,8 +266,8 @@ function helmInspect(arg: any, s: InspectionStrategy) {
             );
             openHelmGeneratedValuesFile(uri);
         } else {
-             const versionQuery = helmrepoexplorer.isHelmRepoChartVersion(arg) ? `?version=${arg.version}` : "";
-             const uri = vscode.Uri.parse(`${s.inspectionScheme}://${helm.INSPECT_REPO_AUTHORITY}/${id}${versionQuery}`);
+            const versionQuery = helmrepoexplorer.isHelmRepoChartVersion(arg) ? `?version=${arg.version}` : "";
+            const uri = vscode.Uri.parse(`${s.inspectionScheme}://${helm.INSPECT_REPO_AUTHORITY}/${id}${versionQuery}`);
             preview(uri, vscode.ViewColumn.Two, "Inspect");
         }
     } else {
@@ -340,7 +341,7 @@ export function helmUninstall(resourceNode?: ClusterExplorerNode) {
 
 export async function helmGetHistory(release: string): Promise<Errorable<HelmRelease[]>> {
     if (!ensureHelm(EnsureMode.Alert)) {
-        return { succeeded: false, error: [ "Helm client is not installed" ] };
+        return { succeeded: false, error: ["Helm client is not installed"] };
     }
     const sr = await helmExecAsync(`history ${release} --output json`);
     if (!sr || sr.code !== 0) {
@@ -367,18 +368,18 @@ export async function helmRollback(resourceNode?: HelmHistoryNode) {
     vscode.window.showWarningMessage(`You are about to rollback ${releaseName} to release version ${release.revision}. Continue?`, 'Rollback').then((opt) => {
         if (opt === "Rollback") {
             helmExec(`rollback ${releaseName} ${release.revision} --cleanup-on-fail`, async (code, out, err) => {
-            logger.log(out);
-            logger.log(err);
-            if (out !== "") {
-                vscode.window.showInformationMessage(`Release ${releaseName} successfully rolled back to ${release.revision}.`);
-                refreshExplorer();
-            }
-            if (code !== 0) {
-                vscode.window.showErrorMessage(`Error rolling back to ${release.revision} for ${releaseName} ${err}`);
-            }
-        });
-    }
-});
+                logger.log(out);
+                logger.log(err);
+                if (out !== "") {
+                    vscode.window.showInformationMessage(`Release ${releaseName} successfully rolled back to ${release.revision}.`);
+                    refreshExplorer();
+                }
+                if (code !== 0) {
+                    vscode.window.showErrorMessage(`Error rolling back to ${release.revision} for ${releaseName} ${err}`);
+                }
+            });
+        }
+    });
 }
 
 export function helmfsUri(releaseName: string, revision: number | undefined): vscode.Uri {
@@ -482,6 +483,31 @@ export async function helmRegisterTextDocumentContentProvider() {
     });
 }
 
+export async function helmExportValues(kubectl: Kubectl, res: ClusterExplorerHelmReleaseNode): Promise<void> {
+    const ns = await currentNamespace(kubectl);
+    const uri = vscode.workspace.workspaceFolders ? vscode.workspace.workspaceFolders[0].uri : vscode.Uri.parse("");
+    const filename = filepath.join(uri.fsPath, `helmrelease-${res.releaseName}.yml`);
+    const sr = await helmExecAsync(`get values ${res.releaseName} --namespace ${ns}`);
+    let content = `Unable to get values of ${ns}/${res.releaseName}`;
+    if (sr) {
+        if (sr.code === 0) {
+            content = sr.stdout.substring("USER-SUPPLIED VALUES:".length + 1).trimLeft();
+            writeFileSync(filename, content);
+            vscode.workspace.openTextDocument(filename).then((doc) => {
+                vscode.window.showTextDocument(doc).then((editor) => {
+                    editor.edit((builder) => {
+                        builder.replace(new vscode.Range(new vscode.Position(0, 0),
+                            doc.lineAt(doc.lineCount - 1).range.end), content);
+                    });
+                });
+            });
+        } else {
+            content = sr.stderr;
+            vscode.window.showInformationMessage(`Helm: exporting (${filename}) : ${content}`);
+        }
+    }
+}
+
 export async function helmGetValues(kubectl: Kubectl, res: ClusterExplorerHelmReleaseNode): Promise<void> {
     const ns = await currentNamespace(kubectl);
     const uri = vscode.Uri.parse(`${helm.HELM_VALUES_SCHEMA}://${ns}/helmrelease-${res.releaseName}.yml`);
@@ -495,14 +521,14 @@ export async function helmGetValues(kubectl: Kubectl, res: ClusterExplorerHelmRe
                 ...res
             };
             content = `#${JSON.stringify(metadata)}\n` + sr.stdout.substring("USER-SUPPLIED VALUES:".length + 1).trimLeft();
+            vscode.workspace.openTextDocument({ language: "yaml", content }).then((doc) => {
+                vscode.window.showTextDocument(doc);
+            });
         } else {
             content = sr.stderr;
+            vscode.window.showInformationMessage(`Helm: previewing (${uri.toString()}) : ${content}`);
         }
     }
-    vscode.workspace.openTextDocument({language: "yaml", content}).then((doc) => {
-        vscode.window.showInformationMessage(`Helm: previewing values : ${uri.toString()}`);
-        vscode.window.showTextDocument(doc);
-    });
 }
 
 export async function helmUpgradeWithValues(): Promise<void> {
@@ -514,8 +540,8 @@ export async function helmUpgradeWithValues(): Promise<void> {
     const matched = content.match(/^#+([^\n]+)/);
     let metadata: any = {};
     try {
-        metadata = JSON.parse( matched ? matched[1] : "{}");
-    } catch (e) {}
+        metadata = JSON.parse(matched ? matched[1] : "{}");
+    } catch (e) { }
     if (!metadata || !metadata.namespace || !metadata.releaseName) {
         vscode.window.showWarningMessage(`Missing metadata in values, please do not remove the first comment line and try again.`);
         return;
@@ -524,12 +550,12 @@ export async function helmUpgradeWithValues(): Promise<void> {
     if (!ensureHelm(EnsureMode.Alert)) {
         return;
     }
-    const chartId = await vscode.window.showInputBox({prompt: "What chart will be used (x/java for example) ?"});
+    const chartId = await vscode.window.showInputBox({ prompt: "What chart will be used (x/java for example) ?" });
     if (!chartId || !shell.isSafe(chartId)) {
         vscode.window.showWarningMessage(`Unexpected characters in chart name ${chartId}. Use Helm CLI to install this chart.`);
         return;
     }
-    const version = await vscode.window.showInputBox({prompt: `Which version of chart ${chartId} to use (1.0.32 for example) ?`});
+    const version = await vscode.window.showInputBox({ prompt: `Which version of chart ${chartId} to use (1.0.32 for example) ?` });
     if (!version || !shell.isSafe(version)) {
         vscode.window.showWarningMessage(`Unexpected characters in chart version ${version}. Use Helm CLI to install this chart.`);
         return;
@@ -831,10 +857,10 @@ const HELM_PAGING_PREFIX = "next:";
 
 export async function helmListAll(namespace?: string): Promise<Errorable<{ [key: string]: string }[]>> {
     if (!ensureHelm(EnsureMode.Alert)) {
-        return { succeeded: false, error: [ "Helm client is not installed" ] };
+        return { succeeded: false, error: ["Helm client is not installed"] };
     }
 
-    const releases: {[key: string]: string}[] = [];
+    const releases: { [key: string]: string }[] = [];
     let offset: string | null = null;
 
     do {
@@ -843,12 +869,12 @@ export async function helmListAll(namespace?: string): Promise<Errorable<{ [key:
         const sr = await helmExecAsync(`list --max 0 ${nsarg} ${offsetarg}`);
 
         if (!sr || sr.code !== 0) {
-            return { succeeded: false, error: [ sr ? sr.stderr : "Unable to run Helm" ] };
+            return { succeeded: false, error: [sr ? sr.stderr : "Unable to run Helm"] };
         }
 
         const lines = sr.stdout.split('\n')
-                               .map((s) => s.trim())
-                               .filter((l) => l.length > 0);
+            .map((s) => s.trim())
+            .filter((l) => l.length > 0);
         if (lines.length > 0) {
             if (lines[0].startsWith(HELM_PAGING_PREFIX)) {
                 const pagingInfo = lines.shift()!;  // safe because we have checked the length
@@ -873,8 +899,7 @@ export function ensureHelm(mode: EnsureMode) {
             return true;
         }
         if (mode === EnsureMode.Alert) {
-            vscode.window.showErrorMessage(`${configuredBin} does not exist!`, "Install dependencies").then((str) =>
-            {
+            vscode.window.showErrorMessage(`${configuredBin} does not exist!`, "Install dependencies").then((str) => {
                 if (str === "Install dependencies") {
                     installDependencies();
                 }
@@ -886,8 +911,7 @@ export function ensureHelm(mode: EnsureMode) {
         return true;
     }
     if (mode === EnsureMode.Alert) {
-        vscode.window.showErrorMessage(`Could not find Helm binary.`, "Install dependencies").then((str) =>
-        {
+        vscode.window.showErrorMessage(`Could not find Helm binary.`, "Install dependencies").then((str) => {
             if (str === "Install dependencies") {
                 installDependencies();
             }
@@ -902,8 +926,8 @@ export class Requirement {
     public version: string;
     toString(): string {
         return `- name: ${this.name}
-  version: ${ this.version }
-  repository: ${ this.repository}
+  version: ${this.version}
+  repository: ${this.repository}
 `;
     }
 }
@@ -918,7 +942,7 @@ export function insertRequirement() {
         }
         const req = searchForChart(val);
         if (!req) {
-            vscode.window.showErrorMessage(`Chart ${ val } not found`);
+            vscode.window.showErrorMessage(`Chart ${val} not found`);
             return;
         }
         const ed = vscode.window.activeTextEditor;

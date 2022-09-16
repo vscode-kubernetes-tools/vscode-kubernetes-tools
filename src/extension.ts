@@ -242,6 +242,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.helmTemplate', helmexec.helmTemplate),
         registerCommand('extension.helmTemplatePreview', helmexec.helmTemplatePreview),
         registerCommand('extension.helmLint', helmexec.helmLint),
+        registerCommand('extension.helmExportValues', (o: ClusterExplorerHelmReleaseNode) => helmexec.helmExportValues(kubectl, o)),
         registerCommand('extension.helmGetValues', (o: ClusterExplorerHelmReleaseNode) => helmexec.helmGetValues(kubectl, o)),
         registerCommand('extension.helmFetchValues', helmexec.helmFetchValues),
         registerCommand('extension.helmInspectChart', helmexec.helmInspectChart),
