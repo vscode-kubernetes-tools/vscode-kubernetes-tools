@@ -38,6 +38,7 @@
         "onCommand:extension.vsKubernetesExplain",
         "onCommand:extension.vsKubernetesLoad",
         "onCommand:extension.vsKubernetesGet",
+        "onCommand:extension.vsKubernetesInstances",
         "onCommand:extension.vsKubernetesRun",
         "onCommand:extension.vsKubernetesLogs",
         "onCommand:extension.vsKubernetesLogsLast300AndFollow",
@@ -630,6 +631,11 @@
                     "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource(?!\\.namespace).*/i"
                 },
                 {
+                    "command": "extension.vsKubernetesInstances",
+                    "group": "2@1",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource(?!\\.namespace).*/i"
+                },
+                {
                     "command": "extension.vsKubernetesDelete",
                     "group": "2@2",
                     "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource.*/i"
@@ -947,6 +953,11 @@
             {
                 "command": "extension.vsKubernetesGet",
                 "title": "Get",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesInstances",
+                "title": "Instances",
                 "category": "Kubernetes"
             },
             {
