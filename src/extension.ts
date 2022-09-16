@@ -184,12 +184,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.vsKubernetesDeleteNow', (explorerNode: ClusterExplorerResourceNode) => { deleteKubernetes(KubernetesDeleteMode.Now, explorerNode); }),
         registerCommand('extension.vsKubernetesDescribe.Refresh', () => refreshDescribeKubernetes(resourceDocProvider)),
         registerCommand('extension.vsKubernetesApply', applyKubernetes),
+        registerCommand('extension.vsKubernetesRestart', restartKubernetes),
         registerCommand('extension.vsKubernetesExplain', explainActiveWindow),
         registerCommand('extension.vsKubernetesLoad', loadKubernetes),
         registerCommand('extension.vsKubernetesGet', getKubernetes),
         registerCommand('extension.vsKubernetesRun', runKubernetes),
         registerCommand('extension.vsKubernetesLogs', (explorerNode: ClusterExplorerResourceNode) => { logsKubernetes(kubectl, explorerNode); }),
-        registerCommand('extension.vsKubernetesLogsLatest300AndFollow', (explorerNode: ClusterExplorerResourceNode) => { logsKubernetesWithLatest300RowsAndFollow(kubectl, explorerNode); }),
+        registerCommand('extension.vsKubernetesLogsLast300AndFollow', (explorerNode: ClusterExplorerResourceNode) => { logsKubernetesWithLatest300RowsAndFollow(kubectl, explorerNode); }),
         registerCommand('extension.vsKubernetesExpose', exposeKubernetes),
         registerCommand('extension.vsKubernetesDescribe', describeKubernetes),
         registerCommand('extension.vsKubernetesSync', syncKubernetes),
@@ -924,6 +925,34 @@ function findNameAndImageInternal(fn: (name: string, image: string) => void) {
 
         fn(name.trim(), image.trim());
     });
+}
+
+async function restartKubernetes(target?: any) {
+    if (target && explorer.isKubernetesExplorerResourceNode(target)) {
+        const kindName = target.kindName;
+        promptRestartKubernetes(kindName, target.namespace);
+    }
+}
+
+function promptRestartKubernetes(kindName: string, namespace: string) {
+    vscode.window.showInputBox({ prompt: `Are you sure to restart ${namespace}/${kindName}?[N/y]` }).then((value) => {
+        if (value) {
+            const confirm = value;
+            if (confirm && 'Y' === confirm.toUpperCase()) {
+                invokeRestartKubernetes(kindName, namespace);
+            } else {
+                vscode.window.showErrorMessage(`Cancelled restarting ${kindName}.`);
+            }
+        }
+    },
+    (err) => vscode.window.showErrorMessage(`Error getting rollout restart input: ${err}`));
+}
+
+async function invokeRestartKubernetes(kindName: string, namespace: string) {
+    const er = await host.longRunning(`Restarting ${namespace}/${kindName} ...`, () =>
+        kubectl.invokeCommand(`rollout restart ${kindName} -n ${namespace}`)
+    );
+    await kubectl.reportResult(er, {});
 }
 
 async function scaleKubernetes(target?: any) {

@@ -40,9 +40,10 @@
         "onCommand:extension.vsKubernetesGet",
         "onCommand:extension.vsKubernetesRun",
         "onCommand:extension.vsKubernetesLogs",
-        "onCommand:extension.vsKubernetesLogsLatest300AndFollow",
+        "onCommand:extension.vsKubernetesLogsLast300AndFollow",
         "onCommand:extension.vsKubernetesExpose",
         "onCommand:extension.vsKubernetesDescribe",
+        "onCommand:extension.vsKubernetesRestart",
         "onCommand:extension.vsKubernetesSync",
         "onCommand:extension.vsKubernetesExec",
         "onCommand:extension.vsKubernetesTerminal",
@@ -678,7 +679,7 @@
                     "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.(pod|job)/i"
                 },
                 {
-                    "command": "extension.vsKubernetesLogsLatest300AndFollow",
+                    "command": "extension.vsKubernetesLogsLast300AndFollow",
                     "group": "3",
                     "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.(pod|job)/i"
                 },
@@ -706,6 +707,11 @@
                     "command": "extension.vsKubernetesCopy",
                     "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.helmrelease/i",
                     "group": "1"
+                },
+                {
+                    "command": "extension.vsKubernetesRestart",
+                    "group": "2@6",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.(deployment|job|rc|rs|statefulset)/i"
                 },
                 {
                     "command": "extension.helmGetValues",
@@ -914,6 +920,11 @@
                 "category": "Kubernetes"
             },
             {
+                "command": "extension.vsKubernetesRestart",
+                "title": "Restart",
+                "category": "Kubernetes"
+            },
+            {
                 "command": "extension.vsKubernetesRun",
                 "title": "Run",
                 "category": "Kubernetes"
@@ -924,7 +935,7 @@
                 "category": "Kubernetes"
             },
             {
-                "command": "extension.vsKubernetesLogsLatest300AndFollow",
+                "command": "extension.vsKubernetesLogsLast300AndFollow",
                 "title": "Logs last 300 rows & Follow",
                 "category": "Kubernetes"
             },

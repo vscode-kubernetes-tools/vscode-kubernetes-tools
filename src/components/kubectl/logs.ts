@@ -39,7 +39,7 @@ export async function logsKubernetes(
     kubectl: Kubectl,
     explorerNode: ClusterExplorerResourceNode
 ) {
-    kubectl.invokeInSharedTerminal(`logs --tail=300 -f -n ${explorerNode.namespace} ${explorerNode.name}`);
+    kubectl.invokeInNewTerminal(`logs --tail=300 -f -n ${explorerNode.namespace} ${explorerNode.name}`, `${explorerNode.namespace}/${explorerNode.name}`);
 }
 
 /**
