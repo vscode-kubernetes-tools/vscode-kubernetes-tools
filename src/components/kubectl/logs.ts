@@ -35,11 +35,28 @@ export async function logsKubernetes(
  * Fetches logs for a Pod. Handles use cases for fetching pods
  * from an open document, or from the current namespace.
  */
- export function logsKubernetesWithLatest300RowsAndFollow(
+export function logsKubernetesWithLatest300RowsAndFollow(
     kubectl: Kubectl,
     explorerNode: ClusterExplorerResourceNode
 ) {
     kubectl.invokeInNewTerminal(`logs --tail=300 -f -n ${explorerNode.namespace} ${explorerNode.name}`, `${explorerNode.namespace}/${explorerNode.name}`);
+}
+
+export function logsKubernetesPreview(
+    kubectl: Kubectl,
+    explorerNode: ClusterExplorerResourceNode
+) {
+    kubectl.invokeCommandWithFeedback(`logs -n ${explorerNode.namespace} ${explorerNode.name}`, {
+        title: `Fetching log of ${explorerNode.namespace}/${explorerNode.name} ... `
+    }).then((er) => {
+        if (ExecResult.succeeded(er)) {
+            vscode.workspace.openTextDocument({ language: "plaintext", content: er.stdout }).then((doc) => {
+                vscode.window.showTextDocument(doc);
+            });
+        } else {
+            vscode.window.showErrorMessage(`Failed to fetch logs: ${ExecResult.failureMessage(er, {})}`);
+        }
+    });
 }
 
 /**

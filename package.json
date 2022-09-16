@@ -41,6 +41,7 @@
         "onCommand:extension.vsKubernetesRun",
         "onCommand:extension.vsKubernetesLogs",
         "onCommand:extension.vsKubernetesLogsLast300AndFollow",
+        "onCommand:extension.vsKubernetesLogsPreview",
         "onCommand:extension.vsKubernetesExpose",
         "onCommand:extension.vsKubernetesDescribe",
         "onCommand:extension.vsKubernetesRestart",
@@ -684,6 +685,11 @@
                     "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.(pod|job)/i"
                 },
                 {
+                    "command": "extension.vsKubernetesLogsPreview",
+                    "group": "3",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.(pod|job)/i"
+                },
+                {
                     "command": "extension.vsKubernetesCronJobRunNow",
                     "group": "3",
                     "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.cronjob/i"
@@ -937,6 +943,11 @@
             {
                 "command": "extension.vsKubernetesLogsLast300AndFollow",
                 "title": "Logs last 300 rows & Follow",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesLogsPreview",
+                "title": "Logs Preview",
                 "category": "Kubernetes"
             },
             {
