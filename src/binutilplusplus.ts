@@ -70,6 +70,10 @@ export interface FailureMessageOptions {
 }
 
 export namespace ExecResult {
+    export function asExecErrored(execResult: ExecResult): ExecErrored | undefined {
+        return execResult.resultKind === 'exec-errored' ? execResult as ExecErrored : undefined;
+    }
+
     export function tryMap<T>(execResult: ExecResult, fn: (output: string) => T): Errorable<T> {
         if (execResult.resultKind === 'exec-bin-not-found') {
             return { succeeded: false, error: [`${execResult.execProgram.displayName} command failed trying to run '${execResult.command}': ${execResult.execProgram.binBaseName} not found`] };
@@ -82,7 +86,7 @@ export namespace ExecResult {
             return { succeeded: true, result: fn(execResult.stdout.trim()) };
         }
 
-        return { succeeded: false, error: [ execResult.stderr ] };
+        return { succeeded: false, error: [ `${execResult.stderr}(${execResult.code})` ] };
     }
 
     export function map<T>(execResult: ExecResult, fn: (output: string) => T): ParsedExecResult<T> {

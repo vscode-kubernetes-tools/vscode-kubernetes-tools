@@ -10,7 +10,9 @@ import { ContainerContainer } from '../../utils/containercontainer';
 import { ClusterExplorerResourceNode } from '../clusterexplorer/node';
 import { ExecResult } from '../../binutilplusplus';
 import { LogsDestination } from '../config/config';
-import { logger } from 'vscode-debugadapter/lib/logger';
+import * as path from 'path';
+import { createWriteStream } from 'fs';
+import { shell } from '../../shell';
 
 export enum LogsDisplayMode {
     Show,
@@ -47,17 +49,19 @@ export function logsKubernetesPreview(
     kubectl: Kubectl,
     explorerNode: ClusterExplorerResourceNode
 ) {
-    const command = `logs -n ${explorerNode.namespace} ${explorerNode.name}`;
-    kubectl.invokeCommandWithFeedback(command, {
-        title: `Fetching log of ${explorerNode.namespace}/${explorerNode.name} ... `
-    }).then((er) => {
-        if (ExecResult.succeeded(er)) {
-            vscode.workspace.openTextDocument({ language: "plaintext", content: er.stdout }).then((doc) => {
-                vscode.window.showTextDocument(doc);
+    const command = ["logs", "-n", explorerNode.namespace, explorerNode.name];
+    if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length <= 0) {
+        vscode.window.showWarningMessage(`At least one workspace should be opened to continue ... `);
+        return;
+    }
+    const logFile = path.join(vscode.workspace.workspaceFolders![0].uri.fsPath, `${explorerNode.name}.log`);
+    const logUri = shell.fileUri(logFile);
+    kubectl.legacySpawnAsChild(command).then((proc) => {
+        if (proc) {
+            proc.stdout.pipe(createWriteStream(logFile));
+            proc.on('exit', () => {
+                vscode.workspace.openTextDocument(logUri).then((doc) => vscode.window.showTextDocument(doc));
             });
-        } else {
-            vscode.window.showErrorMessage(`Failed to fetch logs: ${ExecResult.failureMessage(er, {})}`);
-            logger.log(`Kubectl: ${command} : ${JSON.stringify(er)}`);
         }
     });
 }

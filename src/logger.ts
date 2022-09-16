@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 
 const HELM_CHANNEL = "Helm";
+const DEFAULT_CHANNEL = "Kubernetes";
 
 interface Logger extends vscode.Disposable {
     log(msg: string): void;
@@ -25,3 +26,4 @@ class LoggingConsole implements Logger {
 }
 
 export const helm: Logger = new LoggingConsole(HELM_CHANNEL);
+export const kubernetes = new LoggingConsole(DEFAULT_CHANNEL);
