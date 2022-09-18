@@ -63,7 +63,7 @@ export class KubernetesResourceVirtualFileSystemProvider implements FileSystemPr
 
     async readFileAsync(uri: Uri): Promise<Uint8Array> {
         const content = await this.loadResource(uri);
-        return new Buffer(content, 'utf8');
+        return Buffer.alloc(content.length * 4, content, 'utf8');
     }
 
     async loadResource(uri: Uri): Promise<string> {

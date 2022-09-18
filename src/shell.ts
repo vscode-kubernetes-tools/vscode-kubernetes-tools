@@ -191,6 +191,10 @@ export function shellEnvironment(baseEnvironment: any): any {
 
     const kubeconfigPath = getKubeconfigPath();
     env['KUBECONFIG'] = kubeconfigPath.pathType === "host" ? kubeconfigPath.hostPath : kubeconfigPath.wslPath;
+    if (env["DEBUG"]) {
+        // FIXME no DEBUG on kubectl command
+        delete env["DEBUG"];
+    }
     return env;
 }
 

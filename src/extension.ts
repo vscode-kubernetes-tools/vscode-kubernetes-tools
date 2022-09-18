@@ -27,7 +27,7 @@ import { useNamespaceKubernetes } from './components/kubectl/namespace';
 import { EventDisplayMode, getEvents } from './components/kubectl/events';
 import * as docker from './docker';
 import { kubeChannel } from './kubeChannel';
-import { create as kubectlCreate } from './kubectl';
+import { create as kubectlCreate, Kubectl } from './kubectl';
 import * as kubectlUtils from './kubectlUtils';
 import * as explorer from './components/clusterexplorer/explorer';
 import * as helmRepoExplorer from './helm.repoExplorer';
@@ -89,6 +89,7 @@ import { LocalTunnelDebugger } from './components/localtunneldebugger/localtunne
 import { setAssetContext } from './assets';
 import { fixOldInstalledBinaryPermissions } from './components/installer/fixwriteablebinaries';
 import { HelmReleaseNode } from './components/clusterexplorer/node.helmrelease';
+import { ResourceNode } from './components/clusterexplorer/node.resource';
 
 let explainActive = false;
 let swaggerSpecPromise: Promise<explainer.SwaggerModel | undefined> | null = null;
@@ -189,6 +190,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.vsKubernetesExplain', explainActiveWindow),
         registerCommand('extension.vsKubernetesLoad', loadKubernetes),
         registerCommand('extension.vsKubernetesGet', getKubernetes),
+        registerCommand('extension.vsKubernetesNodeShell', (node: ResourceNode) => execInNodeShell(kubectl, node)),
         registerCommand('extension.vsKubernetesInstances', (explorerNode: ClusterExplorerResourceNode) => getKubernetes(explorerNode, true)),
         registerCommand('extension.vsKubernetesRun', runKubernetes),
         registerCommand('extension.vsKubernetesLogs', (explorerNode: ClusterExplorerResourceNode) => { logsKubernetes(kubectl, explorerNode); }),
@@ -802,10 +804,48 @@ function kubectlId(explorerNode: ClusterExplorerResourceNode | ClusterExplorerRe
     return explorerNode.kind.abbreviation;
 }
 
+async function execInNodeShell(kubectl: Kubectl, node: ResourceNode) {
+    if (node) {
+        const pod = `terminal-${node.name}-${Date.now()}.${Math.floor(Math.random() * 1000000)}`;
+        const spec = {
+            spec: {
+                hostPID: true,
+                hostNetwork: true,
+                nodeSelector: {
+                    "kubernetes.io/hostname": node.name,
+                },
+                tolerations: [{
+                    operator: "Exists"
+                }],
+                containers: [
+                    {
+                        name: "nsenter",
+                        image: "alexeiled/nsenter:2.38",
+                        command: [
+                            "/nsenter", "--all", "--target=1", "--", "su", "-"
+                        ],
+                        stdin: true,
+                        tty: true,
+                        securityContext: {
+                            privileged: true
+                        }
+                    }
+                ]
+            }
+        };
+        // kubectl run ${podName:?} --restart=Never -it --rm --image overriden --overrides '
+        const options = `--restart=Never -it --rm --image overriden --overrides '${JSON.stringify(spec)}'`;
+        const command = `run ${pod} ${options}`;
+        kubectl.invokeInNewTerminal(command, pod).then(() => {
+            vscode.window.showInformationMessage(`Kubectl: ${pod} is starting, please wait ... `);
+        });
+    }
+}
+
 async function getKubernetes(explorerNode?: any, listInstances?: boolean) {
     if (explorerNode) {
         const node = explorerNode as ClusterExplorerResourceNode | ClusterExplorerResourceFolderNode;
-        explorerNode.kindName
+        explorerNode.kindName;
         const id = kubectlId(node);
         const nsarg = (node.nodeType === explorer.NODE_TYPES.resource && node.namespace) ? `--namespace ${node.namespace}` : '';
         if (listInstances) {
