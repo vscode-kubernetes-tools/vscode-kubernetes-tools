@@ -185,6 +185,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.vsKubernetesDelete', (explorerNode: ClusterExplorerResourceNode) => { deleteKubernetes(KubernetesDeleteMode.Graceful, explorerNode); }),
         registerCommand('extension.vsKubernetesDeleteNow', (explorerNode: ClusterExplorerResourceNode) => { deleteKubernetes(KubernetesDeleteMode.Now, explorerNode); }),
         registerCommand('extension.vsKubernetesDescribe.Refresh', () => refreshDescribeKubernetes(resourceDocProvider)),
+        registerCommand('extension.vsKubernetesEdit', (node: ClusterExplorerResourceNode) => editKubernetes(kubectl, node)),
         registerCommand('extension.vsKubernetesApply', applyKubernetes),
         registerCommand('extension.vsKubernetesRestart', restartKubernetes),
         registerCommand('extension.vsKubernetesExplain', explainActiveWindow),
@@ -1692,6 +1693,22 @@ async function confirmOperation(prompt: (msg: string, ...opts: string[]) => Then
     if (result === confirmVerb) {
         operation();
     }
+}
+
+async function editKubernetes(kubectl: Kubectl, node: ClusterExplorerResourceNode) {
+    const ns = node.namespace;
+    const kind = node.kindName;
+    await kubectl.legacySpawnAsChild(["edit", kind, "--namespace", ns, node.name], { title: `Kubectl: editing ${node.kindName}/${node.name} ... ` });
+    kubectl.legacyInvokeAsync(`get ${node.kindName} -n ${node.namespace} -o yaml`).then((sr) => {
+        if (sr && sr.code === 0) {
+            vscode.workspace.openTextDocument({ language: "yaml", content: sr.stdout }).then((doc) => {
+                vscode.window.showTextDocument(doc);
+            });
+        } else {
+            vscode.window.showWarningMessage(`Kubectl: unable to get values of resource ${node.kindName} ... `);
+            logger.kubernetes.log(`Kubectl: get values failed : ${JSON.stringify(sr)}`);
+        }
+    });
 }
 
 const applyKubernetes = () => {

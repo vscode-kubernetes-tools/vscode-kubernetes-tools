@@ -628,6 +628,11 @@
                     "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource(?!\\.namespace).*/i"
                 },
                 {
+                    "command": "extension.vsKubernetesEdit",
+                    "group": "2@1",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource(?!\\.namespace).*/i"
+                },
+                {
                     "command": "extension.vsKubernetesNodeShell",
                     "group": "2@1",
                     "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.node/i"
@@ -930,6 +935,11 @@
             {
                 "command": "extension.vsKubernetesDeleteWatch",
                 "title": "Stop Watching",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesEdit",
+                "title": "Edit",
                 "category": "Kubernetes"
             },
             {
