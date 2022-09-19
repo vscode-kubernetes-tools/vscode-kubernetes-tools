@@ -997,18 +997,21 @@ async function restartKubernetes(target?: any) {
     }
 }
 
-function promptRestartKubernetes(kindName: string, namespace: string) {
-    vscode.window.showInputBox({ prompt: `Are you sure to restart ${namespace}/${kindName}?[N/y]` }).then((value) => {
-        if (value) {
-            const confirm = value;
-            if (confirm && 'Y' === confirm.toUpperCase()) {
-                invokeRestartKubernetes(kindName, namespace);
-            } else {
-                vscode.window.showErrorMessage(`Cancelled restarting ${kindName}.`);
-            }
-        }
+async function promptRestartKubernetes(kindName: string, namespace: string) {
+  const items = [
+    {
+      title: "Restart"
     },
-        (err) => vscode.window.showErrorMessage(`Error getting rollout restart input: ${err}`));
+    {
+        title: "Cancel",
+        isCloseAffordance: true
+    }
+  ];
+  const answer = await vscode.window.showWarningMessage(`Do you want to restart the resource '${namespace}/${kindName}'?`, ...items);
+  if (!answer || answer.isCloseAffordance) {
+      return;
+  }
+  invokeRestartKubernetes(kindName, namespace);
 }
 
 async function invokeRestartKubernetes(kindName: string, namespace: string) {
