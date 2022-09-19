@@ -853,7 +853,8 @@ async function getKubernetes(explorerNode?: any, listInstances?: boolean) {
             switch (resource.kind.apiName) {
                 case "deployments":
                 case "statefulsets": {
-                    kubectl.invokeInSharedTerminal(`get pods ${nsarg} -o wide -l=app.kubernetes.io/instance=${resource.name}`);
+                    const instance = resource.metadata.labels!["app.kubernetes.io/instance"];
+                    kubectl.invokeInSharedTerminal(`get pods ${nsarg} -o wide -l=app.kubernetes.io/instance=${instance}`);
                     break;
                 }
                 default: {
