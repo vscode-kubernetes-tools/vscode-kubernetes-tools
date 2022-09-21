@@ -14,6 +14,7 @@ export const podUICustomiser = {
         const podInfo = resource.extraInfo!.podInfo;  // TODO: unbang
         if (podInfo && podInfo.status) {
             treeItem.iconPath = getIconForPodStatus(podInfo.status.toLowerCase());
+            treeItem.label = `[${podInfo.status}]${resource.name}`;
         }
     }
 };
