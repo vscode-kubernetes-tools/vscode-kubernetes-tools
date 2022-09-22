@@ -998,20 +998,20 @@ async function restartKubernetes(target?: any) {
 }
 
 async function promptRestartKubernetes(kindName: string, namespace: string) {
-  const items = [
-    {
-      title: "Restart"
-    },
-    {
-        title: "Cancel",
-        isCloseAffordance: true
+    const items = [
+        {
+            title: "Restart"
+        },
+        {
+            title: "Cancel",
+            isCloseAffordance: true
+        }
+    ];
+    const answer = await vscode.window.showWarningMessage(`Do you want to restart the resource '${namespace}/${kindName}'?`, { modal: true }, ...items);
+    if (!answer || answer.isCloseAffordance) {
+        return;
     }
-  ];
-  const answer = await vscode.window.showWarningMessage(`Do you want to restart the resource '${namespace}/${kindName}'?`, ...items);
-  if (!answer || answer.isCloseAffordance) {
-      return;
-  }
-  invokeRestartKubernetes(kindName, namespace);
+    invokeRestartKubernetes(kindName, namespace);
 }
 
 async function invokeRestartKubernetes(kindName: string, namespace: string) {
@@ -1600,7 +1600,7 @@ async function deleteKubernetes(delMode: KubernetesDeleteMode, explorerNode?: Cl
     const delModeArg = delMode === KubernetesDeleteMode.Now ? ' --now' : '';
 
     if (explorerNode) {
-        const answer = await vscode.window.showWarningMessage(`Do you want to delete the resource '${explorerNode.kindName}'?`, ...deleteMessageItems);
+        const answer = await vscode.window.showWarningMessage(`Do you want to delete the resource '${explorerNode.kindName}'?`, { modal: true }, ...deleteMessageItems);
         if (!answer || answer.isCloseAffordance) {
             return;
         }
@@ -1663,7 +1663,7 @@ async function confirmDangerousNamespaceDeletion(ns: string): Promise<boolean> {
 }
 
 async function warnConfirm(message: string, acceptText: string, cancelText: string): Promise<boolean> {
-    const choice = await vscode.window.showWarningMessage(message, acceptText, cancelText);
+    const choice = await vscode.window.showWarningMessage(message, { modal: true }, acceptText, cancelText);
     if (!choice || choice === cancelText) {
         return false;
     }
@@ -1691,8 +1691,8 @@ interface DiffResult {
     readonly reason?: string;
 }
 
-async function confirmOperation(prompt: (msg: string, ...opts: string[]) => Thenable<string>, message: string, confirmVerb: string, operation: () => void): Promise<void> {
-    const result = await prompt(message, confirmVerb);
+async function confirmOperation(prompt: (msg: string, options: vscode.MessageOptions, ...opts: string[]) => Thenable<string>, message: string, confirmVerb: string, operation: () => void): Promise<void> {
+    const result = await prompt(message, { modal: true }, confirmVerb);
     if (result === confirmVerb) {
         operation();
     }
@@ -2047,7 +2047,7 @@ function removeDebugKubernetes() {
                 }
 
                 const toDelete = deployment ? ('deployment' + (service ? ' and service' : '')) : 'service';
-                vscode.window.showWarningMessage(`This will delete ${toDelete} ${deploymentName}`, 'Delete').then((opt) => {
+                vscode.window.showWarningMessage(`This will delete ${toDelete} ${deploymentName}`, { modal: true }, 'Delete').then((opt) => {
                     if (opt !== 'Delete') {
                         return;
                     }
@@ -2177,7 +2177,7 @@ async function deleteContextKubernetes(explorerNode: ClusterExplorerNode) {
         return;
     }
     const contextObj = explorerNode.kubectlContext;
-    const answer = await vscode.window.showWarningMessage(`Do you want to delete the cluster '${contextObj.contextName}' from the kubeconfig?`, ...deleteMessageItems);
+    const answer = await vscode.window.showWarningMessage(`Do you want to delete the cluster '${contextObj.contextName}' from the kubeconfig?`, { modal: true }, ...deleteMessageItems);
     if (!answer || answer.isCloseAffordance) {
         return;
     }
