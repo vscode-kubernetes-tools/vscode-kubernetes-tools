@@ -20,7 +20,7 @@ When running from source (that is, debugging in the Extension Development Host),
 1. **Install node modules:** In the integrated terminal, run `npm install`.
 2. **Install extension dependencies:**
    * In the VS Code Extensions tab, search for RedHat YAML and install that extension.
-   * In the VS Code Extensions tab, search for TypeScript + Webpack Problem Matcher and install that extension.
+   * In the VS Code Extensions tab, search for TypeScript + Webpack Problem Matchers and install that extension.
 
 (Note that end users do *not* need to do these steps.  VS Code extension packaging and installation takes care of them.  But running from source bypasses this process so we have to do them by hand.)
 
