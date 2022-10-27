@@ -196,7 +196,7 @@ export class DebugSession implements IDebugSession {
                 // Start debug session.
                 p.report({ message: `Starting ${this.debugProvider!.getDebuggerType()} debug session...`});  // safe because checked outside lambda
 
-                await this.startDebugSession(undefined, workspaceFolder.uri.fsPath, proxyResult, targetPod, pidToDebug);
+                await this.startDebugSession(targetPod, workspaceFolder.uri.fsPath, proxyResult, targetPod, pidToDebug);
             } catch (error) {
                 vscode.window.showErrorMessage(error);
                 kubeChannel.showOutput(`Debug on Kubernetes failed. The errors were: ${error}.`);
