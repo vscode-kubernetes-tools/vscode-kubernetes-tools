@@ -9,6 +9,7 @@ import { Errorable, failed } from '../../../errorable';
 import { fromShellExitCodeOnly, Diagnostic } from '../../../wizard';
 import { getToolPath, getCheckForMinikubeUpgrade } from '../../config/config';
 import { installMinikube } from '../../installer/installer';
+import { ShowInformationOptions } from '../common/cacheinfo';
 
 export class MinikubeInfo {
     readonly running: boolean;
@@ -27,7 +28,7 @@ export class MinikubeOptions {
 
 export interface Minikube {
     checkPresent(mode: CheckPresentMode): Promise<boolean>;
-    checkUpgradeAvailable(): Promise<void>;
+    checkUpgradeAvailable(): Promise<void | string>;
     isRunnable(): Promise<Errorable<Diagnostic>>;
     start(options: MinikubeOptions): Promise<void>;
     stop(): Promise<void>;
@@ -111,7 +112,7 @@ async function getVersionInfo(context: Context): Promise<MinikubeVersionInfo> {
     } as MinikubeVersionInfo;
 }
 
-async function minikubeUpgradeAvailable(context: Context): Promise<void> {
+async function minikubeUpgradeAvailable(context: Context): Promise<void | string> {
 
     const performUpgradeCheck = await checkPresent(context, CheckPresentMode.Silent) && getCheckForMinikubeUpgrade();
     if (!performUpgradeCheck) {
@@ -128,13 +129,17 @@ async function minikubeUpgradeAvailable(context: Context): Promise<void> {
     }
 
     if (versionInfo.currentVersion !== versionInfo.availableVersion) {
-        const value = await vscode.window.showInformationMessage(`Minikube upgrade available to ${versionInfo.availableVersion}, currently on ${versionInfo.currentVersion}`, 'Install');
-        if (value === 'Install') {
+        const value = await vscode.window.showInformationMessage(
+            `Minikube upgrade available to ${versionInfo.availableVersion}, currently on ${versionInfo.currentVersion}`,
+            ShowInformationOptions.Install, ShowInformationOptions.InstallFortNightly, ShowInformationOptions.InstallHalfYearly);
+        if (value === ShowInformationOptions.Install) {
             const result = await installMinikube(context.shell, versionInfo.availableVersion);
             if (failed(result)) {
                 vscode.window.showErrorMessage(`Failed to update minikube: ${result.error}`);
             }
         }
+
+        return value;
     }
 }
 

@@ -1326,6 +1326,7 @@
         "unzipper": "^0.10.5",
         "url-parse": "^1.5.1",
         "uuid": "^3.1.0",
+        "vscode-cache": "^0.3.0",
         "vscode-debugadapter": "1.27.0",
         "vscode-debugprotocol": "1.27.0",
         "vscode-extension-telemetry": "^0.1.1",
