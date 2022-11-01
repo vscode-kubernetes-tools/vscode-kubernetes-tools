@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { Host } from '../../host';
 import { Shell, Platform } from '../../shell';
 import { Dictionary } from '../../utils/dictionary';
+import { getCacheExpirationDate } from '../clusterprovider/common/cacheinfo';
 
 const EXTENSION_CONFIG_KEY = "vs-kubernetes";
 const KUBECONFIG_PATH_KEY = "vs-kubernetes.kubeconfig";
@@ -326,6 +327,15 @@ export function getCRDCodeCompletionState(): string | undefined {
 export function setCRDCodeCompletion(enable: boolean): void {
     const value = (enable) ? 'enabled' : 'disabled';
     setConfigValue('vs-kubernetes.crd-code-completion', value);
+}
+
+export function getMinikubeShowInfoState(): string | undefined {
+    return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.minikube-show-information-expiration'];
+}
+
+export function setMinikubeShowInfo(selectedoption: string): void {
+    const storedValue = getCacheExpirationDate(selectedoption);
+    setConfigValue('vs-kubernetes.minikube-show-information-expiration', storedValue);
 }
 
 export function isLogViewerFollowEnabled(): boolean {

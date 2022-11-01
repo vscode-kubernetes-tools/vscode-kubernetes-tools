@@ -88,7 +88,6 @@ import { getCurrentContext } from './kubectlUtils';
 import { LocalTunnelDebugger } from './components/localtunneldebugger/localtunneldebugger';
 import { setAssetContext } from './assets';
 import { fixOldInstalledBinaryPermissions } from './components/installer/fixwriteablebinaries';
-import { CacheInfo } from './components/clusterprovider/common/cacheinfo';
 
 let explainActive = false;
 let swaggerSpecPromise: Promise<explainer.SwaggerModel | undefined> | null = null;
@@ -166,14 +165,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
     const activeContextStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 2);
     activeContextStatusBarItem.command = 'extension.vsKubernetesUseContext';
 
-    const cache = CacheInfo.getInstance(context);
-
-    if (!cache.isCached()) {
-        const selectedcacheinfo = await minikube.checkUpgradeAvailable();
-        if (selectedcacheinfo) {
-            cache.cacheInformation(selectedcacheinfo);
-        }
-    }
+    minikube.checkUpgradeAvailable();
 
     const subscriptions = [
 

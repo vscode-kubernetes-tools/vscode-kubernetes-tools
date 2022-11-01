@@ -1,10 +1,9 @@
-import * as vscode from "vscode";
-const Cache = require('vscode-cache');
+import { getMinikubeShowInfoState } from "../../config/config";
 
 export enum ShowInformationOptions {
     Install = "Install",
-    InstallFortNightly = "Install Fortnightly",
-    InstallHalfYearly = "Install Half Yearly",
+    InstallFortNightly = "Remind Fortnightly",
+    InstallHalfYearly = "Remind Half Yearly",
 }
 
 /*
@@ -24,70 +23,31 @@ export enum ShowInformationOptions {
     currently valid, then no message will be displayed otherwise show informaionmessage will popup for the end user.
 */
 
-export class CacheInfo {
-    private extensionContext: vscode.ExtensionContext;
-    private static instance: CacheInfo;
-    private cacheName: string;
+export async function isMinikubeInfoDisplay() {
+    const showInfoExpiration = await getMinikubeShowInfoState();
+    return isCacheExpired(showInfoExpiration);
+}
 
-    private constructor(private context: vscode.ExtensionContext) {
-        this.extensionContext = context;
-        this.cacheName = 'minikubereminder';
+export function getCacheExpirationDate(expiration: string) {
+    let expirationDate = new Date();
+    switch (expiration) {
+        case ShowInformationOptions.InstallFortNightly:
+            expirationDate.setTime(expirationDate.getTime() + 15 * 24 * 3600000);
+            return expirationDate;
+        case ShowInformationOptions.InstallHalfYearly:
+            expirationDate = new Date();
+            expirationDate.setTime(expirationDate.getTime() + 180 * 24 * 3600000);
+            return expirationDate;
+        default:
+            console.log("No cache expiration exists!");
+            return;
+    }
+}
+
+function isCacheExpired(expiration: string | undefined): boolean {
+    if (expiration === undefined || !expiration) {
+        return true;
     }
 
-    public static getInstance(context: vscode.ExtensionContext) {
-        if (!CacheInfo.instance) {
-            CacheInfo.instance = new CacheInfo(context);
-        }
-
-        return CacheInfo.instance;
-    }
-
-    public async clear() {
-        await this.context.globalState.update(this.cacheName, {});
-    }
-
-    public cacheInformation(expiration: string) {
-        // Instantiate the cache by passing your `ExtensionContext` object into it
-        const myCache = new Cache(this.extensionContext);
-        const expirationDate = this.getCacheExpirationDate(expiration);
-
-        if (expirationDate) {
-            // Save an item to the cache by specifying a key and value
-            myCache.put(this.cacheName, expirationDate);
-        }
-    }
-
-    public isCached() {
-        // Instantiate the cache by passing your `ExtensionContext` object into it
-        const myCache = new Cache(this.extensionContext);
-
-        // Does the cache have cacheName?
-        const cachedExpirationValue = myCache.get(this.cacheName);
-
-        if (this.isCacheExpired(cachedExpirationValue)) {
-            return false;
-        }
-
-        return myCache.has(this.cacheName);
-    }
-
-    private isCacheExpired(expiration: string): boolean {
-        return new Date(expiration) <= new Date();
-    }
-
-    private getCacheExpirationDate(expiration: string | void) {
-        let expirationDate = new Date();
-        switch (expiration) {
-            case ShowInformationOptions.InstallFortNightly:
-                expirationDate.setTime(expirationDate.getTime() + 15 * 24 * 3600000);
-                return expirationDate;
-            case ShowInformationOptions.InstallHalfYearly:
-                expirationDate = new Date();
-                expirationDate.setTime(expirationDate.getTime() + 180 * 24 * 3600000);
-                return expirationDate;
-            default:
-                console.log("No cache expiration exists!");
-                return;
-        }
-    }
+    return new Date(expiration) <= new Date();
 }

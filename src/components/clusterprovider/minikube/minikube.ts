@@ -7,9 +7,9 @@ import { FS } from '../../../fs';
 import * as binutil from '../../../binutil';
 import { Errorable, failed } from '../../../errorable';
 import { fromShellExitCodeOnly, Diagnostic } from '../../../wizard';
-import { getToolPath, getCheckForMinikubeUpgrade } from '../../config/config';
+import { getToolPath, getCheckForMinikubeUpgrade, setMinikubeShowInfo } from '../../config/config';
 import { installMinikube } from '../../installer/installer';
-import { ShowInformationOptions } from '../common/cacheinfo';
+import { isMinikubeInfoDisplay, ShowInformationOptions } from '../common/cacheinfo';
 
 export class MinikubeInfo {
     readonly running: boolean;
@@ -28,7 +28,7 @@ export class MinikubeOptions {
 
 export interface Minikube {
     checkPresent(mode: CheckPresentMode): Promise<boolean>;
-    checkUpgradeAvailable(): Promise<void | string>;
+    checkUpgradeAvailable(): Promise<void>;
     isRunnable(): Promise<Errorable<Diagnostic>>;
     start(options: MinikubeOptions): Promise<void>;
     stop(): Promise<void>;
@@ -112,7 +112,7 @@ async function getVersionInfo(context: Context): Promise<MinikubeVersionInfo> {
     } as MinikubeVersionInfo;
 }
 
-async function minikubeUpgradeAvailable(context: Context): Promise<void | string> {
+async function minikubeUpgradeAvailable(context: Context): Promise<void> {
 
     const performUpgradeCheck = await checkPresent(context, CheckPresentMode.Silent) && getCheckForMinikubeUpgrade();
     if (!performUpgradeCheck) {
@@ -128,10 +128,19 @@ async function minikubeUpgradeAvailable(context: Context): Promise<void | string
         return;
     }
 
+    const displayMinikubeShowInfo = await isMinikubeInfoDisplay();
+
+    if (!displayMinikubeShowInfo) {
+        return;
+    }
+
     if (versionInfo.currentVersion !== versionInfo.availableVersion) {
         const value = await vscode.window.showInformationMessage(
             `Minikube upgrade available to ${versionInfo.availableVersion}, currently on ${versionInfo.currentVersion}`,
-            ShowInformationOptions.Install, ShowInformationOptions.InstallFortNightly, ShowInformationOptions.InstallHalfYearly);
+            ShowInformationOptions.Install,
+            ShowInformationOptions.InstallFortNightly,
+            ShowInformationOptions.InstallHalfYearly);
+
         if (value === ShowInformationOptions.Install) {
             const result = await installMinikube(context.shell, versionInfo.availableVersion);
             if (failed(result)) {
@@ -139,7 +148,9 @@ async function minikubeUpgradeAvailable(context: Context): Promise<void | string
             }
         }
 
-        return value;
+        if (value !== undefined) {
+            setMinikubeShowInfo(value);
+        }
     }
 }
 
