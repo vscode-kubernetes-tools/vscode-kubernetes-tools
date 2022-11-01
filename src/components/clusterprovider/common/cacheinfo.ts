@@ -2,8 +2,8 @@ import { getMinikubeShowInfoState } from "../../config/config";
 
 export enum ShowInformationOptions {
     Install = "Install",
-    InstallFortNightly = "Remind Fortnightly",
-    InstallHalfYearly = "Remind Half Yearly",
+    InstallFortNightly = "Remind me in 2 weeks",
+    InstallHalfYearly = "Remind me in 6 months",
 }
 
 /*
