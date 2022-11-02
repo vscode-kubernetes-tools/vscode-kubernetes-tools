@@ -1,3 +1,5 @@
+import moment = require('moment');
+import * as vscode from 'vscode';
 import { getMinikubeShowInfoState } from "../../config/config";
 
 export enum ShowInformationOptions {
@@ -49,5 +51,15 @@ function isCacheExpired(expiration: string | undefined): boolean {
         return true;
     }
 
+    if (!isValidDate(expiration)) {
+        vscode.window.showErrorMessage("Date format saved for vs-kubernetes.minikube-show-information-expiration is invalid format.")
+        return true;
+    }
+
     return new Date(expiration) <= new Date();
+}
+
+export function isValidDate(date: string): boolean {
+    const dateformat = moment(date);
+    return dateformat.isValid();
 }
