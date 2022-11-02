@@ -36,7 +36,6 @@ suite("Cache Date", () => {
 
             test("...it validates incorrect them", () => {
                 const date = "879879879879";
-                cacheinfo.isValidDate(date);
                 assert.strictEqual(cacheinfo.isValidDate(date), false);
             });
 
