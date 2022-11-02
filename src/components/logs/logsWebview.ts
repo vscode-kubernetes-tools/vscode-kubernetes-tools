@@ -141,13 +141,15 @@ export class LogsPanel extends WebPanel {
     private getHtmlForWebview(): string {
         // Local path to main script run in the webview
         const logViewAppRootOnDisk = path.join(LogsPanel.extensionPath, 'dist', 'logView');
-        const logViewAppPathOnDisk = vscode.Uri.file(
+        const logIndexJSPathOnDisk = vscode.Uri.file(
             path.join(logViewAppRootOnDisk, 'index.js'),
-        ).with({ scheme: 'vscode-resource' });
+        );
+        const logIndexJSSrc = this.panel.webview.asWebviewUri(logIndexJSPathOnDisk);
 
-        const jsPath = vscode.Uri.file(
+        const webviewElementsPath = vscode.Uri.file(
             path.join(logViewAppRootOnDisk, 'webviewElements.js')
-        ).with({ scheme: 'vscode-resource' });
+        );
+        const webviewElementsSrc = this.panel.webview.asWebviewUri(webviewElementsPath);
         const htmlString: string = fs.readFileSync(path.join(logViewAppRootOnDisk, 'index.html'), 'utf8');
         const meta = `<meta http-equiv="Content-Security-Policy"
         content="connect-src *;
@@ -156,8 +158,8 @@ export class LogsPanel extends WebPanel {
             script-src 'unsafe-eval' 'unsafe-inline' vscode-resource:;
             style-src vscode-resource: 'unsafe-inline';">`;
         return `${htmlString}`
-            .replace('index.js', `${logViewAppPathOnDisk}`)
-            .replace('webviewElements.js', `${jsPath}`)
+            .replace('index.js', `${logIndexJSSrc}`)
+            .replace('webviewElements.js', `${webviewElementsSrc}`)
             .replace('<!-- meta http-equiv="Content-Security-Policy" -->', meta);
     }
 
