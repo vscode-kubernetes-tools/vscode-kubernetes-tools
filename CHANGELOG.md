@@ -1,5 +1,15 @@
 # Change Log
 
+## [1.3.11]
+
+* Cache minikube show information responce
+* Set debug session name to pod name on attach
+* Fix to use asWebviewUri to convert webview scripts path
+* Document Fix dependency extension name
+* Change licence to Apache 2
+
+Contributors: Tatsinnit, WBrettDavis, lstocchi, orgads, itowlson
+
 ## [1.3.10]
 
 * Use XDG Base Directory variables when creating the base installation directory

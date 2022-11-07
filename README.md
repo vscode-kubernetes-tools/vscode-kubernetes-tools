@@ -201,6 +201,7 @@ Minikube tools to be installed and available on your PATH.
        * `vs-kubernetes.enable-minimal-describe-workflow` - Enables the minimal describe workflow. By executing the describe command the queries to the cluster are reduced at minimum and users are able to freely type the resource name to describe. Guided prompt options are limited to Deployments, Jobs, Pods and Services.
        * `vs-kubernetes.suppress-kubectl-not-found-alerts` - Turns off the warning (and installation prompt) if `kubectl` was not found. You should not normally set this, as most of the extension depends on `kubectl`, but it can be useful if working primarily with Helm.
        * `vs-kubernetes.ignore-recommendations` - Set to true to silence Kubernetes extension recommendation notifications.
+       * `vs-kubernetes.minikube-show-information-expiration` - Set to valid expiration date for minikube install toshow information dialog box to display.
    * `vsdocker.imageUser` - Image prefix for the container images e.g. 'docker.io/brendanburns'
    * `checkForMinikubeUpgrade` - On extension startup, notify if a minikube upgrade is available. Defaults to true.
    * `disable-lint` - Disable all linting of Kubernetes files
@@ -277,7 +278,7 @@ The following directives are supported:
 
 ## Extension data
 
-This extension stores its associated files and data in `$XDG_STATE_HOME/vs-kubernetes` (at `~/.local/state/vs-kubernetes` by default). However, if the legacy directory of `~/.vs-kubernetes` still exists, then that will be used instead. 
+This extension stores its associated files and data in `$XDG_STATE_HOME/vs-kubernetes` (at `~/.local/state/vs-kubernetes` by default). However, if the legacy directory of `~/.vs-kubernetes` still exists, then that will be used instead.
 
 ## Known issues
 
