@@ -288,6 +288,11 @@
                                 "disabled"
                             ],
                             "description": "Set the smart code completion for CRDs. This would always prevent/allow the plugin to fetch all custom schemas from all CRDs on cluster, despite of their number."
+                        },
+                        "vs-kubernetes.minikube-show-information-expiration": {
+                            "type": "string",
+                            "default": "Install",
+                            "description": "Set installation expiration for displaying minikube installation dialog box."
                         }
                     },
                     "default": {

@@ -7,8 +7,9 @@ import { FS } from '../../../fs';
 import * as binutil from '../../../binutil';
 import { Errorable, failed } from '../../../errorable';
 import { fromShellExitCodeOnly, Diagnostic } from '../../../wizard';
-import { getToolPath, getCheckForMinikubeUpgrade } from '../../config/config';
+import { getToolPath, getCheckForMinikubeUpgrade, setMinikubeShowInfo } from '../../config/config';
 import { installMinikube } from '../../installer/installer';
+import { isMinikubeInfoDisplay, ShowInformationOptions } from '../common/cacheinfo';
 
 export class MinikubeInfo {
     readonly running: boolean;
@@ -127,13 +128,28 @@ async function minikubeUpgradeAvailable(context: Context): Promise<void> {
         return;
     }
 
+    const displayMinikubeShowInfo = await isMinikubeInfoDisplay();
+
+    if (!displayMinikubeShowInfo) {
+        return;
+    }
+
     if (versionInfo.currentVersion !== versionInfo.availableVersion) {
-        const value = await vscode.window.showInformationMessage(`Minikube upgrade available to ${versionInfo.availableVersion}, currently on ${versionInfo.currentVersion}`, 'Install');
-        if (value === 'Install') {
+        const value = await vscode.window.showInformationMessage(
+            `Minikube upgrade available to ${versionInfo.availableVersion}, currently on ${versionInfo.currentVersion}`,
+            ShowInformationOptions.Install,
+            ShowInformationOptions.InstallFortNightly,
+            ShowInformationOptions.InstallHalfYearly);
+
+        if (value === ShowInformationOptions.Install) {
             const result = await installMinikube(context.shell, versionInfo.availableVersion);
             if (failed(result)) {
                 vscode.window.showErrorMessage(`Failed to update minikube: ${result.error}`);
             }
+        }
+
+        if (value !== undefined) {
+            setMinikubeShowInfo(value);
         }
     }
 }
