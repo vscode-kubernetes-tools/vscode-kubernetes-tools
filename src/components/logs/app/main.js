@@ -503,13 +503,12 @@ function renderByPagination(contentToAdd) {
                 removeChildren(upperRange + 1, uppestRowInDOM);
                 upperRange = lowestRowInDOM - 1;
                 isPrepend = true;
-                document.getElementById('content').style.top = `${lowerRange * heightDiv}px`;
             } else {
                 emptyContent();
-                document.getElementById('content').style.top = `${lowerRange * heightDiv}px`;
             }
             const content = extractRowsToDraw(fullFilteredContent, lowerRange, upperRange);
             render(beautifyLines(content), lowerRange, isPrepend);
+            document.getElementById('content').style.top = `${lowerRange * heightDiv}px`;
         } else if (upperRange > uppestRowInDOM) {
             if (lowerRange <= uppestRowInDOM) {
                 removeChildren(lowestRowInDOM, lowerRange - 1);
