@@ -291,7 +291,7 @@ function renderConfigurationResult(configureResult: ActionResult<azure.Configure
     }
 
     const pathMessage = configResult.cliOnDefaultPath ? '' :
-        '<p>This location is not on your system PATH. Add this directory to your path, or set the VS Code <b>vs-kubernetes.kubectl-path</b> config setting.</p>';
+        '<p>This location is not on your system PATH. Add this directory to your path, or set the VS Code <b>vscode-kubernetes.kubectl-path</b> config setting.</p>';
     const getCliOutput = configResult.gotCli ?
         `<p class='success'>kubectl installed at ${configResult.cliInstallFile}</p>${pathMessage}` :
         `<p class='error'>An error occurred while downloading kubectl.</p>
