@@ -267,9 +267,9 @@
                             "type": "string",
                             "description": "Configure the Local Tunnel debug provider you want to use by default."
                         },
-                        "vs-kubernetes.enable-minimal-describe-workflow": {
+                        "vs-kubernetes.enable-minimal-workflow": {
                             "type": "boolean",
-                            "description": "Enables the minimal describe workflow. It reduces the queries to the cluster but the guided prompt has limited options."
+                            "description": "Enables the minimal workflow for several actions (Get, Describe, Scale, Expose, Switch). It reduces the queries to the cluster but the guided prompt has limited options."
                         },
                         "vs-kubernetes.suppress-kubectl-not-found-alerts": {
                             "type": "boolean",
