@@ -13,14 +13,23 @@ export const podUICustomiser = {
     customiseTreeItem(resource: ResourceNode, treeItem: vscode.TreeItem): void {
         const podInfo = resource.extraInfo!.podInfo;  // TODO: unbang
         if (podInfo && podInfo.status) {
-            treeItem.iconPath = getIconForPodStatus(podInfo.status.toLowerCase());
+            treeItem.iconPath = getIconForPodStatus(podInfo.status.toLowerCase(), podInfo.ready);
         }
     }
 };
 
-function getIconForPodStatus(status: string): vscode.Uri {
-    if (status === "running" || status === "completed") {
-        return assetUri("images/runningPod.svg");
+function getIconForPodStatus(status: string, ready: string): vscode.Uri {
+    const debugMessage = `Pod ready: ${ready} status: ${status}`;
+    console.log(debugMessage);
+    if (status === "running") {
+        const readyFields = ready.split("/", 2);
+        if (readyFields[0] === readyFields[1]) {
+            return assetUri("images/runningPod.svg");
+        } else {
+            return assetUri("images/notReadyPod.svg");
+        }
+    } else if (status === "completed") {
+        return assetUri("images/completedPod.svg");
     } else {
         return assetUri("images/errorPod.svg");
     }
