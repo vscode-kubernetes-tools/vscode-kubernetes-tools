@@ -19,8 +19,6 @@ export const podUICustomiser = {
 };
 
 function getIconForPodStatus(status: string, ready: string): vscode.Uri {
-    const debugMessage = `Pod ready: ${ready} status: ${status}`;
-    console.log(debugMessage);
     if (status === "running") {
         const readyFields = ready.split("/", 2);
         if (readyFields[0] === readyFields[1]) {
