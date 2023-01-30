@@ -19,7 +19,7 @@ export const podUICustomiser = {
 };
 
 // getIconForPodStatus takes status and ready values and returns an appropriate icon uri
-// Currently, supported/expected status values are running and complete, others return error condition.
+// Currently, supported/expected status values are running, completed and init, other values return error condition.
 // The expected value for "ready" is two digits, ready and total number of containers, which are separated by a "/" character.
 function getIconForPodStatus(status: string, ready: string): vscode.Uri {
     console.log(status);
