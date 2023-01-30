@@ -447,6 +447,8 @@ export async function waitForRunningPod(kubectl: Kubectl, podName: string): Prom
         kubeChannel.showOutput(`pod/${podName} status: ${status}`);
         if (status === "Running") {
             return;
+        } else if (status.startsWith("Init")) {
+            return;
         } else if (!isTransientPodState(status)) {
             const logsResult = await kubectl.invokeCommand(`logs pod/${podName}`);
             kubeChannel.showOutput(`Failed to start the pod "${podName}". Its status is "${status}".

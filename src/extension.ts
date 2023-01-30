@@ -1197,7 +1197,9 @@ function parseName(line: string): string {
 async function getContainers(resource: ContainerContainer): Promise<Container[] | undefined> {
     const q = shell.isWindows() ? `'` : `"`;
     const lit = (l: string) => `{${q}${l}${q}}`;
-    const query = `${lit("NAME\\tIMAGE\\n")}{range ${resource.containersQueryPath}.containers[*]}{.name}${lit("\\t")}{.image}${lit("\\n")}{end}`;
+    const query = `${lit("NAME\\tIMAGE\\n")}{range ${resource.containersQueryPath}.initContainers[*]}{.name}\
+    ${lit("\\t")}{.image}${lit("\\n")}{end}{range ${resource.containersQueryPath}.containers[*]}{.name}\
+    ${lit("\\t")}{.image}${lit("\\n")}{end}`;
     const queryArg = shell.isWindows() ? `"${query}"` : `'${query}'`;
     let cmd = `get ${resource.kindName} -o jsonpath=${queryArg}`;
     if (resource.namespace && resource.namespace.length > 0) {
@@ -1901,7 +1903,6 @@ const waitForRunningPod = (name: string, callback: () => void) => {
             if (!succ) {
                 return;
             }
-
             if (succ.stdout === 'Running') {
                 callback();
                 return;
