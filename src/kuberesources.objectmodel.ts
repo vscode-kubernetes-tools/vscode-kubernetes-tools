@@ -38,6 +38,7 @@ export interface Container {
     readonly name: string;
     readonly image: string;
     readonly livenessProbe?: LivenessProbe;
+    readonly initContainer: boolean;
 }
 
 export interface Pod extends KubernetesResource {

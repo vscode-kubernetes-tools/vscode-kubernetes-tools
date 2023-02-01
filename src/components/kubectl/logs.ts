@@ -104,7 +104,7 @@ export async function getLogsForContainer(
     }
 
     if (containerName) {
-        args.push(`--container=${containerName}`);
+        args.push(`--container=${containerName.trim()}`);
     }
 
     if (displayMode === LogsDisplayMode.Follow) {

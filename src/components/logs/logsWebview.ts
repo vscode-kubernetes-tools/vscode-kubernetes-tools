@@ -100,7 +100,7 @@ export class LogsPanel extends WebPanel {
     private setContainers(containers: Container[]) {
         this.panel.webview.postMessage({
             command: 'init',
-            containers: containers.map((container) => container.name),
+            containers: containers,
             colors: this.getColors()
         });
     }
