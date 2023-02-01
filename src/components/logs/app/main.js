@@ -36,7 +36,8 @@ window.addEventListener('message', (event) => {
             select.setAttribute('id', 'containers-select');
             // eslint-disable-next-line @typescript-eslint/prefer-for-of
             for (let i = 0; i < containers.length; i += 1) {
-                const option = createElement('vscode-option', containers[i], containers[i]);
+                const option = createElement('vscode-option', containers[i].name,
+                    (containers[i].initContainer ? containers[i].name + ' (init)' : containers[i].name));
                 if (i === 0) {
                     option.setAttribute('selected', '');
                 }

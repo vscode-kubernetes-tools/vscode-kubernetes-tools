@@ -1194,29 +1194,6 @@ function parseName(line: string): string {
     return line.split(' ')[0];
 }
 
-async function getContainers(resource: ContainerContainer): Promise<Container[] | undefined> {
-    const q = shell.isWindows() ? `'` : `"`;
-    const lit = (l: string) => `{${q}${l}${q}}`;
-    const query = `${lit("NAME\\tIMAGE\\n")}{range ${resource.containersQueryPath}.containers[*]}{.name}${lit("\\t")}{.image}${lit("\\n")}{end}`;
-    const queryArg = shell.isWindows() ? `"${query}"` : `'${query}'`;
-    let cmd = `get ${resource.kindName} -o jsonpath=${queryArg}`;
-    if (resource.namespace && resource.namespace.length > 0) {
-        cmd += ' --namespace=' + resource.namespace;
-    }
-    const containers = await kubectl.asLines(cmd);
-    if (failed(containers)) {
-        vscode.window.showErrorMessage("Failed to get containers in resource: " + containers.error[0]);
-        return undefined;
-    }
-
-    const containersEx = containers.result.map((s) => {
-        const bits = s.split('\t');
-        return { name: bits[0], image: bits[1] };
-    });
-
-    return containersEx;
-}
-
 enum PodSelectionFallback {
     None,
     AnyPod,
@@ -1377,6 +1354,46 @@ async function selectContainerForResource(resource: ContainerContainer): Promise
     }
 
     return value.container;
+}
+
+async function getContainers(resource: ContainerContainer): Promise<Container[] | undefined> {
+
+    const containersEx: Container[] = [];
+
+    const initContainers = await getContainerQuery(resource, 'initContainers');
+    if (initContainers) {
+        initContainers.map((s) => { containersEx.push(s)});
+    }
+    const containers = await getContainerQuery(resource, 'containers');
+    if (containers) {
+        containers.map((s) => { containersEx.push(s)});
+    }
+    if (containersEx.length) {
+        return containersEx;
+    }
+    return undefined;
+}
+
+async function getContainerQuery(resource: ContainerContainer, containerType: string): Promise<Container[] | undefined> {
+    const q = shell.isWindows() ? `'` : `"`;
+    const lit = (l: string) => `{${q}${l}${q}}`;
+    const query = `${lit("NAME\\tIMAGE\\n")}\
+    {range ${resource.containersQueryPath}.${containerType}[*]}{.name}${lit("\\t")}{.image}${lit("\\n")}{end}`;
+    const queryArg = shell.isWindows() ? `"${query}"` : `'${query}'`;
+    let cmd = `get ${resource.kindName} -o jsonpath=${queryArg}`;
+    if (resource.namespace && resource.namespace.length > 0) {
+        cmd += ' --namespace=' + resource.namespace;
+    }
+    const c = await kubectl.asLines(cmd);
+    if (failed(c)) {
+        vscode.window.showErrorMessage("Failed to get containers in resource: " + c.error[0]);
+        return undefined;
+    }
+    const containersEx = c.result.map((s) => {
+        const bits = s.split('\t');
+        return { name: bits[0], image: bits[1], initContainer: containerType === 'initContainers'};
+    });
+    return containersEx;
 }
 
 export async function getContainersForResource(resource: ContainerContainer): Promise<Container[] | null> {

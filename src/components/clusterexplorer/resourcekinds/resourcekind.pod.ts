@@ -18,6 +18,9 @@ export const podUICustomiser = {
     }
 };
 
+// getIconForPodStatus takes status and ready values and returns an appropriate icon uri
+// Currently, supported/expected status values are running, completed and init, other values return error condition.
+// The expected value for "ready" is two digits, ready and total number of containers, which are separated by a "/" character.
 function getIconForPodStatus(status: string, ready: string): vscode.Uri {
     if (status === "running") {
         const readyFields = ready.split("/", 2);
@@ -28,6 +31,8 @@ function getIconForPodStatus(status: string, ready: string): vscode.Uri {
         }
     } else if (status === "completed") {
         return assetUri("images/completedPod.svg");
+    } else if (status.startsWith("init")) {
+        return assetUri("images/notReadyPod.svg");
     } else {
         return assetUri("images/errorPod.svg");
     }

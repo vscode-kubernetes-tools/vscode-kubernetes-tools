@@ -459,7 +459,7 @@ export async function waitForRunningPod(kubectl: Kubectl, podName: string): Prom
 }
 
 function isTransientPodState(status: string): boolean {
-    return status === "ContainerCreating" || status === "Pending" || status === "Succeeded";
+    return status === "ContainerCreating" || status === "Pending" || status === "Succeeded" || status.startsWith("Init");
 }
 
 /**
