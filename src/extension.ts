@@ -1918,6 +1918,7 @@ const waitForRunningPod = (name: string, callback: () => void) => {
             if (!succ) {
                 return;
             }
+
             if (succ.stdout === 'Running') {
                 callback();
                 return;
