@@ -46,9 +46,9 @@ export class ResourceNode extends ClusterExplorerNodeImpl implements ClusterExpl
             arguments: [this]
         };
         treeItem.contextValue = `vsKubernetes.resource.${this.kind.abbreviation}`;
-        if (this.namespace) {
-            treeItem.tooltip = `Namespace: ${this.namespace}`; // TODO: show only if in non-current namespace?
-        }
+
+        treeItem.tooltip = `${this.kind.label}: ${this.name}`;
+
         const uiCustomiser = getUICustomiser(this.kind);
         uiCustomiser.customiseTreeItem(this, treeItem);
         return treeItem;
