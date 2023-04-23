@@ -5,10 +5,13 @@ const HtmlWebPackPlugin = require( 'html-webpack-plugin' );
 
 module.exports = {
   entry: {
+    ansiToHtml: [
+      "./node_modules/ansi-to-html/lib/ansi_to_html.js"
+    ],
     index: "./src/components/logs/app/main.js",
     webviewElements: [
       "./node_modules/@bendera/vscode-webview-elements/dist/bundled.js"
-    ]
+    ],
   },
   output: {
     path: path.resolve(__dirname, '..', '..', '..', 'dist', 'logView')

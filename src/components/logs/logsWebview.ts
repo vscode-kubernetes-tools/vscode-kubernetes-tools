@@ -150,6 +150,11 @@ export class LogsPanel extends WebPanel {
             path.join(logViewAppRootOnDisk, 'webviewElements.js')
         );
         const webviewElementsSrc = this.panel.webview.asWebviewUri(webviewElementsPath);
+
+        const ansiToHtmlElementsPath = vscode.Uri.file(
+            path.join(logViewAppRootOnDisk, 'ansiToHtml.js')
+        );
+        const ansiToHtmlElementsSrc = this.panel.webview.asWebviewUri(ansiToHtmlElementsPath);
         const htmlString: string = fs.readFileSync(path.join(logViewAppRootOnDisk, 'index.html'), 'utf8');
         const meta = `<meta http-equiv="Content-Security-Policy"
         content="connect-src *;
@@ -160,6 +165,7 @@ export class LogsPanel extends WebPanel {
         return `${htmlString}`
             .replace('index.js', `${logIndexJSSrc}`)
             .replace('webviewElements.js', `${webviewElementsSrc}`)
+            .replace('${ansiToHtml}', `${ansiToHtmlElementsSrc}`)
             .replace('<!-- meta http-equiv="Content-Security-Policy" -->', meta);
     }
 
