@@ -1,4 +1,6 @@
 const vscode = acquireVsCodeApi();
+const Convert = require('ansi-to-html');
+const convert = new Convert();
 
 const CHRONO_UNITS = [
     { symbol: 'h', seconds: 3600 },
@@ -562,6 +564,7 @@ function highlightWords(row) {
         return row;
     }
 
+    row = convert.toHtml(row);
     for (const rule of schemaColors) {
         const regexp = new RegExp(rule.regex, "gi");
         if (regexp.test(row)) {

@@ -1301,6 +1301,7 @@
     "dependencies": {
         "@kubernetes/client-node": "^0.14.0",
         "ajv": "^6.9.1",
+        "ansi-to-html": "^0.7.2",
         "await-notify": "^1.0.1",
         "clipboardy": "^1.2.3",
         "compare-versions": "^3.1.0",
