@@ -22,6 +22,7 @@ import { Dictionary } from "../utils/dictionary";
 import { definedOf } from "../utils/array";
 import * as imageUtils from "../image/imageUtils";
 import { ExecResult } from "../binutilplusplus";
+import { interpolateVariables } from "../utils/interpolation";
 
 const debugCommandDocumentationUrl = "https://github.com/Azure/vscode-kubernetes-tools/blob/master/debug-on-kubernetes.md";
 
@@ -73,7 +74,7 @@ export class DebugSession implements IDebugSession {
         }
 
         const cwd = workspaceFolder.uri.fsPath;
-        const imagePrefix = vscode.workspace.getConfiguration().get<string | null>("vsdocker.imageUser", null);
+        const imagePrefix = interpolateVariables(vscode.workspace.getConfiguration().get("vsdocker.imageUser", undefined));
         const containerEnv = Dictionary.of<string>();
         const portInfo = await this.debugProvider.resolvePortsFromFile(dockerfile, containerEnv);
         const debugArgs = await this.debugProvider.getDebugArgs();

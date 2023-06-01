@@ -3,6 +3,7 @@ import { Host } from '../../host';
 import { Shell, Platform } from '../../shell';
 import { Dictionary } from '../../utils/dictionary';
 import { getCacheExpirationDate } from '../clusterprovider/common/cacheinfo';
+import { interpolateVariables } from '../../utils/interpolation';
 
 const EXTENSION_CONFIG_KEY = "vs-kubernetes";
 const KUBECONFIG_PATH_KEY = "vs-kubernetes.kubeconfig";
@@ -80,6 +81,10 @@ export function getKnownKubeconfigs(): string[] {
     if (!kkcConfig || !kkcConfig.length) {
         return [];
     }
+    (kkcConfig as string[]).forEach((value, index) => {
+        const interpolatedValue = interpolateVariables(value);
+        kkcConfig[index] = interpolatedValue;
+    });
     return kkcConfig as string[];
 }
 
@@ -93,8 +98,8 @@ export async function setActiveKubeconfig(kubeconfig: string): Promise<void> {
     await addPathToConfig(KUBECONFIG_PATH_KEY, kubeconfig);
 }
 
-export function getActiveKubeconfig(): string {
-    return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)[KUBECONFIG_PATH_KEY];
+export function getActiveKubeconfig(): string | undefined {
+    return interpolateVariables(vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)[KUBECONFIG_PATH_KEY]);
 }
 
 // Functions for working with tool paths
@@ -136,7 +141,7 @@ export function getToolPath(_host: Host, shell: Shell, tool: string): string | u
         userValues[baseKey] ||
         defaultValues[baseKey];
 
-    return topLevelToolPath || globalBackCompatSetting;
+    return interpolateVariables(topLevelToolPath || globalBackCompatSetting);
 }
 
 export function toolPathOSKey(os: Platform, tool: string): string {
@@ -232,8 +237,8 @@ export function getNodejsAutoDetectRemoteRoot(): boolean {
     return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.nodejs-autodetect-remote-root'];
 }
 // user specified root location of the source code in the container
-export function getNodejsRemoteRoot(): string {
-    return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.nodejs-remote-root'];
+export function getNodejsRemoteRoot(): string | undefined {
+    return interpolateVariables(vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.nodejs-remote-root']);
 }
 // remote debugging port for nodejs. Usually 9229
 export function getNodejsDebugPort(): number | undefined {
@@ -253,8 +258,8 @@ export function getPythonAutoDetectRemoteRoot(): boolean {
 }
 
 // user specified root location of the source code in the container
-export function getPythonRemoteRoot(): string {
-    return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.python-remote-root'];
+export function getPythonRemoteRoot(): string | undefined {
+    return interpolateVariables(vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.python-remote-root']);
 }
 
 // remote debugging port for Python. Usually 5678
@@ -263,8 +268,8 @@ export function getPythonDebugPort(): number | undefined {
 }
 
 // remote debugging path to dotnet debugger (vsdbg)
-export function getDotnetVsdbgPath(): string {
-    return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.dotnet-vsdbg-path'];
+export function getDotnetVsdbgPath(): string | undefined {
+    return interpolateVariables(vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.dotnet-vsdbg-path']);
 }
 
 // remote debugging sourceFileMap for dotnet. An entry "sourceFileMap": {"<vs-kubernetes.dotnet-source-file-map>":"$workspaceFolder"} will be added to the debug configuration

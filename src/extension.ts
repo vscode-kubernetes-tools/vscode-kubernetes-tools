@@ -88,6 +88,7 @@ import { getCurrentContext } from './kubectlUtils';
 import { LocalTunnelDebugger } from './components/localtunneldebugger/localtunneldebugger';
 import { setAssetContext } from './assets';
 import { fixOldInstalledBinaryPermissions } from './components/installer/fixwriteablebinaries';
+import { interpolateVariables } from './utils/interpolation';
 
 let explainActive = false;
 let swaggerSpecPromise: Promise<explainer.SwaggerModel | undefined> | null = null;
@@ -915,7 +916,7 @@ function findNameAndImageInternal(fn: (name: string, image: string) => void) {
     const name = docker.sanitiseTag(folderName);
     findVersion().then((version) => {
         let image = `${name}:${version}`;
-        const user = vscode.workspace.getConfiguration().get("vsdocker.imageUser", null);
+        const user = interpolateVariables(vscode.workspace.getConfiguration().get("vsdocker.imageUser", undefined));
         if (user) {
             image = `${user}/${image}`;
         }
@@ -969,7 +970,7 @@ function runKubernetes() {
 
 function diagnosePushError(_exitCode: number, error: string): string {
     if (error.includes("denied")) {
-        const user = vscode.workspace.getConfiguration().get("vsdocker.imageUser", null);
+        const user = interpolateVariables(vscode.workspace.getConfiguration().get("vsdocker.imageUser", undefined));
         if (user) {
             return "Failed pushing the image to remote registry. Try to login to an image registry.";
         } else {
