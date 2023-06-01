@@ -8,7 +8,7 @@ import { NODE_TYPES } from './components/clusterexplorer/explorer';
 import { ClusterExplorerNode } from './components/clusterexplorer/node';
 import { HelmHistoryNode } from './components/clusterexplorer/node.helmrelease';
 import { refreshExplorer } from './components/clusterprovider/common/explorer';
-import { getToolPath } from './components/config/config';
+import { getToolPath, suppressHelmNotFound } from './components/config/config';
 import { installDependencies } from './components/installer/installdependencies';
 import { Errorable, failed } from './errorable';
 import { fs as shellfs } from './fs';
@@ -780,13 +780,13 @@ export async function helmListAll(namespace?: string): Promise<Errorable<{ [key:
     return { succeeded: true, result: releases };
 }
 
-export function ensureHelm(mode: EnsureMode) {
+export function ensureHelm(mode: EnsureMode) { 
     const configuredBin: string | undefined = getToolPath(host, sh, 'helm');
     if (configuredBin) {
         if (fs.existsSync(configuredBin)) {
             return true;
         }
-        if (mode === EnsureMode.Alert) {
+        if (mode === EnsureMode.Alert && !suppressHelmNotFound()) {
             vscode.window.showErrorMessage(`${configuredBin} does not exist!`, "Install dependencies").then((str) =>
             {
                 if (str === "Install dependencies") {
@@ -799,7 +799,7 @@ export function ensureHelm(mode: EnsureMode) {
     if (sh.which("helm")) {
         return true;
     }
-    if (mode === EnsureMode.Alert) {
+    if (mode === EnsureMode.Alert  && !suppressHelmNotFound()) {
         vscode.window.showErrorMessage(`Could not find Helm binary.`, "Install dependencies").then((str) =>
         {
             if (str === "Install dependencies") {
