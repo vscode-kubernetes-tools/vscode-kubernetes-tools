@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 
 import { parse, findNodeAtPosition } from 'node-yaml-parser';
+import YAML = require('yamljs');
 
 export function isMapping(node: YamlNode): node is YamlMap {
     return node.kind === 'MAPPING';
@@ -110,6 +111,7 @@ export class YamlLocator {
             // the document and line lengths from parse method is cached into YamlCachedDocuments to avoid duplicate
             // parse against the same text.
             try {
+                YAML.parse(textDocument.getText()); // this is used to detect errors in the yaml file before actually parse it with the node-yaml-parser lib
                 const { documents, lineLengths } = parse(textDocument.getText());
                 this.cache[key].yamlDocs = documents;
                 this.cache[key].lineLengths = lineLengths;
