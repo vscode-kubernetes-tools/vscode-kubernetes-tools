@@ -276,6 +276,11 @@
                             "default": false,
                             "description": "Suppresses the display of warnings if no kubectl binary is available"
                         },
+                        "vs-kubernetes.suppress-helm-not-found-alerts": {
+                            "type": "boolean",
+                            "default": false,
+                            "description": "Suppresses the display of warnings if no helm binary is available"
+                        },
                         "vs-kubernetes.ignore-recommendations": {
                             "type": "boolean",
                             "default": false,
