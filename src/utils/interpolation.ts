@@ -5,6 +5,7 @@
 import * as vscode from 'vscode';
 import * as process from 'process';
 import * as path from 'path';
+import { homedir } from 'os';
 
 export function interpolateVariables(value: string | undefined, recursive = false): string | undefined {
     if (!value) {
@@ -15,6 +16,8 @@ export function interpolateVariables(value: string | undefined, recursive = fals
     const workspace = workspaces ? workspaces[0] : undefined;
     const activeFile = vscode.window.activeTextEditor ? vscode.window.activeTextEditor.document : undefined; // TODO: upgrade TypeScript so we can use ?.
     const absoluteFilePath = activeFile ? activeFile.uri ? activeFile.uri.fsPath : undefined : undefined;  // TODO: upgrade TypeScript so we can use ?.
+
+    value = value.replace(/\${userHome}/g, homedir());
 
     if (workspace) {
         value = value.replace(/\${workspaceFolder}/g, workspace.uri.fsPath);
@@ -48,7 +51,7 @@ export function interpolateVariables(value: string | undefined, recursive = fals
         value = value.replace(/\${fileBasename}/g, parsedPath.base);
         value = value.replace(/\${fileBasenameNoExtension}/g, parsedPath.name);
         value = value.replace(/\${fileExtname}/g, parsedPath.ext);
-        value = value.replace(/\${fileDirname}/g, parsedPath.dir.substr(parsedPath.dir.lastIndexOf(path.sep) + 1));
+        value = value.replace(/\${fileDirname}/g, parsedPath.dir.substring(parsedPath.dir.lastIndexOf(path.sep) + 1));
         value = value.replace(/\${cwd}/g, parsedPath.dir);
     }
     
