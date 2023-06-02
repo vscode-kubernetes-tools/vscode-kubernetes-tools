@@ -133,8 +133,10 @@ export function getToolPath(_host: Host, shell: Shell, tool: string): string | u
     const topLevelToolPath =
         userValues[osKey] ||
         defaultValues[osKey] ||
+        config.get(osKey) ||
         userValues[baseKey] ||
         defaultValues[baseKey];
+        config.get(baseKey);
 
     return topLevelToolPath || globalBackCompatSetting;
 }
