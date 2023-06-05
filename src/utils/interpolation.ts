@@ -7,6 +7,28 @@ import * as process from 'process';
 import * as path from 'path';
 import { homedir } from 'os';
 
+/**
+ * It substitutes variables that use the syntax ${variableName} and belong to the list below, within the value.
+ * If recursive is true, the function is called recursively if another variable is found after the first call.
+ * E.g "${userHome}/my_custom_kubectl_folder/kubectl" -> "home_path/my_custom_kubectl_folder/kubectl"
+ * 
+ * The following predefined variables are supported:
+ *      ${userHome} - the path of the user's home folder
+ *      ${workspaceFolder} - the path of the folder opened in VS Code
+ *      ${workspaceFolderBasename} - the name of the folder opened in VS Code without any slashes (/)
+ *      ${file} - the current opened file
+ *      ${fileWorkspaceFolder} - the current opened file's workspace folder
+ *      ${relativeFile} - the current opened file relative to workspaceFolder
+ *      ${relativeFileDirname} - the current opened file's dirname relative to workspaceFolder
+ *      ${fileBasename} - the current opened file's basename
+ *      ${fileBasenameNoExtension} - the current opened file's basename with no file extension
+ *      ${fileExtname} - the current opened file's extension
+ *      ${fileDirname} - the current opened file's folder path
+ *      ${cwd} - the task runner's current working directory upon the startup of VS Code
+ *      ${lineNumber} - the current selected line number in the active file
+ *      ${selectedText} - the current selected text in the active file
+ *      ${pathSeparator} - the character used by the operating system to separate components in file paths
+ */
 export function interpolateVariables(value: string | undefined, recursive = false): string | undefined {
     if (!value) {
         return value;

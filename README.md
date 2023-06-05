@@ -184,7 +184,7 @@ Minikube tools to be installed and available on your PATH.
 
 ## Extension Settings
 
-  The Kubernetes extension supports variable substitution for the set of settings that requires a path as value. Variable substitution is supported using `${variableName}` syntax. A list of the supported variables can be found at [variables-reference](https://code.visualstudio.com/docs/editor/variables-reference).
+  The Kubernetes extension enables variable substitution for settings that require a path as a value. Variable substitution can be done using the `${variableName}` syntax. You can find a list of the variables supported in the [variables-reference](https://code.visualstudio.com/docs/editor/variables-reference) documentation.
 
    * `vs-kubernetes` - Parent for Kubernetes-related extension settings
        * `vs-kubernetes.namespace` - The namespace to use for all commands
