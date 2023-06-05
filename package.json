@@ -632,6 +632,11 @@
                 },
                 {
                     "command": "extension.vsKubernetesDescribe",
+                    "group": "inline",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource(?!\\.namespace).*/i"
+                },
+                {
+                    "command": "extension.vsKubernetesDescribe",
                     "group": "3",
                     "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource(?!\\.namespace).*/i"
                 },
@@ -643,6 +648,11 @@
                 {
                     "command": "extension.vsKubernetesDeleteNow",
                     "group": "2@3",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.pod/i"
+                },
+                {
+                    "command": "extension.vsKubernetesTerminal",
+                    "group": "inline",
                     "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.pod/i"
                 },
                 {
@@ -679,6 +689,11 @@
                     "command": "extension.vsKubernetesScale",
                     "group": "2@6",
                     "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.(deployment|job|rc|rs|statefulset)/i"
+                },
+                {
+                    "command": "extension.vsKubernetesLogs",
+                    "group": "inline",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.(pod|job)/i"
                 },
                 {
                     "command": "extension.vsKubernetesLogs",
@@ -919,7 +934,8 @@
             {
                 "command": "extension.vsKubernetesLogs",
                 "title": "Logs",
-                "category": "Kubernetes"
+                "category": "Kubernetes",
+                "icon": "$(list-flat)"
             },
             {
                 "command": "extension.vsKubernetesExpose",
@@ -929,7 +945,8 @@
             {
                 "command": "extension.vsKubernetesDescribe",
                 "title": "Describe",
-                "category": "Kubernetes"
+                "category": "Kubernetes",
+                "icon": "$(eye)"
             },
             {
                 "command": "extension.vsKubernetesSync",
@@ -944,7 +961,8 @@
             {
                 "command": "extension.vsKubernetesTerminal",
                 "title": "Terminal",
-                "category": "Kubernetes"
+                "category": "Kubernetes",
+                "icon": "$(terminal)"
             },
             {
                 "command": "extension.vsKubernetesDiff",
