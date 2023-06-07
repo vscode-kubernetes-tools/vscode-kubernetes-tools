@@ -2,12 +2,12 @@
 
 ## [1.3.12]
 
-* Fix: debug attach not working with go app
-* Fix: detect errors in yaml file before actually parse it with node-yaml-parser lib
-* Fix: retrieve tool paths outside kubernetes object and update README
-* Feat: handle predefined vscode variables in extension setting
-* Feat: add setting to suppress helm not found warning
-* Fix: handle ANSI color codes in log webview
+* Debug attach not working with go app
+* Detect errors in yaml file before actually parse it with node-yaml-parser lib
+* Retrieve tool paths outside kubernetes object and update README
+* Handle predefined vscode variables in extension setting
+* Add setting to suppress helm not found warning
+* Handle ANSI color codes in log webview
 * Fix/cluster tree label issue
 * Migrate from k8s.gcr.io to registry.k8s.io
 * Added notReady and completed pod status
