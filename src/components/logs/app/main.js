@@ -26,7 +26,7 @@ window.addEventListener('message', (event) => {
             const { containers, colors } = message;
             schemaColors = JSON.parse(colors);
             if (containers.length === 1) {
-                defaultContainer = containers[0];
+                defaultContainer = containers[0].name;
                 return;
             }
 
