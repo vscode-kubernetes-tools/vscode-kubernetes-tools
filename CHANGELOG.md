@@ -1,5 +1,11 @@
 # Change Log
 
+## [1.3.13]
+
+* Trim container name and filter empty ones.
+
+Contributors: lstocchi
+
 ## [1.3.12]
 
 * Debug attach not working with go app
