@@ -1392,9 +1392,10 @@ async function getContainerQuery(resource: ContainerContainer, containerType: st
     }
     const containersEx = c.result.map((s) => {
         const bits = s.split('\t');
-        return { name: bits[0], image: bits[1], initContainer: containerType === 'initContainers'};
+        return { name: bits[0] ? bits[0].trim() : '', image: bits[1] ? bits[1].trim() : '', initContainer: containerType === 'initContainers'};
     });
-    return containersEx;
+    
+    return containersEx.filter(c => c.name !== '');
 }
 
 export async function getContainersForResource(resource: ContainerContainer): Promise<Container[] | null> {
