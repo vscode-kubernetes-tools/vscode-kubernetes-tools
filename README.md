@@ -232,17 +232,17 @@ If you are working with Azure Container Services or Azure Kubernetes Services, t
 
 If you move your configuration file between machines with different OSes (and therefore different paths to binaries) you can override the following settings on a per-OS basis by appending `.windows`, `.mac` or `.linux` to the setting name:
 
-  * `vs-kubernetes.kubectl-path`
-  * `vs-kubernetes.helm-path`
-  * `vs-kubernetes.minikube-path`
+  * `vscode-kubernetes.kubectl-path`
+  * `vscode-kubernetes.helm-path`
+  * `vscode-kubernetes.minikube-path`
 
 For example, consider the following settings file:
 
 ```json
 {
-  "vs-kubernetes": {
-    "vs-kubernetes.kubectl-path": "/home/foo/kubernetes/bin/kubectl",
-    "vs-kubernetes.kubectl-path.windows": "c:\\Users\\foo\\kubernetes\\bin\\kubectl.exe"
+  "vscode-kubernetes": {
+    "vscode-kubernetes.kubectl-path": "/home/foo/kubernetes/bin/kubectl",
+    "vscode-kubernetes.kubectl-path-windows": "c:\\Users\\foo\\kubernetes\\bin\\kubectl.exe"
   }
 }
 ```

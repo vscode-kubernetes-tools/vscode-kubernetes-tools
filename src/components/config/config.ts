@@ -140,7 +140,7 @@ export function getToolPath(_host: Host, shell: Shell, tool: string): string | u
         defaultValues[osKey] ||
         config.get(osKey) ||
         userValues[baseKey] ||
-        defaultValues[baseKey];
+        defaultValues[baseKey] ||
         config.get(baseKey);
 
     return interpolateVariables(topLevelToolPath || globalBackCompatSetting);
@@ -162,7 +162,7 @@ function toolPathNewBaseKey(tool: string): string {
 
 function osOverrideKey(os: Platform, baseKey: string): string {
     const osKey = osKeyString(os);
-    return osKey ? `${baseKey}.${osKey}` : baseKey;  // The 'else' clause should never happen so don't worry that this would result in double-checking a missing base key
+    return osKey ? `${baseKey}-${osKey}` : baseKey;  // The 'else' clause should never happen so don't worry that this would result in double-checking a missing base key
 }
 
 function osKeyString(os: Platform): string | null {
