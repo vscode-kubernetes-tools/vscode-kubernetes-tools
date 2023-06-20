@@ -110,7 +110,7 @@ export function getToolPath(_host: Host, shell: Shell, tool: string): string | u
     const config = vscode.workspace.getConfiguration();
 
     const baseBackCompatKey = toolPathBackCompatBaseKey(tool);
-    const osBackCompatKey = osOverrideKey(os, baseBackCompatKey);
+    const osBackCompatKey = osBackCompatOverrideKey(os, baseBackCompatKey);
     const backCompatSettings = config.inspect<Dictionary<any>>(EXTENSION_CONFIG_KEY) || Dictionary.of<any>();
     const wsFolderValues = backCompatSettings.workspaceFolderValue || {};
     const wsValues = backCompatSettings.workspaceValue || {};
@@ -158,6 +158,11 @@ function toolPathBackCompatBaseKey(tool: string): string {
 
 function toolPathNewBaseKey(tool: string): string {
     return `vscode-kubernetes.${tool}-path`;
+}
+
+function osBackCompatOverrideKey(os: Platform, baseKey: string): string {
+    const osKey = osKeyString(os);
+    return osKey ? `${baseKey}.${osKey}` : baseKey;
 }
 
 function osOverrideKey(os: Platform, baseKey: string): string {
