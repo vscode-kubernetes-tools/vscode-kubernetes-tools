@@ -222,7 +222,7 @@ Minikube tools to be installed and available on your PATH.
 
 ## Custom tool locations
 
-For `kubectl` and `helm`, the binaries do not need to be on the system PATH. You can configure the extension by specifying the locations using the appropriate `vs-kubernetes -> vs-kubernetes.${tool}-path` configuration setting.  See [Extension Settings](#extension-settings) below.
+For `kubectl` and `helm`, the binaries do not need to be on the system PATH. You can configure the extension by specifying the locations using the appropriate `vscode-kubernetes -> vscode-kubernetes.${tool}-path` configuration setting.  See [Extension Settings](#extension-settings) below.
 
 The extension can install `kubectl` and `helm` for you if they are missing - choose **Install dependencies** when you see an error notification for the missing tool.  This will set `kubectl-path` and `helm-path` entries in your configuration for the current OS (see "Portable extension configuration" below) - the programs will *not* be installed on the system PATH, but this will be sufficient for them to work with the extension.
 
@@ -240,10 +240,8 @@ For example, consider the following settings file:
 
 ```json
 {
-  "vscode-kubernetes": {
-    "vscode-kubernetes.kubectl-path": "/home/foo/kubernetes/bin/kubectl",
-    "vscode-kubernetes.kubectl-path-windows": "c:\\Users\\foo\\kubernetes\\bin\\kubectl.exe"
-  }
+  "vscode-kubernetes.kubectl-path": "/home/foo/kubernetes/bin/kubectl",
+  "vscode-kubernetes.kubectl-path-windows": "c:\\Users\\foo\\kubernetes\\bin\\kubectl.exe"
 }
 ```
 
