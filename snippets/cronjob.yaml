@@ -1,0 +1,22 @@
+name: cronjob
+label: Kubernetes CronJob
+description: Kubernetes CronJob
+body: |2
+  apiVersion: batch/v1
+  kind: CronJob
+  metadata:
+    name: ${1:myjob}
+  spec:
+    schedule: "* * * * *"
+    jobTemplate:
+      spec:
+        template:
+          spec:
+            containers:
+            - name: hello
+              image: busybox:1.28
+              command:
+              - /bin/sh
+              - -c
+              - date; echo Hello from the Kubernetes cluster
+            restartPolicy: OnFailure
