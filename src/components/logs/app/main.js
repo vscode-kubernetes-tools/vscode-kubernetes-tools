@@ -238,7 +238,6 @@ function resetFilter() {
 function runFilter() {
     emptyContent();
     saveFilteredContent();
-    setHeightContentPanel();
     renderByPagination();
 }
 
@@ -313,7 +312,6 @@ function clear() {
         resetContent();
         resetFilter();
     }
-    setHeightContentPanel(true);
     emptyContent();
 }
 
@@ -342,20 +340,8 @@ function updateContent(newContent) {
     }
 
     content = saveFilteredContent(content);
-    setHeightContentPanel();
     renderByPagination(content);
     switchClass('clearBtn', 'display-none', 'display-inline-block');
-}
-
-function setHeightContentPanel(removeStyle) {
-    if (removeStyle) {
-        document.getElementById('innerLogPanel').style.removeProperty('height');
-    } else {
-        const content = isFiltering() ? filteredContent : fullPageContent;
-        const rows = Object.keys(content).length;
-        const heightDiv = getDefaultDivHeightValue();
-        document.getElementById('innerLogPanel').style.height = `${heightDiv * rows}px`;
-    }
 }
 
 function saveFilteredContent(content) {
