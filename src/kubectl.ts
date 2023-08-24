@@ -12,6 +12,7 @@ import { ensureSuitableKubectl } from './components/kubectl/autoversion';
 import { invokeForResult, ExternalBinary, FindBinaryStatus, ExecResult, ExecSucceeded, discardFailureInteractive, logText, parseJSON, findBinary, showErrorMessageWithInstallPrompt, parseTable, ExecBinNotFound, invokeTracking, FailedExecResult, ParsedExecResult, parseLinedText, BackgroundExecResult, invokeBackground, RunningProcess } from './binutilplusplus';
 import { updateYAMLSchema } from './yaml-support/yaml-schema';
 import { Dictionary } from './utils/dictionary';
+import treeKill = require("tree-kill");
 
 const KUBECTL_OUTPUT_COLUMN_SEPARATOR = /\s\s+/g;
 
@@ -288,7 +289,7 @@ class KubectlImpl implements Kubectl {
     dispose() {
         this.childProcesses.forEach((child) => {
             if (!child.killed) {
-                child.kill();
+                treeKill(child.pid, "SIGKILL");
             }
         });
     }
@@ -497,7 +498,7 @@ async function asJson<T>(context: Context, command: string): Promise<Errorable<T
 function killProcessCallback(): (process: ChildProcess) => void {
     return (process: ChildProcess) => {
         if (!process.killed) {
-            process.kill();
+            treeKill(process.pid, "SIGKILL");
         }
     };
 }

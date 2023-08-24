@@ -1,6 +1,7 @@
 import { Errorable } from "../../errorable";
 import { Kubectl } from "../../kubectl";
 import { ChildProcess } from "child_process";
+import treeKill = require("tree-kill");
 
 export async function proxy(kubectl: Kubectl, port: number | 'random'): Promise<Errorable<ProxySession>> {
     const portNumber = (port === 'random') ? 0 : port;
@@ -23,7 +24,7 @@ export async function proxy(kubectl: Kubectl, port: number | 'random'): Promise<
     }
 
     const actualPort = Number.parseInt(forwarding.matchedOutput[1]);
-    const dispose = () => { proxyingProcess.childProcess.kill(); };
+    const dispose = () => { treeKill(proxyingProcess.childProcess.pid, 'SIGKILL'); };
 
     return {
         succeeded: true,
