@@ -294,6 +294,12 @@
                             ],
                             "description": "Set the smart code completion for CRDs. This would always prevent/allow the plugin to fetch all custom schemas from all CRDs on cluster, despite of their number."
                         },
+                        "vs-kubernetes.supress-output": {
+                            "type": "string",
+                            "type": "boolean",
+                            "default": false,
+                            "description": "Set to true to silence Helm channel output"
+                        },
                         "vs-kubernetes.minikube-show-information-expiration": {
                             "type": "string",
                             "default": "Install",
