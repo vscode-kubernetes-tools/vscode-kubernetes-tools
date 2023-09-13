@@ -153,12 +153,12 @@ export class FuncMap {
             this.f("split", "split $sep $str", "split $str on $sep and store results in a dictionary"),
             this.f("sortAlpha", "sortAlpha $strings", "sort a list of strings into alphabetical order"),
             // Math
-            this.f("add", "add $a $b $c", "add two or more numbers"),
+            this.f("add", "add $a $b ...", "add two or more numbers"),
             this.f("add1", "add1 $a", "increment $a by 1"),
-            this.f("sub", "sub $a $b", "subtract $a from $b"),
-            this.f("div", "div $a $b", "divide $b by $a"),
-            this.f("mod", "mod $a $b", "modulo $b by $a"),
-            this.f("mul", "mult $a $b", "multiply $b by $a"),
+            this.f("sub", "sub $a $b", "subtract $b from $a"),
+            this.f("div", "div $a $b", "divide $a by $b"),
+            this.f("mod", "mod $a $b", "$a modulo $b"),
+            this.f("mul", "mul $a $b ...", "multiply two or more numbers"),
             this.f("max", "max $a $b ...", "return max integer"),
             this.f("min", "min $a $b ...", "return min integer"),
             // Integer list
