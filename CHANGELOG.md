@@ -1,5 +1,16 @@
 # Change Log
 
+## [1.3.14]
+
+* Fix tool path configuration handling. (#1192)
+* No more kubectl logs (#1195)
+* Added snippet for CronJob (#1201)
+* Include missing bracket pairs to helm language configuration (#1198)
+* Kill the entire process tree instead of just the process (#1204)
+* Create a more responsive/adaptive layout for the log view (#1205)
+
+Contributors: lstocchi, mikeseese, sergiogarciadev, aceat64, juozasg, a544jh, Thank you all!!
+
 ## [1.3.13]
 
 * Trim container name and filter empty ones.
