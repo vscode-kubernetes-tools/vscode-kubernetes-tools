@@ -1,5 +1,11 @@
 # Change Log
 
+## [1.3.15]
+
+* Revert killTree changes. Detail discussion here https://github.com/vscode-kubernetes-tools/vscode-kubernetes-tools/issues/1216
+
+Contributors: mikeseese, peterbom, michaellzc, mfilipe-te Thank you all!!
+
 ## [1.3.14]
 
 * Fix tool path configuration handling. (#1192)
