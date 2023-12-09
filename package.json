@@ -497,7 +497,7 @@
                     "group": "2_k8s_3"
                 },
                 {
-                    "when": "",
+                    "when": "resourceLangId == yaml",
                     "command": "extension.helmConvertToTemplate",
                     "group": "2_helm@98"
                 }
