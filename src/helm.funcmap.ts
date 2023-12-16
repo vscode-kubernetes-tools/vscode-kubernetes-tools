@@ -235,6 +235,7 @@ export class FuncMap {
             this.f("sha256sum", "sha256sum $str", "generate a SHA-256 sum of $str"),
             this.f("derivePassword", "derivePassword $counter $long $pass $user $domain", "generate a password from [Master Password](http://masterpasswordapp.com/algorithm.html) spec"),
             this.f("generatePrivateKey", "generatePrivateKey 'ecdsa'", "generate private PEM key (takes dsa, rsa, or ecdsa)"),
+            this.f("htpasswd", "htpasswd $user $pass", "generate an htpasswd entry"),
         ];
     }
 
