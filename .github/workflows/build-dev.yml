@@ -12,7 +12,7 @@ jobs:
   build:
     runs-on: ${{ matrix.os }}
     env:
-        NODE_OPTIONS: --max_old_space_size=4096 --openssl-legacy-provider
+      NODE_OPTIONS: --max_old_space_size=4096 --openssl-legacy-provider
     strategy:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
