@@ -12,18 +12,17 @@ jobs:
   build:
     runs-on: ${{ matrix.os }}
     env:
-      NODE_OPTIONS: --max_old_space_size=4096
+        NODE_OPTIONS: --max_old_space_size=4096 --openssl-legacy-provider
     strategy:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
-        node_version: [10, 12, 14]
     steps:
     - name: Checkout
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
     - name: Use node.js
-      uses: actions/setup-node@v2
+      uses: actions/setup-node@v4
       with:
-        node-version: ${{ matrix.node_version }}
+        version: 20
     - name: Install dependencies
       run: npm install
     - name: Prepare environment
@@ -42,14 +41,14 @@ jobs:
       run: npm run test
       if: runner.os != 'Linux'
     - name: Package extension
-      if: github.event_name == 'push' && matrix.os == 'ubuntu-latest' && matrix.node_version == 14
+      if: github.event_name == 'push' && matrix.os == 'ubuntu-latest'
       run: |
         vsce package
         mkdir vsix
         mv *.vsix vsix
     - name: Archive extension
-      if: github.event_name == 'push' && matrix.os == 'ubuntu-latest' && matrix.node_version == 14
-      uses: actions/upload-artifact@v1
+      if: github.event_name == 'push' && matrix.os == 'ubuntu-latest'
+      uses: actions/upload-artifact@v4
       with:
         name: vsix
         path: vsix
