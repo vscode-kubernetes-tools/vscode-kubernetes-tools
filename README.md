@@ -80,6 +80,7 @@ if no KUBECONFIG environment variable exists. You can override this using the
 If you want to swap between multiple kubeconfig files, you can list them in the
 `vs-kubernetes.knownKubeconfigs` configuration setting and switch between them
 using the `Set Kubeconfig` command.
+_Note: If you use `vs-kubernetes.knownKubeconfigs` you cant configure `vs-kubernetes.kubeconfig` at the same time. Doing so will makes the cluster list empty. You have to comment out `vs-kubernetes.kubeconfig` to resolve._
 
 If you want to skip TLS verification for a particular cluster, you can edit your ~/.kube/config and set the ```insecure-skip-tls-verify: true``` flag under the proper cluster:
 ```
