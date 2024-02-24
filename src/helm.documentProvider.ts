@@ -168,7 +168,7 @@ export class HelmTemplatePreviewDocumentProvider implements vscode.TextDocumentC
 
     public update(uri: vscode.Uri) {
         this.onDidChangeEmitter.fire(uri);
-	}
+    }
 
     public provideTextDocumentContent(_uri: vscode.Uri, _token: vscode.CancellationToken): vscode.ProviderResult<string> {
         return new Promise<string>((resolve) => {
