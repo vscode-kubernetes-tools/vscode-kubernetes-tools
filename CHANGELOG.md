@@ -1,5 +1,12 @@
 # Change Log
 
+## [1.3.16]
+
+* Hide convert context menu (#1244)
+* Test fixes. (#1242)
+
+Contributors: timheuer, Thank you all!!
+
 ## [1.3.15]
 
 * Revert killTree changes. Detail discussion here https://github.com/vscode-kubernetes-tools/vscode-kubernetes-tools/issues/1216
