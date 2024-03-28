@@ -4,7 +4,7 @@ import { Shell } from '../../../shell';
 import { FS } from '../../../fs';
 import { ActionResult, fromShellJson, fromShellExitCodeAndStandardError, fromShellExitCodeOnly, Diagnostic } from '../../../wizard';
 import { Errorable, failed } from '../../../errorable';
-import * as compareVersions from 'compare-versions';
+import compareVersions from 'compare-versions';
 import { sleep } from '../../../sleep';
 import { getKubeconfigPath } from '../../kubectl/kubeconfig';
 import { Dictionary } from '../../../utils/dictionary';

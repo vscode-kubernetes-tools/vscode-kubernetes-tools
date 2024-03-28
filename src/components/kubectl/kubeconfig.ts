@@ -12,6 +12,13 @@ interface Named {
     readonly name: string;
 }
 
+interface Config {
+    clusters?: Named[];
+    contexts?: Named[];
+    users?: Named[];
+    "current-context"?: string;
+}
+
 export interface HostKubeconfigPath {
     readonly pathType: 'host';
     readonly hostPath: string;
@@ -96,10 +103,10 @@ export async function mergeToKubeconfig(newConfigText: string): Promise<void> {
     const kcfileExists = await fs.existsAsync(kcfile);
 
     const kubeconfigText = kcfileExists ? await fs.readTextFile(kcfile) : '';
-    const kubeconfig = yaml.safeLoad(kubeconfigText) || {};
-    const newConfig = yaml.safeLoad(newConfigText);
+    const kubeconfig = (yaml.safeLoad(kubeconfigText) || {}) as Config;
+    const newConfig = yaml.safeLoad(newConfigText) as Config;
 
-    for (const section of ['clusters', 'contexts', 'users']) {
+    for (const section of ['clusters', 'contexts', 'users'] as (keyof Omit<Config, "current-context">)[]) {
         const existing: Named[] | undefined = kubeconfig[section];
         const toMerge: Named[] | undefined = newConfig[section];
         if (!toMerge) {

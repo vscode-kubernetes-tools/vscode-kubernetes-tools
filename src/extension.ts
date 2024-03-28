@@ -1668,7 +1668,7 @@ const applyKubernetes = () => {
     });
 };
 
-const handleError = (err: NodeJS.ErrnoException) => {
+const handleError = (err: NodeJS.ErrnoException | null) => {
     if (err) {
         vscode.window.showErrorMessage(err.message);
     }
