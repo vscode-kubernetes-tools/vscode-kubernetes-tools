@@ -461,7 +461,7 @@ function provideHoverJson(document: vscode.TextDocument, position: vscode.Positi
 
 function provideHoverYaml(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): Promise<vscode.Hover | null> {
     const syntax: Syntax = {
-        parse: (text) => yaml.safeLoad(text),
+        parse: (text) => yaml.load(text),
         findParent: (document, parentLine) => findParentYaml(document, parentLine)
     };
     return provideHover(document, position, token, syntax);
@@ -1047,7 +1047,7 @@ function findKindNameForText(text: string): Errorable<ResourceKindName> {
 
 function findKindNamesForText(text: string): Errorable<ResourceKindName[]> {
     try {
-        const objs: {}[] = yaml.safeLoadAll(text);
+        const objs: unknown[] = yaml.loadAll(text);
         if (objs.some((o) => !isKubernetesResource(o))) {
             if (objs.length === 1) {
                 return { succeeded: false, error: ['the open document is not a Kubernetes resource'] };

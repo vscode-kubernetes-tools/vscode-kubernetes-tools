@@ -52,7 +52,7 @@ async function addChart(context: Context, resourceYaml: string): Promise<void> {
         return;
     }
 
-    const template = yaml.safeLoad(resourceYaml);
+    const template = yaml.load(resourceYaml);
     templatise(template);
 
     // TODO: offer a default
@@ -64,7 +64,7 @@ async function addChart(context: Context, resourceYaml: string): Promise<void> {
     const templateFile = path.join(chart.path, "templates", templateName + ".yaml");
     // TODO: check if file already exists
 
-    const templateYaml = yaml.safeDump(template);  // the parse-dump cycle can change the indentation of collections - is this an issue?
+    const templateYaml = yaml.dump(template);  // the parse-dump cycle can change the indentation of collections - is this an issue?
     const templateText = fixYamlValueQuoting(templateYaml);
     context.fs.writeFileSync(templateFile, templateText);
 

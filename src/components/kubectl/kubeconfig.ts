@@ -6,7 +6,7 @@ import * as shelljs from 'shelljs';
 import { refreshExplorer } from '../clusterprovider/common/explorer';
 import { getActiveKubeconfig, getUseWsl } from '../config/config';
 import * as kubernetes from '@kubernetes/client-node';
-import { mkdirpAsync } from '../../utils/mkdirp';
+import { mkdirp } from 'mkdirp';
 
 interface Named {
     readonly name: string;
@@ -103,8 +103,8 @@ export async function mergeToKubeconfig(newConfigText: string): Promise<void> {
     const kcfileExists = await fs.existsAsync(kcfile);
 
     const kubeconfigText = kcfileExists ? await fs.readTextFile(kcfile) : '';
-    const kubeconfig = (yaml.safeLoad(kubeconfigText) || {}) as Config;
-    const newConfig = yaml.safeLoad(newConfigText) as Config;
+    const kubeconfig = (yaml.load(kubeconfigText) || {}) as Config;
+    const newConfig = yaml.load(newConfigText) as Config;
 
     for (const section of ['clusters', 'contexts', 'users'] as (keyof Omit<Config, "current-context">)[]) {
         const existing: Named[] | undefined = kubeconfig[section];
@@ -123,7 +123,7 @@ export async function mergeToKubeconfig(newConfigText: string): Promise<void> {
         kubeconfig['current-context'] = newConfig.contexts[0].name;
     }
 
-    const merged = yaml.safeDump(kubeconfig, { lineWidth: 1000000, noArrayIndent: true });
+    const merged = yaml.dump(kubeconfig, { lineWidth: 1000000, noArrayIndent: true });
 
     if (kcfileExists) {
         const backupFile = kcfile + '.vscode-k8s-tools-backup';
@@ -132,7 +132,7 @@ export async function mergeToKubeconfig(newConfigText: string): Promise<void> {
         }
         await fs.renameAsync(kcfile, backupFile);
     } else {
-        await mkdirpAsync(path.dirname(kcfile));
+        await mkdirp(path.dirname(kcfile));
     }
     await fs.writeTextFile(kcfile, merged);
 
