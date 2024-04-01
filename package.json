@@ -1388,7 +1388,6 @@
         "@typescript-eslint/eslint-plugin": "^7.4.0",
         "@typescript-eslint/eslint-plugin-tslint": "7.0.2",
         "@typescript-eslint/parser": "^7.4.0",
-        "electron": "^13.1.4",
         "eslint": "^8.57.0",
         "file-loader": "^6.2.0",
         "gulp": "^4.0.2",
