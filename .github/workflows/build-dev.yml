@@ -29,7 +29,6 @@ jobs:
       run: |
         npm install -g typescript
         npm install -g gulp
-        npm install -g vsce
     - name: Build
       run: npm run compile
     - name: Lint extension source

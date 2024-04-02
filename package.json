@@ -1316,7 +1316,8 @@
         "compile:view": "webpack --mode none --config src/components/logs/webpack.config.js",
         "watch": "webpack --mode development --watch --info-verbosity verbose",
         "test-compile": "tsc -p ./",
-        "test": "npm run test-compile && node ./out/test/runTest.js"
+        "test": "npm run test-compile && node ./out/test/runTest.js",
+        "package": "vsce package"
     },
     "extensionDependencies": [
         "redhat.vscode-yaml"
@@ -1373,6 +1374,7 @@
         "@typescript-eslint/eslint-plugin": "^7.5.0",
         "@typescript-eslint/eslint-plugin-tslint": "7.0.2",
         "@typescript-eslint/parser": "^7.5.0",
+        "@vscode/vsce": "^2.24.0",
         "eslint": "^8.57.0",
         "file-loader": "^6.2.0",
         "glob": "^10.3.12",
