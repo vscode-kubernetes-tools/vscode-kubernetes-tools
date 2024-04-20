@@ -434,7 +434,7 @@ export class DebugSession implements IDebugSession {
         return new Promise<void>((resolve, reject) => {
             let isProxyReady = false;
 
-            proxyProcess.stdout.on('data', async (data) => {
+            proxyProcess.stdout?.on('data', async (data) => {
                 const message = `${data}`;
                 if (!isProxyReady && this.isForwardingCompleteMessage(message)) {
                     isProxyReady = true;
@@ -442,7 +442,7 @@ export class DebugSession implements IDebugSession {
                 }
             });
 
-            proxyProcess.stderr.on('data', (data) => {
+            proxyProcess.stderr?.on('data', (data) => {
                 kubeChannel.showOutput(`${data}`, "port-forward");
             });
 

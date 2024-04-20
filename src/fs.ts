@@ -1,16 +1,15 @@
 import * as sysfs from 'fs';
-import { promisify } from 'util';
+import * as sysfsAsync from 'fs/promises';
 
 export interface FS {
     chmod(path: string, mode: string | number): Promise<void>;
     existsSync(path: string | Buffer): boolean;
-    readFile(filename: string, encoding: string, callback: (err: NodeJS.ErrnoException, data: string) => void): void;
     readTextFile(path: string): Promise<string>;
     readFileAsync(filename: string): Promise<Buffer>;
     renameAsync(oldName: string, newName: string): Promise<void>;
-    readFileSync(filename: string, encoding: string): string;
+    readFileSync(filename: string, encoding: BufferEncoding): string;
     readFileToBufferSync(filename: string): Buffer;
-    writeFile(filename: string, data: any, callback: (err: NodeJS.ErrnoException) => void): void;
+    writeFile(filename: string, data: any, callback: sysfs.NoParamCallback): void;
     writeTextFile(filename: string, text: string): Promise<void>;
     writeFileSync(filename: string, data: any): void;
     dirSync(path: string): string[];
@@ -21,25 +20,15 @@ export interface FS {
 }
 
 export const fs: FS = {
-    chmod: promisify(
-        (path: string, mode: string | number, cb: (err: NodeJS.ErrnoException) => void) =>
-          sysfs.chmod(path, mode, cb)),
+    chmod: sysfsAsync.chmod,
     existsSync: (path) => sysfs.existsSync(path),
-    readFile: (filename, encoding, callback) => sysfs.readFile(filename, encoding, callback),
-    readTextFile: promisify(
-        (path: string, cb: (err: NodeJS.ErrnoException, data: string) => void) =>
-          sysfs.readFile(path, { encoding: 'utf8' }, cb)),
-    readFileAsync: promisify(
-        (path: string, cb: (err: NodeJS.ErrnoException, data: Buffer) => void) =>
-          sysfs.readFile(path, null, cb)),
+    readTextFile: (path) => sysfsAsync.readFile(path, { encoding: 'utf8' }),
+    readFileAsync: (path) => sysfsAsync.readFile(path, null),
     readFileSync: (filename, encoding) => sysfs.readFileSync(filename, encoding),
     readFileToBufferSync: (filename) => sysfs.readFileSync(filename),
-    renameAsync: promisify(
-        (oldName: string, newName: string, cb: (err: NodeJS.ErrnoException) => void) =>
-            sysfs.rename(oldName, newName, cb)),
+    renameAsync: sysfsAsync.rename,
     writeFile: (filename, data, callback) => sysfs.writeFile(filename, data, callback),
-    writeTextFile: promisify(
-        (filename: string, data: string, callback: (err: NodeJS.ErrnoException) => void) => sysfs.writeFile(filename, data, callback)),
+    writeTextFile: (filename, text) => sysfsAsync.writeFile(filename, text),
     writeFileSync: (filename, data) => sysfs.writeFileSync(filename, data),
     dirSync: (path) => sysfs.readdirSync(path),
 

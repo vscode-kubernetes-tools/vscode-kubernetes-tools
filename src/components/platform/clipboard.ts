@@ -1,4 +1,4 @@
-import * as clipboard from 'clipboardy';
+import clipboard from 'clipboardy';
 import * as vscode from 'vscode';
 
 export async function write(text: string) {

@@ -17,7 +17,9 @@
         "noImplicitAny": true,
         "strictFunctionTypes": true,
         "strictNullChecks": true,
-        "noImplicitThis": true
+        "noImplicitThis": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true
     },
     "exclude": [
         "node_modules",

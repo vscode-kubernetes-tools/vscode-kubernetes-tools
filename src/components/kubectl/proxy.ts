@@ -53,7 +53,7 @@ function waitForOutput(process: ChildProcess, pattern: RegExp): Promise<WaitForO
     return new Promise<WaitForOutputResult>((resolve) => {
         let didOutput = false;
 
-        process.stdout.on('data', async (data) => {
+        process.stdout?.on('data', async (data) => {
             const message = `${data}`;
             const matchResult = pattern.exec(message);
             if (matchResult && matchResult.length > 0) {

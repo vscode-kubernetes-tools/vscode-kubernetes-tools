@@ -47,7 +47,7 @@ const jsonSyntax: Syntax = {
 };
 
 const yamlSyntax: Syntax = {
-    load(text: string) { return yaml.safeLoadAll(text); },
+    load(text: string) { return yaml.loadAll(text); },
     async symbolise(document: vscode.TextDocument) { return await jsonalikeYamlSymboliser.provideDocumentSymbols(document, new vscode.CancellationTokenSource().token); }
 };
 

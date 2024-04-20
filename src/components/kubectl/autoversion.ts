@@ -12,7 +12,7 @@ import { FileBacked } from '../../utils/filebacked';
 import { getKubeconfigPath } from '../kubectl/kubeconfig';
 import { getToolPath } from '../config/config';
 import { Host } from '../../host';
-import { mkdirpAsync } from '../../utils/mkdirp';
+import { mkdirp } from 'mkdirp';
 import { platformUrlString, formatBin, platformArch, vsKubernetesFolder } from '../installer/installationlayout';
 import * as installer from '../installer/installer';
 import { ExecResult } from '../../binutilplusplus';
@@ -28,7 +28,7 @@ interface ClusterVersionCache {
 
 export async function ensureSuitableKubectl(kubectl: Kubectl, shell: Shell, host: Host): Promise<string | undefined> {
     if (!(await fs.existsAsync(getBasePath(shell)))) {
-        await mkdirpAsync(getBasePath(shell));
+        await mkdirp(getBasePath(shell));
     }
 
     const bootstrapperKubectl = await ensureBootstrapperKubectl(kubectl, shell, host);

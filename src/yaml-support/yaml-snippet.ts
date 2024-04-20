@@ -53,6 +53,6 @@ export class KubernetesCompletionProvider implements vscode.CompletionItemProvid
 
     // parse a yaml snippet file into a CodeSnippet
     private readYamlCodeSnippet(filename: string): CodeSnippet {
-        return <CodeSnippet>yaml.safeLoad(fs.readFileSync(filename, 'utf-8'));
+        return <CodeSnippet>yaml.load(fs.readFileSync(filename, 'utf-8'));
     }
 }
