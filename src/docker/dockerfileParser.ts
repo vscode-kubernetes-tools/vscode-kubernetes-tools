@@ -30,7 +30,7 @@ class RawDockerfile {
         return args;
     }
 
-    public searchInArgs(regularExpression: RegExp, commands?: string[]): RegExpMatchArray {
+    public searchInArgs(regularExpression: RegExp, commands?: string[]): RegExpMatchArray | [] {
         const commandEntries = (commands ? this.getCommandsOfType(...commands) : this.commandEntries);
         for (const entry of commandEntries) {
             const args = Array.isArray(entry.args) ? entry.args : [ String(entry.args) ];
@@ -77,7 +77,7 @@ class Dockerfile implements IDockerfile {
         return String(workDirEntry[0].args);
     }
 
-    searchLaunchArgs(regularExpression: RegExp): RegExpMatchArray {
+    searchLaunchArgs(regularExpression: RegExp): RegExpMatchArray | [] {
         return this.dockerfile.searchInArgs(regularExpression, ["run", "cmd", "entrypoint"]);
     }
 }

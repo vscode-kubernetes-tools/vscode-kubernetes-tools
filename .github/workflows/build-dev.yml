@@ -22,14 +22,13 @@ jobs:
     - name: Use node.js
       uses: actions/setup-node@v4
       with:
-        version: 20
+        node-version: 20
     - name: Install dependencies
       run: npm install
     - name: Prepare environment
       run: |
         npm install -g typescript
         npm install -g gulp
-        npm install -g vsce
     - name: Build
       run: npm run compile
     - name: Lint extension source

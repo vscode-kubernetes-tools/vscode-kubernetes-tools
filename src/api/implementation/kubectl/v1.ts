@@ -29,7 +29,7 @@ class KubectlV1Impl implements KubectlV1 {
         const forwarding = await waitForOutput(pfProcess, /Forwarding\s+from\s+127\.0\.0\.1:/);
 
         if (forwarding === WaitForOutputResult.Success) {
-            const onTerminate = [ () => pfProcess.kill() ];
+            const onTerminate: (() => (void | boolean))[] = [ () => pfProcess.kill() ];
             const terminator = { dispose: () => { for (const action of onTerminate) { action(); } } };
             if (options && options.showInUI && options.showInUI.location === 'status-bar') {
                 const session = {
@@ -61,7 +61,7 @@ function waitForOutput(process: ChildProcess, pattern: RegExp): Promise<WaitForO
     return new Promise<WaitForOutputResult>((resolve) => {
         let didOutput = false;
 
-        process.stdout.on('data', async (data) => {
+        process.stdout?.on('data', async (data) => {
             const message = `${data}`;
             if (pattern.test(message)) {
                 didOutput = true;
