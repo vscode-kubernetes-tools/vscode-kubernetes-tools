@@ -1,0 +1,24 @@
+name: replicaset
+label: Kubernetes ReplicaSet
+description: Kubernetes ReplicaSet
+body: |2
+  apiVersion: apps/v1
+  kind: ReplicaSet
+  metadata:
+    name: ${1:myreplicaset}
+    labels:
+      app: ${2:myapp}
+      ${3:key}: ${4:value}
+  spec:
+    replicas: ${5:<Replicas>}
+    selector:
+      matchLabels:
+        ${3:key}: ${4:value}
+    template:
+      metadata:
+        labels:
+          ${3:key}: ${4:value}
+      spec:
+        containers:
+          - name: ${2:myapp}
+            image: ${6:<Image>}
