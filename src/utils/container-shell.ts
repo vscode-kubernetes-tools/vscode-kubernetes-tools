@@ -14,7 +14,7 @@ async function isBashOnContainer(kubectl: Kubectl, podName: string, podNamespace
 }
 
 async function isPowerShellOnContainer(kubectl: Kubectl, podName: string, podNamespace: string | undefined, containerName: string | undefined): Promise<boolean> {
-    const checkCommand = 'cmd /C where powershell';
+    const checkCommand = 'cmd /C where powershell.exe';
     return isFileOnContainer(kubectl, podName, podNamespace, containerName, checkCommand);
 }
 
