@@ -14,12 +14,12 @@ async function isBashOnContainer(kubectl: Kubectl, podName: string, podNamespace
 }
 
 async function isPowerShellOnContainer(kubectl: Kubectl, podName: string, podNamespace: string | undefined, containerName: string | undefined): Promise<boolean> {
-    const checkCommand = 'cmd /C where powershell.exe';
+    const checkCommand = 'cmd.exe /C where powershell.exe';
     return isFileOnContainer(kubectl, podName, podNamespace, containerName, checkCommand);
 }
 
 async function isCmdOnContainer(kubectl: Kubectl, podName: string, podNamespace: string | undefined, containerName: string | undefined): Promise<boolean> {
-    const checkCommand = 'cmd /C where cmd.exe';
+    const checkCommand = 'cmd.exe /C where cmd.exe';
     return isFileOnContainer(kubectl, podName, podNamespace, containerName, checkCommand);
 }
 
@@ -31,7 +31,7 @@ export async function suggestedShellForContainer(kubectl: Kubectl, podName: stri
         return 'powershell.exe';
     }
     if (await isCmdOnContainer(kubectl, podName, podNamespace, containerName)) {
-        return 'cmd';
+        return 'cmd.exe';
     }
     return 'sh';
 }
