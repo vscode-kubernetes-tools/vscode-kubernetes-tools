@@ -29,7 +29,7 @@
     "gulp-rename": "^1.4.0",
     "gulp-sass": "^4.0.2",
     "gulp-sourcemaps": "^2.6.4",
-    "node-sass": "^7.0.1",
+    "node-sass": "^7.0.2",
     "streamqueue": "^1.1.2"
   }
 }
