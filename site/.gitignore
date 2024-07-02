@@ -1,7 +1,0 @@
-public/
-_site/*
-_site/
-.ncurc.yml
-.publish/*
-.publish/
-node_modules/
