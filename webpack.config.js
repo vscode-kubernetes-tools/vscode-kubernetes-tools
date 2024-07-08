@@ -18,6 +18,8 @@ const config = {
   devtool: 'source-map',
   externals: {
     vscode: 'commonjs vscode',
+    'applicationinsights-native-metrics': 'commonjs applicationinsights-native-metrics', // ignored because we don't ship native module
+    '@opentelemetry/tracing': '@opentelemetry/tracing',
     bufferutil: 'commonjs bufferutil',
     'spawn-sync': 'commonjs spawn-sync',
     'utf-8-validate': 'commonjs utf-8-validate'
