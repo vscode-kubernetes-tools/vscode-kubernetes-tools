@@ -42,6 +42,7 @@ jobs:
     - name: Package extension
       if: github.event_name == 'push' && matrix.os == 'ubuntu-latest'
       run: |
+        npm run package
         vsce package
         mkdir vsix
         mv *.vsix vsix
