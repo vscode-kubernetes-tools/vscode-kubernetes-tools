@@ -1385,7 +1385,7 @@
         "sinon": "^17.0.1",
         "ts-loader": "^9.5.1",
         "tslint": "^5.20.1",
-        "typescript": "^5.4.3",
+        "typescript": "^5.5.3",
         "webpack": "^5.91.0",
         "webpack-cli": "^5.1.4"
     },
