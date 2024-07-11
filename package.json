@@ -1365,7 +1365,7 @@
         "@types/semver": "^7.5.8",
         "@types/shelljs": "^0.8.15",
         "@types/sinon": "^17.0.3",
-        "@types/tar": "^6.1.11",
+        "@types/tar": "^6.1.13",
         "@types/tmp": "^0.2.6",
         "@types/unzipper": "^0.10.9",
         "@types/vscode": "^1.87.0",
