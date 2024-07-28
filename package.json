@@ -1337,7 +1337,7 @@
         "mkdirp": "^3.0.1",
         "moment": "^2.30.1",
         "node-yaml-parser": "^0.0.9",
-        "opn": "^5.5.0",
+        "opn": "^6.0.0",
         "pluralize": "^8.0.0",
         "portfinder": "^1.0.32",
         "request": "^2.88.2",
