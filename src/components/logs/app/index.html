@@ -5,10 +5,10 @@
     <title>Kubernetes logs</title>
     <!-- meta http-equiv="Content-Security-Policy" -->
     <style>
-        vscode-select.w-130 {
+        vscode-single-select.w-130 {
             width: 130px;
         }
-        vscode-select.w-80 {
+        vscode-single-select.w-80 {
             width: 80px;
         }
         .float-right {
@@ -124,11 +124,11 @@
                                 <div class="mr-2" style="width: 50px; display: inline-block">
                                     <vscode-inputbox id="since-input" type="number" value="-1"></vscode-inputbox>
                                 </div>
-                                <vscode-select id="since-select" class="w-80 mr-2">
+                                <vscode-single-select id="since-select" class="w-80 mr-2">
                                     <vscode-option value="s" selected>Second(s)</vscode-option>
                                     <vscode-option value="m">Minute(s)</vscode-option>
                                     <vscode-option value="h">Hour(s)</vscode-option>
-                                </vscode-select>
+                                </vscode-single-select>
 
                                 <div class="tooltip ml-10 mr-2">Tail:
                                     <span class="tooltiptext">Lines of recent log file to display. Defaults show all log lines.</span>
@@ -139,19 +139,19 @@
                                 <div class="tooltip ml-10 mr-2">Destination:
                                     <span class="tooltiptext">Where to display logs.</span>
                                 </div>
-                                <vscode-select id="destination-select" class="w-130 mr-2">
+                                <vscode-single-select id="destination-select" class="w-130 mr-2">
                                     <vscode-option value="Webview" selected>Webview</vscode-option>
                                     <vscode-option value="Terminal">Terminal</vscode-option>
-                                </vscode-select>
+                                </vscode-single-select>
                             </div>
                             <div class="mt-5">
                                 <span class="mr-2">Filter:</span>
-                                <vscode-select id="filter-select" class="w-130 mr-2">
+                                <vscode-single-select id="filter-select" class="w-130 mr-2">
                                     <vscode-option value="include" selected>that match</vscode-option>
                                     <vscode-option value="exclude">that don't match</vscode-option>
                                     <vscode-option value="after">after match</vscode-option>
                                     <vscode-option value="before">before match</vscode-option>
-                                </vscode-select>
+                                </vscode-single-select>
                                 <div class="mr-2" style="width: 350px; display: inline-block">
                                     <vscode-inputbox placeholder="Enter your keywords" id="filter-input"></vscode-inputbox>
                                 </div>

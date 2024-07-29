@@ -34,7 +34,7 @@ window.addEventListener('message', (event) => {
             containersPanel.classList.remove('display-none');
             containersPanel.classList.add('display-inline-block');
 
-            const select = createElement('vscode-select');
+            const select = createElement('vscode-single-select');
             select.setAttribute('id', 'containers-select');
             // eslint-disable-next-line @typescript-eslint/prefer-for-of
             for (let i = 0; i < containers.length; i += 1) {
