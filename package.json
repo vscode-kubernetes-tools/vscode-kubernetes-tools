@@ -1324,7 +1324,7 @@
     ],
     "dependencies": {
         "@kubernetes/client-node": "^0.20.0",
-        "@vscode/test-electron": "^2.3.9",
+        "@vscode/test-electron": "^2.4.1",
         "ansi-to-html": "^0.7.2",
         "clipboardy": "^4.0.0",
         "compare-versions": "^6.1.1",
