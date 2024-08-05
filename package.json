@@ -1345,7 +1345,7 @@
         "semver": "^7.6.2",
         "shelljs": "^0.8.5",
         "spawn-rx": "^3.0.0",
-        "tar": "^7.4.0",
+        "tar": "^7.4.3",
         "tmp": "^0.2.3",
         "unzipper": "^0.10.14",
         "vscode-extension-telemetry": "^0.4.5",
