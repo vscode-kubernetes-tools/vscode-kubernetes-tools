@@ -208,7 +208,7 @@ export function getUseWsl(): boolean {
 }
 
 // minikube check upgrade
-const  MK_CHECK_UPGRADE_KEY = 'checkForMinikubeUpgrade';
+const MK_CHECK_UPGRADE_KEY = 'checkForMinikubeUpgrade';
 
 export function getCheckForMinikubeUpgrade(): boolean {
     return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)[MK_CHECK_UPGRADE_KEY];
@@ -343,6 +343,10 @@ export function getCRDCodeCompletionState(): string | undefined {
 export function setCRDCodeCompletion(enable: boolean): void {
     const value = (enable) ? 'enabled' : 'disabled';
     setConfigValue('vs-kubernetes.crd-code-completion', value);
+}
+
+export function supressOutput(): boolean {
+    return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.supress-output'];
 }
 
 export function getMinikubeShowInfoState(): string | undefined {

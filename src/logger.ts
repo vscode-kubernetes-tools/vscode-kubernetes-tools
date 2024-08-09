@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { supressOutput } from './components/config/config';
 
 const HELM_CHANNEL = "Helm";
 
@@ -17,7 +18,9 @@ class LoggingConsole implements Logger {
     log(msg: string) {
         this.channel.append(msg);
         this.channel.append("\n");
-        this.channel.show(true);
+        if (supressOutput()) {
+            this.channel.show(true);
+        }
     }
     dispose() {
         this.channel.dispose();
