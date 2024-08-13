@@ -1358,7 +1358,7 @@
         "@types/glob": "^8.1.0",
         "@types/js-yaml": "^4.0.9",
         "@types/lodash": "^4.17.7",
-        "@types/mkdirp": "^1.0.2",
+        "@types/mkdirp": "^2.0.0",
         "@types/mocha": "^10.0.7",
         "@types/node": "^20.14.11",
         "@types/pluralize": "^0.0.33",
