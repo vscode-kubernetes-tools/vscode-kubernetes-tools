@@ -1371,7 +1371,7 @@
         "@types/vscode": "^1.92.0",
         "@types/websocket": "^1.0.10",
         "@types/yamljs": "^0.2.34",
-        "@typescript-eslint/eslint-plugin": "^7.17.0",
+        "@typescript-eslint/eslint-plugin": "^8.4.0",
         "@typescript-eslint/eslint-plugin-tslint": "7.0.2",
         "@typescript-eslint/parser": "^7.18.0",
         "@vscode/vsce": "^3.0.0",
