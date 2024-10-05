@@ -57,13 +57,14 @@ export class ResourceFolderNode extends FolderNode implements ClusterExplorerRes
     private namespaceUriPart(ns: string, resources: string): string {
         let namespaceUri = `namespaces/${ns}/`;
         switch (resources) {
-            case "namespaces" || "nodes" || "persistentvolumes" || "storageclasses": {
+            case "namespaces":
+            case "nodes":
+            case "persistentvolumes":
+            case "storageclasses":
                 namespaceUri = '';
                 break;
-            }
-            default: {
+            default:
                 break;
-            }
         }
         return namespaceUri;
     }

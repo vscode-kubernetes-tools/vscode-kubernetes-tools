@@ -74,14 +74,15 @@ export class ResourceNode extends ClusterExplorerNodeImpl implements ClusterExpl
     private namespaceUriPart(ns: string, resources: string): string {
         let namespaceUri = '';
         switch (resources) {
-            case "namespaces" || "nodes" || "persistentvolumes" || "storageclasses": {
+            case "namespaces":
+            case "nodes":
+            case "persistentvolumes":
+            case "storageclasses":
                 namespaceUri = `${resources}/`;
                 break;
-            }
-            default: {
+            default:
                 namespaceUri = `namespaces/${ns}/${resources}/`;
                 break;
-            }
         }
         return namespaceUri;
     }
