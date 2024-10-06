@@ -295,7 +295,6 @@
                             "description": "Set the smart code completion for CRDs. This would always prevent/allow the plugin to fetch all custom schemas from all CRDs on cluster, despite of their number."
                         },
                         "vs-kubernetes.supress-output": {
-                            "type": "string",
                             "type": "boolean",
                             "default": false,
                             "description": "Set to true to disable showing and stealing focus by Helm channel output window"
