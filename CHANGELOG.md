@@ -1,5 +1,17 @@
 # Change Log
 
+## [1.3.17]
+
+* feat: add an option to disable Helm channel output (#1208)
+* dependabot PR's
+* Remove old site scaffolding project and Update/package dependencies (#1277)
+* Added snippet for ReplicaSet (#1268)
+* Prune and upgrade npm package dependencies (#1265)
+* Use vscode-single-select instead of vscode-select (#1294)
+* Fix the ubuntu failure. (#1279)
+
+Contributors: dbreyfogle, okgolove, peterbom, mikeseese, Thank you all!!
+
 ## [1.3.16]
 
 * Hide convert context menu (#1244)
