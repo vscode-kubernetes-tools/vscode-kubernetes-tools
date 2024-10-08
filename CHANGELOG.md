@@ -3,7 +3,7 @@
 ## [1.3.17]
 
 * feat: add an option to disable Helm channel output (#1208)
-* dependabpt PR's
+* dependabot PR's
 * Remove old site scaffolding project and Update/package dependencies (#1277)
 * Added snippet for ReplicaSet (#1268)
 * Prune and upgrade npm package dependencies (#1265)
