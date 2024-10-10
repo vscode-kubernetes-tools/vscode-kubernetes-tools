@@ -1,5 +1,11 @@
 # Change Log
 
+## [1.3.18]
+
+* Fix clipboardy/webpack issue - breaking release 1.3.17 (#1355)
+
+Contributors: hsubramanianaks, anime-shed , kejatura-dev, ReinierCC, Also, an FYI, so suppress work will stay as it is.: qpetraroia, corneliusroemer, okgolove, tejhan, gambtho, squillace, metaphy6 , verhelstq  Thank you all!!
+
 ## [1.3.17]
 
 * feat: add an option to disable Helm channel output (#1208)
