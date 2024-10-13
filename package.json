@@ -824,7 +824,7 @@
                 },
                 {
                     "command": "extension.vsKubernetesUseNamespace",
-                    "when": ""
+                    "when": "true"
                 },
                 {
                     "command": "extension.vsKubernetesCopy",
@@ -848,15 +848,15 @@
                 },
                 {
                     "command": "kubernetes.cloudExplorer.mergeIntoKubeconfig",
-                    "when": ""
+                    "when": "true"
                 },
                 {
                     "command": "kubernetes.cloudExplorer.saveKubeconfig",
-                    "when": ""
+                    "when": "true"
                 },
                 {
                     "command": "kubernetes.portForwarding.showSessions",
-                    "when": ""
+                    "when": "true"
                 }
             ]
         },
@@ -1331,7 +1331,6 @@
         "@kubernetes/client-node": "^0.22.0",
         "@vscode/test-electron": "^2.4.1",
         "ansi-to-html": "^0.7.2",
-        "clipboardy": "^2.3.0",
         "compare-versions": "^6.1.1",
         "docker-file-parser": "^1.0.7",
         "dockerfile-parse": "^0.2.0",
