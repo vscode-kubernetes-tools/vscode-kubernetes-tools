@@ -1364,7 +1364,7 @@
         "@types/lodash": "^4.17.10",
         "@types/mkdirp": "^2.0.0",
         "@types/mocha": "^10.0.9",
-        "@types/node": "^22.7.7",
+        "@types/node": "^22.8.1",
         "@types/pluralize": "^0.0.33",
         "@types/semver": "^7.5.8",
         "@types/shelljs": "^0.8.15",
