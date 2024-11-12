@@ -1328,7 +1328,7 @@
         "redhat.vscode-yaml"
     ],
     "dependencies": {
-        "@kubernetes/client-node": "^0.22.1",
+        "@kubernetes/client-node": "^0.22.2",
         "@vscode/test-electron": "^2.4.1",
         "ansi-to-html": "^0.7.2",
         "compare-versions": "^6.1.1",
