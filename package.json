@@ -1377,7 +1377,7 @@
         "@types/yamljs": "^0.2.34",
         "@typescript-eslint/eslint-plugin": "^8.13.0",
         "@typescript-eslint/eslint-plugin-tslint": "7.0.2",
-        "@typescript-eslint/parser": "^8.6.0",
+        "@typescript-eslint/parser": "^8.14.0",
         "@vscode/vsce": "^3.2.1",
         "eslint": "^8.57.1",
         "file-loader": "^6.2.0",
