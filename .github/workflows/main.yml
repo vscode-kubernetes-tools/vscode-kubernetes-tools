@@ -5,7 +5,11 @@ jobs:
   build:
     name: release
     runs-on: ubuntu-latest
-
+    permissions:
+        actions: read
+        contents: write
+        deployments: read
+        packages: none
     steps:
     - name: Checkout
       uses: actions/checkout@v2
@@ -17,7 +21,7 @@ jobs:
     - name: Install dependencies
       run: npm install
     # Run tests
-    - name: Build 
+    - name: Build
       run: npm run compile
     - name: Get current package version
       id: package_version
@@ -31,7 +35,7 @@ jobs:
       id: create_release
       uses: actions/create-release@v1
       env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         tag_name : ${{ steps.package_version.outputs.current-version}}
         release_name: ${{ steps.package_version.outputs.current-version}}
@@ -51,5 +55,5 @@ jobs:
         asset_path: ${{ steps.create_vsix.outputs.vsixPath}}
         asset_name: ${{ steps.create_vsix.outputs.vsixPath}}
         asset_content_type: application/vsix
-    
+
 

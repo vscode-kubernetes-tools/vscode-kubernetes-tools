@@ -11,6 +11,11 @@ on:
 jobs:
   build:
     runs-on: ${{ matrix.os }}
+    permissions:
+        actions: read
+        contents: read
+        deployments: read
+        packages: none
     env:
       NODE_OPTIONS: --max_old_space_size=4096 --openssl-legacy-provider
     strategy:
