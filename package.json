@@ -1363,7 +1363,7 @@
         "@types/js-yaml": "^4.0.9",
         "@types/lodash": "^4.17.13",
         "@types/mkdirp": "^2.0.0",
-        "@types/mocha": "^10.0.9",
+        "@types/mocha": "^10.0.10",
         "@types/node": "^22.9.0",
         "@types/pluralize": "^0.0.33",
         "@types/request": "^2.48.12",
