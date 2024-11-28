@@ -40,15 +40,12 @@ window.addEventListener('message', (event) => {
             for (let i = 0; i < containers.length; i += 1) {
                 const option = createElement('vscode-option', containers[i].name,
                     (containers[i].initContainer ? containers[i].name + ' (init)' : containers[i].name));
-                if (i === 0) {
-                    option.setAttribute('selected', '');
-                }
                 select.appendChild(option);
             }
             containersPanel.appendChild(select);
         }
         case 'content': {
-            const text = message.text.replace(/\n$/, '');
+            const text = message.text?.replace(/\n$/, '');
             if (!text) {
                 return;
             }
@@ -126,8 +123,9 @@ function debounce(func, wait, immediate) {
 
 function createElement(type, value, content) {
     const element = document.createElement(type);
-    if (value) { element.value = value; }
+    if (value) { element.setAttribute('value', value); }
     if (content) { element.textContent = content; }
+
     return element;
 }
 
