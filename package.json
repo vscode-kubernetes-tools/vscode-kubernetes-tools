@@ -1351,7 +1351,7 @@
         "spawn-rx": "^5.1.1",
         "tar": "^7.4.3",
         "tmp": "^0.2.3",
-        "unzipper": "^0.10.14",
+        "unzipper": "^0.12.3",
         "vscode-extension-telemetry": "^0.4.5",
         "vscode-uri": "^3.0.8",
         "yaml-ast-parser": "^0.0.43",
