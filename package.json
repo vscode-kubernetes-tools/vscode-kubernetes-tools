@@ -1382,7 +1382,7 @@
         "@vscode/vsce": "^3.2.1",
         "eslint": "^8.57.1",
         "file-loader": "^6.2.0",
-        "glob": "^11.0.0",
+        "glob": "^11.0.1",
         "gulp": "^5.0.0",
         "gulp-tslint": "^8.1.4",
         "html-webpack-plugin": "^5.6.3",
