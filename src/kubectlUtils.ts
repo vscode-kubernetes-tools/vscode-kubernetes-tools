@@ -13,6 +13,7 @@ export interface KubectlContext {
     readonly contextName: string;
     readonly userName: string;
     readonly active: boolean;
+    readonly provider: string;
 }
 
 interface Kubeconfig {
@@ -107,12 +108,21 @@ export async function getContexts(kubectl: Kubectl, options: ConfigReadOptions):
     }
     const currentContext = kubectlConfig["current-context"];
     const contexts = kubectlConfig.contexts || [];
+    const clusters = kubectlConfig.clusters || [];
+
+    // Map contexts and extract provider information
     return contexts.map((c) => {
-        return {
+    // Find the cluster corresponding to the context
+    const cluster = clusters.find((cl) => cl.name === c.context.cluster);
+
+    // Extract provider type from the cluster's server property if it includes "azk8ms"
+    const provider = cluster?.cluster?.server?.includes('azmk8s.io') ? 'AKS' : '';
+    return {
             clusterName: c.context.cluster,
             contextName: c.name,
             userName: c.context.user,
-            active: c.name === currentContext
+            active: c.name === currentContext,
+            provider: provider
         };
     });
 }
