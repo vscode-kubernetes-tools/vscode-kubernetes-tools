@@ -1,5 +1,20 @@
 # Change Log
 
+## [1.3.19]
+
+* Simple clipboard implementation. (#1361)
+* Dependabot PR's
+* Fix update with engine udpate. (#1369)
+* Fix the vscode update. (#1384)
+* Changes in correlation with new GH Action Permission Changes. (#1247)
+* Fix the client-node update. (#1390)
+* Fix:Init container logs not working (#1391)
+* Fix build break. (#1419)
+* Update owner.md for Current Active Users and Project Collaboration (#1431)
+
+Contributors: bcmyguest, tejhan, ReinierCC, hsubramanianaks, qpetraroia Thank you all!!
+
+
 ## [1.3.18]
 
 * Fix clipboardy/webpack issue - breaking release 1.3.17 (#1355)
