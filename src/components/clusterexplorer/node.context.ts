@@ -44,7 +44,7 @@ export class ContextNode extends ClusterExplorerNodeImpl implements ClusterExplo
     getTreeItem(): vscode.TreeItem | Thenable<vscode.TreeItem> {
         const treeItem = new vscode.TreeItem(this.contextName, vscode.TreeItemCollapsibleState.Collapsed);
         treeItem.contextValue = this.clusterType;
-        treeItem.iconPath = this.icon;
+        treeItem.iconPath = this.identifyClusterProviderIcon(this.kubectlContext.provider);
         if (!this.kubectlContext || !this.kubectlContext.active) {
             treeItem.collapsibleState = vscode.TreeItemCollapsibleState.None;
             treeItem.contextValue += ".inactive";
@@ -56,6 +56,12 @@ export class ContextNode extends ClusterExplorerNodeImpl implements ClusterExplo
     }
     async apiURI(_kubectl: Kubectl, _namespace: string): Promise<string | undefined> {
         return undefined;
+    }
+    identifyClusterProviderIcon(provider: string): vscode.Uri{
+        if (provider === "AKS") {
+            return assetUri("images/aks-tools.png");
+        }
+        return this.icon;
     }
 }
 export class MiniKubeContextNode extends ContextNode {
