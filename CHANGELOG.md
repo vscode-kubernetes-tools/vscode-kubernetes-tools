@@ -5,8 +5,7 @@
 * Dependabot PR's
 * Add the AKS logo to any AKS cluster. (#1440)
 
-Contributors: Reviews et. al. tejhan, ReinierCC, hsubramanianaks, qpetraroia Thank you all!!
-
+Contributors: Reviews et al. tejhan, ReinierCC, hsubramanianaks, qpetraroia Thank you all!!
 ## [1.3.19]
 
 * Simple clipboard implementation. (#1361)
