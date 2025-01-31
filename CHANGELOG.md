@@ -2,7 +2,7 @@
 
 ## [1.3.20]
 
-* Dependabot PR's
+* Dependabot PRs
 * Add the AKS logo to any AKS cluster. (#1440)
 
 Contributors: Reviews et al. tejhan, ReinierCC, hsubramanianaks, qpetraroia Thank you all!!
