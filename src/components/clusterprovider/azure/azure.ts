@@ -105,6 +105,7 @@ export async function setSubscriptionAsync(context: Context, subscription: strin
     return fromShellExitCodeAndStandardError(sr, "Unable to set Azure CLI subscription");
 }
 
+// removed clusterType since it is NOT required after removing Azure Container Service option
 export async function getClusterList(context: Context, subscription: string): Promise<ActionResult<ClusterInfo[]>> {
     // log in
     const login = await setSubscriptionAsync(context, subscription);
@@ -264,6 +265,7 @@ export async function createCluster(context: Context, options: any): Promise<Act
     };
 }
 
+// removed clusterType since it is NOT required after removing Azure Container Service option
 export async function waitForCluster(context: Context, clusterName: string, clusterResourceGroup: string): Promise<Errorable<WaitResult>> {
     const clusterCmd = getClusterCommand();
     const waitCmd = `az ${clusterCmd} wait --created --interval 5 --timeout 10 -n ${clusterName} -g ${clusterResourceGroup} -o json`;
