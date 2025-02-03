@@ -1,13 +1,13 @@
 'use strict';
 
-import { compareVersions } from 'compare-versions';
-import { Errorable, failed } from '../../../errorable';
-import { FS } from '../../../fs';
 import { Shell } from '../../../shell';
+import { FS } from '../../../fs';
+import { ActionResult, fromShellJson, fromShellExitCodeAndStandardError, fromShellExitCodeOnly, Diagnostic } from '../../../wizard';
+import { Errorable, failed } from '../../../errorable';
+import { compareVersions } from 'compare-versions';
 import { sleep } from '../../../sleep';
-import { Dictionary } from '../../../utils/dictionary';
-import { ActionResult, Diagnostic, fromShellExitCodeAndStandardError, fromShellExitCodeOnly, fromShellJson } from '../../../wizard';
 import { getKubeconfigPath } from '../../kubectl/kubeconfig';
+import { Dictionary } from '../../../utils/dictionary';
 
 export interface Context {
     readonly fs: FS;

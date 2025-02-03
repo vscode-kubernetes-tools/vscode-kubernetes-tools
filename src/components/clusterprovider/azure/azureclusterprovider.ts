@@ -1,13 +1,13 @@
-import { Errorable, failed, Failed, succeeded, Succeeded } from '../../../errorable';
-import { reporter } from '../../../telemetry';
-import { Observable, Sequence } from '../../../utils/observable';
-import { ActionResult, Diagnostic, formStyles, styles, waitScript } from '../../../wizard';
-import { NEXT_FN, Wizard } from '../../wizard/wizard';
 import * as clusterproviderregistry from '../clusterproviderregistry';
-import { refreshExplorer } from '../common/explorer';
-import { formPage, propagationFields } from '../common/form';
-import { trackReadiness } from '../readinesstracker';
 import * as azure from './azure';
+import { styles, formStyles, waitScript, ActionResult, Diagnostic } from '../../../wizard';
+import { Errorable, succeeded, failed, Failed, Succeeded } from '../../../errorable';
+import { formPage, propagationFields } from '../common/form';
+import { refreshExplorer } from '../common/explorer';
+import { Wizard, NEXT_FN } from '../../wizard/wizard';
+import { Sequence, Observable } from '../../../utils/observable';
+import { trackReadiness } from '../readinesstracker';
+import { reporter } from '../../../telemetry';
 
 // TODO: de-globalise
 let registered = false;
