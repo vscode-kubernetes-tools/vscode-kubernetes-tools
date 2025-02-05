@@ -1,13 +1,14 @@
-import * as clusterproviderregistry from '../clusterproviderregistry';
-import * as azure from './azure';
-import { styles, formStyles, waitScript, ActionResult, Diagnostic } from '../../../wizard';
-import { Errorable, succeeded, failed, Failed, Succeeded } from '../../../errorable';
-import { formPage, propagationFields } from '../common/form';
-import { refreshExplorer } from '../common/explorer';
-import { Wizard, NEXT_FN } from '../../wizard/wizard';
-import { Sequence, Observable } from '../../../utils/observable';
-import { trackReadiness } from '../readinesstracker';
+import * as vscode from 'vscode';
+import { failed, Failed, Succeeded } from '../../../errorable';
 import { reporter } from '../../../telemetry';
+import { Observable, Sequence } from '../../../utils/observable';
+import { ActionResult, styles } from '../../../wizard';
+import { Wizard } from '../../wizard/wizard';
+import * as clusterproviderregistry from '../clusterproviderregistry';
+import { refreshExplorer } from '../common/explorer';
+import { formPage, propagationFields } from '../common/form';
+import { trackReadiness } from '../readinesstracker';
+import * as azure from './azure';
 
 // TODO: de-globalise
 let registered = false;
@@ -34,13 +35,15 @@ function next(context: azure.Context, wizard: Wizard, action: clusterproviderreg
 
 function getHandleCreateHtml(step: string | undefined, context: azure.Context, requestData: any): Sequence<string> {
     if (!step) {
-        return promptForSubscription(requestData, context, "create", "metadata");
+        return createClusterViaAKSExtension(requestData);
+        // return promptForSubscription(requestData, context, "create", "metadata");
     } else if (step === "metadata") {
         return promptForMetadata(requestData, context);
     } else if (step === "agentSettings") {
         return promptForAgentSettings(requestData, context);
     } else if (step === "create") {
-        return createCluster(requestData, context);
+        return createClusterViaAKSExtension(requestData);
+        // return createCluster(requestData, context);
     } else if (step === "wait") {
         return waitForClusterAndReportConfigResult(requestData, context);
     } else {
@@ -197,55 +200,70 @@ async function promptForAgentSettings(previousData: any, context: azure.Context)
     });
 }
 
-async function createCluster(previousData: any, context: azure.Context): Promise<string> {
-
-    const options = {
-        clusterType: previousData.clusterType,
-        subscription: previousData.subscription,
-        metadata: {
-            location: previousData.location,
-            resourceGroupName: previousData.resourcegroupname,
-            clusterName: previousData.clustername
-        },
-        agentSettings: {
-            count: previousData.agentcount,
-            vmSize: previousData.agentvmsize
-
-        }
-    };
-    const createResult = await azure.createCluster(context, options);
-
-    if (reporter) {
-        reporter.sendTelemetryEvent("clustercreation", { result: createResult.result.succeeded ? "success" : "failure", clusterType: previousData.clusterType });
+async function createClusterViaAKSExtension(previousData: any) {
+    // invoke aks extension command
+    // check if aks extension is installed
+    // this is temporary, get sub id from promptForSubscription
+    previousData.subscription = "20c6254d-ab44-45c8-8885-ceb54699e1bf";
+    const aksExtension =  vscode.extensions.getExtension("ms-kubernetes-tools.vscode-aks-tools");
+    if (!aksExtension) {
+        // install aks extension
+        await vscode.commands.executeCommand("extension.open", "ms-kubernetes-tools.vscode-aks-tools");
     }
-
-    const title = createResult.result.succeeded ? 'Cluster creation has started' : `Error ${createResult.actionDescription}`;
-    const additionalDiagnostic = diagnoseCreationError(createResult.result);
-    const successCliErrorInfo = diagnoseCreationSuccess(createResult.result);
-    const message = succeeded(createResult.result) ?
-        `<div id='content'>
-         ${formStyles()}
-         ${styles()}
-         <form id='form'>
-         <input type='hidden' name='nextStep' value='wait' />
-         ${propagationFields(previousData)}
-         <p class='success'>Azure is creating the cluster, but this may take some time. You can now close this window,
-         or wait for creation to complete so that we can add the new cluster to your Kubernetes configuration.</p>
-         <p><button onclick=${NEXT_FN} class='link-button'>Wait and add the new cluster &gt;</button></p>
-         </form>
-         ${successCliErrorInfo}
-         </div>` :
-        `<p class='error'>An error occurred while creating the cluster.</p>
-         ${additionalDiagnostic}
-         <p><b>Details</b></p>
-         <p>${createResult.result.error[0]}</p>`;
-    return `<!-- Complete -->
-            <h1 id='h'>${title}</h1>
-            ${styles()}
-            ${waitScript('Waiting for cluster - this will take several minutes')}
-            ${message}`;
-
+    // invoke aks extension command
+    vscode.commands.executeCommand("aks.createCluster", previousData.subscription);
+    return "<h1>Creating cluster using Azure Kubernetes Service extension</h1>";
 }
+
+// async function createCluster(previousData: any, context: azure.Context): Promise<string> {
+
+//     const options = {
+//         clusterType: previousData.clusterType,
+//         subscription: previousData.subscription,
+//         metadata: {
+//             location: previousData.location,
+//             resourceGroupName: previousData.resourcegroupname,
+//             clusterName: previousData.clustername
+//         },
+//         agentSettings: {
+//             count: previousData.agentcount,
+//             vmSize: previousData.agentvmsize
+
+//         }
+//     };
+//     const createResult = await azure.createCluster(context, options);
+
+//     if (reporter) {
+//         reporter.sendTelemetryEvent("clustercreation", { result: createResult.result.succeeded ? "success" : "failure", clusterType: previousData.clusterType });
+//     }
+
+//     const title = createResult.result.succeeded ? 'Cluster creation has started' : `Error ${createResult.actionDescription}`;
+//     const additionalDiagnostic = diagnoseCreationError(createResult.result);
+//     const successCliErrorInfo = diagnoseCreationSuccess(createResult.result);
+//     const message = succeeded(createResult.result) ?
+//         `<div id='content'>
+//          ${formStyles()}
+//          ${styles()}
+//          <form id='form'>
+//          <input type='hidden' name='nextStep' value='wait' />
+//          ${propagationFields(previousData)}
+//          <p class='success'>Azure is creating the cluster, but this may take some time. You can now close this window,
+//          or wait for creation to complete so that we can add the new cluster to your Kubernetes configuration.</p>
+//          <p><button onclick=${NEXT_FN} class='link-button'>Wait and add the new cluster &gt;</button></p>
+//          </form>
+//          ${successCliErrorInfo}
+//          </div>` :
+//         `<p class='error'>An error occurred while creating the cluster.</p>
+//          ${additionalDiagnostic}
+//          <p><b>Details</b></p>
+//          <p>${createResult.result.error[0]}</p>`;
+//     return `<!-- Complete -->
+//             <h1 id='h'>${title}</h1>
+//             ${styles()}
+//             ${waitScript('Waiting for cluster - this will take several minutes')}
+//             ${message}`;
+
+// }
 
 function refreshCountIndicator(refreshCount: number): string {
     return ".".repeat(refreshCount % 4);
@@ -309,29 +327,29 @@ function renderConfigurationResult(configureResult: ActionResult<azure.Configure
 
 // Error rendering helpers
 
-function diagnoseCreationError(e: Errorable<Diagnostic>): string {
-    if (succeeded(e)) {
-        return '';
-    }
-    if (e.error[0].indexOf('unrecognized arguments') >= 0) {
-        return '<p>You may be using an older version of the Azure CLI. Check Azure CLI version is 2.0.23 or above.<p>';
-    }
-    return '';
-}
+// function diagnoseCreationError(e: Errorable<Diagnostic>): string {
+//     if (succeeded(e)) {
+//         return '';
+//     }
+//     if (e.error[0].indexOf('unrecognized arguments') >= 0) {
+//         return '<p>You may be using an older version of the Azure CLI. Check Azure CLI version is 2.0.23 or above.<p>';
+//     }
+//     return '';
+// }
 
-function diagnoseCreationSuccess(e: Errorable<Diagnostic>): string {
-    if (failed(e) || !e.result || !e.result.value) {
-        return '';
-    }
-    const error = e.result.value;
-    // Discard things printed to stderr that are known spew
-    if (/Finished service principal(.+)100[.0-9%]*/.test(error)) {
-        return '';
-    }
-    // CLI claimed it succeeded but left something on stderr, so warn the user
-    return `<p><b>Note:<b> although Azure accepted the creation request, the Azure CLI reported the following message. This may indicate a problem, or may be ignorable progress messages:<p>
-        <p>${error}</p>`;
-}
+// function diagnoseCreationSuccess(e: Errorable<Diagnostic>): string {
+//     if (failed(e) || !e.result || !e.result.value) {
+//         return '';
+//     }
+//     const error = e.result.value;
+//     // Discard things printed to stderr that are known spew
+//     if (/Finished service principal(.+)100[.0-9%]*/.test(error)) {
+//         return '';
+//     }
+//     // CLI claimed it succeeded but left something on stderr, so warn the user
+//     return `<p><b>Note:<b> although Azure accepted the creation request, the Azure CLI reported the following message. This may indicate a problem, or may be ignorable progress messages:<p>
+//         <p>${error}</p>`;
+// }
 
 function renderCliError<T>(stageId: string, last: ActionResult<T>): string {
     const errorInfo = last.result as Failed;
