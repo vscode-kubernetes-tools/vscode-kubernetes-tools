@@ -230,7 +230,7 @@ If you are working with Azure Container Services or Azure Kubernetes Services, t
 
 ### Portable extension configuration
 
-If you move your configuration file between machines with different OSes (and therefore different paths to binaries) you can override the following settings on a per-OS basis by appending `.windows`, `.mac` or `.linux` to the setting name:
+If you move your configuration file between machines with different OSes (and therefore different paths to binaries) you can override the following settings on a per-OS basis by appending `-windows`, `-mac` or `-linux` to the setting name:
 
   * `vscode-kubernetes.kubectl-path`
   * `vscode-kubernetes.helm-path`
