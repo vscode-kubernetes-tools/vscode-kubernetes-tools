@@ -14,8 +14,7 @@ let registered = false;
 
 export async function init(registry: clusterproviderregistry.ClusterProviderRegistry, context: azure.Context): Promise<void> {
     if (!registered) {
-        registry.register({id: 'aks', displayName: "Azure Kubernetes Service", supportedActions: ['create', 'configure'], next: (w, a, m) => next(context, w, a, m)});
-        registry.register({id: 'acs', displayName: "Azure Container Service", supportedActions: ['create', 'configure'], next: (w, a, m) => next(context, w, a, m)});
+        registry.register({ id: 'aks', displayName: "Azure Kubernetes Service", supportedActions: ['create', 'configure'], next: (w, a, m) => next(context, w, a, m) });
         registered = true;
     }
 }
@@ -97,7 +96,7 @@ async function promptForSubscription(previousData: any, context: azure.Context, 
 }
 
 async function promptForCluster(previousData: any, context: azure.Context): Promise<string> {
-    const clusterList = await azure.getClusterList(context, previousData.subscription, previousData.clusterType);
+    const clusterList = await azure.getClusterList(context, previousData.subscription);
 
     if (!clusterList.result.succeeded) {
         return renderCliError('PromptForCluster', clusterList);
@@ -136,9 +135,7 @@ async function configureKubernetes(previousData: any, context: azure.Context): P
 }
 
 async function promptForMetadata(previousData: any, context: azure.Context): Promise<string> {
-    const serviceLocations = previousData.clusterType === 'acs' ?
-        await azure.listAcsLocations(context) :
-        await azure.listAksLocations(context);
+    const serviceLocations = await azure.listAksLocations(context);
 
     if (!serviceLocations.succeeded) {
         return renderCliError('PromptForMetadata', {
@@ -214,7 +211,8 @@ async function createCluster(previousData: any, context: azure.Context): Promise
             count: previousData.agentcount,
             vmSize: previousData.agentvmsize
 
-        } };
+        }
+    };
     const createResult = await azure.createCluster(context, options);
 
     if (reporter) {
@@ -256,7 +254,7 @@ function refreshCountIndicator(refreshCount: number): string {
 function waitForClusterAndReportConfigResult(previousData: any, context: azure.Context): Observable<string> {
 
     async function waitOnce(refreshCount: number): Promise<[string, boolean]> {
-        const waitResult = await azure.waitForCluster(context, previousData.clusterType, previousData.clustername, previousData.resourcegroupname);
+        const waitResult = await azure.waitForCluster(context, previousData.clustername, previousData.resourcegroupname);
         if (failed(waitResult)) {
             return [`<h1>Error creating cluster</h1><p>Error details: ${waitResult.error[0]}</p>`, false];
         }
@@ -343,7 +341,7 @@ function renderCliError<T>(stageId: string, last: ActionResult<T>): string {
         <ul>
         <li>Log into the Azure CLI (run az login in the terminal)</li>
         <li>Install the Azure CLI <a href='https://docs.microsoft.com/cli/azure/install-azure-cli'>(see the instructions for your operating system)</a></li>
-        <li>Configure Kubernetes from the command line using the az acs or az aks command</li>
+        <li>Configure Kubernetes from the command line using the az aks command</li>
         </ul>
         <p><b>Details</b></p>
         <p>${errorInfo.error}</p>`;

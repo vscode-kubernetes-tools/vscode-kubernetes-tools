@@ -105,7 +105,8 @@ export async function setSubscriptionAsync(context: Context, subscription: strin
     return fromShellExitCodeAndStandardError(sr, "Unable to set Azure CLI subscription");
 }
 
-export async function getClusterList(context: Context, subscription: string, clusterType: string): Promise<ActionResult<ClusterInfo[]>> {
+// removed clusterType since it is NOT required after removing Azure Container Service option
+export async function getClusterList(context: Context, subscription: string): Promise<ActionResult<ClusterInfo[]>> {
     // log in
     const login = await setSubscriptionAsync(context, subscription);
     if (failed(login)) {
@@ -116,34 +117,27 @@ export async function getClusterList(context: Context, subscription: string, clu
     }
 
     // list clusters
-    const clusters = await listClustersAsync(context, clusterType);
+    const clusters = await listClustersAsync(context);
     return {
         actionDescription: 'listing clusters',
         result: clusters
     };
 }
 
-async function listClustersAsync(context: Context, clusterType: string): Promise<Errorable<ClusterInfo[]>> {
-    const cmd = getListClustersCommand(context, clusterType);
+async function listClustersAsync(context: Context): Promise<Errorable<ClusterInfo[]>> {
+    const cmd = getListClustersCommand(context);
     const sr = await context.shell.exec(cmd);
 
     return fromShellJson<ClusterInfo[]>(sr, "Unable to list Kubernetes clusters");
 }
 
-function listClustersFilter(clusterType: string): string {
-    if (clusterType === 'acs') {
-        return '?orchestratorProfile.orchestratorType==`Kubernetes`';
-    }
-    return '';
-}
-
-function getListClustersCommand(context: Context, clusterType: string): string {
-    const filter = listClustersFilter(clusterType);
+function getListClustersCommand(context: Context): string {
+    const filter = '';
     let query = `[${filter}].{name:name,resourceGroup:resourceGroup}`;
     if (context.shell.isUnix()) {
         query = `'${query}'`;
     }
-    return `az ${getClusterCommand(clusterType)} list --query ${query} -ojson`;
+    return `az ${getClusterCommand()} list --query ${query} -ojson`;
 }
 
 async function listLocations(context: Context): Promise<Errorable<Locations>> {
@@ -161,19 +155,6 @@ async function listLocations(context: Context): Promise<Errorable<Locations>> {
         }
         return { locations: locations };
     });
-}
-
-export async function listAcsLocations(context: Context): Promise<Errorable<ServiceLocation[]>> {
-    const locationInfo = await listLocations(context);
-    if (failed(locationInfo)) {
-        return { succeeded: false, error: locationInfo.error };
-    }
-    const locations = locationInfo.result;
-
-    const sr = await context.shell.exec(`az acs list-locations -ojson`);
-
-    return fromShellJson<ServiceLocation[]>(sr, "Unable to list ACS locations", (response) =>
-        locationDisplayNamesEx(response.productionRegions, response.previewRegions, locations));
 }
 
 export async function listAksLocations(context: Context): Promise<Errorable<ServiceLocation[]>> {
@@ -214,7 +195,7 @@ function locationDisplayNames(names: string[], preview: boolean, locationInfo: L
 }
 
 function locationDisplayNamesEx(production: string[], preview: string[], locationInfo: Locations): ServiceLocation[] {
-    let result = locationDisplayNames(production, false, locationInfo) ;
+    let result = locationDisplayNames(production, false, locationInfo);
     result = result.concat(locationDisplayNames(preview, true, locationInfo));
     return result;
 }
@@ -225,7 +206,7 @@ export async function listVMSizes(context: Context, location: string): Promise<E
     return fromShellJson<string[]>(sr,
         "Unable to list Azure VM sizes",
         (response: any[]) => response.map((r) => r.name as string)
-                                      .filter((name) => !name.startsWith('Basic_'))
+            .filter((name) => !name.startsWith('Basic_'))
     );
 }
 
@@ -250,13 +231,9 @@ async function ensureResourceGroupAsync(context: Context, resourceGroupName: str
 }
 
 async function execCreateClusterCmd(context: Context, options: any): Promise<Errorable<Diagnostic>> {
-    const clusterCmd = getClusterCommand(options.clusterType);
+    const clusterCmd = getClusterCommand();
     let createCmd = `az ${clusterCmd} create -n "${options.metadata.clusterName}" -g "${options.metadata.resourceGroupName}" -l "${options.metadata.location}" --generate-ssh-keys --no-wait `;
-    if (clusterCmd === 'acs') {
-        createCmd = createCmd + `--agent-count ${options.agentSettings.count} --agent-vm-size "${options.agentSettings.vmSize}" -t Kubernetes`;
-    } else {
-        createCmd = createCmd + `--node-count ${options.agentSettings.count} --node-vm-size "${options.agentSettings.vmSize}"`;
-    }
+    createCmd = createCmd + `--node-count ${options.agentSettings.count} --node-vm-size "${options.agentSettings.vmSize}"`;
 
     const sr = await context.shell.exec(createCmd);
 
@@ -288,8 +265,9 @@ export async function createCluster(context: Context, options: any): Promise<Act
     };
 }
 
-export async function waitForCluster(context: Context, clusterType: string, clusterName: string, clusterResourceGroup: string): Promise<Errorable<WaitResult>> {
-    const clusterCmd = getClusterCommand(clusterType);
+// removed clusterType since it is NOT required after removing Azure Container Service option
+export async function waitForCluster(context: Context, clusterName: string, clusterResourceGroup: string): Promise<Errorable<WaitResult>> {
+    const clusterCmd = getClusterCommand();
     const waitCmd = `az ${clusterCmd} wait --created --interval 5 --timeout 10 -n ${clusterName} -g ${clusterResourceGroup} -o json`;
     const sr = await context.shell.exec(waitCmd);
 
@@ -305,8 +283,8 @@ export async function waitForCluster(context: Context, clusterType: string, clus
 }
 
 export async function configureCluster(context: Context, clusterType: string, clusterName: string, clusterGroup: string): Promise<ActionResult<ConfigureResult>> {
-    const downloadKubectlCliPromise = downloadKubectlCli(context, clusterType);
-    const getCredentialsPromise = getCredentials(context, clusterType, clusterName, clusterGroup, 5);
+    const downloadKubectlCliPromise = downloadKubectlCli(context);
+    const getCredentialsPromise = getCredentials(context, clusterName, clusterGroup, 5);
 
     const [cliResult, credsResult] = await Promise.all([downloadKubectlCliPromise, getCredentialsPromise]);
 
@@ -326,8 +304,8 @@ export async function configureCluster(context: Context, clusterType: string, cl
     };
 }
 
-async function downloadKubectlCli(context: Context, clusterType: string): Promise<any> {
-    const cliInfo = installKubectlCliInfo(context, clusterType);
+async function downloadKubectlCli(context: Context): Promise<any> {
+    const cliInfo = installKubectlCliInfo(context);
 
     const sr = await context.shell.exec(cliInfo.commandLine);
 
@@ -349,14 +327,14 @@ async function downloadKubectlCli(context: Context, clusterType: string): Promis
     }
 }
 
-async function getCredentials(context: Context, clusterType: string, clusterName: string, clusterGroup: string, maxAttempts: number): Promise<any> {
+async function getCredentials(context: Context, clusterName: string, clusterGroup: string, maxAttempts: number): Promise<any> {
     const kubeconfigPath = getKubeconfigPath();
     const kubeconfigFilePath = kubeconfigPath.pathType === "host" ? kubeconfigPath.hostPath : kubeconfigPath.wslPath;
     const kubeconfigFileOption = kubeconfigFilePath ? `-f "${kubeconfigFilePath}"` : '';
     let attempts = 0;
     while (true) {
         attempts++;
-        const cmd = `az ${getClusterCommandAndSubcommand(clusterType)} get-credentials -n ${clusterName} -g ${clusterGroup} ${kubeconfigFileOption}`;
+        const cmd = `az ${getClusterCommandAndSubcommand()} get-credentials -n ${clusterName} -g ${clusterGroup} ${kubeconfigFileOption}`;
         const sr = await context.shell.exec(cmd);
 
         if (sr && sr.code === 0 && !sr.stderr) {
@@ -374,8 +352,8 @@ async function getCredentials(context: Context, clusterType: string, clusterName
     }
 }
 
-function installKubectlCliInfo(context: Context, clusterType: string) {
-    const cmdCore = `az ${getClusterCommandAndSubcommand(clusterType)} install-cli`;
+function installKubectlCliInfo(context: Context) {
+    const cmdCore = `az ${getClusterCommandAndSubcommand()} install-cli`;
     const isWindows = context.shell.isWindows();
     if (isWindows) {
         // The default Windows install location requires admin permissions; install
@@ -398,16 +376,10 @@ function installKubectlCliInfo(context: Context, clusterType: string) {
     }
 }
 
-function getClusterCommand(clusterType: string): string {
-    if (clusterType === 'Azure Container Service' || clusterType === 'acs') {
-        return 'acs';
-    }
+function getClusterCommand(): string {
     return 'aks';
 }
 
-function getClusterCommandAndSubcommand(clusterType: string): string {
-    if (clusterType === 'Azure Container Service' || clusterType === 'acs') {
-        return 'acs kubernetes';
-    }
+function getClusterCommandAndSubcommand(): string {
     return 'aks';
 }
