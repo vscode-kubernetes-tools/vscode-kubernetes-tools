@@ -1380,7 +1380,7 @@
         "@typescript-eslint/eslint-plugin-tslint": "7.0.2",
         "@typescript-eslint/parser": "^8.21.0",
         "@vscode/vsce": "^3.2.2",
-        "eslint": "^8.57.1",
+        "eslint": "^9.20.0",
         "file-loader": "^6.2.0",
         "glob": "^11.0.1",
         "gulp": "^5.0.0",
