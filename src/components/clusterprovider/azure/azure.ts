@@ -47,9 +47,14 @@ export interface WaitResult {
     readonly stillWaiting?: boolean;
 }
 
+export interface Subscription {
+    name: string;
+    id: string;
+}
+
 const MIN_AZ_CLI_VERSION = '2.0.23';
 
-export async function getSubscriptionList(context: Context): Promise<ActionResult<string[]>> {
+export async function getSubscriptionList(context: Context): Promise<ActionResult<Subscription[]>> {
     // check for prerequisites
     const prerequisiteErrors = await verifyPrerequisitesAsync(context);
     if (prerequisiteErrors.length > 0) {
@@ -93,10 +98,10 @@ async function azureCliVersion(context: Context): Promise<string | null> {
     }
 }
 
-async function listSubscriptionsAsync(context: Context): Promise<Errorable<string[]>> {
-    const sr = await context.shell.exec("az account list --all --query [*].name -ojson");
+async function listSubscriptionsAsync(context: Context): Promise<Errorable<Subscription[]>> {
+    const sr = await context.shell.exec("az account list --all --query '[].{name:name, id:id}' -o json");
 
-    return fromShellJson<string[]>(sr, "Unable to list Azure subscriptions");
+    return fromShellJson<Subscription[]>(sr, "Unable to list Azure subscriptions");
 }
 
 export async function setSubscriptionAsync(context: Context, subscription: string): Promise<Errorable<Diagnostic>> {
