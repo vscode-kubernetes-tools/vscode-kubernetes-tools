@@ -247,7 +247,7 @@ export async function invokeForResult(context: Context, command: string, stdin: 
         return { resultKind: 'exec-failed', execProgram: context.binary, command };
     }
 
-    if (sr.code === 0) {
+    if (sr.code === 0 && sr.stderr === '') {
         return { resultKind: 'exec-succeeded', execProgram: context.binary, command, stdout: sr.stdout };
     }
 
