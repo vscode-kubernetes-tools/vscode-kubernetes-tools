@@ -1,3 +1,4 @@
+import { VSCodeAzureSubscriptionProvider } from '@microsoft/vscode-azext-azureauth';
 import * as vscode from 'vscode';
 import { Failed, Succeeded } from '../../../errorable';
 import { reporter } from '../../../telemetry';
@@ -26,15 +27,15 @@ function next(context: azure.Context, wizard: Wizard, action: clusterproviderreg
     const nextStep: string | undefined = message.nextStep;
     const requestData = nextStep ? message : { clusterType: message["clusterType"] };
     if (action === 'create') {
-        wizard.showPage(getHandleCreateHtml(nextStep, context, requestData));
+        wizard.showPage(getHandleCreateHtml(nextStep, requestData));
     } else {
         wizard.showPage(getHandleConfigureHtml(nextStep, context, requestData));
     }
 }
 
-function getHandleCreateHtml(step: string | undefined, context: azure.Context, requestData: any): Sequence<string> {
+function getHandleCreateHtml(step: string | undefined, requestData: any): Sequence<string> {
     if (!step) {
-        return promptForSubscription(requestData, context, "create", "create");
+        return promptForSubscription(requestData, "create", "create");
     } else if (step === "create") {
         return createClusterViaAKSExtension(requestData);
     } else {
@@ -44,7 +45,7 @@ function getHandleCreateHtml(step: string | undefined, context: azure.Context, r
 
 function getHandleConfigureHtml(step: string | undefined, context: azure.Context, requestData: any): Sequence<string> {
     if (!step) {
-        return promptForSubscription(requestData, context, "configure", "cluster");
+        return promptForSubscription(requestData, "configure", "cluster");
     } else if (step === "cluster") {
         return promptForCluster(requestData, context);
     } else if (step === "configure") {
@@ -56,14 +57,19 @@ function getHandleConfigureHtml(step: string | undefined, context: azure.Context
 
 // Pages for the various wizard steps
 
-async function promptForSubscription(previousData: any, context: azure.Context, action: clusterproviderregistry.ClusterProviderAction, nextStep: string): Promise<string> {
-    const subscriptionList = await azure.getSubscriptionList(context);
-    if (!subscriptionList.result.succeeded) {
-        return renderCliError('PromptForSubscription', subscriptionList);
+async function promptForSubscription(previousData: any, action: clusterproviderregistry.ClusterProviderAction, nextStep: string): Promise<string> {
+    const provider = new VSCodeAzureSubscriptionProvider();
+
+    const alreadySignedIn = await provider.isSignedIn();
+    // check if already signed in
+    if (!alreadySignedIn) {
+        // Sign in to Azure
+        const isSignedIn = await provider.signIn();
+        if (!isSignedIn) {
+            return renderNoOptions('Azure sign-in failed', 'The Azure sign-in process failed.');
+        }
     }
-
-    const subscriptions: azure.Subscription[] = subscriptionList.result.result;
-
+    const subscriptions = await provider.getSubscriptions();
     if (!subscriptions || !subscriptions.length) {
         return renderNoOptions('No Azure subscriptions', 'You have no Azure subscriptions.');
     }
@@ -71,7 +77,7 @@ async function promptForSubscription(previousData: any, context: azure.Context, 
     // sort by name
     subscriptions.sort((a, b) => a.name.localeCompare(b.name));
 
-    const options = subscriptions.map((s) => `<option value="${s.id}">${s.name}</option>`).join('\n');
+    const options = subscriptions.map((s) => `<option value="${s.subscriptionId}">${s.name}</option>`).join('\n');
     return formPage({
         stepId: 'PromptForSubscription',
         title: 'Choose subscription',
@@ -134,14 +140,60 @@ async function configureKubernetes(previousData: any, context: azure.Context): P
 async function createClusterViaAKSExtension(previousData: any) {
     // invoke aks extension command
     // check if aks extension is installed
-    const aksExtension =  vscode.extensions.getExtension("ms-kubernetes-tools.vscode-aks-tools");
+    // if not installed, install aks extension
+    const aksExtensionId = "ms-kubernetes-tools.vscode-aks-tools";
+    const aksExtension = vscode.extensions.getExtension(aksExtensionId);
+
     if (!aksExtension) {
-        // install aks extension
-        await vscode.commands.executeCommand("extension.open", "ms-kubernetes-tools.vscode-aks-tools");
+        // Prompt the user to install the extension
+        const install = await vscode.window.showInformationMessage(
+            "The Azure Kubernetes Service extension is required to create a cluster. Do you want to install it?",
+            "Install",
+            "Cancel"
+        );
+
+        if (install === "Install") {
+            // Open the extension in the marketplace
+            await vscode.commands.executeCommand("workbench.extensions.installExtension", aksExtensionId);
+
+            // Wait for the user to install the extension
+            const extensionInstalled = await waitForExtension(aksExtensionId);
+            if (extensionInstalled) {
+                // Execute the command from the installed extension
+                await vscode.commands.executeCommand("aks.createCluster", previousData.subscription);
+                // Focus on the AKS create command page
+                await vscode.commands.executeCommand("workbench.action.focusActiveEditorGroup");
+                return "<h1>Creating cluster using Azure Kubernetes Service extension</h1>";
+            } else {
+                return "<h1>Azure Kubernetes Service extension installation was cancelled.</h1>";
+            }
+        } else {
+            return "<h1>Azure Kubernetes Service extension is required to create a cluster.</h1>";
+        }
+    } else {
+        // Execute the command from the installed extension
+        await vscode.commands.executeCommand("aks.createCluster", previousData.subscription);
+        // Focus on the AKS create command page
+        await vscode.commands.executeCommand("workbench.action.focusNextGroup");
+        return "<h1>Creating cluster using Azure Kubernetes Service extension</h1>";
     }
-    // invoke aks extension command
-    vscode.commands.executeCommand("aks.createCluster", previousData.subscription);
-    return "<h1>Creating cluster using Azure Kubernetes Service extension</h1>";
+}
+
+async function waitForExtension(extensionId: string): Promise<boolean> {
+    return new Promise((resolve) => {
+        const interval = setInterval(() => {
+            const extension = vscode.extensions.getExtension(extensionId);
+            if (extension) {
+                clearInterval(interval);
+                resolve(true);
+            }
+        }, 1000);
+
+        setTimeout(() => {
+            clearInterval(interval);
+            resolve(false);
+        }, 60000); // Wait for up to 60 seconds
+    });
 }
 
 function renderConfigurationResult(configureResult: ActionResult<azure.ConfigureResult>): string {
