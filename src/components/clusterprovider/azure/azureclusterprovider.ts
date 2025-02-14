@@ -1,14 +1,13 @@
-import { VSCodeAzureSubscriptionProvider } from '@microsoft/vscode-azext-azureauth';
-import * as vscode from 'vscode';
-import { Failed, Succeeded } from '../../../errorable';
-import { reporter } from '../../../telemetry';
-import { Sequence } from '../../../utils/observable';
-import { ActionResult, styles } from '../../../wizard';
-import { Wizard } from '../../wizard/wizard';
 import * as clusterproviderregistry from '../clusterproviderregistry';
-import { refreshExplorer } from '../common/explorer';
-import { formPage } from '../common/form';
 import * as azure from './azure';
+import { styles, formStyles, waitScript, ActionResult, Diagnostic } from '../../../wizard';
+import { Errorable, succeeded, failed, Failed, Succeeded } from '../../../errorable';
+import { formPage, propagationFields } from '../common/form';
+import { refreshExplorer } from '../common/explorer';
+import { Wizard, NEXT_FN } from '../../wizard/wizard';
+import { Sequence, Observable } from '../../../utils/observable';
+import { trackReadiness } from '../readinesstracker';
+import { reporter } from '../../../telemetry';
 
 // TODO: de-globalise
 let registered = false;
@@ -27,17 +26,23 @@ function next(context: azure.Context, wizard: Wizard, action: clusterproviderreg
     const nextStep: string | undefined = message.nextStep;
     const requestData = nextStep ? message : { clusterType: message["clusterType"] };
     if (action === 'create') {
-        wizard.showPage(getHandleCreateHtml(nextStep, requestData));
+        wizard.showPage(getHandleCreateHtml(nextStep, context, requestData));
     } else {
         wizard.showPage(getHandleConfigureHtml(nextStep, context, requestData));
     }
 }
 
-function getHandleCreateHtml(step: string | undefined, requestData: any): Sequence<string> {
+function getHandleCreateHtml(step: string | undefined, context: azure.Context, requestData: any): Sequence<string> {
     if (!step) {
-        return promptForSubscription(requestData, "create", "create");
+        return promptForSubscription(requestData, context, "create", "metadata");
+    } else if (step === "metadata") {
+        return promptForMetadata(requestData, context);
+    } else if (step === "agentSettings") {
+        return promptForAgentSettings(requestData, context);
     } else if (step === "create") {
-        return createClusterViaAKSExtension(requestData);
+        return createCluster(requestData, context);
+    } else if (step === "wait") {
+        return waitForClusterAndReportConfigResult(requestData, context);
     } else {
         return renderInternalError(`AzureStepError (${step})`);
     }
@@ -45,7 +50,7 @@ function getHandleCreateHtml(step: string | undefined, requestData: any): Sequen
 
 function getHandleConfigureHtml(step: string | undefined, context: azure.Context, requestData: any): Sequence<string> {
     if (!step) {
-        return promptForSubscription(requestData, "configure", "cluster");
+        return promptForSubscription(requestData, context, "configure", "cluster");
     } else if (step === "cluster") {
         return promptForCluster(requestData, context);
     } else if (step === "configure") {
@@ -57,27 +62,19 @@ function getHandleConfigureHtml(step: string | undefined, context: azure.Context
 
 // Pages for the various wizard steps
 
-async function promptForSubscription(previousData: any, action: clusterproviderregistry.ClusterProviderAction, nextStep: string): Promise<string> {
-    const provider = new VSCodeAzureSubscriptionProvider();
-
-    const alreadySignedIn = await provider.isSignedIn();
-    // check if already signed in
-    if (!alreadySignedIn) {
-        // Sign in to Azure
-        const isSignedIn = await provider.signIn();
-        if (!isSignedIn) {
-            return renderNoOptions('Azure sign-in failed', 'The Azure sign-in process failed.');
-        }
+async function promptForSubscription(previousData: any, context: azure.Context, action: clusterproviderregistry.ClusterProviderAction, nextStep: string): Promise<string> {
+    const subscriptionList = await azure.getSubscriptionList(context);
+    if (!subscriptionList.result.succeeded) {
+        return renderCliError('PromptForSubscription', subscriptionList);
     }
-    const subscriptions = await provider.getSubscriptions();
+
+    const subscriptions: string[] = subscriptionList.result.result;
+
     if (!subscriptions || !subscriptions.length) {
         return renderNoOptions('No Azure subscriptions', 'You have no Azure subscriptions.');
     }
 
-    // sort by name
-    subscriptions.sort((a, b) => a.name.localeCompare(b.name));
-
-    const options = subscriptions.map((s) => `<option value="${s.subscriptionId}">${s.name}</option>`).join('\n');
+    const options = subscriptions.map((s) => `<option value="${s}">${s}</option>`).join('\n');
     return formPage({
         stepId: 'PromptForSubscription',
         title: 'Choose subscription',
@@ -137,63 +134,147 @@ async function configureKubernetes(previousData: any, context: azure.Context): P
     return renderConfigurationResult(configureResult);
 }
 
-async function createClusterViaAKSExtension(previousData: any) {
-    // invoke aks extension command
-    // check if aks extension is installed
-    // if not installed, install aks extension
-    const aksExtensionId = "ms-kubernetes-tools.vscode-aks-tools";
-    const aksExtension = vscode.extensions.getExtension(aksExtensionId);
+async function promptForMetadata(previousData: any, context: azure.Context): Promise<string> {
+    const serviceLocations = await azure.listAksLocations(context);
 
-    if (!aksExtension) {
-        // Prompt the user to install the extension
-        const install = await vscode.window.showInformationMessage(
-            "The Azure Kubernetes Service extension is required to create a cluster. Do you want to install it?",
-            "Install",
-            "Cancel"
-        );
-
-        if (install === "Install") {
-            // Open the extension in the marketplace
-            await vscode.commands.executeCommand("workbench.extensions.installExtension", aksExtensionId);
-
-            // Wait for the user to install the extension
-            const extensionInstalled = await waitForExtension(aksExtensionId);
-            if (extensionInstalled) {
-                // Execute the command from the installed extension
-                await vscode.commands.executeCommand("aks.createCluster", previousData.subscription);
-                // Focus on the AKS create command page
-                await vscode.commands.executeCommand("workbench.action.focusActiveEditorGroup");
-                return "<h1>Creating cluster using Azure Kubernetes Service extension</h1>";
-            } else {
-                return "<h1>Azure Kubernetes Service extension installation was cancelled.</h1>";
-            }
-        } else {
-            return "<h1>Azure Kubernetes Service extension is required to create a cluster.</h1>";
-        }
-    } else {
-        // Execute the command from the installed extension
-        await vscode.commands.executeCommand("aks.createCluster", previousData.subscription);
-        // Focus on the AKS create command page
-        await vscode.commands.executeCommand("workbench.action.focusNextGroup");
-        return "<h1>Creating cluster using Azure Kubernetes Service extension</h1>";
+    if (!serviceLocations.succeeded) {
+        return renderCliError('PromptForMetadata', {
+            actionDescription: 'listing available regions',
+            result: serviceLocations
+        });
     }
+
+    const options = serviceLocations.result.map((s) => `<option value="${s.displayName}">${s.displayName + (s.isPreview ? " (preview)" : "")}</option>`).join('\n');
+
+    return formPage({
+        stepId: 'PromptForMetadata',
+        title: 'Azure cluster settings',
+        waitText: 'Contacting Microsoft Azure',
+        action: 'create',
+        nextStep: 'agentSettings',
+        submitText: 'Next',
+        previousData: previousData,
+        formContent: `
+            <p>Cluster name: <input name='clustername' type='text' value='k8scluster' />
+            <p>Resource group name: <input name='resourcegroupname' type='text' value='k8scluster' />
+            <p>
+            Location: <select name='location'>
+            ${options}
+            </select>
+            </p>
+        `
+    });
 }
 
-async function waitForExtension(extensionId: string): Promise<boolean> {
-    return new Promise((resolve) => {
-        const interval = setInterval(() => {
-            const extension = vscode.extensions.getExtension(extensionId);
-            if (extension) {
-                clearInterval(interval);
-                resolve(true);
-            }
-        }, 1000);
+async function promptForAgentSettings(previousData: any, context: azure.Context): Promise<string> {
+    const vmSizes = await azure.listVMSizes(context, previousData.location);
+    if (!vmSizes.succeeded) {
+        return renderCliError('PromptForAgentSettings', {
+            actionDescription: 'listing available node sizes',
+            result: vmSizes
+        });
+    }
 
-        setTimeout(() => {
-            clearInterval(interval);
-            resolve(false);
-        }, 60000); // Wait for up to 60 seconds
+    const defaultSize = "Standard_D2_v2";
+    const options = vmSizes.result.map((s) => `<option value="${s}" ${s === defaultSize ? "selected=true" : ""}>${s}</option>`).join('\n');
+
+    return formPage({
+        stepId: 'PromptForAgentSettings',
+        title: 'Azure agent settings',
+        waitText: 'Contacting Microsoft Azure',
+        action: 'create',
+        nextStep: 'create',
+        submitText: 'Create cluster',
+        previousData: previousData,
+        formContent: `
+            <p>Agent count: <input name='agentcount' type='text' value='3'/>
+            <p>
+            Agent VM size: <select name='agentvmsize'>
+            ${options}
+            </select>
+            </p>
+        `
     });
+}
+
+async function createCluster(previousData: any, context: azure.Context): Promise<string> {
+
+    const options = {
+        clusterType: previousData.clusterType,
+        subscription: previousData.subscription,
+        metadata: {
+            location: previousData.location,
+            resourceGroupName: previousData.resourcegroupname,
+            clusterName: previousData.clustername
+        },
+        agentSettings: {
+            count: previousData.agentcount,
+            vmSize: previousData.agentvmsize
+
+        }
+    };
+    const createResult = await azure.createCluster(context, options);
+
+    if (reporter) {
+        reporter.sendTelemetryEvent("clustercreation", { result: createResult.result.succeeded ? "success" : "failure", clusterType: previousData.clusterType });
+    }
+
+    const title = createResult.result.succeeded ? 'Cluster creation has started' : `Error ${createResult.actionDescription}`;
+    const additionalDiagnostic = diagnoseCreationError(createResult.result);
+    const successCliErrorInfo = diagnoseCreationSuccess(createResult.result);
+    const message = succeeded(createResult.result) ?
+        `<div id='content'>
+         ${formStyles()}
+         ${styles()}
+         <form id='form'>
+         <input type='hidden' name='nextStep' value='wait' />
+         ${propagationFields(previousData)}
+         <p class='success'>Azure is creating the cluster, but this may take some time. You can now close this window,
+         or wait for creation to complete so that we can add the new cluster to your Kubernetes configuration.</p>
+         <p><button onclick=${NEXT_FN} class='link-button'>Wait and add the new cluster &gt;</button></p>
+         </form>
+         ${successCliErrorInfo}
+         </div>` :
+        `<p class='error'>An error occurred while creating the cluster.</p>
+         ${additionalDiagnostic}
+         <p><b>Details</b></p>
+         <p>${createResult.result.error[0]}</p>`;
+    return `<!-- Complete -->
+            <h1 id='h'>${title}</h1>
+            ${styles()}
+            ${waitScript('Waiting for cluster - this will take several minutes')}
+            ${message}`;
+
+}
+
+function refreshCountIndicator(refreshCount: number): string {
+    return ".".repeat(refreshCount % 4);
+}
+
+function waitForClusterAndReportConfigResult(previousData: any, context: azure.Context): Observable<string> {
+
+    async function waitOnce(refreshCount: number): Promise<[string, boolean]> {
+        const waitResult = await azure.waitForCluster(context, previousData.clustername, previousData.resourcegroupname);
+        if (failed(waitResult)) {
+            return [`<h1>Error creating cluster</h1><p>Error details: ${waitResult.error[0]}</p>`, false];
+        }
+
+        if (waitResult.result.stillWaiting) {
+            return [`<h1>Waiting for cluster - this will take several minutes${refreshCountIndicator(refreshCount)}</h1>
+                <form id='form'>
+                <input type='hidden' name='nextStep' value='wait' />
+                ${propagationFields(previousData)}
+                </form>`, true];
+        }
+
+        const configureResult = await azure.configureCluster(context, previousData.clusterType, previousData.clustername, previousData.resourcegroupname);
+
+        await refreshExplorer();
+
+        return [renderConfigurationResult(configureResult), false];
+    }
+
+    return trackReadiness(100, waitOnce);
 }
 
 function renderConfigurationResult(configureResult: ActionResult<azure.ConfigureResult>): string {
@@ -224,6 +305,32 @@ function renderConfigurationResult(configureResult: ActionResult<azure.Configure
             ${styles()}
             ${getCliOutput}
             ${getCredsOutput}`;
+}
+
+// Error rendering helpers
+
+function diagnoseCreationError(e: Errorable<Diagnostic>): string {
+    if (succeeded(e)) {
+        return '';
+    }
+    if (e.error[0].indexOf('unrecognized arguments') >= 0) {
+        return '<p>You may be using an older version of the Azure CLI. Check Azure CLI version is 2.0.23 or above.<p>';
+    }
+    return '';
+}
+
+function diagnoseCreationSuccess(e: Errorable<Diagnostic>): string {
+    if (failed(e) || !e.result || !e.result.value) {
+        return '';
+    }
+    const error = e.result.value;
+    // Discard things printed to stderr that are known spew
+    if (/Finished service principal(.+)100[.0-9%]*/.test(error)) {
+        return '';
+    }
+    // CLI claimed it succeeded but left something on stderr, so warn the user
+    return `<p><b>Note:<b> although Azure accepted the creation request, the Azure CLI reported the following message. This may indicate a problem, or may be ignorable progress messages:<p>
+        <p>${error}</p>`;
 }
 
 function renderCliError<T>(stageId: string, last: ActionResult<T>): string {
