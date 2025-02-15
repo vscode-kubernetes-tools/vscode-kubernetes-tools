@@ -1,5 +1,6 @@
 import { VSCodeAzureSubscriptionProvider } from "@microsoft/vscode-azext-azureauth";
 import * as vscode from "vscode";
+import { longRunning } from "../../utils/notification";
 
 export class AKSProvider implements CloudProvider {
     private provider = new VSCodeAzureSubscriptionProvider();
@@ -16,7 +17,10 @@ export class AKSProvider implements CloudProvider {
     }
 
     async prerequisites(): Promise<string | undefined> {
-        const subscriptions = await this.provider.getSubscriptions();
+        const subscriptions = await longRunning("Getting Azure subscriptions", async () => {
+            return await this.provider.getSubscriptions();
+        });
+        
         if (!subscriptions || subscriptions.length === 0) {
             vscode.window.showErrorMessage(`Failed to get subscriptions for ${this.getName()}`);
             return;
