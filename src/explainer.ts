@@ -24,7 +24,7 @@ function readSwaggerCore(kc: kubernetes.KubeConfig): Promise<SwaggerModel | unde
     const opts: request.Options = {
         url: uri,
     };
-    kc.applyToRequest(opts);
+    kc.applyToHTTPSOptions(opts);
 
     return new Promise((resolve, reject) => {
         request(uri, opts, (error, response, body) => {
