@@ -1329,6 +1329,7 @@
     ],
     "dependencies": {
         "@kubernetes/client-node": "^0.22.3",
+        "@microsoft/vscode-azext-azureauth": "^4.1.1",
         "@vscode/test-electron": "^2.4.1",
         "ansi-to-html": "^0.7.2",
         "compare-versions": "^6.1.1",

@@ -89,6 +89,7 @@ import { LocalTunnelDebugger } from './components/localtunneldebugger/localtunne
 import { setAssetContext } from './assets';
 import { fixOldInstalledBinaryPermissions } from './components/installer/fixwriteablebinaries';
 import { interpolateVariables } from './utils/interpolation';
+import { AKSProvider } from './components/cloudprovider/aksprovider';
 
 let explainActive = false;
 let swaggerSpecPromise: Promise<explainer.SwaggerModel | undefined> | null = null;
@@ -2000,7 +2001,43 @@ async function configureFromClusterKubernetes() {
 
 async function createClusterKubernetes() {
     await debounceActivation();
-    runClusterWizard('Create Kubernetes Cluster', 'create');
+    // register the providers, for now only AKS
+    const providers: CloudProvider[] = [
+        new AKSProvider(),
+
+    ];
+
+    const providerNames = providers.map((provider) => provider.getName());
+    const clusterType = await vscode.window.showQuickPick(providerNames, { placeHolder: "Select the cluster type" });
+
+    if (!clusterType) {
+        vscode.window.showErrorMessage("Failed to get cluster type");
+        return;
+    }
+    // get the provider
+    const selectedProvider = providers.find((p) => p.getName() === clusterType);
+    if (!selectedProvider) {
+        vscode.window.showErrorMessage("Failed to get provider");
+        return;
+    }
+
+    // sign in check
+    const alreadySignedIn = await selectedProvider.isSignedIn();
+    if (!alreadySignedIn) {
+        const isSignedIn = await selectedProvider.signIn();
+        if (!isSignedIn) {
+            vscode.window.showErrorMessage(`Failed to sign in to ${selectedProvider.getName()}`);
+            return;
+        }
+    }
+
+    // prequisites data
+    const data = await selectedProvider.prerequisites();
+
+    if (data) {
+       await selectedProvider.createCluster(data);
+    }
+
 }
 
 const ADD_NEW_KUBECONFIG_PICK = "+ Add new kubeconfig";
