@@ -62,10 +62,6 @@ export class ResourceLimitsLinter implements LinterImpl {
                     warnOn(resourcesSymbol, 'No resource limits specified for this container - this could starve other processes');
                 }
                 for (const limitsSymbol of limitsSymbols) {
-                    const cpuSymbols = childSymbols(symbols, limitsSymbol, 'cpu');
-                    if (cpuSymbols.length === 0) {
-                        warnOn(limitsSymbol, 'No CPU limit specified for this container - this could starve other processes');
-                    }
                     const memorySymbols = childSymbols(symbols, limitsSymbol, 'memory');
                     if (memorySymbols.length === 0) {
                         warnOn(limitsSymbol, 'No memory limit specified for this container - this could starve other processes');
