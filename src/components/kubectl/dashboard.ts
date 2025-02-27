@@ -136,7 +136,7 @@ export async function dashboardKubernetes (kubectl: Kubectl): Promise<void> {
     createReadStream(
         PROXY_OUTPUT_FILE,
         {encoding: 'utf8'}
-    ).on('data', onStreamData);
+    ).on('data', (data: string | Buffer) => onStreamData(data));
 
     // stdout is also written to a file via `tee`. We read this file as a stream
     // to listen for when the server is ready.
@@ -168,9 +168,10 @@ const onClosedTerminal = async (proxyTerminal: vscode.Terminal) => {
  * Callback to read data written to the Kubernetes API Proxy output stream.
  * @param data
  */
-const onStreamData = (data: string) => {
+const onStreamData = (data: string | Buffer) => {
     // Everything's alright…
-    if (data.startsWith("Starting to serve")) {
+    const dataStr = data.toString();
+    if (dataStr.startsWith("Starting to serve")) {
         // Let the proxy warm up a bit… otherwise we might hit a browser's error page.
         setTimeout(() => {
             browser.open(KUBE_DASHBOARD_URL);
