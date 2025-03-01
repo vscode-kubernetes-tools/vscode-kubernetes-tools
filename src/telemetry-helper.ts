@@ -146,8 +146,12 @@ async function inferCurrentClusterType(kubectl: Kubectl): Promise<[ClusterType, 
     if (cier.resultKind !== 'exec-succeeded') {
         return [inferClusterTypeFromError(cier), diagnoseKubectlClusterInfoError(cier)];
     }
-    const masterInfos = cier.stdout.split('\n')
-                                   .filter((s) => s.indexOf('master is running at') >= 0);
+
+    // Cleaner way to remove the ANSI code and avoid dependency on a library
+    const removeANSI = (str: string): string => str.replace(/\x1B\[[0-9;]*[mK]/g, '');
+
+    const masterInfos = removeANSI(cier.stdout).split('\n')
+                                   .filter((s) => s.indexOf('control plane is running at') >= 0);
 
     if (masterInfos.length === 0) {
         return [ClusterType.Other, NonDeterminationReason.NoMasterInClusterInfo];  // something is terribly wrong; we don't want to retry
