@@ -154,7 +154,10 @@ async function inferCurrentClusterType(kubectl: Kubectl): Promise<[ClusterType, 
     }
 
     const masterInfo = masterInfos[0];
-    if (masterInfo.indexOf('azmk8s.io') >= 0 || masterInfo.indexOf('azure.com') >= 0) {
+    const azurePattern = /(^|\.)azmk8s\.io(?=$|\/|\?)/i;
+    const azureComPattern = /(^|\.)azure\.com(?=$|\/|\?)/i;
+
+    if (azurePattern.test(masterInfo) || azureComPattern.test(masterInfo)) {
         return [ClusterType.Azure, NonDeterminationReason.None];
     }
 
