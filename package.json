@@ -1356,7 +1356,8 @@
         "vscode-extension-telemetry": "^0.4.5",
         "vscode-uri": "^3.1.0",
         "yaml-ast-parser": "^0.0.43",
-        "yamljs": "^0.3.0"
+        "yamljs": "^0.3.0",
+        "dompurify": "^3.2.4"
     },
     "devDependencies": {
         "@bendera/vscode-webview-elements": "^0.17.2",
