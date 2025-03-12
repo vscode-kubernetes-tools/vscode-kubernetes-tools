@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import opn = require('opn');
+import opn from 'opn';
 
 export function open(url: string) {
     // This check may be redundant now?

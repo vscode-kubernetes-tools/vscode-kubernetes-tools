@@ -1,6 +1,6 @@
 {
     "compilerOptions": {
-        "module": "commonjs",
+        "module": "ESNext",
         "target": "es6",
         "outDir": "out",
         "moduleResolution": "node",
@@ -19,7 +19,9 @@
         "strictNullChecks": true,
         "noImplicitThis": true,
         "esModuleInterop": true,
-        "skipLibCheck": true
+        "skipLibCheck": true,
+        // other options
+        "allowSyntheticDefaultImports": true
     },
     "exclude": [
         "node_modules",

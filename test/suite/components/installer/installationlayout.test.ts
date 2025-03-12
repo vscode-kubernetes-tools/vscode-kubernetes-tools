@@ -1,4 +1,4 @@
-import assert = require("assert");
+import * as assert from 'assert';
 import * as sinon from 'sinon';
 import { platformArch } from "../../../../src/components/installer/installationlayout";
 

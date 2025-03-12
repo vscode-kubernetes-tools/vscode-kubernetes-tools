@@ -2,15 +2,22 @@
 
 'use strict';
 
-const path = require('path');
-const webpack = require('webpack');
+import { resolve as _resolve } from 'path';
+import webpack from 'webpack';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+console.log(" =========>>>> " + __filename);
+
+const __dirname = path.dirname(__filename);
 
 /**@type {import('webpack').Configuration}*/
 const config = {
   target: 'node',
   entry: './src/extension.ts',
   output: {
-    path: path.resolve(__dirname, 'dist'),
+    path: _resolve(__dirname, 'dist'),
     filename: 'extension.js',
     libraryTarget: 'commonjs2',
     devtoolModuleFilenameTemplate: '../[resource-path]'
@@ -25,12 +32,14 @@ const config = {
     'utf-8-validate': 'commonjs utf-8-validate'
   },
   plugins: [
+      new webpack.IgnorePlugin({ resourceRegExp: /^\.\/locale$/, contextRegExp: /moment$/ }),,
       new webpack.IgnorePlugin({ resourceRegExp: /^electron$/ }),
       // https://webpack.js.org/plugins/ignore-plugin/#example-of-ignoring-moment-locales
       new webpack.IgnorePlugin({
         resourceRegExp: /^\.\/locale$/,
         contextRegExp: /moment$/,
-      })
+      }),
+
   ],
   resolve: {
     extensions: ['.ts', '.js', '.json']
@@ -56,4 +65,4 @@ const config = {
     __dirname: false
   }
 };
-module.exports = config;
+export default config;

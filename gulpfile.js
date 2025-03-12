@@ -1,8 +1,8 @@
-const gulp = require("gulp");
-const tslint = require("gulp-tslint");
+import { task, src } from "gulp";
+import tslint from "gulp-tslint";
 
-gulp.task("tslint", () => {
-	return gulp.src(["**/*.ts", "!**/*.d.ts", "!node_modules/**"])
+task("tslint", () => {
+	return src(["**/*.ts", "!**/*.d.ts", "!node_modules/**"])
 		.pipe(tslint())
 		.pipe(tslint.report());
 });

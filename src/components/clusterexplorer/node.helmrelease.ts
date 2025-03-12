@@ -1,6 +1,6 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
-import moment = require('moment');
+import moment from 'moment';
 
 import { failed } from '../../errorable';
 import * as helmexec from '../../helm.exec';

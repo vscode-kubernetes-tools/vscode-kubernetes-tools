@@ -24,6 +24,7 @@
     ],
     "aiKey": "AIF-d9b70cd4-b9f9-4d70-929b-a071c400b217",
     "icon": "images/k8s-logo.png",
+    "type": "module",
     "activationEvents": [
         "onCommand:extension.vsKubernetesCreate",
         "onCommand:extension.vsKubernetesCreateFile",
@@ -1328,7 +1329,7 @@
         "redhat.vscode-yaml"
     ],
     "dependencies": {
-        "@kubernetes/client-node": "^0.22.3",
+        "@kubernetes/client-node": "^1.0.0",
         "@microsoft/vscode-azext-azureauth": "^4.1.1",
         "@vscode/test-electron": "^2.4.1",
         "ansi-to-html": "^0.7.2",

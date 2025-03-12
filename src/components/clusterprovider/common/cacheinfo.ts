@@ -1,4 +1,4 @@
-import moment = require('moment');
+import moment from 'moment';
 import * as vscode from 'vscode';
 import { getMinikubeShowInfoState } from "../../config/config";
 

@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 
 import { parse, findNodeAtPosition } from 'node-yaml-parser';
-import YAML = require('yamljs');
+import * as YAML from 'yamljs';
 
 export function isMapping(node: YamlNode): node is YamlMap {
     return node.kind === 'MAPPING';

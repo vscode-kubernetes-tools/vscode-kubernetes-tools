@@ -3,7 +3,7 @@
 import * as https from 'https';
 import * as download from '../download/download';
 import * as fs from 'fs';
-import mkdirp = require('mkdirp');
+import { mkdirp } from 'mkdirp';
 import * as path from 'path';
 import * as unzipper from 'unzipper';
 import * as tar from 'tar';

@@ -1,13 +1,11 @@
 {
     "compilerOptions": {
-        "module": "commonjs",
+        "module": "ESNext",
         "moduleResolution": "node",
         "target": "es6",
         "outDir": "logView",
         "lib": [
-            "es5",
-            "es6",
-            "dom"
+            "es6"
         ],
         "sourceMap": true,
         "noUnusedLocals": true,

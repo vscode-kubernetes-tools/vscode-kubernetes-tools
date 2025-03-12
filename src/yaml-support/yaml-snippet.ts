@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as yaml from 'js-yaml';
-import fuzzysearch = require('fuzzysearch');
+import fuzzysearch from 'fuzzysearch';
 
 // internal representation of a yaml code snippet corresponding to vscode.CompletionItemProvider
 export interface CodeSnippet {

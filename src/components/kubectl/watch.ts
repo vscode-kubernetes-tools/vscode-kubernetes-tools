@@ -1,5 +1,4 @@
 import * as kubernetes from '@kubernetes/client-node';
-import { Request } from 'request';
 import { loadKubeconfig } from './kubeconfig';
 
 interface InactiveWatch {
@@ -7,7 +6,7 @@ interface InactiveWatch {
 }
 interface ActiveWatch {
     readonly active: true;
-    readonly request: Request;
+    readonly request: AbortController;
 }
 type Watch = InactiveWatch | ActiveWatch;
 
@@ -45,7 +44,7 @@ export class WatchManager {
         if (!params) {
             params = {};
         }
-        const req: Request = await kcWatch.watch(apiUri, params, callback, restartWatchOnConnectionError);
+        const req: AbortController = await kcWatch.watch(apiUri, params, callback, restartWatchOnConnectionError);
         this.watchers.set(id, { active: true, request: req } );
     }
 
