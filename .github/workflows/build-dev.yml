@@ -17,7 +17,7 @@ jobs:
         deployments: read
         packages: none
     env:
-      NODE_OPTIONS: --max_old_space_size=4096 --openssl-legacy-provider
+      NODE_OPTIONS: --max_old_space_size=4096
     strategy:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]

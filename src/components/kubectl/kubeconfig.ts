@@ -5,7 +5,6 @@ import * as yaml from 'js-yaml';
 import * as shelljs from 'shelljs';
 import { refreshExplorer } from '../clusterprovider/common/explorer';
 import { getActiveKubeconfig, getUseWsl } from '../config/config';
-import * as kubernetes from '@kubernetes/client-node';
 import { mkdirp } from 'mkdirp';
 
 interface Named {
@@ -31,7 +30,8 @@ export interface WSLKubeconfigPath {
 
 export type KubeconfigPath = HostKubeconfigPath | WSLKubeconfigPath;
 
-export async function loadKubeconfig(): Promise<kubernetes.KubeConfig> {
+export async function loadKubeconfig(): Promise<any> {
+    const kubernetes = await import('@kubernetes/client-node');
     const kubeconfig = new kubernetes.KubeConfig();
     const kubeconfigPath = getKubeconfigPath();
 
