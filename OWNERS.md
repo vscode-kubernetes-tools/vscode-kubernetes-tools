@@ -15,6 +15,8 @@ The following people are current maintainers of the Kubernetes extension project
 * [Tatsat Mishra (Tats)](https://github.com/Tatsinnit)
 * [Reinier Cruz](https://github.com/ReinierCC)
 * [Tejhan Diallo](https://github.com/tejhan)
-* [Hariharan Subramanian](https://github.com/hsubramanianaks)
+* ~~[Hariharan Subramanian](https://github.com/hsubramanianaks)~~
+* [Suneha Bose](https://github.com/bosesuneha)
+* [David Gamero](https://github.com/davidgamero)
 * [Quentin Petraroia](https://github.com/qpetraroia)
 * [Ralph Squillace](https://github.com/squillace) - For guidance, discussions and directions.
