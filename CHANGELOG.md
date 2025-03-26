@@ -1,5 +1,18 @@
 # Change Log
 
+## [1.3.21]
+
+* Dependabot PRs
+* Create aks cluster (#1455)
+* GH Workflow: Add code ql for the repo. (#1468)
+* Fix the type/nodes update. (#1463)
+* Remove acs and it's options (#1448)
+* Build fix dynamic import
+* Fix eslint upgrade. (#1484)
+* Owner Update.
+
+Contributors: Reviews et al. tejhan, ReinierCC, hsubramanianaks, qpetraroia Thank you all!!
+
 ## [1.3.20]
 
 * Dependabot PRs
