@@ -6,7 +6,7 @@
 * Create aks cluster (#1455)
 * GH Workflow: Add code ql for the repo. (#1468)
 * Fix the type/nodes update. (#1463)
-* Remove acs and it's options (#1448)
+* Remove acs and its options (#1448)
 * Build fix dynamic import
 * Fix eslint upgrade. (#1484)
 * Owner Update.
