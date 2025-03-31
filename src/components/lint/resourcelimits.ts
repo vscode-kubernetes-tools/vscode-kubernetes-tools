@@ -54,8 +54,9 @@ export class ResourceLimitsLinter implements LinterImpl {
             const imagesSymbols = childSymbols(symbols, containersSymbol, 'image');
             const resourcesSymbols = childSymbols(symbols, containersSymbol, 'resources');
             if (resourcesSymbols.length < imagesSymbols.length) {
-                warnOn(containersSymbol, 'One or more containers do not have resource limits - this could starve other processes');
+                warnOn(containersSymbol, 'One or more containers do not have resources - this can cause noisy neighbor issues');
             }
+
             for (const resourcesSymbol of resourcesSymbols) {
                 const limitsSymbols = childSymbols(symbols, resourcesSymbol, 'limits');
                 if (limitsSymbols.length === 0) {
@@ -69,6 +70,21 @@ export class ResourceLimitsLinter implements LinterImpl {
                     const memorySymbols = childSymbols(symbols, limitsSymbol, 'memory');
                     if (memorySymbols.length === 0) {
                         warnOn(limitsSymbol, 'No memory limit specified for this container - this could starve other processes');
+                    }
+                }
+
+                const requestsSymbols = childSymbols(symbols, resourcesSymbol, 'requests');
+                if (requestsSymbols.length === 0) {
+                    warnOn(resourcesSymbol, 'No resource requests specified for this container - they could be starved');
+                }
+                for (const requestsSymbol of requestsSymbols) {
+                    const cpuSymbols = childSymbols(symbols, requestsSymbol, 'cpu');
+                    if (cpuSymbols.length === 0) {
+                        warnOn(requestsSymbol, 'No CPU request specified for this container - they could be starved of CPU');
+                    }
+                    const memorySymbols = childSymbols(symbols, requestsSymbol, 'memory');
+                    if (memorySymbols.length === 0) {
+                        warnOn(requestsSymbol, 'No memory request specified for this container - they could be starved of memory');
                     }
                 }
             }
