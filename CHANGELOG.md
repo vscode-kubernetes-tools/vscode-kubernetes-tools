@@ -1,5 +1,13 @@
 # Change Log
 
+## [1.3.22]
+
+* Dependabot PRs
+* feat: warn about lack of CPU and memory requests (#1493)
+* Fix: broken telemetry due to old logic in place. #1500
+
+Contributors: Contributions and Reviews to davidxia, tejhan, bosesuneha, davidgamero, ReinierCC, qpetraroia Thank you all!!
+
 ## [1.3.21]
 
 * Dependabot PRs
