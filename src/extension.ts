@@ -68,7 +68,7 @@ import { setActiveKubeconfig, getKnownKubeconfigs, addKnownKubeconfig } from './
 import { HelmDocumentSymbolProvider } from './helm.symbolProvider';
 import { findParentYaml } from './yaml-support/yaml-navigation';
 import { linters } from './components/lint/linters';
-import { runClusterWizard } from './components/clusterprovider/clusterproviderserver';
+// import { runClusterWizard } from './components/clusterprovider/clusterproviderserver';
 import { timestampText } from './utils/naming';
 import { ContainerContainer } from './utils/containercontainer';
 import { APIBroker } from './api/contract/api';
@@ -1994,12 +1994,8 @@ async function debounceActivation(): Promise<void> {
     }
 }
 
-async function configureFromClusterKubernetes() {
-    await debounceActivation();
-    runClusterWizard('Add Existing Cluster', 'configure');
-}
-
-async function createClusterKubernetes() {
+// helper function for selecting cloud provider
+async function selectProvider(): Promise<Errorable<CloudProvider>> {
     await debounceActivation();
     // register the providers, for now only AKS
     const providers: CloudProvider[] = [
@@ -2011,14 +2007,12 @@ async function createClusterKubernetes() {
     const clusterType = await vscode.window.showQuickPick(providerNames, { placeHolder: "Select the cluster type" });
 
     if (!clusterType) {
-        vscode.window.showErrorMessage("Failed to get cluster type");
-        return;
+        return { succeeded: false, error: ['Failed to get cluster type']};
     }
     // get the provider
     const selectedProvider = providers.find((p) => p.getName() === clusterType);
     if (!selectedProvider) {
-        vscode.window.showErrorMessage("Failed to get provider");
-        return;
+        return { succeeded: false, error: ['Failed to get provider']};
     }
 
     // sign in check
@@ -2027,17 +2021,75 @@ async function createClusterKubernetes() {
         const isSignedIn = await selectedProvider.signIn();
         if (!isSignedIn) {
             vscode.window.showErrorMessage(`Failed to sign in to ${selectedProvider.getName()}`);
-            return;
+            return { succeeded: false, error: ['Failed to sign in to provider']};
         }
     }
 
-    // prequisites data
-    const data = await selectedProvider.prerequisites();
+    return { succeeded: true, result: selectedProvider };
+}
 
-    if (data) {
-       await selectedProvider.createCluster(data);
+// adds cluster to local kubeconfig
+async function configureFromClusterKubernetes() {
+    await debounceActivation();
+
+    // user prompt for the provider
+    const provider = await selectProvider();
+    if (failed(provider)){
+        vscode.window.showErrorMessage(provider.error[0]);
+        return;
     }
 
+    // user prompt for the subscription
+    const subscriptionId = await provider.result.prerequisites();
+    if (!subscriptionId) return;
+
+    // checking for specific functions as provider list may expand in the future
+    if ("listClusters" in provider.result) {
+        const clusters = await (provider.result as AKSProvider).listClusters(subscriptionId);
+        if (clusters && clusters.length > 0) {
+            // prompt for selecting cluster
+            const selectedCluster = await vscode.window.showQuickPick(
+                        clusters.map((cluster:any) => cluster.name),
+                        { placeHolder: "Select the cluster" }
+            );
+            if (!selectedCluster) {
+                vscode.window.showErrorMessage(`Failed to get cluster`);
+                return;
+            } else {
+                let cluster = clusters.find((cluster:any) => cluster.name === selectedCluster);
+                if (!cluster) {
+                    vscode.window.showErrorMessage(`Failed to get cluster`);
+                    return;
+                }
+                // retrieving kubeconfig
+                const kubeconfigYaml = await (provider.result as AKSProvider).getKubeconfigYaml(subscriptionId, cluster.resourceGroup, cluster.name);
+                if (!kubeconfigYaml) {
+                    vscode.window.showErrorMessage(`Failed to get kubeconfig`);
+                    return;
+                }
+                // merging kubeconfig to local kubeconfig
+                await mergeToKubeconfig(kubeconfigYaml);
+            }
+
+        } else {
+            vscode.window.showErrorMessage("No clusters found.");
+        }
+    } else {
+        vscode.window.showErrorMessage("Selected provider does not support listing clusters.");
+    }
+}
+
+// creates a new cluster using aks extension
+async function createClusterKubernetes() {
+    const selectedProvider = await selectProvider();
+    if (failed(selectedProvider)) {
+        vscode.window.showErrorMessage("Failed to get provider");
+        return;
+    }
+    const subscriptionId = await selectedProvider.result.prerequisites();
+    if (subscriptionId) {
+       await selectedProvider.result.createCluster(subscriptionId);
+    }
 }
 
 const ADD_NEW_KUBECONFIG_PICK = "+ Add new kubeconfig";
