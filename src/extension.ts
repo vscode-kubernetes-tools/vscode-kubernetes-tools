@@ -68,7 +68,6 @@ import { setActiveKubeconfig, getKnownKubeconfigs, addKnownKubeconfig } from './
 import { HelmDocumentSymbolProvider } from './helm.symbolProvider';
 import { findParentYaml } from './yaml-support/yaml-navigation';
 import { linters } from './components/lint/linters';
-// import { runClusterWizard } from './components/clusterprovider/clusterproviderserver';
 import { timestampText } from './utils/naming';
 import { ContainerContainer } from './utils/containercontainer';
 import { APIBroker } from './api/contract/api';
@@ -2000,7 +1999,6 @@ async function selectProvider(): Promise<Errorable<CloudProvider>> {
     // register the providers, for now only AKS
     const providers: CloudProvider[] = [
         new AKSProvider(),
-
     ];
 
     const providerNames = providers.map((provider) => provider.getName());
@@ -2031,52 +2029,27 @@ async function selectProvider(): Promise<Errorable<CloudProvider>> {
 // adds cluster to local kubeconfig
 async function configureFromClusterKubernetes() {
     await debounceActivation();
-
-    // user prompt for the provider
     const provider = await selectProvider();
     if (failed(provider)){
         vscode.window.showErrorMessage(provider.error[0]);
         return;
     }
 
-    // user prompt for the subscription
     const subscriptionId = await provider.result.prerequisites();
     if (!subscriptionId) return;
 
-    // checking for specific functions as provider list may expand in the future
-    if ("listClusters" in provider.result) {
-        const clusters = await (provider.result as AKSProvider).listClusters(subscriptionId);
-        if (clusters && clusters.length > 0) {
-            // prompt for selecting cluster
-            const selectedCluster = await vscode.window.showQuickPick(
-                        clusters.map((cluster:any) => cluster.name),
-                        { placeHolder: "Select the cluster" }
-            );
-            if (!selectedCluster) {
-                vscode.window.showErrorMessage(`Failed to get cluster`);
-                return;
+    // currently AKS is our only provider
+    if (provider.result instanceof AKSProvider) {
+        let cluster = await provider.result.selectCluster(subscriptionId);
+        if (cluster){
+            let kconfig = await provider.result.getKubeconfigYaml(subscriptionId, cluster.resourceGroup, cluster.name);
+            if (kconfig) { 
+                mergeToKubeconfig(kconfig);
             } else {
-                let cluster = clusters.find((cluster:any) => cluster.name === selectedCluster);
-                if (!cluster) {
-                    vscode.window.showErrorMessage(`Failed to get cluster`);
-                    return;
-                }
-                // retrieving kubeconfig
-                const kubeconfigYaml = await (provider.result as AKSProvider).getKubeconfigYaml(subscriptionId, cluster.resourceGroup, cluster.name);
-                if (!kubeconfigYaml) {
-                    vscode.window.showErrorMessage(`Failed to get kubeconfig`);
-                    return;
-                }
-                // merging kubeconfig to local kubeconfig
-                await mergeToKubeconfig(kubeconfigYaml);
+                vscode.window.showErrorMessage("Failed to get kubeconfig");
             }
-
-        } else {
-            vscode.window.showErrorMessage("No clusters found.");
-        }
-    } else {
-        vscode.window.showErrorMessage("Selected provider does not support listing clusters.");
-    }
+        } 
+    } 
 }
 
 // creates a new cluster using aks extension

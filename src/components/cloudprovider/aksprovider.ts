@@ -34,7 +34,7 @@ export class AKSProvider implements CloudProvider {
         );
 
         if (!selectedSubscription) {
-            vscode.window.showErrorMessage(`Failed to get subscriptions for ${this.getName()}`);
+            vscode.window.showErrorMessage(`Failed to get subscription for ${this.getName()}`);
             return;
         }
         return subscriptions.find((sub) => sub.name === selectedSubscription)?.subscriptionId;
@@ -128,6 +128,32 @@ export class AKSProvider implements CloudProvider {
         }));
     }
 
+    // prompts the user to select a cluster & returns the selected cluster
+    async selectCluster(subscriptionId: string){
+        const clusters = await this.listClusters(subscriptionId);
+        if (clusters && clusters.length > 0) {
+            // prompt for selecting cluster
+            const selectedCluster = await vscode.window.showQuickPick(
+                        clusters.map((cluster:any) => cluster.name),
+                        { placeHolder: "Select the cluster" }
+            );
+            if (!selectedCluster) {
+                vscode.window.showErrorMessage(`Failed to get cluster`);
+                return undefined;
+            } else {
+                let cluster = clusters.find((cluster:any) => cluster.name === selectedCluster);
+                if (!cluster) {
+                    vscode.window.showErrorMessage(`Failed to get cluster`);
+                    return undefined;
+                } else {
+                    return cluster;
+                }
+            }
+        } else {
+            vscode.window.showErrorMessage("No clusters found.");
+            return undefined;
+        }
+    }
     // retrieves the credentials for the given cluster
     async getCredentials(){
         const session = await vscode.authentication.getSession(
