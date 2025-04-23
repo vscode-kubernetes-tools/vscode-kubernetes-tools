@@ -2042,19 +2042,16 @@ async function createClusterKubernetes() {
 
 const ADD_NEW_KUBECONFIG_PICK = "+ Add new kubeconfig";
 
-async function useKubeconfigKubernetes(kubeconfig?: string | { isTrusted: boolean } /* TODO: remove when VS Code fixed */): Promise<void> {
-    // TODO: remove when VS Code fixed - workaround for https://github.com/microsoft/vscode/issues/94872
-    function fix94872(kubeconfig?: string | { isTrusted: boolean }): string | undefined {
-        function isBuggyThing(o: string | undefined | { isTrusted: boolean }): o is { isTrusted: boolean } {
-            return !!o && ((o as any).isTrusted !== undefined);
-        }
-        if (isBuggyThing(kubeconfig)) {
-            return undefined;
-        }
-        return kubeconfig;
+async function useKubeconfigKubernetes(kubeconfig?: string): Promise<void> {
+    // prevents miscelanneous context arguments from being processed
+    let kubeconfigPath: string | undefined;
+    if (typeof kubeconfig !== 'string') {
+        kubeconfigPath = undefined;
+    } else {
+        kubeconfigPath = kubeconfig;
     }
 
-    const kc = await getKubeconfigSelection(fix94872(kubeconfig));
+    const kc = await getKubeconfigSelection(kubeconfigPath);
     if (!kc) {
         return;
     }
