@@ -116,7 +116,7 @@ export async function getContexts(kubectl: Kubectl, options: ConfigReadOptions):
     const cluster = clusters.find((cl) => cl.name === c.context.cluster);
 
     // Extract provider type from the cluster's server property if it includes "azk8ms"
-    const azurePattern = /(^|\.)azmk8s\.io(?=$|\/|\?)/i;
+    const azurePattern = /(^|\.)azmk8s\.io(?=[:\/?]|$)/i;
     const provider = azurePattern.test(cluster?.cluster?.server || '') ? 'AKS' : '';
 
     return {
