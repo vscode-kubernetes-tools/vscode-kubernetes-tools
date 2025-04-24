@@ -1,6 +1,8 @@
 import { VSCodeAzureSubscriptionProvider } from "@microsoft/vscode-azext-azureauth";
 import * as vscode from "vscode";
 import { longRunning } from "../../utils/notification";
+import { TokenCredential } from "@azure/core-auth";
+import { ContainerServiceClient } from "@azure/arm-containerservice";
 
 export class AKSProvider implements CloudProvider {
     private provider = new VSCodeAzureSubscriptionProvider();
@@ -32,7 +34,7 @@ export class AKSProvider implements CloudProvider {
         );
 
         if (!selectedSubscription) {
-            vscode.window.showErrorMessage(`Failed to get subscriptions for ${this.getName()}`);
+            vscode.window.showErrorMessage(`Failed to get subscription for ${this.getName()}`);
             return;
         }
         return subscriptions.find((sub) => sub.name === selectedSubscription)?.subscriptionId;
@@ -63,6 +65,142 @@ export class AKSProvider implements CloudProvider {
             await vscode.commands.executeCommand("aks.createCluster", inputs);
         }
     }
+
+    // retrieves the list of AKS clusters in the given subscription
+    async listClusters(subscriptionId: string): Promise<{ name: string; resourceGroup: string; }[] | undefined> {
+        // getting active session
+        const session = await vscode.authentication.getSession(
+            "microsoft",
+            ["https://management.azure.com/.default"],
+            { createIfNone: true }
+        );
+        if (!session) {
+            vscode.window.showErrorMessage("You must be signed into Azure to list clusters.");
+            return;
+        }
+
+        const token = session.accessToken;
+
+        // The logic below does the same thing as the ResourceGraphClient, but we are using 
+        // the REST API directly to avoid bundling issues we currently have.
+        // After we undergo major updates 
+        // to address our outdated/broken dependencies, we can revisit this.
+
+        const url = "https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2021-03-01";
+        const body = {
+            subscriptions: [subscriptionId],
+            query: "Resources | where type =~ 'Microsoft.ContainerService/managedClusters' | project name, resourceGroup"
+        };
+
+        let resp;
+        try {
+            // using fetch to call the Resource Graph API
+            resp = await fetch(url, {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(body)
+            });
+        } catch (e: any) {
+            vscode.window.showErrorMessage(`Network error querying Resource Graph: ${e.message}`);
+            return;
+        }
+    
+        if (!resp.ok) {
+            vscode.window.showErrorMessage(`Resource Graph failed: ${resp.status} ${resp.statusText}`);
+            return;
+        }
+
+        // parsing the response
+        let json: any;
+        try {
+            json = await resp.json();
+        } catch (e: any) {
+            vscode.window.showErrorMessage(`Invalid JSON from Resource Graph: ${e.message}`);
+            return;
+        }
+    
+        return (json.data as any[]).map((c) => ({
+            name: c.name,
+            resourceGroup: c.resourceGroup
+        }));
+    }
+
+    // prompts the user to select a cluster & returns the selected cluster
+    async selectCluster(subscriptionId: string){
+        const clusters = await this.listClusters(subscriptionId);
+        if (clusters && clusters.length > 0) {
+            // prompt for selecting cluster
+            const selectedCluster = await vscode.window.showQuickPick(
+                        clusters.map((cluster:any) => cluster.name),
+                        { placeHolder: "Select the cluster" }
+            );
+            if (!selectedCluster) {
+                vscode.window.showErrorMessage(`Failed to get cluster`);
+                return undefined;
+            } else {
+                let cluster = clusters.find((cluster:any) => cluster.name === selectedCluster);
+                if (!cluster) {
+                    vscode.window.showErrorMessage(`Failed to get cluster`);
+                    return undefined;
+                } else {
+                    return cluster;
+                }
+            }
+        } else {
+            vscode.window.showErrorMessage("No clusters found.");
+            return undefined;
+        }
+    }
+    // retrieves the credentials for the given cluster
+    async getCredentials(){
+        const session = await vscode.authentication.getSession(
+            "microsoft",
+            ["https://management.azure.com/.default"],
+            { createIfNone: true }
+        );
+        if (!session) {
+            vscode.window.showErrorMessage("You must be signed into Azure to list clusters.");
+            return;
+        }
+        return {
+            getToken: async () => ({
+                token: session.accessToken,
+                expiresOnTimestamp: 0,
+            }),
+        } as TokenCredential;
+    }
+    // gets kubeconfig yaml for the given cluster
+    async getKubeconfigYaml(
+        subscriptionId: string,
+        resourceGroup: string,
+        clusterName: string
+    ): Promise<string | undefined> {
+        const credential = await this.getCredentials();
+        if (!credential) {
+            vscode.window.showErrorMessage("Failed to get credentials for AKS.");
+            return;
+        }
+        const client = new ContainerServiceClient(credential, subscriptionId);
+        try {
+            // Using the ContainerServiceClient to get the kubeconfig
+            const result = await client.managedClusters.listClusterUserCredentials(resourceGroup, clusterName);
+            const kubeconfigBase64 = result.kubeconfigs?.[0]?.value;
+        if (!kubeconfigBase64) {
+            vscode.window.showErrorMessage("Failed to retrieve kubeconfig from AKS.");
+            return;
+        }
+        // Convert the base64 string to a usable UTF-8 string
+        const kubeconfigYaml = Buffer.from(kubeconfigBase64).toString("utf8");
+        return kubeconfigYaml;
+        } catch (err) {
+            vscode.window.showErrorMessage(`Error fetching kubeconfig: ${(err as any).message || String(err)}`);
+            return;
+        }
+    }
+
 }
 
 async function waitForExtension(extensionId: string): Promise<boolean> {
