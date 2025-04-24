@@ -155,7 +155,7 @@ export class FuncMap {
             // Math
             this.f("add", "add $a $b $c", "add two or more numbers"),
             this.f("add1", "add1 $a", "increment $a by 1"),
-            this.f("sub", "sub $a $b", "subtract $a from $b"),
+            this.f("sub", "sub $a $b", "subtract $b from $a"),
             this.f("div", "div $a $b", "divide $b by $a"),
             this.f("mod", "mod $a $b", "modulo $b by $a"),
             this.f("mul", "mult $a $b", "multiply $b by $a"),
