@@ -68,7 +68,6 @@ import { setActiveKubeconfig, getKnownKubeconfigs, addKnownKubeconfig } from './
 import { HelmDocumentSymbolProvider } from './helm.symbolProvider';
 import { findParentYaml } from './yaml-support/yaml-navigation';
 import { linters } from './components/lint/linters';
-import { runClusterWizard } from './components/clusterprovider/clusterproviderserver';
 import { timestampText } from './utils/naming';
 import { ContainerContainer } from './utils/containercontainer';
 import { APIBroker } from './api/contract/api';
@@ -1994,31 +1993,24 @@ async function debounceActivation(): Promise<void> {
     }
 }
 
-async function configureFromClusterKubernetes() {
-    await debounceActivation();
-    runClusterWizard('Add Existing Cluster', 'configure');
-}
-
-async function createClusterKubernetes() {
+// helper function for selecting cloud provider
+async function selectProvider(): Promise<Errorable<CloudProvider>> {
     await debounceActivation();
     // register the providers, for now only AKS
     const providers: CloudProvider[] = [
         new AKSProvider(),
-
     ];
 
     const providerNames = providers.map((provider) => provider.getName());
     const clusterType = await vscode.window.showQuickPick(providerNames, { placeHolder: "Select the cluster type" });
 
     if (!clusterType) {
-        vscode.window.showErrorMessage("Failed to get cluster type");
-        return;
+        return { succeeded: false, error: ['Failed to get cluster type']};
     }
     // get the provider
     const selectedProvider = providers.find((p) => p.getName() === clusterType);
     if (!selectedProvider) {
-        vscode.window.showErrorMessage("Failed to get provider");
-        return;
+        return { succeeded: false, error: ['Failed to get provider']};
     }
 
     // sign in check
@@ -2027,34 +2019,64 @@ async function createClusterKubernetes() {
         const isSignedIn = await selectedProvider.signIn();
         if (!isSignedIn) {
             vscode.window.showErrorMessage(`Failed to sign in to ${selectedProvider.getName()}`);
-            return;
+            return { succeeded: false, error: ['Failed to sign in to provider']};
         }
     }
 
-    // prequisites data
-    const data = await selectedProvider.prerequisites();
+    return { succeeded: true, result: selectedProvider };
+}
 
-    if (data) {
-       await selectedProvider.createCluster(data);
+// adds cluster to local kubeconfig
+async function configureFromClusterKubernetes() {
+    await debounceActivation();
+    const provider = await selectProvider();
+    if (failed(provider)){
+        vscode.window.showErrorMessage(provider.error[0]);
+        return;
     }
 
+    const subscriptionId = await provider.result.prerequisites();
+    if (!subscriptionId) return;
+
+    // currently AKS is our only provider
+    if (provider.result instanceof AKSProvider) {
+        let cluster = await provider.result.selectCluster(subscriptionId);
+        if (cluster){
+            let kconfig = await provider.result.getKubeconfigYaml(subscriptionId, cluster.resourceGroup, cluster.name);
+            if (kconfig) { 
+                mergeToKubeconfig(kconfig);
+            } else {
+                vscode.window.showErrorMessage("Failed to get kubeconfig");
+            }
+        } 
+    } 
+}
+
+// creates a new cluster using aks extension
+async function createClusterKubernetes() {
+    const selectedProvider = await selectProvider();
+    if (failed(selectedProvider)) {
+        vscode.window.showErrorMessage("Failed to get provider");
+        return;
+    }
+    const subscriptionId = await selectedProvider.result.prerequisites();
+    if (subscriptionId) {
+       await selectedProvider.result.createCluster(subscriptionId);
+    }
 }
 
 const ADD_NEW_KUBECONFIG_PICK = "+ Add new kubeconfig";
 
-async function useKubeconfigKubernetes(kubeconfig?: string | { isTrusted: boolean } /* TODO: remove when VS Code fixed */): Promise<void> {
-    // TODO: remove when VS Code fixed - workaround for https://github.com/microsoft/vscode/issues/94872
-    function fix94872(kubeconfig?: string | { isTrusted: boolean }): string | undefined {
-        function isBuggyThing(o: string | undefined | { isTrusted: boolean }): o is { isTrusted: boolean } {
-            return !!o && ((o as any).isTrusted !== undefined);
-        }
-        if (isBuggyThing(kubeconfig)) {
-            return undefined;
-        }
-        return kubeconfig;
+async function useKubeconfigKubernetes(kubeconfig?: string): Promise<void> {
+    // prevents miscelanneous context arguments from being processed
+    let kubeconfigPath: string | undefined;
+    if (typeof kubeconfig !== 'string') {
+        kubeconfigPath = undefined;
+    } else {
+        kubeconfigPath = kubeconfig;
     }
 
-    const kc = await getKubeconfigSelection(fix94872(kubeconfig));
+    const kc = await getKubeconfigSelection(kubeconfigPath);
     if (!kc) {
         return;
     }

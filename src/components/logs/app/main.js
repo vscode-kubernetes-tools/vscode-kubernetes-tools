@@ -1,4 +1,5 @@
 const vscode = acquireVsCodeApi();
+const DOMPurify = require('dompurify');
 const Convert = require('ansi-to-html');
 const convert = new Convert();
 
@@ -236,8 +237,20 @@ function resetFilter() {
 function runFilter() {
     emptyContent();
     saveFilteredContent();
+    setHeightContentPanel();
     renderByPagination();
 }
+
+function setHeightContentPanel(remove = false) {
+    const panel = document.getElementById('innerLogPanel');
+    if (remove) {
+      panel.style.removeProperty('height');
+    } else {
+      const rows = Object.keys(isFiltering() ? filteredContent : fullPageContent).length;
+      const lineHeight = getDefaultDivHeightValue();
+      panel.style.height = `${rows * lineHeight}px`;
+    }
+  }
 
 function changeVisibilityAfterRun() {
     if (getDestinationValue() === 'Terminal') {
@@ -310,6 +323,7 @@ function clear() {
         resetContent();
         resetFilter();
     }
+    setHeightContentPanel(true);
     emptyContent();
 }
 
@@ -338,6 +352,7 @@ function updateContent(newContent) {
     }
 
     content = saveFilteredContent(content);
+    setHeightContentPanel();
     renderByPagination(content);
     switchClass('clearBtn', 'display-none', 'display-inline-block');
 }
@@ -599,7 +614,7 @@ function render(content, from, prepend) {
         const fragment = document.createRange().createContextualFragment('No logs ...');
         contentElement.appendChild(fragment);
     } else {
-        const contentToDisplay = concatenateObjectValuesAsString(content, from);
+        const contentToDisplay = DOMPurify.sanitize(concatenateObjectValuesAsString(content, from));
         const fragment = document.createRange().createContextualFragment(contentToDisplay);
         if (prepend) {
             contentElement.prepend(fragment);

@@ -1,0 +1,46 @@
+name: Close stale PRs
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # Runs daily at 2:00 AM UTC
+  workflow_dispatch:      # Allows you to trigger it manually
+
+jobs:
+  close_stale_prs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Close inactive PRs
+        uses: actions/github-script@e69ef5462fd455e02edcaf4dd7708eda96b9eda0 # v7
+        with:
+          script: |
+            const { data: pullRequests } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              per_page: 100
+            });
+
+            const threeMonthsAgo = new Date();
+            threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+
+            for (const pr of pullRequests) {
+              const lastUpdated = new Date(pr.updated_at);
+              if (lastUpdated < threeMonthsAgo) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  body: "This pull request has been closed due to inactivity for over 3 months. Feel free to reopen it if needed."
+                });
+
+                await github.rest.pulls.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: pr.number,
+                  state: "closed"
+                });
+
+                console.log(`Closed PR #${pr.number} due to inactivity.`);
+              }
+            }
