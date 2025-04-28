@@ -90,6 +90,10 @@
         .o {
             color: #c36741;
         }
+        .checkbox{
+            position:relative;
+            top:0.5rem;
+        }
     </style>
 </head>
 <body>
@@ -108,15 +112,17 @@
                                     </div>
                                 </div>
 
-                                <div id="follow-lbl" class="tooltip mr-2">Follow Logs:
+                                <div id="follow-lbl" class="tooltip mr-2">Follow Logs:&nbsp;
                                     <span class="tooltiptext">Logs should be streamed.</span>
                                 </div>
-                                <vscode-checkbox id="follow-chk"></vscode-checkbox>
+                                <vscode-checkbox id="follow-chk" class="checkbox"></vscode-checkbox>
 
-                                <div class="tooltip mr-2">Show timestamp:
+
+                                <div class="tooltip mr-2">Show timestamp:&nbsp;
                                     <span class="tooltiptext">Include timestamps on each line in the log output.</span>
                                 </div>
-                                <vscode-checkbox id="timestamp-chk"></vscode-checkbox>
+                                <vscode-checkbox id="timestamp-chk" class="checkbox"></vscode-checkbox>
+
 
                                 <div class="tooltip mr-2">Since:
                                     <span class="tooltiptext">Only return logs newer than a relative duration like 5s, 2m, or 3h. Defaults to all logs.</span>
@@ -130,13 +136,13 @@
                                     <vscode-option value="h">Hour(s)</vscode-option>
                                 </vscode-single-select>
 
-                                <div class="tooltip ml-10 mr-2">Tail:
+                                <div class="tooltip ml-10 mr-2">Tail:&nbsp;
                                     <span class="tooltiptext">Lines of recent log file to display. Defaults show all log lines.</span>
                                 </div>
                                 <div class="mr-2" style="width: 50px; display: inline-block">
                                     <vscode-inputbox id="tail-input" type="number" value="-1"></vscode-inputbox>
                                 </div>
-                                <div class="tooltip ml-10 mr-2">Destination:
+                                <div class="tooltip ml-10 mr-2">Destination:&nbsp;
                                     <span class="tooltiptext">Where to display logs.</span>
                                 </div>
                                 <vscode-single-select id="destination-select" class="w-130 mr-2">
@@ -159,7 +165,7 @@
                                 <div class="tooltip ml-10 mr-2">Wrap lines:
                                     <span class="tooltiptext">Long words should be broken and wrap onto the next line.</span>
                                 </div>
-                                <vscode-checkbox id="wrap-chk"></vscode-checkbox>
+                                <vscode-checkbox id="wrap-chk" class="checkbox"></vscode-checkbox>
                             </div>
                         </td>
                         <td style="width: 25%">
