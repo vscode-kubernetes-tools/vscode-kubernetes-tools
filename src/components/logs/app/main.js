@@ -86,16 +86,16 @@ function setSettings(settings) {
 
     if (since !== undefined) {
         const split = splitSinceDuration(since);
-        document.getElementById('since-input').value = split.number;
-        document.getElementById('since-select').value = split.unit;
+        document.getElementById('since-input').setAttribute('value', split.number);
+        document.getElementById('since-select').setAttribute('value', split.unit);
     }
 
     if (tail !== undefined) {
-        document.getElementById('tail-input').value = tail;
+        document.getElementById('tail-input').setAttribute('value', tail);
     }
 
     if (destination !== undefined) {
-        document.getElementById('destination-select').value = destination;
+        document.getElementById('destination-select').setAttribute('value', destination);
     }
 
     if (wrap !== undefined) {
