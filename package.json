@@ -1305,7 +1305,7 @@
         "@types/request": "^2.48.12",
         "@types/semver": "^7.7.0",
         "@types/shelljs": "^0.8.15",
-        "@types/sinon": "^17.0.3",
+        "@types/sinon": "^17.0.4",
         "@types/tar": "^6.1.13",
         "@types/tmp": "^0.2.6",
         "@types/unzipper": "^0.10.9",
