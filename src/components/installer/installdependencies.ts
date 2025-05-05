@@ -8,6 +8,7 @@ import { shell, Shell } from '../../shell';
 import * as config from '../config/config';
 import { installHelm, installKubectl, installMinikube } from './installer';
 import { failed, Errorable } from '../../errorable';
+import * as vscode from 'vscode';
 
 const kubectl = kubectlCreate(config.getKubectlVersioning(), host, fs, shell);
 const minikube = minikubeCreate(host, fs, shell);
@@ -34,6 +35,7 @@ export async function installDependencies() {
     await Promise.all(installPromises);
 
     kubeChannel.showOutput("Done");
+    vscode.window.showInformationMessage("Dependencies successfully installed.");
 }
 
 async function installDependency(name: string, alreadyGot: boolean, installFunc: (shell: Shell) => Promise<Errorable<null>>): Promise<void> {
@@ -44,6 +46,7 @@ async function installDependency(name: string, alreadyGot: boolean, installFunc:
         const result = await installFunc(shell);
         if (failed(result)) {
             kubeChannel.showOutput(`Unable to install ${name}: ${result.error[0]}`);
+            console.log(result.error);
         }
     }
 }

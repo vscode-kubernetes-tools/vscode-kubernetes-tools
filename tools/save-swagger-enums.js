@@ -1,5 +1,6 @@
 const fs = require('fs');
-const download = require('download');
+// const download = require('download');
+const fetch = require('node-fetch');
 const _ = require('lodash');
 
 const LATEST_SWAGGER_URL = 'https://raw.githubusercontent.com/kubernetes/kubernetes/master/api/openapi-spec/swagger.json';  // TODO: master is not necessarily stable
@@ -284,8 +285,12 @@ function parseEnumValues(constsLines, enumValues) {
     }
 }
 
-function downloadToMemory(url) {
-    return download(url).then(buf => buf.toString('utf-8'));
+async function downloadToMemory(url) {
+    const res = await fetch(url);
+    if (!res.ok) {
+        throw new Error(`Failed to fetch ${url}: ${res.status} ${res.statusText}`);
+    }
+    return await res.text();
 }
 
 function saveSwaggerEnumsFrom(goTypes, swagger) {

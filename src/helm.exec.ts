@@ -798,6 +798,7 @@ export function ensureHelm(mode: EnsureMode) {
     }
     if (sh.which("helm")) {
         return true;
+    } else {
     }
     if (mode === EnsureMode.Alert  && !suppressHelmNotFound()) {
         vscode.window.showErrorMessage(`Could not find Helm binary.`, "Install dependencies").then((str) =>
