@@ -2077,7 +2077,25 @@ async function useKubeconfigKubernetes(kubeconfig?: string): Promise<void> {
     }
 
     const kc = await getKubeconfigSelection(kubeconfigPath);
+    // return if no selection was made
     if (!kc) {
+        return;
+    }
+    // check to see if kubeconfig file path exists
+    if (!fs.existsSync(kc)) {
+        // prompts user to remove the entry from known configs
+        const removePick = await vscode.window.showWarningMessage(
+            `Kubeconfig file not found at path: ${kc}. Do you want to remove this entry from your known configs?`,
+            'Yes', 'No'
+        );
+        
+        // if user chooses to remove the entry, remove it from known configs
+        if (removePick === 'Yes') {
+            const knownKubeconfigs = getKnownKubeconfigs();
+            const updatedKubeconfigs = knownKubeconfigs.filter(path => path !== kc);
+            config.setConfigValue('vs-kubernetes.knownKubeconfigs', updatedKubeconfigs);
+            vscode.window.showInformationMessage(`Removed invalid kubeconfig from settings.`);
+        }
         return;
     }
     await setActiveKubeconfig(kc);
