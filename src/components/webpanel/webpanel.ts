@@ -19,6 +19,7 @@ export abstract class WebPanel {
         const panel = vscode.window.createWebviewPanel(viewType, title, column || vscode.ViewColumn.One, {
             enableScripts: true,
             retainContextWhenHidden: true,
+            enableFindWidget: true,
             // And restrict the webview to only loading content from our extension's `media` directory.
             localResourceRoots
         });
