@@ -1,6 +1,11 @@
 # Visual Studio Code Kubernetes Tools
+
+![Kubernetes Extension for Visual Studio Code logo](images/k8s-ext-logo/kefvsc-horizontal-colour.png)
+
 [![Build Status](https://travis-ci.org/Azure/vscode-kubernetes-tools.svg?branch=master)](https://travis-ci.org/Azure/vscode-kubernetes-tools)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/10056/badge)](https://www.bestpractices.dev/projects/10056)
+[![CodeQL Advanced](https://github.com/vscode-kubernetes-tools/vscode-kubernetes-tools/actions/workflows/codeql.yml/badge.svg)](https://github.com/vscode-kubernetes-tools/vscode-kubernetes-tools/actions/workflows/codeql.yml)
+[![Development build](https://github.com/vscode-kubernetes-tools/vscode-kubernetes-tools/actions/workflows/build-dev.yml/badge.svg)](https://github.com/vscode-kubernetes-tools/vscode-kubernetes-tools/actions/workflows/build-dev.yml)
 
 The extension for developers building applications to run in Kubernetes clusters
 and for DevOps staff troubleshooting Kubernetes applications.
