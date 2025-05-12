@@ -1300,7 +1300,7 @@
         "@types/lodash": "^4.17.16",
         "@types/mkdirp": "^2.0.0",
         "@types/mocha": "^10.0.10",
-        "@types/node": "^22.14.0",
+        "@types/node": "^22.15.17",
         "@types/pluralize": "^0.0.33",
         "@types/request": "^2.48.12",
         "@types/semver": "^7.7.0",
