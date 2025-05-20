@@ -1262,7 +1262,7 @@
     ],
     "dependencies": {
         "@azure/arm-containerservice": "^21.6.0",
-        "@kubernetes/client-node": "^1.1.2",
+        "@kubernetes/client-node": "^1.2.0",
         "@microsoft/vscode-azext-azureauth": "^4.1.1",
         "@vscode/test-electron": "^2.5.2",
         "ansi-to-html": "^0.7.2",
