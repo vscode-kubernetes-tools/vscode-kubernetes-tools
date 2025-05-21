@@ -1,5 +1,21 @@
 # Change Log
 
+## [1.3.23]
+
+* Dependabot PRs
+* Add existing cluster [Fix] (#1510)
+* Fix wrong sub doc. (#1520)
+* Add bot for stale PR closure. (#1517)
+* Updating regex for aks cluster detection (#1519)
+* Fixing kubeconfig bug (#1518)
+* Fix scrolling the bottom of long logs (#1516)
+* Fix some scanning alerts. (#1471)
+* Potential fix for code scanning alert no. 5: Client-side cross-site scripting (#1470)
+* Add bestpractices badge. (#1486)
+
+Contributors: Contributions and Reviews to tejhan, bosesuneha, davidgamero, ReinierCC, qpetraroia Thank you all!!
+
+
 ## [1.3.22]
 
 * Dependabot PRs
