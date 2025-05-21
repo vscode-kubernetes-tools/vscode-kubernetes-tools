@@ -46,7 +46,6 @@ async function installDependency(name: string, alreadyGot: boolean, installFunc:
         const result = await installFunc(shell);
         if (failed(result)) {
             kubeChannel.showOutput(`Unable to install ${name}: ${result.error[0]}`);
-            console.log(result.error);
         }
     }
 }
