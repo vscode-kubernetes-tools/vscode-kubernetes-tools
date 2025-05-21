@@ -70,7 +70,7 @@ export async function once(sourceUrl: string, destinationFile: string): Promise<
             await sleep(100);
             if (DOWNLOAD_ONCE_STATUS[destinationFile] === DownloadOperationStatus.Completed) {
                 return { succeeded: true, result: null };
-            } else if (DOWNLOAD_ONCE_STATUS[destinationFile] === DownloadOperationStatus.Failed) {
+            } else {
                 // one retry
                 return await once(sourceUrl, destinationFile);
             }
