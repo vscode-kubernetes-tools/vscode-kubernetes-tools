@@ -16,7 +16,7 @@ export async function readSwagger(): Promise<SwaggerModel | undefined> {
     return readSwaggerCore(await loadKubeconfig());
 }
 
-export async function readSwaggerCore(kc: kubernetes.KubeConfig): Promise<any | undefined> {
+export async function readSwaggerCore(kc: kubernetes.KubeConfig): Promise<SwaggerModel | undefined> {
   const currentCluster = kc.getCurrentCluster();
   if (!currentCluster) return undefined;
 
@@ -41,7 +41,7 @@ export async function readSwaggerCore(kc: kubernetes.KubeConfig): Promise<any | 
     }
 
     const json = await res.json();
-    return json;
+    return json as SwaggerModel;
   } catch (error: any) {
     console.error("Failed to fetch swagger.json:", error.message);
     throw error;
