@@ -1,6 +1,7 @@
 'use strict';
 
-import request = require('request');
+import fetch, { RequestInit } from "node-fetch";
+import * as https from "https";
 import * as kubernetes from '@kubernetes/client-node';
 import * as pluralize from 'pluralize';
 
@@ -15,35 +16,36 @@ export async function readSwagger(): Promise<SwaggerModel | undefined> {
     return readSwaggerCore(await loadKubeconfig());
 }
 
-function readSwaggerCore(kc: kubernetes.KubeConfig): Promise<SwaggerModel | undefined> {
-    const currentCluster = kc.getCurrentCluster();
-    if (!currentCluster) {
-        return new Promise((resolve) => resolve(undefined));
-    }
-    const uri = `${currentCluster.server}/swagger.json`;
-    const opts: request.Options = {
-        url: uri,
-    };
-    kc.applyToHTTPSOptions(opts);
+export async function readSwaggerCore(kc: kubernetes.KubeConfig): Promise<any | undefined> {
+  const currentCluster = kc.getCurrentCluster();
+  if (!currentCluster) return undefined;
 
-    return new Promise((resolve, reject) => {
-        request(uri, opts, (error, response, body) => {
-            if (error) {
-                reject(error);
-                return;
-            }
-            if (response.statusCode !== 200) {
-                reject(response);
-                return;
-            }
-            try {
-                const obj = JSON.parse(body);
-                resolve(obj);
-            } catch (ex) {
-                console.log(ex);
-            }
-        });
-    });
+  const uri = `${currentCluster.server}/swagger.json`;
+
+  // Prepare HTTPS options and agent
+  const httpsOptions: https.AgentOptions = {};
+  kc.applyToHTTPSOptions(httpsOptions);
+  const agent = new https.Agent(httpsOptions);
+
+  // Configure fetch request
+  const fetchOptions: RequestInit = {
+    method: "GET",
+    agent,
+  };
+
+  try {
+    const res = await fetch(uri, fetchOptions);
+
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    }
+
+    const json = await res.json();
+    return json;
+  } catch (error: any) {
+    console.error("Failed to fetch swagger.json:", error.message);
+    throw error;
+  }
 }
 
 export function readExplanation(swagger: SwaggerModel, fieldsPath: string) {
