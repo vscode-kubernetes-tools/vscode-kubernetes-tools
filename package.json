@@ -1320,7 +1320,7 @@
         "eslint-webpack-plugin": "^5.0.1",
         "file-loader": "^6.2.0",
         "glob": "^11.0.2",
-        "gulp": "^5.0.0",
+        "gulp": "^5.0.1",
         "gulp-tslint": "^8.1.4",
         "html-webpack-plugin": "^5.6.3",
         "mocha": "^11.2.2",
