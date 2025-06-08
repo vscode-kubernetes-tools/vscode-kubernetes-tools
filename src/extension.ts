@@ -21,6 +21,7 @@ import { host } from './host';
 import { addKubernetesConfigFile, deleteKubernetesConfigFile } from './configMap';
 import * as explainer from './explainer';
 import { shell } from './shell';
+import * as shelljs from 'shelljs';
 import * as configmaps from './configMap';
 import * as kuberesources from './kuberesources';
 import { useNamespaceKubernetes } from './components/kubectl/namespace';
@@ -133,6 +134,33 @@ export const HELM_TPL_MODE: vscode.DocumentFilter = { language: "helm", scheme: 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export async function activate(context: vscode.ExtensionContext): Promise<APIBroker> {
+    // kubeconfig existence check
+    const kc = getKubeconfigPath();
+    const p = kc.pathType === 'host' ? kc.hostPath : kc.wslPath;
+    // add awareness of multiple kubeconfigs
+    const paths = p.split(':');
+    for (const path of paths) {
+        let exists: boolean;
+        if (kc.pathType === 'host') {
+            exists = fs.existsSync(p);
+        } else {
+        // on WSL, shell out to test if the file exists
+            const result = shelljs.exec(`wsl.exe test -e "${path}"`, { silent: true });
+            exists = result.code === 0;
+        }
+
+        if (!exists) {
+        const choice = await vscode.window.showWarningMessage(
+            `Kubeconfig not found at: ${path}. Add a new one?`,
+            'Add',
+            'Cancel'
+        );
+        if (choice === 'Add') {
+            await useKubeconfigKubernetes();
+        }
+        break;
+        }
+    }
     setAssetContext(context);
 
     await fixOldInstalledBinaryPermissions(shell);
