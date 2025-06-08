@@ -138,11 +138,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
     const kc = getKubeconfigPath();
     const p = kc.pathType === 'host' ? kc.hostPath : kc.wslPath;
     // add awareness of multiple kubeconfigs
-    const paths = p.split(':');
+    const listSep = path.delimiter; // ';' on Windows, ':' on Linux
+    const paths = p.split(listSep);
     for (const path of paths) {
         let exists: boolean;
         if (kc.pathType === 'host') {
-            exists = fs.existsSync(p);
+            exists = fs.existsSync(path);
         } else {
         // on WSL, shell out to test if the file exists
             const result = shelljs.exec(`wsl.exe test -e "${path}"`, { silent: true });
