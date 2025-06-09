@@ -21,7 +21,7 @@ import { host } from './host';
 import { addKubernetesConfigFile, deleteKubernetesConfigFile } from './configMap';
 import * as explainer from './explainer';
 import { shell } from './shell';
-import * as shelljs from 'shelljs';
+import { execFileSync } from 'child_process';
 import * as configmaps from './configMap';
 import * as kuberesources from './kuberesources';
 import { useNamespaceKubernetes } from './components/kubectl/namespace';
@@ -146,8 +146,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
             exists = fs.existsSync(path);
         } else {
         // on WSL, shell out to test if the file exists
-            const result = shelljs.exec(`wsl.exe test -e "${path}"`, { silent: true });
-            exists = result.code === 0;
+            try {
+                execFileSync('wsl.exe', ['test', '-e', path], { stdio: 'ignore' });
+                exists = true;
+            } catch {
+                exists = false;
+            }
         }
 
         if (!exists) {
