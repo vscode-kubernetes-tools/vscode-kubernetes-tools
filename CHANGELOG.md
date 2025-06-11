@@ -1,5 +1,22 @@
 # Change Log
 
+## [1.3.24]
+
+* Dependabot PRs
+* Alignment and visual feedback fixes (#1527)
+* Enabling find widget (#1536)
+* Add check for kconfig file path existence (#1535)
+* Add project CNCF logo for this project. (#1537)
+* Update vscode engine and package. (#1538)
+* Remove invalid badge. (#1550)
+* Removing deprecated download package (#1515)
+* Work to remove deprecated request package. (#1552)
+* fixing gotemplate block comments for toggleability (#1566)
+* Added kebabcase recognition to linter (#1565)
+* updating tar-fs & removing request package (#1575)
+
+Contributors: Contributions and Reviews to tejhan, bosesuneha, davidgamero, ReinierCC, qpetraroia Thank you all!!
+
 ## [1.3.23]
 
 * Dependabot PRs
