@@ -7,7 +7,7 @@ body: |2
   metadata:
     name: ${1:myapp}
     labels:
-      name: ${1:myapp}
+      app.kubernetes.io/name: ${1:myapp}
   spec:
     containers:
     - name: ${1:myapp}
