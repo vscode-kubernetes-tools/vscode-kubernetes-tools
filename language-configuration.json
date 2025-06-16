@@ -3,7 +3,7 @@
         // comments applicable to yaml files.
         "lineComment": "#",
         // comments applicable to tpl files.
-        "blockComment": [ "{{- /*\n", "\n*/ -}}" ]
+        "blockComment": [ "{{- /*", "*/ }}" ]
     },
     // symbols used as brackets
     "brackets": [

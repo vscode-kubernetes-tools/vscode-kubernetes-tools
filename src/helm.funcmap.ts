@@ -111,6 +111,7 @@ export class FuncMap {
             // 2.12.0
             this.f("snakecase", "snakecase $str", "Convert $str to snake_case"),
             this.f("camelcase", "camelcase $str", "convert string to camelCase"),
+            this.f("kebabcase", "kebabcase $str", "convert string to kebab-case"),
             this.f("shuffle", "shuffle $str", "randomize a string"),
             this.f("fail", `fail $msg`, "cause the template render to fail with a message $msg."),
 
