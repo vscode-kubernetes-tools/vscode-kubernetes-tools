@@ -1304,7 +1304,7 @@
         "@types/pluralize": "^0.0.33",
         "@types/request": "^2.48.12",
         "@types/semver": "^7.7.0",
-        "@types/shelljs": "^0.8.15",
+        "@types/shelljs": "^0.8.16",
         "@types/sinon": "^17.0.4",
         "@types/tar": "^6.1.13",
         "@types/tmp": "^0.2.6",
