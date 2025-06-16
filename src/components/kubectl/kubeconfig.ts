@@ -6,6 +6,8 @@ import * as shelljs from 'shelljs';
 import { refreshExplorer } from '../clusterprovider/common/explorer';
 import { getActiveKubeconfig, getUseWsl } from '../config/config';
 import { mkdirp } from 'mkdirp';
+import { useKubeconfigKubernetes } from '../../extension';
+import { execFileSync } from 'child_process';
 
 interface Named {
     readonly name: string;
@@ -148,5 +150,40 @@ async function mergeInto(existing: Named[], toMerge: Named[]): Promise<void> {
             continue;  // TODO: build character
         }
         existing.push(toMergeEntry);
+    }
+}
+
+export async function validateKubeconfigPath() {
+    // kubeconfig existence check
+    const kc = getKubeconfigPath();
+    const p = kc.pathType === 'host' ? kc.hostPath : kc.wslPath;
+    // add awareness of multiple kubeconfigs
+    const listSep = path.delimiter; // ';' on Windows, ':' on Linux
+    const paths = p.split(listSep);
+    for (const path of paths) {
+        let exists: boolean;
+        if (kc.pathType === 'host') {
+            exists = fs.existsSync(path);
+        } else {
+        // on WSL, shell out to test if the file exists
+            try {
+                execFileSync('wsl.exe', ['test', '-e', path], { stdio: 'ignore' });
+                exists = true;
+            } catch {
+                exists = false;
+            }
+        }
+
+        if (!exists) {
+        const choice = await vscode.window.showWarningMessage(
+            `Kubeconfig not found at: ${path}. Add a new one?`,
+            'Add',
+            'Cancel'
+        );
+        if (choice === 'Add') {
+            await useKubeconfigKubernetes();
+        }
+        break;
+        }
     }
 }

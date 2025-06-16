@@ -21,7 +21,6 @@ import { host } from './host';
 import { addKubernetesConfigFile, deleteKubernetesConfigFile } from './configMap';
 import * as explainer from './explainer';
 import { shell } from './shell';
-import { execFileSync } from 'child_process';
 import * as configmaps from './configMap';
 import * as kuberesources from './kuberesources';
 import { useNamespaceKubernetes } from './components/kubectl/namespace';
@@ -75,7 +74,7 @@ import { APIBroker } from './api/contract/api';
 import { apiBroker } from './api/implementation/apibroker';
 import { sleep } from './sleep';
 import { CloudExplorer, CloudExplorerTreeNode } from './components/cloudexplorer/cloudexplorer';
-import { mergeToKubeconfig, getKubeconfigPath, KubeconfigPath } from './components/kubectl/kubeconfig';
+import { mergeToKubeconfig, getKubeconfigPath, KubeconfigPath, validateKubeconfigPath } from './components/kubectl/kubeconfig';
 import { PortForwardStatusBarManager } from './components/kubectl/port-forward-ui';
 import { getBuildCommand, getPushCommand } from './image/imageUtils';
 import { getImageBuildTool } from './components/config/config';
@@ -134,38 +133,7 @@ export const HELM_TPL_MODE: vscode.DocumentFilter = { language: "helm", scheme: 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export async function activate(context: vscode.ExtensionContext): Promise<APIBroker> {
-    // kubeconfig existence check
-    const kc = getKubeconfigPath();
-    const p = kc.pathType === 'host' ? kc.hostPath : kc.wslPath;
-    // add awareness of multiple kubeconfigs
-    const listSep = path.delimiter; // ';' on Windows, ':' on Linux
-    const paths = p.split(listSep);
-    for (const path of paths) {
-        let exists: boolean;
-        if (kc.pathType === 'host') {
-            exists = fs.existsSync(path);
-        } else {
-        // on WSL, shell out to test if the file exists
-            try {
-                execFileSync('wsl.exe', ['test', '-e', path], { stdio: 'ignore' });
-                exists = true;
-            } catch {
-                exists = false;
-            }
-        }
-
-        if (!exists) {
-        const choice = await vscode.window.showWarningMessage(
-            `Kubeconfig not found at: ${path}. Add a new one?`,
-            'Add',
-            'Cancel'
-        );
-        if (choice === 'Add') {
-            await useKubeconfigKubernetes();
-        }
-        break;
-        }
-    }
+    await validateKubeconfigPath();
     setAssetContext(context);
 
     await fixOldInstalledBinaryPermissions(shell);
@@ -2100,7 +2068,7 @@ async function createClusterKubernetes() {
 
 const ADD_NEW_KUBECONFIG_PICK = "+ Add new kubeconfig";
 
-async function useKubeconfigKubernetes(kubeconfig?: string): Promise<void> {
+export async function useKubeconfigKubernetes(kubeconfig?: string): Promise<void> {
     // prevents miscelanneous context arguments from being processed
     let kubeconfigPath: string | undefined;
     if (typeof kubeconfig !== 'string') {
