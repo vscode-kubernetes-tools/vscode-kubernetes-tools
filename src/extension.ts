@@ -74,7 +74,7 @@ import { APIBroker } from './api/contract/api';
 import { apiBroker } from './api/implementation/apibroker';
 import { sleep } from './sleep';
 import { CloudExplorer, CloudExplorerTreeNode } from './components/cloudexplorer/cloudexplorer';
-import { mergeToKubeconfig, getKubeconfigPath, KubeconfigPath } from './components/kubectl/kubeconfig';
+import { mergeToKubeconfig, getKubeconfigPath, KubeconfigPath, validateKubeconfigPath } from './components/kubectl/kubeconfig';
 import { PortForwardStatusBarManager } from './components/kubectl/port-forward-ui';
 import { getBuildCommand, getPushCommand } from './image/imageUtils';
 import { getImageBuildTool } from './components/config/config';
@@ -133,6 +133,7 @@ export const HELM_TPL_MODE: vscode.DocumentFilter = { language: "helm", scheme: 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export async function activate(context: vscode.ExtensionContext): Promise<APIBroker> {
+    await validateKubeconfigPath();
     setAssetContext(context);
 
     await fixOldInstalledBinaryPermissions(shell);
@@ -2067,7 +2068,7 @@ async function createClusterKubernetes() {
 
 const ADD_NEW_KUBECONFIG_PICK = "+ Add new kubeconfig";
 
-async function useKubeconfigKubernetes(kubeconfig?: string): Promise<void> {
+export async function useKubeconfigKubernetes(kubeconfig?: string): Promise<void> {
     // prevents miscelanneous context arguments from being processed
     let kubeconfigPath: string | undefined;
     if (typeof kubeconfig !== 'string') {
