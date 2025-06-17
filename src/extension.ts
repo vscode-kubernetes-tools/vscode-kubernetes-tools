@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import * as os from 'os';
 import * as path from 'path';
 import { fs } from './fs';
+import { execFileSync } from 'child_process';
 
 // External dependencies
 import * as yaml from 'js-yaml';
@@ -74,7 +75,7 @@ import { APIBroker } from './api/contract/api';
 import { apiBroker } from './api/implementation/apibroker';
 import { sleep } from './sleep';
 import { CloudExplorer, CloudExplorerTreeNode } from './components/cloudexplorer/cloudexplorer';
-import { mergeToKubeconfig, getKubeconfigPath, KubeconfigPath, validateKubeconfigPath } from './components/kubectl/kubeconfig';
+import { mergeToKubeconfig, getKubeconfigPath, KubeconfigPath } from './components/kubectl/kubeconfig';
 import { PortForwardStatusBarManager } from './components/kubectl/port-forward-ui';
 import { getBuildCommand, getPushCommand } from './image/imageUtils';
 import { getImageBuildTool } from './components/config/config';
@@ -2068,7 +2069,7 @@ async function createClusterKubernetes() {
 
 const ADD_NEW_KUBECONFIG_PICK = "+ Add new kubeconfig";
 
-export async function useKubeconfigKubernetes(kubeconfig?: string): Promise<void> {
+async function useKubeconfigKubernetes(kubeconfig?: string): Promise<void> {
     // prevents miscelanneous context arguments from being processed
     let kubeconfigPath: string | undefined;
     if (typeof kubeconfig !== 'string') {
@@ -2102,6 +2103,41 @@ export async function useKubeconfigKubernetes(kubeconfig?: string): Promise<void
     await setActiveKubeconfig(kc);
     onDidChangeKubeconfigEmitter.fire(getKubeconfigPath());
     telemetry.invalidateClusterType(undefined, kubectl);
+}
+
+async function validateKubeconfigPath() {
+    // kubeconfig existence check
+    const kc = getKubeconfigPath();
+    const p = kc.pathType === 'host' ? kc.hostPath : kc.wslPath;
+    // add awareness of multiple kubeconfigs
+    const listSep = path.delimiter; // ';' on Windows, ':' on Linux
+    const paths = p.split(listSep);
+    for (const path of paths) {
+        let exists: boolean;
+        if (kc.pathType === 'host') {
+            exists = fs.existsSync(path);
+        } else {
+        // on WSL, shell out to test if the file exists
+            try {
+                execFileSync('wsl.exe', ['test', '-e', path], { stdio: 'ignore' });
+                exists = true;
+            } catch {
+                exists = false;
+            }
+        }
+
+        if (!exists) {
+        const choice = await vscode.window.showWarningMessage(
+            `Kubeconfig not found at: ${path}. Add a new one?`,
+            'Add',
+            'Cancel'
+        );
+        if (choice === 'Add') {
+            await useKubeconfigKubernetes();
+        }
+        break;
+        }
+    }
 }
 
 async function getKubeconfigSelection(kubeconfig?: string): Promise<string | undefined> {
