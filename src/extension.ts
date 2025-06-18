@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import * as os from 'os';
 import * as path from 'path';
 import { fs } from './fs';
+import { execFileSync } from 'child_process';
 
 // External dependencies
 import * as yaml from 'js-yaml';
@@ -133,6 +134,7 @@ export const HELM_TPL_MODE: vscode.DocumentFilter = { language: "helm", scheme: 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export async function activate(context: vscode.ExtensionContext): Promise<APIBroker> {
+    await validateKubeconfigPath();
     setAssetContext(context);
 
     await fixOldInstalledBinaryPermissions(shell);
@@ -2101,6 +2103,41 @@ async function useKubeconfigKubernetes(kubeconfig?: string): Promise<void> {
     await setActiveKubeconfig(kc);
     onDidChangeKubeconfigEmitter.fire(getKubeconfigPath());
     telemetry.invalidateClusterType(undefined, kubectl);
+}
+
+async function validateKubeconfigPath() {
+    // kubeconfig existence check
+    const kc = getKubeconfigPath();
+    const p = kc.pathType === 'host' ? kc.hostPath : kc.wslPath;
+    // add awareness of multiple kubeconfigs
+    const listSep = path.delimiter; // ';' on Windows, ':' on Linux
+    const paths = p.split(listSep);
+    for (const path of paths) {
+        let exists: boolean;
+        if (kc.pathType === 'host') {
+            exists = fs.existsSync(path);
+        } else {
+        // on WSL, shell out to test if the file exists
+            try {
+                execFileSync('wsl.exe', ['test', '-e', path], { stdio: 'ignore' });
+                exists = true;
+            } catch {
+                exists = false;
+            }
+        }
+
+        if (!exists) {
+        const choice = await vscode.window.showWarningMessage(
+            `Kubeconfig not found at: ${path}. Add a new one?`,
+            'Add',
+            'Cancel'
+        );
+        if (choice === 'Add') {
+            await useKubeconfigKubernetes();
+        }
+        break;
+        }
+    }
 }
 
 async function getKubeconfigSelection(kubeconfig?: string): Promise<string | undefined> {
