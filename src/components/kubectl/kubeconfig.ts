@@ -106,17 +106,54 @@ export async function mergeToKubeconfig(newConfigText: string): Promise<void> {
     const kubeconfig = (yaml.load(kubeconfigText) || {}) as Config;
     const newConfig = yaml.load(newConfigText) as Config;
 
-    for (const section of ['clusters', 'contexts', 'users'] as (keyof Omit<Config, "current-context">)[]) {
-        const existing: Named[] | undefined = kubeconfig[section];
-        const toMerge: Named[] | undefined = newConfig[section];
-        if (!toMerge) {
+    // null checks
+    if (!kubeconfig || !newConfig) {
+        vscode.window.showErrorMessage("Error fetching kubeconfig.");
+        return;
+    }
+    
+    let fields = ['clusters', 'users', 'contexts'] as (keyof Omit<Config, "current-context">)[];
+    const duplicates: Record<string, number> = {};
+
+    // iterate over fields and check for duplicates, merging or overwriting as necessary
+    for (const field of fields) {
+        const newEntry = newConfig[field]?.[0];
+        if (!newEntry) continue;
+
+        const existingIndex = kubeconfig[field]?.findIndex((entry: any) => entry.name === newEntry.name);
+
+        // If the entry already exists, ask the user if they want to overwrite it
+        if (existingIndex !== undefined && existingIndex !== -1) {
+            duplicates[field] = existingIndex;
+            const overwrite = await vscode.window.showWarningMessage(
+                `${field.slice(0, -1)} '${newEntry.name}' already exists in kubeconfig. Do you want to overwrite it?`,
+                'Yes', 'No'
+            );
+            if (overwrite === 'No') {
+                vscode.window.showInformationMessage(`Merge Cancelled.`);
+                return; 
+            }
+        }
+
+        const i = duplicates[field];
+        const newFieldArray = newConfig[field];
+        const existingFieldArray = kubeconfig[field];
+
+        if (!newFieldArray || !newFieldArray[0]) {
             continue;
         }
-        if (!existing) {
-            kubeconfig[section] = toMerge;
-            continue;
+
+        // If the entry already exists, overwrite it
+        if (i !== undefined && existingFieldArray) {
+            existingFieldArray[i] = newFieldArray[0];
+        } else {
+            // Add the new entry, with a newly created array for the kubeconfig if necessary
+            if (!kubeconfig[field]) {
+                kubeconfig[field] = [newFieldArray[0]];
+            } else {
+                kubeconfig[field]!.push(newFieldArray[0]);
+            }
         }
-        await mergeInto(existing, toMerge);
     }
 
     if (!kcfileExists && newConfig.contexts && newConfig.contexts[0]) {
@@ -138,15 +175,4 @@ export async function mergeToKubeconfig(newConfigText: string): Promise<void> {
 
     await refreshExplorer();
     await vscode.window.showInformationMessage(`New configuration merged to ${kcfile}`);
-}
-
-async function mergeInto(existing: Named[], toMerge: Named[]): Promise<void> {
-    for (const toMergeEntry of toMerge) {
-        if (existing.some((e) => e.name === toMergeEntry.name)) {
-            // we have CONFLICT and CONFLICT BUILDS CHARACTER
-            await vscode.window.showWarningMessage(`${toMergeEntry.name} already exists - skipping`);
-            continue;  // TODO: build character
-        }
-        existing.push(toMergeEntry);
-    }
 }
