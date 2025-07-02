@@ -1,5 +1,14 @@
 # Change Log
 
+## [1.3.25]
+
+* Dependabot PRs
+* Use recommended Kubernetes metadata labels in snippets (#1577)
+* Fixing duplicate detection & adding overwrite option (#1564)
+* Adding check & replacement option for invalid active kubeconfig (#1567)
+
+Contributors: Contributions and Reviews to tejhan, bosesuneha, davidgamero, ReinierCC, qpetraroia Thank you all!!
+
 ## [1.3.24]
 
 * Dependabot PRs
