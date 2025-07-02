@@ -8,7 +8,7 @@ import { NODE_TYPES } from './components/clusterexplorer/explorer';
 import { ClusterExplorerNode } from './components/clusterexplorer/node';
 import { HelmHistoryNode } from './components/clusterexplorer/node.helmrelease';
 import { refreshExplorer } from './components/clusterprovider/common/explorer';
-import { getToolPath, suppressHelmNotFound } from './components/config/config';
+import { getToolPath, suppressHelmNotFound, setSuppressHelmNotFound } from './components/config/config';
 import { installDependencies } from './components/installer/installdependencies';
 import { Errorable, failed } from './errorable';
 import { fs as shellfs } from './fs';
@@ -786,25 +786,23 @@ export function ensureHelm(mode: EnsureMode) {
         if (fs.existsSync(configuredBin)) {
             return true;
         }
-        if (mode === EnsureMode.Alert && !suppressHelmNotFound()) {
-            vscode.window.showErrorMessage(`${configuredBin} does not exist!`, "Install dependencies").then((str) =>
-            {
-                if (str === "Install dependencies") {
-                    installDependencies();
-                }
-            });
-        }
-        return false;
+        return handleHelmNotFoundError(mode, `${configuredBin} does not exist!`);
     }
     if (sh.which("helm")) {
         return true;
-    } else {
-    }
-    if (mode === EnsureMode.Alert  && !suppressHelmNotFound()) {
-        vscode.window.showErrorMessage(`Could not find Helm binary.`, "Install dependencies").then((str) =>
+    } 
+    return handleHelmNotFoundError(mode, 'Could not find Helm binay.')
+}
+
+// Displays error message with option to install dependencies or disable Helm checks.
+function handleHelmNotFoundError(mode:EnsureMode, message:string): boolean{ 
+    if (mode === EnsureMode.Alert && !suppressHelmNotFound()) {
+        vscode.window.showErrorMessage(message, "Install dependencies", "Disable Helm checks").then((str) =>
         {
             if (str === "Install dependencies") {
                 installDependencies();
+            } else if (str === "Disable Helm checks") {
+                setSuppressHelmNotFound(true);
             }
         });
     }
