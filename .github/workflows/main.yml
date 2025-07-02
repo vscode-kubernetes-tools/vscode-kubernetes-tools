@@ -5,6 +5,10 @@ jobs:
   build:
     name: release
     runs-on: ubuntu-latest
+    # Expose step outputs as job outputs
+    outputs:
+        currentversion: ${{ steps.package_version.outputs.current-version }}
+        changelog_reader_changes: ${{ steps.changelog_reader.outputs.changes }}
     permissions:
         actions: read
         contents: write
@@ -12,9 +16,9 @@ jobs:
         packages: none
     steps:
     - name: Checkout
-      uses: actions/checkout@v2
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
     - name: Use Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
       with:
         node-version: 20
     # Run install dependencies
@@ -25,21 +29,22 @@ jobs:
       run: npm run compile
     - name: Get current package version
       id: package_version
-      uses: martinbeentjes/npm-get-version-action@v1.1.0
+      uses: martinbeentjes/npm-get-version-action@3cf273023a0dda27efcd3164bdfb51908dd46a5b # v1.3.1
     - name: Check version is mentioned in Changelog
-      uses: mindsers/changelog-reader-action@v2.0.0
+      uses: mindsers/changelog-reader-action@32aa5b4c155d76c94e4ec883a223c947b2f02656 # v2.2.3
+      id: changelog_reader
       with:
         version: ${{ steps.package_version.outputs.current-version }}
         path: 'CHANGELOG.md'
     - name: Create a Release
       id: create_release
-      uses: actions/create-release@v1
+      uses: actions/create-release@0cb9c9b65d5d1901c1f53e5e66eaf4afd303e70e # v1.1.4
       env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         tag_name : ${{ steps.package_version.outputs.current-version}}
         release_name: ${{ steps.package_version.outputs.current-version}}
-        body: Publish ${{ steps.package_version.outputs.current-version}}
+        body: Publish ${{ steps.changelog_reader.outputs.changes }}
     - name: Create vsix and publish to marketplace
       id: create_vsix
       uses: HaaLeo/publish-vscode-extension@v0
