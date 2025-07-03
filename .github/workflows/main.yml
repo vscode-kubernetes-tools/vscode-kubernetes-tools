@@ -5,10 +5,6 @@ jobs:
   build:
     name: release
     runs-on: ubuntu-latest
-    # Expose step outputs as job outputs
-    outputs:
-        currentversion: ${{ steps.package_version.outputs.current-version }}
-        changelog_reader_changes: ${{ steps.changelog_reader.outputs.changes }}
     permissions:
         actions: read
         contents: write
