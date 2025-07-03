@@ -332,6 +332,10 @@ export function suppressHelmNotFound(): boolean {
     return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.suppress-helm-not-found-alerts'];
 }
 
+export function setSuppressHelmNotFound(suppress:boolean):void{
+    setConfigValue('vs-kubernetes.suppress-helm-not-found-alerts', suppress);
+}
+
 export function ignoreK8sRecommendations(): boolean {
     return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.ignore-recommendations'];
 }
