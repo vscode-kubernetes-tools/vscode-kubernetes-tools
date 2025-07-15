@@ -1313,7 +1313,7 @@
         "@types/websocket": "^1.0.10",
         "@types/yamljs": "^0.2.34",
         "@typescript-eslint/eslint-plugin": "^8.36.0",
-        "@typescript-eslint/parser": "^8.35.1",
+        "@typescript-eslint/parser": "^8.37.0",
         "@vscode/vsce": "^3.6.0",
         "eslint": "^9.30.0",
         "eslint-webpack-plugin": "^5.0.2",
