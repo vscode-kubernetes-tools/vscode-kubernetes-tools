@@ -1252,7 +1252,7 @@
         "compile": "npm run compile:ext && npm run compile:view",
         "compile:ext": "webpack --mode none",
         "compile:view": "webpack --mode none --config src/components/logs/webpack.config.js",
-        "watch": "webpack --mode development --watch --info-verbosity verbose",
+        "watch": "webpack --mode development --watch",
         "test-compile": "tsc -p ./",
         "test": "npm run test-compile && node ./out/test/runTest.js",
         "package": "vsce package"
