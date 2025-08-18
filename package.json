@@ -1321,7 +1321,7 @@
         "glob": "^11.0.3",
         "gulp": "^5.0.1",
         "gulp-tslint": "^8.1.4",
-        "html-webpack-plugin": "^5.6.3",
+        "html-webpack-plugin": "^5.6.4",
         "mocha": "^11.7.1",
         "sinon": "^21.0.0",
         "ts-loader": "^9.5.2",
