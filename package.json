@@ -22,7 +22,7 @@
         "gke",
         "aws"
     ],
-    "aiKey": "AIF-d9b70cd4-b9f9-4d70-929b-a071c400b217",
+    "aiKey": "0c6ae279ed8443289764825290e4f9e2-1a736e7c-1324-4338-be46-fc2a58ae4d14-7255",
     "icon": "images/k8s-logo.png",
     "activationEvents": [
         "onLanguage:helm",
@@ -1287,7 +1287,7 @@
         "tar": "^7.4.3",
         "tmp": "^0.2.5",
         "unzipper": "^0.10.14",
-        "vscode-extension-telemetry": "^0.4.5",
+        "@vscode/extension-telemetry": "^1.0.0",
         "vscode-uri": "^3.1.0",
         "yaml-ast-parser": "^0.0.43",
         "yamljs": "^0.3.0"
