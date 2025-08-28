@@ -1,5 +1,19 @@
 # Change Log
 
+## [1.3.26]
+
+* Dependabot PRs
+* Fix the package lock with updated version. (#1635)
+* Removing outdated flag in watch command (#1621)
+* Fix VSC Engine update and audit. (#1609)
+* Fix the issue relating missing content in release. (#1597)
+* Adding option to disable automatic helm checks for non-users (#1596)
+* Updating architecture function to detect properly on darwin (#1594)
+* Removing outdated flag in watch command (#1621)
+
+Contributors: Contributions and Reviews to tejhan, squillace. Thank you all!!
+
+
 ## [1.3.25]
 
 * Dependabot PRs
