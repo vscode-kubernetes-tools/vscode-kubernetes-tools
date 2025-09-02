@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as shell from 'shelljs';
 
 import { getUseWsl } from './components/config/config';
+import { escapeShellArg } from './utils/shell-escape';
 
 export interface Stats {
     isDirectory(): boolean;
@@ -21,7 +22,7 @@ class StatImpl {
 export function statSync(file: string): Stats {
     if (getUseWsl()) {
         const filePath = file.replace(/\\/g, '/');
-        const result = shell.exec(`wsl.exe sh -c "ls -l ${filePath} | grep -v total"`);
+        const result = shell.exec(`wsl.exe sh -c "ls -l ${escapeShellArg(filePath)} | grep -v total"`);
         if (result.code !== 0) {
             if (result.stderr.indexOf('No such file or directory') !== -1) {
                 return new StatImpl('');
@@ -37,7 +38,7 @@ export function statSync(file: string): Stats {
 export function existsSync(file: string): boolean {
     if (getUseWsl()) {
         const filePath = file.replace(/\\/g, '/');
-        const result = shell.exec(`wsl.exe ls ${filePath}`);
+        const result = shell.exec(`wsl.exe ls ${escapeShellArg(filePath)}`);
         return result.code === 0;
     } else {
         return fs.existsSync(file);
@@ -47,7 +48,7 @@ export function existsSync(file: string): boolean {
 export function unlinkSync(file: string) {
     if (getUseWsl()) {
         const filePath = file.replace(/\\/g, '/');
-        const result = shell.exec(`wsl.exe rm -rf ${filePath}`);
+        const result = shell.exec(`wsl.exe rm -rf ${escapeShellArg(filePath)}`);
         if (result.code !== 0) {
             throw new Error(result.stderr);
         }
