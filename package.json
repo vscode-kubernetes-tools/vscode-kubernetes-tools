@@ -1315,7 +1315,7 @@
         "@typescript-eslint/eslint-plugin": "^8.46.0",
         "@typescript-eslint/parser": "^8.44.1",
         "@vscode/vsce": "^3.6.0",
-        "eslint": "^9.36.0",
+        "eslint": "^9.37.0",
         "eslint-webpack-plugin": "^5.0.2",
         "file-loader": "^6.2.0",
         "glob": "^11.0.3",
