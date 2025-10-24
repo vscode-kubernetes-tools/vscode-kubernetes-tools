@@ -791,7 +791,7 @@ export function ensureHelm(mode: EnsureMode) {
     if (sh.which("helm")) {
         return true;
     } 
-    return handleHelmNotFoundError(mode, 'Could not find Helm binay.')
+    return handleHelmNotFoundError(mode, 'Could not find Helm binary.')
 }
 
 // Displays error message with option to install dependencies or disable Helm checks.
