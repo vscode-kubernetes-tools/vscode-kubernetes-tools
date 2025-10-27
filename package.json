@@ -1261,7 +1261,7 @@
         "redhat.vscode-yaml"
     ],
     "dependencies": {
-        "@azure/arm-containerservice": "^22.3.0",
+        "@azure/arm-containerservice": "^23.0.0",
         "@kubernetes/client-node": "^1.4.0",
         "@microsoft/vscode-azext-azureauth": "^5.0.0",
         "@vscode/test-electron": "^2.5.2",
