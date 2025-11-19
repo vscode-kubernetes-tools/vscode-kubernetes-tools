@@ -80,6 +80,7 @@ export enum HelmSyntaxVersion {
     Unknown = 1,
     V2 = 2,
     V3 = 3,
+    V4 = 4,
 }
 
 let cachedVersion: HelmSyntaxVersion | undefined = undefined;
@@ -96,8 +97,14 @@ export async function helmSyntaxVersion(): Promise<HelmSyntaxVersion> {
             cachedVersion = HelmSyntaxVersion.V2;
         } else {
             const srHelm3 = await helmExecAsync(`version --short`);
-            if (srHelm3 && srHelm3.code === 0 && srHelm3.stdout.indexOf('v3') >= 0) {
-                cachedVersion = HelmSyntaxVersion.V3;
+            if (srHelm3 && srHelm3.code === 0) {
+                if (srHelm3.stdout.indexOf('v4') >= 0) {
+                    cachedVersion = HelmSyntaxVersion.V4;
+                } else if (srHelm3.stdout.indexOf('v3') >= 0) {
+                    cachedVersion = HelmSyntaxVersion.V3;
+                } else {
+                    return HelmSyntaxVersion.Unknown;
+                }
             } else {
                 return HelmSyntaxVersion.Unknown;
             }
