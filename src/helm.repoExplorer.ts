@@ -229,8 +229,11 @@ async function listHelmRepos(): Promise<Errorable<HelmRepoImpl[]>> {
 
 async function listHelmRepoCharts(repoName: string): Promise<Errorable<HelmRepoChartImpl[]>> {
     const syntaxVersion = await helm.helmSyntaxVersion();
-    const searchCmd = (syntaxVersion === helm.HelmSyntaxVersion.V3) ? 'search repo' : 'search';
-    const sr = await helm.helmExecAsync(`${searchCmd} ${repoName}/ -l`);
+    // Helm v2 uses 'search', v3+ uses 'search repo'
+    const searchCmd = (syntaxVersion === helm.HelmSyntaxVersion.V3 || syntaxVersion === helm.HelmSyntaxVersion.V4) ? 'search repo' : 'search';
+    // Helm v4 removed the -l shorthand, use --versions instead (both show all chart versions)
+    const versionFlag = (syntaxVersion === helm.HelmSyntaxVersion.V4) ? '--versions' : '-l';
+    const sr = await helm.helmExecAsync(`${searchCmd} ${repoName}/ ${versionFlag}`);
     if (!sr || sr.code !== 0) {
         return { succeeded: false, error: [ sr ? sr.stderr : "Unable to run Helm" ]};
     }
