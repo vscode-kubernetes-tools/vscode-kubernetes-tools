@@ -1,5 +1,19 @@
 # Change Log
 
+## [1.3.27]
+
+* Dependabot PRs
+* Update Vscode engine and package (#1713)
+* Fix js-yaml sec alert. (#1710)
+* Adding helm v4 support for repo chart search (#1712)
+* Explicitly setting font-family for logs webview (#1708)
+* Update VSC package and engine. (#1695)
+* Fix typo in error message for Helm binary check (#1677)
+* Sec fix and VSC Engine update. (#1666)
+* Fix security vulnerability by escaping shell arguments using the standard shell escaping technique. (#1644)
+
+Contributors: Contributions and Reviews to tejhan, squillace, ashu8912 and JohannesKuehnel. Thank you all!!
+
 ## [1.3.26]
 
 * Dependabot PRs
