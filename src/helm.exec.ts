@@ -182,8 +182,34 @@ function helmDepUpCore(path: string) {
 export async function helmCreate(): Promise<void> {
     const createResult = await helmCreateCore("Chart name", "mychart");
 
-    if (createResult && failed(createResult)) {
+    if (!createResult) {
+        return;
+    }
+
+    if (failed(createResult)) {
         vscode.window.showErrorMessage(createResult.error[0]);
+        return;
+    }
+
+    // Show success message and reveal the created chart
+    const chartPath = createResult.result.path;
+    const chartName = createResult.result.name;
+    
+    logger.log(`⎈⎈⎈ Created chart ${chartName} at ${chartPath}`);
+    
+    const action = await vscode.window.showInformationMessage(
+        `Created Helm chart '${chartName}'`,
+        'Open Chart.yaml',
+        'Open Folder'
+    );
+
+    if (action === 'Open Chart.yaml') {
+        const chartYamlPath = filepath.join(chartPath, 'Chart.yaml');
+        const doc = await vscode.workspace.openTextDocument(chartYamlPath);
+        await vscode.window.showTextDocument(doc);
+    } else if (action === 'Open Folder') {
+        const chartUri = vscode.Uri.file(chartPath);
+        await vscode.commands.executeCommand('revealInExplorer', chartUri);
     }
 }
 
