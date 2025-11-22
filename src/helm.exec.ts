@@ -63,7 +63,7 @@ function helmReleaseFromJSON(json: any): HelmRelease {
 
 export async function helmVersion() {
     const syntaxVersion = await helmSyntaxVersion();
-    const versionArgs = (syntaxVersion === HelmSyntaxVersion.V3) ? '' : '-c';
+    const versionArgs = (syntaxVersion === HelmSyntaxVersion.V3 || syntaxVersion === HelmSyntaxVersion.V4) ? '' : '-c';
     const sr = await helmExecAsync(`version ${versionArgs}`);
     if (!sr) {
         vscode.window.showErrorMessage('Failed to run Helm');
