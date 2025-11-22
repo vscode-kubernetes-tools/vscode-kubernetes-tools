@@ -583,7 +583,7 @@ export function pickChart(fn: (chartPath: string) => void) {
     findChartFiles().then((matches) => {
         switch (matches.length) {
             case 0:
-                vscode.window.showErrorMessage("No charts found");
+                vscode.window.showErrorMessage("No Helm charts found in workspace.");
                 return;
             case 1:
                 // Assume that if there is only one chart, that's the one to run.
