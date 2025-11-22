@@ -216,12 +216,12 @@ export async function helmCreateCore(prompt: string, sampleName: string): Promis
 // helmLint runs the Helm linter on a chart within your project.
 export function helmLint() {
     pickChart((path) => {
-        logger.log("⎈⎈⎈ Linting " + path);
+        logger.logAndShow("⎈⎈⎈ Linting " + path);
         helmExec(`lint "${path}"`, (code, out, err) => {
-            logger.log(out);
-            logger.log(err);
+            logger.logAndShow(out);
+            logger.logAndShow(err);
             if (code !== 0) {
-                logger.log("⎈⎈⎈ LINTING FAILED");
+                logger.logAndShow("⎈⎈⎈ LINTING FAILED");
             }
         });
     });
