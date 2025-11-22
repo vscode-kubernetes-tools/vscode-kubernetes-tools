@@ -5,6 +5,7 @@ const HELM_CHANNEL = "Helm";
 
 interface Logger extends vscode.Disposable {
     log(msg: string): void;
+    logAndShow(msg: string): void;
 }
 
 // LoggingConsole provides a log-like facility for sending messages to a shared output channel.
@@ -21,6 +22,11 @@ class LoggingConsole implements Logger {
         if (supressOutput()) {
             this.channel.show(true);
         }
+    }
+    logAndShow(msg: string) {
+        this.channel.append(msg);
+        this.channel.append("\n");
+        this.channel.show(true);
     }
     dispose() {
         this.channel.dispose();
