@@ -242,12 +242,12 @@ export async function helmCreateCore(prompt: string, sampleName: string): Promis
 // helmLint runs the Helm linter on a chart within your project.
 export function helmLint() {
     pickChart((path) => {
-        logger.log("⎈⎈⎈ Linting " + path);
+        logger.logAndShow("⎈⎈⎈ Linting " + path);
         helmExec(`lint "${path}"`, (code, out, err) => {
-            logger.log(out);
-            logger.log(err);
+            logger.logAndShow(out);
+            logger.logAndShow(err);
             if (code !== 0) {
-                logger.log("⎈⎈⎈ LINTING FAILED");
+                logger.logAndShow("⎈⎈⎈ LINTING FAILED");
             }
         });
     });
@@ -609,7 +609,7 @@ export function pickChart(fn: (chartPath: string) => void) {
     findChartFiles().then((matches) => {
         switch (matches.length) {
             case 0:
-                vscode.window.showErrorMessage("No charts found");
+                vscode.window.showErrorMessage("No Helm charts found in workspace.");
                 return;
             case 1:
                 // Assume that if there is only one chart, that's the one to run.
