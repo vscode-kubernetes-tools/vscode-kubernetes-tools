@@ -313,9 +313,11 @@ function helmInspect(arg: any, s: InspectionStrategy) {
 export function helmDryRun() {
     pickChart(async (path) => {
         const syntaxVersion = await helmSyntaxVersion();
-        const generateNameArg = (syntaxVersion === HelmSyntaxVersion.V3) ? '--generate-name' : '';
+        const generateNameArg = (syntaxVersion === HelmSyntaxVersion.V3 || syntaxVersion === HelmSyntaxVersion.V4) ? '--generate-name' : '';
+        // --dry-run is deprecated in Helm v4, use --dry-run=client instead
+        const dryRunArg = (syntaxVersion === HelmSyntaxVersion.V4) ? '--dry-run=client' : '--dry-run';
         logger.log("⎈⎈⎈ Installing (dry-run) " + path);
-        helmExec(`install --dry-run ${generateNameArg} --debug "${path}"`, (code, out, err) => {
+        helmExec(`install ${dryRunArg} ${generateNameArg} --debug "${path}"`, (code, out, err) => {
             logger.log(out);
             logger.log(err);
             if (code !== 0) {
@@ -514,7 +516,7 @@ async function helmInstallCore(kubectl: Kubectl, chartId: string, version: strin
     const ns = await currentNamespace(kubectl);
     const nsArg = ns ? `--namespace ${ns}` : '';
     const versionArg = version ? `--version ${version}` : '';
-    const generateNameArg = (syntaxVersion === HelmSyntaxVersion.V3) ? '--generate-name' : '';
+    const generateNameArg = (syntaxVersion === HelmSyntaxVersion.V3 || syntaxVersion === HelmSyntaxVersion.V4) ? '--generate-name' : '';
     const sr = await helmExecAsync(`install ${chartId} ${versionArg} ${nsArg} ${generateNameArg}`);
     if (!sr || sr.code !== 0) {
         const message = sr ? sr.stderr : "Unable to run Helm";
