@@ -318,10 +318,10 @@ export function helmDryRun() {
         const dryRunArg = (syntaxVersion === HelmSyntaxVersion.V4) ? '--dry-run=client' : '--dry-run';
         logger.log("⎈⎈⎈ Installing (dry-run) " + path);
         helmExec(`install ${dryRunArg} ${generateNameArg} --debug "${path}"`, (code, out, err) => {
-            logger.log(out);
-            logger.log(err);
+            logger.logAndShow(out);
+            logger.logAndShow(err);
             if (code !== 0) {
-                logger.log("⎈⎈⎈ INSTALL FAILED");
+                logger.logAndShow("⎈⎈⎈ INSTALL FAILED");
             }
         });
     });
@@ -517,15 +517,18 @@ async function helmInstallCore(kubectl: Kubectl, chartId: string, version: strin
     const nsArg = ns ? `--namespace ${ns}` : '';
     const versionArg = version ? `--version ${version}` : '';
     const generateNameArg = (syntaxVersion === HelmSyntaxVersion.V3 || syntaxVersion === HelmSyntaxVersion.V4) ? '--generate-name' : '';
-    const sr = await helmExecAsync(`install ${chartId} ${versionArg} ${nsArg} ${generateNameArg}`);
+    logger.log(`⎈⎈⎈ Installing ${chartId}...`);
+    const sr = await host.longRunning(`Installing ${chartId}...`, () =>
+        helmExecAsync(`install ${chartId} ${versionArg} ${nsArg} ${generateNameArg}`)
+    );
     if (!sr || sr.code !== 0) {
         const message = sr ? sr.stderr : "Unable to run Helm";
-        logger.log(message);
+        logger.logAndShow(message);
         await vscode.window.showErrorMessage(`Helm install failed: ${message}`);
         return;
     }
     const releaseName = extractReleaseName(sr.stdout);
-    logger.log(sr.stdout);
+    logger.logAndShow(sr.stdout);
     await vscode.window.showInformationMessage(`Installed ${chartId} as release ${releaseName}`);
 }
 
