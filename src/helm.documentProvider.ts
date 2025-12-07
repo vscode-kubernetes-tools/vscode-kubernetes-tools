@@ -25,9 +25,12 @@ function htmlTag(tag: string, content: string): string {
 
 function render(document: HelmDocumentResult): string {
     const subtitle = document.subtitle ? htmlTag('h2', document.subtitle) : '';
-    const bodyTag = document.isErrorOutput ? 'p' : 'pre';
-    const bodyContent = htmlTag(bodyTag, document.content);
+    // Use <pre> for both error and normal output to preserve formatting and line breaks
+    const bodyContent = htmlTag('pre', document.content);
     return `<body>
+      <style>
+        pre { white-space: pre-wrap; word-wrap: break-word; }
+      </style>
       <h1>${document.title}</h1>
       ${subtitle}
       ${bodyContent}
@@ -188,7 +191,6 @@ export class HelmTemplatePreviewDocumentProvider implements vscode.TextDocumentC
                         chartPath = filepath.dirname(chartPath);
                     }
                     const reltpl = filepath.relative(chartPath, tpl);
-                    const notesarg = (tpl.toLowerCase().endsWith('notes.txt')) ? '--notes' : '';
                     const displayResultAfterCommandExecution = (code: number, out: string, err: any) => {
                         if (code !== 0) {
                             const errorDoc = { title: "Chart Preview", subtitle: "Failed template call", content: err, isErrorOutput: true };
@@ -212,10 +214,12 @@ export class HelmTemplatePreviewDocumentProvider implements vscode.TextDocumentC
                         resolve(render(previewDoc));
                     };
 
-                    if (v === exec.HelmSyntaxVersion.V3) {
-                        exec.helmExec(`template "${chartPath}" --show-only "${reltpl}" ${notesarg}`, displayResultAfterCommandExecution);
+                    if (v === exec.HelmSyntaxVersion.V3 || v === exec.HelmSyntaxVersion.V4) {
+                        // Helm v3/v4: use --show-only to render specific template
+                        exec.helmExec(`template "${chartPath}" --show-only "${reltpl}"`, displayResultAfterCommandExecution);
                     } else {
-                        exec.helmExec(`template "${chartPath}" --execute "${reltpl}" ${notesarg}`, displayResultAfterCommandExecution);
+                        // Helm v2: use --execute flag
+                        exec.helmExec(`template "${chartPath}" --execute "${reltpl}"`, displayResultAfterCommandExecution);
                     }
                 });
             });
