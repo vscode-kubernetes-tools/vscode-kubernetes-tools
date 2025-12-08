@@ -63,6 +63,7 @@ export class HelmInspectDocumentProvider implements vscode.TextDocumentContentPr
                     return;
                 }
                 console.log(`Inspect failed: ${out} ${err}`);
+                vscode.window.showErrorMessage(`Helm inspect failed: ${err || out}`);
                 reject(err);
             };
 
