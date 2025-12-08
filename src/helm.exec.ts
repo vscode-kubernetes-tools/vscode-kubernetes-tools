@@ -364,7 +364,7 @@ export function helmUninstall(resourceNode?: ClusterExplorerNode) {
                     logger.log(sr?.stderr || "");
                     if (!sr || sr.code !== 0) {
                         logger.log("⎈⎈⎈ UNINSTALL FAILED");
-                        vscode.window.showErrorMessage(`Error uninstalling ${releaseName} ${sr?.stderr || ""}`);
+                        vscode.window.showErrorMessage(`Error uninstalling ${releaseName}: ${sr?.stderr || ""}`);
                     } else {
                         vscode.window.showInformationMessage(`Release ${releaseName} successfully uninstalled.`);
                         refreshExplorer();
@@ -407,12 +407,11 @@ export async function helmRollback(resourceNode?: HelmHistoryNode) {
                 helmExecAsync(`rollback ${releaseName} ${release.revision} --cleanup-on-fail`).then((sr) => {
                     logger.log(sr?.stdout || "");
                     logger.log(sr?.stderr || "");
-                    if (sr && sr.stdout !== "") {
+                    if (!sr || sr.code !== 0) {
+                        vscode.window.showErrorMessage(`Error rolling back to ${release.revision} for ${releaseName}: ${sr?.stderr || ""}`);
+                    } else {
                         vscode.window.showInformationMessage(`Release ${releaseName} successfully rolled back to ${release.revision}.`);
                         refreshExplorer();
-                    }
-                    if (!sr || sr.code !== 0) {
-                        vscode.window.showErrorMessage(`Error rolling back to ${release.revision} for ${releaseName} ${sr?.stderr || ""}`);
                     }
                 })
             );
