@@ -438,6 +438,11 @@
                     "when": "resourceLangId == yaml",
                     "command": "extension.helmConvertToTemplate",
                     "group": "2_helm@98"
+                },
+                {
+                    "when": "resourceExtname == .tgz",
+                    "command": "extension.helmInspectChart",
+                    "group": "2_helm@1"
                 }
             ],
             "view/title": [
