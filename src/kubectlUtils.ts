@@ -85,6 +85,25 @@ async function getKubeconfig(kubectl: Kubectl, options: ConfigReadOptions): Prom
         }
         return null;
     }
+    // Sort clusters alphanumerically by name, then reorder contexts and users to match
+    const { clusters, contexts, users } = config.result || {};
+    if (clusters?.length) {
+        clusters.sort((a: any, b: any) => 
+            a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+        );
+        if (contexts?.length) {
+            const clusterIdx = new Map<string, number>(clusters.map((c: any, i: number) => [c.name, i]));
+            contexts.sort((a: any, b: any) => 
+                (clusterIdx.get(a.context.cluster) ?? Number.MAX_SAFE_INTEGER) - (clusterIdx.get(b.context.cluster) ?? Number.MAX_SAFE_INTEGER)
+            );
+            if (users?.length) {
+                const contextIdx = new Map<string, number>(contexts.map((c: any, i: number) => [c.context.user, i]));
+                users.sort((a: any, b: any) => 
+                    (contextIdx.get(a.name) ?? Number.MAX_SAFE_INTEGER) - (contextIdx.get(b.name) ?? Number.MAX_SAFE_INTEGER)
+                );
+            }
+        }
+    }
     return config.result;
 }
 
@@ -569,3 +588,4 @@ export async function getResourceVersion(kubectl: Kubectl, resource: string): Pr
 
     return undefined;
 }
+
