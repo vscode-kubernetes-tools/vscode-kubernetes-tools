@@ -1309,7 +1309,7 @@
         "@types/pluralize": "^0.0.33",
         "@types/request": "^2.48.13",
         "@types/semver": "^7.7.1",
-        "@types/shelljs": "^0.8.17",
+        "@types/shelljs": "^0.10.0",
         "@types/sinon": "^21.0.0",
         "@types/tar": "^6.1.13",
         "@types/tmp": "^0.2.6",
