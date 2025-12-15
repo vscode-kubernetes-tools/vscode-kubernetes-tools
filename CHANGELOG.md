@@ -1,5 +1,18 @@
 # Change Log
 
+
+## [1.3.28]
+
+* Dependabot PRs
+* Fixing helm install & dry-run for v4 (#1728)
+* Adding progress indicator for helm install & auto-show output (#1729)
+* Fixing Helm: Preview Template for v4 & error output formatting (#1731)
+* UX & feedback improvements for long-running Helm Commands (#1732)
+* Enabling Helm: Inspect Chart on .tgz files (#1736)
+* docs: add missing commands & clarify invocation contexts (#1739)
+
+Contributors: Contributions and Reviews from tejhan, ashu8912. Thank you all!!
+
 ## [1.3.27]
 
 * Dependabot PRs
