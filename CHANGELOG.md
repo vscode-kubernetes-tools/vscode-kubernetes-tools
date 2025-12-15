@@ -11,7 +11,7 @@
 * Enabling Helm: Inspect Chart on .tgz files (#1736)
 * docs: add missing commands & clarify invocation contexts (#1739)
 
-Contributors: Contributions and Reviews to tejhan, ashu8912. Thank you all!!
+Contributors: Contributions and Reviews from tejhan, ashu8912. Thank you all!!
 
 ## [1.3.27]
 
