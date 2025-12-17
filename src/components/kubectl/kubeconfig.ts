@@ -43,11 +43,17 @@ export async function loadKubeconfig(): Promise<any> {
         }
         // Load the first file
         kubeconfig.loadFromFile(paths[0]);
+        // Preserve the current context from the first file (mergeConfig overwrites it)
+        const currentContext = kubeconfig.getCurrentContext();
         // Merge any additional files
         for (let i = 1; i < paths.length; i++) {
             const kc = new kubernetes.KubeConfig();
             kc.loadFromFile(paths[i]);
             kubeconfig.mergeConfig(kc);
+        }
+        // Restore the original current context
+        if (currentContext) {
+            kubeconfig.setCurrentContext(currentContext);
         }
     } else if (kubeconfigPath.pathType === 'wsl') {
         const result = shelljs.exec(`wsl.exe sh -c "cat ${kubeconfigPath.wslPath}"`, { silent: true }) as shelljs.ExecOutputReturnValue;
