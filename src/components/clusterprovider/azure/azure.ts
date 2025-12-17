@@ -1,5 +1,6 @@
 'use strict';
 
+import * as path from 'path';
 import { Shell } from '../../../shell';
 import { FS } from '../../../fs';
 import { ActionResult, fromShellJson, fromShellExitCodeAndStandardError, fromShellExitCodeOnly, Diagnostic } from '../../../wizard';
@@ -329,7 +330,9 @@ async function downloadKubectlCli(context: Context): Promise<any> {
 
 async function getCredentials(context: Context, clusterName: string, clusterGroup: string, maxAttempts: number): Promise<any> {
     const kubeconfigPath = getKubeconfigPath();
-    const kubeconfigFilePath = kubeconfigPath.pathType === "host" ? kubeconfigPath.hostPath : kubeconfigPath.wslPath;
+    const fullPath = kubeconfigPath.pathType === "host" ? kubeconfigPath.hostPath : kubeconfigPath.wslPath;
+    // For multi-path KUBECONFIG, split and use the first path to write new credentials 
+    const kubeconfigFilePath = fullPath ? fullPath.split(path.delimiter)[0] : undefined;
     const kubeconfigFileOption = kubeconfigFilePath ? `-f "${kubeconfigFilePath}"` : '';
     let attempts = 0;
     while (true) {

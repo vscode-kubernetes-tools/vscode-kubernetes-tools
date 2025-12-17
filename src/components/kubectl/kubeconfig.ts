@@ -36,7 +36,19 @@ export async function loadKubeconfig(): Promise<any> {
     const kubeconfigPath = getKubeconfigPath();
 
     if (kubeconfigPath.pathType === 'host') {
-        kubeconfig.loadFromFile(kubeconfigPath.hostPath);
+        // For multi-path KUBECONFIG, split & load sequentially
+        const paths = kubeconfigPath.hostPath.split(path.delimiter).filter((p) => p.length > 0);
+        if (paths.length === 0) {
+            throw new Error('No kubeconfig paths specified');
+        }
+        // Load the first file
+        kubeconfig.loadFromFile(paths[0]);
+        // Merge any additional files
+        for (let i = 1; i < paths.length; i++) {
+            const kc = new kubernetes.KubeConfig();
+            kc.loadFromFile(paths[i]);
+            kubeconfig.mergeConfig(kc);
+        }
     } else if (kubeconfigPath.pathType === 'wsl') {
         const result = shelljs.exec(`wsl.exe sh -c "cat ${kubeconfigPath.wslPath}"`, { silent: true }) as shelljs.ExecOutputReturnValue;
         if (!result) {
@@ -99,7 +111,8 @@ export async function mergeToKubeconfig(newConfigText: string): Promise<void> {
         return;
     }
 
-    const kcfile = kubeconfigPath.hostPath;
+    // For multi-path KUBECONFIG, use the first path (where new config should be merged)
+    const kcfile = kubeconfigPath.hostPath.split(path.delimiter)[0];
     const kcfileExists = await fs.existsAsync(kcfile);
 
     const kubeconfigText = kcfileExists ? await fs.readTextFile(kcfile) : '';
