@@ -814,13 +814,31 @@ async function getKubernetes(explorerNode?: any) {
 function addWatch(tree: explorer.KubernetesExplorer, explorerNode?: ClusterExplorerNode) {
     if (explorerNode) {
         tree.watch(explorerNode);
+        const displayName = getWatchDisplayName(explorerNode);
+        if (displayName) {
+            vscode.window.showInformationMessage(`Watching ${displayName}`);
+        }
     }
 }
 
 function deleteWatch(tree: explorer.KubernetesExplorer, explorerNode?: ClusterExplorerNode) {
     if (explorerNode) {
         tree.stopWatching(explorerNode);
+        const displayName = getWatchDisplayName(explorerNode);
+        if (displayName) {
+            vscode.window.showInformationMessage(`Stopped watching ${displayName}`);
+        }
     }
+}
+
+// Get a properly pluralized name for the watched resource
+function getWatchDisplayName(node: ClusterExplorerNode): string | undefined {
+    if (node.nodeType === 'folder.resource') {
+        return node.kind.pluralDisplayName;
+    } else if (node.nodeType === 'resource') {
+        return node.kindName;
+    }
+    return undefined;
 }
 
 function findVersion() {
