@@ -111,53 +111,94 @@ export async function mergeToKubeconfig(newConfigText: string): Promise<void> {
         vscode.window.showErrorMessage("Error fetching kubeconfig.");
         return;
     }
-    
-    let fields = ['clusters', 'users', 'contexts'] as (keyof Omit<Config, "current-context">)[];
-    const duplicates: Record<string, number> = {};
 
-    // iterate over fields and check for duplicates, merging or overwriting as necessary
+    // Check for duplicate cluster / user / context names
+    const newCluster = newConfig.clusters?.[0];
+    const newUser = newConfig.users?.[0];
+    const newContext = newConfig.contexts?.[0];
+
+    const clusterExists = newCluster && kubeconfig.clusters?.some((c) => c.name === newCluster.name);
+    const userExists = newUser && kubeconfig.users?.some((u) => u.name === newUser.name);
+    const contextExists = newContext && kubeconfig.contexts?.some((c) => c.name === newContext.name);
+
+    const hasDuplicates = clusterExists || userExists || contextExists;
+
+    let renameWithSuffix = false;
+
+    // Prompt user if duplicates are found
+    if (hasDuplicates) {
+        const duplicateNames = [
+            clusterExists ? `cluster '${newCluster?.name}'` : null,
+            userExists ? `user '${newUser?.name}'` : null,
+            contextExists ? `context '${newContext?.name}'` : null
+        ].filter(Boolean).join(', ');
+
+        const choice = await vscode.window.showWarningMessage(
+            `${duplicateNames} already exist in kubeconfig. What would you like to do?`,
+            'Overwrite', 'Keep Both', 'Cancel'
+        );
+
+        if (choice === 'Cancel' || !choice) {
+            vscode.window.showInformationMessage('Merge cancelled.');
+            return;
+        }
+        renameWithSuffix = choice === 'Keep Both';
+    }
+
+    // Apply suffix to new entry names if keeping both
+    if (renameWithSuffix && newCluster && newUser && newContext) {
+        // Helper to find next available counter (2, 3, 4, ...)
+        const findNextCounter = (baseName: string) => {
+            let counter = 2;
+            while (kubeconfig.clusters?.some((c) => c.name === `${baseName} (${counter})`)) {
+                counter++;
+            }
+            return counter;
+        };
+
+        let suffix: string;
+        // Extract suffix from AKS user name pattern: clusterUser_resourceGroup_clusterName -> resourceGroup
+        const match = newUser.name.match(/^clusterUser_([^_]+)_/);
+        if (match) {
+            const baseSuffix = match[1];
+            const candidateName = `${newCluster.name} (${baseSuffix})`;
+            // If name with same resource group suffix exists, add a counter
+            suffix = kubeconfig.clusters?.some((c) => c.name === candidateName)
+                ? ` (${baseSuffix}) (${findNextCounter(candidateName)})`
+                : ` (${baseSuffix})`;
+        } else {
+            // Non-AKS: just add counter
+            suffix = ` (${findNextCounter(newCluster.name)})`;
+        }
+
+        (newCluster as any).name += suffix;
+        (newUser as any).name += suffix;
+        (newContext as any).name += suffix;
+        // Update context references to renamed cluster & user
+        const ctx = (newContext as any).context;
+        if (ctx) {
+            ctx.cluster = newCluster.name;
+            ctx.user = newUser.name;
+        }
+    }
+
+    // Merge entries
+    const fields = ['clusters', 'users', 'contexts'] as (keyof Omit<Config, "current-context">)[];
     for (const field of fields) {
         const newEntry = newConfig[field]?.[0];
         if (!newEntry) continue;
 
-        const existingIndex = kubeconfig[field]?.findIndex((entry: any) => entry.name === newEntry.name);
-
-        // If the entry already exists, ask the user if they want to overwrite it
-        if (existingIndex !== undefined && existingIndex !== -1) {
-            duplicates[field] = existingIndex;
-            const overwrite = await vscode.window.showWarningMessage(
-                `${field.slice(0, -1)} '${newEntry.name}' already exists in kubeconfig. Do you want to overwrite it?`,
-                'Yes', 'No'
-            );
-            if (overwrite === 'No') {
-                vscode.window.showInformationMessage(`Merge Cancelled.`);
-                return; 
-            }
-        }
-
-        const i = duplicates[field];
-        const newFieldArray = newConfig[field];
-        const existingFieldArray = kubeconfig[field];
-
-        if (!newFieldArray || !newFieldArray[0]) {
-            continue;
-        }
-
-        // If the entry already exists, overwrite it
-        if (i !== undefined && existingFieldArray) {
-            existingFieldArray[i] = newFieldArray[0];
+        const arr = kubeconfig[field] ??= [];
+        const existingIndex = arr.findIndex((entry: any) => entry.name === newEntry.name);
+        if (existingIndex >= 0) {
+            arr[existingIndex] = newEntry;
         } else {
-            // Add the new entry, with a newly created array for the kubeconfig if necessary
-            if (!kubeconfig[field]) {
-                kubeconfig[field] = [newFieldArray[0]];
-            } else {
-                kubeconfig[field]!.push(newFieldArray[0]);
-            }
+            arr.push(newEntry);
         }
     }
 
-    if (!kcfileExists && newConfig.contexts && newConfig.contexts[0]) {
-        kubeconfig['current-context'] = newConfig.contexts[0].name;
+    if (!kcfileExists && newContext) {
+        kubeconfig['current-context'] = newContext.name;
     }
 
     const merged = yaml.dump(kubeconfig, { lineWidth: 1000000, noArrayIndent: true });
