@@ -67,6 +67,7 @@ import { KubernetesResourceLinkProvider } from './kuberesources.linkprovider';
 import { Container, isKubernetesResource, KubernetesCollection, Pod, KubernetesResource } from './kuberesources.objectmodel';
 import { setActiveKubeconfig, getKnownKubeconfigs, addKnownKubeconfig } from './components/config/config';
 import { HelmDocumentSymbolProvider } from './helm.symbolProvider';
+import { HelmBlockMatchingProvider } from './helm.blockMatchingProvider';
 import { findParentYaml } from './yaml-support/yaml-navigation';
 import { linters } from './components/lint/linters';
 import { timestampText } from './utils/naming';
@@ -280,6 +281,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
 
         // Symbol providers
         vscode.languages.registerDocumentSymbolProvider({ language: 'helm' }, helmSymbolProvider),
+
+        // Block matching providers (highlights matching if/range/with/define and end tags)
+        vscode.languages.registerDocumentHighlightProvider(HELM_MODE, new HelmBlockMatchingProvider()),
 
         // Hover providers
         vscode.languages.registerHoverProvider(
