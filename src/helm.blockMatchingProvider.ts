@@ -29,23 +29,24 @@ export class HelmBlockMatchingProvider implements vscode.DocumentHighlightProvid
         const keyword = currentTag.keyword;
         
         if (keyword === 'end') {
-            // Find the matching opening tag by walking backwards with nesting awareness
+            // Find the matching opening tag and highlight all related tags
             const matchingOpener = this.findMatchingOpener(tags, currentTag);
             if (matchingOpener) {
-                return this.createHighlights(document, [matchingOpener, currentTag]);
+                const blockTags = this.findBlockTags(tags, matchingOpener);
+                return this.createHighlights(document, blockTags);
             }
-        } else if (keyword === 'else' || keyword.startsWith('else')) {
-            // For else/else if, highlight the opening if and the end
-            const { opener, closer } = this.findBlockBoundaries(tags, currentTag);
-            const highlights: TagInfo[] = [currentTag];
-            if (opener) { highlights.unshift(opener); }
-            if (closer) { highlights.push(closer); }
-            return this.createHighlights(document, highlights);
+        } else if (keyword === 'else' || keyword === 'elseif') {
+            // For else/else if, find the opening tag and highlight all related tags
+            const opener = this.findMatchingOpener(tags, currentTag);
+            if (opener) {
+                const blockTags = this.findBlockTags(tags, opener);
+                return this.createHighlights(document, blockTags);
+            }
         } else if (HelmBlockMatchingProvider.OPENING_KEYWORDS.includes(keyword)) {
-            // Find the matching end tag
-            const matchingEnd = this.findMatchingEnd(tags, currentTag);
-            if (matchingEnd) {
-                return this.createHighlights(document, [currentTag, matchingEnd]);
+            // Find the matching end tag and any intermediate else/elseif tags
+            const blockTags = this.findBlockTags(tags, currentTag);
+            if (blockTags.length > 0) {
+                return this.createHighlights(document, blockTags);
             }
         }
         
@@ -74,8 +75,12 @@ export class HelmBlockMatchingProvider implements vscode.DocumentHighlightProvid
         return tags;
     }
     
-    private findMatchingEnd(tags: TagInfo[], opener: TagInfo): TagInfo | null {
+    /**
+     * Find all tags in a block: opener, any intermediate else/elseif, and end.
+     */
+    private findBlockTags(tags: TagInfo[], opener: TagInfo): TagInfo[] {
         const openerIndex = tags.indexOf(opener);
+        const blockTags: TagInfo[] = [opener];
         let depth = 1;
         
         for (let i = openerIndex + 1; i < tags.length; i++) {
@@ -85,13 +90,16 @@ export class HelmBlockMatchingProvider implements vscode.DocumentHighlightProvid
             } else if (tag.keyword === 'end') {
                 depth--;
                 if (depth === 0) {
-                    return tag;
+                    blockTags.push(tag);
+                    return blockTags;
                 }
+            } else if ((tag.keyword === 'else' || tag.keyword === 'elseif') && depth === 1) {
+                // Only include else/elseif at the same nesting level
+                blockTags.push(tag);
             }
-            // else/elseif don't affect depth, they're at the same level
         }
         
-        return null;
+        return blockTags;
     }
     
     private findMatchingOpener(tags: TagInfo[], closer: TagInfo): TagInfo | null {
@@ -112,44 +120,6 @@ export class HelmBlockMatchingProvider implements vscode.DocumentHighlightProvid
         }
         
         return null;
-    }
-    
-    private findBlockBoundaries(tags: TagInfo[], elseTag: TagInfo): { opener: TagInfo | null, closer: TagInfo | null } {
-        const elseIndex = tags.indexOf(elseTag);
-        
-        // Find opener by going backwards
-        let depth = 1;
-        let opener: TagInfo | null = null;
-        for (let i = elseIndex - 1; i >= 0; i--) {
-            const tag = tags[i];
-            if (tag.keyword === 'end') {
-                depth++;
-            } else if (HelmBlockMatchingProvider.OPENING_KEYWORDS.includes(tag.keyword)) {
-                depth--;
-                if (depth === 0) {
-                    opener = tag;
-                    break;
-                }
-            }
-        }
-        
-        // Find closer by going forwards
-        depth = 1;
-        let closer: TagInfo | null = null;
-        for (let i = elseIndex + 1; i < tags.length; i++) {
-            const tag = tags[i];
-            if (HelmBlockMatchingProvider.OPENING_KEYWORDS.includes(tag.keyword)) {
-                depth++;
-            } else if (tag.keyword === 'end') {
-                depth--;
-                if (depth === 0) {
-                    closer = tag;
-                    break;
-                }
-            }
-        }
-        
-        return { opener, closer };
     }
     
     private createHighlights(document: vscode.TextDocument, tags: TagInfo[]): vscode.DocumentHighlight[] {
