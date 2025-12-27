@@ -78,16 +78,19 @@ async function downloadKubectlVersion(shell: Shell, host: Host, serverVersion: s
     const os = platformUrlString(shell.platform())!;
     const arch = platformArch(os);
     const binFile = (shell.isUnix()) ? 'kubectl' : 'kubectl.exe';
-    const kubectlUrl = `https://storage.googleapis.com/kubernetes-release/release/${serverVersion}/bin/${os}/${arch}/${binFile}`;
+    const kubectlUrl = `https://dl.k8s.io/release/${serverVersion}/bin/${os}/${arch}/${binFile}`;
     // TODO: this feels a bit ugly and over-complicated - should perhaps be up to download.once to manage
     // showing the progress UI so we don't need all the operationKey mess
     const downloadResult = await host.longRunning({ title: `Downloading kubectl ${serverVersion}`, operationKey: binPath }, () =>
         download.once(kubectlUrl, binPath)
     );
+    if (!succeeded(downloadResult)) {
+        return false;
+    }
     if (shell.isUnix()) {
         await fs.chmod(binPath, '0755');
     }
-    return succeeded(downloadResult);
+    return true;
 }
 
 function kubectlVersionPath(shell: Shell, serverVersion: string): string | undefined {
@@ -117,7 +120,16 @@ async function getKubeconfigPathHash(): Promise<string | undefined> {
 
     // TODO: fs.existsAsync looks in the host filesystem, even in the case of a WSL path. This needs fixing to handle
     // WSL paths properly.
-    if (!await fs.existsAsync(kubeconfigFilePath)) {
+    // For multi-path KUBECONFIG, split and check for path existence
+    const paths = kubeconfigFilePath.split(path.delimiter).filter((p) => p.length > 0);
+    let anyExists = false;
+    for (const p of paths) {
+        if (await fs.existsAsync(p)) {
+            anyExists = true;
+            break;
+        }
+    }
+    if (!anyExists) {
         return undefined;
     }
     const kubeconfigHashText = crypto.createHash('sha256').update(Buffer.from(kubeconfigFilePath)).digest('hex');
