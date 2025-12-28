@@ -279,6 +279,17 @@ export async function invokeTracking(context: Context, args: string[]): Promise<
                 linesSubject.next(line);
             }
         });
+        childProcess.on('error', (err: Error) => {
+            linesSubject.error(err);
+        });
+        childProcess.on('close', (code: number | null, signal: NodeJS.Signals | null) => {
+            if (code === 0) {
+                linesSubject.complete();
+            } else {
+                const message = `Process "${bin}" exited with code ${code}${signal ? ` (signal: ${signal})` : ''}`;
+                linesSubject.error(new Error(message));
+            }
+        });
         disposer = () => childProcess.kill();
     } else {
         linesSubject.error({ resultKind: 'exec-bin-not-found', execProgram: context.binary, command: args.join(' '), findResult: fbr });
