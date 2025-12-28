@@ -270,8 +270,9 @@ export async function invokeTracking(context: Context, args: string[]): Promise<
 
         let pending = '';
         const childProcess = spawnChildProcess(bin, args, execOpts);
-        childProcess.stdout.on('data', (chunk: string) => {
-            const todo = pending + chunk;
+        childProcess.stdout.on('data', (chunk: Buffer) => {
+            const chunkText = chunk.toString('utf8');
+            const todo = pending + chunkText;
             const lines = todo.split('\n').map((l) => l.trim());
             const lastIsWholeLine = todo.endsWith('\n');
             pending = lastIsWholeLine ? '' : lines.pop()!;
