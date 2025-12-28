@@ -1,5 +1,4 @@
 import * as rx from 'rxjs';
-import * as spawnrx from 'spawn-rx';
 import { ChildProcess, spawn as spawnChildProcess } from "child_process";
 import { Host } from './host';
 import { FS } from './fs';
@@ -270,8 +269,8 @@ export async function invokeTracking(context: Context, args: string[]): Promise<
         const execOpts = context.shell.execOpts();
 
         let pending = '';
-        const stdout = spawnrx.spawn(bin, args, execOpts);
-        const sub = stdout.subscribe((chunk) => {
+        const childProcess = spawnChildProcess(bin, args, execOpts);
+        childProcess.stdout.on('data', (chunk: string) => {
             const todo = pending + chunk;
             const lines = todo.split('\n').map((l) => l.trim());
             const lastIsWholeLine = todo.endsWith('\n');
@@ -280,7 +279,7 @@ export async function invokeTracking(context: Context, args: string[]): Promise<
                 linesSubject.next(line);
             }
         });
-        disposer = () => sub.unsubscribe();
+        disposer = () => childProcess.kill();
     } else {
         linesSubject.error({ resultKind: 'exec-bin-not-found', execProgram: context.binary, command: args.join(' '), findResult: fbr });
     }
