@@ -375,7 +375,8 @@ export async function switchNamespace(kubectl: Kubectl, namespace: string): Prom
         vscode.window.showErrorMessage("Switch namespace failed. See Output window for more details.");
         return false;
     }
-    const updateResult = await kubectl.invokeCommandWithFeedback(`config set-context ${er.stdout.trim()} --namespace="${namespace}"`,
+    const updateResult = await kubectl.invokeCommandWithFeedback(`config set-context "${er.stdout.trim()}" --namespace="${namespace}"`,
+
         "Switching namespace...");
     if (ExecResult.failed(updateResult)) {
         kubeChannel.showOutput(ExecResult.failureMessage(updateResult, { whatFailed: `Failed to switch the namespace` }), `Switch namespace ${namespace}`);
