@@ -36,7 +36,7 @@ export async function installKubectl(shell: Shell): Promise<Errorable<null>> {
     const installFolder = getInstallFolder(shell, tool);
     mkdirp.sync(installFolder);
 
-    const kubectlUrl = `https://storage.googleapis.com/kubernetes-release/release/${version.result.trim()}/bin/${os}/${arch}/${binFile}`;
+    const kubectlUrl = `https://dl.k8s.io/release/${version.result.trim()}/bin/${os}/${arch}/${binFile}`;
     const downloadFile = path.join(installFolder, binFile);
     const downloadResult = await download.to(kubectlUrl, downloadFile);
     if (failed(downloadResult)) {
@@ -62,7 +62,7 @@ async function getStableMinikubeVersion(): Promise<Errorable<string>> {
 }
 
 async function getStableKubectlVersion(): Promise<Errorable<string>> {
-    const downloadResult = await download.toTempFile('https://storage.googleapis.com/kubernetes-release/release/stable.txt');
+    const downloadResult = await download.toTempFile('https://dl.k8s.io/release/stable.txt');
     if (failed(downloadResult)) {
         return { succeeded: false, error: [`Failed to establish kubectl stable version: ${downloadResult.error[0]}`] };
     }
