@@ -1,5 +1,16 @@
 # Change Log
 
+## [1.3.29]
+
+* Dependabot PRs
+* Fix: Handling multi-path KUBECONFIG and updating kubectl download URLs (#1755)
+* Remove spawn-rx dependency and replace with native Node.js implementation (#1770)
+* Highlight matching end tags (#1762)
+* Update vscode engine and package. (#1763)
+* Adding user feedback for watch/unwatch commands (#1756)
+* Add dependabot update for GH Actions. (#1742)
+
+Contributors: Happy New Year folks!! Contributions and Reviews from fanny-jiang, tejhan, ashu8912. Thank you all!!
 
 ## [1.3.28]
 
