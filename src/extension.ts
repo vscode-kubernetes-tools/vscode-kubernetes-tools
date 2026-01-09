@@ -24,7 +24,7 @@ import * as explainer from './explainer';
 import { shell } from './shell';
 import * as configmaps from './configMap';
 import * as kuberesources from './kuberesources';
-import { useNamespaceKubernetes } from './components/kubectl/namespace';
+import { useNamespaceKubernetes, showAccessibleNamespacesOnly } from './components/kubectl/namespace';
 import { EventDisplayMode, getEvents } from './components/kubectl/events';
 import * as docker from './docker';
 import { kubeChannel } from './kubeChannel';
@@ -215,6 +215,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.vsKubernetesClusterInfo', clusterInfoKubernetes),
         registerCommand('extension.vsKubernetesDeleteContext', deleteContextKubernetes),
         registerCommand('extension.vsKubernetesUseNamespace', (explorerNode: ClusterExplorerNode) => { useNamespaceKubernetes(kubectl, explorerNode); } ),
+        registerCommand('extension.vsKubernetesShowAccessibleNamespaces', (explorerNode: ClusterExplorerNode) => { showAccessibleNamespacesOnly(kubectl, treeProvider, explorerNode); }),
         registerCommand('extension.vsKubernetesDashboard', () => { dashboardKubernetes(kubectl); }),
         registerCommand('extension.vsKubernetesAddWatch', (explorerNode: ClusterExplorerNode) => { addWatch(treeProvider, explorerNode); }),
         registerCommand('extension.vsKubernetesDeleteWatch', (explorerNode: ClusterExplorerNode) => { deleteWatch(treeProvider, explorerNode); }),
