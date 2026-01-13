@@ -166,7 +166,7 @@ async function inferCurrentClusterType(kubectl: Kubectl): Promise<[ClusterType, 
     }
 
     if (latestContextName) {
-        const gcer = await kubectl.invokeCommand(`config get-contexts ${latestContextName}`);
+        const gcer = await kubectl.invokeCommand(`config get-contexts "${latestContextName}"`);
         if (gcer.resultKind === 'exec-succeeded') {
             if (gcer.stdout.indexOf('minikube') >= 0) {
                 return [ClusterType.Minikube, NonDeterminationReason.None];  // It's pretty heuristic, so don't spend time parsing the table
