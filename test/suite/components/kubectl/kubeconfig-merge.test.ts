@@ -24,7 +24,7 @@ function stubWarningMessage(sandbox: sinon.SinonSandbox, response: string | unde
  * - Multi-path KUBECONFIG handling (uses first path)
  */
 
-suite("mergeToKubeconfig", () => {
+suite("Kubeconfig Merge", () => {
     let sandbox: sinon.SinonSandbox;
     let tempDir: string;
     let originalKubeconfig: string | undefined;
