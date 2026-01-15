@@ -60,6 +60,6 @@ function isCacheExpired(expiration: string | undefined): boolean {
 }
 
 export function isValidDate(date: string): boolean {
-    const dateformat = moment(date);
+    const dateformat = moment(date, [moment.ISO_8601, moment.RFC_2822], true);
     return dateformat.isValid();
 }
