@@ -4,6 +4,38 @@ All members of the Open Source Community are welcome to contribute to this proje
 
 When you submit a pull request, a CLA-bot will automatically determine whether you need to provide a CLA and decorate the PR appropriately (e.g., label, comment). Simply follow the instructions provided by the bot. You will only need to do this once across all repos using our CLA.
 
+## Reporting Issues
+
+We welcome feedback from the community. Whether you've encountered a bug, have a feature request, or discovered a security vulnerability, we want to hear from you.
+
+### Before You Submit
+
+Before creating a new issue, please search the [existing issues](https://github.com/vscode-kubernetes-tools/vscode-kubernetes-tools/issues) to check if your bug or feature request has already been reported. If it has, feel free to add a comment or upvote (👍) to help us prioritize.
+
+### Bug Reports
+
+If you've found a bug, please [open an issue](https://github.com/vscode-kubernetes-tools/vscode-kubernetes-tools/issues/new) and include the following information to help us investigate:
+
+- **Description:** A clear and concise description of the unexpected behavior
+- **Steps to reproduce:** Detailed steps that reliably reproduce the issue
+- **Expected behavior:** What you expected to happen
+- **Environment:**
+  - VS Code version (e.g., `1.107.0`)
+  - Extension version (e.g., `1.3.29`)
+  - Operating system (e.g., Windows 11, macOS Sonoma, Ubuntu 22.04)
+  - Kubernetes/kubectl version (if relevant)
+- **Screenshots or logs:** If applicable, include screenshots or relevant error output
+
+### Feature Requests
+
+Have an idea for improving the extension? We'd love to hear it. Please [open an issue](https://github.com/vscode-kubernetes-tools/vscode-kubernetes-tools/issues/new) describing your use case and the proposed enhancement.
+
+### Security Vulnerabilities
+
+**⚠️ Plase do not report security vulnerabilities through public GitHub issues.**
+
+If you discover a security vulnerability, please follow the responsible disclosure process outlined in our [SECURITY.md](SECURITY.md) file.
+
 ## Code of Conduct
 
 See [Code of Conduct](CODE_OF_CONDUCT.md) for the standards by which we ask community members
