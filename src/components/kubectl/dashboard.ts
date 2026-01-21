@@ -2,8 +2,6 @@
 
 import * as vscode from 'vscode';
 import * as browser from '../platform/browser';
-
-import { createReadStream } from 'fs';
 import { resolve } from 'path';
 import { fs } from '../../fs';
 import { portForwardToPod, buildPortMapping } from './port-forward';
@@ -11,17 +9,119 @@ import { Kubectl } from '../../kubectl';
 import { Node, KubernetesCollection, Pod } from '../../kuberesources.objectmodel';
 import { failed } from '../../errorable';
 
-const KUBE_DASHBOARD_URL = "http://localhost:8001/ui/";
+const DEFAULT_DASHBOARD_URL = "http://localhost:8001/ui/";
+const DASHBOARD_URL_KEY = "vs-kubernetes.dashboard-url";
+const DASHBOARD_AUTO_OPEN_KEY = "vs-kubernetes.dashboard-auto-open-in-browser";
+const DEFAULT_DASHBOARD_AUTO_OPEN = false;
 const TERMINAL_NAME = "Kubernetes Dashboard";
-const PROXY_OUTPUT_FILE = resolve(__dirname, 'proxy.out');
+const PROXY_OUTPUT_FILE = resolve(__dirname, "proxy.out");
 
 // The instance of the terminal running Kubectl Dashboard
 let terminal: vscode.Terminal | null = null;
+let dashboardMessageTriggered = false;
+let proxyReadyCheckInterval: NodeJS.Timeout | null = null;
+let proxyReadyStartedAt: number | null = null;
+const PROXY_READY_TIMEOUT_MS = 15000;
 
 interface DashboardPodInfo {
     readonly name: string;
     readonly port: number;
     readonly scheme: string;
+}
+
+function getDashboardUrl(): string {
+    const configValue =
+        vscode.workspace.getConfiguration("vs-kubernetes")[DASHBOARD_URL_KEY];
+    if (typeof configValue === "string" && configValue.trim().length > 0) {
+        return configValue;
+    }
+    return DEFAULT_DASHBOARD_URL;
+}
+
+function getAutoOpenDashboard(): boolean {
+    const configValue =
+        vscode.workspace.getConfiguration("vs-kubernetes")[DASHBOARD_AUTO_OPEN_KEY];
+    if (typeof configValue === "boolean") {
+        return configValue;
+    }
+    return DEFAULT_DASHBOARD_AUTO_OPEN;
+}
+
+
+
+function findDashboardTerminal(): vscode.Terminal | null {
+    return (
+        vscode.window.terminals.find((t) => t.name === TERMINAL_NAME) || null
+    );
+}
+
+function openDashboardOnce(): void {
+    if (!getAutoOpenDashboard()) {
+        return;
+    }
+    browser.open(getDashboardUrl());
+}
+
+function showDashboardReadyMessage(): void {
+    if (dashboardMessageTriggered && getAutoOpenDashboard()) {
+        return;
+    }
+    dashboardMessageTriggered = true;
+    const dashboardUrl = getDashboardUrl();
+    if (!getAutoOpenDashboard()) {
+        const openItem: vscode.MessageItem = { title: 'Open Dashboard' };
+            vscode.window
+                .showInformationMessage("Kubernetes Dashboard is running.", openItem)
+                .then((selection) => {
+                    if (selection && selection.title === 'Open Dashboard') {
+                        browser.open(dashboardUrl);
+                    }
+                });
+    } else {
+        vscode.window.showInformationMessage(
+            `Kubernetes Dashboard is running at ${dashboardUrl}`,
+        );
+    }
+  
+}
+
+function startProxyReadyWatch(): void {
+    stopProxyReadyWatch();
+    proxyReadyStartedAt = Date.now();
+    proxyReadyCheckInterval = setInterval(async () => {
+        if (dashboardMessageTriggered) {
+            stopProxyReadyWatch();
+            return;
+        }
+        if (proxyReadyStartedAt && Date.now() - proxyReadyStartedAt > PROXY_READY_TIMEOUT_MS) {
+            stopProxyReadyWatch();
+            vscode.window.showErrorMessage(
+                "Could not start the Kubernetes Dashboard. Is it already running?",
+            );
+            if (terminal) {
+                terminal.dispose();
+            }
+            return;
+        }
+        try {
+            const output = await fs.readTextFile(PROXY_OUTPUT_FILE);
+            if (output.includes("Starting to serve")) {
+                openDashboardOnce();
+                showDashboardReadyMessage();
+                stopProxyReadyWatch();
+            }
+        } catch (e) {
+            // Ignore transient read errors while the file is being created/written.
+        }
+    }, 500);
+}
+
+function stopProxyReadyWatch(): void {
+    if (proxyReadyCheckInterval) {
+        clearInterval(proxyReadyCheckInterval);
+        proxyReadyCheckInterval = null;
+    }
+    proxyReadyStartedAt = null;
 }
 
 /**
@@ -115,8 +215,12 @@ export async function dashboardKubernetes (kubectl: Kubectl): Promise<void> {
     }
 
     // If we've already got a terminal instance, just open the dashboard.
+    if (!terminal) {
+        terminal = findDashboardTerminal();
+    }
     if (terminal) {
-        browser.open(KUBE_DASHBOARD_URL);
+        openDashboardOnce();
+        showDashboardReadyMessage();
         return;
     }
 
@@ -132,15 +236,18 @@ export async function dashboardKubernetes (kubectl: Kubectl): Promise<void> {
         return;
     }
 
-    // Read kubectl proxy's stdout as a stream.
-    createReadStream(
-        PROXY_OUTPUT_FILE,
-        {encoding: 'utf8'}
-    ).on('data', (data: string | Buffer) => onStreamData(data));
-
     // stdout is also written to a file via `tee`. We read this file as a stream
     // to listen for when the server is ready.
-    await kubectl.invokeInNewTerminal('proxy', TERMINAL_NAME, onClosedTerminal, `tee ${PROXY_OUTPUT_FILE}`);
+    await kubectl.invokeInNewTerminal(
+        "proxy",
+        TERMINAL_NAME,
+        onClosedTerminal,
+        `tee ${PROXY_OUTPUT_FILE}`,
+    );
+
+
+    terminal = findDashboardTerminal();
+    startProxyReadyWatch();
 }
 
 /**
@@ -154,6 +261,8 @@ const onClosedTerminal = async (proxyTerminal: vscode.Terminal) => {
     }
 
     terminal = null;
+    dashboardMessageTriggered = false;
+    stopProxyReadyWatch();
     console.log("Closing Kubernetes API Proxy");
 
     try {
@@ -161,29 +270,5 @@ const onClosedTerminal = async (proxyTerminal: vscode.Terminal) => {
         console.log('Kubernetes API Proxy stream removed');
     } catch (e) {
         console.log('Could not remove Kubernetes API Proxy stream');
-    }
-};
-
-/**
- * Callback to read data written to the Kubernetes API Proxy output stream.
- * @param data
- */
-const onStreamData = (data: string | Buffer) => {
-    // Everything's alright…
-    const dataStr = data.toString();
-    if (dataStr.startsWith("Starting to serve")) {
-        // Let the proxy warm up a bit… otherwise we might hit a browser's error page.
-        setTimeout(() => {
-            browser.open(KUBE_DASHBOARD_URL);
-        }, 2500);
-
-        vscode.window.showInformationMessage(`Kubernetes Dashboard running at ${KUBE_DASHBOARD_URL}`);
-        return;
-    }
-
-    // Maybe we've bound to the port already outside of the extension?
-    vscode.window.showErrorMessage("Could not start the Kubernetes Dashboard. Is it already running?");
-    if (terminal) {
-        terminal.dispose();
     }
 };
