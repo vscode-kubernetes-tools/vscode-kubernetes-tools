@@ -185,14 +185,24 @@ function monitorForAuthPrompt(proc: ChildProcess): void {
         return;
     }
 
+    let authPromptDetected = false;
+
     proc.stderr.on('data', (data: Buffer | string) => {
         const chunk = data.toString();
         if (AUTH_PROMPT_PATTERN.test(chunk) && !authNotificationShown) {
             authNotificationShown = true;
+            authPromptDetected = true;
             kubeChannel.showOutput(chunk, 'Authentication Required');
             vscode.window.showWarningMessage('Kubernetes authentication required. See Kubernetes output for instructions.');
             // Reset flag after cooldown so future auth prompts can show
-            setTimeout(() => { authNotificationShown = false; }, 5000);
+            setTimeout(() => { authNotificationShown = false; }, 1000);
+        }
+    });
+
+    // Notify user when auth completes successfully
+    proc.on('exit', (code) => {
+        if (authPromptDetected && code === 0) {
+            vscode.window.showInformationMessage('Kubernetes authentication successful. You may need to refresh or retry your last action.');
         }
     });
 }
