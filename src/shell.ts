@@ -186,23 +186,34 @@ function monitorForAuthPrompt(proc: ChildProcess): void {
     }
 
     let authPromptDetected = false;
+    let stderrBuffer = '';
 
     proc.stderr.on('data', (data: Buffer | string) => {
-        const chunk = data.toString();
-        if (AUTH_PROMPT_PATTERN.test(chunk) && !authNotificationShown) {
-            authNotificationShown = true;
-            authPromptDetected = true;
-            kubeChannel.showOutput(chunk, 'Authentication Required');
-            vscode.window.showWarningMessage('Kubernetes authentication required. See Kubernetes output for instructions.');
-            // Reset flag after cooldown so future auth prompts can show
-            setTimeout(() => { authNotificationShown = false; }, 1000);
+        stderrBuffer += data.toString();
+
+        // Process complete lines to detect full auth prompts
+        let newlineIndex = stderrBuffer.indexOf('\n');
+        while (newlineIndex !== -1) {
+            const line = stderrBuffer.slice(0, newlineIndex + 1);
+            stderrBuffer = stderrBuffer.slice(newlineIndex + 1);
+
+            if (AUTH_PROMPT_PATTERN.test(line) && !authNotificationShown) {
+                authNotificationShown = true;
+                authPromptDetected = true;
+                kubeChannel.showOutput(line, 'Authentication Required');
+                vscode.window.showWarningMessage('Authentication required. See Kubernetes output for instructions.');
+                // Reset flag after cooldown so future auth prompts can show
+                setTimeout(() => { authNotificationShown = false; }, 1000);
+            }
+
+            newlineIndex = stderrBuffer.indexOf('\n');
         }
     });
 
     // Notify user when auth completes successfully
     proc.on('exit', (code) => {
         if (authPromptDetected && code === 0) {
-            vscode.window.showInformationMessage('Kubernetes authentication successful. You may need to refresh or retry your last action.');
+            vscode.window.showInformationMessage('Authentication successful. You may need to refresh or retry your last action.');
         }
     });
 }
