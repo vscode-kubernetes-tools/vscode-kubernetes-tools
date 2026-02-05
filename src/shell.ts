@@ -9,6 +9,7 @@ import { ChildProcess } from 'child_process';
 import { getKubeconfigPath } from './components/kubectl/kubeconfig';
 import { ExecResult } from './binutilplusplus';
 import { escapeShellArg } from './utils/shell-escape';
+import { kubeChannel } from './kubeChannel';
 
 export enum Platform {
     Windows,
@@ -168,6 +169,51 @@ function execCore(cmd: string, opts: any, callback?: ((proc: ChildProcess) => vo
         }
         if (callback) {
             callback(proc);
+        }
+        // Monitor stderr for authentication prompts (Azure AD device login)
+        monitorForAuthPrompt(proc);
+    });
+}
+
+// Pattern to detect Azure AD device login prompts
+const AUTH_PROMPT_PATTERN = /microsoft\.com\/devicelogin/i;
+
+let authNotificationShown = false;
+
+function monitorForAuthPrompt(proc: ChildProcess): void {
+    if (!proc.stderr) {
+        return;
+    }
+
+    let authPromptDetected = false;
+    let stderrBuffer = '';
+
+    proc.stderr.on('data', (data: Buffer | string) => {
+        stderrBuffer += data.toString();
+
+        // Process complete lines to detect full auth prompts
+        let newlineIndex = stderrBuffer.indexOf('\n');
+        while (newlineIndex !== -1) {
+            const line = stderrBuffer.slice(0, newlineIndex + 1);
+            stderrBuffer = stderrBuffer.slice(newlineIndex + 1);
+
+            if (AUTH_PROMPT_PATTERN.test(line) && !authNotificationShown) {
+                authNotificationShown = true;
+                authPromptDetected = true;
+                kubeChannel.showOutput(line, 'Authentication Required');
+                vscode.window.showWarningMessage('Authentication required. See Kubernetes output for instructions.');
+                // Reset flag after cooldown so future auth prompts can show
+                setTimeout(() => { authNotificationShown = false; }, 1000);
+            }
+
+            newlineIndex = stderrBuffer.indexOf('\n');
+        }
+    });
+
+    // Notify user when auth completes successfully
+    proc.on('exit', (code) => {
+        if (authPromptDetected && code === 0) {
+            vscode.window.showInformationMessage('Authentication successful. You may need to refresh or retry your last action.');
         }
     });
 }
