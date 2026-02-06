@@ -1322,7 +1322,7 @@
         "eslint": "^9.39.2",
         "eslint-webpack-plugin": "^5.0.2",
         "file-loader": "^6.2.0",
-        "glob": "^13.0.0",
+        "glob": "^13.0.1",
         "gulp": "^5.0.1",
         "gulp-tslint": "^8.1.4",
         "html-webpack-plugin": "^5.6.6",
