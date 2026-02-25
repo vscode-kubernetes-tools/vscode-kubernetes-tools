@@ -54,17 +54,6 @@ jobs:
             ${{ steps.vsix.outputs.VSIX_FILE }}
 
       # ------------------------
-      # Create GitHub Release
-      # ------------------------
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
-        with:
-          files: |
-            ${{ steps.vsix.outputs.VSIX_FILE }}
-            ${{ steps.vsix.outputs.VSIX_FILE }}.sig
-            ${{ steps.vsix.outputs.VSIX_FILE }}.pem
-
-      # ------------------------
       # Publish to Marketplace
       # ------------------------
       - name: Publish to VS Code Marketplace
@@ -72,3 +61,17 @@ jobs:
         with:
           pat: ${{ secrets.VS_MARKETPLACE_TOKEN }}
           extensionFile: ${{ steps.vsix.outputs.VSIX_FILE }}
+
+      # ------------------------
+      # Create GitHub Release
+      # ------------------------
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            --title "${{ github.ref_name }}" \
+            --generate-notes \
+            ${{ steps.vsix.outputs.VSIX_FILE }} \
+            ${{ steps.vsix.outputs.VSIX_FILE }}.sig \
+            ${{ steps.vsix.outputs.VSIX_FILE }}.pem
