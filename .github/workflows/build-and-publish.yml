@@ -1,0 +1,74 @@
+name: Release k8s VS Code Extension
+on: [workflow_dispatch]
+
+jobs:
+  release:
+    permissions:
+      contents: write
+      id-token: write
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98 # v6.0.1
+
+      - name: Setup Node
+        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build extension
+        run: npm run compile
+
+      # ------------------------
+      # Package VSIX
+      # ------------------------
+      - name: Package VSIX
+        run: npx vsce package
+
+      - name: Get VSIX filename
+        id: vsix
+        run: |
+          echo "VSIX_FILE=$(ls *.vsix)" >> $GITHUB_OUTPUT
+
+      # ------------------------
+      # Install Cosign
+      # ------------------------
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
+
+      # ------------------------
+      # Sign VSIX (Keyless)
+      # ------------------------
+      - name: Sign VSIX
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: |
+          cosign sign-blob \
+            --yes \
+            --output-signature ${{ steps.vsix.outputs.VSIX_FILE }}.sig \
+            --output-certificate ${{ steps.vsix.outputs.VSIX_FILE }}.pem \
+            ${{ steps.vsix.outputs.VSIX_FILE }}
+
+      # ------------------------
+      # Create GitHub Release
+      # ------------------------
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
+        with:
+          files: |
+            ${{ steps.vsix.outputs.VSIX_FILE }}
+            ${{ steps.vsix.outputs.VSIX_FILE }}.sig
+            ${{ steps.vsix.outputs.VSIX_FILE }}.pem
+
+      # ------------------------
+      # Publish to Marketplace
+      # ------------------------
+      - name: Publish to VS Code Marketplace
+        uses: HaaLeo/publish-vscode-extension@f4ece70f329f66686bd71c54b1671353fe320e49 # v1.7.0
+        with:
+          pat: ${{ secrets.VS_MARKETPLACE_TOKEN }}
+          extensionFile: ${{ steps.vsix.outputs.VSIX_FILE }}
