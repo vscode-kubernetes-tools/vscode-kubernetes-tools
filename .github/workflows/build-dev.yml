@@ -54,7 +54,7 @@ jobs:
         mv *.vsix vsix
     - name: Archive extension
       if: github.event_name == 'push' && matrix.os == 'ubuntu-latest'
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: vsix
         path: vsix
