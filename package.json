@@ -1300,7 +1300,7 @@
         "@bendera/vscode-webview-elements": "^0.17.2",
         "@types/glob": "^9.0.0",
         "@types/js-yaml": "^4.0.9",
-        "@types/lodash": "^4.17.23",
+        "@types/lodash": "^4.17.24",
         "@types/mkdirp": "^2.0.0",
         "@types/mocha": "^10.0.10",
         "@types/node": "^25.3.0",
