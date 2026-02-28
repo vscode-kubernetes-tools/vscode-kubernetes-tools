@@ -44,6 +44,11 @@
                             "type": "string",
                             "description": "The namespace to use for all commands"
                         },
+                        "vs-kubernetes.hideInaccessibleNamespaces": {
+                            "type": "boolean",
+                            "default": false,
+                            "description": "Hide namespaces that you don't have permissions to access. Useful in multi-tenant clusters."
+                        },
                         "vs-kubernetes.kubectl-path": {
                             "type": "string",
                             "description": "[deprecated - use top level property] File path to a kubectl binary."
@@ -240,6 +245,7 @@
                     },
                     "default": {
                         "vs-kubernetes.namespace": "",
+                        "vs-kubernetes.hideInaccessibleNamespaces": false,
                         "vs-kubernetes.kubectl-path": "",
                         "vs-kubernetes.helm-path": "",
                         "vs-kubernetes.minikube-path": "",
@@ -507,6 +513,11 @@
                     "command": "extension.vsKubernetesDashboard",
                     "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.\\w*cluster($|\\s)/i",
                     "group": "0@3"
+                },
+                {
+                    "command": "extension.vsKubernetesShowAccessibleNamespaces",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.\\w*cluster($|\\s)/i",
+                    "group": "0@4"
                 },
                 {
                     "command": "extension.vsMinikubeStop",
@@ -975,6 +986,11 @@
             {
                 "command": "extension.vsKubernetesUseNamespace",
                 "title": "Use Namespace",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesShowAccessibleNamespaces",
+                "title": "Filter Accessible Namespaces",
                 "category": "Kubernetes"
             },
             {

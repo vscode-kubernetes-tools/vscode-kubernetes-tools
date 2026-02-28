@@ -1,3 +1,4 @@
+import * as vscode from 'vscode';
 import { refreshExplorer } from '../clusterprovider/common/explorer';
 import { promptKindName } from '../../extension';
 import { host } from '../../host';
@@ -7,6 +8,7 @@ import { Kubectl } from '../../kubectl';
 import { ClusterExplorerNode } from '../clusterexplorer/node';
 import { NODE_TYPES } from '../clusterexplorer/explorer';
 import * as config from '../config/config';
+import { KubernetesExplorer } from '../clusterexplorer/explorer';
 
 
 export async function useNamespaceKubernetes(kubectl: Kubectl, explorerNode: ClusterExplorerNode) {
@@ -54,4 +56,21 @@ async function switchToNamespace(kubectl: Kubectl, currentNS: string, resource: 
             host.showInformationMessage(`Switched to namespace ${toSwitchNamespace}`);
         }
     }
+}
+
+export async function showAccessibleNamespacesOnly(_kubectl: Kubectl, treeProvider: KubernetesExplorer, _explorerNode: ClusterExplorerNode) {
+    // get cluster 
+    const vsKubernetesConfig = vscode.workspace.getConfiguration('vs-kubernetes');
+    const currentValue = vsKubernetesConfig['vs-kubernetes.hideInaccessibleNamespaces'] || false;
+    
+    await config.setConfigValue('vs-kubernetes.hideInaccessibleNamespaces', !currentValue);
+    
+    if (!currentValue) {
+        host.showInformationMessage('Namespace filtering enabled. Refreshing tree view...');
+    } else {
+        host.showInformationMessage('Namespace filtering disabled. Showing all namespaces...');
+    }
+    
+    // refresh to apply change
+    treeProvider.refresh();
 }
