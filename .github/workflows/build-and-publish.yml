@@ -9,9 +9,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # ------------------------
+      # Checkout
+      # ------------------------
       - name: Checkout
         uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98 # v6.0.1
 
+      # ------------------------
+      # Setup Node
+      # ------------------------
       - name: Setup Node
         uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
         with:
@@ -19,9 +25,25 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
       - name: Build extension
         run: npm run compile
+
+      # ------------------------
+      # Get Version From package.json
+      # ------------------------
+      - name: Get current package version
+        id: package_version
+        uses: martinbeentjes/npm-get-version-action@3cf273023a0dda27efcd3164bdfb51908dd46a5b # v1.3.1
+
+      # ------------------------
+      # Validate Changelog
+      # ------------------------
+      - name: Check version is mentioned in Changelog
+        uses: mindsers/changelog-reader-action@32aa5b4c155d76c94e4ec883a223c947b2f02656 # v2.2.3
+        id: changelog_reader
+        with:
+          version: ${{ steps.package_version.outputs.current-version }}
+          path: 'CHANGELOG.md'
 
       # ------------------------
       # Package VSIX
@@ -31,17 +53,15 @@ jobs:
 
       - name: Get VSIX filename
         id: vsix
-        run: |
-          echo "VSIX_FILE=$(ls *.vsix)" >> $GITHUB_OUTPUT
+        run: echo "VSIX_FILE=$(ls *.vsix)" >> $GITHUB_OUTPUT
 
       # ------------------------
       # Install Cosign
       # ------------------------
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
+      - uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
 
       # ------------------------
-      # Sign VSIX (Keyless)
+      # Sign VSIX (OIDC Keyless)
       # ------------------------
       - name: Sign VSIX
         env:
@@ -49,29 +69,47 @@ jobs:
         run: |
           cosign sign-blob \
             --yes \
-            --output-signature ${{ steps.vsix.outputs.VSIX_FILE }}.sig \
-            --output-certificate ${{ steps.vsix.outputs.VSIX_FILE }}.pem \
+            --bundle ${{ steps.vsix.outputs.VSIX_FILE }}.bundle \
             ${{ steps.vsix.outputs.VSIX_FILE }}
+
+      # ------------------------
+      # Verify Signature Before Release
+      # ------------------------
+      - name: Verify VSIX Signature
+        run: |
+          cosign verify-blob \
+            --bundle ${{ steps.vsix.outputs.VSIX_FILE }}.bundle \
+            ${{ steps.vsix.outputs.VSIX_FILE }}
+
+      # ------------------------
+      # Create GitHub Release (Version Tag)
+      # ------------------------
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ steps.package_version.outputs.current-version }}
+          release_name: v${{ steps.package_version.outputs.current-version }}
+          body: ${{ steps.changelog_reader.outputs.changes }}
+
+      # ------------------------
+      # Upload Signed Artifact to Release
+      # ------------------------
+      - name: Upload VSIX to Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload \
+            v${{ steps.package_version.outputs.current-version }} \
+            ${{ steps.vsix.outputs.VSIX_FILE }} \
+            ${{ steps.vsix.outputs.VSIX_FILE }}.bundle
 
       # ------------------------
       # Publish to Marketplace
       # ------------------------
       - name: Publish to VS Code Marketplace
-        uses: HaaLeo/publish-vscode-extension@f4ece70f329f66686bd71c54b1671353fe320e49 # v1.7.0
+        uses: HaaLeo/publish-vscode-extension@ca5561daa085dee804bf9f37fe0165785a9b14db # v2
         with:
           pat: ${{ secrets.VS_MARKETPLACE_TOKEN }}
           extensionFile: ${{ steps.vsix.outputs.VSIX_FILE }}
-
-      # ------------------------
-      # Create GitHub Release
-      # ------------------------
-      - name: Create GitHub Release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release create "${{ github.ref_name }}" \
-            --title "${{ github.ref_name }}" \
-            --generate-notes \
-            ${{ steps.vsix.outputs.VSIX_FILE }} \
-            ${{ steps.vsix.outputs.VSIX_FILE }}.sig \
-            ${{ steps.vsix.outputs.VSIX_FILE }}.pem
