@@ -88,13 +88,13 @@ jobs:
       # Create GitHub Release (Version Tag)
       # ------------------------
       - name: Create GitHub Release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
         with:
           tag_name: v${{ steps.package_version.outputs.current-version }}
-          release_name: v${{ steps.package_version.outputs.current-version }}
+          name: v${{ steps.package_version.outputs.current-version }}
           body: ${{ steps.changelog_reader.outputs.changes }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # ------------------------
       # Upload Signed Artifact to Release
