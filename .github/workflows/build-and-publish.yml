@@ -25,6 +25,7 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
       - name: Build extension
         run: npm run compile
 
@@ -53,7 +54,9 @@ jobs:
 
       - name: Get VSIX filename
         id: vsix
-        run: echo "VSIX_FILE=$(ls *.vsix)" >> $GITHUB_OUTPUT
+        run: |
+          echo "VSIX_FILE=$(ls *.vsix)" >> $GITHUB_OUTPUT
+
 
       # ------------------------
       # Install Cosign
@@ -64,8 +67,6 @@ jobs:
       # Sign VSIX (OIDC Keyless)
       # ------------------------
       - name: Sign VSIX
-        env:
-          COSIGN_EXPERIMENTAL: "1"
         run: |
           cosign sign-blob \
             --yes \
@@ -79,6 +80,8 @@ jobs:
         run: |
           cosign verify-blob \
             --bundle ${{ steps.vsix.outputs.VSIX_FILE }}.bundle \
+            --certificate-identity-regexp "https://github.com/${{ github.repository }}/" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
             ${{ steps.vsix.outputs.VSIX_FILE }}
 
       # ------------------------
