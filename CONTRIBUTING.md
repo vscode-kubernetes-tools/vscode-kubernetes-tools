@@ -32,7 +32,7 @@ Have an idea for improving the extension? We'd love to hear it. Please [open an 
 
 ### Security Vulnerabilities
 
-**⚠️ Plase do not report security vulnerabilities through public GitHub issues.**
+**⚠️ Please do not report security vulnerabilities through public GitHub issues.**
 
 If you discover a security vulnerability, please follow the responsible disclosure process outlined in our [SECURITY.md](SECURITY.md) file.
 
