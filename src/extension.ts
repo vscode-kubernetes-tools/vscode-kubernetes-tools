@@ -90,7 +90,7 @@ import { LocalTunnelDebugger } from './components/localtunneldebugger/localtunne
 import { setAssetContext } from './assets';
 import { fixOldInstalledBinaryPermissions } from './components/installer/fixwriteablebinaries';
 import { interpolateVariables } from './utils/interpolation';
-import { AKSProvider } from './components/cloudprovider/aksprovider';
+import { runClusterWizard } from './components/clusterprovider/clusterproviderserver';
 
 let explainActive = false;
 let swaggerSpecPromise: Promise<explainer.SwaggerModel | undefined> | null = null;
@@ -2017,76 +2017,16 @@ async function debounceActivation(): Promise<void> {
     }
 }
 
-// helper function for selecting cloud provider
-async function selectProvider(): Promise<Errorable<CloudProvider>> {
-    await debounceActivation();
-    // register the providers, for now only AKS
-    const providers: CloudProvider[] = [
-        new AKSProvider(),
-    ];
-
-    const providerNames = providers.map((provider) => provider.getName());
-    const clusterType = await vscode.window.showQuickPick(providerNames, { placeHolder: "Select the cluster type" });
-
-    if (!clusterType) {
-        return { succeeded: false, error: ['Failed to get cluster type']};
-    }
-    // get the provider
-    const selectedProvider = providers.find((p) => p.getName() === clusterType);
-    if (!selectedProvider) {
-        return { succeeded: false, error: ['Failed to get provider']};
-    }
-
-    // sign in check
-    const alreadySignedIn = await selectedProvider.isSignedIn();
-    if (!alreadySignedIn) {
-        const isSignedIn = await selectedProvider.signIn();
-        if (!isSignedIn) {
-            vscode.window.showErrorMessage(`Failed to sign in to ${selectedProvider.getName()}`);
-            return { succeeded: false, error: ['Failed to sign in to provider']};
-        }
-    }
-
-    return { succeeded: true, result: selectedProvider };
-}
-
-// adds cluster to local kubeconfig
+// adds cluster to local kubeconfig using ClusterProviderV1 registry
 async function configureFromClusterKubernetes() {
     await debounceActivation();
-    const provider = await selectProvider();
-    if (failed(provider)){
-        vscode.window.showErrorMessage(provider.error[0]);
-        return;
-    }
-
-    const subscriptionId = await provider.result.prerequisites();
-    if (!subscriptionId) return;
-
-    // currently AKS is our only provider
-    if (provider.result instanceof AKSProvider) {
-        let cluster = await provider.result.selectCluster(subscriptionId);
-        if (cluster){
-            let kconfig = await provider.result.getKubeconfigYaml(subscriptionId, cluster.resourceGroup, cluster.name);
-            if (kconfig) { 
-                mergeToKubeconfig(kconfig);
-            } else {
-                vscode.window.showErrorMessage("Failed to get kubeconfig");
-            }
-        } 
-    } 
+    runClusterWizard('Configure Kubernetes Cluster', 'configure');
 }
 
-// creates a new cluster using aks extension
+// creates a new cluster using ClusterProviderV1 registry
 async function createClusterKubernetes() {
-    const selectedProvider = await selectProvider();
-    if (failed(selectedProvider)) {
-        vscode.window.showErrorMessage("Failed to get provider");
-        return;
-    }
-    const subscriptionId = await selectedProvider.result.prerequisites();
-    if (subscriptionId) {
-       await selectedProvider.result.createCluster(subscriptionId);
-    }
+    await debounceActivation();
+    runClusterWizard('Create Kubernetes Cluster', 'create');
 }
 
 const ADD_NEW_KUBECONFIG_PICK = "+ Add new kubeconfig";
