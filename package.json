@@ -120,6 +120,14 @@
                             "type": "string",
                             "description": "Output format for Kubernetes specs. One of 'json' or 'yaml' (default)."
                         },
+                        "vs-kubernetes.dashboard-url": {
+                            "type": "string",
+                            "description": "The URL to open when launching the Kubernetes Dashboard."
+                        },
+                        "vs-kubernetes.dashboard-auto-open-in-browser": {
+                            "type": "boolean",
+                            "description": "Automatically open the Kubernetes Dashboard in the browser."
+                        },
                         "vs-kubernetes.nodejs-autodetect-remote-root": {
                             "type": "boolean",
                             "description": "If true will try to automatically get the root location of the source code in the container (nodejs)."
@@ -245,6 +253,8 @@
                         "vs-kubernetes.minikube-path": "",
                         "vs-kubernetes.kubectlVersioning": "user-provided",
                         "vs-kubernetes.outputFormat": "yaml",
+                        "vs-kubernetes.dashboard-url": "http://localhost:8001/ui/",
+                        "vs-kubernetes.dashboard-auto-open-in-browser": true,
                         "vs-kubernetes.kubeconfig": "",
                         "vs-kubernetes.knownKubeconfigs": [],
                         "vs-kubernetes.autoCleanupOnDebugTerminate": false,
