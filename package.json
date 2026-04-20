@@ -1320,7 +1320,7 @@
         "@typescript-eslint/parser": "^8.52.0",
         "@vscode/vsce": "^3.7.1",
         "eslint": "^9.39.2",
-        "eslint-webpack-plugin": "^5.0.3",
+        "eslint-webpack-plugin": "^6.0.0",
         "file-loader": "^6.2.0",
         "glob": "^13.0.6",
         "gulp": "^5.0.1",
