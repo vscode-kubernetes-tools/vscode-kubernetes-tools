@@ -7,19 +7,14 @@ resources:
       type: git
       name: 1ESPipelineTemplates/1ESPipelineTemplates
       ref: refs/tags/release
-    - repository: vscode-kubernetes-tools
-      type: github
-      endpoint: kubernetes
-      name: vscode-kubernetes-tools/vscode-kubernetes-tools
-      ref: refs/heads/master
 
 parameters:
   - name: nodeVersion
     type: string
-    default: 22.x
+    default: 20.x
   - name: publishVersion
     type: string
-    default: 0.0.1
+    default: ""
   - name: token
     type: string
     default: ""
@@ -40,7 +35,7 @@ extends:
         hostArchitecture: amd64
       sourceRepositoriesToScan:
         include:
-          - repository: vscode-kubernetes-tools
+          - repository: self
 
     stages:
       - stage: Stage
@@ -69,7 +64,7 @@ extends:
                   packageType: "sdk"
                   version: "6.x"
 
-              - checkout: vscode-kubernetes-tools
+              - checkout: self
 
               # =====================================================
               # BUILD AND PACKAGE
@@ -84,15 +79,19 @@ extends:
               - script: npm run compile
                 displayName: Run Compile
 
-              # fail fast if the caller-supplied publishVersion
-              # doesn't match package.json.
+              # fail fast if publishVersion is empty or doesn't match package.json.
               - script: |
                   set -e
+                  PUBLISH_VER="${{ parameters.publishVersion }}"
+                  if [ -z "$PUBLISH_VER" ]; then
+                    echo "publishVersion parameter is empty. Pass the version to release, e.g. 1.3.29" >&2
+                    exit 1
+                  fi
                   PKG_VER=$(node -p "require('./package.json').version")
                   echo "package.json version: $PKG_VER"
-                  echo "publishVersion param: ${{ parameters.publishVersion }}"
-                  if [ "$PKG_VER" != "${{ parameters.publishVersion }}" ]; then
-                    echo "Mismatch: package.json ($PKG_VER) != publishVersion (${{ parameters.publishVersion }})" >&2
+                  echo "publishVersion param: $PUBLISH_VER"
+                  if [ "$PKG_VER" != "$PUBLISH_VER" ]; then
+                    echo "Mismatch: package.json ($PKG_VER) != publishVersion ($PUBLISH_VER)" >&2
                     exit 1
                   fi
                 displayName: "Verify publishVersion matches package.json"
@@ -190,10 +189,10 @@ extends:
                 displayName: "Create GitHub Release"
                 inputs:
                   gitHubConnection: Kubernetes (9)
-                  repositoryName: vscode-kubernetes-tools/vscode-kubernetes-tools
+                  repositoryName: $(Build.Repository.Name)
                   action: create
                   title: ${{ parameters.publishVersion }}
                   tagSource: userSpecifiedTag
                   tag: ${{ parameters.publishVersion }}
                   assets: |
-                    $(Pipeline.Workspace)/vscode-extension-staging/vscode-kubernetes-tools-*.vsix
+                    $(Pipeline.Workspace)/vscode-extension-staging/vscode-kubernetes-tools-${{ parameters.publishVersion }}.vsix
