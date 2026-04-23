@@ -1,0 +1,187 @@
+trigger: none
+
+# The `resources` specify the location and version of the 1ES PT.
+resources:
+  repositories:
+    - repository: 1esPipelines
+      type: git
+      name: 1ESPipelineTemplates/1ESPipelineTemplates
+      ref: refs/tags/release
+
+parameters:
+  - name: nodeVersion
+    type: string
+    default: 20.x
+  - name: publishVersion
+    type: string
+    default: ""
+  - name: token
+    type: string
+    default: ""
+
+extends:
+  template: v1/1ES.Official.PipelineTemplate.yml@1esPipelines
+  parameters:
+    pool:
+      name: staging-pool-amd64-mariner-2
+      image: 1es-azlinux-3-amd64-custom-disk
+      os: linux
+      hostArchitecture: amd64
+    sdl:
+      sourceAnalysisPool:
+        name: staging-pool-amd64-mariner-2
+        image: azcu-agent-amd64-windows-22-img
+        os: windows
+        hostArchitecture: amd64
+      sourceRepositoriesToScan:
+        include:
+          - repository: self
+
+    stages:
+      - stage: Stage
+        jobs:
+          - job: HostJob
+            templateContext:
+              outputs:
+                - output: pipelineArtifact
+                  targetPath: $(Pipeline.Workspace)/vscode-extension-staging
+                  artifactName: vscode-extension-signed
+            steps:
+              # =====================================================
+              # PREREQUISITES
+              # =====================================================
+
+              - task: NodeTool@0
+                displayName: Install Node.js
+                retryCountOnTaskFailure: 3
+                inputs:
+                  versionSpec: ${{ parameters.nodeVersion }}
+
+              # .NET SDK required by EsrpCodeSigning@5 task.
+              - task: UseDotNet@2
+                displayName: Install .NET SDK (required for ESRP signing)
+                inputs:
+                  packageType: "sdk"
+                  version: "6.x"
+
+              - checkout: self
+
+              # =====================================================
+              # BUILD AND PACKAGE
+              # =====================================================
+
+              - script: npm ci
+                displayName: Install npm dependencies (npm ci)
+
+              - script: npm run lint
+                displayName: Run ESLint
+
+              - script: npm run compile
+                displayName: Run Compile
+
+              # fail fast if publishVersion is empty or doesn't match package.json.
+              - script: |
+                  set -e
+                  PUBLISH_VER="${{ parameters.publishVersion }}"
+                  if [ -z "$PUBLISH_VER" ]; then
+                    echo "publishVersion parameter is empty. Pass the version to release, e.g. 1.3.29" >&2
+                    exit 1
+                  fi
+                  PKG_VER=$(node -p "require('./package.json').version")
+                  echo "package.json version: $PKG_VER"
+                  echo "publishVersion param: $PUBLISH_VER"
+                  if [ "$PKG_VER" != "$PUBLISH_VER" ]; then
+                    echo "Mismatch: package.json ($PKG_VER) != publishVersion ($PUBLISH_VER)" >&2
+                    exit 1
+                  fi
+                displayName: "Verify publishVersion matches package.json"
+
+              - script: |
+                  set -e
+                  echo "Generating VSIX package with pinned vsce..."
+                  npx --yes @vscode/vsce@3.9.1 --version
+                  npx --yes @vscode/vsce@3.9.1 package
+                displayName: "Generate VSIX"
+
+              # Find and copy the VSIX to the workspace dir.
+              - script: |
+                  set -e
+                  echo "Finding .vsix file..."
+                  VSIX_PATH=$(find . -maxdepth 2 -type f -name "*.vsix" -print -quit)
+
+                  if [ -z "$VSIX_PATH" ]; then
+                    echo "No .vsix file found!" >&2
+                    exit 1
+                  fi
+
+                  echo "Found: $VSIX_PATH"
+                  mkdir -p "$(Pipeline.Workspace)/vscode-extension-staging"
+                  cp "$VSIX_PATH" "$(Pipeline.Workspace)/vscode-extension-staging/"
+                displayName: "Copy VSIX to staging directory"
+
+              - script: ls -la "$(Pipeline.Workspace)/vscode-extension-staging"
+                displayName: "List staging directory"
+
+              # =====================================================
+              # MANIFEST GENERATION AND SIGNING
+              # =====================================================
+
+              - pwsh: |
+                  $vsixFile = Get-ChildItem "$(Pipeline.Workspace)/vscode-extension-staging/*.vsix" | Select-Object -First 1
+                  Write-Host "Generating manifest for: $($vsixFile.FullName)"
+                  npx --yes '@vscode/vsce@3.9.1' generate-manifest -i $vsixFile.FullName -o "$(Pipeline.Workspace)/vscode-extension-staging/extension.manifest"
+                displayName: "Generate extension manifest"
+
+              - pwsh: |
+                  Copy-Item "$(Pipeline.Workspace)/vscode-extension-staging/extension.manifest" "$(Pipeline.Workspace)/vscode-extension-staging/extension.signature.p7s"
+                  Write-Host "Prepared manifest for signing"
+                displayName: "Prepare manifest for signing"
+
+              - task: EsrpCodeSigning@5
+                displayName: Sign extension manifest with ESRP
+                inputs:
+                  ConnectedServiceName: "ESRP-AME-AZCU"
+                  UseMSIAuthentication: true
+                  AppRegistrationClientId: "70ebf75b-d46f-46da-90e6-1fa654251514"
+                  AppRegistrationTenantId: "33e01921-4d64-4f8c-a055-5bdaffd5e33d"
+                  EsrpClientId: "150f8d2b-ad88-4a27-b782-c9bc3b028430"
+                  AuthAKVName: "upstreamci-ado"
+                  AuthSignCertName: "azcu-ersp-corp"
+                  FolderPath: $(Pipeline.Workspace)/vscode-extension-staging
+                  Pattern: "extension.signature.p7s"
+                  signConfigType: inlineSignParams
+                  inlineOperation: |
+                    [
+                      {
+                        "keyCode": "CP-401405",
+                        "operationSetCode": "VSCodePublisherSign",
+                        "parameters": [],
+                        "toolName": "sign",
+                        "toolVersion": "1.0"
+                      }
+                    ]
+                  SessionTimeout: 90
+                  MaxConcurrency: 25
+                  MaxRetryAttempts: 5
+                  PendingAnalysisWaitTimeoutMinutes: 5
+
+              - script: ls -la "$(Pipeline.Workspace)/vscode-extension-staging"
+                displayName: "List staging directory (post-sign)"
+
+              - task: Bash@3
+                displayName: "Publish VSIX to Marketplace (vsce@3.9.1)"
+                inputs:
+                  targetType: inline
+                  script: |
+                    set -e
+                    npx --yes @vscode/vsce@3.9.1 --version
+
+                    VSIX_PATH=$(find "$(Pipeline.Workspace)/vscode-extension-staging/" -type f -name "*.vsix" | head -n 1)
+                    MANIFEST_PATH="$(Pipeline.Workspace)/vscode-extension-staging/extension.manifest"
+                    SIGNATURE_PATH="$(Pipeline.Workspace)/vscode-extension-staging/extension.signature.p7s"
+
+                    echo "Publishing VSIX package: $VSIX_PATH"
+                    npx --yes @vscode/vsce@3.9.1 publish --pat "$TOKEN" --packagePath "$VSIX_PATH" --manifestPath "$MANIFEST_PATH" --signaturePath "$SIGNATURE_PATH"
+                env:
+                  TOKEN: ${{ parameters.token }}
+
