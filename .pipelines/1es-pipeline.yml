@@ -185,14 +185,3 @@ extends:
                 env:
                   TOKEN: ${{ parameters.token }}
 
-              - task: GithubRelease@1
-                displayName: "Create GitHub Release"
-                inputs:
-                  gitHubConnection: Kubernetes (9)
-                  repositoryName: $(Build.Repository.Name)
-                  action: create
-                  title: ${{ parameters.publishVersion }}
-                  tagSource: userSpecifiedTag
-                  tag: ${{ parameters.publishVersion }}
-                  assets: |
-                    $(Pipeline.Workspace)/vscode-extension-staging/vscode-kubernetes-tools-${{ parameters.publishVersion }}.vsix
