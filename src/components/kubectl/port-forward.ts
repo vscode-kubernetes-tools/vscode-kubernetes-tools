@@ -4,7 +4,7 @@ import { Kubectl } from '../../kubectl';
 
 import { host } from '../../host';
 import { findAllPods, tryFindKindNameFromEditor, FindPodsResult } from '../../extension';
-import { QuickPickOptions } from 'vscode';
+import { QuickPickOptions, ThemeIcon } from 'vscode';
 import * as portFinder from 'portfinder';
 import { succeeded } from '../../errorable';
 import * as kubectlUtils from '../../kubectlUtils';
@@ -420,7 +420,7 @@ async function portForwardToResource(kubectl: Kubectl, kind: string, name: strin
         (usedPortPair) => `${usedPortPair.localPort}:${usedPortPair.targetPort}`
     );
 
-    kubectl.invokeInNewTerminal(`port-forward ${kind}/${name} ${portPairStrings.join(' ')} -n ${usedNamespace}`, PORT_FORWARD_TERMINAL);
+    kubectl.invokeInNewTerminal(`port-forward ${kind}/${name} ${portPairStrings.join(' ')} -n ${usedNamespace}`, PORT_FORWARD_TERMINAL, undefined, undefined, new ThemeIcon('plug'));
     return usedPortMappings.choose((usedPortPair) => usedPortPair.localPort);
 }
 
