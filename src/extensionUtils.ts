@@ -1,7 +1,4 @@
-import * as path from "path";
 import * as vscode from "vscode";
-
-import { shell } from "./shell";
 
 /**
  * Install a vscode extension programmatically.
@@ -9,16 +6,40 @@ import { shell } from "./shell";
  * @param extensionId the extension id.
  */
 export async function installVscodeExtension(extensionId: string): Promise<boolean> {
-    const vscodeCliPath = path.join(path.dirname(process.argv0), "bin", "code");
-    const shellResult = await shell.exec(`"${vscodeCliPath}" --install-extension ${extensionId}`);
-    if (shellResult && shellResult.code === 0) {
-        const answer = await vscode.window.showInformationMessage(`Extension '${extensionId}' was successfully installed. Reload to enable it.`, "Reload Now");
-        if (answer === "Reload Now") {
-            await vscode.commands.executeCommand("workbench.action.reloadWindow");
-            return true;
-        }
+    try {
+        await vscode.commands.executeCommand("workbench.extensions.installExtension", extensionId);
+    } catch (err) {
+        vscode.window.showErrorMessage(`Failed to install extension '${extensionId}': ${err}`);
+        return false;
+    }
+    const installed = await waitForExtension(extensionId);
+    if (!installed) {
+        vscode.window.showErrorMessage(`Extension '${extensionId}' was not available after installation.`);
+        return false;
+    }
+    const answer = await vscode.window.showInformationMessage(`Extension '${extensionId}' was successfully installed. Reload to enable it.`, "Reload Now");
+    if (answer === "Reload Now") {
+        await vscode.commands.executeCommand("workbench.action.reloadWindow");
+        return true;
     }
     return false;
+}
+
+export async function waitForExtension(extensionId: string): Promise<boolean> {
+    return new Promise((resolve) => {
+        const interval = setInterval(() => {
+            const extension = vscode.extensions.getExtension(extensionId);
+            if (extension) {
+                clearInterval(interval);
+                resolve(true);
+            }
+        }, 1000);
+
+        setTimeout(() => {
+            clearInterval(interval);
+            resolve(false);
+        }, 60000); // Wait for up to 60 seconds
+    });
 }
 
 export function isNonEmptyArray(value: any[]): boolean {

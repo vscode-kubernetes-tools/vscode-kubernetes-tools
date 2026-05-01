@@ -3,6 +3,7 @@ import * as vscode from "vscode";
 import { longRunning } from "../../utils/notification";
 import { TokenCredential } from "@azure/core-auth";
 import { ContainerServiceClient } from "@azure/arm-containerservice";
+import { waitForExtension } from "../../extensionUtils";
 
 export class AKSProvider implements CloudProvider {
     private provider = new VSCodeAzureSubscriptionProvider();
@@ -201,21 +202,4 @@ export class AKSProvider implements CloudProvider {
         }
     }
 
-}
-
-async function waitForExtension(extensionId: string): Promise<boolean> {
-    return new Promise((resolve) => {
-        const interval = setInterval(() => {
-            const extension = vscode.extensions.getExtension(extensionId);
-            if (extension) {
-                clearInterval(interval);
-                resolve(true);
-            }
-        }, 1000);
-
-        setTimeout(() => {
-            clearInterval(interval);
-            resolve(false);
-        }, 60000); // Wait for up to 60 seconds
-    });
 }
