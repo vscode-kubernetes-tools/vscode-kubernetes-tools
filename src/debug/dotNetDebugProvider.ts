@@ -52,7 +52,7 @@ export class DotNetDebugProvider implements IDebugProvider {
                 const sourceFileMap: JSON = JSON.parse(json);
                 debugConfiguration['sourceFileMap'] = sourceFileMap;
             } catch (error) {
-                kubeChannel.showOutput(error.message);
+                kubeChannel.showOutput(error instanceof Error ? error.message : String(error));
             }
         }
         debugConfiguration.justMyCode = extensionConfig.getDebugJustMyCode();

@@ -87,7 +87,7 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
 
     private readonly extenders = Array.of<ExplorerExtender<ClusterExplorerNode>>();
     private readonly customisers = Array.of<ExplorerUICustomizer<ClusterExplorerNode>>();
-    private refreshTimer: NodeJS.Timeout;
+    private refreshTimer: NodeJS.Timeout | undefined;
     private readonly refreshQueue = Array<ClusterExplorerNode>();
 
     constructor(private readonly kubectl: Kubectl, private readonly host: Host) {

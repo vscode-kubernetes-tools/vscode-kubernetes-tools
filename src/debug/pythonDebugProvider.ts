@@ -16,7 +16,7 @@ const defaultPythonDebuggerExtensionId = 'ms-python.python';
 
 export class PythonDebugProvider implements IDebugProvider {
     remoteRoot: string | undefined;
-    shell: string;
+    shell: string = "";
 
     public getDebuggerType(): string {
         return debuggerType;

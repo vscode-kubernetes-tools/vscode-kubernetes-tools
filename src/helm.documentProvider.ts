@@ -205,7 +205,8 @@ export class HelmTemplatePreviewDocumentProvider implements vscode.TextDocumentC
                             } catch (e) {
                                 // TODO: Figure out the best way to display this message, but have it go away when the
                                 // file parses correctly.
-                                vscode.window.showErrorMessage(`YAML failed to parse: ${ e.message }`);
+                                const errorMessage = e instanceof Error ? e.message : String(e);
+                                vscode.window.showErrorMessage(`YAML failed to parse: ${ errorMessage }`);
                             }
                         }
 

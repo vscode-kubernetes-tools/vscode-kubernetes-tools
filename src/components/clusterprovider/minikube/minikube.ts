@@ -11,17 +11,17 @@ import { getToolPath, getCheckForMinikubeUpgrade, setMinikubeShowInfo } from '..
 import { installMinikube } from '../../installer/installer';
 import { isMinikubeInfoDisplay, ShowInformationOptions } from '../common/cacheinfo';
 
-export class MinikubeInfo {
+export interface MinikubeInfo {
     readonly running: boolean;
     readonly message: string;
 }
 
-export class MinikubeVersionInfo {
+export interface MinikubeVersionInfo {
     readonly currentVersion: string;
     readonly availableVersion: string;
 }
 
-export class MinikubeOptions {
+export interface MinikubeOptions {
     readonly vmDriver: string;
     readonly additionalFlags: string;
 }

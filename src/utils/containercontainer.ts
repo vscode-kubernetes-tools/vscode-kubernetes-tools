@@ -13,7 +13,7 @@ export interface ContainerContainer {
     readonly containersQueryPath: string;
 }
 
-export module ContainerContainer {
+export namespace ContainerContainer {
 
     export function fromNode(explorerNode: ClusterExplorerResourceNode): ContainerContainer | undefined {
         const queryPath = containersQueryPath(explorerNode);

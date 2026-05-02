@@ -127,7 +127,7 @@ export class DebugSession implements IDebugSession {
                     await this.promptForCleanup(`deployment/${appName}`);
                 });
             } catch (error) {
-                vscode.window.showErrorMessage(error);
+                vscode.window.showErrorMessage(String(error));
                 kubeChannel.showOutput(`Debug on Kubernetes failed. The errors were: ${error}.`);
                 if (appName) {
                     await this.promptForCleanup(`deployment/${appName}`);
@@ -202,7 +202,7 @@ export class DebugSession implements IDebugSession {
 
                 await this.startDebugSession(targetPod, workspaceFolder.uri.fsPath, proxyResult, targetPod, pidToDebug, async () => {});
             } catch (error) {
-                vscode.window.showErrorMessage(error);
+                vscode.window.showErrorMessage(String(error));
                 kubeChannel.showOutput(`Debug on Kubernetes failed. The errors were: ${error}.`);
                 kubeChannel.showOutput(`\nTo learn more about the usage of the debug feature, take a look at ${debugCommandDocumentationUrl}`);
             }

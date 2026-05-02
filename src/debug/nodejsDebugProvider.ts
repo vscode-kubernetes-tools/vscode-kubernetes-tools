@@ -17,7 +17,7 @@ const debuggerType = 'nodejs';
 
 export class NodejsDebugProvider implements IDebugProvider {
     remoteRoot: string | undefined;
-    shell: string;
+    shell: string = "";
 
     public getDebuggerType(): string {
         return debuggerType;
