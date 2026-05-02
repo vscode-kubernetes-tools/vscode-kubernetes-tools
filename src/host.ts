@@ -12,7 +12,7 @@ export interface Host {
     showQuickPick<T extends vscode.QuickPickItem>(items: T[], options: vscode.QuickPickOptions): Thenable<T | undefined>;
     withProgress<R>(task: (progress: vscode.Progress<{ message?: string }>) => Thenable<R>): Thenable<R>;
     getConfiguration(key: string): any;
-    createTerminal(name?: string, shellPath?: string, shellArgs?: string[]): vscode.Terminal;
+    createTerminal(name?: string, shellPath?: string, shellArgs?: string[], iconPath?: vscode.ThemeIcon): vscode.Terminal;
     onDidCloseTerminal(listener: (e: vscode.Terminal) => any): vscode.Disposable;
     onDidChangeConfiguration(listener: (ch: vscode.ConfigurationChangeEvent) => any): vscode.Disposable;
     activeDocument(): vscode.TextDocument | undefined;
@@ -94,12 +94,13 @@ function getConfiguration(key: string): any {
     return vscode.workspace.getConfiguration(key);
 }
 
-function createTerminal(name?: string, shellPath?: string, shellArgs?: string[]): vscode.Terminal {
+function createTerminal(name?: string, shellPath?: string, shellArgs?: string[], iconPath?: vscode.ThemeIcon): vscode.Terminal {
     const terminalOptions = {
         name: name,
         shellPath: shellPath,
         shellArgs: shellArgs,
-        env: shellEnvironment(process.env)
+        env: shellEnvironment(process.env),
+        iconPath: iconPath
     };
     return vscode.window.createTerminal(terminalOptions);
 }

@@ -1,4 +1,4 @@
-import { Terminal, Disposable } from 'vscode';
+import { Terminal, Disposable, ThemeIcon } from 'vscode';
 import { ChildProcess, spawn as spawnChildProcess } from "child_process";
 import { Host, host, LongRunningUIOptions } from './host';
 import { FS } from './fs';
@@ -20,7 +20,7 @@ export interface Kubectl {
     legacyInvokeAsync(command: string, stdin?: string): Promise<ShellResult | undefined>;
     legacySpawnAsChild(command: string[]): Promise<ChildProcess | undefined>;
 
-    invokeInNewTerminal(command: string, terminalName: string, onClose?: (e: Terminal) => any, pipeTo?: string): Promise<Disposable>;
+    invokeInNewTerminal(command: string, terminalName: string, onClose?: (e: Terminal) => any, pipeTo?: string, iconPath?: ThemeIcon): Promise<Disposable>;
     invokeInSharedTerminal(command: string): Promise<void>;
     runAsTerminal(command: string[], terminalName: string): Promise<void>;
 
@@ -124,8 +124,8 @@ class KubectlImpl implements Kubectl {
             }
         });
     }
-    async invokeInNewTerminal(command: string, terminalName: string, onClose?: (e: Terminal) => any, pipeTo?: string): Promise<Disposable> {
-        const terminal = this.context.host.createTerminal(terminalName);
+    async invokeInNewTerminal(command: string, terminalName: string, onClose?: (e: Terminal) => any, pipeTo?: string, iconPath?: ThemeIcon): Promise<Disposable> {
+        const terminal = this.context.host.createTerminal(terminalName, undefined, undefined, iconPath);
         const disposable = this.context.host.onDidCloseTerminal(onClose ? onClose : onCloseDefault(terminal.processId));
         await invokeInTerminal(this.context, command, pipeTo, terminal);
         return disposable;

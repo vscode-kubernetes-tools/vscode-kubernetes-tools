@@ -1,3 +1,4 @@
+import { ThemeIcon } from 'vscode';
 import { Kubectl } from '../../kubectl';
 import * as kubectlUtils from '../../kubectlUtils';
 import { ClusterExplorerResourceNode } from '../clusterexplorer/node';
@@ -20,7 +21,7 @@ export async function getEvents(kubectl: Kubectl, displayMode: EventDisplayMode,
 
     if (displayMode === EventDisplayMode.Follow) {
         cmd += ' -w';
-        return kubectl.invokeInNewTerminal(cmd, 'Kubernetes Events');
+        return kubectl.invokeInNewTerminal(cmd, 'Kubernetes Events', undefined, undefined, new ThemeIcon('bell'));
     } else {
         return kubectl.invokeInSharedTerminal(cmd);
     }

@@ -128,7 +128,7 @@ export async function getLogsForContainer(
     if (destination === LogsDestination.Terminal) {
         if (displayMode === LogsDisplayMode.Follow) {
             const title = `Logs: ${kindName}${containerName ? ('/' + containerName) : ''}`;
-            kubectl.invokeInNewTerminal(cmd, title);
+            kubectl.invokeInNewTerminal(cmd, title, undefined, undefined, new vscode.ThemeIcon('output'));
         } else {
             kubectl.invokeInSharedTerminal(cmd);
         }
