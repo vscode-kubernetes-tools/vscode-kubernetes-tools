@@ -1,8 +1,12 @@
-name: Build & Publish
+name: Create GitHub Release
+# VSIX packaging, signing, and Marketplace publishing are handled by the
+# 1ES pipeline (.pipelines/1es-pipeline.yml). This workflow only creates
+# the GitHub release and tag for the version in package.json, using the
+# matching CHANGELOG.md section as the release body.
 on: [workflow_dispatch]
 
 jobs:
-  build:
+  release:
     name: release
     runs-on: ubuntu-latest
     permissions:
@@ -13,16 +17,6 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98 # v6.0.1
-    - name: Use Node.js
-      uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
-      with:
-        node-version: 20
-    # Run install dependencies
-    - name: Install dependencies
-      run: npm install
-    # Run tests
-    - name: Build
-      run: npm run compile
     - name: Get current package version
       id: package_version
       uses: martinbeentjes/npm-get-version-action@3cf273023a0dda27efcd3164bdfb51908dd46a5b # v1.3.1
@@ -32,29 +26,11 @@ jobs:
       with:
         version: ${{ steps.package_version.outputs.current-version }}
         path: 'CHANGELOG.md'
-    - name: Create a Release
-      id: create_release
-      uses: actions/create-release@0cb9c9b65d5d1901c1f53e5e66eaf4afd303e70e # v1.1.4
-      env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name : ${{ steps.package_version.outputs.current-version}}
-        release_name: ${{ steps.package_version.outputs.current-version}}
-        body: Publish ${{ steps.changelog_reader.outputs.changes }}
-    - name: Create vsix and publish to marketplace
-      id: create_vsix
-      uses: HaaLeo/publish-vscode-extension@ca5561daa085dee804bf9f37fe0165785a9b14db # v2.0.0
-      with:
-        pat: ${{ secrets.VS_MARKETPLACE_TOKEN }}
-        registryUrl: https://marketplace.visualstudio.com
-    - name: Attach vsix to release
-      uses: actions/upload-release-asset@v1
+    - name: Create a GitHub Release
+      uses: softprops/action-gh-release@72f2c25fcb47643c292f7107632f7a47c1df5cd8 # v2.3.2
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ${{ steps.create_vsix.outputs.vsixPath}}
-        asset_name: ${{ steps.create_vsix.outputs.vsixPath}}
-        asset_content_type: application/vsix
-
-
+        tag_name: ${{ steps.package_version.outputs.current-version }}
+        name: ${{ steps.package_version.outputs.current-version }}
+        body: ${{ steps.changelog_reader.outputs.changes }}
