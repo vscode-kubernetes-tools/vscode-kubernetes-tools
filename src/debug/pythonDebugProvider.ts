@@ -9,10 +9,9 @@ import { Kubectl } from "../kubectl";
 import { kubeChannel } from "../kubeChannel";
 import { ProcessInfo } from "./debugUtils";
 import { ExecResult } from "../binutilplusplus";
-import * as extensionConfig from '../components/config/config';
 
 const debuggerType = 'python';
-const defaultPythonDebuggerExtensionId = 'ms-python.python';
+const debugpyExtensionId = 'ms-python.debugpy';
 
 export class PythonDebugProvider implements IDebugProvider {
     remoteRoot: string | undefined;
@@ -23,25 +22,26 @@ export class PythonDebugProvider implements IDebugProvider {
     }
 
     public async isDebuggerInstalled(): Promise<boolean> {
-        if (vscode.extensions.getExtension(defaultPythonDebuggerExtensionId)) {
+        // The "python" debugger type is deprecated; debugpy is now required.
+        if (vscode.extensions.getExtension(debugpyExtensionId)) {
             return true;
         }
-        const answer = await vscode.window.showInformationMessage(`Python debugging requires the '${defaultPythonDebuggerExtensionId}' extension. Would you like to install it now?`, "Install Now");
+        const answer = await vscode.window.showInformationMessage(`Python debugging requires the '${debugpyExtensionId}' extension. Would you like to install it now?`, "Install Now");
         if (answer === "Install Now") {
-            return await extensionUtils.installVscodeExtension(defaultPythonDebuggerExtensionId);
+            return await extensionUtils.installVscodeExtension(debugpyExtensionId);
         }
         return false;
     }
 
     public async startDebugging(workspaceFolder: string, sessionName: string, port: number | undefined, _pod: string, _pidToDebug: number | undefined): Promise<boolean> {
         const debugConfiguration: vscode.DebugConfiguration = {
-            type: "python",
+            type: "debugpy",
             request: "attach",
             name: sessionName,
-            hostName: "localhost",
+            host: "localhost",
             port
         };
-        debugConfiguration.justMyCode = extensionConfig.getDebugJustMyCode();
+        debugConfiguration.justMyCode = config.getDebugJustMyCode();
         const currentFolder = (vscode.workspace.workspaceFolders || []).find((folder) => folder.name === path.basename(workspaceFolder));
         if (currentFolder && this.remoteRoot) {
             debugConfiguration['pathMappings'] = [{
