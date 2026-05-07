@@ -22,8 +22,8 @@ interface KubernetesSchema {
 
 export class KubernetesClusterSchemaHolder {
     private definitions: { [key: string]: KubernetesSchema } = {};
-    private schemaEnums: { [key: string]: { [key: string]: [string[]] } };
-    private crdSchemas: { [key: string]: object | undefined};
+    private schemaEnums: { [key: string]: { [key: string]: [string[]] } } = {};
+    private crdSchemas: { [key: string]: object | undefined } = {};
 
     public static async fromActiveCluster(kubectl: Kubectl): Promise<KubernetesClusterSchemaHolder> {
         const holder = new KubernetesClusterSchemaHolder();

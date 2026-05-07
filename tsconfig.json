@@ -3,7 +3,7 @@
         "module": "commonjs",
         "target": "es6",
         "outDir": "out",
-        "moduleResolution": "node10",
+        "moduleResolution": "bundler",
         "lib": [
             "es6"
         ],

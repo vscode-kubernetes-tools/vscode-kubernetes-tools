@@ -683,10 +683,10 @@ function quickPickForChart(chartUri: vscode.Uri): vscode.QuickPickItem & { reado
     };
 }
 
-class Chart {
-    public name: string;
-    public version: string;
-    public appVersion: string;
+interface Chart {
+    name: string;
+    version: string;
+    appVersion: string;
 }
 
 // Load a chart object
@@ -883,9 +883,9 @@ function handleHelmNotFoundError(mode:EnsureMode, message:string): boolean{
 }
 
 export class Requirement {
-    public repository: string;
-    public name: string;
-    public version: string;
+    public repository: string = "";
+    public name: string = "";
+    public version: string = "";
     toString(): string {
         return `- name: ${this.name}
   version: ${ this.version }

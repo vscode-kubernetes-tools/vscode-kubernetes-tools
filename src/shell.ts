@@ -143,7 +143,7 @@ async function exec(cmd: string, stdin?: string): Promise<ShellResult | undefine
     try {
         return await execCore(cmd, execOpts(), null, stdin);
     } catch (ex) {
-        vscode.window.showErrorMessage(ex);
+        vscode.window.showErrorMessage(String(ex));
         return undefined;
     }
 }
@@ -152,7 +152,7 @@ async function execStreaming(cmd: string, callback: (proc: ChildProcess) => void
     try {
         return await execCore(cmd, execOpts(), callback);
     } catch (ex) {
-        vscode.window.showErrorMessage(ex);
+        vscode.window.showErrorMessage(String(ex));
         return undefined;
     }
 }

@@ -1033,8 +1033,9 @@ function buildPushThenExec(fn: (name: string, image: string) => void): void {
                     console.log(buildResult.stderr);
                 }
             } catch (err) {
-                vscode.window.showErrorMessage(err.message);
-                kubeChannel.showOutput(`Failed building/pushing an image: ${err}`);
+                const errorMessage = err instanceof Error ? err.message : String(err);
+                vscode.window.showErrorMessage(errorMessage);
+                kubeChannel.showOutput(`Failed building/pushing an image: ${errorMessage}`);
             }
         });
     });
@@ -1091,7 +1092,7 @@ function findKindNamesForText(text: string): Errorable<ResourceKindName[]> {
         return { succeeded: true, result: kindNames };
     } catch (ex) {
         console.log(ex);
-        return { succeeded: false, error: [ ex ] };
+        return { succeeded: false, error: [ String(ex) ] };
     }
 }
 
