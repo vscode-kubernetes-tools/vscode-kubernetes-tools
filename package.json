@@ -634,6 +634,11 @@
                     "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.(deployment|job|rc|rs|statefulset)/i"
                 },
                 {
+                    "command": "extension.vsKubernetesRestart",
+                    "group": "2@7",
+                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.(deployment|statefulset|daemonset)/i"
+                },
+                {
                     "command": "extension.vsKubernetesLogs",
                     "group": "inline",
                     "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.resource\\.(pod|job)/i"
@@ -915,6 +920,11 @@
             {
                 "command": "extension.vsKubernetesScale",
                 "title": "Scale",
+                "category": "Kubernetes"
+            },
+            {
+                "command": "extension.vsKubernetesRestart",
+                "title": "Restart",
                 "category": "Kubernetes"
             },
             {

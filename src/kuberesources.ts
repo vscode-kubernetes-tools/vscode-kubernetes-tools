@@ -46,6 +46,12 @@ export const scaleableKinds = [
     allKinds.statefulSet,
 ];
 
+export const restartableKinds = [
+    allKinds.deployment,
+    allKinds.statefulSet,
+    allKinds.daemonSet,
+];
+
 export const exposableKinds = [
     allKinds.deployment,
     allKinds.pod,

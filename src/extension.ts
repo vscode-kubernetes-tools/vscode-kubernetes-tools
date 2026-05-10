@@ -199,6 +199,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.vsKubernetesTerminal', terminalKubernetes),
         registerCommand('extension.vsKubernetesDiff', diffKubernetes),
         registerCommand('extension.vsKubernetesScale', scaleKubernetes),
+        registerCommand('extension.vsKubernetesRestart', restartKubernetes),
         registerCommand('extension.vsKubernetesDebug', debugKubernetes),
         registerCommand('extension.vsKubernetesRemoveDebug', removeDebugKubernetes),
         registerCommand('extension.vsKubernetesDebugAttach', debugAttachKubernetes),
@@ -979,6 +980,28 @@ function promptScaleKubernetes(kindName: string) {
 async function invokeScaleKubernetes(kindName: string, replicas: number) {
     const er = await host.longRunning(`Scaling ${kindName} to ${replicas} replicas...`, () =>
         kubectl.invokeCommand(`scale --replicas=${replicas} ${kindName}`)
+    );
+    await kubectl.reportResult(er, {});
+}
+
+async function restartKubernetes(target?: any) {
+    if (target && explorer.isKubernetesExplorerResourceNode(target)) {
+        const kindName = target.kindName;
+        const namespace = target.namespace || await kubectlUtils.currentNamespace(kubectl);
+        await invokeRestartKubernetes(kindName, namespace);
+    } else {
+        const isMinimalWorkflow = config.isMinimalWorkflow();
+        const kindName = await findKindNameOrPrompt(kuberesources.restartableKinds, 'restart', { skipFreeTextPrompt: isMinimalWorkflow });
+        if (kindName) {
+            const namespace = await kubectlUtils.currentNamespace(kubectl);
+            await invokeRestartKubernetes(kindName, namespace);
+        }
+    }
+}
+
+async function invokeRestartKubernetes(kindName: string, namespace: string) {
+    const er = await host.longRunning(`Restarting ${kindName}...`, () =>
+        kubectl.invokeCommand(`rollout restart ${kindName} --namespace=${namespace}`)
     );
     await kubectl.reportResult(er, {});
 }
