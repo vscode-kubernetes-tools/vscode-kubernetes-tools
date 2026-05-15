@@ -1313,7 +1313,7 @@
         "@types/tar": "^7.0.87",
         "@types/tmp": "^0.2.6",
         "@types/unzipper": "^0.10.9",
-        "@types/vscode": "^1.108.1",
+        "@types/vscode": "^1.120.0",
         "@types/websocket": "^1.0.10",
         "@types/yamljs": "^0.2.34",
         "@typescript-eslint/eslint-plugin": "^8.58.1",
