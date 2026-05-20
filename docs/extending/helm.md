@@ -16,25 +16,25 @@ To invoke `helm` through the extension API:
 * An object containing the exit code, standard output and standard error of `helm`
 * `undefined`, if the Kubernetes extension was unable to invoke `helm` at all
 
-The following example uses the Helm API to install Weave Scope:
+The following example uses the Helm API to install a chart:
 
 ```javascript
 import * as k8s from 'vscode-kubernetes-tools-api';
 
-async function installScope() {
+async function installChart() {
     const helm = await k8s.extension.helm.v1;
     if (!helm.available) {
         return;
     }
-    const result = await helm.api.invokeCommand(`install stable/weave-scope`);
+    const result = await helm.api.invokeCommand(`install my-release oci://registry-1.docker.io/bitnamicharts/nginx`);
 
     if (!result || result.code !== 0) {
         const errorMessage = result ? result.stderr : 'Unable to invoke helm';
-        await vscode.window.showErrorMessage(`Installing Scope failed: ${errorMessage}`);
+        await vscode.window.showErrorMessage(`Chart installation failed: ${errorMessage}`);
         return;
     }
 
-    await vscode.window.showInformationMessage('Scope has been installed');
+    await vscode.window.showInformationMessage('Chart has been installed');
 }
 ```
 

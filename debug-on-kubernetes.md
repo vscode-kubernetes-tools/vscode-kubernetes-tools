@@ -3,15 +3,15 @@
 One of the key features of VS Code Kubernetes Extension is its one-click debugging support. This document shows you how to configure the feature and use it to debug your application.
 
 ## 1. Supported languages
-   * `dotnet` (Required: [C# for Visual Studio Code (powered by OmniSharp).](https://marketplace.visualstudio.com/items?itemName=ms-dotnettools.csharp)
+   * `dotnet` (Required: [C# for Visual Studio Code](https://marketplace.visualstudio.com/items?itemName=ms-dotnettools.csharp))
    * `go` (Required: [Go](https://marketplace.visualstudio.com/items?itemName=golang.Go))
    * `java` (Required: [Debugger for Java](https://marketplace.visualstudio.com/items?itemName=vscjava.vscode-java-debug) extension)
    * `python` (Required: [Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python) extension)
    * `node`
 
 ## 2. Commands for debugging
-   * `Kubernetes: Debug (Launch)` - Run the current application as a Kubernetes Deployment and attach a debugging session to it (currently works only for Java/Node.js deployments)
-   * `Kubernetes: Debug (Attach)` - Attach a debugging session to an existing Kubernetes Deployment (currently works only for dotnet deployments, Go deployments, Java deployments, and Python deployments running `ptvsd`)
+   * `Kubernetes: Debug (Launch)` - Run the current application as a Kubernetes Deployment and attach a debugging session to it (supports Go, Java, Node.js, Python, and .NET deployments)
+   * `Kubernetes: Debug (Attach)` - Attach a debugging session to an existing Kubernetes Deployment (supports Go, Java, Node.js, Python, and .NET deployments)
 
       ### Miscellaneous commands
       * `Kubernetes: Select Pod` - It allows to select a pod from a list of pods belonging to the "current" namespace. It can be invoked through command substitution (`${command:extension.vsKubernetesSelectPod}`) inside files such as launch.json or tasks.json.
@@ -39,7 +39,7 @@ One of the key features of VS Code Kubernetes Extension is its one-click debuggi
 
    When starting it, you will be shown a list of pods where to select the one you want to use.
 
-![select the pod](https://raw.githubusercontent.com/Azure/vscode-kubernetes-tools/master/images/screenshots/select-pod-command-substitution.png)
+![select the pod](https://raw.githubusercontent.com/vscode-kubernetes-tools/vscode-kubernetes-tools/main/images/screenshots/select-pod-command-substitution.png)
 
 
 ## 3. Extension Settings for debugging
@@ -74,17 +74,17 @@ Where `<your-image-prefix-here>` is something like `docker.io/brendanburns` or `
 
 The extension will try to automatically detect your application platform, but if this fails, you will have to select your debug environment manually.
 
-![select the environment](https://raw.githubusercontent.com/Azure/vscode-kubernetes-tools/master/images/screenshots/select-the-environment.png)
+![select the environment](https://raw.githubusercontent.com/vscode-kubernetes-tools/vscode-kubernetes-tools/main/images/screenshots/select-the-environment.png)
 
 After that, the extension will try to resolve the debug port and application port from the Dockerfile. Generally you could enable the debug port via the Java command line arguments `"-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005,quiet=y"`, but if you don't specify it explicitly in your Dockerfile, the extension will inject this argument to an environment variable `JAVA_TOOL_OPTIONS` to help you enable the debug mode on Kubernetes container automatically. The application port is what your application provides service on. For Spring Boot, the typical application port is 8080 or 80. If you don't expose it explicitly in your Dockerfile, you will have to specify it manually.
 
-![specify the app port](https://raw.githubusercontent.com/Azure/vscode-kubernetes-tools/master/images/screenshots/specify-app-port.png)
+![specify the app port](https://raw.githubusercontent.com/vscode-kubernetes-tools/vscode-kubernetes-tools/main/images/screenshots/specify-app-port.png)
 
 When the prompts finish, the extension will start to build a Docker image from your current workspace, and run it as a deployment in Kubernetes and wait for the pod to be ready. After that, the extension creates port-forwarding for the ports (debug port and application port) to make them to be accessible at localhost. Finally, the extension starts a debug session to attach to the debug port.
 
 Here is a GIF showing the full workflow:
 
-![launch java debug on minikube](https://raw.githubusercontent.com/Azure/vscode-kubernetes-tools/master/images/screenshots/launch-java-debug.gif)
+![launch java debug on minikube](https://raw.githubusercontent.com/vscode-kubernetes-tools/vscode-kubernetes-tools/main/images/screenshots/launch-java-debug.gif)
 
 ### 4.2 Attach debugger to a running Kubernetes Java Deployment
    * Launch VS Code.
@@ -94,7 +94,7 @@ Here is a GIF showing the full workflow:
 
 You have to select the debug environment first. Then select the target pod that your application runs on. And if your pod contains multiple containers, you'll have to select the target container too.
 
-![select the pod](https://raw.githubusercontent.com/Azure/vscode-kubernetes-tools/master/images/screenshots/select-the-pod.png)
+![select the pod](https://raw.githubusercontent.com/vscode-kubernetes-tools/vscode-kubernetes-tools/main/images/screenshots/select-the-pod.png)
 
 After that, the extension will try to resolve the debug port from the container's process list. If this fails, you'll have to specify it manually.
 
@@ -102,15 +102,15 @@ When the prompts finish, the extension will create port-forwarding for the debug
 
 Here is a GIF showing the full workflow:
 
-![attach java debug](https://raw.githubusercontent.com/Azure/vscode-kubernetes-tools/master/images/screenshots/attach-java-debug.gif)
+![attach java debug](https://raw.githubusercontent.com/vscode-kubernetes-tools/vscode-kubernetes-tools/main/images/screenshots/attach-java-debug.gif)
 
-To learn more about the features provided by the VS Code Kubernetes Extension, take a look at the [README](https://github.com/Azure/vscode-kubernetes-tools).
+To learn more about the features provided by the VS Code Kubernetes Extension, take a look at the [README](https://github.com/vscode-kubernetes-tools/vscode-kubernetes-tools).
 
 ## 5. Python debug prerequisites
-   1. Have [ptvsd](https://pypi.org/project/ptvsd/) installed in your container.
-   2. Either use [`ptvsd.enable_attach()`](https://github.com/microsoft/ptvsd#enabling-debugging) in your code or prepend your entrypont with [the ptvsd command](https://github.com/microsoft/ptvsd#ptvsd-cli-usage).
+   1. Have [debugpy](https://pypi.org/project/debugpy/) installed in your container.
+   2. Either use [`debugpy.listen()`](https://github.com/microsoft/debugpy#debugpy-cli-usage) in your code or prepend your entrypoint with the debugpy command.
 
-Currently only attaching to a Python container running ptvsd is supported.
+Currently only attaching to a Python container running debugpy is supported.
 
 ## 6. dotnet debugging
    1. Prerequisites
@@ -119,8 +119,7 @@ Currently only attaching to a Python container running ptvsd is supported.
 
       `apt-get update && apt-get -y install procps`
 
-      * [`vsdbg`](https://github.com/OmniSharp/omnisharp-vscode/wiki/Attaching-to-remote-processes) must be installed on the container. You can download it by running the following command on the container.
-https://github.com/OmniSharp/omnisharp-vscode/wiki/Attaching-to-remote-processes
+      * [`vsdbg`](https://github.com/dotnet/vscode-csharp/blob/main/docs/debugger/Attaching-to-remote-processes.md) must be installed on the container. You can download it by running the following command on the container.
       `curl -sSL https://aka.ms/getvsdbgsh | /bin/sh /dev/stdin -v latest -l ~/vsdbg`
 
       \- or -
@@ -130,7 +129,7 @@ https://github.com/OmniSharp/omnisharp-vscode/wiki/Attaching-to-remote-processes
    2. Notes:
       * `dotnet` debugging is only supported for the `attach` scenario. The `launch` scenario is not yet supported.
       * If `ps` is not installed on the machine, than `dotnet` will show up in the debugger pick list. If `dotnet` is chosen it will give you an error message with a link to this page.
-      * The [C# for Visual Studio Code](https://marketplace.visualstudio.com/items?itemName=ms-dotnettools.csharp) extension is powered by OmniSharp. Find out more information regarding remote debugging with OmniSharp [here](https://github.com/OmniSharp/omnisharp-vscode/wiki/Attaching-to-remote-processes).
+      * The [C# for Visual Studio Code](https://marketplace.visualstudio.com/items?itemName=ms-dotnettools.csharp) extension provides remote debugging support. Find out more information regarding remote debugging [here](https://github.com/dotnet/vscode-csharp/blob/main/docs/debugger/Attaching-to-remote-processes.md).
       * In case of the `Kubernetes: Debug(Attach)` action is used for debugging, you might need to set the build root of your docker image in order to enable the debugger to map the symbols to your code.
       When you use a docker image to build your code (so the build root differs from the one on your local system) you should set the `vs-kubernetes.dotnet-source-file-map` parameter to add a sourceFileMap entry to the debug configuration.
 
@@ -142,7 +141,7 @@ https://github.com/OmniSharp/omnisharp-vscode/wiki/Attaching-to-remote-processes
          ```
 
          This sourceFileMap will then map the symbols found by the debugger to your local source code. The `vs-kubernetes.dotnet-source-file-map` shall contain the build root, the location of your local source code is determined by the selected workspace folder.
-         For mor information please have a look into the [C# for Visual Studio Code Launch Documentation](https://github.com/OmniSharp/omnisharp-vscode/blob/master/debugger-launchjson.md).
+         For more information please have a look into the [C# for Visual Studio Code Debugger Settings](https://code.visualstudio.com/docs/csharp/debugger-settings).
 
 ## 7. NodeJS debugging
 ### 7.1 Launch a NodeJS application on Kubernetes and debug it
@@ -163,19 +162,19 @@ Where `<your-image-prefix-here>` is something like `docker.io/brendanburns` or `
 
 The extension will try to automatically detect your application platform, but if this fails, you will have to select your debug environment manually.
 
-![select the environment](https://raw.githubusercontent.com/Azure/vscode-kubernetes-tools/master/images/screenshots/select-the-environment-nodejs-debug-launch.png)
+![select the environment](https://raw.githubusercontent.com/vscode-kubernetes-tools/vscode-kubernetes-tools/main/images/screenshots/select-the-environment-nodejs-debug-launch.png)
 
 After that, the extension will try to resolve the debug port and application port from the Dockerfile. The application port is what your application provides service on. For NodeJS, the typical application port is 8080 or 80. If you don't expose it explicitly in your Dockerfile, you will have to specify it manually.
 
-At this point the extension will ask if you want to add an additional debug command. For debugging NodeJS application we need to enable the inspector so that the NodeJS process in our container correctly listens to a debugging client. Based on your application the command could slightly change but it should look like `node --inspect app.js`. More information at [NodeJS Debugging Getting Started](https://nodejs.org/en/docs/guides/debugging-getting-started/)
+At this point the extension will ask if you want to add an additional debug command. For debugging NodeJS application we need to enable the inspector so that the NodeJS process in our container correctly listens to a debugging client. Based on your application the command could slightly change but it should look like `node --inspect app.js`. More information at [NodeJS Debugging Getting Started](https://nodejs.org/learn/getting-started/debugging)
 
-![enable inspector](https://raw.githubusercontent.com/Azure/vscode-kubernetes-tools/master/images/screenshots/enable-inspector-nodejs-debug-launch.png)
+![enable inspector](https://raw.githubusercontent.com/vscode-kubernetes-tools/vscode-kubernetes-tools/main/images/screenshots/enable-inspector-nodejs-debug-launch.png)
 
 When the prompts finish, the extension will start to build a Docker image from your current workspace, and run it as a deployment in Kubernetes and wait for the pod to be ready. After that, the extension creates port-forwarding for the ports (debug port and application port) to make them to be accessible at localhost. Finally, the extension starts a debug session to attach to the debug port.
 
 Here is a GIF showing the full workflow:
 
-![launch nodejs debug on minikube](https://raw.githubusercontent.com/Azure/vscode-kubernetes-tools/master/images/screenshots/debug-launch-nodejs.gif)
+![launch nodejs debug on minikube](https://raw.githubusercontent.com/vscode-kubernetes-tools/vscode-kubernetes-tools/main/images/screenshots/debug-launch-nodejs.gif)
 
 ## 8. Go debugging
 ### 8.1 Launch a Go application on Kubernetes and debug it
