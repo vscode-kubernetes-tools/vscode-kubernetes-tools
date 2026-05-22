@@ -353,3 +353,9 @@ the `vs-helm` extension by @technosophos.
 
 The 'infer `kubectl` version' feature was inspired by @jakepearson's `k` utility
 (https://github.com/jakepearson/k), and some parts of the design were based on his implementation.
+
+---
+
+Copyright Contributors to vscode-kubernetes-tools, established as
+vscode-kubernetes-tools a Series of LF Projects, LLC.
+
