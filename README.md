@@ -131,8 +131,8 @@ If you want to skip TLS verification for a particular cluster, you can edit your
    * `Kubernetes: Run` - Run the current application as a Kubernetes Deployment
    * `Kubernetes: Terminal` - Open an interactive terminal session in a pod of the Kubernetes Deployment
    * `Kubernetes: Exec` - Run a command in a pod of the Kubernetes Deployment
-   * `Kubernetes: Debug (Launch)` - Run the current application as a Kubernetes Deployment and attach a debugging session to it (currently works only for Java/Node.js deployments). See [Debug support on Kubernetes cluster](https://github.com/Azure/vscode-kubernetes-tools/blob/master/debug-on-kubernetes.md) for more details.
-   * `Kubernetes: Debug (Attach)` - Attach a debugging session to an existing Kubernetes Deployment (currently works only for Java deployments). See [Debug support on Kubernetes cluster](https://github.com/Azure/vscode-kubernetes-tools/blob/master/debug-on-kubernetes.md) for more details.
+   * `Kubernetes: Debug (Launch)` - Run the current application as a Kubernetes Deployment and attach a debugging session to it (supports Go, Java, Node.js, Python, and .NET deployments). See [Debug support on Kubernetes cluster](https://github.com/vscode-kubernetes-tools/vscode-kubernetes-tools/blob/main/debug-on-kubernetes.md) for more details.
+   * `Kubernetes: Debug (Attach)` - Attach a debugging session to an existing Kubernetes Deployment (supports Go, Java, Node.js, Python, and .NET deployments). See [Debug support on Kubernetes cluster](https://github.com/vscode-kubernetes-tools/vscode-kubernetes-tools/blob/main/debug-on-kubernetes.md) for more details.
    * `Kubernetes: Remove Debug` - Remove the deployment and/or service created for a `Kubernetes Debug (Launch)` session
    * `Kubernetes: Sync Working Copy to Cluster` - Checks out the version of the code that matches what is deployed in the cluster.  (This relies on Docker image versions also being Git commit IDs, which the extension does if you use the Run command to build the container, but which typically doesn't work for containers/deployments done by other means.)
 
@@ -142,7 +142,7 @@ If you want to skip TLS verification for a particular cluster, you can edit your
 
 #### Configuration commands
 
-   * `Kubernetes: Add Existing Cluster` - Install and configure the Kubernetes command line tool (kubectl) from a cloud cluster, such as an Azure Container Service (ACS) or Azure Kubernetes Service (AKS) cluster
+   * `Kubernetes: Add Existing Cluster` - Install and configure the Kubernetes command line tool (kubectl) from a cloud cluster, such as an Azure Kubernetes Service (AKS) cluster
    * `Kubernetes: Set as Current Cluster` - Select from a list of configured clusters to set the "current" cluster. Used for searching, displaying, and deploying Kubernetes resources.
    * `Kubernetes: Delete Context` - Remove a cluster's configuration from the kubeconfig file.
    * `Kubernetes: Set Kubeconfig` - Select from a list of known kubeconfig files (for users who keep different kubeconfig files for different environments).
@@ -158,7 +158,7 @@ If you want to skip TLS verification for a particular cluster, you can edit your
 
    * `Kubernetes: Open Dashboard` - Opens the Kubernetes Dashboard in your browser.
    * `Kubernetes: Port Forward` - Prompts user for a local port and a remote port to bind to on a Pod.
-   * `Kubernetes: Select Pod` - It allows to select a pod from a list of pods belonging to the "current" namespace. It can be invoked through command substitution `${command:extension.vsKubernetesSelectPod}`. See [Commands for debugging](https://github.com/Azure/vscode-kubernetes-tools/blob/master/debug-on-kubernetes.md#2-commands-for-debugging) for more details.
+   * `Kubernetes: Select Pod` - It allows to select a pod from a list of pods belonging to the "current" namespace. It can be invoked through command substitution `${command:extension.vsKubernetesSelectPod}`. See [Commands for debugging](https://github.com/vscode-kubernetes-tools/vscode-kubernetes-tools/blob/main/debug-on-kubernetes.md#2-commands-for-debugging) for more details.
 
 ### Minikube
 
@@ -182,7 +182,7 @@ Minikube tools to be installed and available on your PATH.
      * `Helm: Lint` - Lint your chart
      * `Helm: Preview Template` - Open a preview window and preview how your template will render
      * `Helm: Template` - Run your chart through the template engine
-     * `Helm: Dry Run` - Run a helm install --dry-run --debug on a remote cluster and get the results (NOTE: requires Tiller on the remote cluster)
+     * `Helm: Dry Run` - Run a helm install --dry-run --debug on a remote cluster and get the results
      * `Helm: Version` - Get the Helm version
      * `Helm: Insert Dependency` - Insert a dependency YAML fragment
      * `Helm: Dependency Update` - Update a chart's dependencies
@@ -242,7 +242,7 @@ For `kubectl` and `helm`, the binaries do not need to be on the system PATH. You
 
 The extension can install `kubectl` and `helm` for you if they are missing - choose **Install dependencies** when you see an error notification for the missing tool.  This will set `kubectl-path` and `helm-path` entries in your configuration for the current OS (see "Portable extension configuration" below) - the programs will *not* be installed on the system PATH, but this will be sufficient for them to work with the extension.
 
-If you are working with Azure Container Services or Azure Kubernetes Services, then you can install and configure `kubectl` using the `Kubernetes: Add Existing Cluster` command.
+If you are working with Azure Kubernetes Service, then you can install and configure `kubectl` using the `Kubernetes: Add Existing Cluster` command.
 
 ### Portable extension configuration
 
@@ -302,7 +302,7 @@ This extension stores its associated files and data in `$XDG_STATE_HOME/vs-kuber
 
 ## Known issues
 
-  * `Kubernetes: Debug` command currently works only with Go, Node.js, Java, Python and .NET applications
+  * `Kubernetes: Debug` command works with Go, Node.js, Java, Python and .NET applications
   * For deeply nested Helm charts, template previews are generated against highest (umbrella) chart values (though for `Helm: Template` calls you can pick your chart)
   * When installing VS Code and/or kubectl through `snap` on a Linux system, you may face some permissions error which will prevent this extension to work correctly. As a workaround you can set up the `vs-kubernetes.enable-snap-flag` setting to `true` in your user or workspace settings.
 
@@ -317,7 +317,7 @@ This extension collects telemetry data to help us build a better experience for 
 * Which commands are executed, and whether they are executed against an Azure, Minikube or other type of cluster.
 * For the `Create Cluster` and `Add Existing Cluster` commands, the cluster type selected and the execution result (success/failure).
 
-We do not collect any information about image names, paths, etc. We collect cluster type information only if the cluster is Azure or a local cluster such as Minikube. The extension respects the `telemetry.enableTelemetry` setting which you can learn more about in our [FAQ](https://code.visualstudio.com/docs/supporting/faq#_how-to-disable-telemetry-reporting).
+We do not collect any information about image names, paths, etc. We collect cluster type information only if the cluster is Azure or a local cluster such as Minikube. The extension respects the `telemetry.telemetryLevel` setting which you can learn more about in our [FAQ](https://code.visualstudio.com/docs/supporting/faq#_how-to-disable-telemetry-reporting).
 
 ## Running from source
 
@@ -329,7 +329,7 @@ If you are installing the extension from its VSIX, note that the machine will st
 
 ## GitHub Pages Website
 
-This project has a simple landing page website (visible at [vscode-kubernetes-tools.github.io/vscode-kubernetes-tools](https://vscode-kubernetes-tools.github.io/vscode-kubernetes-tools/)) which is [detailed here](https://github.com/vscode-kubernetes-tools/vscode-kubernetes-tools/tree/master/site).
+This project has a simple landing page website (visible at [vscode-kubernetes-tools.github.io/vscode-kubernetes-tools](https://vscode-kubernetes-tools.github.io/vscode-kubernetes-tools/)) which is [detailed here](https://github.com/vscode-kubernetes-tools/vscode-kubernetes-tools/tree/main/site).
 
 ## Contributing
 
