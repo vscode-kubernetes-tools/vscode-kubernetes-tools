@@ -990,8 +990,7 @@ async function restartKubernetes(target?: any) {
         const namespace = target.namespace || await kubectlUtils.currentNamespace(kubectl);
         await invokeRestartKubernetes(kindName, namespace);
     } else {
-        const isMinimalWorkflow = config.isMinimalWorkflow();
-        const kindName = await findKindNameOrPrompt(kuberesources.restartableKinds, 'restart', { skipFreeTextPrompt: isMinimalWorkflow });
+        const kindName = await findKindNameOrPrompt(kuberesources.restartableKinds, 'restart', { skipFreeTextPrompt: true });
         if (kindName) {
             const namespace = await kubectlUtils.currentNamespace(kubectl);
             await invokeRestartKubernetes(kindName, namespace);
