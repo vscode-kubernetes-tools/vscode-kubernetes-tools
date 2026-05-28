@@ -19,6 +19,7 @@
 * fix: align VS Code engine and @types/vscode to ^1.110.0
 * docs: add CNCF/LF Projects copyright disclaimer to README
 * Docs: Fix outdated references across documentation
+* Updating auth prompt detection to match additional known login URLs
 
 Contributors: Thank you so much for Contributions and Reviews from knowlsie, tejhan, bosesuneha, Tatsinnit. Thank you all!!
 
