@@ -175,8 +175,10 @@ function execCore(cmd: string, opts: any, callback?: ((proc: ChildProcess) => vo
     });
 }
 
-// Pattern to detect Azure AD device login prompts
-const AUTH_PROMPT_PATTERN = /microsoft\.com\/devicelogin/i;
+// Pattern to detect Azure AD device login prompts (covers multiple URL variants)
+// Known URLs: microsoft.com/devicelogin, login.microsoft.com/device, login.microsoftonline.com/.../oauth2/deviceauth
+// Requires https:// prefix to avoid matching substrings in unrelated URLs
+const AUTH_PROMPT_PATTERN = /https:\/\/(?:[a-z0-9-]+\.)?microsoft(?:online)?\.com\/(?:device|devicelogin|common\/oauth2\/deviceauth)/i;
 
 let authNotificationShown = false;
 
