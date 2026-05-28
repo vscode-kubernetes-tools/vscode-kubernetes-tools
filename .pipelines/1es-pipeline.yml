@@ -7,6 +7,11 @@ resources:
       type: git
       name: 1ESPipelineTemplates/1ESPipelineTemplates
       ref: refs/tags/release
+    - repository: vscode-kubernetes-tools # vscode-kubernetes-tools/vscode-kubernetes-tools
+      type: github
+      endpoint: kubernetes
+      name: vscode-kubernetes-tools/vscode-kubernetes-tools
+      ref: refs/heads/main
 
 parameters:
   - name: nodeVersion
@@ -35,7 +40,7 @@ extends:
         hostArchitecture: amd64
       sourceRepositoriesToScan:
         include:
-          - repository: self
+          - repository: vscode-kubernetes-tools
 
     stages:
       - stage: Stage
@@ -64,7 +69,7 @@ extends:
                   packageType: "sdk"
                   version: "6.x"
 
-              - checkout: self
+              - checkout: vscode-kubernetes-tools
 
               # =====================================================
               # BUILD AND PACKAGE
