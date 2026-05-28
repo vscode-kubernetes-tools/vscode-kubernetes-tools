@@ -35,7 +35,7 @@ extends:
         hostArchitecture: amd64
       sourceRepositoriesToScan:
         include:
-          - repository: self
+          - repository: vscode-kubernetes-tools
 
     stages:
       - stage: Stage
