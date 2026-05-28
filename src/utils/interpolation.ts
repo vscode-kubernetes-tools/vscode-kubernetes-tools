@@ -1,4 +1,4 @@
-/* 
+/*
 *  This file is based on the work made by DominicVonk at https://github.com/DominicVonk/vscode-variables
 *  This has been imported and updated to allow using the latest @types/vscode library
 */
@@ -11,7 +11,7 @@ import { homedir } from 'os';
  * It substitutes variables that use the syntax ${variableName} and belong to the list below, within the value.
  * If recursive is true, the function is called recursively if another variable is found after the first call.
  * E.g "${userHome}/my_custom_kubectl_folder/kubectl" -> "home_path/my_custom_kubectl_folder/kubectl"
- * 
+ *
  * The following predefined variables are supported:
  *      ${userHome} - the path of the user's home folder
  *      ${workspaceFolder} - the path of the folder opened in VS Code
@@ -45,27 +45,27 @@ export function interpolateVariables(value: string | undefined, recursive = fals
         value = value.replace(/\${workspaceFolder}/g, workspace.uri.fsPath);
         value = value.replace(/\${workspaceFolderBasename}/g, workspace.name);
     }
-        
+
     let fileWorkspace = workspace;
     let relativeFilePath = absoluteFilePath;
     if (workspaces) {
-        for (let inner_workspace of workspaces) {
-            if (absoluteFilePath && absoluteFilePath.replace(inner_workspace.uri.fsPath, '') !== absoluteFilePath) {
-                fileWorkspace = inner_workspace;
-                relativeFilePath = absoluteFilePath.replace(inner_workspace.uri.fsPath, '').substring(path.sep.length);
+        for (const innerWorkspace of workspaces) {
+            if (absoluteFilePath && absoluteFilePath.replace(innerWorkspace.uri.fsPath, '') !== absoluteFilePath) {
+                fileWorkspace = innerWorkspace;
+                relativeFilePath = absoluteFilePath.replace(innerWorkspace.uri.fsPath, '').substring(path.sep.length);
                 break;
             }
         }
     }
-    
+
     if (fileWorkspace) {
         value = value.replace(/\${fileWorkspaceFolder}/g, fileWorkspace.uri.fsPath);
-    }    
+    }
 
     if (relativeFilePath) {
         value = value.replace(/\${relativeFile}/g, relativeFilePath);
         value = value.replace(/\${relativeFileDirname}/g, relativeFilePath.substring(0, relativeFilePath.lastIndexOf(path.sep)));
-    }    
+    }
 
     if (absoluteFilePath) {
         const parsedPath = path.parse(absoluteFilePath);
@@ -76,7 +76,7 @@ export function interpolateVariables(value: string | undefined, recursive = fals
         value = value.replace(/\${fileDirname}/g, parsedPath.dir.substring(parsedPath.dir.lastIndexOf(path.sep) + 1));
         value = value.replace(/\${cwd}/g, parsedPath.dir);
     }
-    
+
     value = value.replace(/\${pathSeparator}/g, path.sep);
 
     const activeEditor = vscode.window.activeTextEditor;
@@ -84,7 +84,7 @@ export function interpolateVariables(value: string | undefined, recursive = fals
         value = value.replace(/\${lineNumber}/g, (activeEditor.selection.start.line + 1).toString());
         value = value.replace(/\${selectedText}/g, activeEditor.document.getText(new vscode.Range(activeEditor.selection.start, activeEditor.selection.end)));
     }
-    
+
     value = value.replace(/\${env:(.*?)}/g, function (variable) {
         const matches = variable.match(/\${env:(.*?)}/);
         if (matches && matches.length > 1) {
