@@ -18,7 +18,9 @@ export async function readSwagger(): Promise<SwaggerModel | undefined> {
 
 export async function readSwaggerCore(kc: kubernetes.KubeConfig): Promise<SwaggerModel | undefined> {
   const currentCluster = kc.getCurrentCluster();
-  if (!currentCluster) return undefined;
+  if (!currentCluster) {
+    return undefined;
+  }
 
   const uri = `${currentCluster.server}/swagger.json`;
 

@@ -331,7 +331,7 @@ async function downloadKubectlCli(context: Context): Promise<any> {
 async function getCredentials(context: Context, clusterName: string, clusterGroup: string, maxAttempts: number): Promise<any> {
     const kubeconfigPath = getKubeconfigPath();
     const fullPath = kubeconfigPath.pathType === "host" ? kubeconfigPath.hostPath : kubeconfigPath.wslPath;
-    // For multi-path KUBECONFIG, split and use the first path to write new credentials 
+    // For multi-path KUBECONFIG, split and use the first path to write new credentials
     const kubeconfigFilePath = fullPath ? fullPath.split(path.delimiter)[0] : undefined;
     const kubeconfigFileOption = kubeconfigFilePath ? `-f "${kubeconfigFilePath}"` : '';
     let attempts = 0;

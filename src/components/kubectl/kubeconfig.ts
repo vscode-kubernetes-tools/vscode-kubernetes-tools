@@ -205,7 +205,9 @@ export async function mergeToKubeconfig(newConfigText: string): Promise<void> {
     const fields = ['clusters', 'users', 'contexts'] as (keyof Omit<Config, "current-context">)[];
     for (const field of fields) {
         const newEntry = newConfig[field]?.[0];
-        if (!newEntry) continue;
+        if (!newEntry) {
+            continue;
+        }
 
         const arr = kubeconfig[field] ??= [];
         const existingIndex = arr.findIndex((entry: any) => entry.name === newEntry.name);

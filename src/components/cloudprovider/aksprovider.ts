@@ -23,7 +23,7 @@ export class AKSProvider implements CloudProvider {
         const subscriptions = await longRunning("Getting Azure subscriptions", async () => {
             return await this.provider.getSubscriptions();
         });
-        
+
         if (!subscriptions || subscriptions.length === 0) {
             vscode.window.showErrorMessage(`Failed to get subscriptions for ${this.getName()}`);
             return;
@@ -82,9 +82,9 @@ export class AKSProvider implements CloudProvider {
 
         const token = session.accessToken;
 
-        // The logic below does the same thing as the ResourceGraphClient, but we are using 
+        // The logic below does the same thing as the ResourceGraphClient, but we are using
         // the REST API directly to avoid bundling issues we currently have.
-        // After we undergo major updates 
+        // After we undergo major updates
         // to address our outdated/broken dependencies, we can revisit this.
 
         const url = "https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2021-03-01";
@@ -108,7 +108,7 @@ export class AKSProvider implements CloudProvider {
             vscode.window.showErrorMessage(`Network error querying Resource Graph: ${e.message}`);
             return;
         }
-    
+
         if (!resp.ok) {
             vscode.window.showErrorMessage(`Resource Graph failed: ${resp.status} ${resp.statusText}`);
             return;
@@ -122,7 +122,7 @@ export class AKSProvider implements CloudProvider {
             vscode.window.showErrorMessage(`Invalid JSON from Resource Graph: ${e.message}`);
             return;
         }
-    
+
         return (json.data as any[]).map((c) => ({
             name: c.name,
             resourceGroup: c.resourceGroup
@@ -142,7 +142,7 @@ export class AKSProvider implements CloudProvider {
                 vscode.window.showErrorMessage(`Failed to get cluster`);
                 return undefined;
             } else {
-                let cluster = clusters.find((cluster:any) => cluster.name === selectedCluster);
+                const cluster = clusters.find((cluster:any) => cluster.name === selectedCluster);
                 if (!cluster) {
                     vscode.window.showErrorMessage(`Failed to get cluster`);
                     return undefined;

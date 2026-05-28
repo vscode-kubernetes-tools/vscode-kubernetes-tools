@@ -259,9 +259,9 @@ export async function getCRDTypes(kubectl: Kubectl): Promise<ResourceKind[]> {
         return [];
     }
 
-    const lines = crdExecResult.stdout.split('\n').filter(l => l.length > 0);
+    const lines = crdExecResult.stdout.split('\n').filter((l) => l.length > 0);
 
-    return lines.map(line => {
+    return lines.map((line) => {
         const parts = line.split(" ");
         const metadataName = parts[0];
         const kind = parts[1];

@@ -1420,7 +1420,7 @@ async function getContainerQuery(resource: ContainerContainer, containerType: st
         return { name: bits[0] ? bits[0].trim() : '', image: bits[1] ? bits[1].trim() : '', initContainer: containerType === 'initContainers'};
     });
 
-    return containersEx.filter(c => c.name !== '');
+    return containersEx.filter((c) => c.name !== '');
 }
 
 export async function getContainersForResource(resource: ContainerContainer): Promise<Container[] | null> {
@@ -2061,20 +2061,22 @@ async function configureFromClusterKubernetes() {
     }
 
     const subscriptionId = await provider.result.prerequisites();
-    if (!subscriptionId) return;
+    if (!subscriptionId) {
+        return;
+    }
 
     // currently AKS is our only provider
     if (provider.result instanceof AKSProvider) {
-        let cluster = await provider.result.selectCluster(subscriptionId);
-        if (cluster){
-            let kconfig = await provider.result.getKubeconfigYaml(subscriptionId, cluster.resourceGroup, cluster.name);
-            if (kconfig) { 
+        const cluster = await provider.result.selectCluster(subscriptionId);
+        if (cluster) {
+            const kconfig = await provider.result.getKubeconfigYaml(subscriptionId, cluster.resourceGroup, cluster.name);
+            if (kconfig) {
                 mergeToKubeconfig(kconfig);
             } else {
                 vscode.window.showErrorMessage("Failed to get kubeconfig");
             }
-        } 
-    } 
+        }
+    }
 }
 
 // creates a new cluster using aks extension
@@ -2113,11 +2115,11 @@ async function useKubeconfigKubernetes(kubeconfig?: string): Promise<void> {
             `Kubeconfig file not found at path: ${kc}. Do you want to remove this entry from your known configs?`,
             'Yes', 'No'
         );
-        
+
         // if user chooses to remove the entry, remove it from known configs
         if (removePick === 'Yes') {
             const knownKubeconfigs = getKnownKubeconfigs();
-            const updatedKubeconfigs = knownKubeconfigs.filter(path => path !== kc);
+            const updatedKubeconfigs = knownKubeconfigs.filter((path) => path !== kc);
             config.setConfigValue('vs-kubernetes.knownKubeconfigs', updatedKubeconfigs);
             vscode.window.showInformationMessage(`Removed invalid kubeconfig from settings.`);
         }
