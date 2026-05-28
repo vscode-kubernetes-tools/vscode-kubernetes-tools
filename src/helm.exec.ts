@@ -194,9 +194,9 @@ export async function helmCreate(): Promise<void> {
     // Show success message and reveal the created chart
     const chartPath = createResult.result.path;
     const chartName = createResult.result.name;
-    
+
     logger.log(`⎈⎈⎈ Created chart ${chartName} at ${chartPath}`);
-    
+
     const action = await vscode.window.showInformationMessage(
         `Created Helm chart '${chartName}'`,
         'Open Chart.yaml',
@@ -853,7 +853,7 @@ export async function helmListAll(namespace?: string): Promise<Errorable<{ [key:
     return { succeeded: true, result: releases };
 }
 
-export function ensureHelm(mode: EnsureMode) { 
+export function ensureHelm(mode: EnsureMode) {
     const configuredBin: string | undefined = getToolPath(host, sh, 'helm');
     if (configuredBin) {
         if (fs.existsSync(configuredBin)) {
@@ -863,12 +863,12 @@ export function ensureHelm(mode: EnsureMode) {
     }
     if (sh.which("helm")) {
         return true;
-    } 
+    }
     return handleHelmNotFoundError(mode, 'Could not find Helm binary.')
 }
 
 // Displays error message with option to install dependencies or disable Helm checks.
-function handleHelmNotFoundError(mode:EnsureMode, message:string): boolean{ 
+function handleHelmNotFoundError(mode:EnsureMode, message:string): boolean{
     if (mode === EnsureMode.Alert && !suppressHelmNotFound()) {
         vscode.window.showErrorMessage(message, "Install dependencies", "Disable Helm checks").then((str) =>
         {

@@ -5,7 +5,6 @@
 
 import { Event } from 'vscode';
 
-/* eslint-disable camelcase */
 
 export interface ConfigurationV1_1 {
     getKubeconfigPath(): ConfigurationV1_1.KubeconfigPath;

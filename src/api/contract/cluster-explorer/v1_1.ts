@@ -2,7 +2,6 @@
 // It should be in sync with vscode-kubernetes-tools-api/ts/explorer-tree/v1_1.ts
 // at all times.
 
-/* eslint-disable camelcase */
 
 import * as vscode from 'vscode';
 

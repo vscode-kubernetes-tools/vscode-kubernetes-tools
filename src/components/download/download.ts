@@ -1,7 +1,7 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import * as tmp from 'tmp';
-import fetch from 'node-fetch';             
+import fetch from 'node-fetch';
 
 import { succeeded, Errorable } from '../../errorable';
 import { Dictionary } from '../../utils/dictionary';

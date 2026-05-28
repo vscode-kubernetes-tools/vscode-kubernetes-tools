@@ -32,15 +32,15 @@ export class GoDebugProvider implements IDebugProvider {
     }
 
     public async startDebugging(workspaceFolder: string, sessionName: string, port: number | undefined, _pod: string, _pidToDebug: number | undefined): Promise<boolean> {
-        const remotePath = await vscode.window.showInputBox({ 
-            prompt: "Which is the project root path of your remote app?", 
+        const remotePath = await vscode.window.showInputBox({
+            prompt: "Which is the project root path of your remote app?",
             placeHolder: "/go/src/",
             ignoreFocusOut: true,
         });
         if (remotePath === undefined) {
             return false;
         }
-        
+
         const debugConfiguration = {
             type: "go",
             request: "attach",

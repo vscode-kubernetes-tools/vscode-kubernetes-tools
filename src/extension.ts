@@ -1420,7 +1420,7 @@ async function getContainerQuery(resource: ContainerContainer, containerType: st
         return { name: bits[0] ? bits[0].trim() : '', image: bits[1] ? bits[1].trim() : '', initContainer: containerType === 'initContainers'};
     });
 
-    return containersEx.filter(c => c.name !== '');
+    return containersEx.filter((c) => c.name !== '');
 }
 
 export async function getContainersForResource(resource: ContainerContainer): Promise<Container[] | null> {
@@ -2119,7 +2119,7 @@ async function useKubeconfigKubernetes(kubeconfig?: string): Promise<void> {
         // if user chooses to remove the entry, remove it from known configs
         if (removePick === 'Yes') {
             const knownKubeconfigs = getKnownKubeconfigs();
-            const updatedKubeconfigs = knownKubeconfigs.filter(path => path !== kc);
+            const updatedKubeconfigs = knownKubeconfigs.filter((path) => path !== kc);
             config.setConfigValue('vs-kubernetes.knownKubeconfigs', updatedKubeconfigs);
             vscode.window.showInformationMessage(`Removed invalid kubeconfig from settings.`);
         }
