@@ -9,6 +9,7 @@ export default [
     {
         files: ["src/**/*.ts"],
         languageOptions: {
+            ecmaVersion: 2015,
             globals: {
                 ...globals.es2015,
                 ...globals.node,
@@ -24,6 +25,7 @@ export default [
         },
         rules: {
             "@typescript-eslint/prefer-for-of": "error",
+            "@typescript-eslint/no-unnecessary-boolean-literal-compare": "warn",
             "arrow-parens": [
                 "warn",
                 "always",
