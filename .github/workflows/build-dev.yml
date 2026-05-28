@@ -30,15 +30,10 @@ jobs:
         node-version: 20
     - name: Install dependencies
       run: npm install
-    - name: Prepare environment
-      run: |
-        npm install -g typescript
-        npm install -g gulp
-        npm install -g vsce
     - name: Build
       run: npm run compile
     - name: Lint extension source
-      run: gulp tslint
+      run: npm run lint
     - name: Smoke test (Linux)
       run: xvfb-run -a npm run test
       if: runner.os == 'Linux'
@@ -49,7 +44,6 @@ jobs:
       if: github.event_name == 'push' && matrix.os == 'ubuntu-latest'
       run: |
         npm run package
-        vsce package
         mkdir vsix
         mv *.vsix vsix
     - name: Archive extension
