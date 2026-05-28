@@ -1,5 +1,28 @@
 # Change Log
 
+## [1.4.0]
+
+* Dependabot PRs
+* [Test Suite Update]: mergeIntoKubeconfig test suite addition & suite config updates
+* Update: vscode package version and engine
+* Publish security policy documentation
+* Add bug & vulnerability reporting guidelines to CONTRIBUTING.md
+* Pin HaaLeo/publish-vscode-extension
+* Add 1es pipeline for release
+* Updating Python debugger to use ms-python.debugpy & updating extension configuration
+* Update CI workflow triggers from master to main
+* Fix Typescript 6 compilation errors
+* Adding distinguishable icons for spawned terminals
+* Update GitHub release workflow to only create release
+* Update OWNERS.md - maintainer list changes
+* docs(owners): separate emeritus maintainers from current list
+* fix: align VS Code engine and @types/vscode to ^1.110.0
+* docs: add CNCF/LF Projects copyright disclaimer to README
+* Docs: Fix outdated references across documentation
+* Updating auth prompt detection to match additional known login URLs
+
+Contributors: Thank you so much for Contributions and Reviews from knowlsie, tejhan, bosesuneha, Tatsinnit. Thank you all!!
+
 ## [1.3.29]
 
 * Dependabot PRs
