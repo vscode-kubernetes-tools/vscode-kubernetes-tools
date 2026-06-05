@@ -1330,7 +1330,7 @@
         "lint-staged": "^17.0.5",
         "mocha": "^11.7.5",
         "sinon": "^22.0.0",
-        "ts-loader": "^9.5.4",
+        "ts-loader": "^9.6.0",
         "typescript": "^6.0.3",
         "webpack": "^5.107.1",
         "webpack-cli": "^7.0.3"
