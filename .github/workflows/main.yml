@@ -16,7 +16,7 @@ jobs:
         packages: none
     steps:
     - name: Checkout
-      uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98 # v6.0.1
+      uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.1
     - name: Get current package version
       id: package_version
       uses: martinbeentjes/npm-get-version-action@3cf273023a0dda27efcd3164bdfb51908dd46a5b # v1.3.1
