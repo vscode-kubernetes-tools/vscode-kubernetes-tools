@@ -208,6 +208,17 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.vsKubernetesConfigureFromCluster', configureFromClusterKubernetes),
         registerCommand('extension.vsKubernetesCreateCluster', createClusterKubernetes),
         registerCommand('extension.vsKubernetesRefreshExplorer', () => treeProvider.refresh()),
+        registerCommand('extension.vsKubernetesFilterExplorer', async () => {
+            const value = await vscode.window.showInputBox({
+                prompt: 'Filter cluster resources by name',
+                placeHolder: 'Type part of a resource name (empty to clear)',
+                value: treeProvider.getResourceNameFilter()
+            });
+            if (value !== undefined) {  // undefined === user pressed Esc; '' clears
+                treeProvider.setResourceNameFilter(value);
+            }
+        }),
+        registerCommand('extension.vsKubernetesClearFilterExplorer', () => treeProvider.setResourceNameFilter(undefined)),
         registerCommand('extension.vsKubernetesRefreshHelmRepoExplorer', () => helmRepoTreeProvider.refresh()),
         registerCommand('extension.vsKubernetesRefreshCloudExplorer', () => cloudExplorer.refresh()),
         registerCommand('extension.vsKubernetesUseContext', useContextKubernetes),
