@@ -452,6 +452,16 @@
                     "group": "navigation"
                 },
                 {
+                    "command": "extension.vsKubernetesFilterExplorer",
+                    "when": "view == extension.vsKubernetesExplorer",
+                    "group": "navigation"
+                },
+                {
+                    "command": "extension.vsKubernetesClearFilterExplorer",
+                    "when": "view == extension.vsKubernetesExplorer && extension.vsKubernetesExplorerFilterActive",
+                    "group": "navigation"
+                },
+                {
                     "command": "extension.vsKubernetesCreateCluster",
                     "when": "view == extension.vsKubernetesExplorer",
                     "group": "0"
@@ -1030,6 +1040,18 @@
                     "light": "images/light/refresh.svg",
                     "dark": "images/dark/refresh.svg"
                 }
+            },
+            {
+                "command": "extension.vsKubernetesFilterExplorer",
+                "title": "Filter Resources by Name",
+                "category": "Kubernetes",
+                "icon": "$(filter)"
+            },
+            {
+                "command": "extension.vsKubernetesClearFilterExplorer",
+                "title": "Clear Resource Filter",
+                "category": "Kubernetes",
+                "icon": "$(clear-all)"
             },
             {
                 "command": "extension.vsKubernetesShowEvents",
