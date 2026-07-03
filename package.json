@@ -1292,7 +1292,7 @@
         "shelljs": "^0.10.0",
         "tar": "^7.5.16",
         "tmp": "^0.2.7",
-        "unzipper": "^0.10.14",
+        "unzipper": "^0.12.5",
         "vscode-uri": "^3.1.0",
         "yaml-ast-parser": "^0.0.43",
         "yamljs": "^0.3.0"
