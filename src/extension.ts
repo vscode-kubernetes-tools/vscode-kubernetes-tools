@@ -2151,7 +2151,9 @@ async function validateKubeconfigPath() {
             }
         }
 
-        if (!exists) {
+        // suppressKubeconfigNotFound (vs-kubernetes.suppress-kubeconfig-not-found-alerts)
+        // hides this startup "add a new one?" prompt when enabled.
+        if (!exists && !config.suppressKubeconfigNotFound()) {
         const choice = await vscode.window.showWarningMessage(
             `Kubeconfig not found at: ${path}. Add a new one?`,
             'Add',
