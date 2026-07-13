@@ -26,6 +26,9 @@ const config = {
   },
   plugins: [
       new webpack.IgnorePlugin({ resourceRegExp: /^electron$/ }),
+      // Ignore the optional @aws-sdk/client-s3 dependency pulled in by unzipper's S3 support, which we don't use.
+      // See https://github.com/ZJONSSON/node-unzipper/issues/330
+      new webpack.IgnorePlugin({ resourceRegExp: /^@aws-sdk\/client-s3$/ }),
       // https://webpack.js.org/plugins/ignore-plugin/#example-of-ignoring-moment-locales
       new webpack.IgnorePlugin({
         resourceRegExp: /^\.\/locale$/,
