@@ -999,7 +999,7 @@ async function restartKubernetes(target?: any) {
 }
 
 async function invokeRestartKubernetes(kindName: string, namespace: string) {
-    const trimmedNamespace = (namespace || '').trim();
+    const trimmedNamespace = namespace.trim();
     if (trimmedNamespace.toLowerCase() === 'all') {
         vscode.window.showErrorMessage('Restart is not supported across all namespaces. Please select a specific namespace.');
         return;
