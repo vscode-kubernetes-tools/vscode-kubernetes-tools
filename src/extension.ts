@@ -995,7 +995,7 @@ async function restartKubernetes(target?: any) {
             vscode.window.showErrorMessage('Restart is not supported across all namespaces. Please select a specific namespace.');
             return;
         }
-        const kindName = await findKindNameOrPrompt(kuberesources.restartableKinds, 'restart', { skipFreeTextPrompt: true });
+        const kindName = await findKindNameOrPrompt(kuberesources.restartableKinds, 'restart', { skipFreeTextPrompt: config.isMinimalWorkflow() });
         if (kindName) {
             await invokeRestartKubernetes(kindName, namespace);
         }
