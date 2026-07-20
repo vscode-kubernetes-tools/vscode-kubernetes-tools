@@ -990,9 +990,13 @@ async function restartKubernetes(target?: any) {
         const namespace = target.namespace || await kubectlUtils.currentNamespace(kubectl);
         await invokeRestartKubernetes(kindName, namespace);
     } else {
+        const namespace = await kubectlUtils.currentNamespace(kubectl);
+        if (namespace.trim().toLowerCase() === 'all') {
+            vscode.window.showErrorMessage('Restart is not supported across all namespaces. Please select a specific namespace.');
+            return;
+        }
         const kindName = await findKindNameOrPrompt(kuberesources.restartableKinds, 'restart', { skipFreeTextPrompt: true });
         if (kindName) {
-            const namespace = await kubectlUtils.currentNamespace(kubectl);
             await invokeRestartKubernetes(kindName, namespace);
         }
     }
