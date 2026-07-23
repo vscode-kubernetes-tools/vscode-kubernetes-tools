@@ -1,5 +1,16 @@
 # Change Log
 
+## [1.4.1]
+
+* Dependabot PRs
+* Fix repo checkout 1es pipeline.
+* ESLint 10 only supports flat config.
+* ci: replace gulp/tslint with eslint, clean up build workflow, add pre-commit hook.
+* ci: bump codeql-action/init+analyze to v.4.37.0 and group them
+* suppress kubeconfig warning option
+
+Contributors: Thank you so much for Contributions and Reviews from davidgamero, tejhan, bosesuneha, Tatsinnit. Thank you all!!
+
 ## [1.4.0]
 
 * Dependabot PRs
