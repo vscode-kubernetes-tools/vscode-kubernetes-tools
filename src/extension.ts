@@ -991,10 +991,6 @@ async function restartKubernetes(target?: any) {
         await invokeRestartKubernetes(kindName, namespace);
     } else {
         const namespace = await kubectlUtils.currentNamespace(kubectl);
-        if (namespace.trim().toLowerCase() === 'all') {
-            vscode.window.showErrorMessage('Restart is not supported across all namespaces. Please select a specific namespace.');
-            return;
-        }
         const kindName = await findKindNameOrPrompt(kuberesources.restartableKinds, 'restart', { skipFreeTextPrompt: config.isMinimalWorkflow() });
         if (kindName) {
             await invokeRestartKubernetes(kindName, namespace);
@@ -1004,10 +1000,6 @@ async function restartKubernetes(target?: any) {
 
 async function invokeRestartKubernetes(kindName: string, namespace: string) {
     const trimmedNamespace = namespace.trim();
-    if (trimmedNamespace.toLowerCase() === 'all') {
-        vscode.window.showErrorMessage('Restart is not supported across all namespaces. Please select a specific namespace.');
-        return;
-    }
 
     const namespaceArg = trimmedNamespace ? ` --namespace=${trimmedNamespace}` : '';
     const er = await host.longRunning(`Restarting ${kindName}...`, () =>
