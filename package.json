@@ -5,7 +5,7 @@
     "version": "1.4.1",
     "publisher": "ms-kubernetes-tools",
     "engines": {
-        "vscode": "^1.110.0"
+        "vscode": "^1.125.0"
     },
     "license": "Apache-2.0",
     "categories": [
