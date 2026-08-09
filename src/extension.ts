@@ -199,6 +199,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.vsKubernetesTerminal', terminalKubernetes),
         registerCommand('extension.vsKubernetesDiff', diffKubernetes),
         registerCommand('extension.vsKubernetesScale', scaleKubernetes),
+        registerCommand('extension.vsKubernetesRestart', restartKubernetes),
         registerCommand('extension.vsKubernetesDebug', debugKubernetes),
         registerCommand('extension.vsKubernetesRemoveDebug', removeDebugKubernetes),
         registerCommand('extension.vsKubernetesDebugAttach', debugAttachKubernetes),
@@ -981,6 +982,33 @@ async function invokeScaleKubernetes(kindName: string, replicas: number) {
         kubectl.invokeCommand(`scale --replicas=${replicas} ${kindName}`)
     );
     await kubectl.reportResult(er, {});
+}
+
+async function restartKubernetes(target?: any) {
+    if (target && explorer.isKubernetesExplorerResourceNode(target)) {
+        await invokeRestartKubernetes(target.kindName);
+    } else {
+        const kindName = await findKindNameOrPrompt(kuberesources.restartableKinds, 'restart', { skipFreeTextPrompt: config.isMinimalWorkflow() });
+        if (kindName) {
+            await invokeRestartKubernetes(kindName);
+        }
+    }
+}
+
+async function invokeRestartKubernetes(kindName: string) {
+    const confirmed = await warnConfirm(`Do you want to restart '${kindName}'? This will roll all of its pods.`, "Restart", "Cancel");
+    if (!confirmed) {
+        return;
+    }
+
+    const nsarg = await kubectlUtils.currentNamespaceArg(kubectl);
+    const er = await host.longRunning(`Restarting ${kindName}...`, () =>
+        kubectl.invokeCommand(`rollout restart ${kindName} ${nsarg}`)
+    );
+    await kubectl.reportResult(er, {});
+    if (ExecResult.succeeded(er)) {
+        refreshExplorer();
+    }
 }
 
 function runKubernetes() {
