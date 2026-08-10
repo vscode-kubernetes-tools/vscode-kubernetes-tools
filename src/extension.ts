@@ -135,7 +135,6 @@ export const HELM_TPL_MODE: vscode.DocumentFilter = { language: "helm", scheme: 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export async function activate(context: vscode.ExtensionContext): Promise<APIBroker> {
-    await validateKubeconfigPath();
     setAssetContext(context);
 
     await fixOldInstalledBinaryPermissions(shell);
@@ -387,6 +386,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
     vscode.workspace.registerTextDocumentContentProvider(configmaps.uriScheme, configMapProvider);
 
     recommendExtensions(kubectl, context);
+
+    // The kubeconfig check can prompt the user, and a VS Code notification with buttons only
+    // resolves once the user responds to (or dismisses) it. Awaiting that during activation
+    // leaves activate() pending forever, so no commands - including
+    // extension.vsKubernetesRefreshExplorer - ever get registered. Kick it off in the
+    // background instead, and never let it fail activation. See issue #1999.
+    validateKubeconfigPath().catch((err) => {
+        console.warn(`Error validating kubeconfig path: ${err}`);
+    });
 
     return apiBroker(clusterProviderRegistry, kubectl, portForwardStatusBarManager, treeProvider, cloudExplorer, localTunnelDebugger, onDidChangeKubeconfigEmitter, activeContextTracker, kubectlUtils.onDidChangeNamespaceEmitter);
 }
@@ -2182,15 +2190,15 @@ async function validateKubeconfigPath() {
         // suppressKubeconfigNotFound (vs-kubernetes.suppress-kubeconfig-not-found-alerts)
         // hides this startup "add a new one?" prompt when enabled.
         if (!exists && !config.suppressKubeconfigNotFound()) {
-        const choice = await vscode.window.showWarningMessage(
-            `Kubeconfig not found at: ${path}. Add a new one?`,
-            'Add',
-            'Cancel'
-        );
-        if (choice === 'Add') {
-            await useKubeconfigKubernetes();
-        }
-        break;
+            const choice = await vscode.window.showWarningMessage(
+                `Kubeconfig not found at: ${path}. Add a new one?`,
+                'Add',
+                'Cancel'
+            );
+            if (choice === 'Add') {
+                await useKubeconfigKubernetes();
+            }
+            break;
         }
     }
 }
