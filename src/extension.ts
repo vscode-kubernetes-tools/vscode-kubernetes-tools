@@ -70,6 +70,7 @@ import { HelmDocumentSymbolProvider } from './helm.symbolProvider';
 import { HelmBlockMatchingProvider } from './helm.blockMatchingProvider';
 import { findParentYaml } from './yaml-support/yaml-navigation';
 import { shouldSkip } from './yaml-support/consideration-filter';
+import * as kustomizePatchIndex from './yaml-support/kustomize-patch-index';
 import { linters } from './components/lint/linters';
 import { timestampText } from './utils/naming';
 import { ContainerContainer } from './utils/containercontainer';
@@ -389,6 +390,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
     });
     const currentNS = await kubectlUtils.currentNamespace(kubectl);
     updateStatusBarItem(activeNamespaceStatusBarItem, currentNS, 'Current active namespace', !config.isNamespaceStatusBarDisabled());
+
+    kustomizePatchIndex.initialise(context);
+    kustomizePatchIndex.onDidChange(() => updateYAMLSchema(), undefined, context.subscriptions);
 
     await registerYamlSchemaSupport(activeContextTracker, kubectl);
 
