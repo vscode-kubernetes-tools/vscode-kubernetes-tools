@@ -22,13 +22,22 @@ const KUSTOMIZATION_GLOB = '**/[kK]ustomization.{yaml,yml}';
 // kustomization only re-indexes that file.
 const patchesByKustomization = new Map<string, readonly string[]>();
 
+// Reads are asynchronous and can overlap, so a slow read of an earlier revision could
+// otherwise finish last and republish stale paths. Every attempt to change what we know
+// about a kustomization takes a new token; only the newest token may write.
+const generations = new Map<string, number>();
+
+let rescanGeneration = 0;
+
 let allPatchPaths = new Set<string>();
+
+let published = false;
 
 const onDidChangeEmitter = new vscode.EventEmitter<void>();
 
-// Fires when the set of known patch files changes - on the initial scan and whenever a
-// kustomization is created, edited or deleted. Consumers should re-evaluate any documents
-// they have already processed.
+// Fires when the initial scan completes, and thereafter whenever the set of known patch
+// files actually changes. Editing a kustomization without altering the files it names as
+// patches does not fire. Consumers should re-evaluate any documents already processed.
 export const onDidChange = onDidChangeEmitter.event;
 
 export function isKustomizePatch(uri: vscode.Uri): boolean {
@@ -45,7 +54,10 @@ export function initialise(context: vscode.ExtensionContext): void {
     watcher.onDidCreate(reindexOne, undefined, context.subscriptions);
     watcher.onDidChange(reindexOne, undefined, context.subscriptions);
     watcher.onDidDelete((uri) => {
-        patchesByKustomization.delete(normalisePath(uri.fsPath));
+        const key = normalisePath(uri.fsPath);
+        // Take a token as well, so that a read still in flight can't resurrect the entry.
+        generations.set(key, nextGeneration(key));
+        patchesByKustomization.delete(key);
         republish();
     }, undefined, context.subscriptions);
 
@@ -58,8 +70,22 @@ export function initialise(context: vscode.ExtensionContext): void {
 }
 
 async function rescan(): Promise<void> {
+    const generation = ++rescanGeneration;
     const kustomizations = await vscode.workspace.findFiles(KUSTOMIZATION_GLOB);
-    patchesByKustomization.clear();
+    if (generation !== rescanGeneration) {
+        return;  // another rescan started while we were walking the workspace
+    }
+
+    // Prune what has gone rather than clearing outright: clearing would leave the index
+    // empty for the duration of the scan, briefly un-excluding files that are still
+    // patches.
+    const found = new Set(kustomizations.map((uri) => normalisePath(uri.fsPath)));
+    for (const key of Array.from(patchesByKustomization.keys())) {
+        if (!found.has(key)) {
+            patchesByKustomization.delete(key);
+        }
+    }
+
     await Promise.all(kustomizations.map(indexKustomization));
     republish();
 }
@@ -71,15 +97,27 @@ async function reindexOne(uri: vscode.Uri): Promise<void> {
 
 async function indexKustomization(uri: vscode.Uri): Promise<void> {
     const key = normalisePath(uri.fsPath);
+    const generation = nextGeneration(key);
+    generations.set(key, generation);
     try {
         const bytes = await vscode.workspace.fs.readFile(uri);
         const parsed = yaml.load(Buffer.from(bytes).toString('utf8'));
+        if (generations.get(key) !== generation) {
+            return;  // superseded while we were reading
+        }
         patchesByKustomization.set(key, patchFilePaths(parsed, path.dirname(uri.fsPath)));
     } catch {
         // Unreadable or mid-edit and not yet valid YAML. Drop what we knew rather than
         // keeping a stale answer: over-reporting warnings is better than hiding them.
+        if (generations.get(key) !== generation) {
+            return;
+        }
         patchesByKustomization.delete(key);
     }
+}
+
+function nextGeneration(key: string): number {
+    return (generations.get(key) ?? 0) + 1;
 }
 
 function republish(): void {
@@ -89,8 +127,29 @@ function republish(): void {
             combined.add(p);
         }
     }
+
+    // Editing a kustomization usually leaves the patch paths alone, and every event costs
+    // consumers a schema invalidation, so say nothing when nothing changed. The first
+    // publish always fires: consumers need to know the initial scan has landed.
+    if (published && sameContents(allPatchPaths, combined)) {
+        return;
+    }
+
+    published = true;
     allPatchPaths = combined;
     onDidChangeEmitter.fire();
+}
+
+function sameContents(left: ReadonlySet<string>, right: ReadonlySet<string>): boolean {
+    if (left.size !== right.size) {
+        return false;
+    }
+    for (const item of left) {
+        if (!right.has(item)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 // Extracts the files a kustomization declares as patches, resolved against the directory

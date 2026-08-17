@@ -4,14 +4,21 @@ import * as yaml from 'js-yaml';
 
 import { patchFilePaths } from '../../src/yaml-support/kustomize-patch-index';
 
-const DIR = path.resolve(path.sep, 'work', 'overlays', 'local');
+// Mirrors normalisePath in the module under test. Without it the expected values keep the
+// drive-letter casing path.resolve produces, while the production code lowercases it, and
+// every positive assertion fails on the windows-latest leg of CI.
+function normalise(fsPath: string): string {
+    return process.platform === 'win32' ? fsPath.toLowerCase() : fsPath;
+}
+
+const DIR = normalise(path.resolve(path.sep, 'work', 'overlays', 'local'));
 
 function pathsIn(kustomizationYaml: string): readonly string[] {
     return patchFilePaths(yaml.load(kustomizationYaml), DIR);
 }
 
 function resolved(...segments: string[]): string {
-    return path.resolve(DIR, ...segments);
+    return normalise(path.resolve(DIR, ...segments));
 }
 
 suite("Kustomize patch index", () => {
