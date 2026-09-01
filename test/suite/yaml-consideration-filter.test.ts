@@ -39,6 +39,30 @@ suite("YAML consideration-filter", () => {
         });
 
     });
+
+    suite("shouldSkip method", () => {
+
+        test("...defaults to false", async () => {
+            const document = await createYamlDocument('kind: Deployment\n');
+            assert.strictEqual(false, cf.shouldSkip(document));
+        });
+
+        test("...is true if exclude is set", async () => {
+            const document = await createYamlDocument('# vscode-kubernetes-tools: exclude\nkind: Deployment\n');
+            assert.strictEqual(true, cf.shouldSkip(document));
+        });
+
+        test("...is false if include is set", async () => {
+            const document = await createYamlDocument('# vscode-kubernetes-tools: include\nkind: Deployment\n');
+            assert.strictEqual(false, cf.shouldSkip(document));
+        });
+
+        test("...is the inverse of shouldProvideSchemaFor", async () => {
+            const document = await createYamlDocument('# vscode-kubernetes-tools: exclude\nkind: Deployment\n');
+            assert.strictEqual(!cf.shouldProvideSchemaFor(document), cf.shouldSkip(document));
+        });
+
+    });
 });
 
 async function createYamlDocument(text: string): Promise<vscode.TextDocument> {
