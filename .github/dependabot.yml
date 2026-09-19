@@ -8,12 +8,27 @@ updates:
   - package-ecosystem: "npm" # See documentation for possible values
     directory: "/" # Location of package manifests
     schedule:
-      interval: "weekly"
+      interval: "cron"
+      cronjob: "0 9 1,15 * *"
+      timezone: "Etc/UTC"
+    groups:
+      npm-minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "cron"
+      cronjob: "0 9 1,15 * *"
+      timezone: "Etc/UTC"
     groups:
-      codeql:
+      github-actions-minor-and-patch:
         patterns:
-          - "github/codeql-action*"
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
