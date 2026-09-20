@@ -1,5 +1,7 @@
 import * as vscode from 'vscode';
 
+import { isKustomizePatch } from './kustomize-patch-index';
+
 export function shouldProvideSchemaFor(document: vscode.TextDocument): boolean {
     const overrideAnnotationText = findOverrideAnnotation(document);
     if (overrideAnnotationText) {
@@ -23,10 +25,16 @@ interface OverrideAnnotation {
     readonly include?: boolean;
 }
 
-function inferShouldProvideSchemaFor(_document: vscode.TextDocument): boolean {
-    // In future we may want to be smarter, e.g. detecting things which look like Kustomize
-    // patch files.  For now, though, just assume that if it's matched our global document
-    // selector (and doesn't have any override comments) then it's in.
+function inferShouldProvideSchemaFor(document: vscode.TextDocument): boolean {
+    // Kustomize patch files are partial resources, so validating them as complete objects
+    // reports problems with a file that is correct. A patch isn't recognisable on its own -
+    // what identifies it is that a kustomization.yaml names it - so we go by the index of
+    // what the workspace's kustomizations point at. See kustomize-patch-index.ts.
+    if (isKustomizePatch(document.uri)) {
+        return false;
+    }
+    // Otherwise assume that if it matched our global document selector (and doesn't have
+    // any override comments) then it's in.
     return true;
 }
 
