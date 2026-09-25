@@ -89,6 +89,8 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
     private readonly customisers = Array.of<ExplorerUICustomizer<ClusterExplorerNode>>();
     private refreshTimer: NodeJS.Timeout | undefined;
     private readonly refreshQueue = Array<ClusterExplorerNode>();
+    private treeView: vscode.TreeView<ClusterExplorerNode> | undefined;
+    private resourceNameFilter: string | undefined;
 
     constructor(private readonly kubectl: Kubectl, private readonly host: Host) {
         host.onDidChangeConfiguration((change) => {
@@ -103,6 +105,7 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
             treeDataProvider: this,
             showCollapseAll: true
         });
+        this.treeView = viewer;
         return vscode.Disposable.from(
 			viewer,
             viewer.onDidCollapseElement(this.onElementCollapsed, this),
@@ -134,7 +137,29 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
         const contributedChildren = this.extenders
                                         .filter((e) => e.contributesChildren(parent))
                                         .map((e) => e.getChildren(parent));
-        return providerResult.append(baseChildren, ...contributedChildren);
+        const allChildren = providerResult.append(baseChildren, ...contributedChildren);
+        if (!this.resourceNameFilter) {
+            return allChildren;
+        }
+        // Keep the tree structure (folders, contexts, etc.) intact and only filter
+        // resource leaf nodes by name.  Non-resource nodes always pass the predicate.
+        const needle = this.resourceNameFilter.toLowerCase();
+        return providerResult.filter(allChildren, (node) =>
+            node.nodeType !== NODE_TYPES.resource || node.name.toLowerCase().includes(needle));
+    }
+
+    getResourceNameFilter(): string | undefined {
+        return this.resourceNameFilter;
+    }
+
+    setResourceNameFilter(filter: string | undefined): void {
+        const trimmed = filter ? filter.trim() : undefined;
+        this.resourceNameFilter = trimmed && trimmed.length > 0 ? trimmed : undefined;
+        vscode.commands.executeCommand('setContext', 'extension.vsKubernetesExplorerFilterActive', !!this.resourceNameFilter);
+        if (this.treeView) {
+            this.treeView.message = this.resourceNameFilter ? `Filtering resources by: ${this.resourceNameFilter}` : undefined;
+        }
+        this.refresh();
     }
 
     async watch(node: ClusterExplorerNode): Promise<void> {

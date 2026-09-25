@@ -38,6 +38,16 @@ export function map<T, U>(source: vscode.ProviderResult<T[]>, f: (t: T) => U): U
     return source.map(f);
 }
 
+export function filter<T>(source: vscode.ProviderResult<T[]>, predicate: (t: T) => boolean): vscode.ProviderResult<T[]> {
+    if (isThenable(source)) {
+        return filterThenable(source, predicate);
+    }
+    if (!source) {
+        return source;
+    }
+    return source.filter(predicate);
+}
+
 function isThenable<T>(r: vscode.ProviderResult<T>): r is Thenable<T | null | undefined> {
     return !!((r as Thenable<T>).then);
 }
@@ -76,6 +86,14 @@ async function mapThenable<T, U>(obj: Thenable<T[] | null | undefined>, f: (t: T
         return sequence;
     }
     return sequence.map(f);
+}
+
+async function filterThenable<T>(obj: Thenable<T[] | null | undefined>, predicate: (t: T) => boolean): Promise<T[] | null | undefined> {
+    const sequence = await obj;
+    if (!sequence) {
+        return sequence;
+    }
+    return sequence.filter(predicate);
 }
 
 async function whenReady<T>(w: Thenable<true>, obj: T): Promise<T> {
