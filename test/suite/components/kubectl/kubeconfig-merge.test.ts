@@ -28,7 +28,7 @@ suite("Kubeconfig Merge", () => {
     let sandbox: sinon.SinonSandbox;
     let tempDir: string;
     let originalKubeconfig: string | undefined;
-    let refreshExplorerDisposable: vscode.Disposable;
+    let refreshExplorerDisposable: vscode.Disposable | undefined;
 
     // Helper to create a temp kubeconfig file & set the corresponding env var
     function setupKubeconfig(content: string): string {
@@ -73,16 +73,21 @@ suite("Kubeconfig Merge", () => {
         });
     }
 
-    setup(() => {
+    setup(async () => {
         sandbox = sinon.createSandbox();
         tempDir = fsNode.mkdtempSync(path.join(os.tmpdir(), 'kubeconfig-test-'));
         originalKubeconfig = process.env['KUBECONFIG'];
 
-        // Register dummy refresh command to prevent invocation for tests
-        refreshExplorerDisposable = vscode.commands.registerCommand(
-            'extension.vsKubernetesRefreshExplorer',
-            () => { /* no-op for tests */ }
-        );
+        // Register dummy refresh command to prevent invocation for tests. If the extension itself
+        // has already been activated it will have registered the real command, in which case we
+        // leave it alone - registering it twice throws.
+        const existingCommands = await vscode.commands.getCommands(true);
+        if (!existingCommands.includes('extension.vsKubernetesRefreshExplorer')) {
+            refreshExplorerDisposable = vscode.commands.registerCommand(
+                'extension.vsKubernetesRefreshExplorer',
+                () => { /* no-op for tests */ }
+            );
+        }
 
         // Stub UI functions to prevent popups / blocks
         sandbox.stub(vscode.window, 'showInformationMessage').resolves(undefined);
@@ -91,7 +96,8 @@ suite("Kubeconfig Merge", () => {
 
     teardown(() => {
         sandbox.restore();
-        refreshExplorerDisposable.dispose();
+        refreshExplorerDisposable?.dispose();
+        refreshExplorerDisposable = undefined;
         // Restore original KUBECONFIG
         if (originalKubeconfig) {
             process.env['KUBECONFIG'] = originalKubeconfig;
