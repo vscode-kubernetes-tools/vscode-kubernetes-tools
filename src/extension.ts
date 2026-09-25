@@ -69,6 +69,7 @@ import { setActiveKubeconfig, getKnownKubeconfigs, addKnownKubeconfig } from './
 import { HelmDocumentSymbolProvider } from './helm.symbolProvider';
 import { HelmBlockMatchingProvider } from './helm.blockMatchingProvider';
 import { findParentYaml } from './yaml-support/yaml-navigation';
+import { shouldSkip } from './yaml-support/consideration-filter';
 import { linters } from './components/lint/linters';
 import { timestampText } from './utils/naming';
 import { ContainerContainer } from './utils/containercontainer';
@@ -364,6 +365,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
     vscode.workspace.onDidChangeTextDocument((e) => kubernetesLint(e.document));  // TODO: we could use the change hint
     vscode.workspace.onDidSaveTextDocument(kubernetesLint);
     vscode.workspace.onDidCloseTextDocument((d) => kubernetesDiagnostics.delete(d.uri));
+    // Without this, changing disable-lint or disable-linters has no visible effect until the
+    // document is edited or the window is reloaded.
+    vscode.workspace.onDidChangeConfiguration((e) => {
+        if (e.affectsConfiguration('vs-kubernetes')) {
+            vscode.workspace.textDocuments.forEach(kubernetesLint);
+        }
+    });
     vscode.workspace.textDocuments.forEach(kubernetesLint);
 
     subscriptions.forEach((element) => {
@@ -2326,10 +2334,19 @@ function linterDisabled(disabledLinters: string[], name: string): boolean {
 
 async function kubernetesLint(document: vscode.TextDocument): Promise<void> {
     if (config.getDisableLint()) {
+        // Clear any diagnostics we published before linting was turned off, otherwise they
+        // stay on screen and it looks as if the setting had no effect.
+        kubernetesDiagnostics.delete(document.uri);
         return;
     }
     // Is it a Kubernetes document?
     if (!isLintable(document)) {
+        return;
+    }
+    // Respect the same opt-out that governs schema support: if we don't consider this
+    // document to be ours for schema purposes, we shouldn't be linting it either.
+    if (shouldSkip(document)) {
+        kubernetesDiagnostics.delete(document.uri);
         return;
     }
     const disabledLinters = config.getDisabledLinters();
