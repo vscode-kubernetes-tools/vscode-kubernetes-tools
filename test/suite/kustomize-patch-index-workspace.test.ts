@@ -36,6 +36,16 @@ suite("Kustomize patch index against a workspace", () => {
         assert.strictEqual(false, index.isKustomizePatch(fixtureUri('kustomization.yaml')));
     });
 
+    // kustomize recognises `Kustomization` with no extension as well as the two .yaml/.yml
+    // spellings, so the index has to pick it up.
+    test("...reads a kustomization named `Kustomization` with no extension", () => {
+        assert.strictEqual(true, index.isKustomizePatch(fixtureUri('extensionless', 'patch-service.yaml')));
+    });
+
+    test("...does not recognise a file listed under resources of an extensionless kustomization", () => {
+        assert.strictEqual(false, index.isKustomizePatch(fixtureUri('extensionless', 'service.yaml')));
+    });
+
     test("...does not recognise a file nothing points at", () => {
         assert.strictEqual(false, index.isKustomizePatch(fixtureUri('not-mentioned-anywhere.yaml')));
     });

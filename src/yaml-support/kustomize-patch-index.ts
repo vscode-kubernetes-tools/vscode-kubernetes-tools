@@ -16,7 +16,11 @@ import * as yaml from 'js-yaml';
 // linting runs on every keystroke. Hence an index maintained in the background rather than
 // reading kustomization.yaml on demand.
 
-const KUSTOMIZATION_GLOB = '**/[kK]ustomization.{yaml,yml}';
+// The three names kustomize itself recognises, and only those: see
+// RecognizedKustomizationFileNames in kustomize's api/konfig/general.go. In particular
+// `Kustomization` carries no extension, and `Kustomization.yaml` is not a kustomization at
+// all on a case-sensitive filesystem.
+const KUSTOMIZATION_GLOB = '**/{kustomization.yaml,kustomization.yml,Kustomization}';
 
 // Patch paths keyed by the kustomization that declared them, so that editing one
 // kustomization only re-indexes that file.
