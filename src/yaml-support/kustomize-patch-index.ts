@@ -75,22 +75,67 @@ export function initialise(context: vscode.ExtensionContext): void {
 
 async function rescan(): Promise<void> {
     const generation = ++rescanGeneration;
+
+    // What this scan is answerable for. A kustomization that first appears while we are
+    // scanning belongs to the watcher, not to us: it is absent here, so the commit below
+    // will not prune it on the grounds that findFiles did not see it.
+    const scopeAtStart = new Set(patchesByKustomization.keys());
+
     const kustomizations = await vscode.workspace.findFiles(KUSTOMIZATION_GLOB);
     if (generation !== rescanGeneration) {
         return;  // another rescan started while we were walking the workspace
     }
 
-    // Prune what has gone rather than clearing outright: clearing would leave the index
-    // empty for the duration of the scan, briefly un-excluding files that are still
-    // patches.
-    const found = new Set(kustomizations.map((uri) => normalisePath(uri.fsPath)));
-    for (const key of Array.from(patchesByKustomization.keys())) {
-        if (!found.has(key)) {
+    const found = kustomizations.map((uri) => normalisePath(uri.fsPath));
+    const foundKeys = new Set(found);
+    const gone = Array.from(scopeAtStart).filter((key) => !foundKeys.has(key));
+
+    // Claim every key this scan intends to decide, before any reading starts, so that the
+    // later read always wins: a single-file read beginning after this point takes a newer
+    // token and the commit below stands aside for it, while one that began earlier finds
+    // its token superseded and discards its own result. Pruning claims a token too --
+    // without that, a read still in flight could write back an entry we are about to
+    // remove.
+    const claimed = new Map<string, number>();
+    for (const key of [...found, ...gone]) {
+        const token = nextGeneration(key);
+        generations.set(key, token);
+        claimed.set(key, token);
+    }
+
+    // Read into a private map: nothing reaches the index until every read is done, so a
+    // scan that turns out to be stale writes nothing at all, and the index is never left
+    // empty or half-populated while we work.
+    const scanned = new Map<string, readonly string[]>();
+    await Promise.all(kustomizations.map(async (uri) => {
+        const paths = await readPatchPaths(uri);
+        if (paths) {
+            scanned.set(normalisePath(uri.fsPath), paths);
+        }
+    }));
+
+    if (generation !== rescanGeneration) {
+        return;  // superseded while we were reading; the newer scan owns the answer
+    }
+
+    // Commit synchronously, skipping anything a newer read has claimed in the meantime.
+    for (const key of gone) {
+        if (generations.get(key) === claimed.get(key)) {
+            patchesByKustomization.delete(key);
+        }
+    }
+    for (const key of found) {
+        if (generations.get(key) !== claimed.get(key)) {
+            continue;
+        }
+        const paths = scanned.get(key);
+        if (paths) {
+            patchesByKustomization.set(key, paths);
+        } else {
             patchesByKustomization.delete(key);
         }
     }
 
-    await Promise.all(kustomizations.map(indexKustomization));
     republish();
 }
 
@@ -103,20 +148,30 @@ async function indexKustomization(uri: vscode.Uri): Promise<void> {
     const key = normalisePath(uri.fsPath);
     const generation = nextGeneration(key);
     generations.set(key, generation);
+
+    const paths = await readPatchPaths(uri);
+
+    if (generations.get(key) !== generation) {
+        return;  // superseded while we were reading
+    }
+    if (paths) {
+        patchesByKustomization.set(key, paths);
+    } else {
+        patchesByKustomization.delete(key);
+    }
+}
+
+// The patch paths one kustomization names, or undefined if it could not be read at all --
+// unreadable, or mid-edit and not yet valid YAML. Callers drop what they knew in that
+// case rather than keeping a stale answer: over-reporting warnings is better than hiding
+// them.
+async function readPatchPaths(uri: vscode.Uri): Promise<readonly string[] | undefined> {
     try {
         const bytes = await vscode.workspace.fs.readFile(uri);
         const parsed = yaml.load(Buffer.from(bytes).toString('utf8'));
-        if (generations.get(key) !== generation) {
-            return;  // superseded while we were reading
-        }
-        patchesByKustomization.set(key, patchFilePaths(parsed, path.dirname(uri.fsPath)));
+        return patchFilePaths(parsed, path.dirname(uri.fsPath));
     } catch {
-        // Unreadable or mid-edit and not yet valid YAML. Drop what we knew rather than
-        // keeping a stale answer: over-reporting warnings is better than hiding them.
-        if (generations.get(key) !== generation) {
-            return;
-        }
-        patchesByKustomization.delete(key);
+        return undefined;
     }
 }
 
