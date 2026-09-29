@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
 
-import { patchFilePaths } from '../../src/yaml-support/kustomize-patch-index';
+import { isAtOrUnder, patchFilePaths } from '../../src/yaml-support/kustomize-patch-index';
 
 // Mirrors normalisePath in the module under test. Without it the expected values keep the
 // drive-letter casing path.resolve produces, while the production code lowercases it, and
@@ -141,6 +141,47 @@ patchesJson6902:
       kind: Deployment
 `);
             assert.deepStrictEqual([], [...paths]);
+        });
+
+    });
+
+    // Decides whether a deleted or renamed directory reaches a kustomization we hold, and
+    // so whether to reconcile. Getting it wrong by a string prefix would rescan on
+    // unrelated siblings, or -- worse -- miss the directory that actually went.
+    suite("isAtOrUnder method", () => {
+
+        const container = path.resolve(path.sep, 'work', 'overlays');
+
+        test("...a path is under itself", () => {
+            assert.strictEqual(true, isAtOrUnder(container, container));
+        });
+
+        test("...a file directly inside is under it", () => {
+            assert.strictEqual(true, isAtOrUnder(path.join(container, 'kustomization.yaml'), container));
+        });
+
+        test("...a file further down is under it", () => {
+            assert.strictEqual(true, isAtOrUnder(path.join(container, 'local', 'kustomization.yaml'), container));
+        });
+
+        test("...a sibling sharing a name prefix is not under it", () => {
+            assert.strictEqual(false, isAtOrUnder(path.join(`${container}-2`, 'kustomization.yaml'), container));
+        });
+
+        test("...a sibling whose name merely starts the same is not under it", () => {
+            assert.strictEqual(false, isAtOrUnder(`${container}.bak`, container));
+        });
+
+        test("...the parent is not under it", () => {
+            assert.strictEqual(false, isAtOrUnder(path.dirname(container), container));
+        });
+
+        test("...an unrelated path is not under it", () => {
+            assert.strictEqual(false, isAtOrUnder(path.resolve(path.sep, 'elsewhere', 'kustomization.yaml'), container));
+        });
+
+        test("...a trailing separator on the container makes no difference", () => {
+            assert.strictEqual(true, isAtOrUnder(path.join(container, 'kustomization.yaml'), container + path.sep));
         });
 
     });

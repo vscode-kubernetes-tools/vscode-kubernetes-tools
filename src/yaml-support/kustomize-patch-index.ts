@@ -51,6 +51,30 @@ export function isKustomizePatch(uri: vscode.Uri): boolean {
     return allPatchPaths.has(normalisePath(uri.fsPath));
 }
 
+function coversAKnownKustomization(uri: vscode.Uri): boolean {
+    if (uri.scheme !== 'file') {
+        return false;
+    }
+    const target = normalisePath(uri.fsPath);
+    for (const key of patchesByKustomization.keys()) {
+        if (isAtOrUnder(key, target)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Whether `candidate` is `container` itself or sits somewhere beneath it. Compared a
+// segment at a time rather than as raw strings, so that /work/overlay is not taken to
+// contain /work/overlay-2. Exported for testing.
+export function isAtOrUnder(candidate: string, container: string): boolean {
+    if (candidate === container) {
+        return true;
+    }
+    const prefix = container.endsWith(path.sep) ? container : container + path.sep;
+    return candidate.startsWith(prefix);
+}
+
 export function initialise(context: vscode.ExtensionContext): void {
     const watcher = vscode.workspace.createFileSystemWatcher(KUSTOMIZATION_GLOB);
     context.subscriptions.push(watcher, onDidChangeEmitter);
@@ -66,6 +90,31 @@ export function initialise(context: vscode.ExtensionContext): void {
     }, undefined, context.subscriptions);
 
     vscode.workspace.onDidChangeWorkspaceFolders(() => { rescan(); }, undefined, context.subscriptions);
+
+    // A file-level glob never sees a kustomization disappear along with the directory it
+    // lives in: VS Code reports the folder operation and not the files inside it, so
+    // onDidDelete does not fire (microsoft/vscode#60813, #90746, #110923). Left alone the
+    // entry stays indexed for the rest of the session, still excluding whatever now sits
+    // at those paths; a rename compounds it, because the patches under the new name are
+    // not indexed either and their false diagnostics come back.
+    //
+    // These two events cover deletes and renames made through VS Code, which is where
+    // folders are usually moved about. Reconcile with a full scan, but only when the
+    // operation actually reaches a kustomization we know of.
+    vscode.workspace.onDidDeleteFiles((e) => {
+        if (e.files.some(coversAKnownKustomization)) {
+            rescan();
+        }
+    }, undefined, context.subscriptions);
+
+    // Only the old side is worth testing: a rename cannot bring in a kustomization from
+    // outside the workspace, so anything newly relevant was already indexed under its
+    // previous path.
+    vscode.workspace.onDidRenameFiles((e) => {
+        if (e.files.some((file) => coversAKnownKustomization(file.oldUri))) {
+            rescan();
+        }
+    }, undefined, context.subscriptions);
 
     // Deliberately not awaited: activation shouldn't block on walking the workspace. Until
     // the scan lands nothing is excluded, and the onDidChange event tells consumers to
