@@ -14,14 +14,7 @@ suite("Kustomize patch index against a workspace", () => {
     suiteSetup(async function () {
         this.timeout(20000);
         const context = { subscriptions: [] } as unknown as vscode.ExtensionContext;
-        const indexed = new Promise<void>((resolve) => {
-            const subscription = index.onDidChange(() => {
-                subscription.dispose();
-                resolve();
-            });
-        });
-        index.initialise(context);
-        await indexed;
+        await index.initialise(context);
     });
 
     test("...recognises a file the kustomization names as a patch", () => {

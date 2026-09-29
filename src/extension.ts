@@ -362,6 +362,26 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         previewProvider.update(u);
     });
 
+    // Ahead of the linting and schema wiring below, and awaited, because whether a
+    // document is a Kustomize patch decides whether it gets either of them. Opening a
+    // YAML file is what activates this extension, so the document in question is already
+    // open and is about to be linted by the pass a few lines down and handed to
+    // vscode-yaml shortly after. Scanning in the background instead left the first patch
+    // opened in a fresh window showing exactly the errors this is meant to remove, with
+    // no way to take them back: updateYAMLSchema only invalidates the cached cluster
+    // schema, and as the note there records, vscode-yaml will not reassess a document
+    // that is already open.
+    //
+    // The cost is that activation waits for a workspace walk. It is a narrow glob, and
+    // activation already awaits the YAML extension and a kubectl call.
+    await kustomizePatchIndex.initialise(context);
+    kustomizePatchIndex.onDidChange(() => {
+        updateYAMLSchema();
+        // The linter can be re-run in place, so unlike schema support the diagnostics on
+        // an already-open document do follow a later change to the index.
+        vscode.workspace.textDocuments.forEach(kubernetesLint);
+    }, undefined, context.subscriptions);
+
     vscode.workspace.onDidOpenTextDocument(kubernetesLint);
     vscode.workspace.onDidChangeTextDocument((e) => kubernetesLint(e.document));  // TODO: we could use the change hint
     vscode.workspace.onDidSaveTextDocument(kubernetesLint);
@@ -390,9 +410,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
     });
     const currentNS = await kubectlUtils.currentNamespace(kubectl);
     updateStatusBarItem(activeNamespaceStatusBarItem, currentNS, 'Current active namespace', !config.isNamespaceStatusBarDisabled());
-
-    kustomizePatchIndex.initialise(context);
-    kustomizePatchIndex.onDidChange(() => updateYAMLSchema(), undefined, context.subscriptions);
 
     await registerYamlSchemaSupport(activeContextTracker, kubectl);
 

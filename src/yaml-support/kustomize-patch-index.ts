@@ -35,13 +35,13 @@ let rescanGeneration = 0;
 
 let allPatchPaths = new Set<string>();
 
-let published = false;
-
 const onDidChangeEmitter = new vscode.EventEmitter<void>();
 
-// Fires when the initial scan completes, and thereafter whenever the set of known patch
-// files actually changes. Editing a kustomization without altering the files it names as
-// patches does not fire. Consumers should re-evaluate any documents already processed.
+// Fires whenever the set of known patch files changes. Editing a kustomization without
+// altering the files it names as patches does not fire. Consumers should re-evaluate any
+// documents they have already processed.
+//
+// It says nothing about the initial scan, which is what awaiting initialise() is for.
 export const onDidChange = onDidChangeEmitter.event;
 
 export function isKustomizePatch(uri: vscode.Uri): boolean {
@@ -75,7 +75,7 @@ export function isAtOrUnder(candidate: string, container: string): boolean {
     return candidate.startsWith(prefix);
 }
 
-export function initialise(context: vscode.ExtensionContext): void {
+export async function initialise(context: vscode.ExtensionContext): Promise<void> {
     const watcher = vscode.workspace.createFileSystemWatcher(KUSTOMIZATION_GLOB);
     context.subscriptions.push(watcher, onDidChangeEmitter);
 
@@ -116,10 +116,10 @@ export function initialise(context: vscode.ExtensionContext): void {
         }
     }, undefined, context.subscriptions);
 
-    // Deliberately not awaited: activation shouldn't block on walking the workspace. Until
-    // the scan lands nothing is excluded, and the onDidChange event tells consumers to
-    // reconsider once it does.
-    rescan();
+    // Awaited, unlike the rescans above: a caller has to be able to know the index is
+    // populated before it decides anything about the documents already open. See the note
+    // at the call site in extension.ts for why that matters.
+    await rescan();
 }
 
 async function rescan(): Promise<void> {
@@ -237,13 +237,11 @@ function republish(): void {
     }
 
     // Editing a kustomization usually leaves the patch paths alone, and every event costs
-    // consumers a schema invalidation, so say nothing when nothing changed. The first
-    // publish always fires: consumers need to know the initial scan has landed.
-    if (published && sameContents(allPatchPaths, combined)) {
+    // consumers a schema invalidation and a re-lint, so say nothing when nothing changed.
+    if (sameContents(allPatchPaths, combined)) {
         return;
     }
 
-    published = true;
     allPatchPaths = combined;
     onDidChangeEmitter.fire();
 }
