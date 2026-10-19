@@ -28,7 +28,7 @@ suite("Kubeconfig Merge", () => {
     let sandbox: sinon.SinonSandbox;
     let tempDir: string;
     let originalKubeconfig: string | undefined;
-    let refreshExplorerDisposable: vscode.Disposable;
+    let refreshExplorerDisposable: vscode.Disposable | undefined;
 
     // Helper to create a temp kubeconfig file & set the corresponding env var
     function setupKubeconfig(content: string): string {
@@ -73,16 +73,15 @@ suite("Kubeconfig Merge", () => {
         });
     }
 
-    setup(() => {
+    setup(async () => {
         sandbox = sinon.createSandbox();
         tempDir = fsNode.mkdtempSync(path.join(os.tmpdir(), 'kubeconfig-test-'));
         originalKubeconfig = process.env['KUBECONFIG'];
 
-        // Register dummy refresh command to prevent invocation for tests
-        refreshExplorerDisposable = vscode.commands.registerCommand(
-            'extension.vsKubernetesRefreshExplorer',
-            () => { /* no-op for tests */ }
-        );
+        const registeredCommands = await vscode.commands.getCommands(true);
+        refreshExplorerDisposable = registeredCommands.includes('extension.vsKubernetesRefreshExplorer') ?
+            undefined :
+            vscode.commands.registerCommand('extension.vsKubernetesRefreshExplorer', () => {});
 
         // Stub UI functions to prevent popups / blocks
         sandbox.stub(vscode.window, 'showInformationMessage').resolves(undefined);
@@ -91,7 +90,7 @@ suite("Kubeconfig Merge", () => {
 
     teardown(() => {
         sandbox.restore();
-        refreshExplorerDisposable.dispose();
+        refreshExplorerDisposable?.dispose();
         // Restore original KUBECONFIG
         if (originalKubeconfig) {
             process.env['KUBECONFIG'] = originalKubeconfig;

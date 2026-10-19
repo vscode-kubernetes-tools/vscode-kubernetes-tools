@@ -2,7 +2,6 @@ import * as config from './components/config/config';
 import { Shell } from './shell';
 import { Host } from './host';
 import { FS } from './fs';
-import { installDependencies } from './components/installer/installdependencies';
 
 export interface BinCheckContext {
     readonly host: Host;
@@ -42,7 +41,7 @@ async function findBinary(shell: Shell, binName: string): Promise<FindBinaryResu
 
 export function execPath(shell: Shell, basePath: string): string {
     let bin = basePath;
-    if (shell.isWindows() && bin && !(bin.endsWith('.exe'))) {
+    if (shell.isWindows() && bin && !bin.toLowerCase().endsWith('.exe')) {
         bin = bin.slice(-1) === '"' ? `${bin.slice(0, -1)}.exe"` : `${bin}.exe`;
     }
     return bin;
@@ -60,7 +59,7 @@ function alertNoBin(host: Host, binName: string, failureReason: CheckPresentFail
                             host.showInformationMessage(`Add ${binName} directory to path, or set "vs-kubernetes.${binName}-path" config to ${binName} binary.`);
                             break;
                         case 'Install dependencies':
-                            installDependencies();
+                            void import('./components/installer/installdependencies').then((installer) => installer.installDependencies());
                             break;
                     }
 
@@ -71,7 +70,7 @@ function alertNoBin(host: Host, binName: string, failureReason: CheckPresentFail
             host.showErrorMessage(message, 'Install dependencies').then(
                 (str) => {
                     if (str === 'Install dependencies') {
-                        installDependencies();
+                        void import('./components/installer/installdependencies').then((installer) => installer.installDependencies());
                     }
                 }
             );

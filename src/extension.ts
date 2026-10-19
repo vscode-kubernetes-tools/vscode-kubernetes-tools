@@ -46,6 +46,7 @@ import * as telemetry from './telemetry-helper';
 import { dashboardKubernetes } from './components/kubectl/dashboard';
 import { portForwardKubernetes } from './components/kubectl/port-forward';
 import { logsKubernetes } from './components/kubectl/logs';
+import { deleteResourceWithConfirmation, isSafeNamespace, listNamespaceResources, normaliseResourceTarget } from './components/kubectl/resource-commands';
 import { Errorable, failed, succeeded } from './errorable';
 import { Git } from './components/git/git';
 import { DebugSession } from './debug/debugSession';
@@ -1581,46 +1582,57 @@ async function reportDeleteResult(resourceId: string, execResult: ExecResult) {
 }
 
 async function deleteKubernetes(delMode: KubernetesDeleteMode, explorerNode?: ClusterExplorerResourceNode) {
-
-    const delModeArg = delMode ===  KubernetesDeleteMode.Now ? ' --now' : '';
-
     if (explorerNode) {
-        const answer = await vscode.window.showWarningMessage(`Do you want to delete the resource '${explorerNode.kindName}'?`, ...deleteMessageItems);
-        if (!answer || answer.isCloseAffordance) {
-            return;
-        }
-
-        if (explorerNode.kind.manifestKind === 'Namespace') {
-            const ns = explorerNode.name;
-            const confirmed = await confirmDangerousNamespaceDeletion(ns);
-            if (!confirmed) {
-                return;
-            }
-            const currentNS = await kubectlUtils.currentNamespace(kubectl);
-            if (ns === currentNS) {
-                await host.longRunning(`Switching out of namespace '${ns}'`, () =>
-                    kubectlUtils.switchNamespace(kubectl, "default")
-                );
-            }
-        }
-        const nsarg = explorerNode.namespace ? `--namespace ${explorerNode.namespace}` : '';
-        const execResult = await kubectl.invokeCommandWithFeedback(`delete ${explorerNode.kindName} ${nsarg} ${delModeArg}`, `Deleting ${explorerNode.kindName}...`);
-        await reportDeleteResult(explorerNode.kindName, execResult);
+        await deleteResourceWithConfirmation({
+            kubectl,
+            resource: explorerNode.kindName,
+            namespace: explorerNode.namespace || undefined,
+            now: delMode === KubernetesDeleteMode.Now,
+            confirm: async () => {
+                const answer = await vscode.window.showWarningMessage(`Do you want to delete the resource '${explorerNode.kindName}'?`, ...deleteMessageItems);
+                return !!answer && !answer.isCloseAffordance;
+            },
+            beforeDelete: explorerNode.kind.manifestKind === 'Namespace' ? async () => {
+                const ns = explorerNode.name;
+                if (!await confirmDangerousNamespaceDeletion(ns)) {
+                    return false;
+                }
+                const currentNS = await kubectlUtils.currentNamespace(kubectl);
+                if (ns === currentNS) {
+                    await host.longRunning(`Switching out of namespace '${ns}'`, () =>
+                        kubectlUtils.switchNamespace(kubectl, "default")
+                    );
+                }
+                return true;
+            } : undefined,
+            report: (result) => reportDeleteResult(explorerNode.kindName, result),
+        });
     } else {
         const isMinimalWorkflow = config.isMinimalWorkflow();
         const kindName = await promptKindName(kuberesources.commonKinds, 'delete', { nameOptional: true, skipFreeTextPrompt: isMinimalWorkflow });
         if (kindName) {
-            let commandArgs = kindName;
-            if (!containsName(kindName)) {
-                commandArgs = kindName + " --all";
+            const resourceTarget = normaliseResourceTarget(kindName, true);
+            if (!resourceTarget) {
+                vscode.window.showErrorMessage('Invalid Kubernetes resource identifier.');
+                return;
             }
-            const execResult = await kubectl.invokeCommandWithFeedback(`delete ${commandArgs} ${delModeArg}`, `Deleting ${kindName}...`);
-            await reportDeleteResult(kindName, execResult);
+            const commandArgs = ['delete', resourceTarget];
+            if (!containsName(resourceTarget)) {
+                commandArgs.push('--all');
+            }
+            if (delMode === KubernetesDeleteMode.Now) {
+                commandArgs.push('--now');
+            }
+            const execResult = await kubectl.invokeCommandArgsWithFeedback(commandArgs, `Deleting ${kindName}...`);
+            await reportDeleteResult(resourceTarget, execResult);
         }
     }
 }
 
 async function confirmDangerousNamespaceDeletion(ns: string): Promise<boolean> {
+    if (!isSafeNamespace(ns)) {
+        return false;
+    }
     if (ns === 'default') {
         const confirmed = await warnConfirm("This will delete the default namespace, which is inadvisable.", "I'm aware of the risks: delete anyway", "Don't delete");
         if (!confirmed) {
@@ -1628,21 +1640,12 @@ async function confirmDangerousNamespaceDeletion(ns: string): Promise<boolean> {
         }
     }
 
-    const resources = await host.longRunning(`Checking contents of namespace '${ns}'`, () =>
-        kubectlUtils.namespaceResources(kubectl, ns)
-    );
-    if (succeeded(resources)) {
-        if (resources.result.length > 0) {
-            const confirmed = await warnConfirm(`This will also delete all ${resources.result.length} resources in namespace '${ns}'.`, "I don't need them: delete anyway", "Don't delete");
-            if (!confirmed) {
-                return false;
-            }
-        }
-    } else {
-        const confirmed = await warnConfirm(`Can't check if namespace '${ns}' contains resources: ${resources.error[0]}.`, "I'm sure it's safe: delete anyway", "Don't delete");
-        if (!confirmed) {
-            return false;
-        }
+    const resources = await listNamespaceResources(kubectl, ns);
+    if (failed(resources)) {
+        return await warnConfirm(`Can't check if namespace '${ns}' contains resources: ${resources.error[0]}.`, "I'm sure it's safe: delete anyway", "Don't delete");
+    }
+    if (resources.result.length > 0) {
+        return await warnConfirm(`This will also delete all ${resources.result.length} resources in namespace '${ns}'.`, "I don't need them: delete anyway", "Don't delete");
     }
 
     return true;

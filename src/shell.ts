@@ -182,7 +182,7 @@ const AUTH_PROMPT_PATTERN = /https:\/\/(?:[a-z0-9-]+\.)?microsoft(?:online)?\.co
 
 let authNotificationShown = false;
 
-function monitorForAuthPrompt(proc: ChildProcess): void {
+export function monitorForAuthPrompt(proc: ChildProcess): void {
     if (!proc.stderr) {
         return;
     }

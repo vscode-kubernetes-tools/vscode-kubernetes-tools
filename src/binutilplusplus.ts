@@ -3,11 +3,13 @@ import { ChildProcess, spawn as spawnChildProcess } from "child_process";
 import { Host } from './host';
 import { FS } from './fs';
 import { Shell } from './shell';
-import { installDependencies } from "./components/installer/installdependencies";
 import { getEnableSnapFlag, getToolPath, getUseWsl } from './components/config/config';
 import { Errorable } from './errorable';
 import { parseLineOutput } from './outputUtils';
 import { Dictionary } from './utils/dictionary';
+import { monitorForAuthPrompt } from './shell';
+import { CommandInvocation, executeCommand, executeCommandPiped, renderArgsForDisplay, snapPipeInvocation } from './process';
+import { execPath } from './binutil';
 
 export interface ExternalBinary {
     readonly displayName: string;
@@ -175,6 +177,25 @@ async function baseBinPath(context: Context): Promise<string> {
     return binPath;
 }
 
+async function commandInvocation(context: Context, args: readonly string[]): Promise<CommandInvocation> {
+    const executable = await unquotedBaseBinPath(context);
+    const execOpts = context.shell.execOpts();
+    if (getUseWsl()) {
+        return {
+            executable: 'wsl.exe',
+            args: ['--exec', executable, ...args],
+            cwd: execOpts.cwd,
+            env: execOpts.env,
+        };
+    }
+    return {
+        executable: execPath(context.shell, executable),
+        args: [...args],
+        cwd: execOpts.cwd,
+        env: execOpts.env,
+    };
+}
+
 // This is silent - just caching over findBinaryCore
 export async function findBinary(context: Context): Promise<FindBinaryStatus> {
     if (context.status && context.status.found) {
@@ -251,6 +272,34 @@ export async function invokeForResult(context: Context, command: string, stdin: 
     }
 
     return { resultKind: 'exec-errored', execProgram: context.binary, command, code: sr.code, stderr: sr.stderr };
+}
+
+// Shell-free counterpart to invokeForResult. New internal callers should use this API.
+export async function invokeForResultArgs(context: Context, args: readonly string[], stdin: string | undefined): Promise<ExecResult> {
+    const command = renderArgsForDisplay(args);
+    const fbr = await findBinary(context);
+    if (!fbr.found) {
+        return { resultKind: 'exec-bin-not-found', execProgram: context.binary, command, findResult: fbr };
+    }
+
+    try {
+        const invocation = await commandInvocation(context, args);
+        if (getEnableSnapFlag() && context.shell.isUnix()) {
+            const destination = snapPipeInvocation(invocation, getUseWsl());
+            const result = await executeCommandPiped(invocation, destination, stdin, monitorForAuthPrompt);
+            if (result.code === 0) {
+                return { resultKind: 'exec-succeeded', execProgram: context.binary, command, stdout: result.stdout };
+            }
+            return { resultKind: 'exec-errored', execProgram: context.binary, command, code: result.code, stderr: result.stderr };
+        }
+        const result = await executeCommand(invocation, stdin, monitorForAuthPrompt);
+        if (result.code === 0) {
+            return { resultKind: 'exec-succeeded', execProgram: context.binary, command, stdout: result.stdout };
+        }
+        return { resultKind: 'exec-errored', execProgram: context.binary, command, code: result.code, stderr: result.stderr };
+    } catch (_err) {
+        return { resultKind: 'exec-failed', execProgram: context.binary, command };
+    }
 }
 
 export interface RunningProcess {
@@ -355,7 +404,7 @@ async function showErrorMessageWithInstallPromptForSystemPath(context: Context, 
             context.host.showInformationMessage(`Add '${binary.binBaseName}' directory to path, or set "vs-kubernetes.${binary.configKeyName}-path" config to ${binary.binBaseName} binary.`);
             break;
         case 'Install dependencies':
-            installDependencies();
+            void import('./components/installer/installdependencies').then((installer) => installer.installDependencies());
             break;
     }
 }
@@ -363,7 +412,7 @@ async function showErrorMessageWithInstallPromptForSystemPath(context: Context, 
 async function showErrorMessageWithInstallPromptForConfiguredBinPath(context: Context, message: string) {
     const choice = await context.host.showErrorMessage(message, 'Install dependencies');
     if (choice === 'Install dependencies') {
-        installDependencies();
+        void import('./components/installer/installdependencies').then((installer) => installer.installDependencies());
     }
 }
 
