@@ -1,13 +1,13 @@
 import { Terminal, Disposable, ThemeIcon } from 'vscode';
-import { ChildProcess, spawn as spawnChildProcess } from "child_process";
+import type { ChildProcess } from "./process";
 import { Host, host, LongRunningUIOptions } from './host';
 import { FS } from './fs';
-import { Shell, ShellResult } from './shell';
+import { Shell } from './shell';
 import * as binutil from './binutil';
 import { Errorable } from './errorable';
 import { parseLineOutput } from './outputUtils';
 import * as compatibility from './components/kubectl/compatibility';
-import { getToolPath, affectsUs, getUseWsl, KubectlVersioning, suppressKubectlNotFound } from './components/config/config';
+import { getToolPath, getUseWsl, KubectlVersioning, suppressKubectlNotFound } from './components/config/config';
 import { ensureSuitableKubectl } from './components/kubectl/autoversion';
 import { invokeForResult, ExternalBinary, FindBinaryStatus, ExecResult, ExecSucceeded, discardFailureInteractive, logText, parseJSON, findBinary, showErrorMessageWithInstallPrompt, parseTable, ExecBinNotFound, invokeTracking, FailedExecResult, ParsedExecResult, parseLinedText, BackgroundExecResult, invokeBackground, RunningProcess } from './binutilplusplus';
 import { updateYAMLSchema } from './yaml-support/yaml-schema';
@@ -16,28 +16,24 @@ import { Dictionary } from './utils/dictionary';
 const KUBECTL_OUTPUT_COLUMN_SEPARATOR = /\s\s+/g;
 
 export interface Kubectl {
-    // entangledly shouty but retained for API backcompat
-    legacyInvokeAsync(command: string, stdin?: string): Promise<ShellResult | undefined>;
-    legacySpawnAsChild(command: string[]): Promise<ChildProcess | undefined>;
-
-    invokeInNewTerminal(command: string, terminalName: string, onClose?: (e: Terminal) => any, pipeTo?: string, iconPath?: ThemeIcon): Promise<Disposable>;
-    invokeInSharedTerminal(command: string): Promise<void>;
-    runAsTerminal(command: string[], terminalName: string): Promise<void>;
+    invokeInNewTerminal(args: readonly string[], terminalName: string, onClose?: (e: Terminal) => any, iconPath?: ThemeIcon): Promise<Disposable>;
+    invokeInSharedTerminal(args: readonly string[]): Promise<void>;
+    runAsTerminal(args: readonly string[], terminalName: string): Promise<void>;
 
     // TODO: analyse uses for these and convert these over
-    asLines(command: string): Promise<Errorable<string[]>>;
-    asJson<T>(command: string): Promise<Errorable<T>>;
+    asLines(args: readonly string[]): Promise<Errorable<string[]>>;
+    asJson<T>(args: readonly string[]): Promise<Errorable<T>>;
 
     // silent (unless you explicitly ask it to be shouty)
     ensurePresent(options: EnsurePresentOptions): Promise<boolean>;
-    invokeCommand(command: string, stdin?: string): Promise<ExecResult>;
-    invokeCommandThen<T>(command: string, fn: (execResult: ExecResult) => T): Promise<T>;
-    observeCommand(args: string[]): Promise<RunningProcess>;
-    spawnCommand(args: string[]): Promise<BackgroundExecResult>;
+    invokeCommand(args: readonly string[], stdin?: string): Promise<ExecResult>;
+    invokeCommandThen<T>(args: readonly string[], fn: (execResult: ExecResult) => T): Promise<T>;
+    observeCommand(args: readonly string[]): Promise<RunningProcess>;
+    spawnCommand(args: readonly string[]): Promise<BackgroundExecResult>;
 
     // transiently shouty
-    invokeCommandWithFeedback(command: string, uiOptions: string | LongRunningUIOptions): Promise<ExecResult>;
-    invokeCommandWithFeedbackThen<T>(command: string, uiOptions: string | LongRunningUIOptions, fn: (execResult: ExecResult) => T): Promise<T>;
+    invokeCommandWithFeedback(args: readonly string[], uiOptions: string | LongRunningUIOptions): Promise<ExecResult>;
+    invokeCommandWithFeedbackThen<T>(args: readonly string[], uiOptions: string | LongRunningUIOptions, fn: (execResult: ExecResult) => T): Promise<T>;
 
     // proper shouty
     reportResult(execResult: ExecResult, options: ReportResultOptions): Promise<ExecSucceeded | undefined>;
@@ -53,8 +49,8 @@ export interface Kubectl {
 
     // readXxx = invokeCommand + parseXxx
     // silent
-    readJSON<T>(command: string): Promise<ParsedExecResult<T>>;
-    readTable(command: string): Promise<ParsedExecResult<Dictionary<string>[]>>;
+    readJSON<T>(args: readonly string[]): Promise<ParsedExecResult<T>>;
+    readTable(args: readonly string[]): Promise<ParsedExecResult<Dictionary<string>[]>>;
 
     dispose(): void;
 }
@@ -108,60 +104,38 @@ class KubectlImpl implements Kubectl {
     }
 
     private readonly context: Context;
-    private sharedTerminal: Terminal | null = null;
     private childProcesses: ChildProcess[] = [];
 
     checkPresent(errorMessageMode: CheckPresentMessageMode): Promise<boolean> {
         return checkPresent(this.context, errorMessageMode);
     }
-    legacyInvokeAsync(command: string, stdin?: string, callback?: (proc: ChildProcess) => void): Promise<ShellResult | undefined> {
-        return invokeAsync(this.context, command, stdin, callback);
-    }
-    legacySpawnAsChild(command: string[]): Promise<ChildProcess | undefined> {
-        return spawnAsChild(this.context, command, (child) => {
-            if (child) {
-                this.childProcesses.push(child);
+    async invokeInNewTerminal(args: readonly string[], terminalName: string, onClose?: (e: Terminal) => any, iconPath?: ThemeIcon): Promise<Disposable> {
+        const terminal = await runAsTerminal(this.context, args, terminalName, iconPath);
+        if (!terminal) {
+            return new Disposable(() => {});
+        }
+        const disposable = this.context.host.onDidCloseTerminal((closedTerminal) => {
+            if (closedTerminal === terminal) {
+                onClose?.(closedTerminal);
+                disposable.dispose();
             }
         });
-    }
-    async invokeInNewTerminal(command: string, terminalName: string, onClose?: (e: Terminal) => any, pipeTo?: string, iconPath?: ThemeIcon): Promise<Disposable> {
-        const terminal = this.context.host.createTerminal(terminalName, undefined, undefined, iconPath);
-        const disposable = this.context.host.onDidCloseTerminal(onClose ? onClose : onCloseDefault(terminal.processId));
-        await invokeInTerminal(this.context, command, pipeTo, terminal);
         return disposable;
     }
-    invokeInSharedTerminal(command: string): Promise<void> {
-        const terminal = this.getSharedTerminal();
-        return invokeInTerminal(this.context, command, undefined, terminal);
+    async invokeInSharedTerminal(args: readonly string[]): Promise<void> {
+        await runAsTerminal(this.context, args, 'kubectl');
     }
-    runAsTerminal(command: string[], terminalName: string): Promise<void> {
-        return runAsTerminal(this.context, command, terminalName);
+    async runAsTerminal(args: readonly string[], terminalName: string): Promise<void> {
+        await runAsTerminal(this.context, args, terminalName);
     }
-    asLines(command: string): Promise<Errorable<string[]>> {
-        return asLines(this.context, command);
+    asLines(args: readonly string[]): Promise<Errorable<string[]>> {
+        return asLines(this.context, args);
     }
-    fromLines(command: string): Promise<Errorable<{ [key: string]: string }[]>> {
-        return fromLines(this.context, command);
+    fromLines(args: readonly string[]): Promise<Errorable<{ [key: string]: string }[]>> {
+        return fromLines(this.context, args);
     }
-    asJson<T>(command: string): Promise<Errorable<T>> {
-        return asJson(this.context, command);
-    }
-    private getSharedTerminal(): Terminal {
-        if (!this.sharedTerminal) {
-            this.sharedTerminal = this.context.host.createTerminal('kubectl');
-            const disposable = this.context.host.onDidCloseTerminal((terminal) => {
-                if (terminal === this.sharedTerminal) {
-                    this.sharedTerminal = null;
-                    disposable.dispose();
-                }
-            });
-            this.context.host.onDidChangeConfiguration((change) => {
-                if (affectsUs(change) && this.sharedTerminal) {
-                    this.sharedTerminal.dispose();
-                }
-            });
-        }
-        return this.sharedTerminal;
+    asJson<T>(args: readonly string[]): Promise<Errorable<T>> {
+        return asJson(this.context, args);
     }
 
     async checkPossibleIncompatibility(afterError: ExecResult): Promise<void> {
@@ -174,8 +148,8 @@ class KubectlImpl implements Kubectl {
 
         checkedCompatibility = true;
         const kubectl = this;
-        async function kubectlLoadJSON(cmd: string): Promise<Errorable<compatibility.Version>> {
-            const json = await kubectl.readJSON<compatibility.Version>(cmd);
+        async function kubectlLoadJSON(args: readonly string[]): Promise<Errorable<compatibility.Version>> {
+            const json = await kubectl.readJSON<compatibility.Version>(args);
             return ExecResult.asErrorable(json, {});
         }
         const compat = await compatibility.check(kubectlLoadJSON);
@@ -202,21 +176,21 @@ class KubectlImpl implements Kubectl {
         return false;
     }
 
-    async invokeCommand(command: string, stdin?: string): Promise<ExecResult> {
-        return await invokeForResult(this.context, command, stdin);
+    async invokeCommand(args: readonly string[], stdin?: string): Promise<ExecResult> {
+        return await invokeForResult(this.context, args, stdin);
     }
 
-    async invokeCommandThen<T>(command: string, fn: (execResult: ExecResult) => T): Promise<T> {
-        const er = await this.invokeCommand(command);
+    async invokeCommandThen<T>(args: readonly string[], fn: (execResult: ExecResult) => T): Promise<T> {
+        const er = await this.invokeCommand(args);
         const result = fn(er);
         return result;
     }
 
-    async observeCommand(args: string[]): Promise<RunningProcess> {
+    async observeCommand(args: readonly string[]): Promise<RunningProcess> {
         return await invokeTracking(this.context, args);
     }
 
-    async spawnCommand(args: string[]): Promise<BackgroundExecResult> {
+    async spawnCommand(args: readonly string[]): Promise<BackgroundExecResult> {
         const execResult = await invokeBackground(this.context, args);
         if (execResult.resultKind === 'exec-child-process-started') {
             this.childProcesses.push(execResult.childProcess);
@@ -224,15 +198,15 @@ class KubectlImpl implements Kubectl {
         return execResult;
     }
 
-    async invokeCommandWithFeedback(command: string, uiOptions: string | LongRunningUIOptions): Promise<ExecResult> {
+    async invokeCommandWithFeedback(args: readonly string[], uiOptions: string | LongRunningUIOptions): Promise<ExecResult> {
         return await this.context.host.longRunning(uiOptions, () =>
-            this.invokeCommand(command)
+            this.invokeCommand(args)
         );
     }
 
-    async invokeCommandWithFeedbackThen<T>(command: string, uiOptions: string | LongRunningUIOptions, fn: (execResult: ExecResult) => T): Promise<T> {
+    async invokeCommandWithFeedbackThen<T>(args: readonly string[], uiOptions: string | LongRunningUIOptions, fn: (execResult: ExecResult) => T): Promise<T> {
         const er = await this.context.host.longRunning(uiOptions, () =>
-            this.invokeCommand(command)
+            this.invokeCommand(args)
         );
         const result = fn(er);
         return result;
@@ -275,13 +249,13 @@ class KubectlImpl implements Kubectl {
         return parseTable(execResult, KUBECTL_OUTPUT_COLUMN_SEPARATOR);
     }
 
-    async readJSON<T>(command: string): Promise<ParsedExecResult<T>> {
-        const er = await this.invokeCommand(command);
+    async readJSON<T>(args: readonly string[]): Promise<ParsedExecResult<T>> {
+        const er = await this.invokeCommand(args);
         return ExecResult.map(er, (s) => JSON.parse(s) as T);
     }
 
-    async readTable(command: string): Promise<ParsedExecResult<Dictionary<string>[]>> {
-        const er = await this.invokeCommand(command);
+    async readTable(args: readonly string[]): Promise<ParsedExecResult<Dictionary<string>[]>> {
+        const er = await this.invokeCommand(args);
         return ExecResult.map(er, (s) => parseLinedText(s, KUBECTL_OUTPUT_COLUMN_SEPARATOR));
     }
 
@@ -292,21 +266,6 @@ class KubectlImpl implements Kubectl {
             }
         });
     }
-}
-
-function onCloseDefault(processId: Thenable<number | undefined>): (e: Terminal) => any {
-    return async (t) => {
-        if (t.exitStatus
-            && t.exitStatus.code) {
-            return;
-        }
-        const terminalProcessId = await processId;
-        const eventProcessId = await t.processId;
-        if (eventProcessId !== terminalProcessId) {
-            return;
-        }
-        t.dispose();
-    };
 }
 
 export function create(versioning: KubectlVersioning, host: Host, fs: FS, shell: Shell): Kubectl {
@@ -362,73 +321,20 @@ function getCheckKubectlContextMessage(errorMessageMode: CheckPresentMessageMode
     return '';
 }
 
-async function invokeAsync(context: Context, command: string, stdin?: string, callback?: (proc: ChildProcess) => void): Promise<ShellResult | undefined> {
-    if (await checkPresent(context, CheckPresentMessageMode.Command)) {
-        const bin = await baseKubectlPath(context);
-        const cmd = `${bin} ${command}`;
-        let sr: ShellResult | undefined;
-        if (stdin) {
-            sr = await context.shell.exec(cmd, stdin);
-        } else {
-            sr = await context.shell.execStreaming(cmd, callback);
-        }
-        if (sr && sr.code !== 0) {
-            checkPossibleIncompatibilityLegacy(context);
-        }
-        return sr;
-    } else {
-        return { code: -1, stdout: '', stderr: '' };
-    }
-}
-
-async function checkPossibleIncompatibilityLegacy(context: Context): Promise<void> {
-    if (checkedCompatibility) {
-        return;
-    }
-    checkedCompatibility = true;
-    const compat = await compatibility.check((cmd) => asJson<compatibility.Version>(context, cmd));
-    if (!compatibility.isGuaranteedCompatible(compat) && compat.didCheck) {
-        const versionAlert = `kubectl version ${compat.clientVersion} may be incompatible with cluster Kubernetes version ${compat.serverVersion}`;
-        context.host.showWarningMessage(versionAlert);
-    }
-}
-
-async function spawnAsChild(context: Context, command: string[], callback?: (proc: ChildProcess) => void): Promise<ChildProcess | undefined> {
-    if (await checkPresent(context, CheckPresentMessageMode.Command)) {
-        const child = await spawnChildProcess(await path(context), command, context.shell.execOpts());
-        if (callback) {
-            callback(child);
-        }
-        return child;
-    }
-    return undefined;
-}
-
-async function invokeInTerminal(context: Context, command: string, pipeTo: string | undefined, terminal: Terminal): Promise<void> {
-    if (await checkPresent(context, CheckPresentMessageMode.Command)) {
-        // You might be tempted to think we needed to add 'wsl' here if user is using wsl
-        // but this runs in the context of a vanilla terminal, which is controlled by the
-        // existing preference, so it's not necessary.
-        // But a user does need to default VS code to use WSL in the settings.json
-        const kubectlCommand = `kubectl ${command}`;
-        const fullCommand = pipeTo ? `${kubectlCommand} | ${pipeTo}` : kubectlCommand;
-        terminal.sendText(fullCommand);
-        terminal.show();
-    }
-}
-
-async function runAsTerminal(context: Context, command: string[], terminalName: string): Promise<void> {
+async function runAsTerminal(context: Context, command: readonly string[], terminalName: string, iconPath?: ThemeIcon): Promise<Terminal | undefined> {
     if (await checkPresent(context, CheckPresentMessageMode.Command)) {
         let execPath = await path(context);
-        const cmd = command;
+        let cmd = [...command];
         if (getUseWsl()) {
-            cmd.unshift(execPath);
+            cmd = ['--exec', execPath, ...cmd];
             // Note VS Code is picky here. It requires the '.exe' to work
             execPath = 'wsl.exe';
         }
-        const term = context.host.createTerminal(terminalName, execPath, cmd);
+        const term = context.host.createTerminal(terminalName, execPath, cmd, iconPath);
         term.show();
+        return term;
     }
+    return undefined;
 }
 
 async function unquotedBaseKubectlPath(context: Context): Promise<string> {
@@ -442,67 +348,37 @@ async function unquotedBaseKubectlPath(context: Context): Promise<string> {
     return bin;
 }
 
-async function baseKubectlPath(context: Context): Promise<string> {
-    let bin = await unquotedBaseKubectlPath(context);
-    if (bin && bin.includes(' ')) {
-        bin = `"${bin}"`;
-    }
-    return bin;
-}
-
-async function asLines(context: Context, command: string): Promise<Errorable<string[]>> {
-    const shellResult = await invokeAsync(context, command, undefined, killProcessCallback);
-    if (!shellResult) {
-        return { succeeded: false, error: [`Unable to run command (${command})`] };
-    }
-
-    if (shellResult.code === 0) {
-        let lines = shellResult.stdout.split('\n');
+async function asLines(context: Context, args: readonly string[]): Promise<Errorable<string[]>> {
+    const result = await invokeForResult(context, args, undefined);
+    if (ExecResult.succeeded(result)) {
+        let lines = result.stdout.split('\n');
         lines.shift();
         lines = lines.filter((l) => l.length > 0);
         return { succeeded: true, result: lines };
-
     }
-    return { succeeded: false, error: [ shellResult.stderr ] };
+    return { succeeded: false, error: [ExecResult.failureMessage(result, {})] };
 }
 
-async function fromLines(context: Context, command: string): Promise<Errorable<{ [key: string]: string }[]>> {
-    const shellResult = await invokeAsync(context, command, undefined, killProcessCallback);
-    if (!shellResult) {
-        return { succeeded: false, error: [`Unable to run command (${command})`] };
-    }
-
-    if (shellResult.code === 0) {
-        let lines = shellResult.stdout.split('\n');
+async function fromLines(context: Context, args: readonly string[]): Promise<Errorable<{ [key: string]: string }[]>> {
+    const result = await invokeForResult(context, args, undefined);
+    if (ExecResult.succeeded(result)) {
+        let lines = result.stdout.split('\n');
         lines = lines.filter((l) => l.length > 0);
         const parsedOutput = parseLineOutput(lines, KUBECTL_OUTPUT_COLUMN_SEPARATOR);
         return { succeeded: true, result: parsedOutput };
     }
-    return { succeeded: false, error: [ shellResult.stderr ] };
+    return { succeeded: false, error: [ExecResult.failureMessage(result, {})] };
 }
 
-async function asJson<T>(context: Context, command: string): Promise<Errorable<T>> {
-    const shellResult = await invokeAsync(context, command, undefined, killProcessCallback);
-    if (!shellResult) {
-        return { succeeded: false, error: [`Unable to run command (${command})`] };
+async function asJson<T>(context: Context, args: readonly string[]): Promise<Errorable<T>> {
+    const result = await invokeForResult(context, args, undefined);
+    if (ExecResult.succeeded(result)) {
+        return { succeeded: true, result: JSON.parse(result.stdout.trim()) as T };
     }
-
-    if (shellResult.code === 0) {
-        return { succeeded: true, result: JSON.parse(shellResult.stdout.trim()) as T };
-
-    }
-    return { succeeded: false, error: [ shellResult.stderr ] };
-}
-
-function killProcessCallback(): (process: ChildProcess) => void {
-    return (process: ChildProcess) => {
-        if (!process.killed) {
-            process.kill();
-        }
-    };
+    return { succeeded: false, error: [ExecResult.failureMessage(result, {})] };
 }
 
 async function path(context: Context): Promise<string> {
-    const bin = await baseKubectlPath(context);
+    const bin = context.pathfinder ? await context.pathfinder() : (context.binFound ? context.binPath : await unquotedBaseKubectlPath(context));
     return binutil.execPath(context.shell, bin);
 }

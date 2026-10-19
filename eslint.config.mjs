@@ -51,6 +51,38 @@ export default [
                 "as-needed",
             ],
             "spaced-comment": "warn",
+            "no-restricted-imports": [
+                "error",
+                {
+                    paths: [
+                        {
+                            name: "shelljs",
+                            message: "Use src/process.ts with executable and argv instead of shell command strings.",
+                        },
+                    ],
+                    patterns: [
+                        {
+                            group: ["child_process"],
+                            message: "Centralize process creation in src/process.ts; use type-only imports elsewhere.",
+                        },
+                    ],
+                },
+            ],
+            "no-restricted-syntax": [
+                "error",
+                {
+                    selector: "CallExpression[callee.type='MemberExpression'][callee.property.name='sendText']",
+                    message: "Do not send executable command text to an integrated terminal; launch an executable with shellArgs.",
+                },
+            ],
+        },
+    },
+    {
+        files: [
+            "src/process.ts",
+        ],
+        rules: {
+            "no-restricted-imports": "off",
         },
     },
 ];

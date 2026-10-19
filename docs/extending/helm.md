@@ -1,8 +1,8 @@
 # Invoking `helm`
 
 The Kubernetes extension provides an API to invoke the Helm command line.
-As with `kubectl`, you can of course invoke `helm` directly using a library
-such as `shelljs`, but using the API gives your users a consistent user
+As with `kubectl`, you can invoke `helm` directly using a process API with an argument
+array, but using the API gives your users a consistent user
 experience, for example in terms of error handling or offering to install
 it if missing.
 
@@ -10,6 +10,8 @@ To invoke `helm` through the extension API:
 
 * Request the Kubernetes extension's Helm API
 * Call the `invokeCommand` method passing the desired `helm` command and arguments
+
+The v1 API accepts a string for compatibility. It supports quoted arguments, but rejects shell pipelines, redirects, chaining, backticks, and control characters. Other shell-like text inside a quoted argument remains literal data because the extension starts Helm without an OS shell.
 
 `invokeCommand` returns a promise, which resolves to either:
 
@@ -37,5 +39,3 @@ async function installChart() {
     await vscode.window.showInformationMessage('Chart has been installed');
 }
 ```
-
-

@@ -10,6 +10,16 @@ import { ContainerContainer } from '../../utils/containercontainer';
 import { ClusterExplorerResourceNode } from '../clusterexplorer/node';
 import { ExecResult } from '../../binutilplusplus';
 import { LogsDestination } from '../config/config';
+import {
+    hasValidContainerNames,
+    INVALID_KUBERNETES_IDENTIFIER_MESSAGE,
+    isValidContainerName,
+    isValidKubernetesResourceName,
+    isValidOpaqueResourceReference,
+    isValidKubernetesResourceType,
+    isValidNamespaceName,
+    sanitizeForDisplay,
+} from '../../utils/kubernetes-identifiers';
 
 export enum LogsDisplayMode {
     Show,
@@ -25,6 +35,14 @@ export async function logsKubernetes(
     explorerNode: ClusterExplorerResourceNode | undefined
 ) {
     if (explorerNode) {
+        if (!isValidKubernetesResourceType(explorerNode.kind.abbreviation) ||
+            !isValidKubernetesResourceName(explorerNode.name) ||
+            !isValidOpaqueResourceReference(explorerNode.kindName) ||
+            explorerNode.kindName !== `${explorerNode.kind.abbreviation}/${explorerNode.name}` ||
+            (explorerNode.namespace !== undefined && explorerNode.namespace !== '' && !isValidNamespaceName(explorerNode.namespace))) {
+            vscode.window.showErrorMessage(INVALID_KUBERNETES_IDENTIFIER_MESSAGE);
+            return;
+        }
         return await getLogsForExplorerNode(kubectl, explorerNode);
     }
 
@@ -51,6 +69,12 @@ async function getLogsForExplorerNode(
  * prompts the user for which container to fetch logs for.
  */
 async function getLogsForPod(kubectl: Kubectl, pod: PodSummary) {
+    if (!isValidKubernetesResourceName(pod.name) ||
+        (pod.namespace !== undefined && pod.namespace !== '' && !isValidNamespaceName(pod.namespace)) ||
+        (pod.spec && !hasValidContainerNames(pod.spec.containers))) {
+        vscode.window.showErrorMessage(INVALID_KUBERNETES_IDENTIFIER_MESSAGE);
+        return;
+    }
     const resource = {
         kindName: `pod/${pod.name}`,
         namespace: pod.namespace,
@@ -66,8 +90,19 @@ async function getLogsForResource(kubectl: Kubectl, resource: ContainerContainer
         return;
     }
 
+    if (!isValidOpaqueResourceReference(resource.kindName) ||
+        (resource.namespace !== undefined && resource.namespace !== '' && !isValidNamespaceName(resource.namespace)) ||
+        !hasValidContainerNames(resource.containers)) {
+        vscode.window.showErrorMessage(INVALID_KUBERNETES_IDENTIFIER_MESSAGE);
+        return;
+    }
+
     const containers = await getContainersForResource(resource);
     if (!containers) {
+        return;
+    }
+    if (!hasValidContainerNames(containers)) {
+        vscode.window.showErrorMessage(INVALID_KUBERNETES_IDENTIFIER_MESSAGE);
         return;
     }
 
@@ -97,6 +132,19 @@ export async function getLogsForContainer(
     tail: number,
     destination: LogsDestination
 ) {
+    const selectedContainer = containerName.trim();
+    if (!isValidOpaqueResourceReference(kindName) ||
+        (namespace !== undefined && namespace !== '' && !isValidNamespaceName(namespace)) ||
+        (containerName !== '' && (selectedContainer !== containerName || !isValidContainerName(containerName)))) {
+        vscode.window.showErrorMessage(INVALID_KUBERNETES_IDENTIFIER_MESSAGE);
+        return;
+    }
+    if ((since !== '0' && !/^[0-9]+(?:ns|us|µs|ms|s|m|h)?$/.test(since)) ||
+        !Number.isInteger(tail) || tail < -1 ||
+        (destination !== LogsDestination.Terminal && destination !== LogsDestination.Webview)) {
+        vscode.window.showErrorMessage('Invalid log options.');
+        return;
+    }
     const args = ['logs', kindName];
 
     if (namespace) {
@@ -104,7 +152,7 @@ export async function getLogsForContainer(
     }
 
     if (containerName) {
-        args.push(`--container=${containerName.trim()}`);
+        args.push(`--container=${containerName}`);
     }
 
     if (displayMode === LogsDisplayMode.Follow) {
@@ -123,14 +171,12 @@ export async function getLogsForContainer(
         args.push(`--tail=${tail}`);
     }
 
-    const cmd = args.join(' ');
-
     if (destination === LogsDestination.Terminal) {
         if (displayMode === LogsDisplayMode.Follow) {
             const title = `Logs: ${kindName}${containerName ? ('/' + containerName) : ''}`;
-            kubectl.invokeInNewTerminal(cmd, title, undefined, undefined, new vscode.ThemeIcon('output'));
+            kubectl.invokeInNewTerminal(args, title, undefined, new vscode.ThemeIcon('output'));
         } else {
-            kubectl.invokeInSharedTerminal(cmd);
+            kubectl.invokeInSharedTerminal(args);
         }
         return;
     }
@@ -149,7 +195,7 @@ export async function getLogsForContainer(
     }
 
     try {
-        const result = await kubectl.invokeCommand(cmd);
+        const result = await kubectl.invokeCommand(args);
         if (ExecResult.failed(result)) {
             kubectl.reportFailure(result, { whatFailed: 'Error reading logs' });
         } else {
@@ -157,7 +203,8 @@ export async function getLogsForContainer(
             panel.addContent(result.stdout);
         }
     } catch (err) {
-        vscode.window.showErrorMessage(`Error reading logs ${err}`);
+        console.log(sanitizeForDisplay(err));
+        vscode.window.showErrorMessage('Error reading logs.');
     }
 }
 
@@ -183,6 +230,13 @@ async function logsForPodFromOpenDocument(kubectl: Kubectl, editor: vscode.TextE
     try {
         const obj: unknown = yaml.load(text);
         if (isPod(obj)) {
+            if (!isValidKubernetesResourceName(obj.metadata.name) ||
+                (obj.metadata.namespace !== undefined && obj.metadata.namespace !== '' && !isValidNamespaceName(obj.metadata.namespace)) ||
+                !obj.spec ||
+                !hasValidContainerNames(obj.spec.containers)) {
+                vscode.window.showErrorMessage(INVALID_KUBERNETES_IDENTIFIER_MESSAGE);
+                return;
+            }
             // document describes a pod.
             const podSummary = {
                 name: obj.metadata.name,
@@ -209,8 +263,13 @@ async function logsForPodFromCurrentNamespace(kubectl: Kubectl) {
         { nameOptional: false }
     );
     if (pod) {
+        const podName = pod.split('/')[1];
+        if (!isValidKubernetesResourceName(podName)) {
+            vscode.window.showErrorMessage(INVALID_KUBERNETES_IDENTIFIER_MESSAGE);
+            return;
+        }
         const podSummary: PodSummary = {
-            name: pod.split('/')[1],
+            name: podName,
             namespace: namespace // should figure out how to handle namespaces.
         };
 

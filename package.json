@@ -184,10 +184,6 @@
                             "type": "array",
                             "description": "List of resources to be watched."
                         },
-                        "vs-kubernetes.enable-snap-flag": {
-                            "type": "boolean",
-                            "description": "Enables compatibility with instances of VS Code that were installed using snap."
-                        },
                         "vs-kubernetes.disable-context-info-status-bar": {
                             "type": "boolean",
                             "description": "Disable displaying your current Kubernetes context in VS Code's status bar."
@@ -1274,7 +1270,7 @@
         "compile:view": "webpack --mode none --config src/components/logs/webpack.config.js",
         "watch": "webpack --mode development --watch",
         "test-compile": "tsc -p ./",
-        "test": "npm run test-compile && node ./out/test/runTest.js",
+        "test": "node -e \"require('fs').rmSync('out/test', { recursive: true, force: true })\" && npm run test-compile && node ./out/test/runTest.js",
         "package": "vsce package",
         "prepare": "husky"
     },
@@ -1304,7 +1300,6 @@
         "portfinder": "^1.0.38",
         "rxjs": "^7.8.2",
         "semver": "^7.8.5",
-        "shelljs": "^0.10.0",
         "tar": "^7.5.22",
         "tmp": "^0.2.7",
         "unzipper": "^0.12.5",
@@ -1324,7 +1319,6 @@
         "@types/pluralize": "^0.0.33",
         "@types/request": "^2.48.13",
         "@types/semver": "^7.8.0",
-        "@types/shelljs": "^0.10.0",
         "@types/sinon": "^22.0.0",
         "@types/tar": "^7.0.87",
         "@types/tmp": "^0.2.6",

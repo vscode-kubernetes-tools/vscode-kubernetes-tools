@@ -3,7 +3,6 @@ import * as path from 'path';
 
 import { fs } from '../../fs';
 import { Platform, Shell } from "../../shell";
-import * as shelljs from 'shelljs';
 
 export function vsKubernetesFolder(shell: Shell): string {
     const originalDir = path.join(shell.home(), `.vs-kubernetes`);
@@ -53,15 +52,6 @@ export function formatBin(tool: string, platform: Platform): string | null {
 }
 
 export function platformArch(os: string) {
-    // on macOS ask the kernel directly
-    if (os === "darwin") {
-        try {
-            const arch = shelljs.exec("uname -m", { silent: true }).stdout.trim();
-            return arch === "arm64" ? "arm64" : "amd64";
-        } catch {
-      // fall-back to Node’s process.arch
-        }
-    }
     if (process.arch === 'arm' && os === 'linux') {
         return 'arm';
     } else if (process.arch === 'arm64') {

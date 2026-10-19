@@ -37,6 +37,7 @@ The following example uses the Configuration API to run a third party tool with 
 
 ```javascript
 import * as k8s from 'vscode-kubernetes-tools-api';
+import { spawn } from 'node:child_process';
 
 async function runMyTool() {
     const configuration = await k8s.extension.configuration.v1;
@@ -46,11 +47,11 @@ async function runMyTool() {
     const path = await configuration.api.getKubeconfigPath();
 
     if (path.pathType === 'host') {
-        const childProcess = shelljs.exec(`mytool --kubeconfig ${path.hostPath}`);
+        const childProcess = spawn('mytool', ['--kubeconfig', path.hostPath], { shell: false });
         // ...do things with childProcess...
     } else if (path.pathType === 'wsl') {
         // WSL-aware:
-        const childProcess = shelljs.exec(`wsl mytool --kubeconfig ${path.wslPath}`);
+        const childProcess = spawn('wsl.exe', ['--exec', 'mytool', '--kubeconfig', path.wslPath], { shell: false });
         // Non-WSL-aware:
         // vscode.window.showErrorMessage('This command is not supported on WSL.');
     } else {

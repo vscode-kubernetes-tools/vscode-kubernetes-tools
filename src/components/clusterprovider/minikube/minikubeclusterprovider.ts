@@ -91,8 +91,8 @@ async function configureKubernetes(): Promise<string> {
     return renderConfigurationResult();
 }
 
-async function runMinikubeCommand(context: Context, cmd: string): Promise<ActionResult<Diagnostic>> {
-    const sr = await context.shell.exec(cmd);
+async function runMinikubeCommand(context: Context, args: readonly string[]): Promise<ActionResult<Diagnostic>> {
+    const sr = await context.minikube.invokeCommand(args);
 
     const createCluster = await fromShellExitCodeOnly(sr, "Unable to run Minikube");
     return {
@@ -144,7 +144,7 @@ function refreshCountIndicator(refreshCount: number): string {
 function waitForClusterAndReportConfigResult(previousData: any, context: Context): Observable<string> {
 
     async function waitOnce(refreshCount: number): Promise<[string, boolean]> {
-        const waitResult = await runMinikubeCommand(context, 'minikube status');
+        const waitResult = await runMinikubeCommand(context, ['status']);
         if (!waitResult.result.succeeded) {
             const failed = waitResult.result as Failed;
             const message = `<h1>Waiting for minikube cluster${refreshCountIndicator(refreshCount)}</h1>

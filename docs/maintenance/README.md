@@ -22,3 +22,7 @@ This is what it actually does:
 3. Create a new release
 4. Create the VSIX file and publish it to the marketplace
 5. Attach the VSIX file to the new release
+
+## Development
+
+* [External command execution](external-commands.md)

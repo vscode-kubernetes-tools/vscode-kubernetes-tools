@@ -75,10 +75,17 @@ export class PythonDebugProvider implements IDebugProvider {
     async tryGetRemoteRoot(kubectl: Kubectl, podName: string, podNamespace: string | undefined, containerName: string | undefined): Promise<string | undefined> {
         if (config.getPythonAutoDetectRemoteRoot()) {
             kubeChannel.showOutput("Trying to detect remote root.");
-            const nsarg = podNamespace ? `--namespace ${podNamespace}` : '';
-            const containerCommand = containerName? `-c ${containerName}` : '';
-            const execCmd = `exec ${podName} ${nsarg} ${containerCommand} -- ${this.shell} -c 'readlink /proc/1/cwd'`;
-            const execResult = await kubectl.invokeCommand(execCmd);
+            const execArgs = [
+                'exec',
+                podName,
+                ...(podNamespace ? ['--namespace', podNamespace] : []),
+                ...(containerName ? ['-c', containerName] : []),
+                '--',
+                this.shell,
+                '-c',
+                'readlink /proc/1/cwd'
+            ];
+            const execResult = await kubectl.invokeCommand(execArgs);
             if (ExecResult.succeeded(execResult)) {
                 const remoteRoot = execResult.stdout.replace(/(\r\n|\n|\r)/gm, '');
                 kubeChannel.showOutput(`Got remote root from container: ${remoteRoot}`);

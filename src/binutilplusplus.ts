@@ -1,13 +1,14 @@
 import * as rx from 'rxjs';
-import { ChildProcess, spawn as spawnChildProcess } from "child_process";
+import type { ChildProcess } from "./process";
 import { Host } from './host';
 import { FS } from './fs';
-import { Shell } from './shell';
-import { installDependencies } from "./components/installer/installdependencies";
-import { getEnableSnapFlag, getToolPath, getUseWsl } from './components/config/config';
+import { monitorForAuthPrompt, Shell } from './shell';
+import { getToolPath, getUseWsl } from './components/config/config';
 import { Errorable } from './errorable';
 import { parseLineOutput } from './outputUtils';
 import { Dictionary } from './utils/dictionary';
+import { CommandInvocation, executeCommand, renderArgsForDisplay, spawnCommand } from './process';
+import { execPath } from './binutil';
 
 export interface ExternalBinary {
     readonly displayName: string;
@@ -62,7 +63,7 @@ export interface ExecChildProcessStarted {
 export type ParsedExecResult<T> = ExecBinNotFound | ExecFailed | ParsedExecSucceeded<T> | ExecErrored;
 export type ExecResult = ExecBinNotFound | ExecFailed | ExecSucceeded | ExecErrored;
 export type FailedExecResult = ExecBinNotFound | ExecFailed | ExecErrored;
-export type BackgroundExecResult = ExecBinNotFound | ExecChildProcessStarted;
+export type BackgroundExecResult = ExecBinNotFound | ExecFailed | ExecChildProcessStarted;
 
 export interface FailureMessageOptions {
     readonly whatFailed?: string;
@@ -161,18 +162,39 @@ async function unquotedBaseBinPath(context: Context): Promise<string> {
     if (context.pathfinder) {
         return await context.pathfinder();
     }
-    if (context.status && context.status.found && context.status.how === 'config') {
-        return context.status.where!;
+    if (context.status && context.status.found && context.status.how !== 'pathfinder') {
+        return context.status.where;
     }
     return context.binary.binBaseName;
 }
 
-async function baseBinPath(context: Context): Promise<string> {
-    let binPath = await unquotedBaseBinPath(context);
-    if (binPath && binPath.includes(' ')) {
-        binPath = `"${binPath}"`;
+async function executeUtility(context: Context, executable: string, args: readonly string[]) {
+    const execOpts = context.shell.execOpts();
+    return await executeCommand({
+        executable,
+        args: [...args],
+        cwd: execOpts.cwd,
+        env: execOpts.env,
+    });
+}
+
+export async function commandInvocation(context: Context, args: readonly string[]): Promise<CommandInvocation> {
+    const configuredExecutable = await unquotedBaseBinPath(context);
+    const execOpts = context.shell.execOpts();
+    if (getUseWsl()) {
+        return {
+            executable: 'wsl.exe',
+            args: ['--exec', configuredExecutable, ...args],
+            cwd: execOpts.cwd,
+            env: execOpts.env,
+        };
     }
-    return binPath;
+    return {
+        executable: execPath(context.shell, configuredExecutable),
+        args: [...args],
+        cwd: execOpts.cwd,
+        env: execOpts.env,
+    };
 }
 
 // This is silent - just caching over findBinaryCore
@@ -199,8 +221,13 @@ async function findBinaryCore(context: Context): Promise<FindBinaryStatus> {
     if (configuredPath) {
         // Does the file exist?
         if (getUseWsl()) {
-            const sr = await context.shell.exec(`ls ${configuredPath}`);
-            const found = (!!sr && sr.code === 0);
+            let found = false;
+            try {
+                const sr = await executeUtility(context, 'wsl.exe', ['--exec', 'test', '-e', configuredPath]);
+                found = sr.code === 0;
+            } catch (_err) {
+                found = false;
+            }
             return { found, how: 'config', where: configuredPath };
         } else {
             const found = await context.fs.existsAsync(configuredPath);
@@ -209,40 +236,43 @@ async function findBinaryCore(context: Context): Promise<FindBinaryStatus> {
     }
 
     // No config so look on the system PATH
-    const cmd = context.shell.isWindows() ? `where.exe ${context.binary.binBaseName}.exe` : `which ${context.binary.binBaseName}`;
+    let executable = 'which';
+    let args = [context.binary.binBaseName];
+    if (getUseWsl()) {
+        executable = 'wsl.exe';
+        args = ['--exec', 'which', context.binary.binBaseName];
+    } else if (context.shell.isWindows()) {
+        executable = 'where.exe';
+        args = [context.binary.binBaseName];
+    }
 
-    const opts = {
-        async: true,
-        env: {
-            HOME: process.env.HOME,
-            PATH: process.env.PATH
-        }
-    };
-
-    const execResult = await context.shell.execCore(cmd, opts);
+    let execResult;
+    try {
+        execResult = await executeUtility(context, executable, args);
+    } catch (_err) {
+        return { found: false, how: 'path' };
+    }
     if (execResult.code !== 0) {
         return { found: false, how: 'path' };
     }
 
-    return { found: true, how: 'path', where: execResult.stdout };
+    const resolvedPath = execResult.stdout.split(/\r?\n/).find((line) => line.trim().length > 0)?.trim() || '';
+    return resolvedPath ? { found: true, how: 'path', where: resolvedPath } : { found: false, how: 'path' };
 }
 
 // This is silent - building block for experiences that need an input->output invoke
-export async function invokeForResult(context: Context, command: string, stdin: string | undefined): Promise<ExecResult> {
+export async function invokeForResult(context: Context, args: readonly string[], stdin: string | undefined): Promise<ExecResult> {
+    const command = renderArgsForDisplay(args);
     const fbr = await findBinary(context);
     if (!fbr.found) {
         return { resultKind: 'exec-bin-not-found', execProgram: context.binary, command, findResult: fbr };
     }
-    const enableSnapFlag = getEnableSnapFlag();
-    const bin = await baseBinPath(context);
-    let cmd = `${bin} ${command}`;
-    // Hack to make kubectl cmds returns the output when it is installed using snap
-    if (enableSnapFlag && context.shell.isUnix()) {
-        cmd = `${cmd} | cat`;
-    }
-    const sr = await context.shell.exec(cmd, stdin);
 
-    if (!sr) {
+    let sr;
+    try {
+        const invocation = await commandInvocation(context, args);
+        sr = await executeCommand(invocation, stdin, monitorForAuthPrompt);
+    } catch (_err) {
         return { resultKind: 'exec-failed', execProgram: context.binary, command };
     }
 
@@ -258,19 +288,20 @@ export interface RunningProcess {
     terminate(): void;
 }
 
-export async function invokeTracking(context: Context, args: string[]): Promise<RunningProcess> {
+export async function invokeTracking(context: Context, args: readonly string[]): Promise<RunningProcess> {
     const linesSubject = new rx.Subject<string>();
 
     const fbr = await findBinary(context);
     let disposer: () => void;
 
     if (fbr.found) {
-        const bin = await baseBinPath(context);
-        const execOpts = context.shell.execOpts();
+        const invocation = await commandInvocation(context, args);
 
         let pending = '';
-        const childProcess = spawnChildProcess(bin, args, execOpts);
-        childProcess.stdout.on('data', (chunk: Buffer) => {
+        let terminated = false;
+        const childProcess = spawnCommand(invocation);
+        monitorForAuthPrompt(childProcess);
+        childProcess.stdout?.on('data', (chunk: Buffer) => {
             const chunkText = chunk.toString('utf8');
             const todo = pending + chunkText;
             const lines = todo.split('\n').map((l) => l.trim());
@@ -281,23 +312,31 @@ export async function invokeTracking(context: Context, args: string[]): Promise<
             }
         });
         childProcess.on('error', (err: Error) => {
-            linesSubject.error(err);
+            if (!terminated) {
+                linesSubject.error(err);
+            }
         });
         childProcess.on('close', (code: number | null, signal: NodeJS.Signals | null) => {
+            if (terminated) {
+                linesSubject.complete();
+                return;
+            }
             if (code === 0) {
                 linesSubject.complete();
             } else {
-                const message = `Process "${bin}" exited with code ${code}${signal ? ` (signal: ${signal})` : ''}`;
+                const message = `Process ${JSON.stringify(invocation.executable)} exited with code ${code}${signal ? ` (signal: ${signal})` : ''}`;
                 linesSubject.error(new Error(message));
             }
         });
-        disposer = () => childProcess.kill();
+        disposer = () => {
+            terminated = true;
+            childProcess.kill();
+        };
     } else {
-        linesSubject.error({ resultKind: 'exec-bin-not-found', execProgram: context.binary, command: args.join(' '), findResult: fbr });
+        linesSubject.error({ resultKind: 'exec-bin-not-found', execProgram: context.binary, command: renderArgsForDisplay(args), findResult: fbr });
     }
 
     return { lines: linesSubject, terminate: () => {
-            linesSubject.unsubscribe();
             if (disposer) {
                 disposer();
             }
@@ -305,16 +344,38 @@ export async function invokeTracking(context: Context, args: string[]): Promise<
     };
 }
 
-export async function invokeBackground(context: Context, args: string[]): Promise<BackgroundExecResult> {
+export async function invokeBackground(context: Context, args: readonly string[]): Promise<BackgroundExecResult> {
     const fbr = await findBinary(context);
     if (!fbr.found) {
-        return { resultKind: 'exec-bin-not-found', execProgram: context.binary, command: args.join(' '), findResult: fbr };
+        return { resultKind: 'exec-bin-not-found', execProgram: context.binary, command: renderArgsForDisplay(args), findResult: fbr };
     }
 
-    const bin = await baseBinPath(context);
+    const invocation = await commandInvocation(context, args);
+    const childProcess = spawnCommand(invocation);
+    try {
+        await waitForSpawn(childProcess);
+    } catch (_err) {
+        return { resultKind: 'exec-failed', execProgram: context.binary, command: renderArgsForDisplay(args) };
+    }
+    // Callers own lifecycle errors after a successful spawn; keep EventEmitter errors handled.
+    childProcess.on('error', () => {});
+    monitorForAuthPrompt(childProcess);
+    return { resultKind: 'exec-child-process-started', execProgram: context.binary, command: renderArgsForDisplay(args), childProcess };
+}
 
-    const childProcess = spawnChildProcess(bin, args, context.shell.execOpts());
-    return { resultKind: 'exec-child-process-started', execProgram: context.binary, command: args.join(' '), childProcess };
+function waitForSpawn(childProcess: ChildProcess): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+        const onSpawn = () => {
+            childProcess.removeListener('error', onError);
+            resolve();
+        };
+        const onError = (error: Error) => {
+            childProcess.removeListener('spawn', onSpawn);
+            reject(error);
+        };
+        childProcess.once('spawn', onSpawn);
+        childProcess.once('error', onError);
+    });
 }
 
 // This is noisy - handles failure UI for an interactive command that performs an invokeForResult
@@ -355,7 +416,7 @@ async function showErrorMessageWithInstallPromptForSystemPath(context: Context, 
             context.host.showInformationMessage(`Add '${binary.binBaseName}' directory to path, or set "vs-kubernetes.${binary.configKeyName}-path" config to ${binary.binBaseName} binary.`);
             break;
         case 'Install dependencies':
-            installDependencies();
+            void import('./components/installer/installdependencies').then((installer) => installer.installDependencies());
             break;
     }
 }
@@ -363,7 +424,7 @@ async function showErrorMessageWithInstallPromptForSystemPath(context: Context, 
 async function showErrorMessageWithInstallPromptForConfiguredBinPath(context: Context, message: string) {
     const choice = await context.host.showErrorMessage(message, 'Install dependencies');
     if (choice === 'Install dependencies') {
-        installDependencies();
+        void import('./components/installer/installdependencies').then((installer) => installer.installDependencies());
     }
 }
 

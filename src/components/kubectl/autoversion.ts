@@ -16,6 +16,12 @@ import { mkdirp } from 'mkdirp';
 import { platformUrlString, formatBin, platformArch, vsKubernetesFolder } from '../installer/installationlayout';
 import * as installer from '../installer/installer';
 import { ExecResult } from '../../binutilplusplus';
+import * as semver from 'semver';
+import {
+    INVALID_KUBERNETES_VERSION_MESSAGE,
+    isValidKubeconfigName,
+    isValidKubernetesVersion,
+} from '../../utils/kubernetes-identifiers';
 
 const AUTO_VERSION_CACHE_FILE = getCachePath(shell);  // TODO: awkward that we're using a hardwired shell here but parameterising it elsewhere
 const AUTO_VERSION_CACHE = new FileBacked<ClusterVersionCache>(fs, AUTO_VERSION_CACHE_FILE, defaultClusterVersionCache);
@@ -24,6 +30,10 @@ const OPERATION_ID_DOWNLOAD_KC_FOR_BOOTSTRAP = 'autoversion:download_kubectl_for
 interface ClusterVersionCache {
     readonly derivedFromKubeconfig: string | undefined;
     readonly versions: Dictionary<string>;
+}
+
+function cachedVersionForContext(cache: ClusterVersionCache, context: string): string | undefined {
+    return Object.prototype.hasOwnProperty.call(cache.versions, context) ? cache.versions[context] : undefined;
 }
 
 export async function ensureSuitableKubectl(kubectl: Kubectl, shell: Shell, host: Host): Promise<string | undefined> {
@@ -40,7 +50,7 @@ export async function ensureSuitableKubectl(kubectl: Kubectl, shell: Shell, host
     if (!context) {
         return undefined;
     }
-    const serverVersion = await getServerVersion(bootstrapperKubectl, context.contextName);
+    const serverVersion = await getServerVersion(bootstrapperKubectl, context.contextName, host);
     if (!serverVersion) {
         return undefined;
     }
@@ -62,6 +72,9 @@ function getCachePath(shell: Shell): string {
 }
 
 async function gotKubectlVersion(shell: Shell, serverVersion: string): Promise<boolean> {
+    if (!isValidKubernetesVersion(serverVersion)) {
+        return false;
+    }
     const binPath = kubectlVersionPath(shell, serverVersion);
     if (!binPath) {
         return true;  // if we can't place the binary, there's no point downloading it
@@ -71,6 +84,10 @@ async function gotKubectlVersion(shell: Shell, serverVersion: string): Promise<b
 
 // TODO: deduplicate with installer.ts
 async function downloadKubectlVersion(shell: Shell, host: Host, serverVersion: string): Promise<boolean> {
+    if (!isValidKubernetesVersion(serverVersion)) {
+        await host.showErrorMessage(INVALID_KUBERNETES_VERSION_MESSAGE);
+        return false;
+    }
     const binPath = kubectlVersionPath(shell, serverVersion);
     if (!binPath) {
         return false;
@@ -94,6 +111,9 @@ async function downloadKubectlVersion(shell: Shell, host: Host, serverVersion: s
 }
 
 function kubectlVersionPath(shell: Shell, serverVersion: string): string | undefined {
+    if (!isValidKubernetesVersion(serverVersion)) {
+        return undefined;
+    }
     const platform = shell.platform();
     const binPath = formatBin('kubectl', platform);
     if (!binPath) {
@@ -136,21 +156,47 @@ async function getKubeconfigPathHash(): Promise<string | undefined> {
     return kubeconfigHashText;
 }
 
-async function getServerVersion(kubectl: Kubectl, context: string): Promise<string | undefined> {
+async function getServerVersion(kubectl: Kubectl, context: string, host: Host): Promise<string | undefined> {
+    if (!isValidKubeconfigName(context)) {
+        return undefined;
+    }
     await ensureCacheIsForCurrentKubeconfig();
     const cachedVersions = await AUTO_VERSION_CACHE.get();
-    if (cachedVersions.versions[context]) {
-        return cachedVersions.versions[context];
+    const cachedVersion = cachedVersionForContext(cachedVersions, context);
+    if (cachedVersion) {
+        if (!isValidKubernetesVersion(cachedVersion)) {
+            delete cachedVersions.versions[context];
+            await AUTO_VERSION_CACHE.update(cachedVersions);
+            await host.showErrorMessage(INVALID_KUBERNETES_VERSION_MESSAGE);
+            return undefined;
+        } else {
+            return cachedVersion;
+        }
     }
-    const versionInfo = await kubectl.readJSON<any>('version -o json');
+    const versionInfo = await kubectl.readJSON<any>(['version', '-o', 'json']);
     if (ExecResult.failed(versionInfo)) {
         return undefined;
     }
     if (versionInfo.result && versionInfo.result.serverVersion) {
-        const serverVersion: string = versionInfo.result.serverVersion.gitVersion;
-        cachedVersions.versions[context] = serverVersion;
+        const serverVersion: unknown = versionInfo.result.serverVersion.gitVersion;
+        if (!isValidKubernetesVersion(serverVersion)) {
+            await host.showErrorMessage(INVALID_KUBERNETES_VERSION_MESSAGE);
+            return undefined;
+        }
+        const parsedVersion = semver.parse(serverVersion);
+        if (!parsedVersion) {
+            await host.showErrorMessage(INVALID_KUBERNETES_VERSION_MESSAGE);
+            return undefined;
+        }
+        const kubectlVersion = `v${parsedVersion.major}.${parsedVersion.minor}.${parsedVersion.patch}`;
+        Object.defineProperty(cachedVersions.versions, context, {
+            configurable: true,
+            enumerable: true,
+            value: kubectlVersion,
+            writable: true,
+        });
         await AUTO_VERSION_CACHE.update(cachedVersions);
-        return serverVersion;
+        return kubectlVersion;
     }
     return undefined;
 }

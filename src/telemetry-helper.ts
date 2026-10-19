@@ -130,7 +130,7 @@ async function loadCachedClusterType(kubectl: Kubectl) {
 
 async function inferCurrentClusterType(kubectl: Kubectl): Promise<[ClusterType, NonDeterminationReason]> {
     if (!latestContextName) {
-        const ctxer = await kubectl.invokeCommand('config current-context');
+        const ctxer = await kubectl.invokeCommand(['config', 'current-context']);
         if (ctxer.resultKind === 'exec-succeeded') {
             latestContextName = ctxer.stdout.trim();
         } else {
@@ -142,7 +142,7 @@ async function inferCurrentClusterType(kubectl: Kubectl): Promise<[ClusterType, 
         return [ClusterType.Minikube, NonDeterminationReason.None];
     }
 
-    const cier = await kubectl.invokeCommand('cluster-info');
+    const cier = await kubectl.invokeCommand(['cluster-info']);
     if (cier.resultKind !== 'exec-succeeded') {
         return [inferClusterTypeFromError(cier), diagnoseKubectlClusterInfoError(cier)];
     }
@@ -166,7 +166,7 @@ async function inferCurrentClusterType(kubectl: Kubectl): Promise<[ClusterType, 
     }
 
     if (latestContextName) {
-        const gcer = await kubectl.invokeCommand(`config get-contexts "${latestContextName}"`);
+        const gcer = await kubectl.invokeCommand(['config', 'get-contexts', latestContextName]);
         if (gcer.resultKind === 'exec-succeeded') {
             if (gcer.stdout.indexOf('minikube') >= 0) {
                 return [ClusterType.Minikube, NonDeterminationReason.None];  // It's pretty heuristic, so don't spend time parsing the table

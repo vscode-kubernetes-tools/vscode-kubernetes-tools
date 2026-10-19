@@ -12,6 +12,7 @@ import { Errorable, failed, succeeded } from '../../errorable';
 import { addPathToConfig, toolPathOSKey, getUseWsl } from '../config/config';
 import { getInstallFolder, platformUrlString, formatBin, platformArch } from './installationlayout';
 import { IncomingMessage } from 'http';
+import { executeCommand } from '../../process';
 
 enum ArchiveKind {
     Tar,
@@ -132,7 +133,11 @@ export async function installMinikube(shell: Shell, version: string | null): Pro
     }
 
     if (shell.isUnix()) {
-        await shell.exec(`chmod +x ${executableFullPath}`);
+        try {
+            await fs.promises.chmod(executableFullPath, 0o755);
+        } catch {
+            // The previous command-based implementation did not fail installation on chmod errors.
+        }
     }
     const configKey = toolPathOSKey(shell.platform(), tool);
     await addPathToConfig(configKey, executableFullPath);
@@ -198,23 +203,28 @@ function unzip(sourceFile: string, destinationFolder: string): Promise<Errorable
     });
 }
 
-async function untar(sourceFile: string, destinationFolder: string, shell: Shell): Promise<Errorable<null>> {
+async function untar(sourceFile: string, destinationFolder: string, _shell: Shell): Promise<Errorable<null>> {
     try {
         if (getUseWsl()) {
             const destination = destinationFolder.replace(/\\/g, '/');
-            let result = await shell.exec(`mkdir -p ${destination}`);
-            if (!result || result.code !== 0) {
-                const message = result ? result.stderr : "Unable to run mkdir";
+            let result = await executeCommand({
+                executable: 'wsl.exe',
+                args: ['--exec', 'mkdir', '-p', '--', destination],
+            });
+            if (result.code !== 0) {
+                const message = result.stderr;
                 console.log(message);
                 throw new Error(`Error making directory: ${message}`);
             }
             const drive = sourceFile[0].toLowerCase();
             const filePath = sourceFile.substring(2).replace(/\\/g, '/');
             const fileName = `/mnt/${drive}/${filePath}`;
-            const cmd = `tar -C ${destination} -xf ${fileName}`;
-            result = await shell.exec(cmd);
-            if (!result || result.code !== 0) {
-                const message = result ? result.stderr : "Unable to run tar";
+            result = await executeCommand({
+                executable: 'wsl.exe',
+                args: ['--exec', 'tar', '-C', destination, '-xf', fileName],
+            });
+            if (result.code !== 0) {
+                const message = result.stderr;
                 console.log(message);
                 throw new Error(`Error unpacking: ${message}`);
             }

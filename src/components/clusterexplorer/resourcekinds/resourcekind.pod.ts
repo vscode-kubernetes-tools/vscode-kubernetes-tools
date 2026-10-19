@@ -40,8 +40,12 @@ function getIconForPodStatus(status: string, ready: string): vscode.Uri {
 
 export const podStatusChildSource = {
     async children(kubectl: Kubectl, parent: ResourceNode): Promise<ClusterExplorerNode[]> {
-        const nsarg = parent.namespace ? `--namespace=${parent.namespace}` : '';
-        const result = await kubectl.asJson<Pod>(`get pods ${parent.name} ${nsarg} -o json`);
+        const args = ['get', 'pods', parent.name];
+        if (parent.namespace) {
+            args.push(`--namespace=${parent.namespace}`);
+        }
+        args.push('-o', 'json');
+        const result = await kubectl.asJson<Pod>(args);
         if (result.succeeded) {
             const pod = result.result;
             let ready = 0;

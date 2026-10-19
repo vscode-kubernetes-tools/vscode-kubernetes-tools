@@ -21,7 +21,7 @@ async function recommendExtensionsToUser(tags: string[]): Promise<void> {
 }
 
 async function getCRDApiGroups(kubectl: Kubectl): Promise<string[]> {
-    const invokeResult = await kubectl.invokeCommand('api-versions');
+    const invokeResult = await kubectl.invokeCommand(['api-versions']);
     if (invokeResult.resultKind === 'exec-succeeded') {
         try {
             return invokeResult.stdout.split('\n').filter((s) => s);

@@ -23,8 +23,8 @@ export interface Version {
     readonly gitVersion: string;
 }
 
-export async function check(kubectlLoadJSON: (cmd: string) => Promise<Errorable<any>>): Promise<Compatibility> {
-    const version = await kubectlLoadJSON('version -o json');
+export async function check(kubectlLoadJSON: (args: readonly string[]) => Promise<Errorable<any>>): Promise<Compatibility> {
+    const version = await kubectlLoadJSON(['version', '-o', 'json']);
     if (failed(version)) {
         return {
             guaranteed: false,

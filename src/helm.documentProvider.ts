@@ -72,14 +72,14 @@ export class HelmInspectDocumentProvider implements vscode.TextDocumentContentPr
                 const file = uri.query;
                 const fi = fs.statSync(file);
                 if (!fi.isDirectory() && filepath.extname(file) === ".tgz") {
-                    exec.helmExec(`inspect values "${file}"`, printer);
+                    exec.helmExec(['inspect', 'values', file], printer);
                     return;
                 } else if (fi.isDirectory() && fs.existsSync(filepath.join(file, "Chart.yaml"))) {
-                    exec.helmExec(`inspect values "${file}"`, printer);
+                    exec.helmExec(['inspect', 'values', file], printer);
                     return;
                 }
                 exec.pickChartForFile(file, { warnIfNoCharts: true }, (path) => {
-                    exec.helmExec(`inspect values "${path}"`, printer);
+                    exec.helmExec(['inspect', 'values', path], printer);
                 });
             } else if (uri.authority === helm.INSPECT_REPO_AUTHORITY) {
                 const id = uri.path.substring(1);
@@ -94,15 +94,26 @@ export class HelmInspectDocumentProvider implements vscode.TextDocumentContentPr
                     return;
                 }
 
-                const versionArg = version ? `--version ${version}` : '';
                 exec.helmSyntaxVersion().then((sv) => {
                     const helm3Scope = (sv === exec.HelmSyntaxVersion.V2) ? '' : 'all';
                     if (uri.scheme === helm.INSPECT_CHART_SCHEME) {
-                        exec.helmExec(`inspect ${helm3Scope} ${id} ${versionArg}`, printer);
+                        const args = ['inspect'];
+                        if (helm3Scope) {
+                            args.push(helm3Scope);
+                        }
+                        args.push(id);
+                        if (version) {
+                            args.push('--version', version);
+                        }
+                        exec.helmExec(args, printer);
                     } else if (uri.scheme === helm.INSPECT_VALUES_SCHEME) {
+                        const args = ['inspect', 'values', id];
+                        if (version) {
+                            args.push('--version', version);
+                        }
                         if (query.generateFile) {
                             exec.helmExec(
-                                `inspect values ${id} ${versionArg}`,
+                                args,
                                 (code: number, out: string, err: string) => {
                                     if (code === 0) {
                                         resolve(out);
@@ -115,7 +126,7 @@ export class HelmInspectDocumentProvider implements vscode.TextDocumentContentPr
                                 }
                             );
                         } else {
-                            exec.helmExec(`inspect values ${id} ${versionArg}`, printer);
+                            exec.helmExec(args, printer);
                         }
                     }
                 });
@@ -135,7 +146,6 @@ export class HelmValuesDocumentProvider implements vscode.TextDocumentContentPro
                 const query = querystring.parse(uri.query);
                 const id = query.chart as string;
                 const version = query.version ? `${query.version}` : "";
-                const versionArg = version ? `--version ${version}` : "";
                 if (!shell.isSafe(id)) {
                     vscode.window.showWarningMessage(`Unexpected characters in chart name ${id}. Use Helm CLI to inspect this chart.`);
                     return;
@@ -144,8 +154,12 @@ export class HelmValuesDocumentProvider implements vscode.TextDocumentContentPro
                     vscode.window.showWarningMessage(`Unexpected characters in chart version ${version}. Use Helm CLI to inspect this chart.`);
                     return;
                 }
+                const args = ['inspect', 'values', id];
+                if (version) {
+                    args.push('--version', version);
+                }
                 exec.helmExec(
-                    `inspect values ${id} ${versionArg}`,
+                    args,
                     (code: number, out: string, err: string) => {
                         if (code === 0) {
                             resolve(out);
@@ -218,10 +232,10 @@ export class HelmTemplatePreviewDocumentProvider implements vscode.TextDocumentC
 
                     if (v === exec.HelmSyntaxVersion.V3 || v === exec.HelmSyntaxVersion.V4) {
                         // Helm v3/v4: use --show-only to render specific template
-                        exec.helmExec(`template "${chartPath}" --show-only "${reltpl}"`, displayResultAfterCommandExecution);
+                        exec.helmExec(['template', chartPath, '--show-only', reltpl], displayResultAfterCommandExecution);
                     } else {
                         // Helm v2: use --execute flag
-                        exec.helmExec(`template "${chartPath}" --execute "${reltpl}"`, displayResultAfterCommandExecution);
+                        exec.helmExec(['template', chartPath, '--execute', reltpl], displayResultAfterCommandExecution);
                     }
                 });
             });

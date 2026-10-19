@@ -2,7 +2,7 @@
 
 The Kubernetes extension uses the `kubectl` command line tool, and if you're building
 on top of it then we expect that you'll need to invoke `kubectl` quite a lot too!
-Of course, you can always invoke `kubectl` directly using a library such as `shelljs`,
+Of course, you can always invoke `kubectl` directly using a process API with an argument array,
 but in order to provide a consistent user experience, the Kubernetes extension
 provides an API through which you can run `kubectl` using the same code paths as
 the extension.  This means your tool participates in:
@@ -15,6 +15,8 @@ To invoke `kubectl` through the extension API:
 
 * Request the Kubernetes extension's Kubectl API
 * Call the `invokeCommand` method passing the desired `kubectl` command and arguments
+
+The v1 API accepts a string for compatibility. It supports quoted arguments, but not shell control syntax such as pipelines, redirects, chaining, or backtick substitution. Text such as `$()` inside a quoted argument remains literal data because the extension starts kubectl without an OS shell. Dynamic values must be quoted as command-line arguments and must never be used to construct shell syntax.
 
 `invokeCommand` returns a promise, which resolves to either:
 
@@ -31,7 +33,8 @@ async function cordonNode(nodeId: string) {
     if (!kubectl.available) {
         return;
     }
-    const result = await kubectl.api.invokeCommand(`cordon ${nodeId}`);
+    const safeNodeId = JSON.stringify(nodeId);
+    const result = await kubectl.api.invokeCommand(`cordon ${safeNodeId}`);
 
     if (!result || result.code !== 0) {
         const errorMessage = result ? result.stderr : 'Unable to invoke kubectl';

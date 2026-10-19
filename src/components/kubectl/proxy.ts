@@ -1,6 +1,6 @@
 import { Errorable } from "../../errorable";
 import { Kubectl } from "../../kubectl";
-import { ChildProcess } from "child_process";
+import type { ChildProcess } from "../../process";
 
 export async function proxy(kubectl: Kubectl, port: number | 'random'): Promise<Errorable<ProxySession>> {
     const portNumber = (port === 'random') ? 0 : port;
@@ -8,7 +8,7 @@ export async function proxy(kubectl: Kubectl, port: number | 'random'): Promise<
 
     // TODO: option to show a cancellable progress indicator while opening proxy?  We don't really need this for the Swagger scenario though
     const proxyingProcess = await kubectl.spawnCommand(args);
-    if (proxyingProcess.resultKind === 'exec-bin-not-found') {
+    if (proxyingProcess.resultKind !== 'exec-child-process-started') {
         return { succeeded: false, error: ['Failed to invoke kubectl: program not found'] };
     }
 

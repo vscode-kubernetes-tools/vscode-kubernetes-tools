@@ -1,7 +1,9 @@
 'use strict';
 
+import { mkdir } from 'fs/promises';
 import * as path from 'path';
-import { Shell } from '../../../shell';
+import * as vscode from 'vscode';
+import { monitorForAuthPrompt, Shell, ShellResult } from '../../../shell';
 import { FS } from '../../../fs';
 import { ActionResult, fromShellJson, fromShellExitCodeAndStandardError, fromShellExitCodeOnly, Diagnostic } from '../../../wizard';
 import { Errorable, failed } from '../../../errorable';
@@ -9,6 +11,8 @@ import { compareVersions } from 'compare-versions';
 import { sleep } from '../../../sleep';
 import { getKubeconfigPath } from '../../kubectl/kubeconfig';
 import { Dictionary } from '../../../utils/dictionary';
+import { executeCommand } from '../../../process';
+import { getUseWsl } from '../../config/config';
 
 export interface Context {
     readonly fs: FS;
@@ -50,6 +54,34 @@ export interface WaitResult {
 
 const MIN_AZ_CLI_VERSION = '2.0.23';
 
+async function executeAz(context: Context, args: readonly string[]): Promise<ShellResult | undefined> {
+    const { cwd, env } = context.shell.execOpts();
+    try {
+        let invocation = getUseWsl() ? {
+            executable: 'wsl.exe',
+            args: ['--exec', 'az', ...args],
+        } : {
+            executable: context.shell.which('az') || 'az',
+            args,
+        };
+        if (context.shell.isWindows() && /\.(?:cmd|bat)$/i.test(invocation.executable)) {
+            const python = path.resolve(path.dirname(invocation.executable), '..', 'python.exe');
+            if (!context.fs.existsSync(python)) {
+                throw new Error('The Azure CLI command wrapper is not supported without its bundled Python executable.');
+            }
+            invocation = { executable: python, args: ['-Im', 'azure.cli', ...args] };
+        }
+        return await executeCommand({
+            ...invocation,
+            cwd,
+            env,
+        }, undefined, monitorForAuthPrompt);
+    } catch (ex) {
+        vscode.window.showErrorMessage(String(ex));
+        return undefined;
+    }
+}
+
 export async function getSubscriptionList(context: Context): Promise<ActionResult<string[]>> {
     // check for prerequisites
     const prerequisiteErrors = await verifyPrerequisitesAsync(context);
@@ -82,7 +114,7 @@ async function verifyPrerequisitesAsync(context: Context): Promise<string[]> {
 }
 
 async function azureCliVersion(context: Context): Promise<string | null> {
-    const sr = await context.shell.exec('az --version');
+    const sr = await executeAz(context, ['--version']);
     if (!sr || sr.code !== 0) {
         return null;
     } else {
@@ -95,13 +127,13 @@ async function azureCliVersion(context: Context): Promise<string | null> {
 }
 
 async function listSubscriptionsAsync(context: Context): Promise<Errorable<string[]>> {
-    const sr = await context.shell.exec("az account list --all --query [*].name -ojson");
+    const sr = await executeAz(context, ['account', 'list', '--all', '--query', '[*].name', '-o', 'json']);
 
     return fromShellJson<string[]>(sr, "Unable to list Azure subscriptions");
 }
 
 export async function setSubscriptionAsync(context: Context, subscription: string): Promise<Errorable<Diagnostic>> {
-    const sr = await context.shell.exec(`az account set --subscription "${subscription}"`);
+    const sr = await executeAz(context, ['account', 'set', '--subscription', subscription]);
 
     return fromShellExitCodeAndStandardError(sr, "Unable to set Azure CLI subscription");
 }
@@ -126,28 +158,15 @@ export async function getClusterList(context: Context, subscription: string): Pr
 }
 
 async function listClustersAsync(context: Context): Promise<Errorable<ClusterInfo[]>> {
-    const cmd = getListClustersCommand(context);
-    const sr = await context.shell.exec(cmd);
+    const query = '[].{name:name,resourceGroup:resourceGroup}';
+    const sr = await executeAz(context, [getClusterCommand(), 'list', '--query', query, '-o', 'json']);
 
     return fromShellJson<ClusterInfo[]>(sr, "Unable to list Kubernetes clusters");
 }
 
-function getListClustersCommand(context: Context): string {
-    const filter = '';
-    let query = `[${filter}].{name:name,resourceGroup:resourceGroup}`;
-    if (context.shell.isUnix()) {
-        query = `'${query}'`;
-    }
-    return `az ${getClusterCommand()} list --query ${query} -ojson`;
-}
-
 async function listLocations(context: Context): Promise<Errorable<Locations>> {
-    let query = "[].{name:name,displayName:displayName}";
-    if (context.shell.isUnix()) {
-        query = `'${query}'`;
-    }
-
-    const sr = await context.shell.exec(`az account list-locations --query ${query} -ojson`);
+    const query = "[].{name:name,displayName:displayName}";
+    const sr = await executeAz(context, ['account', 'list-locations', '--query', query, '-o', 'json']);
 
     return fromShellJson<Locations>(sr, "Unable to list Azure regions", (response) => {
         const locations = Dictionary.of<string>();
@@ -202,7 +221,7 @@ function locationDisplayNamesEx(production: string[], preview: string[], locatio
 }
 
 export async function listVMSizes(context: Context, location: string): Promise<Errorable<string[]>> {
-    const sr = await context.shell.exec(`az vm list-sizes -l "${location}" -ojson`);
+    const sr = await executeAz(context, ['vm', 'list-sizes', '-l', location, '-o', 'json']);
 
     return fromShellJson<string[]>(sr,
         "Unable to list Azure VM sizes",
@@ -212,7 +231,7 @@ export async function listVMSizes(context: Context, location: string): Promise<E
 }
 
 async function resourceGroupExists(context: Context, resourceGroupName: string): Promise<boolean> {
-    const sr = await context.shell.exec(`az group show -n "${resourceGroupName}" -ojson`);
+    const sr = await executeAz(context, ['group', 'show', '-n', resourceGroupName, '-o', 'json']);
 
     if (sr && sr.code === 0 && !sr.stderr) {
         return sr.stdout !== null && sr.stdout.length > 0;
@@ -226,17 +245,29 @@ async function ensureResourceGroupAsync(context: Context, resourceGroupName: str
         return { succeeded: true, result: null };
     }
 
-    const sr = await context.shell.exec(`az group create -n "${resourceGroupName}" -l "${location}"`);
+    const sr = await executeAz(context, ['group', 'create', '-n', resourceGroupName, '-l', location]);
 
     return fromShellExitCodeAndStandardError(sr, "Unable to check if resource group exists");
 }
 
 async function execCreateClusterCmd(context: Context, options: any): Promise<Errorable<Diagnostic>> {
     const clusterCmd = getClusterCommand();
-    let createCmd = `az ${clusterCmd} create -n "${options.metadata.clusterName}" -g "${options.metadata.resourceGroupName}" -l "${options.metadata.location}" --generate-ssh-keys --no-wait `;
-    createCmd = createCmd + `--node-count ${options.agentSettings.count} --node-vm-size "${options.agentSettings.vmSize}"`;
-
-    const sr = await context.shell.exec(createCmd);
+    const sr = await executeAz(context, [
+        clusterCmd,
+        'create',
+        '-n',
+        options.metadata.clusterName,
+        '-g',
+        options.metadata.resourceGroupName,
+        '-l',
+        options.metadata.location,
+        '--generate-ssh-keys',
+        '--no-wait',
+        '--node-count',
+        String(options.agentSettings.count),
+        '--node-vm-size',
+        options.agentSettings.vmSize,
+    ]);
 
     return fromShellExitCodeOnly(sr, "Unable to call Azure CLI to create cluster");
 }
@@ -269,8 +300,21 @@ export async function createCluster(context: Context, options: any): Promise<Act
 // removed clusterType since it is NOT required after removing Azure Container Service option
 export async function waitForCluster(context: Context, clusterName: string, clusterResourceGroup: string): Promise<Errorable<WaitResult>> {
     const clusterCmd = getClusterCommand();
-    const waitCmd = `az ${clusterCmd} wait --created --interval 5 --timeout 10 -n ${clusterName} -g ${clusterResourceGroup} -o json`;
-    const sr = await context.shell.exec(waitCmd);
+    const sr = await executeAz(context, [
+        clusterCmd,
+        'wait',
+        '--created',
+        '--interval',
+        '5',
+        '--timeout',
+        '10',
+        '-n',
+        clusterName,
+        '-g',
+        clusterResourceGroup,
+        '-o',
+        'json',
+    ]);
 
     if (!sr) {
         return { succeeded: false, error: ["Unable to invoke Azure CLI"] };
@@ -308,7 +352,34 @@ export async function configureCluster(context: Context, clusterType: string, cl
 async function downloadKubectlCli(context: Context): Promise<any> {
     const cliInfo = installKubectlCliInfo(context);
 
-    const sr = await context.shell.exec(cliInfo.commandLine);
+    try {
+        if (!getUseWsl()) {
+            await mkdir(cliInfo.installDir, { recursive: true });
+        } else {
+            const { cwd, env } = context.shell.execOpts();
+            const result = await executeCommand({
+                executable: 'wsl.exe',
+                args: ['--exec', 'mkdir', '-p', '--', cliInfo.installDir],
+                cwd,
+                env,
+            });
+            if (result.code !== 0) {
+                throw new Error(result.stderr);
+            }
+        }
+    } catch (ex) {
+        return {
+            succeeded: false,
+            error: String(ex)
+        };
+    }
+
+    const sr = await executeAz(context, [
+        getClusterCommandAndSubcommand(),
+        'install-cli',
+        '--install-location',
+        cliInfo.installFile,
+    ]);
 
     if (!sr) {
         return { succeeded: false, error: ["Unable to invoke Azure CLI"] };
@@ -332,13 +403,16 @@ async function getCredentials(context: Context, clusterName: string, clusterGrou
     const kubeconfigPath = getKubeconfigPath();
     const fullPath = kubeconfigPath.pathType === "host" ? kubeconfigPath.hostPath : kubeconfigPath.wslPath;
     // For multi-path KUBECONFIG, split and use the first path to write new credentials
-    const kubeconfigFilePath = fullPath ? fullPath.split(path.delimiter)[0] : undefined;
-    const kubeconfigFileOption = kubeconfigFilePath ? `-f "${kubeconfigFilePath}"` : '';
+    const pathDelimiter = kubeconfigPath.pathType === 'wsl' ? ':' : path.delimiter;
+    const kubeconfigFilePath = fullPath ? fullPath.split(pathDelimiter)[0] : undefined;
+    const args = [getClusterCommandAndSubcommand(), 'get-credentials', '-n', clusterName, '-g', clusterGroup];
+    if (kubeconfigFilePath) {
+        args.push('-f', kubeconfigFilePath);
+    }
     let attempts = 0;
     while (true) {
         attempts++;
-        const cmd = `az ${getClusterCommandAndSubcommand()} get-credentials -n ${clusterName} -g ${clusterGroup} ${kubeconfigFileOption}`;
-        const sr = await context.shell.exec(cmd);
+        const sr = await executeAz(context, args);
 
         if (sr && sr.code === 0 && !sr.stderr) {
             return {
@@ -356,7 +430,6 @@ async function getCredentials(context: Context, clusterName: string, clusterGrou
 }
 
 function installKubectlCliInfo(context: Context) {
-    const cmdCore = `az ${getClusterCommandAndSubcommand()} install-cli`;
     const isWindows = context.shell.isWindows();
     if (isWindows) {
         // The default Windows install location requires admin permissions; install
@@ -366,16 +439,14 @@ function installKubectlCliInfo(context: Context) {
         const appDataDir = process.env['LOCALAPPDATA'];
         const installDir = appDataDir + '\\kubectl';
         const installFile = installDir + '\\kubectl.exe';
-        const cmd = `(if not exist "${installDir}" md "${installDir}") & ${cmdCore} --install-location="${installFile}"`;
-        return { installFile: installFile, commandLine: cmd };
+        return { installDir: installDir, installFile: installFile };
     } else {
         // Bah, the default Linux install location requires admin permissions too!
         // Fortunately, $HOME/bin is on the path albeit not created by default.
-        const homeDir = process.env['HOME'];
+        const homeDir = context.shell.home();
         const installDir = homeDir + '/bin';
         const installFile = installDir + '/kubectl';
-        const cmd = `mkdir -p "${installDir}" ; ${cmdCore} --install-location="${installFile}"`;
-        return { installFile: installFile, commandLine: cmd };
+        return { installDir: installDir, installFile: installFile };
     }
 }
 

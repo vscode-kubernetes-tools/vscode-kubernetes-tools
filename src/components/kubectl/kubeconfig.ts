@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { fs } from '../../fs';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
-import * as shelljs from 'shelljs';
+import { executeCommandSync } from '../../process';
 import { refreshExplorer } from '../clusterprovider/common/explorer';
 import { getActiveKubeconfig, getUseWsl } from '../config/config';
 import { mkdirp } from 'mkdirp';
@@ -16,6 +16,10 @@ interface Config {
     contexts?: Named[];
     users?: Named[];
     "current-context"?: string;
+}
+
+function executeWslCommand(args: readonly string[]) {
+    return executeCommandSync('wsl.exe', ['--exec', ...args]);
 }
 
 export interface HostKubeconfigPath {
@@ -56,13 +60,9 @@ export async function loadKubeconfig(): Promise<any> {
             kubeconfig.setCurrentContext(currentContext);
         }
     } else if (kubeconfigPath.pathType === 'wsl') {
-        const result = shelljs.exec(`wsl.exe sh -c "cat ${kubeconfigPath.wslPath}"`, { silent: true }) as shelljs.ExecOutputReturnValue;
-        if (!result) {
-            throw new Error(`Impossible to retrieve the kubeconfig content from WSL at path '${kubeconfigPath.wslPath}'. No result from the shelljs.exe call.`);
-        }
-
+        const result = executeWslCommand(['cat', '--', kubeconfigPath.wslPath]);
         if (result.code !== 0) {
-            throw new Error(`Impossible to retrieve the kubeconfig content from WSL at path '${kubeconfigPath.wslPath}. Error code: ${result.code}. Error output: ${result.stderr.trim()}`);
+            throw new Error(`Impossible to retrieve the kubeconfig content from WSL at path '${kubeconfigPath.wslPath}'. Error code: ${result.code}. Error output: ${result.stderr.trim()}`);
         }
 
         kubeconfig.loadFromString(result.stdout.trim());
@@ -80,11 +80,7 @@ export function getKubeconfigPath(): KubeconfigPath {
     if (getUseWsl()) {
         if (!kubeconfigPath) {
             // User is using WSL: we want to use the same default that kubectl uses on Linux ($KUBECONFIG or home directory).
-            const result = shelljs.exec('wsl.exe sh -c "${KUBECONFIG:-$HOME/.kube/config}"', { silent: true }) as shelljs.ExecOutputReturnValue;
-            if (!result) {
-                throw new Error(`Impossible to retrieve the kubeconfig path from WSL. No result from the shelljs.exe call.`);
-            }
-
+            const result = executeWslCommand(['sh', '-c', 'printf "%s\\n" "${KUBECONFIG:-$HOME/.kube/config}"']);
             if (result.code !== 0) {
                 throw new Error(`Impossible to retrieve the kubeconfig path from WSL. Error code: ${result.code}. Error output: ${result.stderr.trim()}`);
             }

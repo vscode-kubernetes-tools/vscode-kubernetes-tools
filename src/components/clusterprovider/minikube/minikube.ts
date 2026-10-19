@@ -7,9 +7,22 @@ import { FS } from '../../../fs';
 import * as binutil from '../../../binutil';
 import { Errorable, failed } from '../../../errorable';
 import { fromShellExitCodeOnly, Diagnostic } from '../../../wizard';
-import { getToolPath, getCheckForMinikubeUpgrade, setMinikubeShowInfo } from '../../config/config';
+import { getToolPath, getCheckForMinikubeUpgrade, getUseWsl, setMinikubeShowInfo } from '../../config/config';
 import { installMinikube } from '../../installer/installer';
 import { isMinikubeInfoDisplay, ShowInformationOptions } from '../common/cacheinfo';
+import { executeCommand, ProcessResult } from '../../../process';
+import { parseCommandLine } from '../../../utils/command-line';
+
+const MINIKUBE_VM_DRIVERS = new Set([
+    'virtualbox',
+    'vmwarefusion',
+    'kvm',
+    'xhyve',
+    'hyperv',
+    'hyperkit',
+    'kvm2',
+    'none',
+]);
 
 export interface MinikubeInfo {
     readonly running: boolean;
@@ -29,6 +42,7 @@ export interface MinikubeOptions {
 export interface Minikube {
     checkPresent(mode: CheckPresentMode): Promise<boolean>;
     checkUpgradeAvailable(): Promise<void>;
+    invokeCommand(args: readonly string[]): Promise<ProcessResult | undefined>;
     isRunnable(): Promise<Errorable<Diagnostic>>;
     start(options: MinikubeOptions): Promise<void>;
     stop(): Promise<void>;
@@ -66,6 +80,10 @@ class MinikubeImpl implements Minikube {
         return checkPresent(this.context, mode);
     }
 
+    invokeCommand(args: readonly string[]): Promise<ProcessResult | undefined> {
+        return executeMinikubeCommand(this.context, args);
+    }
+
     isRunnable(): Promise<Errorable<Diagnostic>> {
         return isRunnableMinikube(this.context);
     }
@@ -88,7 +106,7 @@ class MinikubeImpl implements Minikube {
 }
 
 async function getVersionInfo(context: Context): Promise<MinikubeVersionInfo> {
-    const sr = await context.shell.exec(`"${context.binPath}" update-check`);
+    const sr = await executeMinikubeCommand(context, ['update-check']);
     if (!sr || sr.code !== 0) {
         throw new Error(`Error checking for minikube updates: ${sr ? sr.stderr : 'cannot run minikube'}`);
     }
@@ -164,7 +182,7 @@ async function isRunnableMinikube(context: Context): Promise<Errorable<Diagnosti
         return { succeeded: false, error: ['Minikube is not installed'] };
     }
 
-    const sr = await context.shell.exec(`"${context.binPath}" help`);
+    const sr = await executeMinikubeCommand(context, ['help']);
     return fromShellExitCodeOnly(sr, "Unable to run Minikube");
 }
 
@@ -181,6 +199,25 @@ async function startMinikube(context: Context, options: MinikubeOptions): Promis
     if (!await checkPresent(context, CheckPresentMode.Alert)) {
         return;
     }
+
+    const args: string[] = [];
+    if (options.additionalFlags && options.additionalFlags.trim().length > 0) {
+        const parsedFlags = parseCommandLine(options.additionalFlags);
+        if (!parsedFlags.succeeded) {
+            vscode.window.showErrorMessage(`Failed to start cluster: ${parsedFlags.error}`);
+            return;
+        }
+        args.push(...parsedFlags.args);
+    }
+    if (options.vmDriver && options.vmDriver.length > 0) {
+        if (!MINIKUBE_VM_DRIVERS.has(options.vmDriver)) {
+            vscode.window.showErrorMessage(`Failed to start cluster: Invalid Minikube VM driver "${options.vmDriver}".`);
+            return;
+        }
+        args.push(`--vm-driver=${options.vmDriver}`);
+    }
+    args.push('start');
+
     const item = getStatusBar();
     item.text = 'minikube-starting';
     item.show();
@@ -191,11 +228,7 @@ async function startMinikube(context: Context, options: MinikubeOptions): Promis
         return;
     }
 
-    let flags = options.additionalFlags ? options.additionalFlags : '';
-    if (options.vmDriver && options.vmDriver.length > 0) {
-        flags += ` --vm-driver=${options.vmDriver} `;
-    }
-    context.shell.exec(`"${context.binPath}" ${flags} start`).then((result) => {
+    executeMinikubeCommand(context, args).then((result) => {
         if (result && result.code === 0) {
             vscode.window.showInformationMessage('Cluster started.');
             item.text = 'minikube-running';
@@ -223,7 +256,7 @@ async function stopMinikube(context: Context): Promise<void> {
         return;
     }
 
-    context.shell.exec(`"${context.binPath}" stop`).then((result) => {
+    executeMinikubeCommand(context, ['stop']).then((result) => {
         if (result && result.code === 0) {
             vscode.window.showInformationMessage('Cluster stopped.');
             item.hide();
@@ -242,7 +275,7 @@ async function minikubeStatus(context: Context): Promise<MinikubeInfo> {
         throw new Error('Minikube executable could not be found!');
     }
 
-    const result = await context.shell.exec(`"${context.binPath}" status`);
+    const result = await executeMinikubeCommand(context, ['status']);
 
     if (result && result.stderr.length === 0) {
         const hostItem = result.stdout.split('\n').find((status) => status.includes('host'));
@@ -257,6 +290,27 @@ async function minikubeStatus(context: Context): Promise<MinikubeInfo> {
         } as MinikubeInfo;
     }
     throw new Error(`Failed to get status: ${result ? result.stderr : "Unable to run Minikube"}`);
+}
+
+async function executeMinikubeCommand(context: Context, args: readonly string[]): Promise<ProcessResult | undefined> {
+    const opts = context.shell.execOpts();
+    try {
+        const invocation = getUseWsl() ? {
+            executable: 'wsl.exe',
+            args: ['--exec', context.binPath, ...args],
+        } : {
+            executable: context.binPath,
+            args,
+        };
+        return await executeCommand({
+            ...invocation,
+            cwd: opts.cwd,
+            env: opts.env,
+        });
+    } catch (err) {
+        vscode.window.showErrorMessage(String(err));
+        return undefined;
+    }
 }
 
 async function checkPresent(context: Context, mode: CheckPresentMode): Promise<boolean> {

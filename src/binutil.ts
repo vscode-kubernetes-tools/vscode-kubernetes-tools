@@ -2,7 +2,7 @@ import * as config from './components/config/config';
 import { Shell } from './shell';
 import { Host } from './host';
 import { FS } from './fs';
-import { installDependencies } from './components/installer/installdependencies';
+import { executeCommand } from './process';
 
 export interface BinCheckContext {
     readonly host: Host;
@@ -18,32 +18,41 @@ interface FindBinaryResult {
 }
 
 async function findBinary(shell: Shell, binName: string): Promise<FindBinaryResult> {
-    let cmd = `which ${binName}`;
-
-    if (shell.isWindows()) {
-        cmd = `where.exe ${binName}.exe`;
+    let executable = 'which';
+    let args = [binName];
+    if (config.getUseWsl()) {
+        executable = 'wsl.exe';
+        args = ['--exec', 'which', binName];
+    } else if (shell.isWindows()) {
+        executable = 'where.exe';
+        args = [`${binName}.exe`];
     }
 
-    const opts = {
-        async: true,
-        env: {
-            HOME: process.env.HOME,
-            PATH: process.env.PATH
-        }
-    };
-
-    const execResult = await shell.execCore(cmd, opts);
+    const opts = shell.execOpts();
+    let execResult;
+    try {
+        execResult = await executeCommand({
+            executable,
+            args,
+            cwd: opts.cwd,
+            env: opts.env,
+        });
+    } catch (err) {
+        return { err: -1, output: String(err) };
+    }
     if (execResult.code) {
         return { err: execResult.code, output: execResult.stderr };
     }
 
-    return { err: null, output: execResult.stdout };
+    const resolvedPath = execResult.stdout.split(/\r?\n/).find((line) => line.trim().length > 0)?.trim() || '';
+    return { err: null, output: resolvedPath };
 }
 
 export function execPath(shell: Shell, basePath: string): string {
     let bin = basePath;
-    if (shell.isWindows() && bin && !(bin.endsWith('.exe'))) {
-        bin = bin.slice(-1) === '"' ? `${bin.slice(0, -1)}.exe"` : `${bin}.exe`;
+    const hasDirectory = /[\\/]/.test(bin);
+    if (shell.isWindows() && hasDirectory && bin && !/\.[^\\/]+$/i.test(bin)) {
+        bin = `${bin}.exe`;
     }
     return bin;
 }
@@ -60,7 +69,7 @@ function alertNoBin(host: Host, binName: string, failureReason: CheckPresentFail
                             host.showInformationMessage(`Add ${binName} directory to path, or set "vs-kubernetes.${binName}-path" config to ${binName} binary.`);
                             break;
                         case 'Install dependencies':
-                            installDependencies();
+                            void import('./components/installer/installdependencies').then((installer) => installer.installDependencies());
                             break;
                     }
 
@@ -71,7 +80,7 @@ function alertNoBin(host: Host, binName: string, failureReason: CheckPresentFail
             host.showErrorMessage(message, 'Install dependencies').then(
                 (str) => {
                     if (str === 'Install dependencies') {
-                        installDependencies();
+                        void import('./components/installer/installdependencies').then((installer) => installer.installDependencies());
                     }
                 }
             );
@@ -91,6 +100,7 @@ export async function checkForBinary(context: BinCheckContext, bin: string | und
         }
 
         context.binFound = true;
+        context.binPath = fb.output;
 
         return true;
     }
@@ -98,8 +108,18 @@ export async function checkForBinary(context: BinCheckContext, bin: string | und
     if (!config.getUseWsl()) {
         context.binFound = context.fs.existsSync(bin);
     } else {
-        const sr = await context.shell.exec(`ls ${bin}`);
-        context.binFound = (!!sr && sr.code === 0);
+        const opts = context.shell.execOpts();
+        try {
+            const sr = await executeCommand({
+                executable: 'wsl.exe',
+                args: ['--exec', 'test', '-e', bin],
+                cwd: opts.cwd,
+                env: opts.env,
+            });
+            context.binFound = sr.code === 0;
+        } catch (_err) {
+            context.binFound = false;
+        }
     }
     if (context.binFound) {
         context.binPath = bin;

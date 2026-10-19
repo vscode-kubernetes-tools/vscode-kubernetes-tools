@@ -3,20 +3,20 @@
 import * as vscode from 'vscode';
 import * as browser from '../platform/browser';
 
-import { createReadStream } from 'fs';
-import { resolve } from 'path';
-import { fs } from '../../fs';
 import { portForwardToPod, buildPortMapping } from './port-forward';
+import { proxy, ProxySession } from './proxy';
 import { Kubectl } from '../../kubectl';
 import { Node, KubernetesCollection, Pod } from '../../kuberesources.objectmodel';
 import { failed } from '../../errorable';
 
 const KUBE_DASHBOARD_URL = "http://localhost:8001/ui/";
-const TERMINAL_NAME = "Kubernetes Dashboard";
-const PROXY_OUTPUT_FILE = resolve(__dirname, 'proxy.out');
 
-// The instance of the terminal running Kubectl Dashboard
-let terminal: vscode.Terminal | null = null;
+let proxySession: ProxySession | undefined;
+
+export function disposeDashboardProxy(): void {
+    proxySession?.dispose();
+    proxySession = undefined;
+}
 
 interface DashboardPodInfo {
     readonly name: string;
@@ -32,7 +32,7 @@ interface DashboardPodInfo {
  * @returns Boolean identifying if we think this is an AKS cluster.
  */
 async function isAKSCluster (kubectl: Kubectl): Promise<boolean> {
-    const nodes = await kubectl.asJson<KubernetesCollection<Node>>('get nodes -o json');
+    const nodes = await kubectl.asJson<KubernetesCollection<Node>>(['get', 'nodes', '-o', 'json']);
     if (failed(nodes)) {
         return false;
     }
@@ -68,7 +68,7 @@ function isNodeAKS(node: Node): boolean {
  */
 async function findDashboardPod(kubectl: Kubectl): Promise<DashboardPodInfo | undefined> {
     const dashboardPod = await kubectl.asJson<KubernetesCollection<Pod>>(
-        "get pod -n kube-system -l k8s-app=kubernetes-dashboard -o json"
+        ['get', 'pod', '-n', 'kube-system', '-l', 'k8s-app=kubernetes-dashboard', '-o', 'json']
     );
     if (failed(dashboardPod)) {
         return undefined;
@@ -98,8 +98,7 @@ async function openDashboardForAKSCluster (kubectl: Kubectl): Promise<void> {
 }
 
 /**
- * Runs `kubectl proxy` in a terminal process spawned by the extension, and opens the Kubernetes
- * dashboard in the user's preferred browser.
+ * Runs `kubectl proxy` and opens the Kubernetes dashboard in the user's preferred browser.
  */
 export async function dashboardKubernetes (kubectl: Kubectl): Promise<void> {
     // AKS clusters are handled differently due to some intricacies
@@ -114,76 +113,15 @@ export async function dashboardKubernetes (kubectl: Kubectl): Promise<void> {
         return;
     }
 
-    // If we've already got a terminal instance, just open the dashboard.
-    if (terminal) {
-        browser.open(KUBE_DASHBOARD_URL);
+    disposeDashboardProxy();
+
+    const proxyResult = await proxy(kubectl, 8001);
+    if (failed(proxyResult)) {
+        vscode.window.showErrorMessage("Could not start the Kubernetes Dashboard. Is it already running?");
         return;
     }
 
-    let outputExists;
-
-    try {
-        outputExists = await fs.existsAsync(PROXY_OUTPUT_FILE);
-        if (!outputExists) {
-            await fs.openAsync(PROXY_OUTPUT_FILE, 'w+');
-        }
-    } catch (e) {
-        vscode.window.showErrorMessage("Something went wrong when ensuring the Kubernetes API Proxy output stream existed");
-        return;
-    }
-
-    // Read kubectl proxy's stdout as a stream.
-    createReadStream(
-        PROXY_OUTPUT_FILE,
-        {encoding: 'utf8'}
-    ).on('data', (data: string | Buffer) => onStreamData(data));
-
-    // stdout is also written to a file via `tee`. We read this file as a stream
-    // to listen for when the server is ready.
-    await kubectl.invokeInNewTerminal('proxy', TERMINAL_NAME, onClosedTerminal, `tee ${PROXY_OUTPUT_FILE}`);
+    proxySession = proxyResult.result;
+    browser.open(KUBE_DASHBOARD_URL);
+    vscode.window.showInformationMessage(`Kubernetes Dashboard running at ${KUBE_DASHBOARD_URL}`);
 }
-
-/**
- * Called when the terminal window is closed by the user.
- * @param proxyTerminal
- */
-const onClosedTerminal = async (proxyTerminal: vscode.Terminal) => {
-    // Make sure we only dispose when it's *our* terminal we want gone.
-    if (proxyTerminal.name !== TERMINAL_NAME) {
-        return;
-    }
-
-    terminal = null;
-    console.log("Closing Kubernetes API Proxy");
-
-    try {
-        await fs.unlinkAsync(PROXY_OUTPUT_FILE);
-        console.log('Kubernetes API Proxy stream removed');
-    } catch (e) {
-        console.log('Could not remove Kubernetes API Proxy stream');
-    }
-};
-
-/**
- * Callback to read data written to the Kubernetes API Proxy output stream.
- * @param data
- */
-const onStreamData = (data: string | Buffer) => {
-    // Everything's alright…
-    const dataStr = data.toString();
-    if (dataStr.startsWith("Starting to serve")) {
-        // Let the proxy warm up a bit… otherwise we might hit a browser's error page.
-        setTimeout(() => {
-            browser.open(KUBE_DASHBOARD_URL);
-        }, 2500);
-
-        vscode.window.showInformationMessage(`Kubernetes Dashboard running at ${KUBE_DASHBOARD_URL}`);
-        return;
-    }
-
-    // Maybe we've bound to the port already outside of the extension?
-    vscode.window.showErrorMessage("Could not start the Kubernetes Dashboard. Is it already running?");
-    if (terminal) {
-        terminal.dispose();
-    }
-};

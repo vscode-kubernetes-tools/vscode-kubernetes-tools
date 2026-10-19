@@ -38,7 +38,12 @@ export async function getClusterSwagger(kubectl: Kubectl): Promise<Errorable<Swa
 }
 
 export async function getCrdSchemas(kubectl: Kubectl): Promise<{[key: string]: object | undefined} | undefined> {
-    const er = await kubectl.invokeCommand(`get crd -o jsonpath="{range .items[*].spec}[{.group}, {.names.plural}, {.names.singular}, {range .versions[?(.schema.openAPIV3Schema.properties)]}{.name}{\\" \\"}{end}]{end}"`);
+    const er = await kubectl.invokeCommand([
+        'get',
+        'crd',
+        '-o',
+        'jsonpath={range .items[*].spec}[{.group}, {.names.plural}, {.names.singular}, {range .versions[?(.schema.openAPIV3Schema.properties)]}{.name}{" "}{end}]{end}'
+    ]);
 
     if (ExecResult.failed(er)) {
         kubectl.reportFailure(er, { whatFailed: 'Failed to get crds' });
@@ -54,7 +59,7 @@ export async function getCrdSchemas(kubectl: Kubectl): Promise<{[key: string]: o
             const singular = crdInfoAsArray[2].trim();
             const versions = crdInfoAsArray[3].trim() !== '' ? crdInfoAsArray[3].trim().split(' ') : [];
             if (versions.length > 0) {
-                const crd =  await kubectlUtils.getResourceAsJson<any>(kubectl, `crd ${plural}.${group}`, '', true);
+                const crd = await kubectlUtils.getResourceAsJson<any>(kubectl, `crd/${plural}.${group}`, '', true);
                 if (!crd) {
                     continue;
                 }

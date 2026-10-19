@@ -1,11 +1,14 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as url from "url";
+import * as vscode from 'vscode';
 
 import { Kubectl } from "../kubectl";
 import { getCurrentClusterConfig } from "../kubectlUtils";
-import { shell } from "../shell";
+import { monitorForAuthPrompt, shell } from "../shell";
 import { Dictionary } from "../utils/dictionary";
+import { executeCommand } from '../process';
+import { getUseWsl } from '../components/config/config';
 
 /**
  * When using the command "minikube docker-env" to get the local kubernetes docker env, it needs run with the admin privilege.
@@ -35,9 +38,25 @@ export async function resolveKubernetesDockerEnv(kubectl: Kubectl): Promise<{}> 
 
 async function dockerApiVersion(): Promise<string> {
     const defaultDockerVersion = "1.23";
-    const versionResult = await shell.exec(`docker version --format "{{.Client.APIVersion}}"`);
-    if (versionResult && versionResult.code === 0) {
-        return versionResult.stdout.trim();
+    const { cwd, env } = shell.execOpts();
+    const args = ['version', '--format', '{{.Client.APIVersion}}'];
+    try {
+        const versionResult = await executeCommand(getUseWsl() ? {
+            executable: 'wsl.exe',
+            args: ['--exec', 'docker', ...args],
+            cwd,
+            env,
+        } : {
+            executable: 'docker',
+            args,
+            cwd,
+            env,
+        }, undefined, monitorForAuthPrompt);
+        if (versionResult.code === 0) {
+            return versionResult.stdout.trim();
+        }
+    } catch (err) {
+        vscode.window.showErrorMessage(String(err));
     }
     return defaultDockerVersion;
 }

@@ -88,7 +88,7 @@ export class HelmRepoExplorer implements vscode.TreeDataProvider<HelmObject> {
     }
 
     async refresh(): Promise<void> {
-        await helm.helmExecAsync('repo update');
+        await helm.helmExecAsync(['repo', 'update']);
         this.onDidChangeTreeDataEmitter.fire(undefined);
     }
 }
@@ -212,7 +212,7 @@ class HelmRepoChartVersionImpl extends HelmExplorerNodeImpl implements HelmRepoC
 }
 
 async function listHelmRepos(): Promise<Errorable<HelmRepoImpl[]>> {
-    const sr = await helm.helmExecAsync("repo list");
+    const sr = await helm.helmExecAsync(['repo', 'list']);
     // TODO: prompt to run 'helm init' here if needed...
     if (!sr || sr.code !== 0) {
         return { succeeded: false, error: [sr ? sr.stderr : "Unable to run Helm"] };
@@ -230,10 +230,10 @@ async function listHelmRepos(): Promise<Errorable<HelmRepoImpl[]>> {
 async function listHelmRepoCharts(repoName: string): Promise<Errorable<HelmRepoChartImpl[]>> {
     const syntaxVersion = await helm.helmSyntaxVersion();
     // Helm v2 uses 'search', v3+ uses 'search repo'
-    const searchCmd = (syntaxVersion === helm.HelmSyntaxVersion.V3 || syntaxVersion === helm.HelmSyntaxVersion.V4) ? 'search repo' : 'search';
+    const searchArgs = (syntaxVersion === helm.HelmSyntaxVersion.V3 || syntaxVersion === helm.HelmSyntaxVersion.V4) ? ['search', 'repo'] : ['search'];
     // Helm v4 removed the -l shorthand, use --versions instead (both show all chart versions)
     const versionFlag = (syntaxVersion === helm.HelmSyntaxVersion.V4) ? '--versions' : '-l';
-    const sr = await helm.helmExecAsync(`${searchCmd} ${repoName}/ ${versionFlag}`);
+    const sr = await helm.helmExecAsync([...searchArgs, `${repoName}/`, versionFlag]);
     if (!sr || sr.code !== 0) {
         return { succeeded: false, error: [ sr ? sr.stderr : "Unable to run Helm" ]};
     }

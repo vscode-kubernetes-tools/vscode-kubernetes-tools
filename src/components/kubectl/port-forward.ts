@@ -13,6 +13,18 @@ import * as kuberesources from '../../kuberesources';
 import * as kubernetes from '@kubernetes/client-node';
 import { ClusterExplorerResourceNode } from '../clusterexplorer/node';
 import { ExecResult } from '../../binutilplusplus';
+import {
+    hasValidContainerNames,
+    hasValidKubernetesMetadata,
+    hasValidPodIdentifiers,
+    INVALID_KUBERNETES_IDENTIFIER_MESSAGE,
+    isValidContainerName,
+    isValidKubernetesKind,
+    isValidKubernetesResourceName,
+    isValidKubernetesResourceType,
+    isValidNamespaceName,
+    sanitizeForDisplay,
+} from '../../utils/kubernetes-identifiers';
 
 const PORT_FORWARD_TERMINAL = 'kubectl port-forward';
 const MAX_PORT_COUNT = 65535;
@@ -61,7 +73,18 @@ export async function portForwardKubernetes(kubectl: Kubectl, explorerNode?: any
         const resourceNode = explorerNode as ClusterExplorerResourceNode;
         const kind = resourceNode.kind.apiName || 'pods';
         const resourceName = resourceNode.name;
+        if (!isValidKubernetesResourceType(resourceNode.kind.abbreviation) ||
+            !isValidKubernetesKind(resourceNode.kind.manifestKind) ||
+            resourceNode.kindName !== `${resourceNode.kind.abbreviation}/${resourceName}` ||
+            !isValidPortForwardTarget(kind, resourceName, resourceNode.namespace || undefined)) {
+            host.showErrorMessage(INVALID_KUBERNETES_IDENTIFIER_MESSAGE);
+            return;
+        }
         const namespace = resourceNode.namespace || await kubectlUtils.currentNamespace(kubectl);
+        if (!isValidNamespaceName(namespace)) {
+            host.showErrorMessage(INVALID_KUBERNETES_IDENTIFIER_MESSAGE);
+            return;
+        }
         return await promptAndForwardPort(kubectl, kind, resourceName, namespace);
     } else {
         let portForwardablePods: PortForwardFindPodsResult;
@@ -70,23 +93,42 @@ export async function portForwardKubernetes(kubectl: Kubectl, explorerNode?: any
             portForwardablePods = await findPortForwardablePods();
         } catch (e) {
             host.showErrorMessage("Error while fetching pods for port-forward");
-            throw e;
+            console.log(sanitizeForDisplay(e));
+            return;
         }
 
         if (!portForwardablePods.succeeded) {
             host.showInformationMessage("Error while fetching pods for port-forward");
+            return;
         }
 
         if (isFindResultFromDocument(portForwardablePods)) {
             // The pod is described by the open document. Skip asking which pod to use and go straight to port-forward.
             const podSelection = portForwardablePods.pod;
+            if (!isValidPortForwardTarget('pods', podSelection, portForwardablePods.namespace)) {
+                host.showErrorMessage(INVALID_KUBERNETES_IDENTIFIER_MESSAGE);
+                return;
+            }
             return await promptAndForwardPort(kubectl, 'pods', podSelection, portForwardablePods.namespace);
+        }
+
+        const namespace = await kubectlUtils.currentNamespace(kubectl);
+        if (!isValidNamespaceName(namespace)) {
+            host.showErrorMessage(INVALID_KUBERNETES_IDENTIFIER_MESSAGE);
+            return;
         }
 
         let podSelection: string | undefined;
         const pods = portForwardablePods.pods;
 
         try {
+            if (pods.some((podObj) =>
+                !isValidKubernetesResourceName(podObj.metadata.name) ||
+                (podObj.metadata.namespace !== undefined && podObj.metadata.namespace !== '' && !isValidNamespaceName(podObj.metadata.namespace))
+            )) {
+                host.showErrorMessage(INVALID_KUBERNETES_IDENTIFIER_MESSAGE);
+                return;
+            }
             const podNames: string[] = pods.map((podObj) => podObj.metadata.name);
             podSelection = await host.showQuickPick(
                 podNames,
@@ -94,14 +136,14 @@ export async function portForwardKubernetes(kubectl: Kubectl, explorerNode?: any
             );
         } catch (e) {
             host.showErrorMessage("Error while selecting pod for port-forward");
-            throw e;
+            console.log(sanitizeForDisplay(e));
+            return;
         }
 
         if (!podSelection) {
             host.showErrorMessage("Error while selecting pod for port-forward");
             return;
         }
-        const namespace = await kubectlUtils.currentNamespace(kubectl);
         await promptAndForwardPort(kubectl, 'pods', podSelection, namespace);
     }
 }
@@ -111,6 +153,10 @@ export async function portForwardKubernetes(kubectl: Kubectl, explorerNode?: any
  * if a valid input was provided.
  */
 async function promptAndForwardPort(kubectl: Kubectl, kind: string, resourceName: string, namespace?: string): Promise<void> {
+    if (!isValidPortForwardTarget(kind, resourceName, namespace)) {
+        host.showErrorMessage(INVALID_KUBERNETES_IDENTIFIER_MESSAGE);
+        return;
+    }
     const portMapping = await promptForPort(kubectl, kind, resourceName, namespace);
     if (portMapping.length !== 0) {
         portForwardToResource(kubectl, kind, resourceName, portMapping, namespace);
@@ -124,9 +170,12 @@ async function promptAndForwardPort(kubectl: Kubectl, kind: string, resourceName
 function extractContainerPorts(containers: kubernetes.V1Container[]): ExtractedPort[] {
     const ports = Array.of<ExtractedPort>();
     containers.forEach((container) => {
+        if (!isValidContainerName(container.name)) {
+            throw new Error(INVALID_KUBERNETES_IDENTIFIER_MESSAGE);
+        }
         if (container.ports) {
             const containerPorts = container.ports.map(({name, containerPort}) => ({
-                name: name || `port-${containerPort}`,
+                name: name || String(containerPort),
                 port: containerPort
             }));
             ports.push(...containerPorts);
@@ -141,6 +190,9 @@ function extractContainerPorts(containers: kubernetes.V1Container[]): ExtractedP
  */
 function extractPodPorts(podJson: string): ExtractedPort[] {
     const pod = JSON.parse(podJson) as kubernetes.V1Pod;
+    if (!pod.spec || !Array.isArray(pod.spec.containers) || !hasValidPodIdentifiers(pod)) {
+        throw new Error(INVALID_KUBERNETES_IDENTIFIER_MESSAGE);
+    }
     const containers = pod.spec ? pod.spec.containers : [];
     return extractContainerPorts(containers);
 }
@@ -151,9 +203,12 @@ function extractPodPorts(podJson: string): ExtractedPort[] {
  */
 function extractServicePorts(serviceJson: string): ExtractedPort[] {
     const service = JSON.parse(serviceJson) as kubernetes.V1Service;
+    if (!service.metadata || !hasValidKubernetesMetadata(service.metadata) || !service.spec || !Array.isArray(service.spec.ports)) {
+        throw new Error(INVALID_KUBERNETES_IDENTIFIER_MESSAGE);
+    }
     const k8sPorts = service.spec ? (service.spec.ports || []) : [];  // TODO: upgrade TypeScript so we can use ?.
     return k8sPorts.map((k8sport) => ({
-        name: k8sport.name || `port-${k8sport.port}`,
+        name: k8sport.name || String(k8sport.port),
         port: k8sport.port,
     }));
 }
@@ -165,8 +220,15 @@ function extractServicePorts(serviceJson: string): ExtractedPort[] {
 function extractDeploymentPorts(podJson: string): ExtractedPort[] {
     const deployment = JSON.parse(podJson) as kubernetes.V1Deployment;
     // TODO: upgrade TypeScript so we can use ?.
-    const spec = deployment.spec ? deployment.spec.template.spec : undefined;
+    const spec = deployment.spec && deployment.spec.template ? deployment.spec.template.spec : undefined;
     const containers = spec ? spec.containers : [];
+    if (!deployment.metadata ||
+        !hasValidKubernetesMetadata(deployment.metadata) ||
+        !spec ||
+        !Array.isArray(containers) ||
+        !hasValidContainerNames(containers)) {
+        throw new Error(INVALID_KUBERNETES_IDENTIFIER_MESSAGE);
+    }
     return extractContainerPorts(containers);
 }
 
@@ -174,15 +236,19 @@ function extractDeploymentPorts(podJson: string): ExtractedPort[] {
  * Prompts the user on what port to port-forward to, and validates numeric input.
  * @returns An array of PortMapping objects.
  */
-async function promptForPort(kubectl: Kubectl, kind: string, resourceName: string, namespace?: string): Promise<PortMapping[]> {
+export async function promptForPort(kubectl: Kubectl, kind: string, resourceName: string, namespace?: string): Promise<PortMapping[]> {
+    if (!isValidPortForwardTarget(kind, resourceName, namespace)) {
+        host.showErrorMessage(INVALID_KUBERNETES_IDENTIFIER_MESSAGE);
+        return [];
+    }
     let portString: string | undefined;
     let extractedPorts = Array.of<ExtractedPort>();
     if (resourceName && kubectl) {
         const ns = namespace || 'default';
         try {
-            const result = await kubectl.invokeCommand(`get ${kind} ${resourceName} --namespace ${ns} -o json`);
+            const result = await kubectl.invokeCommand(['get', kind, resourceName, '--namespace', ns, '-o', 'json']);
             if (ExecResult.failed(result)) {
-                console.log(ExecResult.failureMessage(result, { whatFailed: 'Error getting ports' }));
+                console.log('Unable to get ports for the selected Kubernetes resource.');
             } else if (kind === kuberesources.allKinds.pod.apiName) {
                 extractedPorts = extractPodPorts(result.stdout);
             } else if (kind === kuberesources.allKinds.service.apiName) {
@@ -190,8 +256,19 @@ async function promptForPort(kubectl: Kubectl, kind: string, resourceName: strin
             } else if (kind === kuberesources.allKinds.deployment.apiName) {
                 extractedPorts = extractDeploymentPorts(result.stdout);
             }
+            if (extractedPorts.some((port) =>
+                (!isCanonicalPortNumber(port.name) && !isValidPortName(port.name)) ||
+                !Number.isInteger(port.port) ||
+                port.port < 1 ||
+                port.port > MAX_PORT_COUNT
+            )) {
+                host.showErrorMessage(INVALID_KUBERNETES_IDENTIFIER_MESSAGE);
+                return [];
+            }
         } catch (err) {
-            console.log(err);
+            console.log(sanitizeForDisplay(err));
+            host.showErrorMessage(INVALID_KUBERNETES_IDENTIFIER_MESSAGE);
+            return [];
         }
     }
 
@@ -295,7 +372,10 @@ function isPortValid(validPorts: ExtractedPort[], port: string, portSpecifier: P
     if (portSpecifier === PortSpecifier.AllowEmpty && ['', '0'].includes(port)) {
         return true;
     }
-    return 0 < Number(port) && Number(port) <= MAX_PORT_COUNT;
+    return /^(?:0|[1-9][0-9]*)$/.test(port) &&
+        Number.isInteger(Number(port)) &&
+        0 < Number(port) &&
+        Number(port) <= MAX_PORT_COUNT;
 }
 
 /**
@@ -408,7 +488,18 @@ export async function portForwardToDeployment(kubectl: Kubectl, name: string, po
     return portForwardToResource(kubectl, 'deployments', name, portMapping, namespace);
 }
 
-async function portForwardToResource(kubectl: Kubectl, kind: string, name: string, portMapping: PortMapping[], namespace?: string): Promise<number[]> {
+export async function portForwardToResource(kubectl: Kubectl, kind: string, name: string, portMapping: PortMapping[], namespace?: string): Promise<number[]> {
+    if (!isValidPortForwardTarget(kind, name, namespace)) {
+        host.showErrorMessage(INVALID_KUBERNETES_IDENTIFIER_MESSAGE);
+        return [];
+    }
+    if (portMapping.length === 0 || portMapping.some((mapping) =>
+        !Number.isInteger(mapping.targetPort) || mapping.targetPort < 1 || mapping.targetPort > MAX_PORT_COUNT ||
+        (mapping.localPort !== undefined && (!Number.isInteger(mapping.localPort) || mapping.localPort < 1 || mapping.localPort > MAX_PORT_COUNT))
+    )) {
+        host.showErrorMessage('Invalid port mapping. Ports must be integers between 1 and 65535.');
+        return [];
+    }
     const usedPortMappings: PortMapping[] = await Promise.all(portMapping.map(buildUsablePortPair));
 
     usedPortMappings.forEach((usedPortPair) => {
@@ -420,8 +511,32 @@ async function portForwardToResource(kubectl: Kubectl, kind: string, name: strin
         (usedPortPair) => `${usedPortPair.localPort}:${usedPortPair.targetPort}`
     );
 
-    kubectl.invokeInNewTerminal(`port-forward ${kind}/${name} ${portPairStrings.join(' ')} -n ${usedNamespace}`, PORT_FORWARD_TERMINAL, undefined, undefined, new ThemeIcon('plug'));
+    kubectl.invokeInNewTerminal(
+        ['port-forward', `${kind}/${name}`, ...portPairStrings, '-n', usedNamespace],
+        PORT_FORWARD_TERMINAL,
+        undefined,
+        new ThemeIcon('plug')
+    );
     return usedPortMappings.choose((usedPortPair) => usedPortPair.localPort);
+}
+
+function isValidPortForwardTarget(kind: unknown, name: unknown, namespace: unknown): boolean {
+    return isValidKubernetesResourceType(kind) &&
+        isValidKubernetesResourceName(name) &&
+        (namespace === undefined || namespace === null || namespace === '' || isValidNamespaceName(namespace));
+}
+
+function isValidPortName(name: unknown): boolean {
+    return typeof name === 'string' &&
+        name.length > 0 &&
+        name.length <= 15 &&
+        /^[a-z0-9](?:[-a-z0-9]*[a-z0-9])?$/.test(name) &&
+        /[a-z]/.test(name) &&
+        !name.includes('--');
+}
+
+function isCanonicalPortNumber(value: unknown): value is string {
+    return typeof value === 'string' && /^(?:0|[1-9][0-9]*)$/.test(value);
 }
 
 /**

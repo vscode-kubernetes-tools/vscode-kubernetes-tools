@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as browser from "../components/platform/browser";
 import * as path from "path";
 import * as portfinder from "portfinder";
-import { ChildProcess } from "child_process";
+import type { ChildProcess } from "../process";
 
 import { IDebugProvider, PortInfo } from "./debugProvider";
 import { ProcessInfo, getProcesses } from "./debugUtils";
@@ -307,7 +307,7 @@ export class DebugSession implements IDebugSession {
         return imageName;
     }
 
-    private async runAsDeployment(image: string, exposedPorts: number[], containerEnv: any, debugArgs?: string): Promise<string> {
+    private async runAsDeployment(image: string, exposedPorts: number[], containerEnv: any, debugArgs?: readonly string[]): Promise<string> {
         kubeChannel.showOutput(`Starting to run image ${image} on Kubernetes cluster...`, "Run on Kubernetes");
         const imageName = image.split(":")[0];
         const baseName = imageName.substring(imageName.lastIndexOf("/")+1);
@@ -384,7 +384,7 @@ export class DebugSession implements IDebugSession {
 
     private async cleanupResource(resourceId: string): Promise<void> {
         kubeChannel.showOutput(`Starting to clean up debug resource...`, "Cleanup debug resource");
-        const deleteResult = await this.kubectl.invokeCommand(`delete ${resourceId}`);
+        const deleteResult = await this.kubectl.invokeCommand(["delete", resourceId]);
         if (ExecResult.failed(deleteResult)) {
             kubeChannel.showOutput(ExecResult.failureMessage(deleteResult, {}));
             return;
@@ -414,7 +414,7 @@ export class DebugSession implements IDebugSession {
 
         const proxyProcess = await kubectl.spawnCommand(["port-forward", podName, ...nsarg, ...portMapping]);
 
-        if (proxyProcess.resultKind === 'exec-bin-not-found') {
+        if (proxyProcess.resultKind !== 'exec-child-process-started') {
             kubectl.reportFailure(proxyProcess, { whatFailed: 'Failed to forward debug port' });
             return {
                 proxyProcess: undefined,

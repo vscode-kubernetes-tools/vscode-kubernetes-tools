@@ -9,6 +9,12 @@ import { ResourceNode } from './node.resource';
 import { getLister } from './resourceui';
 import { NODE_TYPES } from './explorer';
 import { getResourceVersion } from '../../kubectlUtils';
+import {
+    INVALID_KUBERNETES_IDENTIFIER_MESSAGE,
+    isSafeOpaqueIdentifier,
+    isValidKubernetesResourceType,
+    isValidNamespaceName,
+} from '../../utils/kubernetes-identifiers';
 
 export class ResourceFolderNode extends FolderNode implements ClusterExplorerResourceFolderNode {
 
@@ -21,27 +27,49 @@ export class ResourceFolderNode extends FolderNode implements ClusterExplorerRes
     }
     readonly nodeType = NODE_TYPES.folder.resource;
     async getChildren(kubectl: Kubectl, host: Host): Promise<ClusterExplorerNode[]> {
+        if (!isValidKubernetesResourceType(this.kind.abbreviation)) {
+            host.showErrorMessage(INVALID_KUBERNETES_IDENTIFIER_MESSAGE);
+            return [new MessageNode("Error")];
+        }
         const lister = getLister(this.kind);
         if (lister) {
             return await lister.list(kubectl, this.kind);
         }
-        const childrenLines = await kubectl.asLines(`get ${this.kind.abbreviation} -o custom-columns=NAME:.metadata.name,NAMESPACE:.metadata.namespace`);
+        const childrenLines = await kubectl.asLines([
+            'get',
+            this.kind.abbreviation,
+            '-o',
+            'custom-columns=NAME:.metadata.name,NAMESPACE:.metadata.namespace'
+        ]);
         if (failed(childrenLines)) {
             host.showErrorMessage(childrenLines.error[0]);
             return [new MessageNode("Error")];
         }
-        return childrenLines.result.map((line) => {
-            const bits = line.split(' ');
+        const resources = childrenLines.result.map((line) => {
+            const bits = line.replace(/\r$/, '').split(/\s+/);
+            const namespace = bits[1] === '<none>' ? '' : bits[1];
+            if (bits.length !== 2 ||
+                !isSafeOpaqueIdentifier(bits[0]) ||
+                (namespace !== '' && !isValidNamespaceName(namespace))) {
+                return undefined;
+            }
             const metadata = {
                 name: bits[0],
-                namespace: bits[1]
+                namespace
             };
             return ResourceNode.create(this.kind, bits[0], metadata, undefined);
         });
+        if (resources.some((resource) => resource === undefined)) {
+            host.showErrorMessage(INVALID_KUBERNETES_IDENTIFIER_MESSAGE);
+            return [new MessageNode("Error")];
+        }
+        return resources as ClusterExplorerNode[];
     }
 
     async apiURI(kubectl: Kubectl, namespace: string): Promise<string | undefined> {
-        if (!this.kind.apiName) {
+        if (!this.kind.apiName ||
+            !isValidKubernetesResourceType(this.kind.apiName) ||
+            (namespace !== '' && !isValidNamespaceName(namespace))) {
             return undefined;
         }
         const resources = this.kind.apiName.replace(/\s/g, '').toLowerCase();

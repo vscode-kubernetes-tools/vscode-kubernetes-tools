@@ -211,7 +211,6 @@ Minikube tools to be installed and available on your PATH.
        * `vs-kubernetes.autoCleanupOnDebugTerminate` - The flag to control whether to auto cleanup the created deployment and associated pod by the command "Kubernetes: Debug (Launch)". The cleanup action occurs when it failed to start debug session or debug session terminated. If not specified, the extension will prompt for whether to clean up or not. You might choose not to clean up if you wanted to view pod logs, etc.
        * `vs-kubernetes.outputFormat` - The output format that you prefer to view Kubernetes manifests in. One of "yaml" or "json". Defaults to "yaml".
        * `vs-kubernetes.resources-to-watch` - List of resources to be watched. To identify a resource the extension uses the label displayed in the cluster explorer. E.g. ["Pods", "Services", "Namespaces"].
-       * `vscode-kubernetes.enable-snap-flag` - Enables compatibility with instances of VS Code that were installed using snap.
        * `vs-kubernetes.disable-context-info-status-bar` - Disable displaying your current Kubernetes context in VS Code's status bar. When active, it can be used to switch context from the status bar.
        * `vs-kubernetes.disable-namespace-info-status-bar` - Disable displaying your current Kubernetes namespace in VS Code's status bar. When active, it can be used to switch namespace from the status bar.
        * `vs-kubernetes.suppress-kubectl-not-found-alerts` - Turns off the warning (and installation prompt) if `kubectl` was not found. You should not normally set this, as most of the extension depends on `kubectl`, but it can be useful if working primarily with Helm.
@@ -304,7 +303,6 @@ This extension stores its associated files and data in `$XDG_STATE_HOME/vs-kuber
 
   * `Kubernetes: Debug` command works with Go, Node.js, Java, Python and .NET applications
   * For deeply nested Helm charts, template previews are generated against highest (umbrella) chart values (though for `Helm: Template` calls you can pick your chart)
-  * When installing VS Code and/or kubectl through `snap` on a Linux system, you may face some permissions error which will prevent this extension to work correctly. As a workaround you can set up the `vs-kubernetes.enable-snap-flag` setting to `true` in your user or workspace settings.
 
 ## Release notes
 
@@ -358,4 +356,3 @@ The 'infer `kubectl` version' feature was inspired by @jakepearson's `k` utility
 
 Copyright Contributors to vscode-kubernetes-tools, established as
 vscode-kubernetes-tools a Series of LF Projects, LLC.
-

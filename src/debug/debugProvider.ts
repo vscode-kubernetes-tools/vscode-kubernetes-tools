@@ -10,7 +10,7 @@ export interface PortInfo {
 
 interface Accepted {
     readonly cancelled: false;
-    readonly value?: string;
+    readonly value?: readonly string[];
 }
 
 interface Cancelled {

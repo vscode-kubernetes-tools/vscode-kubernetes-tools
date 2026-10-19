@@ -8,7 +8,6 @@ import * as vscode from 'vscode';
 import * as os from 'os';
 import * as path from 'path';
 import { fs } from './fs';
-import { execFileSync } from 'child_process';
 
 // External dependencies
 import * as yaml from 'js-yaml';
@@ -21,7 +20,7 @@ import { pullAll } from 'lodash';
 import { host } from './host';
 import { addKubernetesConfigFile, deleteKubernetesConfigFile } from './configMap';
 import * as explainer from './explainer';
-import { shell } from './shell';
+import { monitorForAuthPrompt, shell } from './shell';
 import * as configmaps from './configMap';
 import * as kuberesources from './kuberesources';
 import { useNamespaceKubernetes } from './components/kubectl/namespace';
@@ -43,9 +42,10 @@ import { HelmTemplatePreviewDocumentProvider, HelmInspectDocumentProvider, HelmD
 import { HelmTemplateCompletionProvider } from './helm.completionProvider';
 import { Reporter } from './telemetry';
 import * as telemetry from './telemetry-helper';
-import { dashboardKubernetes } from './components/kubectl/dashboard';
+import { dashboardKubernetes, disposeDashboardProxy } from './components/kubectl/dashboard';
 import { portForwardKubernetes } from './components/kubectl/port-forward';
 import { logsKubernetes } from './components/kubectl/logs';
+import { deleteResourceWithConfirmation, execResourceArgs, getResourceArgs, restartResourceArgs, scaleResourceArgs } from './components/kubectl/resource-commands';
 import { Errorable, failed, succeeded } from './errorable';
 import { Git } from './components/git/git';
 import { DebugSession } from './debug/debugSession';
@@ -92,6 +92,22 @@ import { setAssetContext } from './assets';
 import { fixOldInstalledBinaryPermissions } from './components/installer/fixwriteablebinaries';
 import { interpolateVariables } from './utils/interpolation';
 import { AKSProvider } from './components/cloudprovider/aksprovider';
+import {
+    hasValidContainerNames,
+    hasValidPodIdentifiers,
+    INVALID_KUBERNETES_IDENTIFIER_MESSAGE,
+    isValidConfigDataKey,
+    isValidContainerName,
+    isValidKubeconfigName,
+    isValidKubernetesKind,
+    isValidKubernetesResourceName,
+    isValidOpaqueResourceReference,
+    isValidKubernetesResourceType,
+    isValidNamespaceName,
+    sanitizeForDisplay,
+    isSafeOpaqueIdentifier,
+} from './utils/kubernetes-identifiers';
+import { CommandInvocation, executeCommand, executeCommandSync, ProcessResult } from './process';
 
 let explainActive = false;
 let swaggerSpecPromise: Promise<explainer.SwaggerModel | undefined> | null = null;
@@ -105,6 +121,32 @@ const configMapProvider = new configmaps.ConfigMapTextProvider(kubectl);
 const git = new Git(shell);
 const activeContextTracker = activeContextTrackerCreate(kubectl);
 const onDidChangeKubeconfigEmitter = new vscode.EventEmitter<KubeconfigPath>();
+
+function showInvalidKubernetesIdentifier(): void {
+    vscode.window.showErrorMessage(INVALID_KUBERNETES_IDENTIFIER_MESSAGE);
+}
+
+function isValidResourceKind(kind: kuberesources.ResourceKind): boolean {
+    return isValidKubernetesResourceType(kind.abbreviation) &&
+        isValidKubernetesKind(kind.manifestKind) &&
+        (kind.apiName === undefined || isValidKubernetesResourceType(kind.apiName));
+}
+
+function isValidExplorerResourceNode(node: ClusterExplorerResourceNode): boolean {
+    return isValidResourceKind(node.kind) &&
+        isSafeOpaqueIdentifier(node.name) &&
+        (node.namespace === undefined || node.namespace === '' || isValidNamespaceName(node.namespace)) &&
+        isValidOpaqueResourceReference(node.kindName) &&
+        node.kindName === `${node.kind.abbreviation}/${node.name}`;
+}
+
+function validateExplorerResourceNode(node: ClusterExplorerResourceNode): boolean {
+    if (!isValidExplorerResourceNode(node)) {
+        showInvalidKubernetesIdentifier();
+        return false;
+    }
+    return true;
+}
 
 export const overwriteMessageItems: vscode.MessageItem[] = [
     {
@@ -378,10 +420,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         context.subscriptions.push(element);
     });
 
-    activeContextTracker.activeChanged(async (context) => {
+    activeContextTracker.activeChanged(async (_context) => {
+        disposeDashboardProxy();
         const currentContext = await getCurrentContext(kubectl, { silent: true });
         if (!currentContext) { return; }
-        updateStatusBarItem(activeContextStatusBarItem, context!, `${currentContext.contextName}\nCluster: ${currentContext.clusterName}`, !config.isContextStatusBarDisabled());
+        updateStatusBarItem(activeContextStatusBarItem, currentContext.contextName, `${currentContext.contextName}\nCluster: ${currentContext.clusterName}`, !config.isContextStatusBarDisabled());
     });
 
     kubectlUtils.onDidChangeNamespaceEmitter.event((namespace) => {
@@ -401,6 +444,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
 
 // this method is called when your extension is deactivated
 export const deactivate = () => {
+    disposeDashboardProxy();
     kubectl.dispose();
 };
 
@@ -576,20 +620,8 @@ function initStatusBar() {
     return statusBarItem;
 }
 
-// const GENERIC_KUBECTL_RESULT_HANDLER: ShellHandler = (code, stdout, stderr) => {
-//     if (code !== 0) {
-//         host.showErrorMessage('Kubectl command failed: ' + stderr);
-//         console.log(stderr);
-//         kubectl.checkPossibleIncompatibility();
-//         return;
-//     }
-
-//     updateYAMLSchema();  // TODO: I really do not like having this here. Massive separation of concerns red flag plus we lack context to decide whether it's needed. But hard to move without revamping the result handling system.
-//     host.showInformationMessage(stdout);
-// };
-
 // Runs a command for the text in the active window.
-// Expects that it can append a filename to 'command' to create a complete kubectl command.
+// Expects that it can append a filename to 'command' to create complete kubectl arguments.
 //
 // @parameter command string The command to run
 function maybeRunKubernetesCommandForActiveWindow(command: string, progressMessage: string) {
@@ -602,9 +634,11 @@ function maybeRunKubernetesCommandForActiveWindow(command: string, progressMessa
     }
 
     const namespace = config.getConfiguredNamespace();
-    if (namespace) {
-        command = `${command} --namespace ${namespace} `;
+    if (namespace && !isValidNamespaceName(namespace)) {
+        vscode.window.showErrorMessage('The configured Kubernetes namespace is invalid. The operation was stopped.');
+        return false;
     }
+    const commandArgs = namespace ? [command, '--namespace', namespace] : [command];
 
     const isKubernetesSyntax = (editor.document.languageId === 'json' || editor.document.languageId === 'yaml');
     const couldUpdateSchema = (command === 'create' || command === 'apply');  // This is a very crude test in case we modified a CRD
@@ -626,14 +660,14 @@ function maybeRunKubernetesCommandForActiveWindow(command: string, progressMessa
     if (editor.selection) {
         text = editor.document.getText(editor.selection);
         if (text.length > 0) {
-            kubectlViaTempFile(command, text, progressMessage, resultHandler);
+            kubectlViaTempFile(commandArgs, text, progressMessage, resultHandler);
             return true;
         }
     }
     if (editor.document.isUntitled) {
         text = editor.document.getText();
         if (text.length > 0) {
-            kubectlViaTempFile(command, text, progressMessage, resultHandler);
+            kubectlViaTempFile(commandArgs, text, progressMessage, resultHandler);
             return true;
         }
         return false;
@@ -651,7 +685,7 @@ function maybeRunKubernetesCommandForActiveWindow(command: string, progressMessa
                         vscode.window.showErrorMessage("Save failed.");
                         return;
                     }
-                    kubectlTextDocument(command, editor.document, progressMessage, resultHandler);
+                    kubectlTextDocument(commandArgs, editor.document, progressMessage, resultHandler);
                 }, (err) => {
                     vscode.window.showErrorMessage(`Error saving: ${err}`);
                 });
@@ -659,7 +693,7 @@ function maybeRunKubernetesCommandForActiveWindow(command: string, progressMessa
         },
         (err) => vscode.window.showErrorMessage(`Error confirming save: ${err}`));
     } else {
-        kubectlTextDocument(command, editor.document, progressMessage, resultHandler);
+        kubectlTextDocument(commandArgs, editor.document, progressMessage, resultHandler);
     }
     return true;
 }
@@ -670,20 +704,19 @@ function convertWindowsToWSL(filePath: string): string {
     return `/mnt/${drive}/${path}`;
 }
 
-function kubectlTextDocument(command: string, document: vscode.TextDocument, progressMessage: string, resultHandler: (er: ExecResult) => void): void {
+function kubectlTextDocument(commandArgs: readonly string[], document: vscode.TextDocument, progressMessage: string, resultHandler: (er: ExecResult) => void): void {
     if (document.uri.scheme === 'file') {
         let fileName = document.fileName;
         if (config.getUseWsl()) {
             fileName = convertWindowsToWSL(fileName);
         }
-        const fullCommand = `${command} -f "${fileName}"`;
-        kubectl.invokeCommandWithFeedbackThen(fullCommand, progressMessage, resultHandler);
+        kubectl.invokeCommandWithFeedbackThen([...commandArgs, '-f', fileName], progressMessage, resultHandler);
     } else {
-        kubectlViaTempFile(command, document.getText(), progressMessage, resultHandler);
+        kubectlViaTempFile(commandArgs, document.getText(), progressMessage, resultHandler);
     }
 }
 
-function kubectlViaTempFile(command: string, fileContent: string, progressMessage: string, handler: (er: ExecResult) => void) {
+function kubectlViaTempFile(commandArgs: readonly string[], fileContent: string, progressMessage: string, handler: (er: ExecResult) => void) {
     const tmpobj = tmp.fileSync();
     fs.writeFileSync(tmpobj.name, fileContent);
 
@@ -691,7 +724,7 @@ function kubectlViaTempFile(command: string, fileContent: string, progressMessag
     if (config.getUseWsl()) {
         fileName = convertWindowsToWSL(fileName);
     }
-    kubectl.invokeCommandWithFeedbackThen(`${command} -f ${fileName}`, progressMessage, handler);
+    kubectl.invokeCommandWithFeedbackThen([...commandArgs, '-f', fileName], progressMessage, handler);
 }
 
 /**
@@ -762,6 +795,9 @@ function getTextForActiveWindow(callback: (data: string | null, file: vscode.Uri
 
 async function loadKubernetes(explorerNode?: ClusterExplorerResourceNode) {
     if (explorerNode) {
+        if (!validateExplorerResourceNode(explorerNode)) {
+            return;
+        }
         loadKubernetesCore(explorerNode.namespace, explorerNode.kindName);
     } else {
         const value = await promptKindName(kuberesources.commonKinds, "load", { nameOptional: true });
@@ -788,16 +824,20 @@ async function exposeKubernetes() {
     if (!kindName) {
         return;
     }
+    if (!isValidOpaqueResourceReference(kindName)) {
+        showInvalidKubernetesIdentifier();
+        return;
+    }
 
-    let cmd = `expose ${kindName}`;
+    const args = ['expose', kindName];
     const ports = getPorts();
 
     if (ports && ports.length > 0) {
-        cmd += ' --port=' + ports[0];
+        args.push(`--port=${ports[0]}`);
     }
 
     const er = await host.longRunning(`Exposing ${kindName} as service...`, () =>
-        kubectl.invokeCommand(cmd)
+        kubectl.invokeCommand(args)
     );
     await kubectl.reportResult(er, {});
 }
@@ -812,20 +852,39 @@ function kubectlId(explorerNode: ClusterExplorerResourceNode | ClusterExplorerRe
 async function getKubernetes(explorerNode?: any) {
     if (explorerNode) {
         const node = explorerNode as ClusterExplorerResourceNode | ClusterExplorerResourceFolderNode;
+        if (node.nodeType === explorer.NODE_TYPES.resource) {
+            if (!validateExplorerResourceNode(node)) {
+                return;
+            }
+        } else if (!isValidResourceKind(node.kind)) {
+            showInvalidKubernetesIdentifier();
+            return;
+        }
         const id = kubectlId(node);
-        const nsarg = (node.nodeType === explorer.NODE_TYPES.resource && node.namespace) ? `--namespace ${node.namespace}` : '';
-        kubectl.invokeInSharedTerminal(`get ${id} ${nsarg} -o wide`);
+        const namespaceArgs = (node.nodeType === explorer.NODE_TYPES.resource && node.namespace) ? ['--namespace', node.namespace] : [];
+        kubectl.invokeInSharedTerminal(getResourceArgs(id, namespaceArgs.length > 0 ? namespaceArgs[1] : undefined));
     } else {
         const isMinimalWorkflow = config.isMinimalWorkflow();
         const value = await findKindNameOrPrompt(kuberesources.commonKinds, 'get', { nameOptional: true, skipFreeTextPrompt: isMinimalWorkflow });
         if (value) {
-            kubectl.invokeInSharedTerminal(` get ${value} -o wide`);
+            if (!isValidKubernetesTarget(value, true)) {
+                showInvalidKubernetesIdentifier();
+                return;
+            }
+            kubectl.invokeInSharedTerminal(getResourceArgs(value));
         }
     }
 }
 
 function addWatch(tree: explorer.KubernetesExplorer, explorerNode?: ClusterExplorerNode) {
     if (explorerNode) {
+        if (explorerNode.nodeType === explorer.NODE_TYPES.resource && !validateExplorerResourceNode(explorerNode)) {
+            return;
+        }
+        if (explorerNode.nodeType === explorer.NODE_TYPES.folder.resource && !isValidResourceKind(explorerNode.kind)) {
+            showInvalidKubernetesIdentifier();
+            return;
+        }
         tree.watch(explorerNode);
         const displayName = getWatchDisplayName(explorerNode);
         if (displayName) {
@@ -836,6 +895,13 @@ function addWatch(tree: explorer.KubernetesExplorer, explorerNode?: ClusterExplo
 
 function deleteWatch(tree: explorer.KubernetesExplorer, explorerNode?: ClusterExplorerNode) {
     if (explorerNode) {
+        if (explorerNode.nodeType === explorer.NODE_TYPES.resource && !validateExplorerResourceNode(explorerNode)) {
+            return;
+        }
+        if (explorerNode.nodeType === explorer.NODE_TYPES.folder.resource && !isValidResourceKind(explorerNode.kind)) {
+            showInvalidKubernetesIdentifier();
+            return;
+        }
         tree.stopWatching(explorerNode);
         const displayName = getWatchDisplayName(explorerNode);
         if (displayName) {
@@ -873,7 +939,12 @@ function findVersionInternal(fn: (text: string) => void): void {
         return;
     }
 
-    shell.execCore('git describe --always --dirty', shell.execOpts()).then(
+    const { cwd, env } = shell.execOpts();
+    const args = ['describe', '--always', '--dirty'];
+    const invocation: CommandInvocation = config.getUseWsl() ?
+        { executable: 'wsl.exe', args: ['--exec', 'git', ...args], cwd, env } :
+        { executable: 'git', args, cwd, env };
+    executeCommand(invocation, undefined, monitorForAuthPrompt).then(
         ({code, stdout, stderr}) => {
             if (code !== 0) {
                 vscode.window.showErrorMessage('git log returned: ' + code);
@@ -889,15 +960,16 @@ function findVersionInternal(fn: (text: string) => void): void {
 }
 
 export async function findAllPods(): Promise<FindPodsResult> {
-    return await findPodsCore('');
+    return await findPodsCore();
 }
 
 async function findPodsByLabel(labelQuery: string): Promise<FindPodsResult> {
-    return await findPodsCore(`-l ${labelQuery}`);
+    return await findPodsCore(labelQuery);
 }
 
-async function findPodsCore(findPodCmdOptions: string): Promise<FindPodsResult> {
-    const podList = await kubectl.asJson<KubernetesCollection<Pod>>(` get pods -o json ${findPodCmdOptions}`);
+async function findPodsCore(labelQuery?: string): Promise<FindPodsResult> {
+    const selectorArgs = labelQuery ? ['-l', labelQuery] : [];
+    const podList = await kubectl.asJson<KubernetesCollection<Pod>>(['get', 'pods', '-o', 'json', ...selectorArgs]);
 
     if (failed(podList)) {
         vscode.window.showErrorMessage('Kubectl command failed: ' + podList.error[0]);
@@ -905,10 +977,14 @@ async function findPodsCore(findPodCmdOptions: string): Promise<FindPodsResult> 
     }
 
     try {
+        if (!podList.result || !Array.isArray(podList.result.items) || podList.result.items.some((pod) => !hasValidPodIdentifiers(pod))) {
+            showInvalidKubernetesIdentifier();
+            return { succeeded: false, pods: [] };
+        }
         return { succeeded: true, pods: podList.result.items };
     } catch (ex) {
-        console.log(ex);
-        vscode.window.showErrorMessage('unexpected error: ' + ex);
+        console.log(sanitizeForDisplay(ex));
+        vscode.window.showErrorMessage('Unexpected error while reading the Kubernetes response.');
         return { succeeded: false, pods: [] };
     }
 }
@@ -960,6 +1036,9 @@ function findNameAndImageInternal(fn: (name: string, image: string) => void) {
 
 async function scaleKubernetes(target?: any) {
     if (target && explorer.isKubernetesExplorerResourceNode(target)) {
+        if (!validateExplorerResourceNode(target)) {
+            return;
+        }
         const kindName = target.kindName;
         promptScaleKubernetes(kindName);
     } else {
@@ -986,14 +1065,21 @@ function promptScaleKubernetes(kindName: string) {
 }
 
 async function invokeScaleKubernetes(kindName: string, replicas: number) {
+    if (!isValidOpaqueResourceReference(kindName)) {
+        showInvalidKubernetesIdentifier();
+        return;
+    }
     const er = await host.longRunning(`Scaling ${kindName} to ${replicas} replicas...`, () =>
-        kubectl.invokeCommand(`scale --replicas=${replicas} ${kindName}`)
+        kubectl.invokeCommand(scaleResourceArgs(kindName, replicas))
     );
     await kubectl.reportResult(er, {});
 }
 
 async function restartKubernetes(target?: any) {
     if (target && explorer.isKubernetesExplorerResourceNode(target)) {
+        if (!validateExplorerResourceNode(target)) {
+            return;
+        }
         await invokeRestartKubernetes(target.kindName);
     } else {
         const kindName = await findKindNameOrPrompt(kuberesources.restartableKinds, 'restart', { skipFreeTextPrompt: config.isMinimalWorkflow() });
@@ -1004,14 +1090,18 @@ async function restartKubernetes(target?: any) {
 }
 
 async function invokeRestartKubernetes(kindName: string) {
+    if (!isValidOpaqueResourceReference(kindName)) {
+        showInvalidKubernetesIdentifier();
+        return;
+    }
     const confirmed = await warnConfirm(`Do you want to restart '${kindName}'? This will roll all of its pods.`, "Restart", "Cancel");
     if (!confirmed) {
         return;
     }
 
-    const nsarg = await kubectlUtils.currentNamespaceArg(kubectl);
+    const namespaceArgs = await kubectlUtils.currentNamespaceArgs(kubectl);
     const er = await host.longRunning(`Restarting ${kindName}...`, () =>
-        kubectl.invokeCommand(`rollout restart ${kindName} ${nsarg}`)
+        kubectl.invokeCommand(restartResourceArgs(kindName, namespaceArgs))
     );
     await kubectl.reportResult(er, {});
     if (ExecResult.succeeded(er)) {
@@ -1022,7 +1112,7 @@ async function invokeRestartKubernetes(kindName: string) {
 function runKubernetes() {
     buildPushThenExec(async (name, image) => {
         const er = await host.longRunning(`Deploying ${image} as ${name}...`, () =>
-            kubectl.invokeCommand(`run ${name} --image=${image}`)
+            kubectl.invokeCommand(['run', name, `--image=${image}`])
         );
         await kubectl.reportResult(er, {});
     });
@@ -1040,17 +1130,27 @@ function diagnosePushError(_exitCode: number, error: string): string {
     return 'Image push failed.';
 }
 
+async function executeImageCommand(invocation: CommandInvocation): Promise<ProcessResult | undefined> {
+    const { cwd, env } = shell.execOpts();
+    try {
+        return await executeCommand({ ...invocation, cwd, env }, undefined, monitorForAuthPrompt);
+    } catch (err) {
+        vscode.window.showErrorMessage(String(err));
+        return undefined;
+    }
+}
+
 function buildPushThenExec(fn: (name: string, image: string) => void): void {
     findNameAndImage().then((name, image) => {
         vscode.window.withProgress({ location: vscode.ProgressLocation.Window }, async (p) => {
             try {
                 p.report({ message: "Building an image..." });
                 const buildTool = getImageBuildTool();
-                const buildResult = await shell.exec(await getBuildCommand(image));
+                const buildResult = await executeImageCommand(await getBuildCommand(image));
                 if (buildResult && buildResult.code === 0) {
                     vscode.window.showInformationMessage(image + ' built.');
                     p.report({ message: "Pushing the image..." });
-                    const pushResult = await shell.exec(await getPushCommand(image));
+                    const pushResult = await executeImageCommand(await getPushCommand(image));
                     if (pushResult && pushResult.code === 0) {
                         vscode.window.showInformationMessage(image + ' pushed.');
                         fn(name, image);
@@ -1103,7 +1203,13 @@ function findKindNameForText(text: string): Errorable<ResourceKindName> {
     if (kindNames.result.length > 1) {
         return { succeeded: false, error: ['the open document contains multiple Kubernetes resources'] };
     }
-    return { succeeded: true, result: kindNames.result[0] };
+    const kindName = kindNames.result[0];
+    if (!isValidKubernetesResourceType(kindName.kind) ||
+        !isValidKubernetesResourceName(kindName.resourceName) ||
+        (kindName.namespace !== undefined && kindName.namespace !== '' && !isValidNamespaceName(kindName.namespace))) {
+        return { succeeded: false, error: [INVALID_KUBERNETES_IDENTIFIER_MESSAGE] };
+    }
+    return { succeeded: true, result: kindName };
 }
 
 function findKindNamesForText(text: string): Errorable<ResourceKindName[]> {
@@ -1165,7 +1271,12 @@ export async function promptKindName(resourceKinds: kuberesources.ResourceKind[]
     } else if (resource === undefined) {
         return undefined;
     } else {
-        return resource;
+        const parsed = parseKubernetesTarget(resource);
+        if (!parsed) {
+            showInvalidKubernetesIdentifier();
+            return undefined;
+        }
+        return parsed;
     }
 }
 
@@ -1189,14 +1300,23 @@ interface QuickPickKindNameOptions {
 }
 
 async function quickPickKindNameFromKind(resourceKind: kuberesources.ResourceKind, opts: QuickPickKindNameOptions): Promise<string | undefined> {
+    if (!isValidResourceKind(resourceKind)) {
+        showInvalidKubernetesIdentifier();
+        return undefined;
+    }
     const kind = resourceKind.abbreviation;
-    const er = await kubectl.invokeCommand("get " + kind);
+    const er = await kubectl.invokeCommand(['get', kind]);
     if (ExecResult.failed(er)) {
         await kubectl.reportFailure(er, {});
         return undefined;
     }
 
     let names = parseNamesFromKubectlLines(er.stdout);
+    const isValidName = resourceKind.manifestKind === 'Namespace' ? isValidNamespaceName : isValidKubernetesResourceName;
+    if (names.some((name) => !isValidName(name))) {
+        showInvalidKubernetesIdentifier();
+        return undefined;
+    }
     if (names.length === 0) {
         vscode.window.showInformationMessage(`No resources of type ${resourceKind.displayName} in cluster`);
         return;
@@ -1239,6 +1359,25 @@ function containsName(kindName: string): boolean {
     return false;
 }
 
+function parseKubernetesTarget(value: string): string | undefined {
+    const trimmed = value.trim();
+    if (isValidKubernetesTarget(trimmed, true)) {
+        return trimmed;
+    }
+    const parts = trimmed.split(/\s+/);
+    if (parts.length === 2 &&
+        isValidKubernetesResourceType(parts[0]) &&
+        isValidKubernetesResourceName(parts[1])) {
+        return `${parts[0]}/${parts[1]}`;
+    }
+    return undefined;
+}
+
+function isValidKubernetesTarget(value: string, allowKindOnly: boolean): boolean {
+    return isValidOpaqueResourceReference(value) ||
+        (allowKindOnly && isValidKubernetesResourceType(value));
+}
+
 function parseNamesFromKubectlLines(text: string): string[] {
     const lines = text.split('\n');
     lines.shift();
@@ -1274,6 +1413,10 @@ async function selectPod(scope: PodSelectionScope, fallback: PodSelectionFallbac
     }
 
     const podList = findPodsResult.pods;
+    if (podList.some((pod) => !hasValidPodIdentifiers(pod))) {
+        showInvalidKubernetesIdentifier();
+        return null;
+    }
 
     if (podList.length === 0) {
         if (fallback === PodSelectionFallback.AnyPod) {
@@ -1321,6 +1464,9 @@ function getPorts() {
 async function describeKubernetes(explorerNode?: ClusterExplorerResourceNode) {
     let ns: string | null, value: string | undefined;
     if (explorerNode) {
+        if (!validateExplorerResourceNode(explorerNode)) {
+            return;
+        }
         ns = explorerNode.namespace ? explorerNode.namespace : '';
         value = explorerNode.kindName;
     } else {
@@ -1343,6 +1489,10 @@ async function describeKubernetes(explorerNode?: ClusterExplorerResourceNode) {
     }
 
     if (!value) {
+        return;
+    }
+    if (!isValidKubernetesTarget(value, true)) {
+        showInvalidKubernetesIdentifier();
         return;
     }
     const uri = kubefsUri(ns, value, '', 'describe');
@@ -1392,9 +1542,20 @@ export async function selectContainerForPod(pod: PodSummary): Promise<Container 
 }
 
 async function selectContainerForResource(resource: ContainerContainer): Promise<Container | null> {
+    if (!isValidOpaqueResourceReference(resource.kindName) ||
+        (resource.namespace !== undefined && resource.namespace !== '' && !isValidNamespaceName(resource.namespace)) ||
+        !hasValidContainerNames(resource.containers)) {
+        showInvalidKubernetesIdentifier();
+        return null;
+    }
     const containers = await getContainersForResource(resource);
 
     if (!containers) {
+        return null;
+    }
+
+    if (!hasValidContainerNames(containers)) {
+        showInvalidKubernetesIdentifier();
         return null;
     }
 
@@ -1437,26 +1598,39 @@ async function getContainers(resource: ContainerContainer): Promise<Container[] 
 }
 
 async function getContainerQuery(resource: ContainerContainer, containerType: string): Promise<Container[] | undefined> {
+    if (!isValidOpaqueResourceReference(resource.kindName) ||
+        (resource.namespace !== undefined && resource.namespace !== '' && !isValidNamespaceName(resource.namespace))) {
+        showInvalidKubernetesIdentifier();
+        return undefined;
+    }
     const q = shell.isWindows() ? `'` : `"`;
     const lit = (l: string) => `{${q}${l}${q}}`;
     const query = `${lit("NAME\\tIMAGE\\n")}\
     {range ${resource.containersQueryPath}.${containerType}[*]}{.name}${lit("\\t")}{.image}${lit("\\n")}{end}`;
-    const queryArg = shell.isWindows() ? `"${query}"` : `'${query}'`;
-    let cmd = `get ${resource.kindName} -o jsonpath=${queryArg}`;
-    if (resource.namespace && resource.namespace.length > 0) {
-        cmd += ' --namespace=' + resource.namespace;
-    }
-    const c = await kubectl.asLines(cmd);
+    const namespaceArgs = resource.namespace && resource.namespace.length > 0 ? [`--namespace=${resource.namespace}`] : [];
+    const c = await kubectl.asLines(['get', resource.kindName, '-o', `jsonpath=${query}`, ...namespaceArgs]);
     if (failed(c)) {
         vscode.window.showErrorMessage("Failed to get containers in resource: " + c.error[0]);
         return undefined;
     }
     const containersEx = c.result.map((s) => {
         const bits = s.split('\t');
-        return { name: bits[0] ? bits[0].trim() : '', image: bits[1] ? bits[1].trim() : '', initContainer: containerType === 'initContainers'};
+        if (bits.length !== 2 || !isValidContainerName(bits[0])) {
+            return undefined;
+        }
+        return {
+            name: bits[0],
+            image: sanitizeForDisplay(bits[1]),
+            initContainer: containerType === 'initContainers'
+        };
     });
 
-    return containersEx.filter((c) => c.name !== '');
+    if (containersEx.some((container) => container === undefined)) {
+        showInvalidKubernetesIdentifier();
+        return undefined;
+    }
+
+    return containersEx as Container[];
 }
 
 export async function getContainersForResource(resource: ContainerContainer): Promise<Container[] | null> {
@@ -1464,9 +1638,21 @@ export async function getContainersForResource(resource: ContainerContainer): Pr
         return null;
     }
 
+    if (!isValidOpaqueResourceReference(resource.kindName) ||
+        (resource.namespace !== undefined && resource.namespace !== '' && !isValidNamespaceName(resource.namespace)) ||
+        !hasValidContainerNames(resource.containers)) {
+        showInvalidKubernetesIdentifier();
+        return null;
+    }
+
     const containers = (resource.containers) ? resource.containers : await getContainers(resource);
 
     if (!containers) {
+        return null;
+    }
+
+    if (!hasValidContainerNames(containers)) {
+        showInvalidKubernetesIdentifier();
         return null;
     }
 
@@ -1479,6 +1665,9 @@ function execKubernetes() {
 
 async function terminalKubernetes(explorerNode?: ClusterExplorerResourceNode) {
     if (explorerNode) {
+        if (!validateExplorerResourceNode(explorerNode)) {
+            return;
+        }
         const namespace = explorerNode.namespace;
         const podSummary = { name: explorerNode.name, namespace: namespace || undefined };  // TODO: rationalise null and undefined
         const container = await selectContainerForPod(podSummary);
@@ -1517,16 +1706,28 @@ async function execKubernetesCore(isTerminal: boolean): Promise<void> {
         return;
     }
 
+    if (!isValidContainerName(container.name)) {
+        showInvalidKubernetesIdentifier();
+        return;
+    }
+
     if (isTerminal) {
         execTerminalOnContainer(pod.metadata.name, pod.metadata.namespace, container.name, cmd);
         return;
     }
 
-    const execCmd = `exec ${pod.metadata.name} -c ${container.name} -- ${cmd}`;
-    kubectl.invokeInSharedTerminal(execCmd);
+    const suggestedShell = await suggestedShellForContainer(kubectl, pod.metadata.name, pod.metadata.namespace, container.name);
+    const remoteShell = suggestedShell === 'bash' ? '/bin/bash' : '/bin/sh';
+    kubectl.invokeInSharedTerminal(execResourceArgs(pod.metadata.name, container.name, remoteShell, cmd));
 }
 
 function execTerminalOnContainer(podName: string, podNamespace: string | undefined, containerName: string | undefined, terminalCmd: string) {
+    if (!isValidKubernetesResourceName(podName) ||
+        (podNamespace !== undefined && podNamespace !== '' && !isValidNamespaceName(podNamespace)) ||
+        (containerName !== undefined && containerName !== '' && !isValidContainerName(containerName))) {
+        showInvalidKubernetesIdentifier();
+        return;
+    }
     const terminalExecCmd: string[] = ['exec', '-it', podName];
     if (podNamespace) {
         terminalExecCmd.push('--namespace', podNamespace);
@@ -1581,40 +1782,46 @@ async function reportDeleteResult(resourceId: string, execResult: ExecResult) {
 }
 
 async function deleteKubernetes(delMode: KubernetesDeleteMode, explorerNode?: ClusterExplorerResourceNode) {
-
-    const delModeArg = delMode ===  KubernetesDeleteMode.Now ? ' --now' : '';
+    const delModeArgs = delMode ===  KubernetesDeleteMode.Now ? ['--now'] : [];
 
     if (explorerNode) {
-        const answer = await vscode.window.showWarningMessage(`Do you want to delete the resource '${explorerNode.kindName}'?`, ...deleteMessageItems);
-        if (!answer || answer.isCloseAffordance) {
+        if (!validateExplorerResourceNode(explorerNode)) {
             return;
         }
-
-        if (explorerNode.kind.manifestKind === 'Namespace') {
-            const ns = explorerNode.name;
-            const confirmed = await confirmDangerousNamespaceDeletion(ns);
-            if (!confirmed) {
-                return;
-            }
-            const currentNS = await kubectlUtils.currentNamespace(kubectl);
-            if (ns === currentNS) {
-                await host.longRunning(`Switching out of namespace '${ns}'`, () =>
-                    kubectlUtils.switchNamespace(kubectl, "default")
-                );
-            }
-        }
-        const nsarg = explorerNode.namespace ? `--namespace ${explorerNode.namespace}` : '';
-        const execResult = await kubectl.invokeCommandWithFeedback(`delete ${explorerNode.kindName} ${nsarg} ${delModeArg}`, `Deleting ${explorerNode.kindName}...`);
-        await reportDeleteResult(explorerNode.kindName, execResult);
+        await deleteResourceWithConfirmation({
+            kubectl,
+            resource: explorerNode.kindName,
+            namespace: explorerNode.namespace || undefined,
+            now: delMode === KubernetesDeleteMode.Now,
+            confirm: async () => {
+                const answer = await vscode.window.showWarningMessage(`Do you want to delete the resource '${explorerNode.kindName}'?`, ...deleteMessageItems);
+                return !!answer && !answer.isCloseAffordance;
+            },
+            beforeDelete: explorerNode.kind.manifestKind === 'Namespace' ? async () => {
+                const ns = explorerNode.name;
+                if (!await confirmDangerousNamespaceDeletion(ns)) {
+                    return false;
+                }
+                const currentNS = await kubectlUtils.currentNamespace(kubectl);
+                if (ns === currentNS) {
+                    await host.longRunning(`Switching out of namespace '${ns}'`, () =>
+                        kubectlUtils.switchNamespace(kubectl, "default")
+                    );
+                }
+                return true;
+            } : undefined,
+            report: (result) => reportDeleteResult(explorerNode.kindName, result),
+        });
     } else {
         const isMinimalWorkflow = config.isMinimalWorkflow();
         const kindName = await promptKindName(kuberesources.commonKinds, 'delete', { nameOptional: true, skipFreeTextPrompt: isMinimalWorkflow });
         if (kindName) {
-            let commandArgs = kindName;
+            const commandArgs = ['delete', kindName];
             if (!containsName(kindName)) {
-                commandArgs = kindName + " --all";
+                commandArgs.push('--all');
             }
-            const execResult = await kubectl.invokeCommandWithFeedback(`delete ${commandArgs} ${delModeArg}`, `Deleting ${kindName}...`);
+            commandArgs.push(...delModeArgs);
+            const execResult = await kubectl.invokeCommandWithFeedback(commandArgs, `Deleting ${kindName}...`);
             await reportDeleteResult(kindName, execResult);
         }
     }
@@ -1808,7 +2015,7 @@ function diffKubernetesCore(callback: (r: DiffResult) => void): void {
             return;
         }
 
-        kubectl.invokeCommandThen(` get -o ${fileFormat} ${kindName}`, (er) => {
+        kubectl.invokeCommandThen(['get', '-o', fileFormat, kindName], (er) => {
             if (er.resultKind === 'exec-errored' && er.code === 1 && er.stderr.indexOf('NotFound') >= 0) {
                 callback({ result: DiffResultKind.NoClusterResource, resourceName: kindName || undefined });  // TODO: rationalise our nulls and undefineds
                 return;
@@ -1857,6 +2064,9 @@ const debugKubernetes = async () => {
 };
 
 const debugAttachKubernetes = async (explorerNode: ClusterExplorerResourceNode) => {
+    if (explorerNode && !validateExplorerResourceNode(explorerNode)) {
+        return;
+    }
     const workspaceFolder = await showWorkspaceFolderPick();
     if (workspaceFolder) {
         new DebugSession(kubectl).attach(workspaceFolder, explorerNode ? explorerNode.name : undefined, explorerNode ? explorerNode.namespace || undefined : undefined);  // TODO: rationalise the nulls and undefineds
@@ -1867,6 +2077,11 @@ async function selectPodKubernetes(): Promise<string | undefined> {
     const pods =  await kubectlUtils.getResourceAsJson<KubernetesCollection<Pod>>(kubectl, "pods");
     if (!pods) {
         vscode.window.showInformationMessage('Unable to list any pods. No pod found in the current namespace.');
+        return;
+    }
+
+    if (!Array.isArray(pods.items) || pods.items.some((pod) => !hasValidPodIdentifiers(pod))) {
+        showInvalidKubernetesIdentifier();
         return;
     }
 
@@ -1903,10 +2118,10 @@ const debugInternal = (name: string, image: string) => {
 
 const doDebug = async (name: string, image: string, cmd: string) => {
     const deploymentName = `${name}-debug`;
-    const runCmd = `run ${deploymentName} --image=${image} -i --attach=false -- ${cmd}`;
-    console.log(runCmd);
+    const runArgs = ['run', deploymentName, `--image=${image}`, '-i', '--attach=false', '--', '/bin/sh', '-c', cmd];
+    console.log(runArgs);
 
-    const er = await kubectl.invokeCommand(runCmd);
+    const er = await kubectl.invokeCommand(runArgs);
     if (ExecResult.failed(er)) {
         await kubectl.reportFailure(er, { whatFailed: 'Failed to start debug container'});
         return;
@@ -1919,6 +2134,10 @@ const doDebug = async (name: string, image: string, cmd: string) => {
     }
 
     const podList = findPodsResult.pods;
+    if (podList.some((pod) => !hasValidPodIdentifiers(pod))) {
+        showInvalidKubernetesIdentifier();
+        return;
+    }
 
     if (podList.length === 0) {
         vscode.window.showErrorMessage('Failed to find debug pod.');
@@ -1929,10 +2148,9 @@ const doDebug = async (name: string, image: string, cmd: string) => {
     vscode.window.showInformationMessage('Debug pod running as: ' + podName);
 
     waitForRunningPod(podName, async () => {
-        const pfer = await kubectl.invokeCommand(` port-forward ${podName} 5858:5858 8000:8000`);
-        const pfsucc = await kubectl.reportResult(pfer, {});
-
-        if (!pfsucc) {
+        const pfer = await kubectl.spawnCommand(['port-forward', podName, '5858:5858', '8000:8000']);
+        if (pfer.resultKind !== 'exec-child-process-started') {
+            await kubectl.reportFailure(pfer, { whatFailed: 'Failed to forward debug ports' });
             return;
         }
 
@@ -1959,8 +2177,13 @@ const doDebug = async (name: string, image: string, cmd: string) => {
                         return;
                     }
 
-                    const exposeCmd = `expose deployment ${deploymentName} --type=LoadBalancer --port=${port}`;
-                    kubectl.invokeCommandThen(exposeCmd, (eer) => {
+                    const portNumber = Number(port);
+                    if (!Number.isInteger(portNumber) || portNumber < 1 || portNumber > 65535) {
+                        vscode.window.showErrorMessage('Port must be an integer between 1 and 65535');
+                        return;
+                    }
+
+                    kubectl.invokeCommandThen(['expose', 'deployment', deploymentName, '--type=LoadBalancer', `--port=${portNumber}`], (eer) => {
                         if (eer.resultKind !== 'exec-succeeded') {
                             vscode.window.showErrorMessage('Failed to expose deployment: ' + ExecResult.failureMessage(eer, {}));
                             return;
@@ -1975,7 +2198,7 @@ const doDebug = async (name: string, image: string, cmd: string) => {
 };
 
 const waitForRunningPod = (name: string, callback: () => void) => {
-    kubectl.invokeCommandThen(` get pods ${name} -o jsonpath --template="{.status.phase}"`,
+    kubectl.invokeCommandThen(['get', 'pods', name, '-o', 'jsonpath', '--template={.status.phase}'],
         async (er) => {
             const succ = await kubectl.reportResult(er, {});
             if (!succ) {
@@ -1992,7 +2215,7 @@ const waitForRunningPod = (name: string, callback: () => void) => {
 };
 
 function exists(kind: string, name: string, handler: (exists: boolean) => void) {
-    kubectl.invokeCommandThen(`get ${kind} ${name}`, (er) => {
+    kubectl.invokeCommandThen(['get', kind, name], (er) => {
         handler(er.resultKind === 'exec-succeeded');
     });
 }
@@ -2022,11 +2245,11 @@ function removeDebugKubernetes() {
                     }
 
                     if (service) {
-                        kubectl.invokeCommandThen('delete service ' + deploymentName, (er) => kubectl.reportResult(er, {}));
+                        kubectl.invokeCommandThen(['delete', 'service', deploymentName], (er) => kubectl.reportResult(er, {}));
                     }
 
                     if (deployment) {
-                        kubectl.invokeCommandThen('delete deployment ' + deploymentName, (er) => kubectl.reportResult(er, {}));
+                        kubectl.invokeCommandThen(['delete', 'deployment', deploymentName], (er) => kubectl.reportResult(er, {}));
                     }
                 },
                 (err) => vscode.window.showErrorMessage(`Error getting confirmation of delete: ${err}`));
@@ -2180,8 +2403,7 @@ async function validateKubeconfigPath() {
         } else {
         // on WSL, shell out to test if the file exists
             try {
-                execFileSync('wsl.exe', ['test', '-e', path], { stdio: 'ignore' });
-                exists = true;
+                exists = executeCommandSync('wsl.exe', ['--exec', 'test', '-e', path], { stdio: 'ignore' }).code === 0;
             } catch {
                 exists = false;
             }
@@ -2228,6 +2450,10 @@ async function useContextKubernetes(explorerNode: ClusterExplorerNode) {
     if (explorerNode && explorerNode.nodeType === explorer.NODE_TYPES.context) {
         const contextObj = explorerNode.kubectlContext;
         const targetContext = contextObj.contextName;
+        if (!isValidKubeconfigName(targetContext)) {
+            showInvalidKubernetesIdentifier();
+            return;
+        }
         setContextKubernetes(targetContext);
         return;
     }
@@ -2241,7 +2467,11 @@ async function useContextKubernetes(explorerNode: ClusterExplorerNode) {
 }
 
 async function setContextKubernetes(targetContext: string) {
-    const er = await kubectl.invokeCommand(`config use-context "${targetContext}"`);
+    if (!isValidKubeconfigName(targetContext)) {
+        showInvalidKubernetesIdentifier();
+        return;
+    }
+    const er = await kubectl.invokeCommand(['config', 'use-context', '--', targetContext]);
     if (ExecResult.succeeded(er)) {
         telemetry.invalidateClusterType(targetContext);
         activeContextTracker.setActive(targetContext);
@@ -2254,7 +2484,7 @@ async function setContextKubernetes(targetContext: string) {
 
 async function clusterInfoKubernetes(_explorerNode: ClusterExplorerNode) {
     // If a node is passed, it's always the active cluster so we don't need to use the argument
-    kubectl.invokeInSharedTerminal("cluster-info");
+    kubectl.invokeInSharedTerminal(['cluster-info']);
 }
 
 async function deleteContextKubernetes(explorerNode: ClusterExplorerNode) {
@@ -2262,6 +2492,12 @@ async function deleteContextKubernetes(explorerNode: ClusterExplorerNode) {
         return;
     }
     const contextObj = explorerNode.kubectlContext;
+    if (!isValidKubeconfigName(contextObj.contextName) ||
+        !isValidKubeconfigName(contextObj.clusterName) ||
+        !isValidKubeconfigName(contextObj.userName)) {
+        showInvalidKubernetesIdentifier();
+        return;
+    }
     const answer = await vscode.window.showWarningMessage(`Do you want to delete the cluster '${contextObj.contextName}' from the kubeconfig?`, ...deleteMessageItems);
     if (!answer || answer.isCloseAffordance) {
         return;
@@ -2272,6 +2508,20 @@ async function deleteContextKubernetes(explorerNode: ClusterExplorerNode) {
 }
 
 async function copyKubernetes(explorerNode: ClusterExplorerNode) {
+    if (explorerNode.nodeType === explorer.NODE_TYPES.resource && !validateExplorerResourceNode(explorerNode)) {
+        return;
+    }
+    if (explorerNode.nodeType === explorer.NODE_TYPES.context && !isValidKubeconfigName(explorerNode.contextName)) {
+        showInvalidKubernetesIdentifier();
+        return;
+    }
+    if (explorerNode.nodeType === explorer.NODE_TYPES.configitem &&
+        (!isValidConfigDataKey(explorerNode.key) ||
+            !isValidKubernetesResourceType(explorerNode.parentKind.abbreviation) ||
+            !isValidKubernetesResourceName(explorerNode.parentName))) {
+        showInvalidKubernetesIdentifier();
+        return;
+    }
     const name = copiableName(explorerNode);
     if (name) {
         clipboard.copyTextToClipboard(name);
@@ -2364,15 +2614,23 @@ async function cronJobRunNow(target?: any): Promise<void> {
     if (!name) {
         return;
     }
+    if (!isValidKubernetesResourceName(name)) {
+        showInvalidKubernetesIdentifier();
+        return;
+    }
 
     const proposedJobName = `${name}-${timestampText()}`;
     const jobName = await vscode.window.showInputBox({ prompt: "Choose a name for the job", value: proposedJobName });
     if (!jobName) {
         return;
     }
+    if (!isValidKubernetesResourceName(jobName)) {
+        vscode.window.showErrorMessage('The Kubernetes resource name is invalid.');
+        return;
+    }
 
-    const nsarg = await kubectlUtils.currentNamespaceArg(kubectl);
-    const er = await kubectl.invokeCommand(`create job ${jobName} ${nsarg} --from=cronjob/${name}`);
+    const namespaceArgs = await kubectlUtils.currentNamespaceArgs(kubectl);
+    const er = await kubectl.invokeCommand(['create', 'job', jobName, ...namespaceArgs, `--from=cronjob/${name}`]);
 
     if (ExecResult.failed(er)) {
         kubectl.reportFailure(er, { whatFailed: 'Error creating job' });
@@ -2390,6 +2648,9 @@ async function resourceNameFromTarget(target: string | ClusterExplorerResourceNo
     }
 
     if (explorer.isKubernetesExplorerResourceNode(target)) {
+        if (!validateExplorerResourceNode(target)) {
+            return undefined;
+        }
         return target.name;
     }
 
@@ -2397,13 +2658,21 @@ async function resourceNameFromTarget(target: string | ClusterExplorerResourceNo
 }
 
 async function pickResourceName(resourceKind: kuberesources.ResourceKind, prompt: string): Promise<string | undefined> {
-    const er = await kubectl.invokeCommand(`get ${resourceKind.abbreviation}`);
+    if (!isValidResourceKind(resourceKind)) {
+        showInvalidKubernetesIdentifier();
+        return undefined;
+    }
+    const er = await kubectl.invokeCommand(['get', resourceKind.abbreviation]);
     if (ExecResult.failed(er)) {
         await kubectl.reportFailure(er, { whatFailed: `Unable to list resources of type ${resourceKind.displayName}` });
         return undefined;
     }
 
     const names = parseNamesFromKubectlLines(er.stdout);
+    if (names.some((name) => !isValidKubernetesResourceName(name))) {
+        showInvalidKubernetesIdentifier();
+        return undefined;
+    }
     if (names.length === 0) {
         vscode.window.showInformationMessage(`No resources of type ${resourceKind.displayName} in cluster`);
         return undefined;

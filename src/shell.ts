@@ -1,14 +1,14 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import * as shelljs from 'shelljs';
 import * as path from 'path';
+import { readFileSync, readdirSync } from 'fs';
 import { getToolPath, getUseWsl } from './components/config/config';
 import { host } from './host';
-import { ChildProcess } from 'child_process';
+import type { ChildProcess } from './process';
+import { executeCommandSync } from './process';
 import { getKubeconfigPath } from './components/kubectl/kubeconfig';
 import { ExecResult } from './binutilplusplus';
-import { escapeShellArg } from './utils/shell-escape';
 import { kubeChannel } from './kubeChannel';
 
 export enum Platform {
@@ -18,7 +18,7 @@ export enum Platform {
     Unsupported,  // shouldn't happen!
 }
 
-export interface ExecCallback extends shelljs.ExecCallback {}
+export type ExecCallback = (code: number, stdout: string, stderr: string) => void;
 
 export interface Shell {
     isWindows(): boolean;
@@ -28,9 +28,6 @@ export interface Shell {
     combinePath(basePath: string, relativePath: string): string;
     fileUri(filePath: string): vscode.Uri;
     execOpts(): any;
-    exec(cmd: string, stdin?: string): Promise<ShellResult | undefined>;
-    execStreaming(cmd: string, callback: ((proc: ChildProcess) => void) | undefined): Promise<ShellResult | undefined>;
-    execCore(cmd: string, opts: any, callback?: (proc: ChildProcess) => void, stdin?: string): Promise<ShellResult>;
     unquotedPath(path: string): string;
     which(bin: string): string | null;
     cat(path: string): string;
@@ -45,9 +42,6 @@ export const shell: Shell = {
     combinePath : combinePath,
     fileUri : fileUri,
     execOpts : execOpts,
-    exec : exec,
-    execStreaming: execStreaming,
-    execCore : execCore,
     unquotedPath : unquotedPath,
     which: which,
     cat: cat,
@@ -62,7 +56,9 @@ export interface ShellResult {
     readonly stderr: string;
 }
 
-export type ShellHandler = (code: number, stdout: string, stderr: string) => void;
+function executeWslSync(args: readonly string[]): ShellResult {
+    return executeCommandSync('wsl.exe', ['--exec', ...args]);
+}
 
 function isWindows(): boolean {
     return (process.platform === WINDOWS) && !getUseWsl();
@@ -97,7 +93,7 @@ function concatIfSafe(homeDrive: string | undefined, homePath: string | undefine
 
 function home(): string {
     if (getUseWsl()) {
-        return shelljs.exec('wsl.exe echo ${HOME}').stdout.trim();
+        return executeWslSync(['printenv', 'HOME']).stdout.trim();
     }
     return process.env['HOME'] ||
         concatIfSafe(process.env['HOMEDRIVE'], process.env['HOMEPATH']) ||
@@ -139,42 +135,6 @@ function execOpts(): any {
     return opts;
 }
 
-async function exec(cmd: string, stdin?: string): Promise<ShellResult | undefined> {
-    try {
-        return await execCore(cmd, execOpts(), null, stdin);
-    } catch (ex) {
-        vscode.window.showErrorMessage(String(ex));
-        return undefined;
-    }
-}
-
-async function execStreaming(cmd: string, callback: (proc: ChildProcess) => void): Promise<ShellResult | undefined> {
-    try {
-        return await execCore(cmd, execOpts(), callback);
-    } catch (ex) {
-        vscode.window.showErrorMessage(String(ex));
-        return undefined;
-    }
-}
-
-function execCore(cmd: string, opts: any, callback?: ((proc: ChildProcess) => void) | null, stdin?: string): Promise<ShellResult> {
-    return new Promise<ShellResult>((resolve) => {
-        if (getUseWsl()) {
-            cmd = 'wsl ' + cmd;
-        }
-        opts['silent'] = true;
-        const proc = shelljs.exec(cmd, opts, (code, stdout, stderr) => resolve({code : code, stdout : stdout, stderr : stderr}));
-        if (stdin) {
-            proc.stdin?.end(stdin);
-        }
-        if (callback) {
-            callback(proc);
-        }
-        // Monitor stderr for authentication prompts (Azure AD device login)
-        monitorForAuthPrompt(proc);
-    });
-}
-
 // Pattern to detect Azure AD device login prompts (covers multiple URL variants)
 // Known URLs: microsoft.com/devicelogin, login.microsoft.com/device, login.microsoftonline.com/.../oauth2/deviceauth
 // Requires https:// prefix to avoid matching substrings in unrelated URLs
@@ -182,7 +142,7 @@ const AUTH_PROMPT_PATTERN = /https:\/\/(?:[a-z0-9-]+\.)?microsoft(?:online)?\.co
 
 let authNotificationShown = false;
 
-function monitorForAuthPrompt(proc: ChildProcess): void {
+export function monitorForAuthPrompt(proc: ChildProcess): void {
     if (!proc.stderr) {
         return;
     }
@@ -261,37 +221,45 @@ function pathEntrySeparator() {
 
 function which(bin: string): string | null {
     if (getUseWsl()) {
-        const result = shelljs.exec(`wsl.exe which ${escapeShellArg(bin)}`);
+        const result = executeWslSync(['which', bin]);
         if (result.code !== 0) {
             throw new Error(result.stderr);
         }
         return result.stdout;
     }
-    return shelljs.which(bin);
+    const command = isWindows() ? 'where.exe' : 'which';
+    const args = [bin];
+    try {
+        const result = executeCommandSync(command, args);
+        const resolved = result.stdout.split(/\r?\n/).find((line) => line.trim().length > 0);
+        return result.code === 0 && resolved ? resolved.trim() : null;
+    } catch (_err) {
+        return null;
+    }
 }
 
 function cat(path: string): string {
     if (getUseWsl()) {
         const filePath = path.replace(/\\/g, '/');
-        const result = shelljs.exec(`wsl.exe cat ${escapeShellArg(filePath)}`);
+        const result = executeWslSync(['cat', '--', filePath]);
         if (result.code !== 0) {
             throw new Error(result.stderr);
         }
         return result.stdout;
     }
-    return shelljs.cat(path);
+    return readFileSync(path, 'utf8');
 }
 
 function ls(path: string): string[] {
     if (getUseWsl()) {
         const filePath = path.replace(/\\/g, '/');
-        const result = shelljs.exec(`wsl.exe ls ${escapeShellArg(filePath)}`);
+        const result = executeWslSync(['ls', '--', filePath]);
         if (result.code !== 0) {
             throw new Error(result.stderr);
         }
         return result.stdout.trim().split('\n');
     }
-    return shelljs.ls(path);
+    return readdirSync(path);
 }
 
 export function shellMessage(er: ExecResult, invocationFailureMessage: string): string {

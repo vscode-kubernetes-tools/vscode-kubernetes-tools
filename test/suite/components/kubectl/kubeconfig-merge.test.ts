@@ -79,10 +79,7 @@ suite("Kubeconfig Merge", () => {
         originalKubeconfig = process.env['KUBECONFIG'];
 
         // Register dummy refresh command to prevent invocation for tests
-        refreshExplorerDisposable = vscode.commands.registerCommand(
-            'extension.vsKubernetesRefreshExplorer',
-            () => { /* no-op for tests */ }
-        );
+        refreshExplorerDisposable = { dispose: () => {} };
 
         // Stub UI functions to prevent popups / blocks
         sandbox.stub(vscode.window, 'showInformationMessage').resolves(undefined);
@@ -91,7 +88,7 @@ suite("Kubeconfig Merge", () => {
 
     teardown(() => {
         sandbox.restore();
-        refreshExplorerDisposable.dispose();
+        refreshExplorerDisposable?.dispose();
         // Restore original KUBECONFIG
         if (originalKubeconfig) {
             process.env['KUBECONFIG'] = originalKubeconfig;

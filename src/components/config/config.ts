@@ -299,11 +299,6 @@ export function getResourcesToBeWatched(): string[] {
     return krwConfig as string[];
 }
 
-// if true will enable the flag to run kubectl commands using kubectl installed by snap
-export function getEnableSnapFlag(): boolean {
-    return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.enable-snap-flag'];
-}
-
 // if true will disable displaying the context from the status bar
 export function isContextStatusBarDisabled(): boolean {
     return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.disable-context-info-status-bar'];

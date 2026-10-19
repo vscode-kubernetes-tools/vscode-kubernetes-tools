@@ -1,14 +1,16 @@
 import * as path from "path";
 import * as vscode from "vscode";
 
-import { getCurrentBuildTool } from './imageToolRegistry';
+import { assertValidContainerImageReference, getCurrentBuildTool } from './imageToolRegistry';
 import { kubeChannel } from "../kubeChannel";
-import { shell } from "../shell";
+import { monitorForAuthPrompt, shell } from "../shell";
+import { CommandInvocation, executeCommand } from '../process';
+import { getUseWsl } from '../components/config/config';
 
 /**
  * Build the container image first. If imagePrefix is not empty, push the image to remote image registry, too.
  *
- * @param shellOpts any option available to Node.js's child_process.exec().
+ * @param shellOpts process options such as cwd and env.
  * @param imagePrefix the image prefix for container images (e.g. 'docker.io/brendanburns').
  * @return the image name.
  */
@@ -23,19 +25,21 @@ export async function buildAndPushImage(shellOpts: any, imagePrefix?: string): P
 }
 
 /**
- * Returns a promise that resolves to a command line for building the given image.
- * Rejects if couldn't get a command line.
+ * Returns a promise that resolves to an invocation for building the given image.
+ * Rejects if it couldn't get an invocation.
  */
-export async function getBuildCommand(image: string): Promise<string> {
+export async function getBuildCommand(image: string): Promise<CommandInvocation> {
+    assertValidContainerImageReference(image);
     const tool = await getCurrentBuildTool();
     return tool.getBuildCommand(image);
 }
 
 /**
- * Returns a promise that resolves to a command line for pushing the given image.
- * Rejects if couldn't get a command line.
+ * Returns a promise that resolves to an invocation for pushing the given image.
+ * Rejects if it couldn't get an invocation.
  */
-export async function getPushCommand(image: string): Promise<string> {
+export async function getPushCommand(image: string): Promise<CommandInvocation> {
+    assertValidContainerImageReference(image);
     const tool = await getCurrentBuildTool();
     return tool.getPushCommand(image);
 }
@@ -60,14 +64,26 @@ async function getDefaultImageName(cwd: string, imagePrefix?: string): Promise<s
 }
 
 async function findVersion(cwd: string): Promise<string> {
-    const shellOpts = Object.assign({ }, shell.execOpts(), { cwd });
-    const shellResult = await shell.execCore('git describe --always --dirty', shellOpts);
-    return shellResult.code === 0 ? shellResult.stdout.trim() : "latest";
+    const { env } = shell.execOpts();
+    const args = ['describe', '--always', '--dirty'];
+    const invocation: CommandInvocation = getUseWsl() ?
+        { executable: 'wsl.exe', args: ['--exec', 'git', ...args], cwd, env } :
+        { executable: 'git', args, cwd, env };
+    try {
+        const result = await executeCommand(invocation, undefined, monitorForAuthPrompt);
+        return result.code === 0 ? result.stdout.trim() : "latest";
+    } catch (_err) {
+        return "latest";
+    }
 }
 
 async function buildImage(image: string, shellOpts: any): Promise<void> {
     const buildCommand = await getBuildCommand(image);
-    const result = await shell.execCore(buildCommand, shellOpts);
+    const result = await executeCommand({
+        ...buildCommand,
+        cwd: shellOpts.cwd,
+        env: shellOpts.env,
+    }, undefined, monitorForAuthPrompt);
     if (result.code !== 0) {
         throw new Error(`Image build failed: ${result.stderr}`);
     }
@@ -76,7 +92,11 @@ async function buildImage(image: string, shellOpts: any): Promise<void> {
 
 async function pushImage(image: string, shellOpts: any): Promise<void> {
     const pushCommand = await getPushCommand(image);
-    const result = await shell.execCore(pushCommand, shellOpts);
+    const result = await executeCommand({
+        ...pushCommand,
+        cwd: shellOpts.cwd,
+        env: shellOpts.env,
+    }, undefined, monitorForAuthPrompt);
     if (result.code !== 0) {
         throw new Error(`Image push failed: ${result.stderr}`);
     }
