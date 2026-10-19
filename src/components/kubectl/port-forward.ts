@@ -457,7 +457,7 @@ export async function portForwardToResource(kubectl: Kubectl, kind: string, name
         undefined,
         new ThemeIcon('plug')
     );
-    return usedPortMappings.choose((usedPortPair) => usedPortPair.localPort);
+    return usedPortMappings.map((usedPortPair) => usedPortPair.localPort!);
 }
 
 function isSafePortForwardTarget(kind: string, name: string, namespace: string | undefined): boolean {
