@@ -1,4 +1,5 @@
 import * as assert from 'assert';
+import * as fs from 'fs';
 import * as path from 'path';
 import * as sinon from 'sinon';
 import * as tmp from 'tmp';
@@ -256,7 +257,7 @@ suite('Git sync security', () => {
         sandbox.stub(config, 'getUseWsl').returns(false);
         const gitPath = shell.which(process.platform === 'win32' ? 'git.exe' : 'git')?.trim();
         assert.ok(gitPath && path.isAbsolute(gitPath), 'Git must resolve to an absolute path');
-        const directory = tmp.dirSync({ unsafeCleanup: true });
+        const directory = tmp.dirSync({ keep: true });
         const env = isolatedGitEnvironment(directory.name);
 
         try {
@@ -280,7 +281,7 @@ suite('Git sync security', () => {
             assert.deepStrictEqual(await git.checkout(firstCommit), { succeeded: true, result: null });
             assert.strictEqual(await runGit(gitPath, directory.name, env, ['rev-parse', 'HEAD']), firstCommit);
         } finally {
-            directory.removeCallback();
+            fs.rmSync(directory.name, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
         }
     });
 });
