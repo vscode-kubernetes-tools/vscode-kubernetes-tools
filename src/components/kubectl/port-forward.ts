@@ -3,7 +3,7 @@
 import { Kubectl } from '../../kubectl';
 
 import { host } from '../../host';
-import { findAllPods, tryFindKindNameFromEditor, FindPodsResult } from '../../extension';
+import type { FindPodsResult } from '../../extension';
 import { QuickPickOptions, ThemeIcon } from 'vscode';
 import * as portFinder from 'portfinder';
 import { succeeded } from '../../errorable';
@@ -13,6 +13,7 @@ import * as kuberesources from '../../kuberesources';
 import * as kubernetes from '@kubernetes/client-node';
 import { ClusterExplorerResourceNode } from '../clusterexplorer/node';
 import { ExecResult } from '../../binutilplusplus';
+import { isSafeNamespace, isSafeResourceName, isSafeResourceType } from './resource-commands';
 
 const PORT_FORWARD_TERMINAL = 'kubectl port-forward';
 const MAX_PORT_COUNT = 65535;
@@ -61,7 +62,15 @@ export async function portForwardKubernetes(kubectl: Kubectl, explorerNode?: any
         const resourceNode = explorerNode as ClusterExplorerResourceNode;
         const kind = resourceNode.kind.apiName || 'pods';
         const resourceName = resourceNode.name;
+        if (!isSafePortForwardTarget(kind, resourceName, resourceNode.namespace || undefined)) {
+            host.showErrorMessage('Invalid Kubernetes resource identifier.');
+            return;
+        }
         const namespace = resourceNode.namespace || await kubectlUtils.currentNamespace(kubectl);
+        if (!isSafeNamespace(namespace)) {
+            host.showErrorMessage('Invalid Kubernetes namespace.');
+            return;
+        }
         return await promptAndForwardPort(kubectl, kind, resourceName, namespace);
     } else {
         let portForwardablePods: PortForwardFindPodsResult;
@@ -75,19 +84,27 @@ export async function portForwardKubernetes(kubectl: Kubectl, explorerNode?: any
 
         if (!portForwardablePods.succeeded) {
             host.showInformationMessage("Error while fetching pods for port-forward");
+            return;
         }
 
         if (isFindResultFromDocument(portForwardablePods)) {
             // The pod is described by the open document. Skip asking which pod to use and go straight to port-forward.
             const podSelection = portForwardablePods.pod;
+            if (!isSafePortForwardTarget('pods', podSelection, portForwardablePods.namespace)) {
+                host.showErrorMessage('Invalid Kubernetes resource identifier.');
+                return;
+            }
             return await promptAndForwardPort(kubectl, 'pods', podSelection, portForwardablePods.namespace);
         }
 
         let podSelection: string | undefined;
-        const pods = portForwardablePods.pods;
+        const podNames = validPortForwardPodNames(portForwardablePods.pods);
+        if (podNames.length === 0) {
+            host.showErrorMessage('The Kubernetes endpoint returned no valid pod identifiers.');
+            return;
+        }
 
         try {
-            const podNames: string[] = pods.map((podObj) => podObj.metadata.name);
             podSelection = await host.showQuickPick(
                 podNames,
                 { placeHolder: "Select a pod to port-forward to" }
@@ -111,9 +128,13 @@ export async function portForwardKubernetes(kubectl: Kubectl, explorerNode?: any
  * if a valid input was provided.
  */
 async function promptAndForwardPort(kubectl: Kubectl, kind: string, resourceName: string, namespace?: string): Promise<void> {
+    if (!isSafePortForwardTarget(kind, resourceName, namespace)) {
+        host.showErrorMessage('Invalid Kubernetes resource identifier.');
+        return;
+    }
     const portMapping = await promptForPort(kubectl, kind, resourceName, namespace);
     if (portMapping.length !== 0) {
-        portForwardToResource(kubectl, kind, resourceName, portMapping, namespace);
+        await portForwardToResource(kubectl, kind, resourceName, portMapping, namespace);
     }
 }
 
@@ -174,13 +195,17 @@ function extractDeploymentPorts(podJson: string): ExtractedPort[] {
  * Prompts the user on what port to port-forward to, and validates numeric input.
  * @returns An array of PortMapping objects.
  */
-async function promptForPort(kubectl: Kubectl, kind: string, resourceName: string, namespace?: string): Promise<PortMapping[]> {
+export async function promptForPort(kubectl: Kubectl, kind: string, resourceName: string, namespace?: string): Promise<PortMapping[]> {
+    if (!isSafePortForwardTarget(kind, resourceName, namespace)) {
+        host.showErrorMessage('Invalid Kubernetes resource identifier.');
+        return [];
+    }
     let portString: string | undefined;
     let extractedPorts = Array.of<ExtractedPort>();
     if (resourceName && kubectl) {
         const ns = namespace || 'default';
         try {
-            const result = await kubectl.invokeCommand(`get ${kind} ${resourceName} --namespace ${ns} -o json`);
+            const result = await kubectl.invokeCommandArgs(['get', `${kind}/${resourceName}`, '--namespace', ns, '-o', 'json']);
             if (ExecResult.failed(result)) {
                 console.log(ExecResult.failureMessage(result, { whatFailed: 'Error getting ports' }));
             } else if (kind === kuberesources.allKinds.pod.apiName) {
@@ -367,6 +392,7 @@ function buildPort(validPorts: ExtractedPort[], port: string): number {
  * Checks the open document and returns an object describing the Pod, if it can find one
  */
 async function findPortForwardablePods(): Promise<PortForwardFindPodsResult> {
+    const { findAllPods, tryFindKindNameFromEditor } = await import('../../extension');
     const kindFromEditor = tryFindKindNameFromEditor();
 
     // Find the pod type from the open editor.
@@ -408,7 +434,11 @@ export async function portForwardToDeployment(kubectl: Kubectl, name: string, po
     return portForwardToResource(kubectl, 'deployments', name, portMapping, namespace);
 }
 
-async function portForwardToResource(kubectl: Kubectl, kind: string, name: string, portMapping: PortMapping[], namespace?: string): Promise<number[]> {
+export async function portForwardToResource(kubectl: Kubectl, kind: string, name: string, portMapping: PortMapping[], namespace?: string): Promise<number[]> {
+    if (!isSafePortForwardTarget(kind, name, namespace)) {
+        host.showErrorMessage('Invalid Kubernetes resource identifier.');
+        return [];
+    }
     const usedPortMappings: PortMapping[] = await Promise.all(portMapping.map(buildUsablePortPair));
 
     usedPortMappings.forEach((usedPortPair) => {
@@ -420,8 +450,29 @@ async function portForwardToResource(kubectl: Kubectl, kind: string, name: strin
         (usedPortPair) => `${usedPortPair.localPort}:${usedPortPair.targetPort}`
     );
 
-    kubectl.invokeInNewTerminal(`port-forward ${kind}/${name} ${portPairStrings.join(' ')} -n ${usedNamespace}`, PORT_FORWARD_TERMINAL, undefined, undefined, new ThemeIcon('plug'));
-    return usedPortMappings.choose((usedPortPair) => usedPortPair.localPort);
+    await kubectl.invokeArgsInNewTerminal(
+        ['port-forward', `${kind}/${name}`, ...portPairStrings, '-n', usedNamespace],
+        PORT_FORWARD_TERMINAL,
+        (terminal) => {
+            const exitCode = terminal.exitStatus?.code;
+            if (exitCode !== undefined && exitCode !== 0) {
+                host.showErrorMessage(`kubectl port-forward failed with exit code ${exitCode}. The selected local port may already be in use.`);
+            }
+        },
+        new ThemeIcon('plug')
+    );
+    return usedPortMappings.map((usedPortPair) => usedPortPair.localPort!);
+}
+
+export function validPortForwardPodNames(pods: readonly { metadata: { name?: string } }[]): string[] {
+    return pods.map((pod) => pod.metadata?.name)
+        .filter((name): name is string => !!name && isSafeResourceName(name));
+}
+
+function isSafePortForwardTarget(kind: string, name: string, namespace: string | undefined): boolean {
+    return isSafeResourceType(kind) &&
+        isSafeResourceName(name) &&
+        (namespace === undefined || namespace === '' || isSafeNamespace(namespace));
 }
 
 /**

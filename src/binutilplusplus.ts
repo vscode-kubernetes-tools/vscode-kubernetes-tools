@@ -3,11 +3,13 @@ import { ChildProcess, spawn as spawnChildProcess } from "child_process";
 import { Host } from './host';
 import { FS } from './fs';
 import { Shell } from './shell';
-import { installDependencies } from "./components/installer/installdependencies";
 import { getEnableSnapFlag, getToolPath, getUseWsl } from './components/config/config';
 import { Errorable } from './errorable';
 import { parseLineOutput } from './outputUtils';
 import { Dictionary } from './utils/dictionary';
+import { monitorForAuthPrompt } from './shell';
+import { CommandInvocation, executeCommand, executeCommandPiped, renderArgsForDisplay, snapPipeInvocation } from './process';
+import { execPath, isWindowsCommandScript } from './binutil';
 
 export interface ExternalBinary {
     readonly displayName: string;
@@ -27,6 +29,7 @@ export interface ExecFailed {
     readonly resultKind: 'exec-failed';
     readonly execProgram: ExternalBinary;
     readonly command: string;
+    readonly error?: string;
 }
 
 export interface ExecSucceeded {
@@ -74,7 +77,7 @@ export namespace ExecResult {
             return { succeeded: false, error: [`${execResult.execProgram.displayName} command failed trying to run '${execResult.command}': ${execResult.execProgram.binBaseName} not found`] };
         }
         if (execResult.resultKind === 'exec-failed') {
-            return { succeeded: false, error: [`${execResult.execProgram.displayName} command failed trying to run '${execResult.command}': unable to run ${execResult.execProgram.binBaseName}`] };
+            return { succeeded: false, error: [`${execResult.execProgram.displayName} command failed trying to run '${execResult.command}': ${execResult.error || `unable to run ${execResult.execProgram.binBaseName}`}`] };
         }
 
         if (execResult.resultKind === 'exec-succeeded') {
@@ -175,6 +178,28 @@ async function baseBinPath(context: Context): Promise<string> {
     return binPath;
 }
 
+async function commandInvocation(context: Context, args: readonly string[]): Promise<CommandInvocation> {
+    const executable = await unquotedBaseBinPath(context);
+    if (isWindowsCommandScript(context.shell, executable)) {
+        throw new Error(`Configured ${context.binary.displayName} path '${executable}' is a command script; configure an .exe path for shell-free execution.`);
+    }
+    const execOpts = context.shell.execOpts();
+    if (getUseWsl()) {
+        return {
+            executable: 'wsl.exe',
+            args: ['--exec', executable, ...args],
+            cwd: execOpts.cwd,
+            env: execOpts.env,
+        };
+    }
+    return {
+        executable: execPath(context.shell, executable),
+        args: [...args],
+        cwd: execOpts.cwd,
+        env: execOpts.env,
+    };
+}
+
 // This is silent - just caching over findBinaryCore
 export async function findBinary(context: Context): Promise<FindBinaryStatus> {
     if (context.status && context.status.found) {
@@ -253,6 +278,35 @@ export async function invokeForResult(context: Context, command: string, stdin: 
     return { resultKind: 'exec-errored', execProgram: context.binary, command, code: sr.code, stderr: sr.stderr };
 }
 
+// Shell-free counterpart to invokeForResult. New internal callers should use this API.
+export async function invokeForResultArgs(context: Context, args: readonly string[], stdin: string | undefined): Promise<ExecResult> {
+    const command = renderArgsForDisplay(args);
+    const fbr = await findBinary(context);
+    if (!fbr.found) {
+        return { resultKind: 'exec-bin-not-found', execProgram: context.binary, command, findResult: fbr };
+    }
+
+    try {
+        const invocation = await commandInvocation(context, args);
+        if (getEnableSnapFlag() && context.shell.isUnix()) {
+            const destination = snapPipeInvocation(invocation, getUseWsl());
+            const result = await executeCommandPiped(invocation, destination, stdin, monitorForAuthPrompt);
+            if (result.code === 0) {
+                return { resultKind: 'exec-succeeded', execProgram: context.binary, command, stdout: result.stdout };
+            }
+            return { resultKind: 'exec-errored', execProgram: context.binary, command, code: result.code, stderr: result.stderr };
+        }
+        const result = await executeCommand(invocation, stdin, monitorForAuthPrompt);
+        if (result.code === 0) {
+            return { resultKind: 'exec-succeeded', execProgram: context.binary, command, stdout: result.stdout };
+        }
+        return { resultKind: 'exec-errored', execProgram: context.binary, command, code: result.code, stderr: result.stderr };
+    } catch (err) {
+        const error = err instanceof Error ? err.message : String(err);
+        return { resultKind: 'exec-failed', execProgram: context.binary, command, error };
+    }
+}
+
 export interface RunningProcess {
     readonly lines: rx.Observable<string>;
     terminate(): void;
@@ -328,7 +382,7 @@ export async function discardFailureInteractive(context: Context, result: ExecRe
             await showErrorMessageWithInstallPrompt(context, result.findResult, `${announcement}: ${result.execProgram.binBaseName} not found`);
             return undefined;
         case 'exec-failed':
-            await context.host.showErrorMessage(`${announcement}: unable to run ${result.execProgram.binBaseName}`);
+            await context.host.showErrorMessage(`${announcement}: ${result.error || `unable to run ${result.execProgram.binBaseName}`}`);
             return undefined;
         case 'exec-errored':
             await context.host.showErrorMessage(`${announcement}: ${result.stderr}`);
@@ -355,7 +409,7 @@ async function showErrorMessageWithInstallPromptForSystemPath(context: Context, 
             context.host.showInformationMessage(`Add '${binary.binBaseName}' directory to path, or set "vs-kubernetes.${binary.configKeyName}-path" config to ${binary.binBaseName} binary.`);
             break;
         case 'Install dependencies':
-            installDependencies();
+            void import('./components/installer/installdependencies').then((installer) => installer.installDependencies());
             break;
     }
 }
@@ -363,7 +417,7 @@ async function showErrorMessageWithInstallPromptForSystemPath(context: Context, 
 async function showErrorMessageWithInstallPromptForConfiguredBinPath(context: Context, message: string) {
     const choice = await context.host.showErrorMessage(message, 'Install dependencies');
     if (choice === 'Install dependencies') {
-        installDependencies();
+        void import('./components/installer/installdependencies').then((installer) => installer.installDependencies());
     }
 }
 
@@ -372,7 +426,7 @@ export function logText(context: Context, execResult: ExecResult): string {
         case 'exec-bin-not-found':
             return `*** ${context.binary.binBaseName} binary not found (using ${context.status ? context.status.how : '(unknown strategy)'})`;
         case 'exec-failed':
-            return `*** failed to invoke ${context.binary.binBaseName} (from ${context.status ? (context.status.how === 'config' ? context.status.where : 'path') : '(unknown strategy)'}`;
+            return `*** failed to invoke ${context.binary.binBaseName}: ${execResult.error || 'unknown invocation error'} (from ${context.status ? (context.status.how === 'config' ? context.status.where : 'path') : '(unknown strategy)'})`;
         case 'exec-errored':
             return `${context.binary.binBaseName} exited with code ${execResult.code}\n${execResult.stderr}`;
         case 'exec-succeeded':
