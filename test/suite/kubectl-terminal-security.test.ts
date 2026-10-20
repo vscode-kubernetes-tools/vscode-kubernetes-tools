@@ -61,14 +61,54 @@ suite('Kubectl terminal security', () => {
 
         assert.strictEqual(createTerminal.firstCall.args[1], 'C:\\Tools\\KUBECTL.EXE');
     });
+
+    test('reports configured Windows command scripts without launching a terminal', async () => {
+        sandbox.stub(config, 'getUseWsl').returns(false);
+        const createTerminal = sinon.stub();
+        const showErrorMessage = sinon.stub().resolves(undefined);
+        const kubectl = createOnBinary(
+            fakeHost(createTerminal, showErrorMessage),
+            fakeFs(),
+            fakeShell(true),
+            'C:\\Tools\\kubectl.cmd'
+        );
+
+        await kubectl.invokeArgsInNewTerminal(['get', 'pods'], 'kubectl');
+
+        sinon.assert.notCalled(createTerminal);
+        sinon.assert.calledOnceWithExactly(
+            showErrorMessage,
+            "Cannot launch configured kubectl command script 'C:\\Tools\\kubectl.cmd' without a shell. Configure a kubectl.exe path instead."
+        );
+    });
+
+    test('preserves the command-script reason for argv execution failures', async () => {
+        sandbox.stub(config, 'getUseWsl').returns(false);
+        const kubectl = createOnBinary(
+            fakeHost(sinon.stub()),
+            fakeFs(),
+            fakeShell(true),
+            'C:\\Tools\\kubectl.cmd'
+        );
+
+        const result = await kubectl.invokeCommandArgs(['get', 'pods']);
+
+        assert.strictEqual(result.resultKind, 'exec-failed');
+        if (result.resultKind === 'exec-failed') {
+            assert.strictEqual(
+                result.error,
+                "Configured Kubectl path 'C:\\Tools\\kubectl.cmd' is a command script; configure an .exe path for shell-free execution."
+            );
+        }
+    });
 });
 
-function fakeHost(createTerminal: sinon.SinonStub): Host {
+function fakeHost(createTerminal: sinon.SinonStub, showErrorMessage: sinon.SinonStub = sinon.stub().resolves(undefined)): Host {
     return {
         createTerminal,
         onDidCloseTerminal: () => ({ dispose: () => {} }),
         onDidChangeConfiguration: () => ({ dispose: () => {} }),
-        showErrorMessage: async () => undefined,
+        showErrorMessage,
         showWarningMessage: async () => undefined,
         showInformationMessage: async () => undefined,
         showInputBox: async () => undefined,
