@@ -527,24 +527,6 @@ async function changeResourceFromUri(uri: vscode.Uri, kubectl: Kubectl, command:
     }
 }
 
-export async function namespaceResources(kubectl: Kubectl, ns: string): Promise<Errorable<string[]>> {
-    const arresult = await kubectl.readTable('api-resources -o wide');
-    if (ExecResult.failed(arresult)) {
-        return { succeeded: false, error: [ExecResult.failureMessage(arresult, {})] };
-    }
-
-    const resourceKinds = arresult.result.filter((r) => r.namespaced === 'true')
-                                         .filter((r) => r.verbs.includes('list'))
-                                         .map((r) => r.name);
-    const resourceKindsList = resourceKinds.join(',');
-
-    const getresult = await kubectl.invokeCommand(`get ${resourceKindsList} -o name --namespace ${ns} --ignore-not-found`);
-
-    return ExecResult.tryMap<string[]>(getresult, (text) =>
-        text.split('\n').map((s) => s.trim()).filter((s) => s.length > 0)
-    );
-}
-
 export async function allResourceKinds(kubectl: Kubectl, verbs: string[]): Promise<Errorable<ResourceKind[]>> {
     const arresult = await kubectl.readTable('api-resources -o wide');
     if (ExecResult.failed(arresult)) {

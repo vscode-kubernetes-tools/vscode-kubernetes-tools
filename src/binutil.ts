@@ -41,10 +41,15 @@ async function findBinary(shell: Shell, binName: string): Promise<FindBinaryResu
 
 export function execPath(shell: Shell, basePath: string): string {
     let bin = basePath;
-    if (shell.isWindows() && bin && !bin.toLowerCase().endsWith('.exe')) {
+    const unquotedBin = bin && bin.endsWith('"') ? bin.slice(0, -1) : bin;
+    if (shell.isWindows() && bin && !/\.(?:exe|com|cmd|bat)$/i.test(unquotedBin)) {
         bin = bin.slice(-1) === '"' ? `${bin.slice(0, -1)}.exe"` : `${bin}.exe`;
     }
     return bin;
+}
+
+export function isWindowsCommandScript(shell: Shell, executable: string): boolean {
+    return shell.isWindows() && /\.(?:cmd|bat)$/i.test(executable.replace(/"$/, ''));
 }
 
 type CheckPresentFailureReason = 'inferFailed' | 'configuredFileMissing';

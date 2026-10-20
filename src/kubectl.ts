@@ -457,6 +457,9 @@ async function runAsTerminal(context: Context, command: readonly string[], termi
             cmd = ['--exec', execPath, ...cmd];
             // Note VS Code is picky here. It requires the '.exe' to work
             execPath = 'wsl.exe';
+        } else if (binutil.isWindowsCommandScript(context.shell, execPath)) {
+            await context.host.showErrorMessage(`Cannot launch configured kubectl command script '${execPath}' without a shell. Configure a kubectl.exe path instead.`);
+            return undefined;
         }
         const term = context.host.createTerminal(terminalName, execPath, cmd, iconPath);
         term.show();
