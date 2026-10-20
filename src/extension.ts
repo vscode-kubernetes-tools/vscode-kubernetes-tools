@@ -1611,6 +1611,7 @@ async function deleteKubernetes(delMode: KubernetesDeleteMode, explorerNode?: Cl
                 return true;
             } : undefined,
             report: (result) => reportDeleteResult(explorerNode.kindName, result),
+            reportValidationError: (message) => vscode.window.showErrorMessage(message),
         });
     } else {
         const isMinimalWorkflow = config.isMinimalWorkflow();

@@ -11,7 +11,32 @@ suite('Resource command security', () => {
     test('normalises supported resource input without splitting arbitrary text', () => {
         assert.strictEqual(normaliseResourceTarget('deployment api', false), 'deployment/api');
         assert.strictEqual(normaliseResourceTarget('deployment/api', false), 'deployment/api');
+        assert.strictEqual(normaliseResourceTarget('Deployment/foo', false), 'deployment/foo');
+        assert.strictEqual(normaliseResourceTarget('Deployment', true), 'deployment');
         assert.strictEqual(normaliseResourceTarget('--filename=https: /attacker', false), undefined);
+        assert.strictEqual(normaliseResourceTarget('deployment/foo -n bar', false), undefined);
+    });
+
+    test('Delete reports invalid input before confirmation', async () => {
+        const invokeCommandArgsWithFeedback = sinon.stub();
+        const confirm = sinon.stub().resolves(true);
+        const report = sinon.stub();
+        const reportValidationError = sinon.stub();
+        const kubectl = { invokeCommandArgsWithFeedback } as unknown as Kubectl;
+
+        const executed = await deleteResourceWithConfirmation({
+            kubectl,
+            resource: 'deployment/api/name',
+            now: false,
+            confirm,
+            report,
+            reportValidationError,
+        });
+
+        assert.strictEqual(executed, false);
+        sinon.assert.calledOnceWithExactly(reportValidationError, 'Invalid Kubernetes resource identifier.');
+        sinon.assert.notCalled(confirm);
+        sinon.assert.notCalled(invokeCommandArgsWithFeedback);
     });
 
     test('Delete cancellation prevents execution', async () => {
@@ -55,6 +80,27 @@ suite('Resource command security', () => {
             'Deleting deployment/api...'
         );
         sinon.assert.calledOnceWithExactly(report, result);
+    });
+
+    test('Delete canonicalises a mixed-case explorer kind', async () => {
+        const result = { resultKind: 'exec-succeeded', stdout: 'deleted' } as const;
+        const invokeCommandArgsWithFeedback = sinon.stub().resolves(result);
+        const kubectl = { invokeCommandArgsWithFeedback } as unknown as Kubectl;
+
+        const executed = await deleteResourceWithConfirmation({
+            kubectl,
+            resource: 'Deployment/api',
+            now: false,
+            confirm: async () => true,
+            report: async () => {},
+        });
+
+        assert.strictEqual(executed, true);
+        sinon.assert.calledOnceWithExactly(
+            invokeCommandArgsWithFeedback,
+            ['delete', 'deployment/api'],
+            'Deleting deployment/api...'
+        );
     });
 
     test('Delete preflight cancellation prevents execution', async () => {

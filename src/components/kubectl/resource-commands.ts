@@ -10,11 +10,14 @@ export interface DeleteResourceOptions {
     readonly confirm: () => Promise<boolean>;
     readonly beforeDelete?: () => Promise<boolean>;
     readonly report: (result: ExecResult) => Promise<void>;
+    readonly reportValidationError?: (message: string) => void;
 }
 
 export async function deleteResourceWithConfirmation(options: DeleteResourceOptions): Promise<boolean> {
-    if (!isSafeResourceTarget(options.resource) ||
+    const resource = normaliseResourceTarget(options.resource, false);
+    if (!resource ||
         (options.namespace !== undefined && !isSafeNamespace(options.namespace))) {
+        options.reportValidationError?.('Invalid Kubernetes resource identifier.');
         return false;
     }
     if (!await options.confirm()) {
@@ -26,11 +29,11 @@ export async function deleteResourceWithConfirmation(options: DeleteResourceOpti
 
     const args = [
         'delete',
-        options.resource,
+        resource,
         ...(options.namespace ? ['--namespace', options.namespace] : []),
         ...(options.now ? ['--now'] : []),
     ];
-    const result = await options.kubectl.invokeCommandArgsWithFeedback(args, `Deleting ${options.resource}...`);
+    const result = await options.kubectl.invokeCommandArgsWithFeedback(args, `Deleting ${resource}...`);
     await options.report(result);
     return true;
 }
@@ -64,12 +67,25 @@ export async function listNamespaceResources(kubectl: Kubectl, namespace: string
 
 export function normaliseResourceTarget(value: string, allowKindOnly: boolean): string | undefined {
     const trimmed = value.trim();
-    if (isSafeResourceTarget(trimmed) || (allowKindOnly && isSafeResourceType(trimmed))) {
-        return trimmed;
+    const slashParts = trimmed.split('/');
+    if (slashParts.length === 2) {
+        if (/\s/.test(slashParts[0]) || /\s/.test(slashParts[1])) {
+            return undefined;
+        }
+        const target = `${slashParts[0].toLowerCase()}/${slashParts[1]}`;
+        return isSafeResourceTarget(target) ? target : undefined;
+    }
+    if (slashParts.length !== 1) {
+        return undefined;
+    }
+    const kindOnly = trimmed.toLowerCase();
+    if (allowKindOnly && isSafeResourceType(kindOnly)) {
+        return kindOnly;
     }
     const parts = trimmed.split(/\s+/);
-    if (parts.length === 2 && isSafeResourceType(parts[0]) && isSafeResourceName(parts[1])) {
-        return `${parts[0]}/${parts[1]}`;
+    const kind = parts[0]?.toLowerCase();
+    if (parts.length === 2 && isSafeResourceType(kind) && isSafeResourceName(parts[1])) {
+        return `${kind}/${parts[1]}`;
     }
     return undefined;
 }
