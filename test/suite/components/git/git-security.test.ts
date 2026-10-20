@@ -281,7 +281,14 @@ suite('Git sync security', () => {
             assert.deepStrictEqual(await git.checkout(firstCommit), { succeeded: true, result: null });
             assert.strictEqual(await runGit(gitPath, directory.name, env, ['rev-parse', 'HEAD']), firstCommit);
         } finally {
-            fs.rmSync(directory.name, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+            try {
+                fs.rmSync(directory.name, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+            } catch (err) {
+                // Git for Windows can retain the repository handle until the extension host exits.
+                if (process.platform !== 'win32' || (err as NodeJS.ErrnoException).code !== 'EPERM') {
+                    throw err;
+                }
+            }
         }
     });
 });
