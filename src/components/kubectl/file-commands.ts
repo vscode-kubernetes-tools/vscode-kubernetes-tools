@@ -13,11 +13,13 @@ export function replaceFromStdinArgs(namespace: string): string[] {
     return ['replace', '-f', '-', '--namespace', namespace];
 }
 
-export async function hostPathToWsl(filePath: string): Promise<string> {
+export type CommandExecutor = typeof executeCommand;
+
+export async function hostPathToWsl(filePath: string, execute: CommandExecutor = executeCommand): Promise<string> {
     if (!/^(?:[A-Za-z]:[\\/]|\\\\)/.test(filePath)) {
         return filePath;
     }
-    const result = await executeCommand({
+    const result = await execute({
         executable: 'wsl.exe',
         args: wslPathArgs(filePath),
     });

@@ -31,6 +31,19 @@ suite('File command security', () => {
         ]);
     });
 
+    test('surfaces WSL path conversion failures', async () => {
+        const execute = sinon.stub().resolves({ code: 1, stdout: '', stderr: 'wslpath failed' });
+
+        await assert.rejects(
+            () => hostPathToWsl('C:\\work dir\\manifest.yaml', execute),
+            /Unable to convert the Windows path for WSL\./
+        );
+        sinon.assert.calledOnceWithExactly(execute, {
+            executable: 'wsl.exe',
+            args: ['--exec', 'wslpath', '-a', '-u', 'C:\\work dir\\manifest.yaml'],
+        });
+    });
+
     test('invokes a file command through the argv API', async () => {
         const result = { resultKind: 'exec-succeeded', stdout: 'applied' } as const;
         const invokeCommandArgsWithFeedback = sinon.stub().resolves(result);
