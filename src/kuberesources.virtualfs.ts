@@ -9,6 +9,7 @@ import { helmSyntaxVersion, HelmSyntaxVersion, helmInvokeCommandWithFeedback } f
 import * as config from './components/config/config';
 import { ExecResult } from './binutilplusplus';
 import { Errorable } from './errorable';
+import { isSafeNamespace, normaliseResourceReadTarget } from './components/kubectl/resource-commands';
 
 export const K8S_RESOURCE_SCHEME = "k8smsx";
 export const K8S_RESOURCE_SCHEME_READONLY = "k8smsxro";
@@ -17,13 +18,20 @@ export const KUBECTL_DESCRIBE_AUTHORITY = "kubernetesdescribe";
 export const HELM_RESOURCE_AUTHORITY = "helmget";
 
 export function kubefsUri(namespace: string | null | undefined /* TODO: rationalise null and undefined */, value: string, outputFormat: string, action?: string): Uri {
-    const docname = `${value.replace('/', '-')}${outputFormat !== '' ? '.' + outputFormat : ''}`;
+    const docname = `${value.replace(/[^A-Za-z0-9._-]/g, '-')}${outputFormat !== '' ? '.' + outputFormat : ''}`;
     const nonce = new Date().getTime();
-    const nsquery = namespace ? `ns=${namespace}&` : '';
     const scheme = action === 'describe' ? K8S_RESOURCE_SCHEME_READONLY : K8S_RESOURCE_SCHEME;
     const authority = action === 'describe' ? KUBECTL_DESCRIBE_AUTHORITY : KUBECTL_RESOURCE_AUTHORITY;
-    const uri = `${scheme}://${authority}/${docname}?${nsquery}value=${value}&_=${nonce}`;
-    return Uri.parse(uri);
+    const query = querystring.stringify({
+        ...(namespace ? { ns: namespace } : {}),
+        value,
+        _: nonce,
+    });
+    return Uri.from({ scheme, authority, path: `/${docname}`, query });
+}
+
+function singleQueryValue(value: string | string[] | undefined): string | undefined {
+    return typeof value === 'string' ? value : undefined;
 }
 
 export class KubernetesResourceVirtualFileSystemProvider implements FileSystemProvider {
@@ -70,10 +78,16 @@ export class KubernetesResourceVirtualFileSystemProvider implements FileSystemPr
         const query = querystring.parse(uri.query);
 
         const outputFormat = config.getOutputFormat();
-        const value = query.value as string;
-        const revision = query.revision as string | undefined;
-        const ns = query.ns as string | undefined;
+        const value = singleQueryValue(query.value);
+        const revision = singleQueryValue(query.revision);
+        const ns = singleQueryValue(query.ns);
         const resourceAuthority = uri.authority;
+
+        if (!value || Array.isArray(query.revision) || Array.isArray(query.ns)) {
+            const message = 'Invalid Kubernetes resource URI.';
+            this.host.showErrorMessage(message);
+            throw message;
+        }
 
         const eer = await this.execLoadResource(resourceAuthority, ns, value, revision, outputFormat);
 
@@ -98,19 +112,32 @@ export class KubernetesResourceVirtualFileSystemProvider implements FileSystemPr
     }
 
     async execLoadResource(resourceAuthority: string, ns: string | undefined, value: string, revision: string | undefined, outputFormat: string): Promise<Errorable<ExecResult>> {
-        const nsarg = ns ? `--namespace ${ns}` : '';
         switch (resourceAuthority) {
-            case KUBECTL_RESOURCE_AUTHORITY:
-                const ker = await this.kubectl.invokeCommandWithFeedback(`-o ${outputFormat} ${nsarg} get ${value}`, `Loading ${value}...`);
+            case KUBECTL_RESOURCE_AUTHORITY: {
+                const target = normaliseResourceReadTarget(value, true);
+                if (!target || (ns !== undefined && !isSafeNamespace(ns)) || (outputFormat !== 'json' && outputFormat !== 'yaml')) {
+                    return { succeeded: false, error: ['Invalid Kubernetes resource URI.'] };
+                }
+                const ker = await this.kubectl.invokeCommandArgsWithFeedback([
+                    'get', target, '-o', outputFormat, ...(ns ? ['--namespace', ns] : [])
+                ], `Loading ${value}...`);
                 return { succeeded: true, result: ker };
+            }
             case HELM_RESOURCE_AUTHORITY:
                 const scopearg = ((await helmSyntaxVersion()) === HelmSyntaxVersion.V2) ? '' : 'all';
                 const revarg = revision ? ` --revision=${revision}` : '';
                 const her = await helmInvokeCommandWithFeedback(`get ${scopearg} ${value}${revarg}`, `Loading ${value}...`);
                 return { succeeded: true, result: her };
-            case KUBECTL_DESCRIBE_AUTHORITY:
-                const describe = await this.kubectl.invokeCommandWithFeedback(`describe ${value} ${nsarg}`, `Loading ${value}...`);
+            case KUBECTL_DESCRIBE_AUTHORITY: {
+                const target = normaliseResourceReadTarget(value, true);
+                if (!target || (ns !== undefined && !isSafeNamespace(ns))) {
+                    return { succeeded: false, error: ['Invalid Kubernetes resource URI.'] };
+                }
+                const describe = await this.kubectl.invokeCommandArgsWithFeedback([
+                    'describe', target, ...(ns ? ['--namespace', ns] : [])
+                ], `Loading ${value}...`);
                 return { succeeded: true, result: describe };
+            }
             default:
                 return { succeeded: false, error: [`Internal error: please raise an issue with the error code InvalidObjectLoadURI and report authority ${resourceAuthority}.`] };
         }

@@ -4,6 +4,7 @@ import { Kubectl } from '../../../../src/kubectl';
 import {
     deleteResourceWithConfirmation,
     listNamespaceResources,
+    normaliseResourceReadTarget,
     normaliseResourceTarget,
 } from '../../../../src/components/kubectl/resource-commands';
 
@@ -12,6 +13,13 @@ suite('Resource command security', () => {
         assert.strictEqual(normaliseResourceTarget('deployment api', false), 'deployment/api');
         assert.strictEqual(normaliseResourceTarget('deployment/api', false), 'deployment/api');
         assert.strictEqual(normaliseResourceTarget('--filename=https: /attacker', false), undefined);
+    });
+
+    test('canonicalises uppercase kinds only for read targets', () => {
+        assert.strictEqual(normaliseResourceReadTarget('Pod api', false), 'pod/api');
+        assert.strictEqual(normaliseResourceReadTarget('Pod/api', false), 'pod/api');
+        assert.strictEqual(normaliseResourceReadTarget('Pod', true), 'pod');
+        assert.strictEqual(normaliseResourceTarget('Pod/api', false), undefined);
     });
 
     test('Delete cancellation prevents execution', async () => {

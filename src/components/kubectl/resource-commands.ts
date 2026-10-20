@@ -1,4 +1,4 @@
-import { ExecResult } from '../../binutilplusplus';
+import { ExecResult, FailedExecResult } from '../../binutilplusplus';
 import { Kubectl } from '../../kubectl';
 import { Errorable } from '../../errorable';
 
@@ -62,6 +62,34 @@ export async function listNamespaceResources(kubectl: Kubectl, namespace: string
     };
 }
 
+export type ResourceNameListResult = Errorable<string[]> & { readonly execFailure?: FailedExecResult };
+
+export async function listResourceNames(kubectl: Kubectl, resourceType: string, namespace?: string): Promise<ResourceNameListResult> {
+    if (!isSafeResourceType(resourceType) || (namespace !== undefined && !isSafeNamespace(namespace))) {
+        return { succeeded: false, error: ['Invalid Kubernetes resource type or namespace.'] };
+    }
+    const listed = await kubectl.invokeCommandArgs([
+        'get', resourceType, '-o', 'name', ...(namespace ? ['--namespace', namespace] : [])
+    ]);
+    if (ExecResult.failed(listed)) {
+        return { succeeded: false, error: [ExecResult.failureMessage(listed, {})], execFailure: listed };
+    }
+    const names: string[] = [];
+    for (const line of listed.stdout.split(/\r?\n/).map((value) => value.trim()).filter((value) => value.length > 0)) {
+        const separator = line.indexOf('/');
+        if (separator <= 0 || separator !== line.lastIndexOf('/')) {
+            return { succeeded: false, error: ['The Kubernetes endpoint returned an invalid resource name.'] };
+        }
+        const prefix = line.substring(0, separator);
+        const name = line.substring(separator + 1);
+        if (!isSafeResourceType(prefix) || !isSafeResourceName(name)) {
+            return { succeeded: false, error: ['The Kubernetes endpoint returned an invalid resource name.'] };
+        }
+        names.push(name);
+    }
+    return { succeeded: true, result: names };
+}
+
 export function normaliseResourceTarget(value: string, allowKindOnly: boolean): string | undefined {
     const trimmed = value.trim();
     if (isSafeResourceTarget(trimmed) || (allowKindOnly && isSafeResourceType(trimmed))) {
@@ -72,6 +100,20 @@ export function normaliseResourceTarget(value: string, allowKindOnly: boolean): 
         return `${parts[0]}/${parts[1]}`;
     }
     return undefined;
+}
+
+export function normaliseResourceReadTarget(value: string, allowKindOnly: boolean): string | undefined {
+    const trimmed = value.trim();
+    const slashParts = trimmed.split('/');
+    if (slashParts.length === 2) {
+        return normaliseResourceTarget(`${slashParts[0].toLowerCase()}/${slashParts[1]}`, false);
+    }
+    const spaceParts = trimmed.split(/\s+/);
+    if (spaceParts.length === 2) {
+        return normaliseResourceTarget(`${spaceParts[0].toLowerCase()} ${spaceParts[1]}`, false);
+    }
+    const kind = trimmed.toLowerCase();
+    return allowKindOnly && isSafeResourceType(kind) ? kind : undefined;
 }
 
 export function isSafeResourceType(value: string): boolean {
