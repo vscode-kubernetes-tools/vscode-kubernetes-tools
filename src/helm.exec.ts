@@ -4,11 +4,24 @@ import * as tmp from 'tmp';
 import * as vscode from 'vscode';
 import * as YAML from 'yamljs';
 import { Context, ExecResult, ExternalBinary, invokeForResult } from './binutilplusplus';
+import {
+    helmChartQuery,
+    helmDryRunArgs,
+    executeHelmCommand,
+    helmFetchArgs,
+    helmFileQuery,
+    helmInstallArgs,
+    helmPathForExecution,
+    HelmSyntaxVersion,
+    isSafeHelmChartReference,
+    isSafeHelmChartVersion,
+} from './components/helm/commands';
 import { NODE_TYPES } from './components/clusterexplorer/explorer';
 import { ClusterExplorerNode } from './components/clusterexplorer/node';
 import { HelmHistoryNode } from './components/clusterexplorer/node.helmrelease';
 import { refreshExplorer } from './components/clusterprovider/common/explorer';
-import { getToolPath, suppressHelmNotFound, setSuppressHelmNotFound } from './components/config/config';
+import { getToolPath, getUseWsl, suppressHelmNotFound, setSuppressHelmNotFound } from './components/config/config';
+import { isSafeNamespace } from './components/kubectl/resource-commands';
 import { installDependencies } from './components/installer/installdependencies';
 import { Errorable, failed } from './errorable';
 import { fs as shellfs } from './fs';
@@ -21,10 +34,11 @@ import { currentNamespace } from './kubectlUtils';
 import { HELM_RESOURCE_AUTHORITY, K8S_RESOURCE_SCHEME } from './kuberesources.virtualfs';
 import { helm as logger } from './logger';
 import { parseLineOutput } from './outputUtils';
-import { ExecCallback, shell as sh, ShellResult } from './shell';
+import { ExecCallback, monitorForAuthPrompt, shell as sh, ShellResult } from './shell';
 import { openHelmGeneratedValuesFile, preview } from './utils/preview';
 import * as fs from './wsl-fs';
-import * as shell from './shell';
+
+export { HelmSyntaxVersion } from './components/helm/commands';
 
 export interface PickChartUIOptions {
     readonly warnIfNoCharts: boolean;
@@ -63,8 +77,8 @@ function helmReleaseFromJSON(json: any): HelmRelease {
 
 export async function helmVersion() {
     const syntaxVersion = await helmSyntaxVersion();
-    const versionArgs = (syntaxVersion === HelmSyntaxVersion.V3 || syntaxVersion === HelmSyntaxVersion.V4) ? '' : '-c';
-    const sr = await helmExecAsync(`version ${versionArgs}`);
+    const args = syntaxVersion === HelmSyntaxVersion.V3 || syntaxVersion === HelmSyntaxVersion.V4 ? ['version'] : ['version', '-c'];
+    const sr = await helmExecArgsAsync(args);
     if (!sr) {
         vscode.window.showErrorMessage('Failed to run Helm');
         return;
@@ -76,18 +90,11 @@ export async function helmVersion() {
     vscode.window.showInformationMessage(sr.stdout);
 }
 
-export enum HelmSyntaxVersion {
-    Unknown = 1,
-    V2 = 2,
-    V3 = 3,
-    V4 = 4,
-}
-
 let cachedVersion: HelmSyntaxVersion | undefined = undefined;
 
 export async function helmSyntaxVersion(): Promise<HelmSyntaxVersion> {
     if (cachedVersion === undefined) {
-        const srHelm2 = await helmExecAsync(`version --short -c`);
+        const srHelm2 = await helmExecArgsAsync(['version', '--short', '-c']);
         if (!srHelm2) {
             // failed to run Helm; do not cache result
             return HelmSyntaxVersion.Unknown;
@@ -96,7 +103,7 @@ export async function helmSyntaxVersion(): Promise<HelmSyntaxVersion> {
         if (srHelm2.code === 0 && srHelm2.stdout.indexOf('v2') >= 0) {
             cachedVersion = HelmSyntaxVersion.V2;
         } else {
-            const srHelm3 = await helmExecAsync(`version --short`);
+            const srHelm3 = await helmExecArgsAsync(['version', '--short']);
             if (srHelm3 && srHelm3.code === 0) {
                 if (srHelm3.stdout.indexOf('v4') >= 0) {
                     cachedVersion = HelmSyntaxVersion.V4;
@@ -118,14 +125,16 @@ export async function helmSyntaxVersion(): Promise<HelmSyntaxVersion> {
 // runs 'helm template' on it. If multiples are found, it prompts the user to select one.
 export function helmTemplate() {
     pickChart((path) => {
-        helmExec(`template "${path}"`, (code, out, err) => {
-            if (code !== 0) {
-                vscode.window.showErrorMessage(err);
-                return;
-            }
-            vscode.window.showInformationMessage("Chart rendered successfully");
-            logger.logAndShow(out);
-        });
+        void withHelmPath(path, (executionPath) =>
+            helmExecArgs(['template', executionPath], (code, out, err) => {
+                if (code !== 0) {
+                    vscode.window.showErrorMessage(err);
+                    return;
+                }
+                vscode.window.showInformationMessage("Chart rendered successfully");
+                logger.logAndShow(out);
+            })
+        );
     });
 }
 
@@ -170,13 +179,15 @@ export function helmDepUp(arg: any /* Uri | TextDocument | undefined */) {
 
 function helmDepUpCore(path: string) {
     logger.log("⎈⎈⎈ Updating dependencies for " + path);
-    helmExec(`dep up "${path}"`, (code, out, err) => {
-        logger.log(out);
-        logger.log(err);
-        if (code !== 0) {
-            logger.log("⎈⎈⎈ UPDATE FAILED");
-        }
-    });
+    void withHelmPath(path, (executionPath) =>
+        helmExecArgs(['dep', 'up', executionPath], (code, out, err) => {
+            logger.log(out);
+            logger.log(err);
+            if (code !== 0) {
+                logger.log("⎈⎈⎈ UPDATE FAILED");
+            }
+        })
+    );
 }
 
 export async function helmCreate(): Promise<void> {
@@ -230,7 +241,13 @@ export async function helmCreateCore(prompt: string, sampleName: string): Promis
 
     const fullpath = filepath.join(folder.uri.fsPath, name);
 
-    const sr = await helmExecAsync(`create "${fullpath}"`);
+    let executionPath: string;
+    try {
+        executionPath = await helmPathForExecution(fullpath, getUseWsl());
+    } catch (err) {
+        return { succeeded: false, error: [String(err)] };
+    }
+    const sr = await helmExecArgsAsync(['create', executionPath]);
 
     if (!sr || sr.code !== 0) {
         return { succeeded: false, error: [ sr ? sr.stderr : "Unable to run Helm" ] };
@@ -243,13 +260,15 @@ export async function helmCreateCore(prompt: string, sampleName: string): Promis
 export function helmLint() {
     pickChart((path) => {
         logger.logAndShow("⎈⎈⎈ Linting " + path);
-        helmExec(`lint "${path}"`, (code, out, err) => {
-            logger.logAndShow(out);
-            logger.logAndShow(err);
-            if (code !== 0) {
-                logger.logAndShow("⎈⎈⎈ LINTING FAILED");
-            }
-        });
+        void withHelmPath(path, (executionPath) =>
+            helmExecArgs(['lint', executionPath], (code, out, err) => {
+                logger.logAndShow(out);
+                logger.logAndShow(err);
+                if (code !== 0) {
+                    logger.logAndShow("⎈⎈⎈ LINTING FAILED");
+                }
+            })
+        );
     });
 }
 
@@ -287,37 +306,63 @@ function helmInspect(arg: any, s: InspectionStrategy) {
 
     if (helmrepoexplorer.isHelmRepoChart(arg) || helmrepoexplorer.isHelmRepoChartVersion(arg)) {
         const id = arg.id;
+        const version = helmrepoexplorer.isHelmRepoChartVersion(arg) ? arg.version : undefined;
+        if (!isSafeHelmChartReference(id) || (version !== undefined && !isSafeHelmChartVersion(version))) {
+            vscode.window.showWarningMessage(`Invalid Helm chart identifier or version. Use Helm CLI to inspect this chart.`);
+            return;
+        }
+        const query = helmChartQuery(id, version);
         if (s.generateFile) {
-            const versionQuery = helmrepoexplorer.isHelmRepoChartVersion(arg) ? `&version=${arg.version}` : "";
-            let valuesFileName = `${id}-values.yaml`;
-            if (versionQuery !== "") {
-                valuesFileName = `${id}-${versionQuery.replace('&version=', "")}-values.yaml`;
-            }
-            const uri = vscode.Uri.parse(
-                `${s.inspectionScheme}://${helm.INSPECT_REPO_AUTHORITY}/${valuesFileName}?chart=${id}${versionQuery}`
-            );
+            const valuesFileName = helmDocumentName(`${id}${version ? `-${version}` : ''}-values.yaml`);
+            const uri = vscode.Uri.from({
+                scheme: s.inspectionScheme,
+                authority: helm.INSPECT_REPO_AUTHORITY,
+                path: `/${valuesFileName}`,
+                query,
+            });
             openHelmGeneratedValuesFile(uri);
         } else {
-             const versionQuery = helmrepoexplorer.isHelmRepoChartVersion(arg) ? `?version=${arg.version}` : "";
-             const uri = vscode.Uri.parse(`${s.inspectionScheme}://${helm.INSPECT_REPO_AUTHORITY}/${id}${versionQuery}`);
+            const uri = vscode.Uri.from({
+                scheme: s.inspectionScheme,
+                authority: helm.INSPECT_REPO_AUTHORITY,
+                path: `/${helmDocumentName(`${id}.html`)}`,
+                query,
+            });
             preview(uri, vscode.ViewColumn.Two, "Inspect");
         }
     } else {
         const u = arg as vscode.Uri;
-        const uri = vscode.Uri.parse(`${s.inspectionScheme}://${helm.INSPECT_FILE_AUTHORITY}/?${u.fsPath}`);
+        if (!u || u.scheme !== 'file') {
+            vscode.window.showWarningMessage('Helm chart must be on the filesystem.');
+            return;
+        }
+        const uri = vscode.Uri.from({
+            scheme: s.inspectionScheme,
+            authority: helm.INSPECT_FILE_AUTHORITY,
+            path: s.generateFile ? '/values.yaml' : '/chart.html',
+            query: helmFileQuery(u.fsPath),
+        });
         preview(uri, vscode.ViewColumn.Two, "Inspect");
     }
+}
+
+function helmDocumentName(value: string): string {
+    return value.replace(/[^A-Za-z0-9._-]/g, '-');
 }
 
 // helmDryRun runs a helm install with --dry-run and --debug set.
 export function helmDryRun() {
     pickChart(async (path) => {
         const syntaxVersion = await helmSyntaxVersion();
-        const generateNameArg = (syntaxVersion === HelmSyntaxVersion.V3 || syntaxVersion === HelmSyntaxVersion.V4) ? '--generate-name' : '';
-        // --dry-run is deprecated in Helm v4, use --dry-run=client instead
-        const dryRunArg = (syntaxVersion === HelmSyntaxVersion.V4) ? '--dry-run=client' : '--dry-run';
+        let executionPath: string;
+        try {
+            executionPath = await helmPathForExecution(path, getUseWsl());
+        } catch (err) {
+            await vscode.window.showErrorMessage(String(err));
+            return;
+        }
         logger.log("⎈⎈⎈ Installing (dry-run) " + path);
-        helmExec(`install ${dryRunArg} ${generateNameArg} --debug "${path}"`, (code, out, err) => {
+        helmExecArgs(helmDryRunArgs(syntaxVersion, executionPath), (code, out, err) => {
             logger.logAndShow(out);
             logger.logAndShow(err);
             if (code !== 0) {
@@ -440,13 +485,18 @@ export function helmPackage() {
                     return;
                 }
                 logger.log("⎈⎈⎈ Packaging " + path);
-                helmExec(`package "${path}" -d "${packagePath[0].fsPath}"`, (code, out, err) => {
-                    logger.log(out);
-                    logger.log(err);
-                    if (code !== 0) {
-                        vscode.window.showErrorMessage(err);
-                    }
-                });
+                void Promise.all([
+                    helmPathForExecution(path, getUseWsl()),
+                    helmPathForExecution(packagePath[0].fsPath, getUseWsl()),
+                ]).then(([chartPath, destinationPath]) =>
+                    helmExecArgs(['package', chartPath, '-d', destinationPath], (code, out, err) => {
+                        logger.log(out);
+                        logger.log(err);
+                        if (code !== 0) {
+                            vscode.window.showErrorMessage(err);
+                        }
+                    })
+                ).catch((err) => vscode.window.showErrorMessage(String(err)));
             }
             return;
         });
@@ -457,8 +507,9 @@ export async function helmFetch(helmObject: helmrepoexplorer.HelmObject | undefi
     if (!helmObject) {
         const id = await vscode.window.showInputBox({ prompt: "Chart to fetch", placeHolder: "stable/mychart" });
         if (id) {
-            helmFetchCore(id, undefined);
+            await helmFetchCore(id, undefined);
         }
+        return;
     }
     if (helmrepoexplorer.isHelmRepoChart(helmObject)) {
         await helmFetchCore(helmObject.id, undefined);
@@ -468,11 +519,11 @@ export async function helmFetch(helmObject: helmrepoexplorer.HelmObject | undefi
 }
 
 async function helmFetchCore(chartId: string, version: string | undefined): Promise<void> {
-    if (!shell.isSafe(chartId)) {
+    if (!isSafeHelmChartReference(chartId)) {
         vscode.window.showWarningMessage(`Unexpected characters in chart name ${chartId}. Use Helm CLI to fetch this chart.`);
         return;
     }
-    if (version && !shell.isSafe(version)) {
+    if (version && !isSafeHelmChartVersion(version)) {
         vscode.window.showWarningMessage(`Unexpected characters in chart version ${version}. Use Helm CLI to fetch this chart.`);
         return;
     }
@@ -483,10 +534,16 @@ async function helmFetchCore(chartId: string, version: string | undefined): Prom
     }
 
     const destinationDir = projectFolder.uri.fsPath;
-    const versionArg = version ? `--version ${version}` : '';
+    let executionDestination: string;
+    try {
+        executionDestination = await helmPathForExecution(destinationDir, getUseWsl());
+    } catch (err) {
+        await vscode.window.showErrorMessage(`Helm fetch failed: ${String(err)}`);
+        return;
+    }
 
     const sr = await host.longRunning(`Fetching ${chartId}...`, () =>
-        helmExecAsync(`fetch ${chartId} --untar ${versionArg} -d "${destinationDir}"`)
+        helmExecArgsAsync(helmFetchArgs(chartId, version, executionDestination, true))
     );
     if (!sr || sr.code !== 0) {
         await vscode.window.showErrorMessage(`Helm fetch failed: ${sr ? sr.stderr : "Unable to run Helm"}`);
@@ -498,7 +555,7 @@ async function helmFetchCore(chartId: string, version: string | undefined): Prom
     const chartPath = filepath.join(destinationDir, chartName);
 
     // Verify the expected path exists before offering quick-actions
-    if (!fs.existsSync(chartPath)) {
+    if (!shellfs.existsSync(chartPath)) {
         await vscode.window.showInformationMessage(`Fetched ${chartId}`);
         return;
     }
@@ -527,8 +584,9 @@ export async function helmInstall(kubectl: Kubectl, helmObject: helmrepoexplorer
     if (!helmObject) {
         const id = await vscode.window.showInputBox({ prompt: "Chart to install", placeHolder: "stable/mychart" });
         if (id) {
-            helmInstallCore(kubectl, id, undefined);
+            await helmInstallCore(kubectl, id, undefined);
         }
+        return;
     }
     if (helmrepoexplorer.isHelmRepoChart(helmObject)) {
         await helmInstallCore(kubectl, helmObject.id, undefined);
@@ -538,23 +596,24 @@ export async function helmInstall(kubectl: Kubectl, helmObject: helmrepoexplorer
 }
 
 async function helmInstallCore(kubectl: Kubectl, chartId: string, version: string | undefined): Promise<void> {
-    if (!shell.isSafe(chartId)) {
+    if (!isSafeHelmChartReference(chartId)) {
         vscode.window.showWarningMessage(`Unexpected characters in chart name ${chartId}. Use Helm CLI to install this chart.`);
         return;
     }
-    if (version && !shell.isSafe(version)) {
+    if (version && !isSafeHelmChartVersion(version)) {
         vscode.window.showWarningMessage(`Unexpected characters in chart version ${version}. Use Helm CLI to install this chart.`);
         return;
     }
 
     const syntaxVersion = await helmSyntaxVersion();
     const ns = await currentNamespace(kubectl);
-    const nsArg = ns ? `--namespace ${ns}` : '';
-    const versionArg = version ? `--version ${version}` : '';
-    const generateNameArg = (syntaxVersion === HelmSyntaxVersion.V3 || syntaxVersion === HelmSyntaxVersion.V4) ? '--generate-name' : '';
+    if (ns && !isSafeNamespace(ns)) {
+        await vscode.window.showErrorMessage('Helm install failed: invalid Kubernetes namespace.');
+        return;
+    }
     logger.log(`⎈⎈⎈ Installing ${chartId}...`);
     const sr = await host.longRunning(`Installing ${chartId}...`, () =>
-        helmExecAsync(`install ${chartId} ${versionArg} ${nsArg} ${generateNameArg}`)
+        helmExecArgsAsync(helmInstallArgs(syntaxVersion, chartId, version, ns || undefined))
     );
     if (!sr || sr.code !== 0) {
         const message = sr ? sr.stderr : "Unable to run Helm";
@@ -582,8 +641,9 @@ export async function helmDependencies(helmObject: helmrepoexplorer.HelmObject |
     if (!helmObject) {
         const id = await vscode.window.showInputBox({ prompt: "Chart to show dependencies for", placeHolder: "stable/mychart" });
         if (id) {
-            helmDependenciesLaunchViewer(id, undefined);
+            await helmDependenciesLaunchViewer(id, undefined);
         }
+        return;
     }
     if (helmrepoexplorer.isHelmRepoChart(helmObject)) {
         await helmDependenciesLaunchViewer(helmObject.id, undefined);
@@ -593,34 +653,54 @@ export async function helmDependencies(helmObject: helmrepoexplorer.HelmObject |
 }
 
 async function helmDependenciesLaunchViewer(chartId: string, version: string | undefined): Promise<void> {
-    if (!shell.isSafe(chartId)) {
+    if (!isSafeHelmChartReference(chartId)) {
         vscode.window.showWarningMessage(`Unexpected characters in chart name ${chartId}. Use Helm CLI to install this chart.`);
         return;
     }
-    if (version && !shell.isSafe(version)) {
+    if (version && !isSafeHelmChartVersion(version)) {
         vscode.window.showWarningMessage(`Unexpected characters in chart version ${version}. Use Helm CLI to install this chart.`);
         return;
     }
 
     // Boing it back through a HTML preview window
-    const versionQuery = version ? `?${version}` : '';
-    const uri = vscode.Uri.parse(`${helm.DEPENDENCIES_SCHEME}://${helm.DEPENDENCIES_REPO_AUTHORITY}/${chartId}${versionQuery}`);
+    const uri = vscode.Uri.from({
+        scheme: helm.DEPENDENCIES_SCHEME,
+        authority: helm.DEPENDENCIES_REPO_AUTHORITY,
+        path: '/dependencies.html',
+        query: helmChartQuery(chartId, version),
+    });
     await preview(uri, vscode.ViewColumn.Two, `${chartId} Dependencies`);
 }
 
 export async function helmDependenciesCore(chartId: string, version: string | undefined): Promise<Errorable<{ [key: string]: string }[]>> {
-    const tempDirObj = tmp.dirSync({ prefix: "vsk-fetchfordeps-", unsafeCleanup: true });
-    const versionArg = version ? `--version ${version}` : '';
-    const fsr = await helmExecAsync(`fetch ${chartId} ${versionArg} -d "${tempDirObj.name}"`);
-    if (!fsr || fsr.code !== 0) {
-        tempDirObj.removeCallback();
-        return { succeeded: false, error: [`Helm fetch failed: ${fsr ? fsr.stderr : "Unable to run Helm"}`] };
+    if (!isSafeHelmChartReference(chartId) || (version !== undefined && !isSafeHelmChartVersion(version))) {
+        return { succeeded: false, error: ['Invalid Helm chart identifier or version.'] };
     }
-
-    const tempDirFiles = sh.ls(tempDirObj.name);
-    const chartPath = filepath.join(tempDirObj.name, tempDirFiles[0]);  // should be the only thing in the directory
+    const tempDirObj = tmp.dirSync({ prefix: "vsk-fetchfordeps-", unsafeCleanup: true });
     try {
-        const dsr = await helmExecAsync(`dep list "${chartPath}"`);
+        let executionDestination: string;
+        try {
+            executionDestination = await helmPathForExecution(tempDirObj.name, getUseWsl());
+        } catch (err) {
+            return { succeeded: false, error: [String(err)] };
+        }
+        const fsr = await helmExecArgsAsync(helmFetchArgs(chartId, version, executionDestination, false));
+        if (!fsr || fsr.code !== 0) {
+            return { succeeded: false, error: [`Helm fetch failed: ${fsr ? fsr.stderr : "Unable to run Helm"}`] };
+        }
+
+        const tempDirFiles = shellfs.dirSync(tempDirObj.name);
+        if (tempDirFiles.length !== 1) {
+            return { succeeded: false, error: ['Helm fetch returned an unexpected chart archive.'] };
+        }
+        const chartPath = filepath.join(tempDirObj.name, tempDirFiles[0]);
+        let executionChartPath: string;
+        try {
+            executionChartPath = await helmPathForExecution(chartPath, getUseWsl());
+        } catch (err) {
+            return { succeeded: false, error: [String(err)] };
+        }
+        const dsr = await helmExecArgsAsync(['dep', 'list', executionChartPath]);
         if (!dsr || dsr.code !== 0) {
             return { succeeded: false, error: [`Helm dependency list failed: ${dsr ? dsr.stderr : "Unable to run Helm"}`] };
         }
@@ -631,8 +711,15 @@ export async function helmDependenciesCore(chartId: string, version: string | un
         const dependencies = parseLineOutput(lines, helm.HELM_OUTPUT_COLUMN_SEPARATOR);
         return { succeeded: true, result: dependencies };
     } finally {
-        fs.unlinkSync(chartPath);
         tempDirObj.removeCallback();
+    }
+}
+
+async function withHelmPath(path: string, action: (executionPath: string) => void): Promise<void> {
+    try {
+        action(await helmPathForExecution(path, getUseWsl()));
+    } catch (err) {
+        await vscode.window.showErrorMessage(String(err));
     }
 }
 
@@ -703,48 +790,38 @@ export function loadChartMetadata(chartDir: string): Chart {
 
 // Given a file, show any charts that this file belongs to.
 export function pickChartForFile(file: string, options: PickChartUIOptions, fn: (path: string) => void) {
-    findChartFiles().then((matches) => {
-        switch (matches.length) {
-            case 0:
-                if (options.warnIfNoCharts) {
-                    vscode.window.showErrorMessage("No charts found");
-                }
-                return;
-            case 1:
-                // Assume that if there is only one chart, that's the one to run.
-                const p = filepath.dirname(matches[0].fsPath);
-                fn(p);
-                return;
-            default:
-                const paths = Array.of<string>();
-
-                matches.forEach((item) => {
-                    const dirname = filepath.dirname(item.fsPath);
-                    const rel = filepath.relative(dirname, file);
-
-                    // If the present file is not in a subdirectory of the parent chart, skip the chart.
-                    if (rel.indexOf("..") >= 0) {
-                        return;
-                    }
-
-                    paths.push(dirname);
-                });
-
-                if (paths.length === 0) {
-                    if (options.warnIfNoCharts) {
-                        vscode.window.showErrorMessage("Chart not found for " + file);
-                    }
-                    return;
-                }
-
-                // For now, let's go with the top-most path (umbrella chart)
-                if (paths.length >= 1) {
-                    fn(paths[0]);
-                    return;
-                }
-                return;
+    void pickChartForFileAsync(file, options).then((path) => {
+        if (path) {
+            fn(path);
         }
     });
+}
+
+export async function pickChartForFileAsync(file: string, options: PickChartUIOptions): Promise<string | undefined> {
+    const matches = await findChartFiles();
+    switch (matches.length) {
+        case 0:
+            if (options.warnIfNoCharts) {
+                vscode.window.showErrorMessage("No charts found");
+            }
+            return undefined;
+        case 1:
+            return filepath.dirname(matches[0].fsPath);
+        default:
+            const paths = matches.map((item) => filepath.dirname(item.fsPath))
+                .filter((dirname) => {
+                    const rel = filepath.relative(dirname, file);
+                    return rel.indexOf("..") < 0;
+                });
+
+            if (paths.length === 0) {
+                if (options.warnIfNoCharts) {
+                    vscode.window.showErrorMessage("Chart not found for " + file);
+                }
+                return undefined;
+            }
+            return paths[0];
+    }
 }
 
 function findChartFiles() {
@@ -757,6 +834,38 @@ function findChartFiles() {
 // fn should take the signature function(code, stdout, stderr)
 //
 // This will abort and send an error message if Helm is not installed.
+
+export function helmExecArgs(args: readonly string[], fn: ExecCallback): void {
+    if (!ensureHelm(EnsureMode.Alert)) {
+        return;
+    }
+    void executeHelmArgs(args).then((result) => {
+        if (result) {
+            fn(result.code, result.stdout, result.stderr);
+        } else {
+            console.log('exec failed: unable to run Helm');
+        }
+    }, (err) => {
+        console.log(`exec failed! (${err})`);
+    });
+}
+
+export async function helmExecArgsAsync(args: readonly string[]): Promise<ShellResult | undefined> {
+    if (!ensureHelm(EnsureMode.Alert)) {
+        return { code: -1, stdout: "", stderr: "" };
+    }
+    return await executeHelmArgs(args);
+}
+
+async function executeHelmArgs(args: readonly string[]): Promise<ShellResult | undefined> {
+    const executable = getToolPath(host, sh, 'helm') || 'helm';
+    try {
+        return await executeHelmCommand(executable, args, sh, getUseWsl(), undefined, monitorForAuthPrompt);
+    } catch (err) {
+        vscode.window.showErrorMessage(String(err));
+        return undefined;
+    }
+}
 
 export function helmExec(args: string, fn: ExecCallback) {
     if (!ensureHelm(EnsureMode.Alert)) {
