@@ -2,11 +2,12 @@ import * as vscode from "vscode";
 import { Kubectl } from "./kubectl";
 import { kubeChannel } from "./kubeChannel";
 import { sleep } from "./sleep";
-import { ObjectMeta, KubernetesCollection, DataResource, Namespace, Pod, KubernetesResource, KeyValuePairs } from './kuberesources.objectmodel';
+import { ObjectMeta, KubernetesCollection, DataResource, Namespace, Pod, KubernetesResource, isKubernetesCollection } from './kuberesources.objectmodel';
 import { failed, Errorable } from "./errorable";
 import { ExecResult } from "./binutilplusplus";
 import { shellMessage } from "./shell";
 import { ResourceKind } from "./kuberesources";
+import { isSafeNamespace, isSafeResourceType, listResourceNames, normaliseResourceReadTarget, normaliseResourceTarget } from './components/kubectl/resource-commands';
 import { fileCommandArgs, hostPathToWsl } from './components/kubectl/file-commands';
 import { getUseWsl } from './components/config/config';
 
@@ -53,7 +54,7 @@ export interface NamespaceInfo extends KubernetesObject {
 }
 
 export interface HasSelector extends KubernetesObject {
-    readonly selector: object;
+    readonly selector: object | undefined;
 }
 
 export interface PodInfo extends KubernetesObject {
@@ -175,8 +176,13 @@ export async function deleteCluster(kubectl: Kubectl, context: KubectlContext): 
 
 export async function getAsDataResource(resourceId: string, kind: string, kubectl: Kubectl): Promise<DataResource> {
     const currentNS = await currentNamespace(kubectl);
+    const target = normaliseResourceTarget(`${kind}/${resourceId}`, false);
 
-    const dataResource = await kubectl.asJson<DataResource>(`get ${kind} ${resourceId} -o json --namespace=${currentNS}`);
+    const dataResource = target && (currentNS === '' || isSafeNamespace(currentNS)) ?
+        await kubectl.asJsonArgs<DataResource>([
+            'get', target, '-o', 'json', ...(currentNS ? ['--namespace', currentNS] : [])
+        ]) :
+        { succeeded: false, error: ['Invalid Kubernetes resource target.'] } as Errorable<DataResource>;
     if (failed(dataResource)) {
         vscode.window.showErrorMessage(dataResource.error[0]);
         return {
@@ -193,40 +199,36 @@ export async function getAsDataResource(resourceId: string, kind: string, kubect
 
 export async function getAsDataResources(resource: string, kubectl: Kubectl): Promise<DataResource[]> {
     const currentNS = await currentNamespace(kubectl);
+    if (!isSafeResourceType(resource) || (currentNS !== '' && !isSafeNamespace(currentNS))) {
+        vscode.window.showErrorMessage('Invalid Kubernetes resource type or namespace.');
+        return [];
+    }
 
-    const resources = await kubectl.asLines(`get ${resource} --show-labels --namespace=${currentNS}`);
+    const resources = await listResourceNames(kubectl, resource, currentNS);
     if (failed(resources)) {
         vscode.window.showErrorMessage(resources.error[0]);
         return [];
     }
 
-    const resourcesAsDataResource: DataResource[] = resources.result.map((s) => {
-        const bits = s.split(/\s+/);
-        const labels = bits[bits.length -1];
-        const pairs = labels.split('&');
-        const labelsAsObj = pairs.reduce((obj: KeyValuePairs, data) => {
-            const [k, v] = data.split('=');
-            obj[k] = v;
-            return obj;
-        }, {});
-        return {
-            data: {},
-            kind: resource,
-            metadata: {
-                name: bits[0],
-                namespace: currentNS,
-                labels: labelsAsObj
-            }
-        };
-    });
-
-    return resourcesAsDataResource;
+    return resources.result.map((name) => ({
+        data: {},
+        kind: resource,
+        metadata: { name, namespace: currentNS },
+    }));
 }
 
 export async function getGlobalResources(kubectl: Kubectl, resource: string): Promise<KubernetesResource[]> {
-    const rsrcs = await kubectl.asJson<KubernetesCollection<KubernetesResource>>(`get ${resource} -o json`);
+    if (!isSafeResourceType(resource)) {
+        vscode.window.showErrorMessage('Invalid Kubernetes resource type.');
+        return [];
+    }
+    const rsrcs = await kubectl.asJsonArgs<KubernetesCollection<KubernetesResource>>(['get', resource, '-o', 'json']);
     if (failed(rsrcs)) {
         vscode.window.showErrorMessage(rsrcs.error[0]);
+        return [];
+    }
+    if (!isKubernetesCollection(rsrcs.result)) {
+        vscode.window.showErrorMessage('The Kubernetes endpoint returned invalid resource metadata.');
         return [];
     }
     return rsrcs.result.items.map((item) => {
@@ -238,14 +240,14 @@ export async function getGlobalResources(kubectl: Kubectl, resource: string): Pr
 }
 
 export async function getCRDTypesNumber(kubectl: Kubectl): Promise<Errorable<number>> {
-    const crdExecResult = await kubectl.invokeCommand("get crd -o name");
+    const crdExecResult = await kubectl.invokeCommandArgs(['get', 'crd', '-o', 'name']);
     if (ExecResult.failed(crdExecResult)) {
         return ExecResult.asErrorable<number>(crdExecResult, {});
     }
 
     return {
         succeeded: true,
-        result: crdExecResult.stdout.split('\n').length
+        result: crdExecResult.stdout.split(/\r?\n/).filter((line) => line.length > 0).length
     };
 }
 
@@ -255,30 +257,45 @@ export async function getCRDTypes(kubectl: Kubectl): Promise<ResourceKind[]> {
     // For this reason, we make the newline the *first* component of the range, and ensure the value
     // which might be null (shortNames[0] in this case) is right at the end.
     // This means we end up with a blank line at the start of the output, but it's otherwise consistent.
-    const crdExecResult = await kubectl.invokeCommand(`get crd -o jsonpath="{range .items[*]}{\\"\\n\\"}{.metadata.name}{\\" \\"}{.spec.names.kind}{\\" \\"}{.spec.names.singular}{\\" \\"}{.spec.names.plural}{\\" \\"}{.spec.names.shortNames[0]}{end}"`);
+    const jsonPath = '{range .items[*]}{"\\n"}{.metadata.name}{" "}{.spec.names.kind}{" "}{.spec.names.singular}{" "}{.spec.names.plural}{" "}{.spec.names.shortNames[0]}{end}';
+    const crdExecResult = await kubectl.invokeCommandArgs(['get', 'crd', '-o', `jsonpath=${jsonPath}`]);
     if (ExecResult.failed(crdExecResult)) {
         vscode.window.showErrorMessage(ExecResult.failureMessage(crdExecResult, {}));
         return [];
     }
 
-    const lines = crdExecResult.stdout.split('\n').filter((l) => l.length > 0);
-
-    return lines.map((line) => {
-        const parts = line.split(" ");
+    const lines = crdExecResult.stdout.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length > 0);
+    const resourceKinds: ResourceKind[] = [];
+    for (const line of lines) {
+        const parts = line.split(/\s+/);
+        if (parts.length !== 4 && parts.length !== 5) {
+            vscode.window.showErrorMessage('The Kubernetes endpoint returned invalid CRD metadata.');
+            return [];
+        }
         const metadataName = parts[0];
         const kind = parts[1];
         const singularName = parts[2];
         const pluralName = parts[3];
         const shortName = parts[4];
         const abbreviation = shortName || metadataName;
-        return new ResourceKind(singularName, pluralName, kind, abbreviation, pluralName);
-    });
+        if (![metadataName, singularName, pluralName, abbreviation].every(isSafeResourceType) ||
+            !isSafeResourceKind(kind)) {
+            vscode.window.showErrorMessage('The Kubernetes endpoint returned an invalid resource type.');
+            return [];
+        }
+        resourceKinds.push(new ResourceKind(singularName, pluralName, kind, abbreviation, pluralName));
+    }
+    return resourceKinds;
 }
 
 export async function getNamespaces(kubectl: Kubectl): Promise<NamespaceInfo[]> {
-    const ns = await kubectl.asJson<KubernetesCollection<Namespace>>("get namespaces -o json");
+    const ns = await kubectl.asJsonArgs<KubernetesCollection<Namespace>>(['get', 'namespaces', '-o', 'json']);
     if (failed(ns)) {
         vscode.window.showErrorMessage(ns.error[0]);
+        return [];
+    }
+    if (!isKubernetesCollection(ns.result)) {
+        vscode.window.showErrorMessage('The Kubernetes endpoint returned invalid namespace metadata.');
         return [];
     }
     const currentNS = await currentNamespace(kubectl);
@@ -293,17 +310,29 @@ export async function getNamespaces(kubectl: Kubectl): Promise<NamespaceInfo[]> 
 
 export async function getResourceWithSelector(resource: string, kubectl: Kubectl): Promise<HasSelector[]> {
     const currentNS = await currentNamespace(kubectl);
+    if (!isSafeResourceType(resource) || (currentNS !== '' && !isSafeNamespace(currentNS))) {
+        vscode.window.showErrorMessage('Invalid Kubernetes resource type or namespace.');
+        return [];
+    }
 
-    const shellResult = await kubectl.asJson<KubernetesCollection<any>>(`get ${resource} -o json --namespace=${currentNS}`);
+    const shellResult = await kubectl.asJsonArgs<KubernetesCollection<any>>([
+        'get', resource, '-o', 'json', ...(currentNS ? ['--namespace', currentNS] : [])
+    ]);
     if (failed(shellResult)) {
         vscode.window.showErrorMessage(shellResult.error[0]);
+        return [];
+    }
+    if (!isKubernetesCollection<any>(shellResult.result) ||
+        shellResult.result.items.some((item) =>
+            !item.spec || (item.spec.selector !== undefined && item.spec.selector !== null && typeof item.spec.selector !== 'object'))) {
+        vscode.window.showErrorMessage('The Kubernetes endpoint returned invalid resource metadata.');
         return [];
     }
     return shellResult.result.items.map((item) => {
         return {
             name: item.metadata.name,
             metadata: item.metadata,
-            selector: item.spec.selector
+            selector: item.spec.selector || undefined
         };
     });
 }
@@ -371,14 +400,25 @@ export async function currentNamespaceArg(kubectl: Kubectl): Promise<string> {
 export const onDidChangeNamespaceEmitter = new vscode.EventEmitter<string>();
 
 export async function switchNamespace(kubectl: Kubectl, namespace: string): Promise<boolean> {
-    const er = await kubectl.invokeCommand("config current-context");
+    if (!isSafeNamespace(namespace)) {
+        vscode.window.showErrorMessage('Invalid Kubernetes namespace.');
+        return false;
+    }
+    const er = await kubectl.invokeCommandArgs(['config', 'current-context']);
     if (ExecResult.failed(er)) {
         kubeChannel.showOutput(ExecResult.failureMessage(er, { whatFailed: 'Cannot get the current context' }), `Switch namespace ${namespace}`);
         vscode.window.showErrorMessage("Switch namespace failed. See Output window for more details.");
         return false;
     }
-    const updateResult = await kubectl.invokeCommandWithFeedback(`config set-context "${er.stdout.trim()}" --namespace="${namespace}"`,
-        "Switching namespace...");
+    const context = er.stdout.trim();
+    if (context.length === 0 || /[\u0000-\u001f\u007f-\u009f]/.test(context)) {
+        vscode.window.showErrorMessage('Switch namespace failed. The current context is invalid.');
+        return false;
+    }
+    const updateResult = await kubectl.invokeCommandArgsWithFeedback(
+        ['config', 'set-context', '--namespace', namespace, '--', context],
+        "Switching namespace..."
+    );
     if (ExecResult.failed(updateResult)) {
         kubeChannel.showOutput(ExecResult.failureMessage(updateResult, { whatFailed: `Failed to switch the namespace` }), `Switch namespace ${namespace}`);
 
@@ -484,8 +524,15 @@ function isTransientPodState(status: string): boolean {
  * @return the result as a json object, or undefined if errors happen.
  */
 export async function getResourceAsJson<T extends KubernetesResource | KubernetesCollection<KubernetesResource>>(kubectl: Kubectl, resourceId: string, resourceNamespace?: string, silent?: boolean): Promise<T | undefined> {
-    const nsarg = resourceNamespace ? `--namespace ${resourceNamespace}` : '';
-    const shellResult = await kubectl.asJson<T>(`get ${resourceId} ${nsarg} -o json`);
+    const target = normaliseResourceReadTarget(resourceId, true);
+    if (!target || (resourceNamespace !== undefined && resourceNamespace !== '' && !isSafeNamespace(resourceNamespace))) {
+        if (!silent) {
+            vscode.window.showErrorMessage('Invalid Kubernetes resource target.');
+        }
+        return undefined;
+    }
+    const args = ['get', target, ...(resourceNamespace ? ['--namespace', resourceNamespace] : []), '-o', 'json'];
+    const shellResult = await kubectl.asJsonArgs<T>(args);
     if (failed(shellResult)) {
         if (!silent) {
             vscode.window.showErrorMessage(shellResult.error[0]);
@@ -533,7 +580,7 @@ async function changeResourceFromUri(uri: vscode.Uri, kubectl: Kubectl, command:
 }
 
 export async function allResourceKinds(kubectl: Kubectl, verbs: string[]): Promise<Errorable<ResourceKind[]>> {
-    const arresult = await kubectl.readTable('api-resources -o wide');
+    const arresult = await kubectl.readTableArgs(['api-resources', '-o', 'wide']);
     if (ExecResult.failed(arresult)) {
         return { succeeded: false, error: [ExecResult.failureMessage(arresult, {})] };
     }
@@ -542,17 +589,24 @@ export async function allResourceKinds(kubectl: Kubectl, verbs: string[]): Promi
                                          .map((r) =>
                                             new ResourceKind(r.name, r.name, r.kind, r.name));
 
+    if (resourceKinds.some((resourceKind) => !isSafeResourceType(resourceKind.abbreviation))) {
+        return { succeeded: false, error: ['The Kubernetes endpoint returned an invalid resource type.'] };
+    }
+
     return { succeeded: true, result: resourceKinds };
 }
 
 export async function getResourceVersion(kubectl: Kubectl, resource: string): Promise<string | undefined> {
-    const documentation = await kubectl.asLines(` explain ${resource}`);
-    if (failed(documentation)) {
+    if (!isSafeResourceType(resource)) {
+        return undefined;
+    }
+    const documentation = await kubectl.invokeCommandArgs(['explain', resource]);
+    if (ExecResult.failed(documentation)) {
         return undefined;
     }
 
     const rgx = new RegExp('(?<=VERSION:\\s*)(\\S)+.*');
-    for (const line of documentation.result) {
+    for (const line of documentation.stdout.split(/\r?\n/)) {
         const match = line.match(rgx);
         if (match) {
             return match[0];
@@ -560,4 +614,9 @@ export async function getResourceVersion(kubectl: Kubectl, resource: string): Pr
     }
 
     return undefined;
+}
+
+function isSafeResourceKind(value: string): boolean {
+    return value.length > 0 && value.length <= 63 &&
+        /^[A-Za-z](?:[-A-Za-z0-9]*[A-Za-z0-9])?$/.test(value);
 }

@@ -3,10 +3,29 @@ import { Errorable, failed } from "../../errorable";
 import { Kubectl } from "../../kubectl";
 import { proxy } from "../kubectl/proxy";
 import { fs } from '../../fs';
-import * as kubectlUtils from '../../kubectlUtils';
+import { isSafeResourceType } from '../kubectl/resource-commands';
+import { KubernetesResource } from '../../kuberesources.objectmodel';
 import { ExecResult } from '../../binutilplusplus';
 
 export type Swagger = any;
+
+interface CustomResourceDefinition extends KubernetesResource {
+    readonly spec: {
+        readonly group: string;
+        readonly names: {
+            readonly plural: string;
+            readonly singular: string;
+        };
+        readonly versions?: {
+            readonly name: string;
+            readonly schema?: {
+                readonly openAPIV3Schema?: {
+                    readonly properties?: object;
+                };
+            };
+        }[];
+    };
+}
 
 export async function getClusterSwagger(kubectl: Kubectl): Promise<Errorable<Swagger>> {
     const proxyResult = await proxy(kubectl, 'random');
@@ -38,33 +57,41 @@ export async function getClusterSwagger(kubectl: Kubectl): Promise<Errorable<Swa
 }
 
 export async function getCrdSchemas(kubectl: Kubectl): Promise<{[key: string]: object | undefined} | undefined> {
-    const er = await kubectl.invokeCommand(`get crd -o jsonpath="{range .items[*].spec}[{.group}, {.names.plural}, {.names.singular}, {range .versions[?(.schema.openAPIV3Schema.properties)]}{.name}{\\" \\"}{end}]{end}"`);
-
-    if (ExecResult.failed(er)) {
-        kubectl.reportFailure(er, { whatFailed: 'Failed to get crds' });
+    const jsonPath = '{range .items[*]}{"\\n"}{.spec.group}{"\\t"}{.spec.names.plural}{"\\t"}{.spec.names.singular}{"\\t"}{range .spec.versions[?(@.schema.openAPIV3Schema.properties)]}{.name}{","}{end}{end}';
+    const result = await kubectl.invokeCommandArgs(['get', 'crd', '-o', `jsonpath=${jsonPath}`]);
+    if (ExecResult.failed(result)) {
+        await kubectl.reportFailure(result, { whatFailed: 'Failed to get crds' });
         return;
     }
-    try {
-        const crdSchemasMapping: { [key: string]: object } = {};
-        const crdInfos = er.stdout.substring(1).split('[');
-        for (const crdInfo of crdInfos) {
-            const crdInfoAsArray = crdInfo.split(',');
-            const group = crdInfoAsArray[0].trim();
-            const plural = crdInfoAsArray[1].trim();
-            const singular = crdInfoAsArray[2].trim();
-            const versions = crdInfoAsArray[3].trim() !== '' ? crdInfoAsArray[3].trim().split(' ') : [];
-            if (versions.length > 0) {
-                const crd =  await kubectlUtils.getResourceAsJson<any>(kubectl, `crd ${plural}.${group}`, '', true);
-                if (!crd) {
-                    continue;
-                }
-                for (const version of versions) {
-                    const versionObject = crd.spec.versions ? crd.spec.versions.filter((v: { name: string }) => v.name === version) : [];
-                    crdSchemasMapping[`${group}/${version}@${singular}`] = versionObject.length > 0 ? versionObject[0].schema.openAPIV3Schema.properties : undefined;
-                }
+    const crdSchemasMapping: { [key: string]: object } = {};
+    for (const line of result.stdout.split(/\r?\n/).filter((value) => value.length > 0)) {
+        const fields = line.split('\t');
+        if (fields.length !== 4) {
+            continue;
+        }
+        const [group, plural, singular, versionList] = fields;
+        const crdName = `${plural}.${group}`;
+        if (!isSafeResourceType(plural) || !isSafeResourceType(singular) || !isSafeResourceType(crdName)) {
+            continue;
+        }
+        const versions = versionList.split(',').filter((version) => version.length > 0 && isSafeResourceType(version));
+        if (versions.length === 0) {
+            continue;
+        }
+        const crd = await kubectl.asJsonArgs<CustomResourceDefinition>([
+            'get', `crd/${crdName}`, '-o', 'json'
+        ]);
+        if (failed(crd)) {
+            continue;
+        }
+        const versionObjects = Array.isArray(crd.result?.spec?.versions) ? crd.result.spec.versions : [];
+        for (const versionName of versions) {
+            const version = versionObjects.find((candidate) => candidate && candidate.name === versionName);
+            const properties = version?.schema?.openAPIV3Schema?.properties;
+            if (properties && typeof properties === 'object' && !Array.isArray(properties)) {
+                crdSchemasMapping[`${group}/${versionName}@${singular}`] = properties;
             }
         }
-        return crdSchemasMapping;
-    } catch (e) { }
-    return;
+    }
+    return crdSchemasMapping;
 }

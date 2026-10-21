@@ -65,11 +65,16 @@ export interface ContainerStatus {
 }
 
 function isObjectMeta(obj: any): obj is ObjectMeta {
-    return obj && obj.name;
+    return obj && typeof obj.name === 'string' &&
+        (obj.namespace === undefined || typeof obj.namespace === 'string');
 }
 
 export function isKubernetesResource(obj: any): obj is KubernetesResource {
-    return obj && obj.kind && isObjectMeta(obj.metadata);
+    return obj && typeof obj.kind === 'string' && isObjectMeta(obj.metadata);
+}
+
+export function isKubernetesCollection<T extends KubernetesResource>(obj: any): obj is KubernetesCollection<T> {
+    return obj && Array.isArray(obj.items) && obj.items.every(isKubernetesResource);
 }
 
 export function isPod(obj: any): obj is Pod {

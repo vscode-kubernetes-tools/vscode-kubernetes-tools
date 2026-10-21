@@ -1,7 +1,6 @@
 import { Kubectl } from '../../kubectl';
 import { Host } from '../../host';
 import * as kuberesources from '../../kuberesources';
-import { failed } from '../../errorable';
 import { ClusterExplorerNode, ClusterExplorerResourceFolderNode } from './node';
 import { MessageNode } from './node.message';
 import { FolderNode } from './node.folder';
@@ -9,6 +8,8 @@ import { ResourceNode } from './node.resource';
 import { getLister } from './resourceui';
 import { NODE_TYPES } from './explorer';
 import { getResourceVersion } from '../../kubectlUtils';
+import { ExecResult } from '../../binutilplusplus';
+import { isSafeNamespace, isSafeResourceName, isSafeResourceType } from '../kubectl/resource-commands';
 
 export class ResourceFolderNode extends FolderNode implements ClusterExplorerResourceFolderNode {
 
@@ -25,19 +26,29 @@ export class ResourceFolderNode extends FolderNode implements ClusterExplorerRes
         if (lister) {
             return await lister.list(kubectl, this.kind);
         }
-        const childrenLines = await kubectl.asLines(`get ${this.kind.abbreviation} -o custom-columns=NAME:.metadata.name,NAMESPACE:.metadata.namespace`);
-        if (failed(childrenLines)) {
-            host.showErrorMessage(childrenLines.error[0]);
+        if (!isSafeResourceType(this.kind.abbreviation)) {
+            host.showErrorMessage('The Kubernetes endpoint returned an invalid resource type.');
             return [new MessageNode("Error")];
         }
-        return childrenLines.result.map((line) => {
-            const bits = line.split(' ');
-            const metadata = {
-                name: bits[0],
-                namespace: bits[1]
-            };
-            return ResourceNode.create(this.kind, bits[0], metadata, undefined);
-        });
+        const children = await kubectl.invokeCommandArgs([
+            'get', this.kind.abbreviation, '-o', 'jsonpath={range .items[*]}{"\\n"}{.metadata.name}{"\\t"}{.metadata.namespace}{end}'
+        ]);
+        if (ExecResult.failed(children)) {
+            host.showErrorMessage(ExecResult.failureMessage(children, {}));
+            return [new MessageNode("Error")];
+        }
+        const nodes: ClusterExplorerNode[] = [];
+        for (const line of children.stdout.split(/\r?\n/).filter((value) => value.length > 0)) {
+            const fields = line.split('\t');
+            const name = fields[0];
+            const namespace = fields[1];
+            if (fields.length !== 2 || !isSafeResourceName(name) || (namespace.length > 0 && !isSafeNamespace(namespace))) {
+                host.showErrorMessage('The Kubernetes endpoint returned invalid resource metadata.');
+                return [new MessageNode("Error")];
+            }
+            nodes.push(ResourceNode.create(this.kind, name, { name, namespace }, undefined));
+        }
+        return nodes;
     }
 
     async apiURI(kubectl: Kubectl, namespace: string): Promise<string | undefined> {

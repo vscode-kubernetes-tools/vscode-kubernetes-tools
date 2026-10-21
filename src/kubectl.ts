@@ -28,6 +28,7 @@ export interface Kubectl {
     // TODO: analyse uses for these and convert these over
     asLines(command: string): Promise<Errorable<string[]>>;
     asJson<T>(command: string): Promise<Errorable<T>>;
+    asJsonArgs<T>(args: readonly string[]): Promise<Errorable<T>>;
 
     // silent (unless you explicitly ask it to be shouty)
     ensurePresent(options: EnsurePresentOptions): Promise<boolean>;
@@ -162,6 +163,13 @@ class KubectlImpl implements Kubectl {
     }
     asJson<T>(command: string): Promise<Errorable<T>> {
         return asJson(this.context, command);
+    }
+    async asJsonArgs<T>(args: readonly string[]): Promise<Errorable<T>> {
+        try {
+            return this.parseJSON<T>(await this.invokeCommandArgs(args));
+        } catch (_err) {
+            return { succeeded: false, error: ['Kubectl returned invalid JSON.'] };
+        }
     }
     private getSharedTerminal(): Terminal {
         if (!this.sharedTerminal) {

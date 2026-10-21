@@ -46,7 +46,7 @@ import * as telemetry from './telemetry-helper';
 import { dashboardKubernetes } from './components/kubectl/dashboard';
 import { portForwardKubernetes } from './components/kubectl/port-forward';
 import { logsKubernetes } from './components/kubectl/logs';
-import { deleteResourceWithConfirmation, isSafeNamespace, listNamespaceResources, normaliseResourceTarget } from './components/kubectl/resource-commands';
+import { deleteResourceWithConfirmation, isSafeNamespace, listNamespaceResources, listResourceNames, normaliseResourceReadTarget, normaliseResourceTarget } from './components/kubectl/resource-commands';
 import { hostPathToWsl, invokeFileCommandWithFeedback } from './components/kubectl/file-commands';
 import { Errorable, failed, succeeded } from './errorable';
 import { Git, gitRevisionFromImage } from './components/git/git';
@@ -836,8 +836,11 @@ async function loadKubernetes(explorerNode?: ClusterExplorerResourceNode) {
         loadKubernetesCore(explorerNode.namespace, explorerNode.kindName);
     } else {
         const value = await promptKindName(kuberesources.commonKinds, "load", { nameOptional: true });
-        if (value) {
-            loadKubernetesCore(null, value);
+        const target = value ? normaliseResourceReadTarget(value, true) : undefined;
+        if (target) {
+            loadKubernetesCore(null, target);
+        } else if (value) {
+            vscode.window.showErrorMessage('Invalid Kubernetes resource target.');
         }
     }
 }
@@ -1261,13 +1264,17 @@ interface QuickPickKindNameOptions {
 
 async function quickPickKindNameFromKind(resourceKind: kuberesources.ResourceKind, opts: QuickPickKindNameOptions): Promise<string | undefined> {
     const kind = resourceKind.abbreviation;
-    const er = await kubectl.invokeCommand("get " + kind);
-    if (ExecResult.failed(er)) {
-        await kubectl.reportFailure(er, {});
+    const listed = await listResourceNames(kubectl, kind);
+    if (failed(listed)) {
+        if (listed.execFailure) {
+            await kubectl.reportFailure(listed.execFailure, {});
+        } else {
+            vscode.window.showErrorMessage(listed.error[0]);
+        }
         return undefined;
     }
 
-    let names = parseNamesFromKubectlLines(er.stdout);
+    let names = listed.result;
     if (names.length === 0) {
         vscode.window.showInformationMessage(`No resources of type ${resourceKind.displayName} in cluster`);
         return;
@@ -1416,7 +1423,12 @@ async function describeKubernetes(explorerNode?: ClusterExplorerResourceNode) {
     if (!value) {
         return;
     }
-    const uri = kubefsUri(ns, value, '', 'describe');
+    const target = normaliseResourceReadTarget(value, true);
+    if (!target) {
+        vscode.window.showErrorMessage('Invalid Kubernetes resource target.');
+        return;
+    }
+    const uri = kubefsUri(ns, target, '', 'describe');
     vscode.workspace.openTextDocument(uri).then((doc) => {
         if (doc) {
             vscode.window.showTextDocument(doc);

@@ -23,7 +23,7 @@ export class ResourceNode extends ClusterExplorerNodeImpl implements ClusterExpl
         this.kindName = `${kind.abbreviation}/${name}`;
     }
     get namespace(): string {
-        return this.metadata.namespace;
+        return this.metadata.namespace || '';
     }
     uri(outputFormat: string): vscode.Uri {
         return kubefsUri(this.namespace, this.kindName, outputFormat);

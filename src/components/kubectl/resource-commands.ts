@@ -1,4 +1,4 @@
-import { ExecResult } from '../../binutilplusplus';
+import { ExecResult, FailedExecResult } from '../../binutilplusplus';
 import { Kubectl } from '../../kubectl';
 import { Errorable } from '../../errorable';
 
@@ -65,6 +65,32 @@ export async function listNamespaceResources(kubectl: Kubectl, namespace: string
     };
 }
 
+export type ResourceNameListResult = Errorable<string[]> & { readonly execFailure?: FailedExecResult };
+
+export async function listResourceNames(kubectl: Kubectl, resourceType: string, namespace?: string): Promise<ResourceNameListResult> {
+    if (!isSafeResourceType(resourceType) || (namespace !== undefined && namespace !== '' && !isSafeNamespace(namespace))) {
+        return { succeeded: false, error: ['Invalid Kubernetes resource type or namespace.'] };
+    }
+    const listed = await kubectl.readTableArgs([
+        'get', resourceType, '-o', 'wide', ...(namespace ? ['--namespace', namespace] : [])
+    ]);
+    if (ExecResult.failed(listed)) {
+        return { succeeded: false, error: [ExecResult.failureMessage(listed, {})], execFailure: listed };
+    }
+    const names: string[] = [];
+    for (const row of listed.result) {
+        if (typeof row.name !== 'string') {
+            return { succeeded: false, error: ['The Kubernetes endpoint returned an invalid resource name.'] };
+        }
+        const name = canonicalTableResourceName(resourceType, row.name);
+        if (!isSafeResourceName(name)) {
+            return { succeeded: false, error: ['The Kubernetes endpoint returned an invalid resource name.'] };
+        }
+        names.push(name);
+    }
+    return { succeeded: true, result: names };
+}
+
 export function normaliseResourceTarget(value: string, allowKindOnly: boolean): string | undefined {
     const trimmed = value.trim();
     const slashParts = trimmed.split('/');
@@ -90,6 +116,20 @@ export function normaliseResourceTarget(value: string, allowKindOnly: boolean): 
     return undefined;
 }
 
+export function normaliseResourceReadTarget(value: string, allowKindOnly: boolean): string | undefined {
+    const trimmed = value.trim();
+    const slashParts = trimmed.split('/');
+    if (slashParts.length === 2) {
+        return normaliseResourceTarget(`${slashParts[0].toLowerCase()}/${slashParts[1]}`, false);
+    }
+    const spaceParts = trimmed.split(/\s+/);
+    if (spaceParts.length === 2) {
+        return normaliseResourceTarget(`${spaceParts[0].toLowerCase()} ${spaceParts[1]}`, false);
+    }
+    const kind = trimmed.toLowerCase();
+    return allowKindOnly && isSafeResourceType(kind) ? kind : undefined;
+}
+
 export function isSafeResourceType(value: string): boolean {
     return value.length > 0 && value.length <= 253 &&
         /^[a-z](?:[-a-z0-9]*[a-z0-9])?(?:\.[a-z0-9](?:[-a-z0-9]*[a-z0-9])?)*$/.test(value);
@@ -110,4 +150,12 @@ export function isSafeNamespace(value: string): boolean {
 export function isSafeResourceTarget(value: string): boolean {
     const parts = value.split('/');
     return parts.length === 2 && isSafeResourceType(parts[0]) && isSafeResourceName(parts[1]);
+}
+
+function canonicalTableResourceName(resourceType: string, name: string): string {
+    const unqualifiedType = resourceType.split('.')[0];
+    const decoratesDefault = unqualifiedType === 'sc' ||
+        unqualifiedType === 'storageclass' || unqualifiedType === 'storageclasses' ||
+        unqualifiedType === 'ingressclass' || unqualifiedType === 'ingressclasses';
+    return decoratesDefault && name.endsWith(' (default)') ? name.slice(0, -' (default)'.length) : name;
 }
