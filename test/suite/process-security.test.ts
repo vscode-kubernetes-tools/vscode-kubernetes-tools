@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { executeCommand, executeCommandPiped, snapPipeInvocation } from '../../src/process';
+import { executeCommand, executeCommandPiped, snapPipeInvocation, spawnCommand } from '../../src/process';
 
 suite('Process security', () => {
     test('passes hostile values as exact arguments without a shell', async () => {
@@ -34,6 +34,22 @@ suite('Process security', () => {
         }, input);
 
         assert.strictEqual(result.stdout, input);
+    });
+
+    test('preserves an executable alias through argv0', async () => {
+        const child = spawnCommand({
+            executable: process.execPath,
+            argv0: '/external/bin/git',
+            args: ['-e', 'process.stdout.write(process.argv0)'],
+        });
+        const output: Buffer[] = [];
+        child.stdout?.on('data', (data: Buffer) => output.push(data));
+        await new Promise<void>((resolve, reject) => {
+            child.once('error', reject);
+            child.once('close', (code) => code === 0 ? resolve() : reject(new Error(`Exited with ${code}`)));
+        });
+
+        assert.strictEqual(Buffer.concat(output).toString('utf8'), '/external/bin/git');
     });
 
     test('does not report a signal-terminated pipeline source as successful', async () => {

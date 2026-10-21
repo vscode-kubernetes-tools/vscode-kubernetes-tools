@@ -1,3 +1,4 @@
+import * as fs from 'fs';
 import * as path from 'path';
 import { Shell } from '../../shell';
 import { Errorable } from '../../errorable';
@@ -30,39 +31,64 @@ function environmentPath(env: NodeJS.ProcessEnv): string | undefined {
     return pathName ? env[pathName] : undefined;
 }
 
-function normalisedPath(value: string): string {
-    const resolved = path.resolve(value);
-    return process.platform === 'win32' || process.platform === 'darwin' ? resolved.toLowerCase() : resolved;
+function canonicalPath(value: string): string | undefined {
+    try {
+        return path.resolve(fs.realpathSync.native(value));
+    } catch (_err) {
+        return undefined;
+    }
+}
+
+function pathComparisonKey(value: string): string {
+    return process.platform === 'win32' || process.platform === 'darwin' ? value.toLowerCase() : value;
 }
 
 function isWithinPath(parent: string, child: string): boolean {
-    const relative = path.relative(parent, child);
+    const relative = path.relative(pathComparisonKey(parent), pathComparisonKey(child));
     return relative === '' || (relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
 }
 
-function hostGitExecutable(shell: Shell, cwd: string | undefined, env: NodeJS.ProcessEnv): string | undefined {
-    const executable = shell.which(process.platform === 'win32' ? 'git.exe' : 'git')?.trim();
-    if (!executable || !path.isAbsolute(executable)) {
+interface HostGitExecutable {
+    readonly executable: string;
+    readonly argv0: string;
+}
+
+function hostGitExecutable(shell: Shell, cwd: string | undefined, env: NodeJS.ProcessEnv): HostGitExecutable | undefined {
+    const alias = shell.which(process.platform === 'win32' ? 'git.exe' : 'git')?.trim();
+    if (!alias || !path.isAbsolute(alias)) {
         return undefined;
     }
-    if (process.platform === 'win32' && path.extname(executable).toLowerCase() !== '.exe') {
+    if (process.platform === 'win32' && path.extname(alias).toLowerCase() !== '.exe') {
         return undefined;
     }
 
-    const executableDirectory = normalisedPath(path.dirname(executable));
+    const executableDirectory = canonicalPath(path.dirname(alias));
+    const candidate = canonicalPath(alias);
+    if (!executableDirectory || !candidate) {
+        return undefined;
+    }
     const trustedPathEntry = environmentPath(env)?.split(path.delimiter).some((entry) =>
-        entry.length > 0 && path.isAbsolute(entry) && path.dirname(entry) !== entry && normalisedPath(entry) === executableDirectory
+        entry.length > 0 && path.isAbsolute(entry) && path.dirname(entry) !== entry &&
+        canonicalPath(entry) === executableDirectory
     );
     if (!trustedPathEntry) {
         return undefined;
     }
 
-    const candidate = normalisedPath(executable);
-    const workingDirectories = [cwd, process.cwd()].filter((value): value is string =>
-        !!value && path.isAbsolute(value) && path.dirname(value) !== value
-    );
-    return workingDirectories.some((workingDirectory) => isWithinPath(normalisedPath(workingDirectory), candidate)) ?
-        undefined : executable;
+    if (!cwd || !path.isAbsolute(cwd)) {
+        return undefined;
+    }
+    const lexicalWorkspace = path.resolve(cwd);
+    const lexicalExecutable = path.resolve(alias);
+    if (isWithinPath(lexicalWorkspace, lexicalExecutable)) {
+        return undefined;
+    }
+    const workspace = canonicalPath(cwd);
+    if (!workspace || workspace === path.parse(workspace).root ||
+        isWithinPath(workspace, executableDirectory) || isWithinPath(workspace, candidate)) {
+        return undefined;
+    }
+    return { executable: candidate, argv0: alias };
 }
 
 export function gitRevisionFromImage(image: string): string | undefined {
@@ -86,7 +112,8 @@ export class Git {
         try {
             const { cwd, env } = this.shell.execOpts();
             const useWsl = getUseWsl();
-            const executable = useWsl ? wslExecutable() : hostGitExecutable(this.shell, cwd, env);
+            const hostExecutable = useWsl ? undefined : hostGitExecutable(this.shell, cwd, env);
+            const executable = useWsl ? wslExecutable() : hostExecutable?.executable;
             if (!executable) {
                 return undefined;
             }
@@ -96,6 +123,7 @@ export class Git {
                 cwd,
             } : {
                 executable,
+                argv0: hostExecutable!.argv0,
                 args,
                 cwd,
                 env,
@@ -112,7 +140,7 @@ export class Git {
         }
         const result = await this.git([
             '-c', 'core.warnAmbiguousRefs=true',
-            'rev-parse', '--verify', '--end-of-options', `${revision}^{commit}`
+            'rev-parse', '--verify', `${revision}^{commit}`
         ]);
         if (!result) {
             return { succeeded: false, error: ['Unable to find or run Git.'] };

@@ -8,7 +8,9 @@ import * as processApi from '../../../../src/process';
 import { Git, gitRevisionFromImage } from '../../../../src/components/git/git';
 import { shell, Shell } from '../../../../src/shell';
 
-const TEST_GIT_PATH = process.platform === 'win32' ? 'C:\\Program Files\\Git\\cmd\\git.exe' : '/usr/bin/git';
+const TEST_GIT_PATH = shell.which(process.platform === 'win32' ? 'git.exe' : 'git')?.trim() ||
+    (process.platform === 'win32' ? 'C:\\Program Files\\Git\\cmd\\git.exe' : '/usr/bin/git');
+const TEST_WORKSPACE = process.cwd();
 
 suite('Git sync security', () => {
     let sandbox: sinon.SinonSandbox;
@@ -49,7 +51,7 @@ suite('Git sync security', () => {
         executeCommand.onFirstCall().resolves({ code: 0, stdout: `${resolvedCommit}\n`, stderr: '' });
         executeCommand.onSecondCall().resolves({ code: 0, stdout: '2 days ago\n', stderr: '' });
         const env = { PATH: path.dirname(TEST_GIT_PATH) };
-        const git = new Git(fakeShell('/workspace with spaces', env));
+        const git = new Git(fakeShell(TEST_WORKSPACE, env));
 
         const resolved = await git.resolveCommit('release-1');
         if (!resolved.succeeded) {
@@ -60,18 +62,20 @@ suite('Git sync security', () => {
         assert.strictEqual(created, '2 days ago\n');
         sinon.assert.calledTwice(executeCommand);
         assert.deepStrictEqual(executeCommand.firstCall.args[0], {
-            executable: TEST_GIT_PATH,
+            executable: fs.realpathSync.native(TEST_GIT_PATH),
+            argv0: TEST_GIT_PATH,
             args: [
                 '-c', 'core.warnAmbiguousRefs=true',
-                'rev-parse', '--verify', '--end-of-options', 'release-1^{commit}'
+                'rev-parse', '--verify', 'release-1^{commit}'
             ],
-            cwd: '/workspace with spaces',
+            cwd: TEST_WORKSPACE,
             env,
         });
         assert.deepStrictEqual(executeCommand.secondCall.args[0], {
-            executable: TEST_GIT_PATH,
+            executable: fs.realpathSync.native(TEST_GIT_PATH),
+            argv0: TEST_GIT_PATH,
             args: ['log', '--pretty=%ar', '-n', '1', `${resolvedCommit}^{commit}`],
-            cwd: '/workspace with spaces',
+            cwd: TEST_WORKSPACE,
             env,
         });
     });
@@ -99,7 +103,7 @@ suite('Git sync security', () => {
                 executable: path.win32.join('C:\\Windows', 'System32', 'wsl.exe'),
                 args: [
                     '--exec', '/usr/bin/git', '-c', 'core.warnAmbiguousRefs=true',
-                    'rev-parse', '--verify', '--end-of-options', 'release-1^{commit}'
+                    'rev-parse', '--verify', 'release-1^{commit}'
                 ],
                 cwd: 'C:\\workspace with spaces',
             });
@@ -116,7 +120,7 @@ suite('Git sync security', () => {
     test('does not execute Git for an invalid revision', async () => {
         sandbox.stub(config, 'getUseWsl').returns(false);
         const executeCommand = sandbox.stub(processApi, 'executeCommand');
-        const git = new Git(fakeShell('/workspace', {}));
+        const git = new Git(fakeShell(TEST_WORKSPACE, {}));
 
         for (const revision of ['--help', 'main;$(marker)', 'main\n', '', 'a'.repeat(129)]) {
             const result = await git.resolveCommit(revision);
@@ -133,7 +137,7 @@ suite('Git sync security', () => {
             stdout: 'not-a-commit\n',
             stderr: '',
         });
-        const git = new Git(fakeShell('/workspace', {}));
+        const git = new Git(fakeShell(TEST_WORKSPACE, {}));
 
         const result = await git.resolveCommit('release-1');
 
@@ -148,7 +152,7 @@ suite('Git sync security', () => {
             stdout: '0123456789abcdef0123456789abcdef01234567\n',
             stderr: "warning: refname 'release-1' is ambiguous.\n",
         });
-        const git = new Git(fakeShell('/workspace', {}));
+        const git = new Git(fakeShell(TEST_WORKSPACE, {}));
 
         const result = await git.resolveCommit('release-1');
 
@@ -164,7 +168,7 @@ suite('Git sync security', () => {
         const executeCommand = sandbox.stub(processApi, 'executeCommand');
         executeCommand.onFirstCall().rejects(new Error('spawn failed'));
         executeCommand.onSecondCall().resolves({ code: 128, stdout: '', stderr: 'fatal: not a git repository\n' });
-        const git = new Git(fakeShell('/workspace', {}));
+        const git = new Git(fakeShell(TEST_WORKSPACE, {}));
 
         assert.deepStrictEqual(await git.resolveCommit('release-1'), {
             succeeded: false,
@@ -180,7 +184,7 @@ suite('Git sync security', () => {
     test('rejects nonstandard object ID lengths before checkout', async () => {
         sandbox.stub(config, 'getUseWsl').returns(false);
         const executeCommand = sandbox.stub(processApi, 'executeCommand');
-        const git = new Git(fakeShell('/workspace', {}));
+        const git = new Git(fakeShell(TEST_WORKSPACE, {}));
 
         for (const commit of ['a'.repeat(39), 'a'.repeat(41), 'a'.repeat(63), 'a'.repeat(65)]) {
             assert.deepStrictEqual(await git.checkout(commit), {
@@ -199,7 +203,7 @@ suite('Git sync security', () => {
             stdout: '',
             stderr: 'error: local changes would be overwritten\n',
         });
-        const git = new Git(fakeShell('/workspace', {}));
+        const git = new Git(fakeShell(TEST_WORKSPACE, {}));
 
         const result = await git.checkout('0123456789abcdef0123456789abcdef01234567');
 
@@ -213,44 +217,204 @@ suite('Git sync security', () => {
     test('does not launch an executable resolved from an empty workspace PATH entry', async () => {
         sandbox.stub(config, 'getUseWsl').returns(false);
         const executeCommand = sandbox.stub(processApi, 'executeCommand');
-        const workspace = process.platform === 'win32' ? 'C:\\workspace' : '/workspace';
-        const workspaceGit = path.join(workspace, process.platform === 'win32' ? 'git.exe' : 'git');
-        const git = new Git(fakeShell(workspace, { PATH: `${path.delimiter}${path.dirname(TEST_GIT_PATH)}` }, workspaceGit));
+        const directory = tmp.dirSync({ unsafeCleanup: true });
+        const workspaceGit = path.join(directory.name, process.platform === 'win32' ? 'git.exe' : 'git');
+        fs.writeFileSync(workspaceGit, 'fixture');
+        try {
+            const git = new Git(fakeShell(
+                directory.name,
+                { PATH: `${path.delimiter}${path.dirname(TEST_GIT_PATH)}` },
+                workspaceGit
+            ));
 
-        assert.deepStrictEqual(await git.resolveCommit('release-1'), {
-            succeeded: false,
-            error: ['Unable to find or run Git.'],
-        });
-        sinon.assert.notCalled(executeCommand);
+            assert.deepStrictEqual(await git.resolveCommit('release-1'), {
+                succeeded: false,
+                error: ['Unable to find or run Git.'],
+            });
+            sinon.assert.notCalled(executeCommand);
+        } finally {
+            directory.removeCallback();
+        }
     });
 
-    test('allows a trusted executable when the working directory is a filesystem root', async () => {
-        sandbox.stub(config, 'getUseWsl').returns(false);
-        sandbox.stub(process, 'cwd').returns(path.parse(TEST_GIT_PATH).root);
-        const resolvedCommit = '0123456789abcdef0123456789abcdef01234567';
-        const executeCommand = sandbox.stub(processApi, 'executeCommand').resolves({
-            code: 0,
-            stdout: `${resolvedCommit}\n`,
-            stderr: '',
-        });
-        const git = new Git(fakeShell(path.parse(TEST_GIT_PATH).root, { PATH: path.dirname(TEST_GIT_PATH) }));
-
-        assert.deepStrictEqual(await git.resolveCommit(resolvedCommit), { succeeded: true, result: resolvedCommit });
-        sinon.assert.calledOnce(executeCommand);
-    });
-
-    test('does not trust an executable directory at the filesystem root', async () => {
+    test('fails closed when the workspace is a filesystem root', async () => {
         sandbox.stub(config, 'getUseWsl').returns(false);
         const executeCommand = sandbox.stub(processApi, 'executeCommand');
-        const root = path.parse(TEST_GIT_PATH).root;
-        const rootGit = path.join(root, process.platform === 'win32' ? 'git.exe' : 'git');
-        const git = new Git(fakeShell(root, { PATH: root }, rootGit));
+        const git = new Git(fakeShell(path.parse(TEST_GIT_PATH).root, { PATH: path.dirname(TEST_GIT_PATH) }));
 
         assert.deepStrictEqual(await git.resolveCommit('release-1'), {
             succeeded: false,
             error: ['Unable to find or run Git.'],
         });
         sinon.assert.notCalled(executeCommand);
+    });
+
+    test('allows Git below the extension host launch directory when outside the workspace', async () => {
+        sandbox.stub(config, 'getUseWsl').returns(false);
+        const executeCommand = sandbox.stub(processApi, 'executeCommand').resolves({
+            code: 0,
+            stdout: '0123456789abcdef0123456789abcdef01234567\n',
+            stderr: '',
+        });
+        const directory = tmp.dirSync({ unsafeCleanup: true });
+        const launchDirectory = path.join(directory.name, 'home');
+        const gitDirectory = path.join(launchDirectory, '.local', 'bin');
+        const workspace = path.join(directory.name, 'workspace');
+        fs.mkdirSync(gitDirectory, { recursive: true });
+        fs.mkdirSync(workspace);
+        const gitPath = path.join(gitDirectory, process.platform === 'win32' ? 'git.exe' : 'git');
+        fs.writeFileSync(gitPath, 'fixture');
+        sandbox.stub(process, 'cwd').returns(launchDirectory);
+        try {
+            const git = new Git(fakeShell(workspace, { PATH: gitDirectory }, gitPath));
+
+            assert.deepStrictEqual(await git.resolveCommit('release-1'), {
+                succeeded: true,
+                result: '0123456789abcdef0123456789abcdef01234567',
+            });
+            sinon.assert.calledOnce(executeCommand);
+        } finally {
+            directory.removeCallback();
+        }
+    });
+
+    test('rejects Git reached through a symlinked workspace alias', async () => {
+        sandbox.stub(config, 'getUseWsl').returns(false);
+        const executeCommand = sandbox.stub(processApi, 'executeCommand');
+        const directory = tmp.dirSync({ unsafeCleanup: true });
+        const realWorkspace = path.join(directory.name, 'real-workspace');
+        const workspaceAlias = path.join(directory.name, 'workspace-link');
+        const gitDirectory = path.join(realWorkspace, 'bin');
+        fs.mkdirSync(gitDirectory, { recursive: true });
+        createDirectoryAlias(realWorkspace, workspaceAlias);
+        const gitPath = path.join(gitDirectory, process.platform === 'win32' ? 'git.exe' : 'git');
+        fs.writeFileSync(gitPath, 'fixture');
+        try {
+            const git = new Git(fakeShell(workspaceAlias, { PATH: gitDirectory }, gitPath));
+
+            assert.deepStrictEqual(await git.resolveCommit('release-1'), {
+                succeeded: false,
+                error: ['Unable to find or run Git.'],
+            });
+            sinon.assert.notCalled(executeCommand);
+        } finally {
+            directory.removeCallback();
+        }
+    });
+
+    test('rejects a PATH directory symlinked into the workspace', async () => {
+        sandbox.stub(config, 'getUseWsl').returns(false);
+        const executeCommand = sandbox.stub(processApi, 'executeCommand');
+        const directory = tmp.dirSync({ unsafeCleanup: true });
+        const workspace = path.join(directory.name, 'workspace');
+        const realGitDirectory = path.join(workspace, 'tools');
+        const pathAlias = path.join(directory.name, 'external-bin');
+        fs.mkdirSync(realGitDirectory, { recursive: true });
+        createDirectoryAlias(realGitDirectory, pathAlias);
+        const executableName = process.platform === 'win32' ? 'git.exe' : 'git';
+        const realGit = path.join(realGitDirectory, executableName);
+        const aliasedGit = path.join(pathAlias, executableName);
+        fs.writeFileSync(realGit, 'fixture');
+        try {
+            const git = new Git(fakeShell(workspace, { PATH: pathAlias }, aliasedGit));
+
+            assert.deepStrictEqual(await git.resolveCommit('release-1'), {
+                succeeded: false,
+                error: ['Unable to find or run Git.'],
+            });
+            sinon.assert.notCalled(executeCommand);
+        } finally {
+            directory.removeCallback();
+        }
+    });
+
+    test('rejects a workspace PATH alias whose executable points back outside', async function () {
+        if (process.platform === 'win32') {
+            this.skip();
+        }
+        sandbox.stub(config, 'getUseWsl').returns(false);
+        const executeCommand = sandbox.stub(processApi, 'executeCommand');
+        const directory = tmp.dirSync({ unsafeCleanup: true });
+        const workspace = path.join(directory.name, 'workspace');
+        const workspaceGitDirectory = path.join(workspace, 'tools');
+        const pathAlias = path.join(directory.name, 'external-bin');
+        fs.mkdirSync(workspaceGitDirectory, { recursive: true });
+        createDirectoryAlias(workspaceGitDirectory, pathAlias);
+        const executableName = 'git';
+        const workspaceGit = path.join(workspaceGitDirectory, executableName);
+        const aliasedGit = path.join(pathAlias, executableName);
+        createFileAlias(TEST_GIT_PATH, workspaceGit);
+        try {
+            const git = new Git(fakeShell(workspace, { PATH: pathAlias }, aliasedGit));
+
+            assert.deepStrictEqual(await git.resolveCommit('release-1'), {
+                succeeded: false,
+                error: ['Unable to find or run Git.'],
+            });
+            sinon.assert.notCalled(executeCommand);
+        } finally {
+            directory.removeCallback();
+        }
+    });
+
+    test('rejects a workspace-owned executable alias that points outside', async function () {
+        if (process.platform === 'win32') {
+            this.skip();
+        }
+        sandbox.stub(config, 'getUseWsl').returns(false);
+        const executeCommand = sandbox.stub(processApi, 'executeCommand');
+        const directory = tmp.dirSync({ unsafeCleanup: true });
+        const workspace = path.join(directory.name, 'workspace');
+        const workspaceBin = path.join(workspace, 'bin');
+        const trustedBin = path.join(directory.name, 'trusted-bin');
+        fs.mkdirSync(workspaceBin, { recursive: true });
+        fs.mkdirSync(trustedBin);
+        const trustedGit = path.join(trustedBin, 'git');
+        const workspaceGit = path.join(workspaceBin, 'git');
+        fs.writeFileSync(trustedGit, 'fixture');
+        createFileAlias(trustedGit, workspaceGit);
+        try {
+            const git = new Git(fakeShell(workspace, { PATH: workspaceBin }, workspaceGit));
+
+            assert.deepStrictEqual(await git.resolveCommit('release-1'), {
+                succeeded: false,
+                error: ['Unable to find or run Git.'],
+            });
+            sinon.assert.notCalled(executeCommand);
+        } finally {
+            directory.removeCallback();
+        }
+    });
+
+    test('launches the validated target with the original alias as argv0', async () => {
+        sandbox.stub(config, 'getUseWsl').returns(false);
+        const executeCommand = sandbox.stub(processApi, 'executeCommand').resolves({
+            code: 0,
+            stdout: '0123456789abcdef0123456789abcdef01234567\n',
+            stderr: '',
+        });
+        const directory = tmp.dirSync({ unsafeCleanup: true });
+        const workspace = path.join(directory.name, 'workspace');
+        const realGitDirectory = path.join(directory.name, 'real-bin');
+        const pathAlias = path.join(directory.name, 'alias-bin');
+        fs.mkdirSync(workspace);
+        fs.mkdirSync(realGitDirectory);
+        createDirectoryAlias(realGitDirectory, pathAlias);
+        const executableName = process.platform === 'win32' ? 'git.exe' : 'git';
+        fs.writeFileSync(path.join(realGitDirectory, executableName), 'fixture');
+        const aliasedGit = path.join(pathAlias, executableName);
+        try {
+            const git = new Git(fakeShell(workspace, { PATH: pathAlias }, aliasedGit));
+
+            assert.deepStrictEqual(await git.resolveCommit('release-1'), {
+                succeeded: true,
+                result: '0123456789abcdef0123456789abcdef01234567',
+            });
+            assert.strictEqual(executeCommand.firstCall.args[0].executable, path.join(realGitDirectory, executableName));
+            assert.strictEqual(executeCommand.firstCall.args[0].argv0, aliasedGit);
+        } finally {
+            directory.removeCallback();
+        }
     });
 
     test('checks out the resolved object when a branch is named after its hash', async () => {
@@ -309,6 +473,14 @@ function restoreEnvironmentVariable(name: string, value: string | undefined): vo
     } else {
         process.env[name] = value;
     }
+}
+
+function createDirectoryAlias(target: string, alias: string): void {
+    fs.symlinkSync(target, alias, process.platform === 'win32' ? 'junction' : 'dir');
+}
+
+function createFileAlias(target: string, alias: string): void {
+    fs.symlinkSync(target, alias, 'file');
 }
 
 function isolatedGitEnvironment(cwd: string): NodeJS.ProcessEnv {
