@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import * as sinon from 'sinon';
 import { host } from '../../../../src/host';
 import { Kubectl } from '../../../../src/kubectl';
-import { portForwardToResource, promptForPort } from '../../../../src/components/kubectl/port-forward';
+import { portForwardToResource, promptForPort, validPortForwardPodNames } from '../../../../src/components/kubectl/port-forward';
 
 suite('Port-forward security', () => {
     let sandbox: sinon.SinonSandbox;
@@ -64,5 +64,32 @@ suite('Port-forward security', () => {
         ]);
         assert.strictEqual(invokeArgsInNewTerminal.firstCall.args[1], 'kubectl port-forward');
         assert.strictEqual(invokeArgsInNewTerminal.firstCall.args[3].id, 'plug');
+    });
+
+    test('reports a failed port-forward terminal exit', async () => {
+        let onClose: ((terminal: any) => void) | undefined;
+        const invokeArgsInNewTerminal = sinon.stub().callsFake(async (_args, _name, callback) => {
+            onClose = callback;
+            return { dispose: () => {} };
+        });
+        const kubectl = { invokeArgsInNewTerminal } as unknown as Kubectl;
+        const showErrorMessage = sandbox.stub(host, 'showErrorMessage').resolves(undefined);
+        sandbox.stub(host, 'showInformationMessage').resolves(undefined);
+
+        await portForwardToResource(kubectl, 'pods', 'api-0', [{ localPort: 18080, targetPort: 8080 }], 'team-a');
+        onClose!({ exitStatus: { code: 1 } });
+
+        sinon.assert.calledOnceWithExactly(
+            showErrorMessage,
+            'kubectl port-forward failed with exit code 1. The selected local port may already be in use.'
+        );
+    });
+
+    test('skips invalid pod names while retaining valid choices', () => {
+        assert.deepStrictEqual(validPortForwardPodNames([
+            { metadata: { name: 'bad/name' } },
+            { metadata: { name: 'api-0' } },
+            { metadata: {} },
+        ] as any), ['api-0']);
     });
 });
