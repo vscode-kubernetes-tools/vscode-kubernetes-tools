@@ -410,7 +410,10 @@ suite('Git sync security', () => {
                 succeeded: true,
                 result: '0123456789abcdef0123456789abcdef01234567',
             });
-            assert.strictEqual(executeCommand.firstCall.args[0].executable, path.join(realGitDirectory, executableName));
+            assert.strictEqual(
+                executeCommand.firstCall.args[0].executable,
+                fs.realpathSync.native(path.join(realGitDirectory, executableName))
+            );
             assert.strictEqual(executeCommand.firstCall.args[0].argv0, aliasedGit);
         } finally {
             directory.removeCallback();
