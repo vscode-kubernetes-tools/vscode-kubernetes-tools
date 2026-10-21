@@ -47,6 +47,7 @@ import { dashboardKubernetes } from './components/kubectl/dashboard';
 import { portForwardKubernetes } from './components/kubectl/port-forward';
 import { logsKubernetes } from './components/kubectl/logs';
 import { deleteResourceWithConfirmation, isSafeNamespace, listNamespaceResources, normaliseResourceTarget } from './components/kubectl/resource-commands';
+import { hostPathToWsl, invokeFileCommandWithFeedback } from './components/kubectl/file-commands';
 import { Errorable, failed, succeeded } from './errorable';
 import { Git } from './components/git/git';
 import { DebugSession } from './debug/debugSession';
@@ -603,13 +604,10 @@ function maybeRunKubernetesCommandForActiveWindow(command: string, progressMessa
     }
 
     const namespace = config.getConfiguredNamespace();
-    if (namespace) {
-        command = `${command} --namespace ${namespace} `;
-    }
 
     const isKubernetesSyntax = (editor.document.languageId === 'json' || editor.document.languageId === 'yaml');
     const couldUpdateSchema = (command === 'create' || command === 'apply');  // This is a very crude test in case we modified a CRD
-    const resultHandler: (er: ExecResult) => void = isKubernetesSyntax ?
+    const resultHandler: (er: ExecResult) => void | Promise<void> = isKubernetesSyntax ?
         (er) => kubectl.reportResult(er, { updateSchemasOnSuccess: couldUpdateSchema }) :
         (er) => {
             if (er.resultKind === 'exec-succeeded') {
@@ -627,14 +625,14 @@ function maybeRunKubernetesCommandForActiveWindow(command: string, progressMessa
     if (editor.selection) {
         text = editor.document.getText(editor.selection);
         if (text.length > 0) {
-            kubectlViaTempFile(command, text, progressMessage, resultHandler);
+            void kubectlViaTempFile(command, text, namespace, progressMessage, resultHandler);
             return true;
         }
     }
     if (editor.document.isUntitled) {
         text = editor.document.getText();
         if (text.length > 0) {
-            kubectlViaTempFile(command, text, progressMessage, resultHandler);
+            void kubectlViaTempFile(command, text, namespace, progressMessage, resultHandler);
             return true;
         }
         return false;
@@ -652,7 +650,7 @@ function maybeRunKubernetesCommandForActiveWindow(command: string, progressMessa
                         vscode.window.showErrorMessage("Save failed.");
                         return;
                     }
-                    kubectlTextDocument(command, editor.document, progressMessage, resultHandler);
+                    void kubectlTextDocument(command, editor.document, namespace, progressMessage, resultHandler);
                 }, (err) => {
                     vscode.window.showErrorMessage(`Error saving: ${err}`);
                 });
@@ -660,39 +658,111 @@ function maybeRunKubernetesCommandForActiveWindow(command: string, progressMessa
         },
         (err) => vscode.window.showErrorMessage(`Error confirming save: ${err}`));
     } else {
-        kubectlTextDocument(command, editor.document, progressMessage, resultHandler);
+        void kubectlTextDocument(command, editor.document, namespace, progressMessage, resultHandler);
     }
     return true;
 }
 
-function convertWindowsToWSL(filePath: string): string {
-    const drive = filePath[0].toLowerCase();
-    const path = filePath.substring(2).replace(/\\/g, '/');
-    return `/mnt/${drive}/${path}`;
+async function convertWindowsToWSL(filePath: string): Promise<string> {
+    return hostPathToWsl(filePath);
 }
 
-function kubectlTextDocument(command: string, document: vscode.TextDocument, progressMessage: string, resultHandler: (er: ExecResult) => void): void {
-    if (document.uri.scheme === 'file') {
-        let fileName = document.fileName;
-        if (config.getUseWsl()) {
-            fileName = convertWindowsToWSL(fileName);
+export interface TextDocumentCommandDependencies {
+    readonly useWsl: () => boolean;
+    readonly convertPath: (filePath: string) => Promise<string>;
+    readonly invoke: typeof invokeFileCommandWithFeedback;
+    readonly showError: (message: string) => Thenable<string | undefined>;
+}
+
+const TEXT_DOCUMENT_COMMAND_DEPENDENCIES: TextDocumentCommandDependencies = {
+    useWsl: config.getUseWsl,
+    convertPath: convertWindowsToWSL,
+    invoke: invokeFileCommandWithFeedback,
+    showError: (message) => vscode.window.showErrorMessage(message),
+};
+
+export async function kubectlTextDocument(
+    command: string,
+    document: vscode.TextDocument,
+    namespace: string | undefined,
+    progressMessage: string,
+    resultHandler: (er: ExecResult) => void | Promise<void>,
+    dependencies: TextDocumentCommandDependencies = TEXT_DOCUMENT_COMMAND_DEPENDENCIES
+): Promise<void> {
+    try {
+        if (document.uri.scheme === 'file') {
+            let fileName = document.fileName;
+            if (dependencies.useWsl()) {
+                fileName = await dependencies.convertPath(fileName);
+            }
+            await resultHandler(await dependencies.invoke(kubectl, command as 'create' | 'apply', fileName, namespace, progressMessage));
+        } else {
+            await kubectlViaTempFile(command, document.getText(), namespace, progressMessage, resultHandler);
         }
-        const fullCommand = `${command} -f "${fileName}"`;
-        kubectl.invokeCommandWithFeedbackThen(fullCommand, progressMessage, resultHandler);
-    } else {
-        kubectlViaTempFile(command, document.getText(), progressMessage, resultHandler);
+    } catch (err) {
+        await dependencies.showError(`Unable to run kubectl for the active document: ${errorMessage(err)}`);
     }
 }
 
-function kubectlViaTempFile(command: string, fileContent: string, progressMessage: string, handler: (er: ExecResult) => void) {
-    const tmpobj = tmp.fileSync();
-    fs.writeFileSync(tmpobj.name, fileContent);
+async function kubectlViaTempFile(command: string, fileContent: string, namespace: string | undefined, progressMessage: string, handler: (er: ExecResult) => void | Promise<void>): Promise<void> {
+    await runKubectlViaTempFile(command, fileContent, namespace, progressMessage, handler, {
+        createTempFile: () => tmp.fileSync({ discardDescriptor: true }),
+        writeFile: (filePath, content) => fs.writeFileSync(filePath, content),
+        useWsl: config.getUseWsl,
+        convertPath: convertWindowsToWSL,
+        invoke: invokeFileCommandWithFeedback,
+        showError: (message) => vscode.window.showErrorMessage(message),
+    });
+}
 
-    let fileName = tmpobj.name;
-    if (config.getUseWsl()) {
-        fileName = convertWindowsToWSL(fileName);
+interface TempFileCommandDependencies {
+    readonly createTempFile: () => { readonly name: string; readonly removeCallback: () => void };
+    readonly writeFile: (filePath: string, content: string) => void;
+    readonly useWsl: () => boolean;
+    readonly convertPath: (filePath: string) => Promise<string>;
+    readonly invoke: typeof invokeFileCommandWithFeedback;
+    readonly showError: (message: string) => Thenable<string | undefined>;
+}
+
+export async function runKubectlViaTempFile(
+    command: string,
+    fileContent: string,
+    namespace: string | undefined,
+    progressMessage: string,
+    handler: (er: ExecResult) => void | Promise<void>,
+    dependencies: TempFileCommandDependencies
+): Promise<void> {
+    const tmpobj = dependencies.createTempFile();
+    let result: ExecResult | undefined;
+    let invocationError: string | undefined;
+    try {
+        dependencies.writeFile(tmpobj.name, fileContent);
+
+        let fileName = tmpobj.name;
+        if (dependencies.useWsl()) {
+            fileName = await dependencies.convertPath(fileName);
+        }
+        result = await dependencies.invoke(kubectl, command as 'create' | 'apply', fileName, namespace, progressMessage);
+    } catch (err) {
+        invocationError = errorMessage(err);
+    } finally {
+        tmpobj.removeCallback();
     }
-    kubectl.invokeCommandWithFeedbackThen(`${command} -f ${fileName}`, progressMessage, handler);
+    if (invocationError) {
+        await dependencies.showError(`Unable to run kubectl for the active document: ${invocationError}`);
+        return;
+    }
+    if (result) {
+        try {
+            await handler(result);
+        } catch (err) {
+            await dependencies.showError(`Unable to report the kubectl result: ${errorMessage(err)}`);
+        }
+    }
+}
+
+function errorMessage(err: unknown): string {
+    return err instanceof Error ? err.message : String(err);
 }
 
 /**

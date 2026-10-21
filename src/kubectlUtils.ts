@@ -7,6 +7,8 @@ import { failed, Errorable } from "./errorable";
 import { ExecResult } from "./binutilplusplus";
 import { shellMessage } from "./shell";
 import { ResourceKind } from "./kuberesources";
+import { fileCommandArgs, hostPathToWsl } from './components/kubectl/file-commands';
+import { getUseWsl } from './components/config/config';
 
 export interface KubectlContext {
     readonly clusterName: string;
@@ -513,12 +515,20 @@ async function changeResourceFromUri(uri: vscode.Uri, kubectl: Kubectl, command:
         vscode.window.showErrorMessage(`${uri.toString()} is not a file path.`);
         return;
     }
-    const path = vscode.workspace.asRelativePath(uri);
-    const result = await kubectl.invokeCommand(`${command} -f "${path}"`);
-    if (ExecResult.failed(result)) {
-        kubectl.reportFailure(result, { whatFailed: `Error ${verbParticiple} resource` });
-    } else {
-        vscode.window.showInformationMessage(`Resource ${path} ${verbPast}.`);
+    try {
+        let path = uri.fsPath;
+        if (getUseWsl()) {
+            path = await hostPathToWsl(path);
+        }
+        const result = await kubectl.invokeCommandArgs(fileCommandArgs(command as 'create' | 'apply' | 'delete', path));
+        if (ExecResult.failed(result)) {
+            await kubectl.reportFailure(result, { whatFailed: `Error ${verbParticiple} resource` });
+        } else {
+            vscode.window.showInformationMessage(`Resource ${path} ${verbPast}.`);
+        }
+    } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        vscode.window.showErrorMessage(`Error ${verbParticiple} resource: ${message}`);
     }
 }
 

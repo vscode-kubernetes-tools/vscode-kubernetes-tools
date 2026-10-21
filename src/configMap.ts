@@ -7,9 +7,9 @@ import { currentNamespace, DataHolder } from './kubectlUtils';
 import { deleteMessageItems, overwriteMessageItems } from './extension';
 import { KubernetesExplorer } from './components/clusterexplorer/explorer';
 import { allKinds } from './kuberesources';
-import { failed } from './errorable';
 import { ClusterExplorerConfigurationValueNode, ClusterExplorerResourceNode } from './components/clusterexplorer/node';
 import { ExecResult } from './binutilplusplus';
+import { getResourceFileData, replaceFromStdin } from './components/kubectl/file-commands';
 
 export const uriScheme: string = 'k8sviewfiledata';
 
@@ -66,14 +66,15 @@ export async function deleteKubernetesConfigFile(kubectl: Kubectl, obj: ClusterE
         return;
     }
     const currentNS = await currentNamespace(kubectl);
-    const json = await kubectl.asJson<any>(`get ${obj.parentKind.abbreviation} ${obj.parentName} --namespace=${currentNS} -o json`);
-    if (failed(json)) {
+    const getResult = await getResourceFileData(kubectl, obj.parentKind.abbreviation, obj.parentName, currentNS);
+    if (ExecResult.failed(getResult)) {
+        kubectl.reportFailure(getResult, { whatFailed: 'Failed to load resource data' });
         return;
     }
-    const dataHolder = json.result;
+    const dataHolder = JSON.parse(getResult.stdout);
     dataHolder.data = removeKey(dataHolder.data, obj.key);
     const out = JSON.stringify(dataHolder);
-    const er = await kubectl.invokeCommand(`replace -f - --namespace=${currentNS}`, out);
+    const er = await replaceFromStdin(kubectl, currentNS, out);
     if (ExecResult.failed(er)) {
         kubectl.reportFailure(er, { whatFailed: 'Failed to delete file' });
         return;
@@ -93,18 +94,19 @@ export async function addKubernetesConfigFile(kubectl: Kubectl, obj: ClusterExpl
     if (fileUris) {
         console.log(fileUris);
         const currentNS = await currentNamespace(kubectl);
-        const dataHolderJson = await kubectl.asJson<DataHolder>(`get ${obj.kind.abbreviation} ${obj.name} --namespace=${currentNS} -o json`);
-        if (failed(dataHolderJson)) {
+        const getResult = await getResourceFileData(kubectl, obj.kind.abbreviation, obj.name, currentNS);
+        if (ExecResult.failed(getResult)) {
+            kubectl.reportFailure(getResult, { whatFailed: `Failed to load resource ${obj.name}` });
             return;
         }
-        const dataHolder = dataHolderJson.result;
-        fileUris.map(async (uri) => {
+        const dataHolder = JSON.parse(getResult.stdout) as DataHolder;
+        for (const uri of fileUris) {
             const filePath = uri.fsPath;
             const fileName = basename(filePath);
             if (dataHolder.data[fileName]) {
                 const response = await vscode.window.showWarningMessage(`Are you sure you want to overwrite '${fileName}'? This can not be undone`, ...overwriteMessageItems);
                 if (!response || response.title !== overwriteMessageItems[0].title) {
-                    return;
+                    continue;
                 }
             }
             // TODO: I really don't like sync calls here...
@@ -114,9 +116,9 @@ export async function addKubernetesConfigFile(kubectl: Kubectl, obj: ClusterExpl
             } else {
                 dataHolder.data[fileName] = buff.toString('base64');
             }
-        });
+        }
         const out = JSON.stringify(dataHolder);
-        const er = await kubectl.invokeCommand(`replace -f - --namespace=${currentNS}`, out);
+        const er = await replaceFromStdin(kubectl, currentNS, out);
         if (ExecResult.failed(er)) {
             kubectl.reportFailure(er, { whatFailed: `Failed to add file(s) to resource ${obj.name}` });
             return;
