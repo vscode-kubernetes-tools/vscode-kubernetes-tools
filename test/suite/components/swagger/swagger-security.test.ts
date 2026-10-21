@@ -46,6 +46,29 @@ suite('Swagger CRD read security', () => {
         sinon.assert.calledOnce(invokeCommandArgs);
     });
 
+    test('accepts a CRD API group that begins with a digit', async () => {
+        const invokeCommandArgs = sinon.stub().resolves({
+            resultKind: 'exec-succeeded',
+            stdout: '\n123.example.io\twidgets\twidget\tv1,',
+        });
+        const asJsonArgs = sinon.stub().resolves({
+            succeeded: true,
+            result: {
+                spec: {
+                    versions: [{
+                        name: 'v1',
+                        schema: { openAPIV3Schema: { properties: { spec: {} } } },
+                    }],
+                },
+            },
+        });
+
+        const schemas = await getCrdSchemas(fakeKubectl(invokeCommandArgs, asJsonArgs));
+
+        assert.deepStrictEqual(schemas, { '123.example.io/v1@widget': { spec: {} } });
+        sinon.assert.calledOnceWithExactly(asJsonArgs, ['get', 'crd/widgets.123.example.io', '-o', 'json']);
+    });
+
     test('ignores malformed CRD version collections', async () => {
         const invokeCommandArgs = sinon.stub().resolves({
             resultKind: 'exec-succeeded',

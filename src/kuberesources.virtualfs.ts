@@ -16,6 +16,7 @@ export const K8S_RESOURCE_SCHEME_READONLY = "k8smsxro";
 export const KUBECTL_RESOURCE_AUTHORITY = "loadkubernetescore";
 export const KUBECTL_DESCRIBE_AUTHORITY = "kubernetesdescribe";
 export const HELM_RESOURCE_AUTHORITY = "helmget";
+const MAX_RESOURCE_QUERY_LENGTH = 8192;
 
 export function kubefsUri(namespace: string | null | undefined /* TODO: rationalise null and undefined */, value: string, outputFormat: string, action?: string): Uri {
     const docname = `${value.replace(/[^A-Za-z0-9._-]/g, '-')}${outputFormat !== '' ? '.' + outputFormat : ''}`;
@@ -75,7 +76,12 @@ export class KubernetesResourceVirtualFileSystemProvider implements FileSystemPr
     }
 
     async loadResource(uri: Uri): Promise<string> {
-        const query = querystring.parse(uri.query);
+        if (uri.query.length > MAX_RESOURCE_QUERY_LENGTH) {
+            const message = 'Invalid Kubernetes resource URI.';
+            this.host.showErrorMessage(message);
+            throw message;
+        }
+        const query = querystring.parse(uri.query, '&', '=', { maxKeys: 0 });
 
         const outputFormat = config.getOutputFormat();
         const value = singleQueryValue(query.value);

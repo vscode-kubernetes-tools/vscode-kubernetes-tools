@@ -7,7 +7,7 @@ import { failed, Errorable } from "./errorable";
 import { ExecResult } from "./binutilplusplus";
 import { shellMessage } from "./shell";
 import { ResourceKind } from "./kuberesources";
-import { isSafeNamespace, isSafeResourceType, listNamespaceResources, listResourceNames, normaliseResourceReadTarget, normaliseResourceTarget } from './components/kubectl/resource-commands';
+import { isSafeNamespace, isSafeResourceType, listResourceNames, normaliseResourceReadTarget, normaliseResourceTarget } from './components/kubectl/resource-commands';
 
 export interface KubectlContext {
     readonly clusterName: string;
@@ -176,8 +176,10 @@ export async function getAsDataResource(resourceId: string, kind: string, kubect
     const currentNS = await currentNamespace(kubectl);
     const target = normaliseResourceTarget(`${kind}/${resourceId}`, false);
 
-    const dataResource = target && isSafeNamespace(currentNS) ?
-        await kubectl.asJsonArgs<DataResource>(['get', target, '-o', 'json', '--namespace', currentNS]) :
+    const dataResource = target && (currentNS === '' || isSafeNamespace(currentNS)) ?
+        await kubectl.asJsonArgs<DataResource>([
+            'get', target, '-o', 'json', ...(currentNS ? ['--namespace', currentNS] : [])
+        ]) :
         { succeeded: false, error: ['Invalid Kubernetes resource target.'] } as Errorable<DataResource>;
     if (failed(dataResource)) {
         vscode.window.showErrorMessage(dataResource.error[0]);
@@ -195,7 +197,7 @@ export async function getAsDataResource(resourceId: string, kind: string, kubect
 
 export async function getAsDataResources(resource: string, kubectl: Kubectl): Promise<DataResource[]> {
     const currentNS = await currentNamespace(kubectl);
-    if (!isSafeResourceType(resource) || !isSafeNamespace(currentNS)) {
+    if (!isSafeResourceType(resource) || (currentNS !== '' && !isSafeNamespace(currentNS))) {
         vscode.window.showErrorMessage('Invalid Kubernetes resource type or namespace.');
         return [];
     }
@@ -275,7 +277,7 @@ export async function getCRDTypes(kubectl: Kubectl): Promise<ResourceKind[]> {
         const shortName = parts[4];
         const abbreviation = shortName || metadataName;
         if (![metadataName, singularName, pluralName, abbreviation].every(isSafeResourceType) ||
-            !/^[A-Za-z][A-Za-z0-9]{0,252}$/.test(kind)) {
+            !isSafeResourceKind(kind)) {
             vscode.window.showErrorMessage('The Kubernetes endpoint returned an invalid resource type.');
             return [];
         }
@@ -306,13 +308,13 @@ export async function getNamespaces(kubectl: Kubectl): Promise<NamespaceInfo[]> 
 
 export async function getResourceWithSelector(resource: string, kubectl: Kubectl): Promise<HasSelector[]> {
     const currentNS = await currentNamespace(kubectl);
-    if (!isSafeResourceType(resource) || !isSafeNamespace(currentNS)) {
+    if (!isSafeResourceType(resource) || (currentNS !== '' && !isSafeNamespace(currentNS))) {
         vscode.window.showErrorMessage('Invalid Kubernetes resource type or namespace.');
         return [];
     }
 
     const shellResult = await kubectl.asJsonArgs<KubernetesCollection<any>>([
-        'get', resource, '-o', 'json', '--namespace', currentNS
+        'get', resource, '-o', 'json', ...(currentNS ? ['--namespace', currentNS] : [])
     ]);
     if (failed(shellResult)) {
         vscode.window.showErrorMessage(shellResult.error[0]);
@@ -567,10 +569,6 @@ async function changeResourceFromUri(uri: vscode.Uri, kubectl: Kubectl, command:
     }
 }
 
-export async function namespaceResources(kubectl: Kubectl, ns: string): Promise<Errorable<string[]>> {
-    return await listNamespaceResources(kubectl, ns);
-}
-
 export async function allResourceKinds(kubectl: Kubectl, verbs: string[]): Promise<Errorable<ResourceKind[]>> {
     const arresult = await kubectl.readTableArgs(['api-resources', '-o', 'wide']);
     if (ExecResult.failed(arresult)) {
@@ -606,4 +604,9 @@ export async function getResourceVersion(kubectl: Kubectl, resource: string): Pr
     }
 
     return undefined;
+}
+
+function isSafeResourceKind(value: string): boolean {
+    return value.length > 0 && value.length <= 63 &&
+        /^[A-Za-z](?:[-A-Za-z0-9]*[A-Za-z0-9])?$/.test(value);
 }

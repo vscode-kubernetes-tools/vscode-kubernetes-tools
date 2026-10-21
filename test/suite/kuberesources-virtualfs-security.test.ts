@@ -98,6 +98,46 @@ suite('Virtual resource read security', () => {
         sinon.assert.notCalled(invokeCommandArgsWithFeedback);
         sinon.assert.calledOnceWithExactly(showErrorMessage, 'Invalid Kubernetes resource URI.');
     });
+
+    test('rejects duplicate fields beyond the default query parser limit', async () => {
+        sandbox.stub(config, 'getOutputFormat').returns('yaml');
+        const invokeCommandArgsWithFeedback = sinon.stub();
+        const showErrorMessage = sinon.stub().resolves(undefined);
+        const provider = new KubernetesResourceVirtualFileSystemProvider(
+            { invokeCommandArgsWithFeedback } as unknown as Kubectl,
+            fakeHost(showErrorMessage)
+        );
+        const fillers = Array.from({ length: 999 }, () => 'x=').join('&');
+        const uri = Uri.from({
+            scheme: K8S_RESOURCE_SCHEME,
+            authority: KUBECTL_RESOURCE_AUTHORITY,
+            path: '/pod.yaml',
+            query: `value=pods%2Fapi&${fillers}&value=pods%2Fother&ns=team-a`,
+        });
+
+        await assert.rejects(() => provider.loadResource(uri));
+        sinon.assert.notCalled(invokeCommandArgsWithFeedback);
+        sinon.assert.calledOnceWithExactly(showErrorMessage, 'Invalid Kubernetes resource URI.');
+    });
+
+    test('rejects oversized resource queries before parsing', async () => {
+        const invokeCommandArgsWithFeedback = sinon.stub();
+        const showErrorMessage = sinon.stub().resolves(undefined);
+        const provider = new KubernetesResourceVirtualFileSystemProvider(
+            { invokeCommandArgsWithFeedback } as unknown as Kubectl,
+            fakeHost(showErrorMessage)
+        );
+        const uri = Uri.from({
+            scheme: K8S_RESOURCE_SCHEME,
+            authority: KUBECTL_RESOURCE_AUTHORITY,
+            path: '/pod.yaml',
+            query: `value=pods%2Fapi&padding=${'x'.repeat(9000)}`,
+        });
+
+        await assert.rejects(() => provider.loadResource(uri));
+        sinon.assert.notCalled(invokeCommandArgsWithFeedback);
+        sinon.assert.calledOnceWithExactly(showErrorMessage, 'Invalid Kubernetes resource URI.');
+    });
 });
 
 function fakeHost(showErrorMessage: sinon.SinonStub = sinon.stub().resolves(undefined)): Host {

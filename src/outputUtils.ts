@@ -18,7 +18,10 @@ export function parseLineOutput(lineOutput: string[], columnSeparator: RegExp): 
         const lineInfoObject = Dictionary.of<string>();
         const bits = extractBits(line, posHeaders);
         bits.forEach((columnValue, index) => {
-            lineInfoObject[parsedHeaders[index].trim()] = columnValue.trim();
+            const key = parsedHeaders[index].trim();
+            if (!Object.prototype.hasOwnProperty.call(lineInfoObject, key)) {
+                lineInfoObject[key] = columnValue.trim();
+            }
         });
         return lineInfoObject;
     });

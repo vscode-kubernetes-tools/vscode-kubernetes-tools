@@ -68,24 +68,22 @@ export async function listNamespaceResources(kubectl: Kubectl, namespace: string
 export type ResourceNameListResult = Errorable<string[]> & { readonly execFailure?: FailedExecResult };
 
 export async function listResourceNames(kubectl: Kubectl, resourceType: string, namespace?: string): Promise<ResourceNameListResult> {
-    if (!isSafeResourceType(resourceType) || (namespace !== undefined && !isSafeNamespace(namespace))) {
+    if (!isSafeResourceType(resourceType) || (namespace !== undefined && namespace !== '' && !isSafeNamespace(namespace))) {
         return { succeeded: false, error: ['Invalid Kubernetes resource type or namespace.'] };
     }
-    const listed = await kubectl.invokeCommandArgs([
-        'get', resourceType, '-o', 'name', ...(namespace ? ['--namespace', namespace] : [])
+    const listed = await kubectl.readTableArgs([
+        'get', resourceType, '-o', 'wide', ...(namespace ? ['--namespace', namespace] : [])
     ]);
     if (ExecResult.failed(listed)) {
         return { succeeded: false, error: [ExecResult.failureMessage(listed, {})], execFailure: listed };
     }
     const names: string[] = [];
-    for (const line of listed.stdout.split(/\r?\n/).map((value) => value.trim()).filter((value) => value.length > 0)) {
-        const separator = line.indexOf('/');
-        if (separator <= 0 || separator !== line.lastIndexOf('/')) {
+    for (const row of listed.result) {
+        if (typeof row.name !== 'string') {
             return { succeeded: false, error: ['The Kubernetes endpoint returned an invalid resource name.'] };
         }
-        const prefix = line.substring(0, separator);
-        const name = line.substring(separator + 1);
-        if (!isSafeResourceType(prefix) || !isSafeResourceName(name)) {
+        const name = canonicalTableResourceName(resourceType, row.name);
+        if (!isSafeResourceName(name)) {
             return { succeeded: false, error: ['The Kubernetes endpoint returned an invalid resource name.'] };
         }
         names.push(name);
@@ -152,4 +150,12 @@ export function isSafeNamespace(value: string): boolean {
 export function isSafeResourceTarget(value: string): boolean {
     const parts = value.split('/');
     return parts.length === 2 && isSafeResourceType(parts[0]) && isSafeResourceName(parts[1]);
+}
+
+function canonicalTableResourceName(resourceType: string, name: string): string {
+    const unqualifiedType = resourceType.split('.')[0];
+    const decoratesDefault = unqualifiedType === 'sc' ||
+        unqualifiedType === 'storageclass' || unqualifiedType === 'storageclasses' ||
+        unqualifiedType === 'ingressclass' || unqualifiedType === 'ingressclasses';
+    return decoratesDefault && name.endsWith(' (default)') ? name.slice(0, -' (default)'.length) : name;
 }

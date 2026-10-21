@@ -3,7 +3,10 @@ import * as sinon from 'sinon';
 import * as vscode from 'vscode';
 import { Kubectl } from '../../src/kubectl';
 import { KubernetesResource } from '../../src/kuberesources.objectmodel';
+import { parseLineOutput } from '../../src/outputUtils';
 import {
+    getAsDataResource,
+    getAsDataResources,
     getCRDTypes,
     getCRDTypesNumber,
     getResourceAsJson,
@@ -39,29 +42,103 @@ suite('Kubectl read security', () => {
         sinon.assert.notCalled(asJsonArgs);
     });
 
-    test('lists names with argv and preserves opaque resource names', async () => {
-        const invokeCommandArgs = sinon.stub().resolves({
+    test('lists names through the server-side wide table and preserves opaque resource names', async () => {
+        const readTableArgs = sinon.stub().resolves({
             resultKind: 'exec-succeeded',
-            stdout: 'deployment.apps/api;$(marker)\r\n',
+            result: [{ name: 'api;$(marker)' }],
         });
-        const kubectl = { invokeCommandArgs } as unknown as Kubectl;
+        const kubectl = { readTableArgs } as unknown as Kubectl;
 
         const result = await listResourceNames(kubectl, 'deployments.apps');
 
         assert.deepStrictEqual(result, { succeeded: true, result: ['api;$(marker)'] });
-        sinon.assert.calledOnceWithExactly(invokeCommandArgs, ['get', 'deployments.apps', '-o', 'name']);
+        sinon.assert.calledOnceWithExactly(readTableArgs, ['get', 'deployments.apps', '-o', 'wide']);
     });
 
     test('rejects malformed resource-name rows', async () => {
-        const invokeCommandArgs = sinon.stub().resolves({
+        const readTableArgs = sinon.stub().resolves({
             resultKind: 'exec-succeeded',
-            stdout: 'missing-separator\n',
+            result: [{ namespace: 'team-a' }],
         });
-        const kubectl = { invokeCommandArgs } as unknown as Kubectl;
+        const kubectl = { readTableArgs } as unknown as Kubectl;
 
         assert.deepStrictEqual(await listResourceNames(kubectl, 'pods'), {
             succeeded: false,
             error: ['The Kubernetes endpoint returned an invalid resource name.'],
+        });
+    });
+
+    test('omits an empty namespace when listing resource names', async () => {
+        const readTableArgs = sinon.stub().resolves({
+            resultKind: 'exec-succeeded',
+            result: [{ name: 'api' }],
+        });
+        const kubectl = { readTableArgs } as unknown as Kubectl;
+
+        assert.deepStrictEqual(await listResourceNames(kubectl, 'pods', ''), {
+            succeeded: true,
+            result: ['api'],
+        });
+        sinon.assert.calledOnceWithExactly(readTableArgs, ['get', 'pods', '-o', 'wide']);
+    });
+
+    test('requests wide table output so Event rows include their names', async () => {
+        const readTableArgs = sinon.stub().resolves({
+            resultKind: 'exec-succeeded',
+            result: [{ name: 'api.1234', type: 'Normal', reason: 'Scheduled' }],
+        });
+        const kubectl = { readTableArgs } as unknown as Kubectl;
+
+        assert.deepStrictEqual(await listResourceNames(kubectl, 'events', 'team-a'), {
+            succeeded: true,
+            result: ['api.1234'],
+        });
+        sinon.assert.calledOnceWithExactly(readTableArgs, [
+            'get', 'events', '-o', 'wide', '--namespace', 'team-a'
+        ]);
+    });
+
+    test('keeps the canonical first name when a CRD repeats the table header', () => {
+        const rows = parseLineOutput([
+            'NAME         AGE   NAME',
+            'canonical    1d    display-name',
+        ], /\s\s+/g);
+
+        assert.deepStrictEqual(rows, [{ name: 'canonical', age: '1d' }]);
+    });
+
+    test('removes default-class table decoration from canonical names', async () => {
+        const readTableArgs = sinon.stub();
+        readTableArgs.onFirstCall().resolves({
+            resultKind: 'exec-succeeded',
+            result: [{ name: 'standard (default)' }],
+        });
+        readTableArgs.onSecondCall().resolves({
+            resultKind: 'exec-succeeded',
+            result: [{ name: 'nginx (default)' }],
+        });
+        const kubectl = { readTableArgs } as unknown as Kubectl;
+
+        assert.deepStrictEqual(await listResourceNames(kubectl, 'storageclasses.storage.k8s.io'), {
+            succeeded: true,
+            result: ['standard'],
+        });
+        assert.deepStrictEqual(await listResourceNames(kubectl, 'ingressclasses.networking.k8s.io'), {
+            succeeded: true,
+            result: ['nginx'],
+        });
+    });
+
+    test('preserves default-like table values for unrelated resource types', async () => {
+        const readTableArgs = sinon.stub().resolves({
+            resultKind: 'exec-succeeded',
+            result: [{ name: 'custom (default)' }],
+        });
+        const kubectl = { readTableArgs } as unknown as Kubectl;
+
+        assert.deepStrictEqual(await listResourceNames(kubectl, 'widgets.example.io'), {
+            succeeded: true,
+            result: ['custom (default)'],
         });
     });
 
@@ -110,6 +187,51 @@ suite('Kubectl read security', () => {
         assert.deepStrictEqual(await getCRDTypes(kubectl), []);
     });
 
+    test('accepts a hyphenated CRD kind', async () => {
+        const invokeCommandArgs = sinon.stub().resolves({
+            resultKind: 'exec-succeeded',
+            stdout: '\nwidgetsets.example.io Widget-Set widgetset widgetsets ws\n',
+        });
+        const kubectl = { invokeCommandArgs } as unknown as Kubectl;
+
+        const result = await getCRDTypes(kubectl);
+
+        assert.strictEqual(result.length, 1);
+        assert.strictEqual(result[0].manifestKind, 'Widget-Set');
+    });
+
+    test('omits an unavailable current namespace from data resource reads', async () => {
+        const readJSON = blankCurrentNamespace();
+        const asJsonArgs = sinon.stub().resolves({
+            succeeded: true,
+            result: { kind: 'Secret', metadata: { name: 'credentials', namespace: '' }, data: {} },
+        });
+        const kubectl = { readJSON, asJsonArgs } as unknown as Kubectl;
+
+        const result = await getAsDataResource('credentials', 'secret', kubectl);
+
+        assert.strictEqual(result.metadata.name, 'credentials');
+        sinon.assert.calledOnceWithExactly(asJsonArgs, ['get', 'secret/credentials', '-o', 'json']);
+    });
+
+    test('uses the kubectl namespace default for data resource folders', async () => {
+        const readJSON = blankCurrentNamespace();
+        const readTableArgs = sinon.stub().resolves({
+            resultKind: 'exec-succeeded',
+            result: [{ name: 'settings' }],
+        });
+        const kubectl = { readJSON, readTableArgs } as unknown as Kubectl;
+
+        const result = await getAsDataResources('configmaps', kubectl);
+
+        assert.deepStrictEqual(result, [{
+            data: {},
+            kind: 'configmaps',
+            metadata: { name: 'settings', namespace: '' },
+        }]);
+        sinon.assert.calledOnceWithExactly(readTableArgs, ['get', 'configmaps', '-o', 'wide']);
+    });
+
     test('reads resource API version through exact explain argv', async () => {
         const invokeCommandArgs = sinon.stub().resolves({
             resultKind: 'exec-succeeded',
@@ -150,6 +272,26 @@ suite('Kubectl read security', () => {
         ]);
     });
 
+    test('uses the kubectl namespace default when reading selectors', async () => {
+        const readJSON = blankCurrentNamespace();
+        const asJsonArgs = sinon.stub().resolves({
+            succeeded: true,
+            result: {
+                items: [{
+                    kind: 'Service',
+                    metadata: { name: 'external', namespace: '' },
+                    spec: {},
+                }],
+            },
+        });
+        const kubectl = { readJSON, asJsonArgs } as unknown as Kubectl;
+
+        const resources = await getResourceWithSelector('services', kubectl);
+
+        assert.strictEqual(resources.length, 1);
+        sinon.assert.calledOnceWithExactly(asJsonArgs, ['get', 'services', '-o', 'json']);
+    });
+
     test('switches namespace through exact arguments', async () => {
         const invokeCommandArgs = sinon.stub().resolves({
             resultKind: 'exec-succeeded',
@@ -185,3 +327,10 @@ suite('Kubectl read security', () => {
         }
     });
 });
+
+function blankCurrentNamespace(): sinon.SinonStub {
+    return sinon.stub().resolves({
+        resultKind: 'exec-succeeded',
+        result: { 'current-context': '', contexts: [] },
+    });
+}

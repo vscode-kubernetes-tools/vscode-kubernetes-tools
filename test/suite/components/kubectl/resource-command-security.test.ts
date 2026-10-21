@@ -40,11 +40,11 @@ suite('Resource command security', () => {
         sinon.assert.notCalled(invokeCommandArgsWithFeedback);
     });
 
-    test('canonicalises uppercase kinds only for read targets', () => {
+    test('canonicalises uppercase kinds in resource targets', () => {
         assert.strictEqual(normaliseResourceReadTarget('Pod api', false), 'pod/api');
         assert.strictEqual(normaliseResourceReadTarget('Pod/api', false), 'pod/api');
         assert.strictEqual(normaliseResourceReadTarget('Pod', true), 'pod');
-        assert.strictEqual(normaliseResourceTarget('Pod/api', false), undefined);
+        assert.strictEqual(normaliseResourceTarget('Pod/api', false), 'pod/api');
     });
 
     test('Delete cancellation prevents execution', async () => {

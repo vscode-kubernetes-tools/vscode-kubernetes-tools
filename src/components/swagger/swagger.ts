@@ -70,7 +70,8 @@ export async function getCrdSchemas(kubectl: Kubectl): Promise<{[key: string]: o
             continue;
         }
         const [group, plural, singular, versionList] = fields;
-        if (![group, plural, singular].every(isSafeResourceType)) {
+        const crdName = `${plural}.${group}`;
+        if (!isSafeResourceType(plural) || !isSafeResourceType(singular) || !isSafeResourceType(crdName)) {
             continue;
         }
         const versions = versionList.split(',').filter((version) => version.length > 0 && isSafeResourceType(version));
@@ -78,7 +79,7 @@ export async function getCrdSchemas(kubectl: Kubectl): Promise<{[key: string]: o
             continue;
         }
         const crd = await kubectl.asJsonArgs<CustomResourceDefinition>([
-            'get', `crd/${plural}.${group}`, '-o', 'json'
+            'get', `crd/${crdName}`, '-o', 'json'
         ]);
         if (failed(crd)) {
             continue;
