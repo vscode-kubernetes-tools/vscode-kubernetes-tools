@@ -4,6 +4,7 @@ import type { ChildProcess, SpawnOptions } from 'child_process';
 export interface CommandInvocation {
     readonly executable: string;
     readonly args: readonly string[];
+    readonly argv0?: string;
     readonly cwd?: string;
     readonly env?: NodeJS.ProcessEnv;
 }
@@ -22,6 +23,7 @@ export function renderArgsForDisplay(args: readonly string[]): string {
 
 export function spawnCommand(invocation: CommandInvocation): ChildProcess {
     const options: SpawnOptions = {
+        argv0: invocation.argv0,
         cwd: invocation.cwd,
         env: invocation.env,
         shell: false,

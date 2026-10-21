@@ -49,7 +49,7 @@ import { logsKubernetes } from './components/kubectl/logs';
 import { deleteResourceWithConfirmation, isSafeNamespace, listNamespaceResources, normaliseResourceTarget } from './components/kubectl/resource-commands';
 import { hostPathToWsl, invokeFileCommandWithFeedback } from './components/kubectl/file-commands';
 import { Errorable, failed, succeeded } from './errorable';
-import { Git } from './components/git/git';
+import { Git, gitRevisionFromImage } from './components/git/git';
 import { DebugSession } from './debug/debugSession';
 import { suggestedShellForContainer } from './utils/container-shell';
 import { getDebugProviderOfType, getSupportedDebuggerTypes } from './debug/providerRegistry';
@@ -1621,22 +1621,27 @@ async function syncKubernetes(): Promise<void> {
         return;
     }
 
-    const pieces = container.image.split(':');
-    if (pieces.length !== 2) {
-        vscode.window.showErrorMessage(`Sync requires image tag to have a version which is a Git commit ID. Actual image tag was ${container.image}`);
+    const commitId = gitRevisionFromImage(container.image);
+    if (!commitId) {
+        vscode.window.showErrorMessage('Sync requires the container image to have a valid Git revision tag.');
         return;
     }
 
-    const commitId = pieces[1];
-    const whenCreated = await git.whenCreated(commitId);
+    const resolvedCommit = await git.resolveCommit(commitId);
+    if (failed(resolvedCommit)) {
+        vscode.window.showErrorMessage(`Unable to resolve the image tag to a Git commit: ${resolvedCommit.error[0]}`);
+        return;
+    }
+
+    const whenCreated = await git.whenCreated(resolvedCommit.result);
     const versionMessage = whenCreated ?
-        `The Git commit deployed to the cluster is  ${commitId} (created ${whenCreated.trim()} ago). This will check out that commit.` :
-        `The image version deployed to the cluster is ${commitId}. This will look for a Git commit with that name/ID and check it out.`;
+        `The image version deployed to the cluster is ${commitId}, which resolves to Git commit ${resolvedCommit.result} (created ${whenCreated.trim()} ago). This will check out that commit.` :
+        `The image version deployed to the cluster is ${commitId}, which resolves to Git commit ${resolvedCommit.result}. This will check out that commit.`;
 
     const choice = await vscode.window.showInformationMessage(versionMessage, 'OK');
 
     if (choice === 'OK') {
-        const checkoutResult = await git.checkout(commitId);
+        const checkoutResult = await git.checkout(resolvedCommit.result);
 
         if (failed(checkoutResult)) {
             vscode.window.showErrorMessage(`Error checking out commit ${commitId}: ${checkoutResult.error[0]}`);
