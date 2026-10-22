@@ -5,12 +5,12 @@ import { escape as htmlEscape } from 'lodash';
 
 import {
     helmInspectArgs,
-    helmPathForExecution,
-    helmRelativePathForExecution,
     helmTemplatePreviewArgs,
     parseHelmChartQuery,
     parseHelmFileQuery,
+    parseHelmRepositoryChartQuery,
 } from './components/helm/commands';
+import { helmPathForExecution, helmRelativePathForExecution } from './components/helm/executable';
 import * as exec from './helm.exec';
 import * as helm from './helm';
 import * as logger from './logger';
@@ -58,14 +58,16 @@ export class HelmInspectDocumentProvider implements vscode.TextDocumentContentPr
         }
 
         if (uri.authority === helm.INSPECT_REPO_AUTHORITY) {
-            const request = parseHelmChartQuery(uri.query);
+            const request = parseHelmRepositoryChartQuery(uri.query);
             if (!request) {
                 throw new Error('Invalid Helm chart URI.');
             }
             const syntaxVersion = await exec.helmSyntaxVersion();
+            const chart = await helmPathForExecution(request.chart, getUseWsl());
             return this.runInspect(
-                helmInspectArgs(syntaxVersion, 'chart', request.chart, request.version),
-                `Inspect ${request.chart}${request.version ? ` ${request.version}` : ''}`
+                helmInspectArgs(syntaxVersion, 'chart', chart, request.version),
+                `Inspect ${request.chart}${request.version ? ` ${request.version}` : ''}`,
+                true
             );
         }
 
@@ -89,13 +91,16 @@ export class HelmInspectDocumentProvider implements vscode.TextDocumentContentPr
         const syntaxVersion = await exec.helmSyntaxVersion();
         const executionPath = await helmPathForExecution(chartPath, getUseWsl());
         return this.runInspect(
-            helmInspectArgs(syntaxVersion, 'values', executionPath),
-            `Inspect ${filepath.basename(chartPath) || 'Chart'}`
+            helmInspectArgs(syntaxVersion, 'chart', executionPath),
+            `Inspect ${filepath.basename(chartPath) || 'Chart'}`,
+            false
         );
     }
 
-    private async runInspect(args: readonly string[], title: string): Promise<string> {
-        const result = await exec.helmExecArgsAsync(args);
+    private async runInspect(args: readonly string[], title: string, repositoryChart: boolean): Promise<string> {
+        const result = repositoryChart ?
+            await exec.helmExecRepositoryArgsAsync(args) :
+            await exec.helmExecArgsAsync(args);
         if (!result || result.code !== 0) {
             const message = result ? result.stderr || result.stdout : 'Unable to run Helm';
             console.log(`Inspect failed: ${message}`);
@@ -123,13 +128,14 @@ export class HelmValuesDocumentProvider implements vscode.TextDocumentContentPro
         if (uri.authority !== helm.INSPECT_REPO_AUTHORITY) {
             throw new Error('Invalid Helm values URI.');
         }
-        const request = parseHelmChartQuery(uri.query);
+        const request = parseHelmRepositoryChartQuery(uri.query);
         if (!request) {
             throw new Error('Invalid Helm values URI.');
         }
         const syntaxVersion = await exec.helmSyntaxVersion();
-        const result = await exec.helmExecArgsAsync(
-            helmInspectArgs(syntaxVersion, 'values', request.chart, request.version)
+        const chart = await helmPathForExecution(request.chart, getUseWsl());
+        const result = await exec.helmExecRepositoryArgsAsync(
+            helmInspectArgs(syntaxVersion, 'values', chart, request.version)
         );
         if (!result || result.code !== 0) {
             const message = result ? result.stderr || result.stdout : 'Unable to run Helm';

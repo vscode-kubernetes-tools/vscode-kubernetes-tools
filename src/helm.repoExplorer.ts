@@ -9,7 +9,12 @@ import { parseLineOutput } from './outputUtils';
 import { affectsUs } from './components/config/config';
 import { Dictionary } from './utils/dictionary';
 import { assetUri } from './assets';
-import { helmRepoSearchArgs, isSafeHelmChartReference, isSafeHelmChartVersion, isSafeHelmRepositoryName } from './components/helm/commands';
+import {
+    helmRepoSearchArgs,
+    isSafeHelmRepositoryChartReference,
+    isSafeHelmRepositoryChartVersion,
+    isSafeHelmRepositoryName,
+} from './components/helm/commands';
 
 export const HELM_EXPLORER_NODE_CATEGORY = 'helm-explorer-node';
 
@@ -89,7 +94,7 @@ export class HelmRepoExplorer implements vscode.TreeDataProvider<HelmObject> {
     }
 
     async refresh(): Promise<void> {
-        await helm.helmExecArgsAsync(['repo', 'update']);
+        await helm.helmExecRepositoryArgsAsync(['repo', 'update']);
         this.onDidChangeTreeDataEmitter.fire(undefined);
     }
 }
@@ -213,7 +218,7 @@ class HelmRepoChartVersionImpl extends HelmExplorerNodeImpl implements HelmRepoC
 }
 
 async function listHelmRepos(): Promise<Errorable<HelmRepoImpl[]>> {
-    const sr = await helm.helmExecArgsAsync(['repo', 'list']);
+    const sr = await helm.helmExecRepositoryArgsAsync(['repo', 'list']);
     // TODO: prompt to run 'helm init' here if needed...
     if (!sr || sr.code !== 0) {
         return { succeeded: false, error: [sr ? sr.stderr : "Unable to run Helm"] };
@@ -236,7 +241,7 @@ async function listHelmRepoCharts(repoName: string): Promise<Errorable<HelmRepoC
         return { succeeded: false, error: ['Invalid Helm repository name.'] };
     }
     const syntaxVersion = await helm.helmSyntaxVersion();
-    const sr = await helm.helmExecArgsAsync(helmRepoSearchArgs(syntaxVersion, repoName));
+    const sr = await helm.helmExecRepositoryArgsAsync(helmRepoSearchArgs(syntaxVersion, repoName));
     if (!sr || sr.code !== 0) {
         return { succeeded: false, error: [ sr ? sr.stderr : "Unable to run Helm" ]};
     }
@@ -249,9 +254,10 @@ async function listHelmRepoCharts(repoName: string): Promise<Errorable<HelmRepoC
     // Charts can embed newlines in their descriptions. We need to merge
     // 'entries' that are actually continuations with their 'parents.'
     const entries = mergeContinuationEntries(rawEntries);
+    const caseInsensitiveRepository = syntaxVersion === helm.HelmSyntaxVersion.V2;
     if (!entries || entries.some((entry) =>
-        !isSafeHelmChartReference(entry.name) || !entry.name.startsWith(`${repoName}/`) ||
-        !isSafeHelmChartVersion(entry['chart version']))) {
+        !isSafeHelmRepositoryChartReference(entry.name, repoName, caseInsensitiveRepository) ||
+        !isSafeHelmRepositoryChartVersion(entry['chart version']))) {
         return { succeeded: false, error: ['Helm returned invalid chart metadata.'] };
     }
 

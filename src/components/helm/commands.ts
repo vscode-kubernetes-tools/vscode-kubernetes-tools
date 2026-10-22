@@ -1,9 +1,5 @@
 import * as querystring from 'querystring';
-import * as semver from 'semver';
-import type { ChildProcess } from 'child_process';
-import { execPath, isWindowsCommandScript } from '../../binutil';
-import { CommandInvocation, executeCommand, ProcessResult } from '../../process';
-import type { Shell } from '../../shell';
+import * as path from 'path';
 
 export enum HelmSyntaxVersion {
     Unknown = 1,
@@ -24,67 +20,7 @@ const MAX_HELM_CHART_REFERENCE_LENGTH = 1024;
 const MAX_HELM_REPOSITORY_NAME_LENGTH = 253;
 const MAX_HELM_VERSION_LENGTH = 256;
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f]/;
-
-export type HelmCommandExecutor = typeof executeCommand;
-
-export function helmCommandInvocation(
-    executable: string,
-    args: readonly string[],
-    shell: Shell,
-    useWsl: boolean
-): CommandInvocation {
-    if (isWindowsCommandScript(shell, executable)) {
-        throw new Error(`Configured Helm path '${executable}' is a command script; configure an .exe path for shell-free execution.`);
-    }
-    const execOpts = shell.execOpts();
-    if (useWsl) {
-        return {
-            executable: 'wsl.exe',
-            args: ['--exec', executable, ...args],
-            cwd: execOpts.cwd,
-            env: execOpts.env,
-        };
-    }
-    return {
-        executable: execPath(shell, executable),
-        args: [...args],
-        cwd: execOpts.cwd,
-        env: execOpts.env,
-    };
-}
-
-export async function executeHelmCommand(
-    executable: string,
-    args: readonly string[],
-    shell: Shell,
-    useWsl: boolean,
-    execute: HelmCommandExecutor = executeCommand,
-    onSpawn?: (process: ChildProcess) => void
-): Promise<ProcessResult> {
-    return execute(helmCommandInvocation(executable, args, shell, useWsl), undefined, onSpawn);
-}
-
-export async function helmPathForExecution(
-    filePath: string,
-    useWsl: boolean,
-    execute: HelmCommandExecutor = executeCommand
-): Promise<string> {
-    if (!useWsl || !/^(?:[A-Za-z]:[\\/]|\\\\)/.test(filePath)) {
-        return filePath;
-    }
-    const result = await execute({
-        executable: 'wsl.exe',
-        args: ['--exec', 'wslpath', '-a', '-u', filePath],
-    });
-    if (result.code !== 0 || !result.stdout.trim()) {
-        throw new Error('Unable to convert the Helm path for WSL.');
-    }
-    return result.stdout.trim();
-}
-
-export function helmRelativePathForExecution(filePath: string, useWsl: boolean): string {
-    return useWsl ? filePath.replace(/\\/g, '/') : filePath;
-}
+const HELM_REPOSITORY_VERSION = /^v?[0-9]+(?:\.[0-9]+){0,2}(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
 
 export function helmDryRunArgs(version: HelmSyntaxVersion, chartPath: string): string[] {
     return [
@@ -102,11 +38,14 @@ export function helmTemplatePreviewArgs(version: HelmSyntaxVersion, chartPath: s
 }
 
 export function helmRepoSearchArgs(version: HelmSyntaxVersion, repository: string): string[] {
+    const modernSyntax = version === HelmSyntaxVersion.V3 || version === HelmSyntaxVersion.V4;
     return [
         'search',
-        ...(version === HelmSyntaxVersion.V3 || version === HelmSyntaxVersion.V4 ? ['repo'] : []),
+        ...(modernSyntax ? ['repo'] : []),
         `${repository}/`,
         version === HelmSyntaxVersion.V4 ? '--versions' : '-l',
+        modernSyntax ? '--max-col-width' : '--col-width',
+        '0',
     ];
 }
 
@@ -135,6 +74,15 @@ export function helmFetchArgs(chart: string, version: string | undefined, destin
     ];
 }
 
+export function helmDependencyListArgs(version: HelmSyntaxVersion, chartPath: string): string[] {
+    return [
+        'dep',
+        'list',
+        ...(version === HelmSyntaxVersion.V3 || version === HelmSyntaxVersion.V4 ? ['--max-col-width', '0'] : []),
+        chartPath,
+    ];
+}
+
 export function helmInstallArgs(
     syntaxVersion: HelmSyntaxVersion,
     chart: string,
@@ -150,19 +98,51 @@ export function helmInstallArgs(
     ];
 }
 
+export function helmFetchedChartDirectoryName(chartReference: string): string | undefined {
+    const parts = chartReference.split('/');
+    if (parts.length !== 2 || !isSafeHelmRepositoryName(parts[0]) ||
+        !/^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(parts[1])) {
+        return undefined;
+    }
+    return parts[1];
+}
+
+export function isExplicitHelmLocalChartReference(chartReference: string): boolean {
+    return path.isAbsolute(chartReference) || path.win32.isAbsolute(chartReference) ||
+        chartReference.startsWith('./') || chartReference.startsWith('../') ||
+        chartReference.startsWith('.\\') || chartReference.startsWith('..\\');
+}
+
 export function isSafeHelmRepositoryName(value: unknown): value is string {
-    return isSafeHelmValue(value, MAX_HELM_REPOSITORY_NAME_LENGTH) && !value.includes('/');
+    return isSafeHelmValue(value, MAX_HELM_REPOSITORY_NAME_LENGTH) &&
+        !value.startsWith('.') && !value.includes('/') && !value.includes('\\');
 }
 
 export function isSafeHelmChartReference(value: unknown): value is string {
-    return isSafeHelmValue(value, MAX_HELM_CHART_REFERENCE_LENGTH) &&
-        !value.includes('\\') &&
-        !value.split('/').some((part) => part.length === 0 || part === '.' || part === '..' || part.startsWith('-'));
+    return isSafeHelmValue(value, MAX_HELM_CHART_REFERENCE_LENGTH);
 }
 
 export function isSafeHelmChartVersion(value: unknown): value is string {
-    return typeof value === 'string' && value.length > 0 && value.length <= MAX_HELM_VERSION_LENGTH &&
-        !CONTROL_CHARACTERS.test(value) && semver.valid(value) !== null;
+    return isSafeHelmValue(value, MAX_HELM_VERSION_LENGTH);
+}
+
+export function isSafeHelmRepositoryChartReference(value: unknown, repository: string, caseInsensitive: boolean): value is string {
+    if (!isSafeHelmChartReference(value)) {
+        return false;
+    }
+    const prefix = `${repository}/`;
+    const hasPrefix = caseInsensitive ? value.toLowerCase().startsWith(prefix.toLowerCase()) : value.startsWith(prefix);
+    if (!hasPrefix) {
+        return false;
+    }
+    const suffix = value.substring(prefix.length);
+    return suffix.length > 0 && !suffix.includes('\\') &&
+        !suffix.split('/').some((part) => part.length === 0 || part === '.' || part === '..');
+}
+
+export function isSafeHelmRepositoryChartVersion(value: unknown): value is string {
+    return typeof value === 'string' && value.length <= MAX_HELM_VERSION_LENGTH &&
+        !CONTROL_CHARACTERS.test(value) && HELM_REPOSITORY_VERSION.test(value);
 }
 
 export function helmChartQuery(chart: string, version?: string): string {
@@ -186,10 +166,32 @@ export function parseHelmChartQuery(query: string): HelmChartRequest | undefined
     return { chart, ...(version ? { version } : {}) };
 }
 
+export function parseHelmRepositoryChartQuery(query: string): HelmChartRequest | undefined {
+    const parsed = parseQuery(query, ['chart'], ['version']);
+    if (!parsed) {
+        return undefined;
+    }
+    const chart = parsed.chart;
+    const separator = chart.indexOf('/');
+    if (separator <= 0) {
+        return undefined;
+    }
+    const repository = chart.substring(0, separator);
+    const version = parsed.version;
+    if (!isSafeHelmRepositoryName(repository) ||
+        !isSafeHelmRepositoryChartReference(chart, repository, false) ||
+        (version !== undefined && !isSafeHelmRepositoryChartVersion(version))) {
+        return undefined;
+    }
+    return { chart, ...(version ? { version } : {}) };
+}
+
 export function parseHelmFileQuery(query: string): string | undefined {
     const parsed = parseQuery(query, ['path'], []);
-    const path = parsed?.path;
-    return path && !CONTROL_CHARACTERS.test(path) ? path : undefined;
+    const filePath = parsed?.path;
+    const isNativePath = !!filePath && path.isAbsolute(filePath);
+    const isWindowsPath = !!filePath && process.platform === 'win32' && path.win32.isAbsolute(filePath);
+    return filePath && !CONTROL_CHARACTERS.test(filePath) && (isNativePath || isWindowsPath) ? filePath : undefined;
 }
 
 function isSafeHelmValue(value: unknown, maxLength: number): value is string {

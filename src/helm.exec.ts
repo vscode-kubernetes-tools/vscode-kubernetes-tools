@@ -7,15 +7,23 @@ import { Context, ExecResult, ExternalBinary, invokeForResult } from './binutilp
 import {
     helmChartQuery,
     helmDryRunArgs,
-    executeHelmCommand,
+    helmDependencyListArgs,
     helmFetchArgs,
+    helmFetchedChartDirectoryName,
     helmFileQuery,
     helmInstallArgs,
-    helmPathForExecution,
     HelmSyntaxVersion,
     isSafeHelmChartReference,
     isSafeHelmChartVersion,
+    isExplicitHelmLocalChartReference,
 } from './components/helm/commands';
+import {
+    executeHelmCommand,
+    HelmExecutable,
+    helmPathForExecution,
+    helmRepositoryCommandCwd,
+    resolveHelmExecutableForExecution,
+} from './components/helm/executable';
 import { NODE_TYPES } from './components/clusterexplorer/explorer';
 import { ClusterExplorerNode } from './components/clusterexplorer/node';
 import { HelmHistoryNode } from './components/clusterexplorer/node.helmrelease';
@@ -138,7 +146,7 @@ export function helmTemplate() {
     });
 }
 
-export function helmTemplatePreview() {
+export async function helmTemplatePreview(): Promise<void> {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
         vscode.window.showInformationMessage("No active editor.");
@@ -151,7 +159,7 @@ export function helmTemplatePreview() {
         return;
     }
 
-    if (!ensureHelm(EnsureMode.Alert)) {
+    if (!await resolveHelmForArgs(EnsureMode.Alert)) {
         return;
     }
 
@@ -272,8 +280,8 @@ export function helmLint() {
     });
 }
 
-export function helmFetchValues(arg: any) {
-    helmInspect(arg, {
+export async function helmFetchValues(arg: any): Promise<void> {
+    await helmInspect(arg, {
         noTargetMessage:
             "Helm generate values.yaml is for packaged charts and directories. Launch the command from a file or directory in the file explorer. or a chart or version in the Helm Repos explorer.",
         inspectionScheme: helm.FETCH_VALUES_SCHEME,
@@ -281,8 +289,8 @@ export function helmFetchValues(arg: any) {
     });
 }
 
-export function helmInspectChart(arg: any) {
-    helmInspect(arg, {
+export async function helmInspectChart(arg: any): Promise<void> {
+    await helmInspect(arg, {
         noTargetMessage: "Helm Inspect Chart is for packaged charts and directories. Launch the command from a chart or version in the Helm Repos explorer.",
         inspectionScheme: helm.INSPECT_CHART_SCHEME,
         generateFile: false
@@ -295,12 +303,12 @@ interface InspectionStrategy {
     readonly generateFile: boolean;
 }
 
-function helmInspect(arg: any, s: InspectionStrategy) {
+async function helmInspect(arg: any, s: InspectionStrategy): Promise<void> {
     if (!arg) {
         vscode.window.showErrorMessage(s.noTargetMessage);
         return;
     }
-    if (!ensureHelm(EnsureMode.Alert)) {
+    if (!await resolveHelmForArgs(EnsureMode.Alert)) {
         return;
     }
 
@@ -342,7 +350,11 @@ function helmInspect(arg: any, s: InspectionStrategy) {
             path: s.generateFile ? '/values.yaml' : '/chart.html',
             query: helmFileQuery(u.fsPath),
         });
-        preview(uri, vscode.ViewColumn.Two, "Inspect");
+        if (s.generateFile) {
+            openHelmGeneratedValuesFile(uri);
+        } else {
+            preview(uri, vscode.ViewColumn.Two, "Inspect");
+        }
     }
 }
 
@@ -534,8 +546,10 @@ async function helmFetchCore(chartId: string, version: string | undefined): Prom
     }
 
     const destinationDir = projectFolder.uri.fsPath;
+    let executionChartId: string;
     let executionDestination: string;
     try {
+        executionChartId = await helmPathForExecution(chartId, getUseWsl());
         executionDestination = await helmPathForExecution(destinationDir, getUseWsl());
     } catch (err) {
         await vscode.window.showErrorMessage(`Helm fetch failed: ${String(err)}`);
@@ -543,15 +557,18 @@ async function helmFetchCore(chartId: string, version: string | undefined): Prom
     }
 
     const sr = await host.longRunning(`Fetching ${chartId}...`, () =>
-        helmExecArgsAsync(helmFetchArgs(chartId, version, executionDestination, true))
+        helmExecRepositoryArgsAsync(helmFetchArgs(executionChartId, version, executionDestination, true))
     );
     if (!sr || sr.code !== 0) {
         await vscode.window.showErrorMessage(`Helm fetch failed: ${sr ? sr.stderr : "Unable to run Helm"}`);
         return;
     }
 
-    // Chart name is the last segment of chartId (e.g., "bitnami/nginx" -> "nginx")
-    const chartName = chartId.includes('/') ? chartId.split('/').pop()! : chartId;
+    const chartName = helmFetchedChartDirectoryName(chartId);
+    if (!chartName) {
+        await vscode.window.showInformationMessage(`Fetched ${chartId}`);
+        return;
+    }
     const chartPath = filepath.join(destinationDir, chartName);
 
     // Verify the expected path exists before offering quick-actions
@@ -584,18 +601,18 @@ export async function helmInstall(kubectl: Kubectl, helmObject: helmrepoexplorer
     if (!helmObject) {
         const id = await vscode.window.showInputBox({ prompt: "Chart to install", placeHolder: "stable/mychart" });
         if (id) {
-            await helmInstallCore(kubectl, id, undefined);
+            await helmInstallCore(kubectl, id, undefined, !isExplicitHelmLocalChartReference(id));
         }
         return;
     }
     if (helmrepoexplorer.isHelmRepoChart(helmObject)) {
-        await helmInstallCore(kubectl, helmObject.id, undefined);
+        await helmInstallCore(kubectl, helmObject.id, undefined, true);
     } else if (helmrepoexplorer.isHelmRepoChartVersion(helmObject)) {
-        await helmInstallCore(kubectl, helmObject.id, helmObject.version);
+        await helmInstallCore(kubectl, helmObject.id, helmObject.version, true);
     }
 }
 
-async function helmInstallCore(kubectl: Kubectl, chartId: string, version: string | undefined): Promise<void> {
+async function helmInstallCore(kubectl: Kubectl, chartId: string, version: string | undefined, repositoryChart: boolean): Promise<void> {
     if (!isSafeHelmChartReference(chartId)) {
         vscode.window.showWarningMessage(`Unexpected characters in chart name ${chartId}. Use Helm CLI to install this chart.`);
         return;
@@ -611,9 +628,18 @@ async function helmInstallCore(kubectl: Kubectl, chartId: string, version: strin
         await vscode.window.showErrorMessage('Helm install failed: invalid Kubernetes namespace.');
         return;
     }
+    let executionChartId: string;
+    try {
+        executionChartId = await helmPathForExecution(chartId, getUseWsl());
+    } catch (err) {
+        await vscode.window.showErrorMessage(`Helm install failed: ${String(err)}`);
+        return;
+    }
     logger.log(`⎈⎈⎈ Installing ${chartId}...`);
     const sr = await host.longRunning(`Installing ${chartId}...`, () =>
-        helmExecArgsAsync(helmInstallArgs(syntaxVersion, chartId, version, ns || undefined))
+        repositoryChart ?
+            helmExecRepositoryArgsAsync(helmInstallArgs(syntaxVersion, executionChartId, version, ns || undefined)) :
+            helmExecArgsAsync(helmInstallArgs(syntaxVersion, executionChartId, version, ns || undefined))
     );
     if (!sr || sr.code !== 0) {
         const message = sr ? sr.stderr : "Unable to run Helm";
@@ -678,13 +704,15 @@ export async function helmDependenciesCore(chartId: string, version: string | un
     }
     const tempDirObj = tmp.dirSync({ prefix: "vsk-fetchfordeps-", unsafeCleanup: true });
     try {
+        let executionChartId: string;
         let executionDestination: string;
         try {
+            executionChartId = await helmPathForExecution(chartId, getUseWsl());
             executionDestination = await helmPathForExecution(tempDirObj.name, getUseWsl());
         } catch (err) {
             return { succeeded: false, error: [String(err)] };
         }
-        const fsr = await helmExecArgsAsync(helmFetchArgs(chartId, version, executionDestination, false));
+        const fsr = await helmExecRepositoryArgsAsync(helmFetchArgs(executionChartId, version, executionDestination, false));
         if (!fsr || fsr.code !== 0) {
             return { succeeded: false, error: [`Helm fetch failed: ${fsr ? fsr.stderr : "Unable to run Helm"}`] };
         }
@@ -700,7 +728,8 @@ export async function helmDependenciesCore(chartId: string, version: string | un
         } catch (err) {
             return { succeeded: false, error: [String(err)] };
         }
-        const dsr = await helmExecArgsAsync(['dep', 'list', executionChartPath]);
+        const syntaxVersion = await helmSyntaxVersion();
+        const dsr = await helmExecArgsAsync(helmDependencyListArgs(syntaxVersion, executionChartPath));
         if (!dsr || dsr.code !== 0) {
             return { succeeded: false, error: [`Helm dependency list failed: ${dsr ? dsr.stderr : "Unable to run Helm"}`] };
         }
@@ -836,10 +865,11 @@ function findChartFiles() {
 // This will abort and send an error message if Helm is not installed.
 
 export function helmExecArgs(args: readonly string[], fn: ExecCallback): void {
-    if (!ensureHelm(EnsureMode.Alert)) {
-        return;
-    }
-    void executeHelmArgs(args).then((result) => {
+    void resolveHelmForArgs(EnsureMode.Alert).then(async (executable) => {
+        if (!executable) {
+            return;
+        }
+        const result = await executeHelmArgs(executable, args);
         if (result) {
             fn(result.code, result.stdout, result.stderr);
         } else {
@@ -851,20 +881,49 @@ export function helmExecArgs(args: readonly string[], fn: ExecCallback): void {
 }
 
 export async function helmExecArgsAsync(args: readonly string[]): Promise<ShellResult | undefined> {
-    if (!ensureHelm(EnsureMode.Alert)) {
+    const executable = await resolveHelmForArgs(EnsureMode.Alert);
+    if (!executable) {
         return { code: -1, stdout: "", stderr: "" };
     }
-    return await executeHelmArgs(args);
+    return await executeHelmArgs(executable, args);
 }
 
-async function executeHelmArgs(args: readonly string[]): Promise<ShellResult | undefined> {
-    const executable = getToolPath(host, sh, 'helm') || 'helm';
+export async function helmExecRepositoryArgsAsync(args: readonly string[]): Promise<ShellResult | undefined> {
+    const executable = await resolveHelmForArgs(EnsureMode.Alert);
+    const cwd = helmRepositoryCommandCwd(sh, getUseWsl());
+    if (!executable || !cwd) {
+        return { code: -1, stdout: "", stderr: "" };
+    }
+    return await executeHelmArgs(executable, args, cwd);
+}
+
+async function executeHelmArgs(executable: HelmExecutable, args: readonly string[], cwd?: string): Promise<ShellResult | undefined> {
     try {
-        return await executeHelmCommand(executable, args, sh, getUseWsl(), undefined, monitorForAuthPrompt);
+        return await executeHelmCommand(executable, args, sh, getUseWsl(), undefined, monitorForAuthPrompt, cwd);
     } catch (err) {
         vscode.window.showErrorMessage(String(err));
         return undefined;
     }
+}
+
+async function resolveHelmForArgs(mode: EnsureMode): Promise<HelmExecutable | undefined> {
+    const configuredExecutable = getToolPath(host, sh, 'helm');
+    const workspaceRoots = (vscode.workspace.workspaceFolders || []).map((folder) => folder.uri.fsPath);
+    let executable: HelmExecutable | undefined;
+    try {
+        executable = await resolveHelmExecutableForExecution(configuredExecutable, sh, getUseWsl(), undefined, workspaceRoots);
+    } catch (err) {
+        if (mode === EnsureMode.Alert) {
+            await vscode.window.showErrorMessage(String(err));
+        }
+        return undefined;
+    }
+    if (executable) {
+        return executable;
+    }
+    const message = configuredExecutable ? `${configuredExecutable} does not exist!` : 'Could not find Helm binary.';
+    handleHelmNotFoundError(mode, message);
+    return undefined;
 }
 
 export function helmExec(args: string, fn: ExecCallback) {

@@ -16,7 +16,7 @@ suite('Helm repository security', () => {
 
     test('keeps a repository returned by Helm as one search argument', async () => {
         const repositoryName = 'repo;$(marker)&value';
-        const helmExecArgsAsync = sandbox.stub(helmExec, 'helmExecArgsAsync');
+        const helmExecArgsAsync = sandbox.stub(helmExec, 'helmExecRepositoryArgsAsync');
         helmExecArgsAsync.onFirstCall().resolves({
             code: 0,
             stdout: `NAME\tURL\n${repositoryName}\thttps://example.test/charts\n`,
@@ -40,12 +40,12 @@ suite('Helm repository security', () => {
         assert.strictEqual(charts.length, 1);
         sinon.assert.calledWithExactly(helmExecArgsAsync.firstCall, ['repo', 'list']);
         sinon.assert.calledWithExactly(helmExecArgsAsync.secondCall, [
-            'search', 'repo', `${repositoryName}/`, '--versions'
+            'search', 'repo', `${repositoryName}/`, '--versions', '--max-col-width', '0'
         ]);
     });
 
     test('rejects a control character in repository output before follow-up execution', async () => {
-        const helmExecArgsAsync = sandbox.stub(helmExec, 'helmExecArgsAsync').resolves({
+        const helmExecArgsAsync = sandbox.stub(helmExec, 'helmExecRepositoryArgsAsync').resolves({
             code: 0,
             stdout: 'NAME\tURL\nrepo\rname\thttps://example.test/charts\n',
             stderr: '',
@@ -61,5 +61,31 @@ suite('Helm repository security', () => {
         const item = repositories[0].getTreeItem();
         assert.strictEqual(item.label, 'Unable to list Helm repos');
         sinon.assert.calledOnce(helmExecArgsAsync);
+    });
+
+    test('accepts Helm 2 lowercase output for a mixed-case repository and loose versions', async () => {
+        const helmExecArgsAsync = sandbox.stub(helmExec, 'helmExecRepositoryArgsAsync');
+        helmExecArgsAsync.onFirstCall().resolves({
+            code: 0,
+            stdout: 'NAME\tURL\nMyRepo\thttps://example.test/charts\n',
+            stderr: '',
+        });
+        helmExecArgsAsync.onSecondCall().resolves({
+            code: 0,
+            stdout: 'NAME          \tCHART VERSION\tAPP VERSION\tDESCRIPTION                    \nmyrepo/widget   \tv1.2        \t4.5.6      \tA chart\n',
+            stderr: '',
+        });
+        sandbox.stub(helmExec, 'helmSyntaxVersion').resolves(helmExec.HelmSyntaxVersion.V2);
+        const explorer = create({
+            onDidChangeConfiguration: () => new vscode.Disposable(() => {}),
+        } as unknown as Host);
+
+        const repositories = await Promise.resolve(explorer.getChildren());
+        assert.ok(repositories);
+        const charts = await repositories[0].getChildren();
+
+        assert.strictEqual(charts.length, 1);
+        const versions = await charts[0].getChildren();
+        assert.strictEqual(versions[0].getTreeItem().label, 'v1.2');
     });
 });
