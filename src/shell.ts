@@ -8,7 +8,7 @@ import { host } from './host';
 import { ChildProcess } from 'child_process';
 import { getKubeconfigPath } from './components/kubectl/kubeconfig';
 import { ExecResult } from './binutilplusplus';
-import { escapeShellArg } from './utils/shell-escape';
+import { execWslSync, normalizeWslPath } from './wsl';
 import { kubeChannel } from './kubeChannel';
 
 export enum Platform {
@@ -97,7 +97,11 @@ function concatIfSafe(homeDrive: string | undefined, homePath: string | undefine
 
 function home(): string {
     if (getUseWsl()) {
-        return shelljs.exec('wsl.exe echo ${HOME}').stdout.trim();
+        const result = execWslSync(['printenv', 'HOME']);
+        if (result.code !== 0) {
+            throw new Error(result.stderr);
+        }
+        return result.stdout.replace(/\r?\n$/, '');
     }
     return process.env['HOME'] ||
         concatIfSafe(process.env['HOMEDRIVE'], process.env['HOMEPATH']) ||
@@ -261,7 +265,7 @@ function pathEntrySeparator() {
 
 function which(bin: string): string | null {
     if (getUseWsl()) {
-        const result = shelljs.exec(`wsl.exe which ${escapeShellArg(bin)}`);
+        const result = execWslSync(['which', '--', bin]);
         if (result.code !== 0) {
             throw new Error(result.stderr);
         }
@@ -272,8 +276,7 @@ function which(bin: string): string | null {
 
 function cat(path: string): string {
     if (getUseWsl()) {
-        const filePath = path.replace(/\\/g, '/');
-        const result = shelljs.exec(`wsl.exe cat ${escapeShellArg(filePath)}`);
+        const result = execWslSync(['cat', '--', normalizeWslPath(path)]);
         if (result.code !== 0) {
             throw new Error(result.stderr);
         }
@@ -284,8 +287,7 @@ function cat(path: string): string {
 
 function ls(path: string): string[] {
     if (getUseWsl()) {
-        const filePath = path.replace(/\\/g, '/');
-        const result = shelljs.exec(`wsl.exe ls ${escapeShellArg(filePath)}`);
+        const result = execWslSync(['ls', '-1', '--', normalizeWslPath(path)]);
         if (result.code !== 0) {
             throw new Error(result.stderr);
         }

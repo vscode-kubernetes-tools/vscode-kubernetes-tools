@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { fs } from '../../fs';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
-import * as shelljs from 'shelljs';
+import { execWslSync } from '../../wsl';
 import { refreshExplorer } from '../clusterprovider/common/explorer';
 import { getActiveKubeconfig, getUseWsl } from '../config/config';
 import { mkdirp } from 'mkdirp';
@@ -30,44 +30,41 @@ export interface WSLKubeconfigPath {
 
 export type KubeconfigPath = HostKubeconfigPath | WSLKubeconfigPath;
 
+export function getKubeconfigFiles(kubeconfigPath: KubeconfigPath): string[] {
+    const files = kubeconfigPath.pathType === 'host' ? kubeconfigPath.hostPath : kubeconfigPath.wslPath;
+    return files.split(kubeconfigPath.pathType === 'host' ? path.delimiter : ':').filter((file) => file.length > 0);
+}
+
 export async function loadKubeconfig(): Promise<any> {
     const kubernetes = await import('@kubernetes/client-node');
     const kubeconfig = new kubernetes.KubeConfig();
     const kubeconfigPath = getKubeconfigPath();
 
-    if (kubeconfigPath.pathType === 'host') {
-        // For multi-path KUBECONFIG, split & load sequentially
-        const paths = kubeconfigPath.hostPath.split(path.delimiter).filter((p) => p.length > 0);
-        if (paths.length === 0) {
-            throw new Error('No kubeconfig paths specified');
+    const files = getKubeconfigFiles(kubeconfigPath);
+    if (files.length === 0) {
+        throw new Error('No kubeconfig paths specified');
+    }
+    let currentContext: string | undefined;
+    for (let i = 0; i < files.length; i++) {
+        const source = i === 0 ? kubeconfig : new kubernetes.KubeConfig();
+        if (kubeconfigPath.pathType === 'host') {
+            source.loadFromFile(files[i]);
+        } else {
+            const result = execWslSync(['cat', '--', files[i]]);
+            if (result.code !== 0) {
+                throw new Error(`Impossible to retrieve the kubeconfig content from WSL at path '${files[i]}'. Error code: ${result.code}. Error output: ${result.stderr.trim()}`);
+            }
+            source.loadFromString(result.stdout);
         }
-        // Load the first file
-        kubeconfig.loadFromFile(paths[0]);
-        // Preserve the current context from the first file (mergeConfig overwrites it)
-        const currentContext = kubeconfig.getCurrentContext();
-        // Merge any additional files
-        for (let i = 1; i < paths.length; i++) {
-            const kc = new kubernetes.KubeConfig();
-            kc.loadFromFile(paths[i]);
-            kubeconfig.mergeConfig(kc);
+        if (i === 0) {
+            currentContext = source.getCurrentContext();
+        } else {
+            kubeconfig.mergeConfig(source);
         }
-        // Restore the original current context
-        if (currentContext) {
-            kubeconfig.setCurrentContext(currentContext);
-        }
-    } else if (kubeconfigPath.pathType === 'wsl') {
-        const result = shelljs.exec(`wsl.exe sh -c "cat ${kubeconfigPath.wslPath}"`, { silent: true }) as shelljs.ExecOutputReturnValue;
-        if (!result) {
-            throw new Error(`Impossible to retrieve the kubeconfig content from WSL at path '${kubeconfigPath.wslPath}'. No result from the shelljs.exe call.`);
-        }
-
-        if (result.code !== 0) {
-            throw new Error(`Impossible to retrieve the kubeconfig content from WSL at path '${kubeconfigPath.wslPath}. Error code: ${result.code}. Error output: ${result.stderr.trim()}`);
-        }
-
-        kubeconfig.loadFromString(result.stdout.trim());
-    } else {
-        throw new Error(`Kubeconfig path type is not recognized.`);
+    }
+    // Merging must not replace the first file's selected context.
+    if (currentContext) {
+        kubeconfig.setCurrentContext(currentContext);
     }
 
     return kubeconfig;
@@ -80,15 +77,12 @@ export function getKubeconfigPath(): KubeconfigPath {
     if (getUseWsl()) {
         if (!kubeconfigPath) {
             // User is using WSL: we want to use the same default that kubectl uses on Linux ($KUBECONFIG or home directory).
-            const result = shelljs.exec('wsl.exe sh -c "${KUBECONFIG:-$HOME/.kube/config}"', { silent: true }) as shelljs.ExecOutputReturnValue;
-            if (!result) {
-                throw new Error(`Impossible to retrieve the kubeconfig path from WSL. No result from the shelljs.exe call.`);
-            }
-
+            // Fixed script expands guest variables without evaluating their contents.
+            const result = execWslSync(['sh', '-c', 'printf "%s" "${KUBECONFIG:-$HOME/.kube/config}"']);
             if (result.code !== 0) {
                 throw new Error(`Impossible to retrieve the kubeconfig path from WSL. Error code: ${result.code}. Error output: ${result.stderr.trim()}`);
             }
-            kubeconfigPath = result.stdout.trim();
+            kubeconfigPath = result.stdout;
         }
         return {
             pathType: 'wsl',
