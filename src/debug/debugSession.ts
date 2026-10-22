@@ -16,13 +16,15 @@ import { shell } from "../shell";
 
 import { DockerfileParser } from "../docker/dockerfileParser";
 import * as dockerUtils from "../docker/dockerUtils";
-import { Pod, KubernetesCollection, Container } from "../kuberesources.objectmodel";
+import { Container } from "../kuberesources.objectmodel";
 import * as config from "../components/config/config";
 import { Dictionary } from "../utils/dictionary";
 import { definedOf } from "../utils/array";
 import * as imageUtils from "../image/imageUtils";
 import { ExecResult } from "../binutilplusplus";
 import { interpolateVariables } from "../utils/interpolation";
+import { waitForPortForward } from './portForward';
+import { listPods, readPod } from '../components/kubectl/pod-commands';
 
 const debugCommandDocumentationUrl = "https://github.com/Azure/vscode-kubernetes-tools/blob/master/debug-on-kubernetes.md";
 
@@ -221,22 +223,24 @@ export class DebugSession implements IDebugSession {
             containers: Container[] = [];
 
         if (targetPod) {
-            const resource = await kubectlUtils.getResourceAsJson<Pod>(this.kubectl, `pod/${pod}`, podNamespace);
-            if (!resource) {
+            const resource = await readPod(this.kubectl, targetPod, podNamespace);
+            if (!resource.succeeded) {
+                vscode.window.showErrorMessage(resource.error[0]);
                 return undefined;
             }
 
-            containers = resource.spec.containers;
+            containers = resource.result.spec.containers;
 
             return { targetPod, targetPodNS, containers };
         }
 
-        const resource =  await kubectlUtils.getResourceAsJson<KubernetesCollection<Pod>>(this.kubectl, "pods");
-        if (!resource) {
+        const resource = await listPods(this.kubectl);
+        if (!resource.succeeded) {
+            vscode.window.showErrorMessage(resource.error[0]);
             return;
         }
 
-        const podPickItems = resource.items.map((pod) => {
+        const podPickItems = resource.result.items.map((pod) => {
             return {
                 label: `${pod.metadata.name} (${pod.spec.nodeName})`,
                 description: "pod",
@@ -348,7 +352,7 @@ export class DebugSession implements IDebugSession {
 
         // Wait for the port-forward proxy to be ready.
         kubeChannel.showOutput("Waiting for port forwarding to be ready...");
-        await this.waitForProxyReady(proxyResult.proxyProcess);
+        await waitForPortForward(proxyResult.proxyProcess);
         kubeChannel.showOutput("Port forwarding is ready.");
 
         return proxyResult;
@@ -384,7 +388,7 @@ export class DebugSession implements IDebugSession {
 
     private async cleanupResource(resourceId: string): Promise<void> {
         kubeChannel.showOutput(`Starting to clean up debug resource...`, "Cleanup debug resource");
-        const deleteResult = await this.kubectl.invokeCommand(`delete ${resourceId}`);
+        const deleteResult = await this.kubectl.invokeCommandArgs(['delete', resourceId]);
         if (ExecResult.failed(deleteResult)) {
             kubeChannel.showOutput(ExecResult.failureMessage(deleteResult, {}));
             return;
@@ -412,9 +416,9 @@ export class DebugSession implements IDebugSession {
 
         const nsarg = podNamespace ? [ '--namespace', podNamespace ] : [];
 
-        const proxyProcess = await kubectl.spawnCommand(["port-forward", podName, ...nsarg, ...portMapping]);
+        const proxyProcess = await kubectl.spawnCommandArgs(["port-forward", `pod/${podName}`, ...nsarg, ...portMapping]);
 
-        if (proxyProcess.resultKind === 'exec-bin-not-found') {
+        if (proxyProcess.resultKind !== 'exec-child-process-started') {
             kubectl.reportFailure(proxyProcess, { whatFailed: 'Failed to forward debug port' });
             return {
                 proxyProcess: undefined,
@@ -430,38 +434,17 @@ export class DebugSession implements IDebugSession {
         };
     }
 
-    private async waitForProxyReady(proxyProcess: ChildProcess): Promise<void> {
-        return new Promise<void>((resolve, reject) => {
-            let isProxyReady = false;
-
-            proxyProcess.stdout?.on('data', async (data) => {
-                const message = `${data}`;
-                if (!isProxyReady && this.isForwardingCompleteMessage(message)) {
-                    isProxyReady = true;
-                    resolve();
-                }
-            });
-
-            proxyProcess.stderr?.on('data', (data) => {
-                kubeChannel.showOutput(`${data}`, "port-forward");
-            });
-
-            proxyProcess.on('close', async (_code) => {
-                if (!isProxyReady) {
-                    reject("Cannot setup port-forward.");
-                    return;
-                }
-            });
-        });
-    }
-
-    private isForwardingCompleteMessage(message: string): boolean {
-        const forwardingRegExp = /Forwarding\s+from\s+127\.0\.0\.1:/;
-        return forwardingRegExp.test(message);
-    }
-
     private async startDebugging(workspaceFolder: string, sessionName: string, proxyDebugPort: number | undefined, proxyAppPort: number | undefined, pod: string, pidToDebug: number | undefined, onTerminateCallback: () => Promise<any>): Promise<boolean> {
         const disposables: vscode.Disposable[] = [];
+        let cleanedUp = false;
+        const cleanup = async () => {
+            if (cleanedUp) {
+                return;
+            }
+            cleanedUp = true;
+            disposables.forEach((disposable) => disposable.dispose());
+            await onTerminateCallback();
+        };
         disposables.push(vscode.debug.onDidStartDebugSession((debugSession) => {
             if (debugSession.name === sessionName) {
                 kubeChannel.showOutput("The debug session has started. Your application is ready for you to debug.");
@@ -473,22 +456,26 @@ export class DebugSession implements IDebugSession {
 
         disposables.push(vscode.debug.onDidTerminateDebugSession(async (debugSession) => {
             if (debugSession.name === sessionName) {
-                disposables.forEach((d) => d.dispose());
-                await onTerminateCallback();
+                await cleanup();
             }
         }));
 
         if (!this.debugProvider) {
             console.warn("INTERNAL ERROR: DebugSession.debugProvider was expected to be assigned before starting debugging");
+            await cleanup();
             return false;
         }
 
-        const success = await this.debugProvider.startDebugging(workspaceFolder, sessionName, proxyDebugPort, pod, pidToDebug);
-        if (!success) {
-            disposables.forEach((d) => d.dispose());
-            await onTerminateCallback();
+        try {
+            const success = await this.debugProvider.startDebugging(workspaceFolder, sessionName, proxyDebugPort, pod, pidToDebug);
+            if (!success) {
+                await cleanup();
+            }
+            return success;
+        } catch (error) {
+            await cleanup();
+            throw error;
         }
-        return success;
     }
 
     private async openInBrowser(errorMessage: string, link: string): Promise<void> {

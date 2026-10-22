@@ -210,6 +210,8 @@ export function monitorForAuthPrompt(proc: ChildProcess): void {
 
             newlineIndex = stderrBuffer.indexOf('\n');
         }
+        // Streaming commands may never produce a newline.
+        stderrBuffer = stderrBuffer.slice(-4096);
     });
 
     // Notify user when auth completes successfully

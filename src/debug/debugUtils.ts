@@ -3,6 +3,7 @@ import * as vscode from "vscode";
 import { Kubectl } from "../kubectl";
 import { Dictionary } from "../utils/dictionary";
 import { ExecResult } from "../binutilplusplus";
+import { containerExecArgs } from '../components/kubectl/pod-commands';
 
 async function promptForPort(promptMessage: string, defaultPort: string): Promise<string | undefined> {
     const input = await vscode.window.showInputBox({
@@ -60,15 +61,13 @@ export async function promptForAppPort(ports: string[], defaultPort: string, env
  */
 export async function getProcesses(kubectl: Kubectl, pod: string, podNamespace: string | undefined, container: string | undefined): Promise<ProcessInfo[] | undefined> {
     const processes: ProcessInfo[] = [];
-    const nsarg = podNamespace ? `--namespace ${podNamespace}` : '';
-    const containerCommand = container ? `-c ${container}` : '';
 
     // second -w in below command tells ps to not limit number of columns by terminal size. Since this is not running in terminal,
     // this may have no affect, but atleast someone debugging can run the command in terminal and will get the same results that this
     // invocation will get.
-    const execCmd = `exec ${pod} ${nsarg} ${containerCommand} -- ps -o pid,command -e -w -w`;
+    const execCmd = containerExecArgs(pod, podNamespace, container, ['ps', '-o', 'pid,command', '-e', '-w', '-w']);
 
-    const execResult = await kubectl.invokeCommand(execCmd);
+    const execResult = await kubectl.invokeCommandArgs(execCmd);
     if (ExecResult.succeeded(execResult)) {
         /**
          * PID   COMMAND
