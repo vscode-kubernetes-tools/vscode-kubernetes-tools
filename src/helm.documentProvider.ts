@@ -1,15 +1,22 @@
-import * as vscode from 'vscode';
 import * as filepath from 'path';
-import * as exec from './helm.exec';
+import * as vscode from 'vscode';
 import * as YAML from 'yamljs';
-import * as fs from './wsl-fs';
 import { escape as htmlEscape } from 'lodash';
-import * as querystring from 'querystring';
 
+import {
+    helmInspectArgs,
+    helmTemplatePreviewArgs,
+    parseHelmChartQuery,
+    parseHelmFileQuery,
+    parseHelmRepositoryChartQuery,
+} from './components/helm/commands';
+import { helmPathForExecution, helmRelativePathForExecution } from './components/helm/executable';
+import * as exec from './helm.exec';
 import * as helm from './helm';
 import * as logger from './logger';
+import { getUseWsl } from './components/config/config';
 import { failed } from './errorable';
-import * as shell from './shell';
+import * as fs from 'fs';
 
 interface HelmDocumentResult {
     readonly title: string;
@@ -25,144 +32,142 @@ function htmlTag(tag: string, content: string): string {
 
 function render(document: HelmDocumentResult): string {
     const subtitle = document.subtitle ? htmlTag('h2', document.subtitle) : '';
-    // Use <pre> for both error and normal output to preserve formatting and line breaks
     const bodyContent = htmlTag('pre', document.content);
     return `<body>
       <style>
         pre { white-space: pre-wrap; word-wrap: break-word; }
       </style>
-      <h1>${document.title}</h1>
+      ${htmlTag('h1', document.title)}
       ${subtitle}
       ${bodyContent}
     </body>`;
 }
 
-function extractChartName(uri: vscode.Uri): string {
-    if (uri.authority === helm.INSPECT_REPO_AUTHORITY) {
-        const id = uri.path.substring(1);
-        const version = uri.query;
-        return `${id} ${version}`;
-    }
-    if (uri.authority === helm.INSPECT_FILE_AUTHORITY) {
-        const fsPath = uri.query;
-        if (filepath.extname(fsPath) === ".tgz") {
-            return filepath.basename(fsPath);
-        }
-    }
-    return "Chart";
-}
-
 export class HelmInspectDocumentProvider implements vscode.TextDocumentContentProvider {
-    public provideTextDocumentContent(uri: vscode.Uri, _token: vscode.CancellationToken): vscode.ProviderResult<string> {
-        return new Promise<string>((resolve, reject) => {
-            const printer = (code: number, out: string, err: string) => {
-                if (code === 0) {
-                    const p = extractChartName(uri);
-                    const title = "Inspect " + p;
-                    resolve(render({ title: title, content: out, isErrorOutput: false }));
-                    return;
-                }
-                console.log(`Inspect failed: ${out} ${err}`);
-                vscode.window.showErrorMessage(`Helm inspect failed: ${err || out}`);
-                reject(err);
-            };
+    public async provideTextDocumentContent(uri: vscode.Uri, _token: vscode.CancellationToken): Promise<string> {
+        if (uri.scheme !== helm.INSPECT_CHART_SCHEME) {
+            throw new Error('Invalid Helm chart URI.');
+        }
 
-            if (uri.authority === helm.INSPECT_FILE_AUTHORITY) {
-                // currently always INSPECT_VALUES_SCHEME
-                const file = uri.query;
-                const fi = fs.statSync(file);
-                if (!fi.isDirectory() && filepath.extname(file) === ".tgz") {
-                    exec.helmExec(`inspect values "${file}"`, printer);
-                    return;
-                } else if (fi.isDirectory() && fs.existsSync(filepath.join(file, "Chart.yaml"))) {
-                    exec.helmExec(`inspect values "${file}"`, printer);
-                    return;
-                }
-                exec.pickChartForFile(file, { warnIfNoCharts: true }, (path) => {
-                    exec.helmExec(`inspect values "${path}"`, printer);
-                });
-            } else if (uri.authority === helm.INSPECT_REPO_AUTHORITY) {
-                const id = uri.path.substring(1);
-                const query = querystring.parse(uri.query);
-                const version = query.version as string;
-                if (!shell.isSafe(id)) {
-                    vscode.window.showWarningMessage(`Unexpected characters in chart name ${id}. Use Helm CLI to inspect this chart.`);
-                    return;
-                }
-                if (version && !shell.isSafe(version)) {
-                    vscode.window.showWarningMessage(`Unexpected characters in chart version ${version}. Use Helm CLI to inspect this chart.`);
-                    return;
-                }
-
-                const versionArg = version ? `--version ${version}` : '';
-                exec.helmSyntaxVersion().then((sv) => {
-                    const helm3Scope = (sv === exec.HelmSyntaxVersion.V2) ? '' : 'all';
-                    if (uri.scheme === helm.INSPECT_CHART_SCHEME) {
-                        exec.helmExec(`inspect ${helm3Scope} ${id} ${versionArg}`, printer);
-                    } else if (uri.scheme === helm.INSPECT_VALUES_SCHEME) {
-                        if (query.generateFile) {
-                            exec.helmExec(
-                                `inspect values ${id} ${versionArg}`,
-                                (code: number, out: string, err: string) => {
-                                    if (code === 0) {
-                                        resolve(out);
-                                        return;
-                                    }
-                                    console.log(
-                                        `failed to generate values.yaml: ${out} ${err}`
-                                    );
-                                    reject(err);
-                                }
-                            );
-                        } else {
-                            exec.helmExec(`inspect values ${id} ${versionArg}`, printer);
-                        }
-                    }
-                });
+        if (uri.authority === helm.INSPECT_FILE_AUTHORITY) {
+            const file = parseHelmFileQuery(uri.query);
+            if (!file) {
+                throw new Error('Invalid Helm chart URI.');
             }
-        });
+            return this.inspectLocalChart(file);
+        }
 
+        if (uri.authority === helm.INSPECT_REPO_AUTHORITY) {
+            const request = parseHelmRepositoryChartQuery(uri.query);
+            if (!request) {
+                throw new Error('Invalid Helm chart URI.');
+            }
+            const syntaxVersion = await exec.helmSyntaxVersion();
+            const chart = await helmPathForExecution(request.chart, getUseWsl());
+            return this.runInspect(
+                helmInspectArgs(syntaxVersion, 'chart', chart, request.version),
+                `Inspect ${request.chart}${request.version ? ` ${request.version}` : ''}`,
+                true
+            );
+        }
+
+        throw new Error('Invalid Helm chart URI.');
+    }
+
+    private async inspectLocalChart(file: string): Promise<string> {
+        const fileInfo = fs.statSync(file);
+        if ((!fileInfo.isDirectory() && filepath.extname(file) === '.tgz') ||
+            (fileInfo.isDirectory() && fs.existsSync(filepath.join(file, 'Chart.yaml')))) {
+            return this.inspectLocalPath(file);
+        }
+        const chartPath = await exec.pickChartForFileAsync(file, { warnIfNoCharts: true });
+        if (!chartPath) {
+            throw new Error(`No Helm chart found for ${file}.`);
+        }
+        return this.inspectLocalPath(chartPath);
+    }
+
+    private async inspectLocalPath(chartPath: string): Promise<string> {
+        const syntaxVersion = await exec.helmSyntaxVersion();
+        const executionPath = await helmPathForExecution(chartPath, getUseWsl());
+        return this.runInspect(
+            helmInspectArgs(syntaxVersion, 'chart', executionPath),
+            `Inspect ${filepath.basename(chartPath) || 'Chart'}`,
+            false
+        );
+    }
+
+    private async runInspect(args: readonly string[], title: string, repositoryChart: boolean): Promise<string> {
+        const result = repositoryChart ?
+            await exec.helmExecRepositoryArgsAsync(args) :
+            await exec.helmExecArgsAsync(args);
+        if (!result || result.code !== 0) {
+            const message = result ? result.stderr || result.stdout : 'Unable to run Helm';
+            console.log(`Inspect failed: ${message}`);
+            vscode.window.showErrorMessage(`Helm inspect failed: ${message}`);
+            throw new Error(message);
+        }
+        return render({ title, content: result.stdout, isErrorOutput: false });
     }
 }
 
 export class HelmValuesDocumentProvider implements vscode.TextDocumentContentProvider {
-    public provideTextDocumentContent(uri: vscode.Uri, _token: vscode.CancellationToken): vscode.ProviderResult<string> {
-        return new Promise<string>((resolve, reject) => {
-            if (
-                uri.authority === helm.INSPECT_REPO_AUTHORITY &&
-                uri.scheme === helm.FETCH_VALUES_SCHEME
-            ) {
-                const query = querystring.parse(uri.query);
-                const id = query.chart as string;
-                const version = query.version ? `${query.version}` : "";
-                const versionArg = version ? `--version ${version}` : "";
-                if (!shell.isSafe(id)) {
-                    vscode.window.showWarningMessage(`Unexpected characters in chart name ${id}. Use Helm CLI to inspect this chart.`);
-                    return;
-                }
-                if (version && !shell.isSafe(version)) {
-                    vscode.window.showWarningMessage(`Unexpected characters in chart version ${version}. Use Helm CLI to inspect this chart.`);
-                    return;
-                }
-                exec.helmExec(
-                    `inspect values ${id} ${versionArg}`,
-                    (code: number, out: string, err: string) => {
-                        if (code === 0) {
-                            resolve(out);
-                            return;
-                        }
-                        console.log(
-                            `failed to inspect values: ${out} ${err}`
-                        );
-                        reject(err);
-                    }
-                );
+    public async provideTextDocumentContent(uri: vscode.Uri, _token: vscode.CancellationToken): Promise<string> {
+        if (uri.scheme !== helm.FETCH_VALUES_SCHEME) {
+            throw new Error('Invalid Helm values URI.');
+        }
+        if (uri.authority === helm.INSPECT_FILE_AUTHORITY) {
+            const file = parseHelmFileQuery(uri.query);
+            if (!file) {
+                throw new Error('Invalid Helm values URI.');
             }
-        });
+            const target = await this.localChartPath(file);
+            const syntaxVersion = await exec.helmSyntaxVersion();
+            return this.inspectValues(syntaxVersion, target);
+        }
+        if (uri.authority !== helm.INSPECT_REPO_AUTHORITY) {
+            throw new Error('Invalid Helm values URI.');
+        }
+        const request = parseHelmRepositoryChartQuery(uri.query);
+        if (!request) {
+            throw new Error('Invalid Helm values URI.');
+        }
+        const syntaxVersion = await exec.helmSyntaxVersion();
+        const chart = await helmPathForExecution(request.chart, getUseWsl());
+        const result = await exec.helmExecRepositoryArgsAsync(
+            helmInspectArgs(syntaxVersion, 'values', chart, request.version)
+        );
+        if (!result || result.code !== 0) {
+            const message = result ? result.stderr || result.stdout : 'Unable to run Helm';
+            console.log(`failed to inspect values: ${message}`);
+            throw new Error(message);
+        }
+        return result.stdout;
+    }
+
+    private async localChartPath(file: string): Promise<string> {
+        const fileInfo = fs.statSync(file);
+        if ((!fileInfo.isDirectory() && filepath.extname(file) === '.tgz') ||
+            (fileInfo.isDirectory() && fs.existsSync(filepath.join(file, 'Chart.yaml')))) {
+            return file;
+        }
+        const chartPath = await exec.pickChartForFileAsync(file, { warnIfNoCharts: true });
+        if (!chartPath) {
+            throw new Error(`No Helm chart found for ${file}.`);
+        }
+        return chartPath;
+    }
+
+    private async inspectValues(syntaxVersion: exec.HelmSyntaxVersion, chartPath: string): Promise<string> {
+        const executionPath = await helmPathForExecution(chartPath, getUseWsl());
+        const result = await exec.helmExecArgsAsync(helmInspectArgs(syntaxVersion, 'values', executionPath));
+        if (!result || result.code !== 0) {
+            throw new Error(result ? result.stderr || result.stdout : 'Unable to run Helm');
+        }
+        return result.stdout;
     }
 }
 
-// Provide an HTML-formatted preview window.
 export class HelmTemplatePreviewDocumentProvider implements vscode.TextDocumentContentProvider {
     private onDidChangeEmitter = new vscode.EventEmitter<vscode.Uri>();
 
@@ -172,61 +177,51 @@ export class HelmTemplatePreviewDocumentProvider implements vscode.TextDocumentC
 
     public update(uri: vscode.Uri) {
         this.onDidChangeEmitter.fire(uri);
-	}
+    }
 
-    public provideTextDocumentContent(_uri: vscode.Uri, _token: vscode.CancellationToken): vscode.ProviderResult<string> {
-        return new Promise<string>((resolve) => {
-            // The URI is the encapsulated path to the template to render.
-            if (!vscode.window.activeTextEditor) {
-                logger.helm.log("FIXME: no editor selected");
-                return;
-            }
-            const tpl = vscode.window.activeTextEditor.document.fileName;
-
-            exec.helmSyntaxVersion().then((v) => {
-
-                // First, we need to get the top-most chart:
-                exec.pickChartForFile(tpl, { warnIfNoCharts: true }, (chartPath) => {
-                    // We need the relative path for 'helm template'
-                    if (!fs.statSync(chartPath).isDirectory()) {
-                        chartPath = filepath.dirname(chartPath);
-                    }
-                    const reltpl = filepath.relative(chartPath, tpl);
-                    const displayResultAfterCommandExecution = (code: number, out: string, err: any) => {
-                        if (code !== 0) {
-                            const errorDoc = { title: "Chart Preview", subtitle: "Failed template call", content: err, isErrorOutput: true };
-                            resolve(render(errorDoc));
-                            return;
-                        }
-
-                        if (filepath.basename(reltpl) !== "NOTES.txt") {
-                            try {
-                                YAML.parse(out);
-                            } catch (e) {
-                                // TODO: Figure out the best way to display this message, but have it go away when the
-                                // file parses correctly.
-                                const errorMessage = e instanceof Error ? e.message : String(e);
-                                vscode.window.showErrorMessage(`YAML failed to parse: ${ errorMessage }`);
-                            }
-                        }
-
-                        const previewDoc = out ?
-                            { title: reltpl, content: out, isErrorOutput: false } :
-                            { title: reltpl, content: 'Helm template produced no output', isErrorOutput: true };
-                        resolve(render(previewDoc));
-                    };
-
-                    if (v === exec.HelmSyntaxVersion.V3 || v === exec.HelmSyntaxVersion.V4) {
-                        // Helm v3/v4: use --show-only to render specific template
-                        exec.helmExec(`template "${chartPath}" --show-only "${reltpl}"`, displayResultAfterCommandExecution);
-                    } else {
-                        // Helm v2: use --execute flag
-                        exec.helmExec(`template "${chartPath}" --execute "${reltpl}"`, displayResultAfterCommandExecution);
-                    }
-                });
+    public async provideTextDocumentContent(_uri: vscode.Uri, _token: vscode.CancellationToken): Promise<string> {
+        if (!vscode.window.activeTextEditor) {
+            logger.helm.log('FIXME: no editor selected');
+            return render({ title: 'Chart Preview', content: 'No editor selected', isErrorOutput: true });
+        }
+        const templatePath = vscode.window.activeTextEditor.document.fileName;
+        const syntaxVersion = await exec.helmSyntaxVersion();
+        let chartPath = await exec.pickChartForFileAsync(templatePath, { warnIfNoCharts: true });
+        if (!chartPath) {
+            return render({ title: 'Chart Preview', content: 'No chart found', isErrorOutput: true });
+        }
+        if (!fs.statSync(chartPath).isDirectory()) {
+            chartPath = filepath.dirname(chartPath);
+        }
+        const relativeTemplatePath = filepath.relative(chartPath, templatePath);
+        const executionChartPath = await helmPathForExecution(chartPath, getUseWsl());
+        const executionTemplatePath = helmRelativePathForExecution(relativeTemplatePath, getUseWsl());
+        const result = await exec.helmExecArgsAsync(
+            helmTemplatePreviewArgs(syntaxVersion, executionChartPath, executionTemplatePath)
+        );
+        if (!result || result.code !== 0) {
+            return render({
+                title: 'Chart Preview',
+                subtitle: 'Failed template call',
+                content: result ? result.stderr : 'Unable to run Helm',
+                isErrorOutput: true,
             });
-        });
+        }
 
+        if (filepath.basename(relativeTemplatePath) !== 'NOTES.txt') {
+            try {
+                YAML.parse(result.stdout);
+            } catch (err) {
+                const errorMessage = err instanceof Error ? err.message : String(err);
+                vscode.window.showErrorMessage(`YAML failed to parse: ${errorMessage}`);
+            }
+        }
+
+        return render({
+            title: relativeTemplatePath,
+            content: result.stdout || 'Helm template produced no output',
+            isErrorOutput: result.stdout.length === 0,
+        });
     }
 }
 
@@ -236,25 +231,29 @@ export class HelmDependencyDocumentProvider implements vscode.TextDocumentConten
     }
 
     async provideTextDocumentContentImpl(uri: vscode.Uri): Promise<string> {
-        const chartId = uri.path.substring(1);
-        const version = uri.query;
-        const dependencies = await exec.helmDependenciesCore(chartId, version);
+        if (uri.scheme !== helm.DEPENDENCIES_SCHEME || uri.authority !== helm.DEPENDENCIES_REPO_AUTHORITY) {
+            return htmlTag('p', 'Invalid Helm dependencies URI.');
+        }
+        const request = parseHelmChartQuery(uri.query);
+        if (!request) {
+            return htmlTag('p', 'Invalid Helm dependencies URI.');
+        }
+        const dependencies = await exec.helmDependenciesCore(request.chart, request.version);
         if (failed(dependencies)) {
-            return `<p>${dependencies.error[0]}</p>`;
+            return htmlTag('p', dependencies.error[0]);
         }
 
-        const list =  dependencies.result
-                                  .map(this.formatDependency)
-                                  .join('<br>');
-        return `<p>${chartId} depends on:</p><ul>${list}</ul>`;
+        const list = dependencies.result.map(this.formatDependency).join('');
+        return `${htmlTag('p', `${request.chart} depends on:`)}<ul>${list}</ul>`;
     }
 
-    formatDependency(d: { [key: string]: string }): string {
-        const name = d.name;
-        const version = d.version === '*' ? '' : ` (v${d.version})`;
-        const repoPrefix = d.repository.startsWith('alias:') ? d.repository.substring('alias:'.length) + '/' : '';
-        const repoSuffix = d.repository.startsWith('alias:') ? '' : ` from ${d.repository}`;
-        const status = ` - ${d.status}`;
-        return `<li>${repoPrefix}${name}${version}${repoSuffix}${status}</li>`;
+    formatDependency(dependency: { [key: string]: string }): string {
+        const name = dependency.name || '';
+        const version = dependency.version === '*' ? '' : ` (v${dependency.version || ''})`;
+        const repository = dependency.repository || '';
+        const repoPrefix = repository.startsWith('alias:') ? `${repository.substring('alias:'.length)}/` : '';
+        const repoSuffix = repository.startsWith('alias:') ? '' : ` from ${repository}`;
+        const status = ` - ${dependency.status || ''}`;
+        return htmlTag('li', `${repoPrefix}${name}${version}${repoSuffix}${status}`);
     }
 }
