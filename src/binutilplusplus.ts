@@ -8,7 +8,7 @@ import { Errorable } from './errorable';
 import { parseLineOutput } from './outputUtils';
 import { Dictionary } from './utils/dictionary';
 import { monitorForAuthPrompt } from './shell';
-import { CommandInvocation, executeCommand, executeCommandPiped, renderArgsForDisplay, snapPipeInvocation } from './process';
+import { CommandInvocation, executeCommand, executeCommandPiped, renderArgsForDisplay, snapPipeInvocation, spawnCommand } from './process';
 import { execPath, isWindowsCommandScript } from './binutil';
 
 export interface ExternalBinary {
@@ -66,6 +66,7 @@ export type ParsedExecResult<T> = ExecBinNotFound | ExecFailed | ParsedExecSucce
 export type ExecResult = ExecBinNotFound | ExecFailed | ExecSucceeded | ExecErrored;
 export type FailedExecResult = ExecBinNotFound | ExecFailed | ExecErrored;
 export type BackgroundExecResult = ExecBinNotFound | ExecChildProcessStarted;
+export type ArgsBackgroundExecResult = BackgroundExecResult | ExecFailed;
 
 export interface FailureMessageOptions {
     readonly whatFailed?: string;
@@ -369,6 +370,48 @@ export async function invokeBackground(context: Context, args: string[]): Promis
 
     const childProcess = spawnChildProcess(bin, args, context.shell.execOpts());
     return { resultKind: 'exec-child-process-started', execProgram: context.binary, command: args.join(' '), childProcess };
+}
+
+export async function invokeBackgroundArgs(context: Context, args: readonly string[], signal?: AbortSignal): Promise<ArgsBackgroundExecResult> {
+    const command = renderArgsForDisplay(args);
+    try {
+        if (signal?.aborted) {
+            throw new Error('Command cancelled.');
+        }
+        const fbr = await findBinary(context);
+        if (!fbr.found) {
+            return { resultKind: 'exec-bin-not-found', execProgram: context.binary, command, findResult: fbr };
+        }
+        const invocation = await commandInvocation(context, args);
+        if (signal?.aborted) {
+            throw new Error('Command cancelled.');
+        }
+        const childProcess = spawnCommand(invocation);
+        monitorForAuthPrompt(childProcess);
+        return await new Promise<ArgsBackgroundExecResult>((resolve) => {
+            const finish = (result: ArgsBackgroundExecResult) => {
+                signal?.removeEventListener('abort', cancel);
+                resolve(result);
+            };
+            const cancel = () => {
+                childProcess.kill();
+                finish({ resultKind: 'exec-failed', execProgram: context.binary, command, error: 'Command cancelled.' });
+            };
+            signal?.addEventListener('abort', cancel, { once: true });
+            childProcess.once('error', (error: Error) => finish({
+                resultKind: 'exec-failed', execProgram: context.binary, command, error: error.message,
+            }));
+            childProcess.once('spawn', () => {
+                if (signal?.aborted) {
+                    cancel();
+                } else {
+                    finish({ resultKind: 'exec-child-process-started', execProgram: context.binary, command, childProcess });
+                }
+            });
+        });
+    } catch (error) {
+        return { resultKind: 'exec-failed', execProgram: context.binary, command, error: String(error) };
+    }
 }
 
 // This is noisy - handles failure UI for an interactive command that performs an invokeForResult
