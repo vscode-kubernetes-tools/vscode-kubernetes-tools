@@ -155,7 +155,7 @@ export interface Context {
     readonly host: Host;
     readonly fs: FS;
     readonly shell: Shell;
-    readonly pathfinder: (() => Promise<string>) | undefined;
+    readonly pathfinder: ((signal?: AbortSignal) => Promise<string>) | undefined;
     readonly binary: ExternalBinary;
     status: FindBinaryStatus | undefined;
 }
@@ -212,30 +212,16 @@ export async function executeForResultArgs(context: Context, args: readonly stri
     return executeCommand(invocation, stdin, monitorForAuthPrompt, options);
 }
 
-function resolveCommandInvocation(context: Context, args: readonly string[], signal?: AbortSignal): Promise<CommandInvocation> {
-    return new Promise<CommandInvocation>((resolve, reject) => {
-        const cancel = () => {
-            signal?.removeEventListener('abort', cancel);
-            reject(new ProcessExecutionError('cancelled', 'Command cancelled.'));
-        };
-        if (signal?.aborted) {
-            cancel();
-            return;
-        }
-        signal?.addEventListener('abort', cancel, { once: true });
-        const prepare = async () => {
-            const executable = context.pathfinder ? await context.pathfinder() :
-                getToolPath(context.host, context.shell, context.binary.configKeyName) || context.binary.binBaseName;
-            return commandInvocation(context, args, executable);
-        };
-        prepare().then((invocation) => {
-            signal?.removeEventListener('abort', cancel);
-            resolve(invocation);
-        }, (error) => {
-            signal?.removeEventListener('abort', cancel);
-            reject(error);
-        });
-    });
+async function resolveCommandInvocation(context: Context, args: readonly string[], signal?: AbortSignal): Promise<CommandInvocation> {
+    if (signal?.aborted) {
+        throw new ProcessExecutionError('cancelled', 'Command cancelled.');
+    }
+    const executable = context.pathfinder ? await context.pathfinder(signal) :
+        getToolPath(context.host, context.shell, context.binary.configKeyName) || context.binary.binBaseName;
+    if (signal?.aborted) {
+        throw new ProcessExecutionError('cancelled', 'Command cancelled.');
+    }
+    return commandInvocation(context, args, executable);
 }
 
 // This is silent - just caching over findBinaryCore

@@ -189,6 +189,16 @@ export function monitorForAuthPrompt(proc: ChildProcess): void {
 
     let authPromptDetected = false;
     let stderrBuffer = '';
+    const inspect = (text: string) => {
+        if (AUTH_PROMPT_PATTERN.test(text) && !authNotificationShown && !authPromptDetected) {
+            authNotificationShown = true;
+            authPromptDetected = true;
+            const start = Math.max(0, text.search(AUTH_PROMPT_PATTERN) - 1024);
+            kubeChannel.showOutput(text.slice(start, start + 4096), 'Authentication Required');
+            vscode.window.showWarningMessage('Authentication required. See Kubernetes output for instructions.');
+            setTimeout(() => { authNotificationShown = false; }, 1000);
+        }
+    };
 
     proc.stderr.on('data', (data: Buffer | string) => {
         stderrBuffer += data.toString();
@@ -199,18 +209,11 @@ export function monitorForAuthPrompt(proc: ChildProcess): void {
             const line = stderrBuffer.slice(0, newlineIndex + 1);
             stderrBuffer = stderrBuffer.slice(newlineIndex + 1);
 
-            if (AUTH_PROMPT_PATTERN.test(line) && !authNotificationShown) {
-                authNotificationShown = true;
-                authPromptDetected = true;
-                kubeChannel.showOutput(line, 'Authentication Required');
-                vscode.window.showWarningMessage('Authentication required. See Kubernetes output for instructions.');
-                // Reset flag after cooldown so future auth prompts can show
-                setTimeout(() => { authNotificationShown = false; }, 1000);
-            }
+            inspect(line);
 
             newlineIndex = stderrBuffer.indexOf('\n');
         }
-        // Streaming commands may never produce a newline.
+        inspect(stderrBuffer);
         stderrBuffer = stderrBuffer.slice(-4096);
     });
 

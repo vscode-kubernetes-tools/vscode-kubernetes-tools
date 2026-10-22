@@ -83,7 +83,7 @@ interface Context {
     readonly host: Host;
     readonly fs: FS;
     readonly shell: Shell;
-    readonly pathfinder: (() => Promise<string>) | undefined;
+    readonly pathfinder: ((signal?: AbortSignal) => Promise<string>) | undefined;
     binFound: boolean;
     binPath: string;
     readonly binary: ExternalBinary;
@@ -101,7 +101,7 @@ const KUBECTL_BINARY: ExternalBinary = {
 let checkedCompatibility = false;  // We don't want to spam the user (or CPU!) repeatedly running the version check
 
 class KubectlImpl implements Kubectl {
-    constructor(host: Host, fs: FS, shell: Shell, pathfinder: (() => Promise<string>) | undefined, kubectlFound: false /* TODO: this is now safe to remove */) {
+    constructor(host: Host, fs: FS, shell: Shell, pathfinder: ((signal?: AbortSignal) => Promise<string>) | undefined, kubectlFound: false /* TODO: this is now safe to remove */) {
         this.context = {
             host : host,
             fs : fs,
@@ -371,7 +371,7 @@ function createSingleVersion(host: Host, fs: FS, shell: Shell): Kubectl {
 
 function createAutoVersioned(host: Host, fs: FS, shell: Shell): Kubectl {
     const bootstrapper = createSingleVersion(host, fs, shell);
-    const pathfinder = async () => (await ensureSuitableKubectl(bootstrapper, shell, host)) || 'kubectl';
+    const pathfinder = async (signal?: AbortSignal) => (await ensureSuitableKubectl(bootstrapper, shell, host, signal)) || 'kubectl';
     return new KubectlImpl(host, fs, shell, pathfinder, false);
 }
 

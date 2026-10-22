@@ -104,8 +104,8 @@ suite('Process security', () => {
 
     test('retains the source exit status when the pipeline destination also fails', async () => {
         const result = await executeCommandPiped(
-            { executable: process.execPath, args: ['-e', 'setTimeout(()=>process.exit(7),50)'] },
-            { executable: process.execPath, args: ['-e', 'process.exit(3)'] }
+            { executable: process.execPath, args: ['-e', 'process.exit(7)'] },
+            { executable: process.execPath, args: ['-e', 'process.stdin.resume();process.stdin.on("end",()=>process.exit(3))'] }
         );
         assert.strictEqual(result.code, 7);
     });
@@ -139,34 +139,160 @@ suite('Process security', () => {
     });
 
     test('uses normal cleanup when pipeline startup throws synchronously', async () => {
+        await assert.rejects(executeCommandPiped(
+            { executable: process.execPath, args: ['-e', 'setInterval(()=>{},1000)'] },
+            { executable: 'invalid\0destination', args: [] }
+        ), (error: unknown) => error instanceof ProcessExecutionError && error.reason === 'spawn-failed');
+    });
+
+    test('preserves a numeric source failure over a signalled destination', async function () {
+        if (process.platform === 'win32') {
+            this.skip();
+        }
+        const result = await executeCommandPiped(
+            { executable: process.execPath, args: ['-e', 'process.exit(7)'] },
+            { executable: process.execPath, args: ['-e', 'process.stdin.resume();process.stdin.on("end",()=>process.kill(process.pid,"SIGTERM"))'] }
+        );
+        assert.strictEqual(result.code, 7);
+        assert.strictEqual(result.signal, null);
+    });
+
+    test('stops an infinite source when the destination exits early', async () => {
+        let source: ChildProcess | undefined;
+        const result = await executeCommandPiped(
+            { executable: process.execPath, args: ['-e', 'setInterval(()=>process.stdout.write("x".repeat(65536)),5)'] },
+            { executable: process.execPath, args: ['-e', 'process.exit(3)'] },
+            undefined,
+            (child) => { source = child; }
+        );
+        assert.strictEqual(result.code, 3);
+        assert.strictEqual(result.signal, null);
+        assert.ok(source?.exitCode !== null || source?.signalCode !== null);
+    });
+
+    test('reports failure when a successful destination closes early', async () => {
+        await assert.rejects(executeCommandPiped(
+            { executable: process.execPath, args: ['-e', 'setInterval(()=>process.stdout.write("x"),5)'] },
+            { executable: process.execPath, args: ['-e', 'process.exit(0)'] }
+        ), (error: unknown) => error instanceof ProcessExecutionError && error.reason === 'execution-failed');
+    });
+
+    test('cleans up a source that closes stdout but does not exit', async () => {
+        await assert.rejects(executeCommandPiped(
+            { executable: process.execPath, args: ['-e', 'process.stdout.end();setInterval(()=>{},1000)'] },
+            { executable: process.execPath, args: ['-e', 'process.stdin.resume();process.stdin.on("end",()=>process.exit(0))'] }
+        ), (error: unknown) => error instanceof ProcessExecutionError && error.reason === 'execution-failed');
+    });
+
+    test('keeps the signal of an early pipeline destination', async function () {
+        if (process.platform === 'win32') {
+            this.skip();
+        }
+        const result = await executeCommandPiped(
+            { executable: process.execPath, args: ['-e', 'setInterval(()=>{},1000)'] },
+            { executable: process.execPath, args: ['-e', 'process.kill(process.pid,"SIGTERM")'] }
+        );
+        assert.strictEqual(result.code, -1);
+        assert.strictEqual(result.signal, 'SIGTERM');
+    });
+
+    test('cancellation closes pipes inherited by a credential helper', async () => {
+        const controller = new AbortController();
+        const helper = 'setInterval(()=>{},1000)';
+        const parent = `require('child_process').spawn(process.execPath,['-e',${JSON.stringify(helper)}],{stdio:['ignore','ignore',2]});process.stdout.write('ready');setInterval(()=>{},1000)`;
+        await assert.rejects(executeCommand(
+            { executable: process.execPath, args: ['-e', parent] }, undefined, undefined,
+            { signal: controller.signal, onStdout: () => controller.abort() }
+        ), (error: unknown) => error instanceof ProcessExecutionError && error.reason === 'cancelled');
+    });
+
+    test('escalates cleanup of descendants after the direct child exits', async function () {
+        if (process.platform === 'win32') {
+            this.skip();
+        }
+        const controller = new AbortController();
+        let helperPid = 0;
+        const helper = 'process.on("SIGTERM",()=>{});process.stderr.write(String(process.pid));setInterval(()=>{},1000)';
+        const parent = `require('child_process').spawn(process.execPath,['-e',${JSON.stringify(helper)}],{stdio:['ignore','ignore',2]});setInterval(()=>{},1000)`;
+        await assert.rejects(executeCommand(
+            { executable: process.execPath, args: ['-e', parent] }, undefined, undefined,
+            { signal: controller.signal, onStderr: (chunk) => { helperPid = Number(chunk); controller.abort(); } }
+        ), (error: unknown) => error instanceof ProcessExecutionError && error.reason === 'cancelled');
+        assert.ok(helperPid > 0);
+        let stopped = false;
+        for (let attempt = 0; attempt < 20; attempt++) {
+            const state = childProcesses.spawnSync('ps', ['-p', String(helperPid), '-o', 'stat='], { encoding: 'utf8', timeout: 2000 });
+            if (state.status === 1 || state.stdout.trim().startsWith('Z')) {
+                stopped = true;
+                break;
+            }
+            await new Promise<void>((resolve) => setTimeout(resolve, 50));
+        }
+        assert.ok(stopped, 'Credential helper survived process-group cleanup.');
+    });
+
+    test('uses literal taskkill arguments for Windows process-tree cleanup', async () => {
         const sandbox = sinon.createSandbox();
         const child = Object.assign(new EventEmitter(), {
+            pid: 123, exitCode: null, signalCode: null,
             stdin: new PassThrough(), stdout: new PassThrough(), stderr: new PassThrough(),
-            exitCode: null, signalCode: null,
-            kill: sinon.stub().callsFake((signal?: string) => {
-                if (signal === 'SIGKILL') {
-                    child.emit('close', null, 'SIGKILL');
-                }
-                return true;
-            }),
+            kill: sandbox.stub().callsFake(() => { child.emit('close', null, 'SIGKILL'); return true; }),
         });
+        const killer = Object.assign(new EventEmitter(), { pid: 234, kill: sandbox.stub() });
         try {
+            sandbox.stub(process, 'platform').value('win32');
             const spawn = sandbox.stub(childProcesses, 'spawn');
             spawn.onFirstCall().returns(child as unknown as ChildProcess);
-            spawn.onSecondCall().throws(Object.assign(new Error('Invalid destination'), { code: 'EINVAL' }));
-            const failure = executeCommandPiped(
-                { executable: 'kubectl', args: [] }, { executable: 'cat', args: [] }
-            ).catch((error: unknown) => error);
-            const error = await failure;
-            sinon.assert.calledWith(child.kill, 'SIGKILL');
-            assert.ok(error instanceof ProcessExecutionError);
-            assert.strictEqual(error.reason, 'spawn-failed');
-            assert.strictEqual(error.errorCode, 'EINVAL');
+            spawn.onSecondCall().callsFake(() => {
+                queueMicrotask(() => killer.emit('close', 0));
+                return killer as unknown as ChildProcess;
+            });
+            const controller = new AbortController();
+            const result = executeCommand({ executable: 'kubectl.exe', args: ['get', 'pods'] }, undefined, undefined, { signal: controller.signal });
+            child.emit('spawn');
+            controller.abort();
+            await assert.rejects(result, (error: unknown) => error instanceof ProcessExecutionError && error.reason === 'cancelled');
+            assert.ok(spawn.secondCall.args[0].endsWith('taskkill.exe'));
+            assert.deepStrictEqual(spawn.secondCall.args[1], ['/PID', '123', '/T', '/F']);
+            assert.strictEqual((spawn.secondCall.args[2] as childProcesses.SpawnOptions).shell, false);
         } finally {
             sandbox.restore();
             child.stdin.destroy();
             child.stdout.destroy();
             child.stderr.destroy();
+        }
+    });
+
+    test('does not signal its wrapper when cancellation races with ENOENT', async function () {
+        if (process.platform === 'win32') {
+            this.skip();
+        }
+        const script = `const {executeCommand}=require(${JSON.stringify(require.resolve('../../src/process'))});
+            const controller=new AbortController();
+            const result=executeCommand({executable:'/no-such-kubectl-v2/isolated',args:[]},undefined,undefined,{signal:controller.signal});
+            controller.abort();
+            result.then(()=>process.exit(2),e=>process.exit(e.reason==='cancelled'?0:3));`;
+        const wrapper = childProcesses.spawn(process.execPath, ['-e', script], {
+            detached: true, stdio: 'ignore', env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+        });
+        const timer = setTimeout(() => {
+            if (wrapper.pid && wrapper.pid > 0) {
+                try { process.kill(-wrapper.pid, 'SIGKILL'); } catch { /* Already exited. */ }
+            }
+        }, 5000);
+        try {
+            await new Promise<void>((resolve, reject) => {
+                wrapper.once('error', reject);
+                wrapper.once('close', (code, signal) => {
+                    try {
+                        assert.strictEqual(signal, null);
+                        assert.strictEqual(code, 0);
+                        resolve();
+                    } catch (error) { reject(error); }
+                });
+            });
+        } finally {
+            clearTimeout(timer);
         }
     });
 });

@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import * as sinon from 'sinon';
-import { CancellationTokenSource, window } from 'vscode';
+import { CancellationTokenSource, StatusBarItem, window } from 'vscode';
 import { EventEmitter } from 'events';
 import { PassThrough } from 'stream';
 import type { ChildProcess } from 'child_process';
@@ -10,9 +10,12 @@ import { KubectlV2 } from '../../src/api/contract/kubectl/v2';
 import { PortForwardStatusBarManager } from '../../src/components/kubectl/port-forward-ui';
 import * as config from '../../src/components/config/config';
 import * as autoversion from '../../src/components/kubectl/autoversion';
+import * as download from '../../src/components/download/download';
 import * as processes from '../../src/process';
 import * as shellModule from '../../src/shell';
 import { FS } from '../../src/fs';
+import { fs as fileSystem } from '../../src/fs';
+import { FileBacked } from '../../src/utils/filebacked';
 import { Host } from '../../src/host';
 import { kubeChannel } from '../../src/kubeChannel';
 import { create, createOnBinary, Kubectl } from '../../src/kubectl';
@@ -22,13 +25,15 @@ suite('Kubectl V2 security', () => {
     let sandbox: sinon.SinonSandbox;
     let kubectl: Kubectl;
     let api: KubectlV2;
+    let manager: PortForwardStatusBarManager;
 
     setup(() => {
         sandbox = sinon.createSandbox();
         sandbox.stub(config, 'getUseWsl').returns(false);
         sandbox.stub(config, 'getEnableSnapFlag').returns(false);
         kubectl = createOnBinary({} as Host, {} as FS, fakeShell(), process.execPath);
-        api = impl(kubectl);
+        manager = { registerPortForward: sandbox.stub().returns('session'), unregisterPortForward: sandbox.stub() } as unknown as PortForwardStatusBarManager;
+        api = impl(kubectl, manager);
     });
 
     teardown(() => {
@@ -97,9 +102,10 @@ suite('Kubectl V2 security', () => {
 
     test('cancels a running process and closes its streams before resolving', async () => {
         const source = new CancellationTokenSource();
-        const command = api.observeCommand(['-e', 'process.stdout.write("ready");setInterval(() => {}, 1000)'], { cancellationToken: source.token });
         let stdout = '';
-        command.onStdout((chunk) => { stdout += chunk; source.cancel(); });
+        const command = api.observeCommand(['-e', 'process.stdout.write("ready");setInterval(() => {}, 1000)'], {
+            cancellationToken: source.token, onStdout: (chunk) => { stdout += chunk; source.cancel(); },
+        });
         assert.deepStrictEqual(await command.result, { status: 'cancelled' });
         assert.strictEqual(stdout, 'ready');
         command.dispose();
@@ -108,27 +114,139 @@ suite('Kubectl V2 security', () => {
     });
 
     test('disposal cancels a running command', async () => {
-        const command = api.observeCommand(['-e', 'process.stderr.write("ready");setInterval(() => {}, 1000)']);
-        command.onStderr(() => command.dispose());
+        const command = api.observeCommand(['-e', 'process.stderr.write("ready");setInterval(() => {}, 1000)'], { onStderr: () => command.dispose() });
         assert.deepStrictEqual(await command.result, { status: 'cancelled' });
     });
 
     test('extension cleanup cancels its running commands and prevents new ones', async () => {
-        const command = api.observeCommand(['-e', 'process.stdout.write("ready");setInterval(() => {}, 1000)']);
-        command.onStdout(() => kubectl.dispose());
+        const command = api.observeCommand(['-e', 'process.stdout.write("ready");setInterval(() => {}, 1000)'], { onStdout: () => kubectl.dispose() });
         assert.deepStrictEqual(await command.result, { status: 'cancelled' });
         assert.strictEqual((await api.invokeCommand(['-e', 'process.exit(0)'])).status, 'cancelled');
     });
 
     test('streams both outputs and returns a structured nonzero exit without retaining output', async () => {
-        const command = api.observeCommand(['-e', 'process.stdout.write(" out ");process.stderr.write(" err ");process.exitCode=9']);
         let stdout = '';
         let stderr = '';
-        command.onStdout((chunk) => { stdout += chunk; });
-        command.onStderr((chunk) => { stderr += chunk; });
+        const command = api.observeCommand(['-e', 'process.stdout.write(" out ");process.stderr.write(" err ");process.exitCode=9'], {
+            onStdout: (chunk) => { stdout += chunk; }, onStderr: (chunk) => { stderr += chunk; },
+        });
         assert.deepStrictEqual(await command.result, { status: 'exited', code: 9, signal: null });
         assert.strictEqual(stdout, ' out ');
         assert.strictEqual(stderr, ' err ');
+    });
+
+    test('installs streaming listeners even when execution emits synchronously', async () => {
+        sandbox.stub(kubectl, 'executeCommandArgs').callsFake(async (_args, _stdin, options) => {
+            options?.onStdout?.('first');
+            options?.onStderr?.('warning');
+            return { code: 0, stdout: '', stderr: '' };
+        });
+        let stdout = '';
+        let stderr = '';
+        const command = api.observeCommand(['get', 'pods'], {
+            onStdout: (chunk) => { stdout += chunk; }, onStderr: (chunk) => { stderr += chunk; },
+        });
+        await command.result;
+        assert.strictEqual(stdout, 'first');
+        assert.strictEqual(stderr, 'warning');
+    });
+
+    test('port forwarding preserves argv, readiness, UI options, and cancellation cleanup', async () => {
+        let finish!: (result: processes.ProcessResult) => void;
+        const execute = sandbox.stub(kubectl, 'executeCommandArgs').callsFake((_args, _stdin, options) => new Promise((resolve) => {
+            finish = resolve;
+            options?.signal?.addEventListener('abort', () => resolve({ code: -1, signal: 'SIGTERM', stdout: '', stderr: '' }));
+            options?.onStderr?.('Forwarding from [::');
+            options?.onStderr?.('1]:9001 -> 80\n');
+        }));
+        const onCancel = sandbox.stub();
+        const result = await api.portForward('pod;$(marker)', 'team a', 9001, 80, {
+            showInUI: { location: 'status-bar', description: 'Useful tool', onCancel },
+        });
+        assert.strictEqual(result.status, 'ready');
+        assert.deepStrictEqual(execute.firstCall.args[0], ['port-forward', 'pod/pod;$(marker)', '9001:80', '--namespace', 'team a']);
+        sinon.assert.calledOnce(manager.registerPortForward as sinon.SinonStub);
+        const session = (manager.registerPortForward as sinon.SinonStub).firstCall.args[0];
+        assert.strictEqual(session.description, 'Useful tool');
+        assert.strictEqual(session.onCancel, onCancel);
+        if (result.status === 'ready') {
+            result.session.dispose();
+            result.session.dispose();
+            await result.session.result;
+            sinon.assert.calledOnceWithExactly(manager.unregisterPortForward as sinon.SinonStub, 'session');
+        }
+        finish({ code: 0, stdout: '', stderr: '' });
+    });
+
+    test('port forwarding reports early failure without registering UI', async () => {
+        sandbox.stub(kubectl, 'executeCommandArgs').resolves({ code: 3, stdout: '', stderr: 'failed' });
+        assert.deepStrictEqual(await api.portForward('pod', undefined, 9001, 80), { status: 'exited', code: 3, signal: null });
+        sinon.assert.notCalled(manager.registerPortForward as sinon.SinonStub);
+    });
+
+    test('port forwarding unregisters real UI sessions and calls onCancel once', async () => {
+        const statusBar = { show: sandbox.stub(), hide: sandbox.stub() };
+        const realManager = PortForwardStatusBarManager.init(statusBar as unknown as StatusBarItem);
+        let finish!: (result: processes.ProcessResult) => void;
+        sandbox.stub(kubectl, 'executeCommandArgs').callsFake((_args, _stdin, options) => new Promise((resolve) => {
+            finish = resolve;
+            options?.onStdout?.('Forwarding from 127.0.0.1:9001 -> 80\n');
+        }));
+        const onCancel = sandbox.stub();
+        const result = await impl(kubectl, realManager).portForward('pod', 'default', 9001, 80, {
+            showInUI: { location: 'status-bar', description: 'Tool', onCancel },
+        });
+        assert.strictEqual(result.status, 'ready');
+        sinon.assert.calledOnce(statusBar.show);
+        finish({ code: 7, stdout: '', stderr: 'connection lost' });
+        if (result.status === 'ready') {
+            assert.deepStrictEqual(await result.session.result, { status: 'exited', code: 7, signal: null });
+            result.session.dispose();
+            result.session.dispose();
+        }
+        sinon.assert.calledOnce(onCancel);
+        sinon.assert.calledTwice(statusBar.hide);
+    });
+
+    test('port forwarding cleans up if UI registration fails', async () => {
+        let cleanedUp = false;
+        (manager.registerPortForward as sinon.SinonStub).throws(new Error('UI unavailable'));
+        sandbox.stub(kubectl, 'executeCommandArgs').callsFake((_args, _stdin, options) => new Promise((_resolve, reject) => {
+            options?.signal?.addEventListener('abort', () => {
+                cleanedUp = true;
+                reject(new processes.ProcessExecutionError('cancelled', 'cancelled'));
+            });
+            options?.onStdout?.('Forwarding from 127.0.0.1:9001 -> 80\n');
+        }));
+        const result = await api.portForward('pod', 'default', 9001, 80, { showInUI: { location: 'status-bar' } });
+        assert.strictEqual(result.status, 'failed');
+        assert.strictEqual(cleanedUp, true);
+    });
+
+    test('port forwarding times out and awaits process cleanup', async () => {
+        let cleanedUp = false;
+        sandbox.stub(kubectl, 'executeCommandArgs').callsFake((_args, _stdin, options) => new Promise((_resolve, reject) => {
+            options?.signal?.addEventListener('abort', () => {
+                cleanedUp = true;
+                reject(new processes.ProcessExecutionError('cancelled', 'cancelled'));
+            });
+        }));
+        const result = await api.portForward('pod', undefined, 9001, 80, { timeoutMs: 5 });
+        assert.strictEqual(result.status, 'failed');
+        assert.strictEqual(cleanedUp, true);
+    });
+
+    test('port forwarding rejects invalid input and respects pre-cancellation', async () => {
+        const execute = sandbox.spy(kubectl, 'executeCommandArgs');
+        for (const port of [0, -1, 65536, 1.5]) {
+            assert.strictEqual((await api.portForward('pod', undefined, port, 80)).status, 'failed');
+        }
+        assert.strictEqual((await api.portForward('', undefined, 9001, 80)).status, 'failed');
+        const source = new CancellationTokenSource();
+        source.cancel();
+        assert.strictEqual((await api.portForward('pod', undefined, 9001, 80, { cancellationToken: source.token })).status, 'cancelled');
+        sinon.assert.notCalled(execute);
+        source.dispose();
     });
 
     test('preserves UTF-8 characters split across process writes', async () => {
@@ -138,7 +256,7 @@ suite('Kubectl V2 security', () => {
 
     test('reports missing executables as structured failures', async () => {
         const missing = createOnBinary({} as Host, {} as FS, fakeShell(), '/no-such-kubectl-v2/kubectl');
-        const result = await impl(missing).invokeCommand(['get', 'pods']);
+        const result = await impl(missing, manager).invokeCommand(['get', 'pods']);
         assert.strictEqual(result.status, 'failed');
         if (result.status === 'failed') {
             assert.strictEqual(result.reason, 'spawn-failed');
@@ -161,7 +279,7 @@ suite('Kubectl V2 security', () => {
 
     test('reports streaming startup failures through the result promise', async () => {
         const missing = createOnBinary({} as Host, {} as FS, fakeShell(), '/no-such-kubectl-v2/kubectl');
-        const result = await impl(missing).observeCommand(['get', 'pods']).result;
+        const result = await impl(missing, manager).observeCommand(['get', 'pods']).result;
         assert.strictEqual(result.status, 'failed');
         if (result.status === 'failed') {
             assert.strictEqual(result.errorCode, 'ENOENT');
@@ -192,9 +310,10 @@ suite('Kubectl V2 security', () => {
     });
 
     test('does not apply buffered output limits to streaming commands', async () => {
-        const command = api.observeCommand(['-e', 'process.stdout.write("x".repeat(4096))'], { maxBufferBytes: 1 });
         let length = 0;
-        command.onStdout((chunk) => { length += chunk.length; });
+        const command = api.observeCommand(['-e', 'process.stdout.write("x".repeat(4096))'], {
+            maxBufferBytes: 1, onStdout: (chunk) => { length += chunk.length; },
+        });
         assert.deepStrictEqual(await command.result, { status: 'exited', code: 0, signal: null });
         assert.strictEqual(length, 4096);
     });
@@ -211,6 +330,14 @@ suite('Kubectl V2 security', () => {
                 assert.strictEqual(result.reason, 'invalid-argument');
             }
         }
+        sinon.assert.notCalled(execute);
+    });
+
+    test('rejects invalid streaming callbacks before executing', async () => {
+        const execute = sandbox.spy(kubectl, 'executeCommandArgs');
+        const options = { onStdout: 'not a callback' } as unknown as KubectlV2.StreamingOptions;
+        const result = await api.observeCommand(['get', 'pods'], options).result;
+        assert.strictEqual(result.status, 'failed');
         sinon.assert.notCalled(execute);
     });
 
@@ -236,7 +363,7 @@ suite('Kubectl V2 security', () => {
         const execute = sandbox.stub(processes, 'executeCommand').resolves({ code: 0, stdout: '', stderr: '' });
         for (const path of ['"C:\\Program Files\\Kube Tools\\kubectl.exe"', '\\\\server\\share name\\kubectl.exe']) {
             const selected = createOnBinary({} as Host, {} as FS, fakeShell(true), path);
-            await impl(selected).invokeCommand(['get', 'pod/a&echo marker']);
+            await impl(selected, manager).invokeCommand(['get', 'pod/a&echo marker']);
             assert.strictEqual(execute.lastCall.args[0].executable, path.replace(/^"|"$/g, ''));
             assert.deepStrictEqual(execute.lastCall.args[0].args, ['get', 'pod/a&echo marker']);
             selected.dispose();
@@ -247,7 +374,7 @@ suite('Kubectl V2 security', () => {
         const execute = sandbox.spy(processes, 'executeCommand');
         for (const path of ['C:\\Tools\\kubectl.cmd', '"C:\\Tools\\kubectl.BAT"']) {
             const selected = createOnBinary({} as Host, {} as FS, fakeShell(true), path);
-            const result = await impl(selected).invokeCommand(['get', 'pods']);
+            const result = await impl(selected, manager).invokeCommand(['get', 'pods']);
             assert.strictEqual(result.status, 'failed');
             if (result.status === 'failed') {
                 assert.strictEqual(result.reason, 'invalid-executable');
@@ -264,7 +391,7 @@ suite('Kubectl V2 security', () => {
         const legacyExec = sandbox.spy(shell, 'exec');
         const legacyExecCore = sandbox.spy(shell, 'execCore');
         const configured = create(config.KubectlVersioning.UserProvided, {} as Host, {} as FS, shell);
-        const result = await impl(configured).invokeCommand(['-e', 'process.stdout.write("configured")']);
+        const result = await impl(configured, manager).invokeCommand(['-e', 'process.stdout.write("configured")']);
         assert.strictEqual(result.stdout, 'configured');
         sinon.assert.notCalled(legacyExec);
         sinon.assert.notCalled(legacyExecCore);
@@ -275,7 +402,7 @@ suite('Kubectl V2 security', () => {
         sandbox.stub(config, 'getToolPath').returns(undefined);
         const execute = sandbox.stub(processes, 'executeCommand').resolves({ code: 0, stdout: '', stderr: '' });
         const selected = create(config.KubectlVersioning.UserProvided, {} as Host, {} as FS, fakeShell(true));
-        await impl(selected).invokeCommand(['get', 'pods']);
+        await impl(selected, manager).invokeCommand(['get', 'pods']);
         assert.strictEqual(execute.firstCall.args[0].executable, 'kubectl.exe');
         selected.dispose();
     });
@@ -283,7 +410,7 @@ suite('Kubectl V2 security', () => {
     test('uses the auto-versioned executable selected by the existing resolver', async () => {
         const resolver = sandbox.stub(autoversion, 'ensureSuitableKubectl').resolves(process.execPath);
         const selected = create(config.KubectlVersioning.Infer, {} as Host, {} as FS, fakeShell());
-        const result = await impl(selected).invokeCommand(['-e', 'process.stdout.write("selected")']);
+        const result = await impl(selected, manager).invokeCommand(['-e', 'process.stdout.write("selected")']);
         assert.strictEqual(result.stdout, 'selected');
         sinon.assert.calledOnce(resolver);
         selected.dispose();
@@ -295,15 +422,121 @@ suite('Kubectl V2 security', () => {
         const execute = sandbox.spy(processes, 'executeCommand');
         const selected = create(config.KubectlVersioning.Infer, {} as Host, {} as FS, fakeShell());
         const source = new CancellationTokenSource();
-        const result = impl(selected).invokeCommand(['get', 'pods'], { cancellationToken: source.token });
+        const result = impl(selected, manager).invokeCommand(['get', 'pods'], { cancellationToken: source.token });
         source.cancel();
-        assert.strictEqual((await result).status, 'cancelled');
         assert.ok(finishSelection);
         finishSelection(process.execPath);
+        assert.strictEqual((await result).status, 'cancelled');
         await new Promise<void>((resolve) => setImmediate(resolve));
         sinon.assert.notCalled(execute);
         selected.dispose();
         source.dispose();
+    });
+
+    test('cancels real auto-version bootstrap commands and waits for their cleanup', async () => {
+        sandbox.stub(fileSystem, 'existsAsync').resolves(true);
+        sandbox.stub(FileBacked.prototype, 'get').resolves({ versions: {}, derivedFromKubeconfig: undefined });
+        sandbox.stub(FileBacked.prototype, 'update').resolves();
+        sandbox.stub(config, 'getToolPath').returns(process.execPath);
+        const originalExecute = processes.executeCommand;
+        for (const shutdown of [false, true]) {
+            const source = new CancellationTokenSource();
+            const selected = create(config.KubectlVersioning.Infer, {} as Host, {} as FS, fakeShell());
+            const stages: string[] = [];
+            let serverClosed = false;
+            const execute = sandbox.stub(processes, 'executeCommand').callsFake((invocation, stdin, onSpawn, options) => {
+                const stage = invocation.args.join(' ');
+                stages.push(stage);
+                const script = stage.includes('--client') ? 'process.exit(0)' : stage === 'config current-context' ?
+                    'process.stdout.write("review-context")' : 'process.stdout.write("server-ready");setInterval(()=>{},1000)';
+                return originalExecute({ ...invocation, args: ['-e', script] }, stdin, (child) => {
+                    onSpawn?.(child);
+                    if (stage === 'version -o json') {
+                        child.once('close', () => { serverClosed = true; });
+                        child.stdout?.once('data', () => shutdown ? selected.dispose() : source.cancel());
+                    }
+                }, options);
+            });
+            try {
+                const result = await impl(selected, manager).invokeCommand(['get', 'pods'], { cancellationToken: source.token });
+                assert.strictEqual(result.status, 'cancelled', JSON.stringify({ result, stages }));
+                assert.strictEqual(serverClosed, true);
+                assert.deepStrictEqual(stages, ['version --client -o json', 'config current-context', 'version -o json']);
+            } finally {
+                execute.restore();
+                selected.dispose();
+                source.dispose();
+            }
+        }
+    });
+
+    test('cancels one resolver call without stopping a concurrent caller', async () => {
+        sandbox.stub(fileSystem, 'existsAsync').resolves(true);
+        sandbox.stub(FileBacked.prototype, 'get').resolves({ versions: {}, derivedFromKubeconfig: undefined });
+        sandbox.stub(FileBacked.prototype, 'update').resolves();
+        sandbox.stub(config, 'getToolPath').returns(process.execPath);
+        const originalExecute = processes.executeCommand;
+        const source = new CancellationTokenSource();
+        const selected = create(config.KubectlVersioning.Infer, {} as Host, {} as FS, fakeShell());
+        let servers = 0;
+        let serverStarted!: () => void;
+        const started = new Promise<void>((resolve) => { serverStarted = resolve; });
+        sandbox.stub(processes, 'executeCommand').callsFake((invocation, stdin, onSpawn, options) => {
+            const stage = invocation.args.join(' ');
+            const cancelServer = stage === 'version -o json' && servers++ === 0;
+            const script = stage.includes('--client') ? 'process.exit(0)' : stage === 'config current-context' ?
+                'process.stdout.write("concurrent-context")' : cancelServer ?
+                    'process.stdout.write("cancel-me");setInterval(()=>{},1000)' : stage === 'version -o json' ?
+                        'process.stdout.write(JSON.stringify({serverVersion:{gitVersion:"v1.30.0"}}))' : 'process.stdout.write("success")';
+            return originalExecute({ ...invocation, executable: process.execPath, args: ['-e', script] }, stdin, (child) => {
+                onSpawn?.(child);
+                if (cancelServer) {
+                    child.stdout?.once('data', serverStarted);
+                }
+            }, options);
+        });
+        try {
+            const api = impl(selected, manager);
+            const firstCommand = api.invokeCommand(['get', 'pods'], { cancellationToken: source.token });
+            await started;
+            const secondCommand = api.invokeCommand(['get', 'pods']);
+            source.cancel();
+            const [first, second] = await Promise.all([firstCommand, secondCommand]);
+            assert.strictEqual(first.status, 'cancelled');
+            assert.strictEqual(second.status, 'exited');
+            assert.strictEqual(second.stdout, 'success');
+        } finally {
+            selected.dispose();
+            source.dispose();
+        }
+    });
+
+    test('cancels a resolver waiting for a shared download without stopping that download', async () => {
+        sandbox.stub(fileSystem, 'existsAsync').callsFake(async (filename) => !filename.includes('v1.30.0'));
+        sandbox.stub(FileBacked.prototype, 'get').resolves({ versions: { 'download-context': 'v1.30.0' }, derivedFromKubeconfig: undefined });
+        sandbox.stub(FileBacked.prototype, 'update').resolves();
+        sandbox.stub(config, 'getToolPath').returns(process.execPath);
+        sandbox.stub(processes, 'executeCommand').callsFake(async (invocation) => ({
+            code: 0, stdout: invocation.args[0] === 'config' ? 'download-context' : '', stderr: '',
+        }));
+        const source = new CancellationTokenSource();
+        let finishDownload!: () => void;
+        const once = sandbox.stub(download, 'once').callsFake(() => new Promise((resolve) => {
+            finishDownload = () => resolve({ succeeded: false, error: ['Stopped test download.'] });
+            source.cancel();
+        }));
+        const host = { longRunning: sandbox.stub().callsFake((_options, action: () => Promise<unknown>) => action()) } as unknown as Host;
+        const selected = create(config.KubectlVersioning.Infer, host, {} as FS, fakeShell());
+        try {
+            const result = await impl(selected, manager).invokeCommand(['get', 'pods'], { cancellationToken: source.token });
+            assert.strictEqual(result.status, 'cancelled');
+            sinon.assert.calledOnce(once);
+            assert.ok(finishDownload);
+        } finally {
+            finishDownload?.();
+            selected.dispose();
+            source.dispose();
+        }
     });
 
     test('retains authentication-prompt monitoring', async () => {
@@ -313,6 +546,7 @@ suite('Kubectl V2 security', () => {
     });
 
     test('keeps authentication detection bounded for streaming stderr without newlines', () => {
+        const clock = sandbox.useFakeTimers();
         const stderr = new PassThrough();
         const child = Object.assign(new EventEmitter(), { stderr });
         const showOutput = sandbox.stub(kubeChannel, 'showOutput');
@@ -323,7 +557,27 @@ suite('Kubectl V2 security', () => {
         sinon.assert.calledOnce(warning);
         sinon.assert.calledOnce(showOutput);
         assert.ok(showOutput.firstCall.args[0].length < 5000);
+        clock.tick(1001);
         child.emit('exit', 1);
+        stderr.destroy();
+    });
+
+    test('detects partial authentication URLs before discarding a long suffix', () => {
+        const clock = sandbox.useFakeTimers();
+        const showOutput = sandbox.stub(kubeChannel, 'showOutput');
+        const warning = sandbox.stub(window, 'showWarningMessage').resolves(undefined);
+        const stderr = new PassThrough();
+        const child = Object.assign(new EventEmitter(), { stderr });
+        shellModule.monitorForAuthPrompt(child as unknown as ChildProcess);
+        stderr.write('Use code ABC at https://micro');
+        stderr.write('soft.com/devicelogin' + 'x'.repeat(5000));
+        sinon.assert.calledOnce(warning);
+        assert.ok(showOutput.firstCall.args[0].includes('https://microsoft.com/devicelogin'));
+        assert.ok(showOutput.firstCall.args[0].includes('Use code ABC'));
+        assert.ok(showOutput.firstCall.args[0].length <= 4096);
+        clock.tick(1001);
+        stderr.write('\nhttps://microsoft.com/devicelogin\n');
+        sinon.assert.calledOnce(warning);
         stderr.destroy();
     });
 
@@ -358,7 +612,7 @@ suite('Kubectl V2 security', () => {
         sandbox.stub(shell, 'execOpts').returns({ cwd: '/workspace folder', env: { KUBECONFIG: '/config path', CUSTOM: 'value' } });
         const selected = createOnBinary({} as Host, {} as FS, shell, '/usr/local/bin/kubectl');
         const execute = sandbox.stub(processes, 'executeCommand').resolves({ code: 0, stdout: '', stderr: '' });
-        await impl(selected).invokeCommand(['get', 'pods']);
+        await impl(selected, manager).invokeCommand(['get', 'pods']);
         assert.strictEqual(execute.firstCall.args[0].cwd, '/workspace folder');
         assert.deepStrictEqual(execute.firstCall.args[0].env, { KUBECONFIG: '/config path', CUSTOM: 'value' });
         selected.dispose();
@@ -368,7 +622,7 @@ suite('Kubectl V2 security', () => {
         (config.getUseWsl as sinon.SinonStub).returns(true);
         const execute = sandbox.stub(processes, 'executeCommand').resolves({ code: 0, stdout: '', stderr: '' });
         const selected = createOnBinary({} as Host, {} as FS, fakeShell(true), '/opt/Kube Tools/kubectl');
-        await impl(selected).invokeCommand(['get', 'pod/a;$(marker)', '--namespace', 'team a']);
+        await impl(selected, manager).invokeCommand(['get', 'pod/a;$(marker)', '--namespace', 'team a']);
         assert.strictEqual(execute.firstCall.args[0].executable, 'wsl.exe');
         assert.deepStrictEqual(execute.firstCall.args[0].args, ['--exec', '/opt/Kube Tools/kubectl', 'get', 'pod/a;$(marker)', '--namespace', 'team a']);
         selected.dispose();
@@ -380,6 +634,7 @@ function fakeShell(windows = false): Shell {
         isWindows: () => windows,
         isUnix: () => !windows,
         platform: () => windows ? Platform.Windows : Platform.Linux,
+        home: () => process.env.HOME || process.cwd(),
         execOpts: () => ({ env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' } }),
         exec: async () => { throw new Error('Unexpected shell execution'); },
         execCore: async () => { throw new Error('Unexpected shell execution'); },

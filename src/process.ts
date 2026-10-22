@@ -1,5 +1,6 @@
 import { spawn } from 'child_process';
 import type { ChildProcess, SpawnOptions } from 'child_process';
+import * as path from 'path';
 
 export interface CommandInvocation {
     readonly executable: string;
@@ -43,13 +44,14 @@ export function renderArgsForDisplay(args: readonly string[]): string {
     return args.map((arg) => JSON.stringify(arg)).join(' ');
 }
 
-export function spawnCommand(invocation: CommandInvocation): ChildProcess {
+export function spawnCommand(invocation: CommandInvocation, detached = false): ChildProcess {
     const options: SpawnOptions = {
         argv0: invocation.argv0,
         cwd: invocation.cwd,
         env: invocation.env,
         shell: false,
         windowsHide: true,
+        detached,
     };
     return spawn(invocation.executable, [...invocation.args], options);
 }
@@ -65,39 +67,81 @@ export function executeCommand(
             reject(new ProcessExecutionError('cancelled', 'Command cancelled.'));
             return;
         }
-        const children: ChildProcess[] = [];
+        const children: { child: ChildProcess; spawned: boolean; closed: boolean }[] = [];
         const stdout: string[] = [];
         const stderr: string[] = [];
         let failure: { reason: ProcessExecutionError['reason']; message: string; code?: string } | undefined;
-        let killTimer: NodeJS.Timeout | undefined;
-        let closed = 0;
-        const exitCodes: number[] = [];
-        let exitSignal: NodeJS.Signals | null = null;
+        let cleanup: Promise<void> | undefined;
+        let cleanupFinished = false;
+        let destinationEndedEarly = false;
+        let sourceExitTimer: NodeJS.Timeout | undefined;
+        const exits: { code: number; signal: NodeJS.Signals | null }[] = [];
         let settled = false;
         const captureOutput = options.captureOutput !== false;
         const maxBufferBytes = options.maxBufferBytes ?? MAX_BUFFER_BYTES;
 
+        const signalChild = (entry: typeof children[number], signal: NodeJS.Signals) => {
+            const { child, spawned } = entry;
+            if (!spawned || !child.pid || child.pid <= 0) {
+                return;
+            }
+            if (process.platform !== 'win32') {
+                try {
+                    // executeCommand owns a separate group, including credential helpers.
+                    process.kill(-child.pid, signal);
+                } catch (error) {
+                    if ((error as NodeJS.ErrnoException).code !== 'ESRCH') {
+                        child.kill(signal);
+                    }
+                }
+            } else if (child.exitCode === null && child.signalCode === null) {
+                child.kill(signal);
+            }
+        };
+        const terminate = () => {
+            if (cleanup) {
+                return;
+            }
+            cleanup = (async () => {
+                if (process.platform === 'win32') {
+                    await Promise.all(children.map(async ({ child, spawned }) => {
+                        if (!spawned || !child.pid || child.pid <= 0) {
+                            return;
+                        }
+                        await new Promise<void>((done) => {
+                            const killer = spawn(path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'taskkill.exe'),
+                                ['/PID', String(child.pid), '/T', '/F'], { shell: false, windowsHide: true, stdio: 'ignore' });
+                            const timer = setTimeout(() => {
+                                if (killer.pid && killer.pid > 0) {
+                                    killer.kill();
+                                }
+                                done();
+                            }, 1000);
+                            killer.once('error', () => { clearTimeout(timer); done(); });
+                            killer.once('close', () => { clearTimeout(timer); done(); });
+                        });
+                    }));
+                } else {
+                    children.forEach((entry) => signalChild(entry, 'SIGTERM'));
+                    await new Promise<void>((done) => setTimeout(done, 1000));
+                }
+                children.forEach((entry) => {
+                    signalChild(entry, 'SIGKILL');
+                    // A helper may retain inherited descriptors after its parent exits.
+                    entry.child.stdin?.destroy();
+                    entry.child.stdout?.destroy();
+                    entry.child.stderr?.destroy();
+                });
+                cleanupFinished = true;
+                complete();
+            })();
+        };
         const fail = (reason: ProcessExecutionError['reason'], error: NodeJS.ErrnoException) => {
             if (failure || settled) {
                 return;
             }
             failure = { reason, message: error.message, code: error.code };
-            if (children.length === 0) {
-                complete();
-                return;
-            }
-            killTimer = setTimeout(() => {
-                for (const child of children) {
-                    if (child.exitCode === null && child.signalCode === null) {
-                        child.kill('SIGKILL');
-                    }
-                }
-            }, 1000);
-            killTimer.unref();
-            for (const child of children) {
-                child.kill();
-                child.stdout?.resume();
-            }
+            terminate();
         };
         const cancel = () => fail('cancelled', new Error('Command cancelled.'));
 
@@ -124,17 +168,22 @@ export function executeCommand(
         };
         const collectStderr = collectOutput('stderr', stderr, options.onStderr);
         const complete = () => {
+            if (settled || children.some((entry) => !entry.closed) || (cleanup && !cleanupFinished)) {
+                return;
+            }
             settled = true;
             options.signal?.removeEventListener('abort', cancel);
-            if (killTimer) {
-                clearTimeout(killTimer);
-            }
+            clearTimeout(sourceExitTimer);
+            const exit = destinationEndedEarly ? exits[1] : exits[0]?.code !== 0 ? exits[0] : exits[1] || exits[0];
             const result = {
-                code: exitSignal ? -1 : exitCodes[0] || exitCodes[1] || 0,
+                code: exit?.code ?? -1,
                 stdout: stdout.join(''),
                 stderr: stderr.join(''),
-                signal: exitSignal,
+                signal: exit?.signal ?? null,
             };
+            if (!failure && destinationEndedEarly && result.code === 0) {
+                failure = { reason: 'execution-failed', message: 'Pipeline destination closed before the source completed.' };
+            }
             if (failure) {
                 reject(new ProcessExecutionError(failure.reason, failure.message, result.stdout, result.stderr, failure.code));
             } else {
@@ -143,32 +192,59 @@ export function executeCommand(
         };
         const track = (child: ChildProcess) => {
             const index = children.length;
-            children.push(child);
+            const entry = { child, spawned: false, closed: false };
+            children.push(entry);
+            child.once('spawn', () => {
+                entry.spawned = true;
+                if (cleanup) {
+                    signalChild(entry, 'SIGKILL');
+                }
+            });
             // Decode across chunk boundaries, including split UTF-8 characters.
             child.stderr?.setEncoding('utf8');
             child.stderr?.on('data', collectStderr);
             child.stdin?.on('error', (error: NodeJS.ErrnoException) => {
-                if (error.code !== 'EPIPE') {
+                if (error.code === 'EPIPE' && index === 1) {
+                    stopSource();
+                } else if (error.code !== 'EPIPE') {
                     fail('execution-failed', error);
                 }
             });
+            if (index === 1) {
+                child.stdin?.once('close', () => stopSource());
+            }
             child.once('error', (error: NodeJS.ErrnoException) => fail('spawn-failed', error));
-            child.once('close', (code, signal) => {
-                exitCodes[index] = code ?? -1;
-                exitSignal = exitSignal || signal;
-                closed++;
-                if (closed === children.length) {
-                    complete();
+            child.once('exit', () => {
+                if (index === 1) {
+                    stopSource();
                 }
             });
+            child.once('close', (code, signal) => {
+                exits[index] = { code: code ?? -1, signal };
+                entry.closed = true;
+                complete();
+            });
+        };
+        const stopSource = (waitForExit = true) => {
+            const source = children[0]?.child;
+            if (source && source.exitCode === null && source.signalCode === null && !failure) {
+                if (source.stdout?.readableEnded && waitForExit) {
+                    // EOF can arrive before Node observes the source's exit status.
+                    sourceExitTimer ??= setTimeout(() => stopSource(false), 1000);
+                    return;
+                }
+                destinationEndedEarly = true;
+                source.stdout?.unpipe();
+                terminate();
+            }
         };
         options.signal?.addEventListener('abort', cancel, { once: true });
 
         let childProcess: ChildProcess;
         try {
-            childProcess = spawnCommand(invocation);
+            childProcess = spawnCommand(invocation, process.platform !== 'win32');
             track(childProcess);
-            const output = options.pipeTo ? spawnCommand(options.pipeTo) : childProcess;
+            const output = options.pipeTo ? spawnCommand(options.pipeTo, process.platform !== 'win32') : childProcess;
             if (output !== childProcess) {
                 track(output);
                 childProcess.stdout?.pipe(output.stdin!);

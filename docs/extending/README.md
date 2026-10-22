@@ -63,7 +63,7 @@ snippet. In terms of the TypeScript typings from the NPM package, `activate` ret
 * [Kubectl API](kubectl.md) - used for invoking the `kubectl` CLI consistently with the core
   extension commands and features
   * ID: `kubectl`
-  * Versions: `v1`
+  * Versions: `v1`, `v2` (literal arguments, streaming, and port forwarding)
 * [Helm API](helm.md) - used for invoking the `helm` CLI consistently with the core
   extension commands and features
   * ID: `kubectl`

@@ -6,8 +6,10 @@ import * as vscode from 'vscode';
 export interface KubectlV2 {
     /** Buffers stdout and stderr, with a 20 MiB limit per stream by default. */
     invokeCommand(args: ReadonlyArray<string>, options?: KubectlV2.CommandOptions): Promise<KubectlV2.CommandResult>;
-    /** Streams UTF-8 chunks without buffering. Subscribe immediately after calling. */
-    observeCommand(args: ReadonlyArray<string>, options?: KubectlV2.CommandOptions): KubectlV2.RunningCommand;
+    /** Installs output listeners before launch. Streams UTF-8 chunks without buffering. */
+    observeCommand(args: ReadonlyArray<string>, options?: KubectlV2.StreamingOptions): KubectlV2.RunningCommand;
+    /** Resolves when forwarding is ready, or with completion if startup fails. */
+    portForward(podName: string, podNamespace: string | undefined, localPort: number, remotePort: number, options?: KubectlV2.PortForwardOptions): Promise<KubectlV2.PortForwardResult>;
 }
 
 export namespace KubectlV2 {
@@ -17,6 +19,26 @@ export namespace KubectlV2 {
         /** Positive byte limit per stream for invokeCommand; ignored by observeCommand. */
         readonly maxBufferBytes?: number;
     }
+
+    export interface StreamingOptions extends CommandOptions {
+        readonly onStdout?: (chunk: string) => void;
+        readonly onStderr?: (chunk: string) => void;
+    }
+
+    export interface PortForwardOptions {
+        readonly cancellationToken?: vscode.CancellationToken;
+        /** Positive readiness timeout in milliseconds. Defaults to 10000. */
+        readonly timeoutMs?: number;
+        readonly showInUI?: {
+            readonly location: 'none';
+        } | {
+            readonly location: 'status-bar';
+            readonly description?: string;
+            readonly onCancel?: () => void;
+        };
+    }
+
+    export type PortForwardResult = { readonly status: 'ready'; readonly session: RunningCommand } | Completion;
 
     export interface Exited {
         readonly status: 'exited';
@@ -43,8 +65,6 @@ export namespace KubectlV2 {
     export type CommandResult = Completion & { readonly stdout: string; readonly stderr: string };
 
     export interface RunningCommand extends vscode.Disposable {
-        readonly onStdout: vscode.Event<string>;
-        readonly onStderr: vscode.Event<string>;
         /** Resolves on exit or failure, after the process and its streams close. */
         readonly result: Promise<Completion>;
         /** Cancels the command. Repeated calls are harmless. */

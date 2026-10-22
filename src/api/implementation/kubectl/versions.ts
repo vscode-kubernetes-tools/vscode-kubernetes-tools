@@ -8,7 +8,7 @@ import { PortForwardStatusBarManager } from "../../../components/kubectl/port-fo
 export function apiVersion(kubectl: Kubectl, portForwardStatusBarManager: PortForwardStatusBarManager, version: string): API<any> {
     switch (version) {
         case "v1": return available(v1.impl(kubectl, portForwardStatusBarManager));
-        case "v2": return available(v2.impl(kubectl));
+        case "v2": return available(v2.impl(kubectl, portForwardStatusBarManager));
         default: return versionUnknown;
     }
 }
