@@ -1,35 +1,38 @@
 import * as fs from 'fs';
-// TODO: would rather this was in ./shell.ts
-import * as shell from 'shelljs';
 
 import { getUseWsl } from './components/config/config';
-import { escapeShellArg } from './utils/shell-escape';
+import { execWslSync, normalizeWslPath } from './wsl';
 
 export interface Stats {
     isDirectory(): boolean;
 }
 
+const FILE_TYPE_MASK = 0o170000;
+const DIRECTORY_TYPE = 0o040000;
+
 class StatImpl {
-    constructor(readonly line: string) {
-        this.line = line;
-    }
+    constructor(private readonly mode: number) {}
 
     public isDirectory(): boolean {
-        return this.line.startsWith('d');
+        return (this.mode & FILE_TYPE_MASK) === DIRECTORY_TYPE;
     }
 }
 
 export function statSync(file: string): Stats {
     if (getUseWsl()) {
-        const filePath = file.replace(/\\/g, '/');
-        const result = shell.exec(`wsl.exe sh -c "ls -l ${escapeShellArg(filePath)} | grep -v total"`);
+        // Keep missing-file diagnostics stable across guest locales.
+        const result = execWslSync(['env', 'LC_ALL=C', 'stat', '-L', '-c', '%f', '--', normalizeWslPath(file)]);
         if (result.code !== 0) {
             if (result.stderr.indexOf('No such file or directory') !== -1) {
-                return new StatImpl('');
+                return new StatImpl(0);
             }
             throw new Error(result.stderr);
         }
-        return new StatImpl(result.stdout.trim());
+        const mode = result.stdout.trim();
+        if (!/^[0-9a-f]+$/i.test(mode)) {
+            throw new Error('WSL stat returned an invalid file mode.');
+        }
+        return new StatImpl(parseInt(mode, 16));
     } else {
         return fs.statSync(file);
     }
@@ -37,8 +40,7 @@ export function statSync(file: string): Stats {
 
 export function existsSync(file: string): boolean {
     if (getUseWsl()) {
-        const filePath = file.replace(/\\/g, '/');
-        const result = shell.exec(`wsl.exe ls ${escapeShellArg(filePath)}`);
+        const result = execWslSync(['test', '-e', normalizeWslPath(file)]);
         return result.code === 0;
     } else {
         return fs.existsSync(file);
@@ -47,11 +49,11 @@ export function existsSync(file: string): boolean {
 
 export function unlinkSync(file: string) {
     if (getUseWsl()) {
-        const filePath = file.replace(/\\/g, '/');
-        const result = shell.exec(`wsl.exe rm -rf ${escapeShellArg(filePath)}`);
+        const result = execWslSync(['rm', '-rf', '--', normalizeWslPath(file)]);
         if (result.code !== 0) {
             throw new Error(result.stderr);
         }
+        return;
     }
     fs.unlinkSync(file);
 }
