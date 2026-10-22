@@ -39,14 +39,22 @@ export function helmTemplatePreviewArgs(version: HelmSyntaxVersion, chartPath: s
 
 export function helmRepoSearchArgs(version: HelmSyntaxVersion, repository: string): string[] {
     const modernSyntax = version === HelmSyntaxVersion.V3 || version === HelmSyntaxVersion.V4;
+    const pattern = helmRepositorySearchPattern(repository, !modernSyntax);
     return [
         'search',
         ...(modernSyntax ? ['repo'] : []),
-        `${repository}/`,
-        version === HelmSyntaxVersion.V4 ? '--versions' : '-l',
+        '--regexp',
+        '--versions',
         modernSyntax ? '--max-col-width' : '--col-width',
         '0',
+        '--',
+        pattern,
     ];
+}
+
+export function helmRepositorySearchPattern(repository: string, caseInsensitive: boolean): string {
+    const prefix = caseInsensitive ? '(?i)' : '';
+    return `${prefix}^[^\\v]+\\v${escapeGoRegexpLiteral(repository)}/[^\\v]+\\v`;
 }
 
 export function helmInspectArgs(
@@ -78,7 +86,7 @@ export function helmDependencyListArgs(version: HelmSyntaxVersion, chartPath: st
     return [
         'dep',
         'list',
-        ...(version === HelmSyntaxVersion.V3 || version === HelmSyntaxVersion.V4 ? ['--max-col-width', '0'] : []),
+        ...(version === HelmSyntaxVersion.V4 ? ['--max-col-width', '0'] : []),
         chartPath,
     ];
 }
@@ -127,7 +135,7 @@ export function isSafeHelmChartVersion(value: unknown): value is string {
 }
 
 export function isSafeHelmRepositoryChartReference(value: unknown, repository: string, caseInsensitive: boolean): value is string {
-    if (!isSafeHelmChartReference(value)) {
+    if (!isSafeHelmChartReference(value) || isExplicitHelmLocalChartReference(value)) {
         return false;
     }
     const prefix = `${repository}/`;
@@ -138,6 +146,10 @@ export function isSafeHelmRepositoryChartReference(value: unknown, repository: s
     const suffix = value.substring(prefix.length);
     return suffix.length > 0 && !suffix.includes('\\') &&
         !suffix.split('/').some((part) => part.length === 0 || part === '.' || part === '..');
+}
+
+function escapeGoRegexpLiteral(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 export function isSafeHelmRepositoryChartVersion(value: unknown): value is string {

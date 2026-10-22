@@ -254,7 +254,7 @@ async function listHelmRepoCharts(repoName: string): Promise<Errorable<HelmRepoC
     // Charts can embed newlines in their descriptions. We need to merge
     // 'entries' that are actually continuations with their 'parents.'
     const entries = mergeContinuationEntries(rawEntries);
-    const caseInsensitiveRepository = syntaxVersion === helm.HelmSyntaxVersion.V2;
+    const caseInsensitiveRepository = syntaxVersion !== helm.HelmSyntaxVersion.V3 && syntaxVersion !== helm.HelmSyntaxVersion.V4;
     if (!entries || entries.some((entry) =>
         !isSafeHelmRepositoryChartReference(entry.name, repoName, caseInsensitiveRepository) ||
         !isSafeHelmRepositoryChartVersion(entry['chart version']))) {

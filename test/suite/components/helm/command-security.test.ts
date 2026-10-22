@@ -14,6 +14,7 @@ import {
     helmInspectArgs,
     helmInstallArgs,
     helmRepoSearchArgs,
+    helmRepositorySearchPattern,
     helmTemplatePreviewArgs,
     HelmSyntaxVersion,
     isSafeHelmChartReference,
@@ -61,16 +62,24 @@ suite('Helm command security', () => {
     test('builds repository and chart operations as exact arguments', () => {
         const chart = 'repo/chart;$(marker)&value';
         const version = '1.2.3-rc.1+build';
+        const repository = 'repo.+(prod)';
 
-        assert.deepStrictEqual(helmRepoSearchArgs(HelmSyntaxVersion.V2, 'repo;$(marker)'), [
-            'search', 'repo;$(marker)/', '-l', '--col-width', '0'
+        assert.deepStrictEqual(helmRepoSearchArgs(HelmSyntaxVersion.V2, repository), [
+            'search', '--regexp', '--versions', '--col-width', '0', '--',
+            String.raw`(?i)^[^\v]+\vrepo\.\+\(prod\)/[^\v]+\v`
         ]);
-        assert.deepStrictEqual(helmRepoSearchArgs(HelmSyntaxVersion.Unknown, 'repo;$(marker)'), [
-            'search', 'repo;$(marker)/', '-l', '--col-width', '0'
+        assert.deepStrictEqual(helmRepoSearchArgs(HelmSyntaxVersion.Unknown, repository), [
+            'search', '--regexp', '--versions', '--col-width', '0', '--',
+            String.raw`(?i)^[^\v]+\vrepo\.\+\(prod\)/[^\v]+\v`
         ]);
-        assert.deepStrictEqual(helmRepoSearchArgs(HelmSyntaxVersion.V4, 'repo;$(marker)'), [
-            'search', 'repo', 'repo;$(marker)/', '--versions', '--max-col-width', '0'
+        assert.deepStrictEqual(helmRepoSearchArgs(HelmSyntaxVersion.V4, repository), [
+            'search', 'repo', '--regexp', '--versions', '--max-col-width', '0', '--',
+            String.raw`^[^\v]+\vrepo\.\+\(prod\)/[^\v]+\v`
         ]);
+        assert.strictEqual(
+            helmRepositorySearchPattern('stable', false),
+            String.raw`^[^\v]+\vstable/[^\v]+\v`
+        );
         assert.deepStrictEqual(helmInspectArgs(HelmSyntaxVersion.V2, 'chart', chart, version), [
             'inspect', chart, '--version', version
         ]);
@@ -84,6 +93,9 @@ suite('Helm command security', () => {
             'fetch', chart, '--untar', '--version', version, '-d', hostilePath
         ]);
         assert.deepStrictEqual(helmDependencyListArgs(HelmSyntaxVersion.V2, hostilePath), [
+            'dep', 'list', hostilePath
+        ]);
+        assert.deepStrictEqual(helmDependencyListArgs(HelmSyntaxVersion.V3, hostilePath), [
             'dep', 'list', hostilePath
         ]);
         assert.deepStrictEqual(helmDependencyListArgs(HelmSyntaxVersion.V4, hostilePath), [
@@ -138,6 +150,7 @@ suite('Helm command security', () => {
         assert.strictEqual(isSafeHelmChartVersion('--devel'), false);
         assert.strictEqual(isSafeHelmRepositoryChartReference('myrepo/chart', 'MyRepo', true), true);
         assert.strictEqual(isSafeHelmRepositoryChartReference('repo/../chart', 'repo', false), false);
+        assert.strictEqual(isSafeHelmRepositoryChartReference('C:/work/chart', 'C:', false), false);
         assert.strictEqual(isSafeHelmRepositoryName('..'), false);
         assert.strictEqual(isSafeHelmRepositoryName('.hidden'), false);
         assert.strictEqual(isSafeHelmRepositoryName('foo\\bar'), false);
@@ -314,6 +327,41 @@ suite('Helm command security', () => {
         execute.onCall(2).resolves({ code: 0, stdout: '', stderr: '' });
         execute.onCall(3).resolves({ code: 0, stdout: '/workspace\n', stderr: '' });
         execute.onCall(4).resolves({ code: 0, stdout: '/workspace\n', stderr: '' });
+
+        assert.strictEqual(
+            await resolveHelmExecutableForExecution(undefined, fakeShell(false, null, '/workspace'), true, execute),
+            undefined
+        );
+    });
+
+    test('preserves Snap Helm dispatch through snap run in WSL', async () => {
+        const execute = sinon.stub();
+        execute.onCall(0).resolves({ code: 0, stdout: '/snap/bin/helm\n', stderr: '' });
+        execute.onCall(1).resolves({ code: 0, stdout: '/usr/bin/snap\n', stderr: '' });
+        execute.onCall(2).resolves({ code: 0, stdout: '', stderr: '' });
+        execute.onCall(3).resolves({ code: 0, stdout: '/snap/bin\n', stderr: '' });
+        execute.onCall(4).resolves({ code: 0, stdout: '/workspace\n', stderr: '' });
+        execute.onCall(5).resolves({ code: 0, stdout: '/usr/bin/snap\n', stderr: '' });
+        execute.onCall(6).resolves({ code: 0, stdout: '/usr/bin/snap\n', stderr: '' });
+        execute.onCall(7).resolves({ code: 0, stdout: '', stderr: '' });
+
+        const helm = await resolveHelmExecutableForExecution(undefined, fakeShell(false, null, '/workspace'), true, execute);
+
+        assert.deepStrictEqual(helm, { path: '/usr/bin/snap', argsPrefix: ['run', '--', 'helm'] });
+        assert.deepStrictEqual(
+            helmCommandInvocation(helm!, ['version', '--short'], fakeShell(false), true).args,
+            ['--exec', '/usr/bin/snap', 'run', '--', 'helm', 'version', '--short']
+        );
+    });
+
+    test('fails closed for an invalid Snap Helm alias', async () => {
+        const execute = sinon.stub();
+        execute.onCall(0).resolves({ code: 0, stdout: '/snap/bin/helm\n', stderr: '' });
+        execute.onCall(1).resolves({ code: 0, stdout: '/usr/bin/snap\n', stderr: '' });
+        execute.onCall(2).resolves({ code: 0, stdout: '', stderr: '' });
+        execute.onCall(3).resolves({ code: 0, stdout: '/snap/bin\n', stderr: '' });
+        execute.onCall(4).resolves({ code: 0, stdout: '/workspace\n', stderr: '' });
+        execute.onCall(5).resolves({ code: 0, stdout: '../invalid\n', stderr: '' });
 
         assert.strictEqual(
             await resolveHelmExecutableForExecution(undefined, fakeShell(false, null, '/workspace'), true, execute),

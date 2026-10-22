@@ -40,7 +40,8 @@ suite('Helm repository security', () => {
         assert.strictEqual(charts.length, 1);
         sinon.assert.calledWithExactly(helmExecArgsAsync.firstCall, ['repo', 'list']);
         sinon.assert.calledWithExactly(helmExecArgsAsync.secondCall, [
-            'search', 'repo', `${repositoryName}/`, '--versions', '--max-col-width', '0'
+            'search', 'repo', '--regexp', '--versions', '--max-col-width', '0', '--',
+            `^[^\\v]+\\vrepo;\\$\\(marker\\)&value/[^\\v]+\\v`
         ]);
     });
 

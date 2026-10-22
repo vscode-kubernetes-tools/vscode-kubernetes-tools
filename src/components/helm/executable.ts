@@ -10,6 +10,7 @@ export type HelmCommandExecutor = typeof executeCommand;
 export interface HelmExecutable {
     readonly path: string;
     readonly argv0?: string;
+    readonly argsPrefix?: readonly string[];
 }
 
 export function helmCommandInvocation(
@@ -28,7 +29,7 @@ export function helmCommandInvocation(
         }
         return {
             executable: wsl,
-            args: ['--exec', helm.path, ...args],
+            args: ['--exec', helm.path, ...(helm.argsPrefix || []), ...args],
             cwd,
             env: execOpts.env,
         };
@@ -180,7 +181,54 @@ async function resolveWslHelmExecutable(
             return undefined;
         }
     }
-    return { path: executable };
+    const snap = await wslSnapExecutable(wsl, alias, executable, cwd, environment, execute);
+    return snap === null ? undefined : snap || { path: executable };
+}
+
+async function wslSnapExecutable(
+    wsl: string,
+    alias: string,
+    executable: string,
+    cwd: string | undefined,
+    environment: NodeJS.ProcessEnv,
+    execute: HelmCommandExecutor
+): Promise<HelmExecutable | null | undefined> {
+    if (path.posix.dirname(alias) !== '/snap/bin' || executable !== '/usr/bin/snap') {
+        return undefined;
+    }
+    const immediateResult = await executeWsl(wsl, ['/usr/bin/readlink', alias], cwd, environment, execute);
+    const immediate = singleLine(immediateResult.stdout);
+    if (immediateResult.code !== 0 || !immediate) {
+        return null;
+    }
+
+    let application: string;
+    if (path.posix.isAbsolute(immediate)) {
+        if (immediate !== '/usr/bin/snap') {
+            return null;
+        }
+        application = path.posix.basename(alias);
+    } else {
+        if (!isSafeSnapApplication(immediate)) {
+            return null;
+        }
+        const targetResult = await executeWsl(wsl, ['/usr/bin/readlink', '-f', `/snap/bin/${immediate}`], cwd, environment, execute);
+        if (targetResult.code !== 0 || singleAbsoluteWslPath(targetResult.stdout) !== executable) {
+            return null;
+        }
+        application = immediate;
+    }
+
+    const snapResult = await executeWsl(wsl, ['/usr/bin/readlink', '-f', '/usr/bin/snap'], cwd, environment, execute);
+    if (snapResult.code !== 0 || singleAbsoluteWslPath(snapResult.stdout) !== executable ||
+        !await isExecutableWslPath(wsl, '/usr/bin/snap', cwd, environment, execute)) {
+        return null;
+    }
+    return { path: '/usr/bin/snap', argsPrefix: ['run', '--', application] };
+}
+
+function isSafeSnapApplication(value: string): boolean {
+    return /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(value) && value !== '.' && value !== '..';
 }
 
 async function wslWorkspacePath(
@@ -303,6 +351,12 @@ function singleAbsoluteWslPath(output: string): string | undefined {
     const lines = output.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length > 0);
     const value = lines.length === 1 ? lines[0] : undefined;
     return value && path.posix.isAbsolute(value) && !CONTROL_CHARACTERS.test(value) ? value : undefined;
+}
+
+function singleLine(output: string): string | undefined {
+    const lines = output.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length > 0);
+    const value = lines.length === 1 ? lines[0] : undefined;
+    return value && !CONTROL_CHARACTERS.test(value) ? value : undefined;
 }
 
 function isWindowsHostPath(filePath: string): boolean {
