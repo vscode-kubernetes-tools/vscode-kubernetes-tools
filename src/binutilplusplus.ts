@@ -8,7 +8,7 @@ import { Errorable } from './errorable';
 import { parseLineOutput } from './outputUtils';
 import { Dictionary } from './utils/dictionary';
 import { monitorForAuthPrompt } from './shell';
-import { CommandInvocation, executeCommand, executeCommandPiped, renderArgsForDisplay, snapPipeInvocation } from './process';
+import { CommandInvocation, executeCommand, executeCommandPiped, ProcessExecutionError, ProcessExecutionOptions, ProcessResult, renderArgsForDisplay, snapPipeInvocation } from './process';
 import { execPath, isWindowsCommandScript } from './binutil';
 
 export interface ExternalBinary {
@@ -155,7 +155,7 @@ export interface Context {
     readonly host: Host;
     readonly fs: FS;
     readonly shell: Shell;
-    readonly pathfinder: (() => Promise<string>) | undefined;
+    readonly pathfinder: ((signal?: AbortSignal) => Promise<string>) | undefined;
     readonly binary: ExternalBinary;
     status: FindBinaryStatus | undefined;
 }
@@ -178,10 +178,13 @@ async function baseBinPath(context: Context): Promise<string> {
     return binPath;
 }
 
-async function commandInvocation(context: Context, args: readonly string[]): Promise<CommandInvocation> {
-    const executable = await unquotedBaseBinPath(context);
-    if (isWindowsCommandScript(context.shell, executable)) {
-        throw new Error(`Configured ${context.binary.displayName} path '${executable}' is a command script; configure an .exe path for shell-free execution.`);
+async function commandInvocation(context: Context, args: readonly string[], selectedPath?: string): Promise<CommandInvocation> {
+    let executable = selectedPath ?? await unquotedBaseBinPath(context);
+    if (context.shell.isWindows() && executable.startsWith('"') && executable.endsWith('"')) {
+        executable = executable.slice(1, -1);
+    }
+    if (!getUseWsl() && isWindowsCommandScript(context.shell, executable)) {
+        throw new ProcessExecutionError('invalid-executable', `Configured ${context.binary.displayName} path '${executable}' is a command script; configure an .exe path for shell-free execution.`);
     }
     const execOpts = context.shell.execOpts();
     if (getUseWsl()) {
@@ -198,6 +201,27 @@ async function commandInvocation(context: Context, args: readonly string[]): Pro
         cwd: execOpts.cwd,
         env: execOpts.env,
     };
+}
+
+// Unlike the legacy result, this preserves both output streams and the exit status.
+export async function executeForResultArgs(context: Context, args: readonly string[], stdin: string | undefined, options: ProcessExecutionOptions): Promise<ProcessResult> {
+    const invocation = await resolveCommandInvocation(context, args, options.signal);
+    if (getEnableSnapFlag() && context.shell.isUnix()) {
+        return executeCommandPiped(invocation, snapPipeInvocation(invocation, getUseWsl()), stdin, monitorForAuthPrompt, options);
+    }
+    return executeCommand(invocation, stdin, monitorForAuthPrompt, options);
+}
+
+async function resolveCommandInvocation(context: Context, args: readonly string[], signal?: AbortSignal): Promise<CommandInvocation> {
+    if (signal?.aborted) {
+        throw new ProcessExecutionError('cancelled', 'Command cancelled.');
+    }
+    const executable = context.pathfinder ? await context.pathfinder(signal) :
+        getToolPath(context.host, context.shell, context.binary.configKeyName) || context.binary.binBaseName;
+    if (signal?.aborted) {
+        throw new ProcessExecutionError('cancelled', 'Command cancelled.');
+    }
+    return commandInvocation(context, args, executable);
 }
 
 // This is silent - just caching over findBinaryCore

@@ -16,6 +16,7 @@ import { mkdirp } from 'mkdirp';
 import { platformUrlString, formatBin, platformArch, vsKubernetesFolder } from '../installer/installationlayout';
 import * as installer from '../installer/installer';
 import { ExecResult } from '../../binutilplusplus';
+import { ProcessExecutionError } from '../../process';
 
 const AUTO_VERSION_CACHE_FILE = getCachePath(shell);  // TODO: awkward that we're using a hardwired shell here but parameterising it elsewhere
 const AUTO_VERSION_CACHE = new FileBacked<ClusterVersionCache>(fs, AUTO_VERSION_CACHE_FILE, defaultClusterVersionCache);
@@ -26,31 +27,66 @@ interface ClusterVersionCache {
     readonly versions: Dictionary<string>;
 }
 
-export async function ensureSuitableKubectl(kubectl: Kubectl, shell: Shell, host: Host): Promise<string | undefined> {
+export async function ensureSuitableKubectl(kubectl: Kubectl, shell: Shell, host: Host, signal?: AbortSignal): Promise<string | undefined> {
+    checkCancellation(signal);
     if (!(await fs.existsAsync(getBasePath(shell)))) {
         await mkdirp(getBasePath(shell));
     }
 
-    const bootstrapperKubectl = await ensureBootstrapperKubectl(kubectl, shell, host);
+    const bootstrapperKubectl = await ensureBootstrapperKubectl(kubectl, shell, host, signal);
     if (!bootstrapperKubectl) {
         return undefined;
     }
 
-    const context = await getCurrentContext(bootstrapperKubectl, { silent: true });
-    if (!context) {
+    const contextName = signal ? await readCurrentContext(bootstrapperKubectl, signal) :
+        (await getCurrentContext(bootstrapperKubectl, { silent: true }))?.contextName;
+    if (!contextName) {
         return undefined;
     }
-    const serverVersion = await getServerVersion(bootstrapperKubectl, context.contextName);
+    const serverVersion = await getServerVersion(bootstrapperKubectl, contextName, signal);
     if (!serverVersion) {
         return undefined;
     }
     if (!(await gotKubectlVersion(shell, serverVersion))) {
-        const downloaded = await downloadKubectlVersion(shell, host, serverVersion);
+        checkCancellation(signal);
+        const downloaded = await waitForDownload(downloadKubectlVersion(shell, host, serverVersion), signal);
         if (!downloaded) {
             return undefined;
         }
     }
+    checkCancellation(signal);
     return kubectlVersionPath(shell, serverVersion);
+}
+
+function checkCancellation(signal?: AbortSignal): void {
+    if (signal?.aborted) {
+        throw new ProcessExecutionError('cancelled', 'Command cancelled.');
+    }
+}
+
+async function waitForDownload<T>(operation: Promise<T>, signal?: AbortSignal): Promise<T> {
+    if (!signal) {
+        return operation;
+    }
+    let cancel!: () => void;
+    const cancelled = new Promise<never>((_resolve, reject) => {
+        cancel = () => reject(new ProcessExecutionError('cancelled', 'Command cancelled.'));
+        signal.addEventListener('abort', cancel, { once: true });
+        if (signal.aborted) {
+            cancel();
+        }
+    });
+    try {
+        // Downloads are shared; cancelling one caller must not stop other callers.
+        return await Promise.race([operation, cancelled]);
+    } finally {
+        signal.removeEventListener('abort', cancel);
+    }
+}
+
+async function readCurrentContext(kubectl: Kubectl, signal: AbortSignal): Promise<string | undefined> {
+    const result = await kubectl.executeCommandArgs(['config', 'current-context'], undefined, { signal });
+    return result.code === 0 ? result.stdout.trim() : undefined;
 }
 
 function getBasePath(shell: Shell): string {
@@ -136,18 +172,33 @@ async function getKubeconfigPathHash(): Promise<string | undefined> {
     return kubeconfigHashText;
 }
 
-async function getServerVersion(kubectl: Kubectl, context: string): Promise<string | undefined> {
+async function getServerVersion(kubectl: Kubectl, context: string, signal?: AbortSignal): Promise<string | undefined> {
     await ensureCacheIsForCurrentKubeconfig();
     const cachedVersions = await AUTO_VERSION_CACHE.get();
     if (cachedVersions.versions[context]) {
         return cachedVersions.versions[context];
     }
-    const versionInfo = await kubectl.readJSON<any>('version -o json');
-    if (ExecResult.failed(versionInfo)) {
-        return undefined;
+    checkCancellation(signal);
+    let version: { serverVersion?: { gitVersion?: string } } | undefined;
+    if (signal) {
+        const result = await kubectl.executeCommandArgs(['version', '-o', 'json'], undefined, { signal });
+        if (result.code !== 0) {
+            return undefined;
+        }
+        try {
+            version = JSON.parse(result.stdout);
+        } catch {
+            return undefined;
+        }
+    } else {
+        const result = await kubectl.readJSON<{ serverVersion?: { gitVersion?: string } }>('version -o json');
+        if (ExecResult.failed(result)) {
+            return undefined;
+        }
+        version = result.result;
     }
-    if (versionInfo.result && versionInfo.result.serverVersion) {
-        const serverVersion: string = versionInfo.result.serverVersion.gitVersion;
+    if (version?.serverVersion?.gitVersion) {
+        const serverVersion = version.serverVersion.gitVersion;
         cachedVersions.versions[context] = serverVersion;
         await AUTO_VERSION_CACHE.update(cachedVersions);
         return serverVersion;
@@ -159,8 +210,22 @@ function defaultClusterVersionCache(): ClusterVersionCache {
     return { derivedFromKubeconfig: undefined, versions: {} };
 }
 
-async function ensureBootstrapperKubectl(naiveKubectl: Kubectl, shell: Shell, host: Host): Promise<Kubectl | undefined> {
-    if (await naiveKubectl.ensurePresent({ silent: true })) {
+async function ensureBootstrapperKubectl(naiveKubectl: Kubectl, shell: Shell, host: Host, signal?: AbortSignal): Promise<Kubectl | undefined> {
+    let present: boolean;
+    if (signal) {
+        try {
+            present = (await naiveKubectl.executeCommandArgs(['version', '--client', '-o', 'json'], undefined, { signal })).code === 0;
+        } catch (error) {
+            if (!(error instanceof ProcessExecutionError) || error.reason !== 'spawn-failed') {
+                throw error;
+            }
+            present = false;
+        }
+    } else {
+        present = await naiveKubectl.ensurePresent({ silent: true });
+    }
+    checkCancellation(signal);
+    if (present) {
         return naiveKubectl;
     }
 
@@ -173,9 +238,9 @@ async function ensureBootstrapperKubectl(naiveKubectl: Kubectl, shell: Shell, ho
     }
 
     // Looks like we're going to have to download one
-    const installationResult = await host.longRunning({ title: 'Downloading default version of kubectl', operationKey: OPERATION_ID_DOWNLOAD_KC_FOR_BOOTSTRAP }, () =>
+    const installationResult = await waitForDownload(host.longRunning({ title: 'Downloading default version of kubectl', operationKey: OPERATION_ID_DOWNLOAD_KC_FOR_BOOTSTRAP }, () =>
         installer.installKubectl(shell)
-    );
+    ), signal);
     if (!installationResult.succeeded) {
         return undefined;
     }
