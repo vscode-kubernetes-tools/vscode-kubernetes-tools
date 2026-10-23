@@ -10,6 +10,7 @@ import { ResourceKind } from "./kuberesources";
 import { isSafeNamespace, isSafeResourceType, listResourceNames, normaliseResourceReadTarget, normaliseResourceTarget } from './components/kubectl/resource-commands';
 import { fileCommandArgs, hostPathToWsl } from './components/kubectl/file-commands';
 import { getUseWsl } from './components/config/config';
+import { remoteShellCommandArgs, runImageArgs } from './components/kubectl/workload-commands';
 
 export interface KubectlContext {
     readonly clusterName: string;
@@ -389,14 +390,6 @@ export async function currentNamespace(kubectl: Kubectl): Promise<string> {
     return currentContext.context.namespace || "default";
 }
 
-export async function currentNamespaceArg(kubectl: Kubectl): Promise<string> {
-    const ns = await currentNamespace(kubectl);
-    if (ns.length === 0) {
-        return '';
-    }
-    return `--namespace ${ns}`;
-}
-
 export const onDidChangeNamespaceEmitter = new vscode.EventEmitter<string>();
 
 export async function switchNamespace(kubectl: Kubectl, namespace: string): Promise<boolean> {
@@ -443,7 +436,7 @@ export async function switchNamespace(kubectl: Kubectl, namespace: string): Prom
  * @param env the additional environment variables when running the docker container.
  * @return the deployment name.
  */
-export async function runAsDeployment(kubectl: Kubectl, deploymentName: string, image: string, exposedPorts: number[], env: any, debugArgs?: string): Promise<string> {
+export async function runAsDeployment(kubectl: Kubectl, deploymentName: string, image: string, exposedPorts: number[], env: any, debugCommand?: string): Promise<string> {
     const imageName = image.split(":")[0];
     const imagePrefix = imageName.substring(0, imageName.lastIndexOf("/")+1);
 
@@ -452,17 +445,17 @@ export async function runAsDeployment(kubectl: Kubectl, deploymentName: string, 
         deploymentName = `${baseName}-${Date.now()}`;
     }
 
-    const runCmd = [
-        "run",
-        deploymentName,
-        `--image=${image}`,
-        imagePrefix ? "" : "--image-pull-policy=Never",
-        ...exposedPorts.map((port) => `--port=${port}`),
-        ...Object.keys(env || {}).map((key) => `--env="${key}=${env[key]}"`),
-        debugArgs ? debugArgs : ""
-    ];
+    const runArgs = runImageArgs(deploymentName, image, {
+        imagePullPolicy: imagePrefix ? undefined : 'Never',
+        ports: exposedPorts,
+        environment: env,
+        additionalArgs: debugCommand ? remoteShellCommandArgs(debugCommand) : undefined,
+    });
+    if (!runArgs) {
+        throw new Error('Invalid Kubernetes workload name or image.');
+    }
 
-    const runResult = await kubectl.invokeCommand(runCmd.join(" "));
+    const runResult = await kubectl.invokeCommandArgs(runArgs);
     if (ExecResult.failed(runResult)) {
         throw new Error(ExecResult.failureMessage(runResult, { whatFailed: `Failed to run the image "${image}" on Kubernetes` }));
     }
