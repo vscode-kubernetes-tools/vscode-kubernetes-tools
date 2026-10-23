@@ -94,6 +94,7 @@ import { setAssetContext } from './assets';
 import { fixOldInstalledBinaryPermissions } from './components/installer/fixwriteablebinaries';
 import { interpolateVariables } from './utils/interpolation';
 import { AKSProvider } from './components/cloudprovider/aksprovider';
+import { createJobFromCronJobArgs, exposeResourceArgs, remoteShellCommandArgs, restartResourceArgs, runImageArgs, scaleResourceArgs } from './components/kubectl/workload-commands';
 
 let explainActive = false;
 let swaggerSpecPromise: Promise<explainer.SwaggerModel | undefined> | null = null;
@@ -863,15 +864,16 @@ async function exposeKubernetes() {
         return;
     }
 
-    let cmd = `expose ${kindName}`;
     const ports = getPorts();
-
-    if (ports && ports.length > 0) {
-        cmd += ' --port=' + ports[0];
+    const args = exposeResourceArgs(kindName, { port: ports && ports.length > 0 ? ports[0] : undefined });
+    if (!args) {
+        vscode.window.showErrorMessage('Invalid Kubernetes resource target.');
+        return;
     }
 
-    const er = await host.longRunning(`Exposing ${kindName} as service...`, () =>
-        kubectl.invokeCommand(cmd)
+    const target = args[1];
+    const er = await host.longRunning(`Exposing ${target} as service...`, () =>
+        kubectl.invokeCommandArgs(args)
     );
     await kubectl.reportResult(er, {});
 }
@@ -1060,8 +1062,14 @@ function promptScaleKubernetes(kindName: string) {
 }
 
 async function invokeScaleKubernetes(kindName: string, replicas: number) {
-    const er = await host.longRunning(`Scaling ${kindName} to ${replicas} replicas...`, () =>
-        kubectl.invokeCommand(`scale --replicas=${replicas} ${kindName}`)
+    const args = scaleResourceArgs(kindName, replicas);
+    if (!args) {
+        vscode.window.showErrorMessage('Invalid Kubernetes resource target or replica count.');
+        return;
+    }
+    const target = args[2];
+    const er = await host.longRunning(`Scaling ${target} to ${replicas} replicas...`, () =>
+        kubectl.invokeCommandArgs(args)
     );
     await kubectl.reportResult(er, {});
 }
@@ -1078,14 +1086,24 @@ async function restartKubernetes(target?: any) {
 }
 
 async function invokeRestartKubernetes(kindName: string) {
-    const confirmed = await warnConfirm(`Do you want to restart '${kindName}'? This will roll all of its pods.`, "Restart", "Cancel");
+    const target = normaliseResourceTarget(kindName, false);
+    if (!target) {
+        vscode.window.showErrorMessage('Invalid Kubernetes resource target.');
+        return;
+    }
+    const confirmed = await warnConfirm(`Do you want to restart '${target}'? This will roll all of its pods.`, "Restart", "Cancel");
     if (!confirmed) {
         return;
     }
 
-    const nsarg = await kubectlUtils.currentNamespaceArg(kubectl);
-    const er = await host.longRunning(`Restarting ${kindName}...`, () =>
-        kubectl.invokeCommand(`rollout restart ${kindName} ${nsarg}`)
+    const namespace = await kubectlUtils.currentNamespace(kubectl);
+    const args = restartResourceArgs(target, namespace);
+    if (!args) {
+        vscode.window.showErrorMessage('Invalid Kubernetes resource target.');
+        return;
+    }
+    const er = await host.longRunning(`Restarting ${target}...`, () =>
+        kubectl.invokeCommandArgs(args)
     );
     await kubectl.reportResult(er, {});
     if (ExecResult.succeeded(er)) {
@@ -1095,8 +1113,13 @@ async function invokeRestartKubernetes(kindName: string) {
 
 function runKubernetes() {
     buildPushThenExec(async (name, image) => {
+        const args = runImageArgs(name, image);
+        if (!args) {
+            vscode.window.showErrorMessage('Invalid Kubernetes workload name or image.');
+            return;
+        }
         const er = await host.longRunning(`Deploying ${image} as ${name}...`, () =>
-            kubectl.invokeCommand(`run ${name} --image=${image}`)
+            kubectl.invokeCommandArgs(args)
         );
         await kubectl.reportResult(er, {});
     });
@@ -1315,23 +1338,6 @@ function containsName(kindName: string): boolean {
         return kindName.indexOf('/') > 0;
     }
     return false;
-}
-
-function parseNamesFromKubectlLines(text: string): string[] {
-    const lines = text.split('\n');
-    lines.shift();
-
-    const names = lines.filter((line) => {
-        return line.length > 0;
-    }).map((line) => {
-        return parseName(line);
-    });
-
-    return names;
-}
-
-function parseName(line: string): string {
-    return line.split(' ')[0];
 }
 
 enum PodSelectionFallback {
@@ -1994,10 +2000,16 @@ const debugInternal = (name: string, image: string) => {
 
 const doDebug = async (name: string, image: string, cmd: string) => {
     const deploymentName = `${name}-debug`;
-    const runCmd = `run ${deploymentName} --image=${image} -i --attach=false -- ${cmd}`;
-    console.log(runCmd);
+    const runArgs = runImageArgs(deploymentName, image, {
+        additionalArgs: remoteShellCommandArgs(cmd),
+    });
+    if (!runArgs) {
+        vscode.window.showErrorMessage('Invalid Kubernetes workload name or image.');
+        return;
+    }
+    console.log(runArgs);
 
-    const er = await kubectl.invokeCommand(runCmd);
+    const er = await kubectl.invokeCommandArgs(runArgs);
     if (ExecResult.failed(er)) {
         await kubectl.reportFailure(er, { whatFailed: 'Failed to start debug container'});
         return;
@@ -2050,8 +2062,12 @@ const doDebug = async (name: string, image: string, cmd: string) => {
                         return;
                     }
 
-                    const exposeCmd = `expose deployment ${deploymentName} --type=LoadBalancer --port=${port}`;
-                    kubectl.invokeCommandThen(exposeCmd, (eer) => {
+                    const exposeArgs = exposeResourceArgs(`deployment/${deploymentName}`, { type: 'LoadBalancer', port });
+                    if (!exposeArgs) {
+                        vscode.window.showErrorMessage('Invalid Kubernetes resource target.');
+                        return;
+                    }
+                    kubectl.invokeCommandArgs(exposeArgs).then((eer) => {
                         if (eer.resultKind !== 'exec-succeeded') {
                             vscode.window.showErrorMessage('Failed to expose deployment: ' + ExecResult.failureMessage(eer, {}));
                             return;
@@ -2462,8 +2478,13 @@ async function cronJobRunNow(target?: any): Promise<void> {
         return;
     }
 
-    const nsarg = await kubectlUtils.currentNamespaceArg(kubectl);
-    const er = await kubectl.invokeCommand(`create job ${jobName} ${nsarg} --from=cronjob/${name}`);
+    const namespace = await kubectlUtils.currentNamespace(kubectl);
+    const args = createJobFromCronJobArgs(jobName, name, namespace);
+    if (!args) {
+        vscode.window.showErrorMessage('Invalid Kubernetes workload name.');
+        return;
+    }
+    const er = await kubectl.invokeCommandArgs(args);
 
     if (ExecResult.failed(er)) {
         kubectl.reportFailure(er, { whatFailed: 'Error creating job' });
@@ -2488,13 +2509,17 @@ async function resourceNameFromTarget(target: string | ClusterExplorerResourceNo
 }
 
 async function pickResourceName(resourceKind: kuberesources.ResourceKind, prompt: string): Promise<string | undefined> {
-    const er = await kubectl.invokeCommand(`get ${resourceKind.abbreviation}`);
-    if (ExecResult.failed(er)) {
-        await kubectl.reportFailure(er, { whatFailed: `Unable to list resources of type ${resourceKind.displayName}` });
+    const listed = await listResourceNames(kubectl, resourceKind.abbreviation);
+    if (failed(listed)) {
+        if (listed.execFailure) {
+            await kubectl.reportFailure(listed.execFailure, { whatFailed: `Unable to list resources of type ${resourceKind.displayName}` });
+        } else {
+            vscode.window.showErrorMessage(listed.error[0]);
+        }
         return undefined;
     }
 
-    const names = parseNamesFromKubectlLines(er.stdout);
+    const names = listed.result;
     if (names.length === 0) {
         vscode.window.showInformationMessage(`No resources of type ${resourceKind.displayName} in cluster`);
         return undefined;
