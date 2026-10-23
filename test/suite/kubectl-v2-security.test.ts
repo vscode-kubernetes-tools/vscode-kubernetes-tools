@@ -572,7 +572,7 @@ suite('Kubectl V2 security', () => {
         stderr.write('Use code ABC at https://micro');
         stderr.write('soft.com/devicelogin' + 'x'.repeat(5000));
         sinon.assert.calledOnce(warning);
-        assert.ok(showOutput.firstCall.args[0].includes('https://microsoft.com/devicelogin'));
+        assert.strictEqual(showOutput.firstCall.args[0], ('Use code ABC at https://microsoft.com/devicelogin' + 'x'.repeat(5000)).slice(0, 4096));
         assert.ok(showOutput.firstCall.args[0].includes('Use code ABC'));
         assert.ok(showOutput.firstCall.args[0].length <= 4096);
         clock.tick(1001);
