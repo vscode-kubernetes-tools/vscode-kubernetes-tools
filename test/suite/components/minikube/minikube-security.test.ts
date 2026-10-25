@@ -294,9 +294,13 @@ suite('Minikube command security', () => {
             if (args[1] === '/usr/bin/readlink') { return { code: 0, stdout: `${args[3]}\n`, stderr: '' }; }
             return { code: 0, stdout: 'ok', stderr: '' };
         });
-        const minikube = create(fakeHost(), fakeFs(), fakeShell(
-            process.platform === 'win32', env, os.tmpdir(), alias
-        ));
+        const shell = fakeShell(process.platform === 'win32', env, os.tmpdir(), alias);
+        if (process.platform === 'win32') {
+            sandbox.stub(shell, 'isWindows').callsFake(() => !useWsl);
+            sandbox.stub(shell, 'isUnix').callsFake(() => useWsl);
+            sandbox.stub(shell, 'platform').callsFake(() => useWsl ? Platform.Linux : Platform.Windows);
+        }
+        const minikube = create(fakeHost(), fakeFs(), shell);
 
         assert.deepStrictEqual(await minikube.invokeCommand(['status']), { code: 0, stdout: 'ok', stderr: '' });
         useWsl = true;
