@@ -10,7 +10,9 @@ import { FS } from '../../../../src/fs';
 import { Host } from '../../../../src/host';
 import { Platform, Shell } from '../../../../src/shell';
 import { minikubeLifecycleArgs, minikubeStartCommand, parseAdditionalFlags } from '../../../../src/components/clusterprovider/minikube/commands';
-import { create, createOnBinary } from '../../../../src/components/clusterprovider/minikube/minikube';
+import { create, createOnBinary, Minikube } from '../../../../src/components/clusterprovider/minikube/minikube';
+import { createCluster, waitForClusterOnce } from '../../../../src/components/clusterprovider/minikube/minikubeclusterprovider';
+import { propagationFields } from '../../../../src/components/clusterprovider/common/form';
 
 suite('Minikube command security', () => {
     let sandbox: sinon.SinonSandbox;
@@ -19,25 +21,26 @@ suite('Minikube command security', () => {
     teardown(() => sandbox.restore());
 
     test('parses portable quoted flags without interpreting punctuation', () => {
-        assert.deepStrictEqual(parseAdditionalFlags('--profile "team cluster" --extra-config=apiserver.audit-policy-file=$(marker)'), {
+        assert.deepStrictEqual(parseAdditionalFlags('--ssh-key "team key" --extra-config=apiserver.audit-policy-file=$(marker)'), {
             succeeded: true,
-            result: ['--profile', 'team cluster', '--extra-config=apiserver.audit-policy-file=$(marker)'],
+            result: ['--ssh-key', 'team key', '--extra-config=apiserver.audit-policy-file=$(marker)'],
         });
         assert.deepStrictEqual(minikubeStartCommand({
             vmDriver: 'hyperkit',
-            additionalFlags: '--profile "team cluster" --cpus=4',
+            additionalFlags: '--ssh-key "team key" --cpus=4',
+            profile: 'team-cluster',
         }), {
             succeeded: true,
             result: {
-                args: ['start', '--profile', 'team cluster', '--cpus=4', '--vm-driver=hyperkit'],
-                profile: 'team cluster',
+                args: ['start', '--ssh-key', 'team key', '--cpus=4', '--vm-driver=hyperkit', '--profile=team-cluster'],
+                profile: 'team-cluster',
             },
         });
         assert.deepStrictEqual(minikubeStartCommand({ vmDriver: 'docker' }), {
             succeeded: true,
             result: { args: ['start', '--vm-driver=docker'], profile: undefined },
         });
-        assert.deepStrictEqual(minikubeLifecycleArgs('status', 'team cluster'), ['--profile', 'team cluster', 'status']);
+        assert.deepStrictEqual(minikubeLifecycleArgs('status', 'team-cluster'), ['--profile', 'team-cluster', 'status']);
     });
 
     test('rejects shell syntax, malformed quoting, and unknown drivers', () => {
@@ -49,17 +52,70 @@ suite('Minikube command security', () => {
             '--profile `marker`',
             '--profile "unterminated',
             '--profile demo\nmarker',
+            '--profile demo\\\nmarker',
+            '--profile demo\u001bmarker',
+            '--profile demo\u007fmarker',
+            '--profile demo\u0085marker',
             'delete --all',
         ]) {
             assert.strictEqual(parseAdditionalFlags(value).succeeded, false, value);
         }
         assert.strictEqual(minikubeStartCommand({ vmDriver: '$(marker)' }).succeeded, false);
-        assert.strictEqual(minikubeStartCommand({ additionalFlags: '--profile one --profile two' }).succeeded, false);
-        assert.strictEqual(minikubeStartCommand({ additionalFlags: '-pcompact' }).succeeded, true);
-        const compact = minikubeStartCommand({ additionalFlags: '-pcompact' });
-        if (compact.succeeded) {
-            assert.strictEqual(compact.result.profile, 'compact');
+        assert.strictEqual(minikubeStartCommand({ additionalFlags: '--cpus=4 -- marker' }).succeeded, false);
+        assert.strictEqual(minikubeStartCommand({ profile: 'team cluster' }).succeeded, false);
+    });
+
+    test('keeps option values opaque and appends an authoritative profile', () => {
+        assert.deepStrictEqual(minikubeStartCommand({
+            additionalFlags: '--ssh-key "-pkey" --cpus 4 --profile other',
+            profile: 'team',
+        }), {
+            succeeded: true,
+            result: {
+                args: ['start', '--ssh-key', '-pkey', '--cpus', '4', '--profile', 'other', '--profile=team'],
+                profile: 'team',
+            },
+        });
+        assert.deepStrictEqual(minikubeStartCommand({ additionalFlags: '--ssh-key "-pkey"', profile: '' }), {
+            succeeded: true,
+            result: { args: ['start', '--ssh-key', '-pkey', '--profile=minikube'], profile: 'minikube' },
+        });
+        assert.deepStrictEqual(minikubeStartCommand({ additionalFlags: '--ssh-key=-pkey' }), {
+            succeeded: true,
+            result: { args: ['start', '--ssh-key=-pkey'], profile: undefined },
+        });
+        for (const profile of ['team', 'team-1', 'a.b', 'A1']) {
+            assert.strictEqual(minikubeStartCommand({ profile }).succeeded, true, profile);
         }
+        for (const profile of ['a', '-team', 'team-', '.team', 'team_name', 'team cluster']) {
+            assert.strictEqual(minikubeStartCommand({ profile }).succeeded, false, profile);
+        }
+    });
+
+    test('normalizes a leading compatibility profile without scanning option values', () => {
+        for (const additionalFlags of [
+            '--profile team --ssh-key "-pkey"',
+            '--profile=team --ssh-key "-pkey"',
+            '-p team --ssh-key "-pkey"',
+            '-p=team --ssh-key "-pkey"',
+            '-pteam --ssh-key "-pkey"',
+        ]) {
+            const command = minikubeStartCommand({ additionalFlags });
+            assert.strictEqual(command.succeeded, true, additionalFlags);
+            if (command.succeeded) {
+                assert.deepStrictEqual(command.result, {
+                    args: ['start', '--ssh-key', '-pkey', '--profile=team'],
+                    profile: 'team',
+                });
+            }
+        }
+    });
+
+    test('escapes values propagated through hidden form fields', () => {
+        assert.strictEqual(propagationFields({
+            "field'name": `--ssh-key 'team' & < > "`,
+            nextStep: 'ignored',
+        }), `<input type='hidden' name='field&#39;name' value='--ssh-key &#39;team&#39; &amp; &lt; &gt; &quot;' />\n`);
     });
 
     test('preserves literal Windows and UNC backslashes in flag values', () => {
@@ -218,6 +274,100 @@ suite('Minikube command security', () => {
         });
     });
 
+    test('re-resolves an inferred executable when WSL mode changes', async () => {
+        let useWsl = false;
+        sandbox.stub(config, 'getUseWsl').callsFake(() => useWsl);
+        sandbox.stub(config, 'getToolPath').returns(undefined);
+        sandbox.stub(workspace, 'workspaceFolders').value(undefined);
+        const alias = systemExecutable();
+        const env = windowsEnvironment({ PATH: path.dirname(alias) });
+        const execute = sandbox.stub(processApi, 'executeCommand').callsFake(async (invocation) => {
+            const args = invocation.args;
+            if (args[1] === '/usr/bin/which') { return { code: 0, stdout: '/usr/local/bin/minikube\n', stderr: '' }; }
+            if (args[1] === '/usr/bin/test') { return { code: 0, stdout: '', stderr: '' }; }
+            if (args[1] === '/usr/bin/readlink' && args[3] === '/usr/local/bin/minikube') {
+                return { code: 0, stdout: '/opt/minikube/minikube\n', stderr: '' };
+            }
+            if (args[1] === '/usr/bin/readlink' && args[3] === '/usr/local/bin') {
+                return { code: 0, stdout: '/usr/local/bin\n', stderr: '' };
+            }
+            if (args[1] === '/usr/bin/readlink') { return { code: 0, stdout: `${args[3]}\n`, stderr: '' }; }
+            return { code: 0, stdout: 'ok', stderr: '' };
+        });
+        const minikube = create(fakeHost(), fakeFs(), fakeShell(
+            process.platform === 'win32', env, os.tmpdir(), alias
+        ));
+
+        assert.deepStrictEqual(await minikube.invokeCommand(['status']), { code: 0, stdout: 'ok', stderr: '' });
+        useWsl = true;
+        assert.deepStrictEqual(await minikube.invokeCommand(['status']), { code: 0, stdout: 'ok', stderr: '' });
+        useWsl = false;
+        assert.deepStrictEqual(await minikube.invokeCommand(['status']), { code: 0, stdout: 'ok', stderr: '' });
+
+        assert.deepStrictEqual(execute.args.filter((call) => call[0].args.length === 1).map((call) => call[0].executable), [
+            nativeFs.realpathSync.native(alias),
+            nativeFs.realpathSync.native(alias),
+        ]);
+        assert.ok(execute.args.some((call) => call[0].args.join('\0') === [
+            '--exec', '/usr/local/bin/minikube', 'status',
+        ].join('\0')));
+        assert.ok(!execute.args.some((call) => call[0].args[1] === nativeFs.realpathSync.native(alias)));
+    });
+
+    test('does not reinterpret a fixed binary after WSL mode changes', async () => {
+        let useWsl = false;
+        sandbox.stub(config, 'getUseWsl').callsFake(() => useWsl);
+        const execute = sandbox.stub(processApi, 'executeCommand').resolves({ code: 0, stdout: 'ok', stderr: '' });
+        const minikube = createOnBinary(fakeHost(), fakeFs(), fakeShell(false, windowsEnvironment()), '/usr/local/bin/minikube');
+
+        assert.deepStrictEqual(await minikube.invokeCommand(['status']), { code: 0, stdout: 'ok', stderr: '' });
+        useWsl = true;
+        assert.strictEqual(await minikube.invokeCommand(['status']), undefined);
+        sinon.assert.calledOnce(execute);
+    });
+
+    test('treats an unset WSL setting as native mode', async () => {
+        sandbox.stub(config, 'getUseWsl').returns(undefined as unknown as boolean);
+        const execute = sandbox.stub(processApi, 'executeCommand').resolves({ code: 0, stdout: 'ok', stderr: '' });
+        const minikube = createOnBinary(fakeHost(), fakeFs(), fakeShell(false), '/usr/local/bin/minikube');
+
+        assert.deepStrictEqual(await minikube.invokeCommand(['status']), { code: 0, stdout: 'ok', stderr: '' });
+        sinon.assert.calledOnceWithExactly(execute, {
+            executable: '/usr/local/bin/minikube',
+            args: ['status'],
+            cwd: '/workspace',
+            env: { PATH: '/usr/bin' },
+        });
+    });
+
+    test('does not reuse an active profile after execution mode changes', async () => {
+        let useWsl = false;
+        sandbox.stub(config, 'getUseWsl').callsFake(() => useWsl);
+        const execute = sandbox.stub(processApi, 'executeCommand');
+        execute.onFirstCall().resolves({ code: 85, stdout: '', stderr: 'profile not found' });
+        execute.onSecondCall().resolves({ code: 0, stdout: 'started', stderr: '' });
+        const minikube = createOnBinary(fakeHost(), fakeFs(), fakeShell(false), '/usr/local/bin/minikube');
+
+        assert.strictEqual(await minikube.start({ profile: 'team' }), true);
+        useWsl = true;
+        await assert.rejects(() => minikube.status(), /execution mode changed/);
+        sinon.assert.calledTwice(execute);
+    });
+
+    test('keeps an active profile after a later start is rejected', async () => {
+        sandbox.stub(config, 'getUseWsl').returns(false);
+        const execute = sandbox.stub(processApi, 'executeCommand');
+        execute.onFirstCall().resolves({ code: 85, stdout: '', stderr: 'profile not found' });
+        execute.onSecondCall().resolves({ code: 0, stdout: 'started', stderr: '' });
+        execute.onThirdCall().resolves({ code: 0, stdout: 'host: Running\n', stderr: '' });
+        const minikube = createOnBinary(fakeHost(), fakeFs(), fakeShell(false), '/usr/local/bin/minikube');
+
+        assert.strictEqual(await minikube.start({ profile: 'team' }), true);
+        assert.strictEqual(await minikube.start({ profile: 'bad profile' }), false);
+        assert.strictEqual((await minikube.status()).running, true);
+        assert.deepStrictEqual(execute.thirdCall.args[0].args, ['--profile', 'team', 'status']);
+    });
+
     test('routes update-check, help, and status through argv', async () => {
         sandbox.stub(config, 'getUseWsl').returns(false);
         sandbox.stub(config, 'getCheckForMinikubeUpgrade').returns(true);
@@ -244,27 +394,27 @@ suite('Minikube command security', () => {
         execute.onCall(3).resolves({ code: 0, stdout: 'stopped', stderr: '' });
         const minikube = createOnBinary(fakeHost(), fakeFs(), fakeShell(false), '/usr/local/bin/minikube');
 
-        await minikube.start({ vmDriver: 'kvm2', additionalFlags: '--profile "team cluster"' });
+        await minikube.start({ vmDriver: 'kvm2', profile: 'team-cluster' });
         await minikube.stop();
         assert.deepStrictEqual(execute.args.map((call) => call[0].args), [
-            ['--profile', 'team cluster', 'status'],
-            ['start', '--profile', 'team cluster', '--vm-driver=kvm2'],
-            ['--profile', 'team cluster', 'status'],
-            ['--profile', 'team cluster', 'stop'],
+            ['--profile', 'team-cluster', 'status'],
+            ['start', '--vm-driver=kvm2', '--profile=team-cluster'],
+            ['--profile', 'team-cluster', 'status'],
+            ['--profile', 'team-cluster', 'stop'],
         ]);
     });
 
     test('starts a profile that does not exist yet', async () => {
         sandbox.stub(config, 'getUseWsl').returns(false);
         const execute = sandbox.stub(processApi, 'executeCommand');
-        execute.onFirstCall().resolves({ code: 85, stdout: '', stderr: 'Profile "new profile" not found' });
+        execute.onFirstCall().resolves({ code: 85, stdout: '', stderr: 'Profile "new-profile" not found' });
         execute.onSecondCall().resolves({ code: 0, stdout: 'started', stderr: '' });
         const minikube = createOnBinary(fakeHost(), fakeFs(), fakeShell(false), '/usr/local/bin/minikube');
 
-        assert.strictEqual(await minikube.start({ additionalFlags: '--profile "new profile"' }), true);
+        assert.strictEqual(await minikube.start({ profile: 'new-profile' }), true);
         assert.deepStrictEqual(execute.args.map((call) => call[0].args), [
-            ['--profile', 'new profile', 'status'],
-            ['start', '--profile', 'new profile'],
+            ['--profile', 'new-profile', 'status'],
+            ['start', '--profile=new-profile'],
         ]);
     });
 
@@ -298,6 +448,75 @@ suite('Minikube command security', () => {
         sinon.assert.calledWith(showError, sinon.match('Invalid Minikube VM driver'));
     });
 
+    test('returns false when the start status preflight fails', async () => {
+        sandbox.stub(config, 'getUseWsl').returns(false);
+        sandbox.stub(processApi, 'executeCommand').resolves({ code: 1, stdout: '', stderr: 'status failed' });
+        const showError = sandbox.stub(window, 'showErrorMessage').resolves(undefined);
+        const minikube = createOnBinary(fakeHost(), fakeFs(), fakeShell(false), '/usr/local/bin/minikube');
+
+        assert.strictEqual(await minikube.start({}), false);
+        sinon.assert.calledWith(showError, sinon.match('status failed'));
+    });
+
+    test('renders a wizard failure when Minikube start rejects', async () => {
+        const minikube = fakeMinikube({
+            isRunnable: async () => ({ succeeded: true, result: { value: '' } }),
+            start: async () => { throw new Error('status failed'); },
+        });
+
+        const html = await createCluster({ vmdriver: 'docker', profile: 'minikube', additionalflags: '' }, { minikube });
+        assert.ok(html.includes('Error creating cluster'));
+        assert.ok(html.includes('Unable to start Minikube.'));
+    });
+
+    test('reports invalid wait flags without polling the default profile', async () => {
+        const invoke = sandbox.stub().resolves({ code: 0, stdout: 'host: Running\n', stderr: '' });
+        const minikube = fakeMinikube({ invokeCommand: invoke });
+
+        const [html, retry] = await waitForClusterOnce({
+            vmdriver: 'docker',
+            profile: 'bad profile',
+            additionalflags: '',
+        }, { minikube }, 0);
+
+        assert.strictEqual(retry, false);
+        assert.ok(html.includes('Invalid Minikube profile'));
+        sinon.assert.notCalled(invoke);
+    });
+
+    test('polls the propagated profile and escapes additional flags', async () => {
+        const invoke = sandbox.stub().resolves({ code: 1, stdout: '', stderr: 'still starting' });
+        const minikube = fakeMinikube({ invokeCommand: invoke });
+
+        const [html, retry] = await waitForClusterOnce({
+            vmdriver: 'docker',
+            profile: 'team',
+            additionalflags: "--ssh-key 'team key'",
+            minikubeusewsl: false,
+        }, { minikube }, 0);
+
+        assert.strictEqual(retry, true);
+        sinon.assert.calledOnceWithExactly(invoke, ['--profile', 'team', 'status']);
+        assert.ok(html.includes("value='--ssh-key &#39;team key&#39;'"));
+    });
+
+    test('stops polling when the Minikube execution mode changes', async () => {
+        sandbox.stub(config, 'getUseWsl').returns(true);
+        const invoke = sandbox.stub();
+        const minikube = fakeMinikube({ invokeCommand: invoke });
+
+        const [html, retry] = await waitForClusterOnce({
+            vmdriver: 'docker',
+            profile: 'team',
+            additionalflags: '',
+            minikubeusewsl: false,
+        }, { minikube }, 0);
+
+        assert.strictEqual(retry, false);
+        assert.ok(html.includes('execution mode changed'));
+        sinon.assert.notCalled(invoke);
+    });
+
     test('rejects Windows command scripts without invoking a shell', async () => {
         sandbox.stub(config, 'getUseWsl').returns(false);
         const execute = sandbox.stub(processApi, 'executeCommand');
@@ -328,6 +547,19 @@ function fakeHost(): Host {
     } as unknown as Host;
 }
 
+function fakeMinikube(overrides: Partial<Minikube>): Minikube {
+    return {
+        checkPresent: async () => true,
+        checkUpgradeAvailable: async () => undefined,
+        invokeCommand: async () => ({ code: 0, stdout: '', stderr: '' }),
+        isRunnable: async () => ({ succeeded: true, result: { value: '' } }),
+        start: async () => true,
+        stop: async () => undefined,
+        status: async () => ({ running: true, message: '' }),
+        ...overrides,
+    };
+}
+
 function fakeFs(): FS {
     return { existsAsync: async () => true } as unknown as FS;
 }
@@ -347,8 +579,8 @@ function fakeShell(
     } as unknown as Shell;
 }
 
-function windowsEnvironment(): NodeJS.ProcessEnv {
-    return { PATH: '/usr/bin', SystemRoot: 'C:\\Windows' };
+function windowsEnvironment(overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
+    return { PATH: '/usr/bin', SystemRoot: 'C:\\Windows', ...overrides };
 }
 
 function systemExecutable(): string {

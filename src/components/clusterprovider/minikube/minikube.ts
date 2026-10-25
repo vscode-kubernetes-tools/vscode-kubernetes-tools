@@ -11,7 +11,6 @@ import { fromShellExitCodeOnly, Diagnostic } from '../../../wizard';
 import { getCheckForMinikubeUpgrade, getToolPath, getUseWsl, setMinikubeShowInfo } from '../../config/config';
 import { installMinikube } from '../../installer/installer';
 import { isMinikubeInfoDisplay, ShowInformationOptions } from '../common/cacheinfo';
-import { execPath, isWindowsCommandScript } from '../../../binutil';
 import * as processes from '../../../process';
 import { ProcessResult } from '../../../process';
 import { minikubeLifecycleArgs, minikubeStartCommand, MinikubeStartOptions } from './commands';
@@ -58,17 +57,38 @@ interface Context {
     readonly host: Host;
     readonly fs: FS;
     readonly shell: Shell;
-    binFound: boolean;
-    binPath: string;
-    argv0?: string;
+    readonly fixedBinary: boolean;
+    readonly fixedPath?: string;
+    readonly fixedUseWsl?: boolean;
+}
+
+interface MinikubeExecutionContext {
+    readonly useWsl: boolean;
+    readonly windows: boolean;
+    readonly cwd: string;
+    readonly environment: NodeJS.ProcessEnv | undefined;
+    readonly workspaceRoots: readonly string[];
+    readonly wsl?: string;
+}
+
+interface MinikubeResolution extends MinikubeExecutionContext {
+    readonly path: string;
+    readonly argv0?: string;
 }
 
 class MinikubeImpl implements Minikube {
     private readonly context: Context;
-    private activeProfile: string | undefined;
+    private readonly activeProfiles = new Map<boolean, { readonly profile?: string }>();
 
     constructor(host: Host, fs: FS, shell: Shell, toolFound: boolean, binPath = 'minikube') {
-        this.context = { host: host, fs: fs, shell: shell, binFound: toolFound, binPath };
+        this.context = {
+            host,
+            fs,
+            shell,
+            fixedBinary: toolFound,
+            fixedPath: toolFound ? binPath : undefined,
+            fixedUseWsl: toolFound ? !!getUseWsl() : undefined,
+        };
     }
 
     checkPresent(mode: CheckPresentMode): Promise<boolean> {
@@ -85,25 +105,40 @@ class MinikubeImpl implements Minikube {
 
     async start(options: MinikubeOptions): Promise<boolean> {
         const started = await startMinikube(this.context, options);
-        this.activeProfile = started.profile;
+        if (started.accepted) {
+            this.activeProfiles.set(started.useWsl, { profile: started.profile });
+        }
         return started.accepted;
     }
 
-    stop(): Promise<void> {
-        return stopMinikube(this.context, this.activeProfile);
+    async stop(): Promise<void> {
+        const profile = this.profileForCurrentMode();
+        if (profile === null) {
+            throw new Error('The Minikube execution mode changed after the cluster was started.');
+        }
+        return stopMinikube(this.context, profile);
     }
 
-    status(): Promise<MinikubeInfo> {
-        return minikubeStatus(this.context, this.activeProfile);
+    async status(): Promise<MinikubeInfo> {
+        const profile = this.profileForCurrentMode();
+        if (profile === null) {
+            throw new Error('The Minikube execution mode changed after the cluster was started.');
+        }
+        return minikubeStatus(this.context, profile);
     }
 
     checkUpgradeAvailable() {
         return minikubeUpgradeAvailable(this.context);
     }
+
+    private profileForCurrentMode(): string | null | undefined {
+        const active = this.activeProfiles.get(!!getUseWsl());
+        return active ? active.profile : this.activeProfiles.size > 0 ? null : undefined;
+    }
 }
 
 async function getVersionInfo(context: Context): Promise<MinikubeVersionInfo> {
-    const sr = await executeMinikubeCommand(context, ['update-check']);
+    const sr = await invokeMinikubeCommand(context, ['update-check']);
     if (!sr || sr.code !== 0) {
         throw new Error(`Error checking for minikube updates: ${sr ? sr.stderr : 'cannot run minikube'}`);
     }
@@ -175,11 +210,12 @@ function extractVersion(line: string): string {
 }
 
 async function isRunnableMinikube(context: Context): Promise<Errorable<Diagnostic>> {
-    if (!await checkPresent(context, CheckPresentMode.Alert)) {
+    const resolution = await resolveForOperation(context, CheckPresentMode.Alert);
+    if (!resolution) {
         return { succeeded: false, error: ['Minikube is not installed'] };
     }
 
-    const sr = await executeMinikubeCommand(context, ['help']);
+    const sr = await executeMinikubeCommand(context, resolution, ['help']);
     return fromShellExitCodeOnly(sr, "Unable to run Minikube");
 }
 
@@ -192,15 +228,15 @@ function getStatusBar(): vscode.StatusBarItem {
     return minikubeStatusBarItem;
 }
 
-interface MinikubeStartResult {
-    readonly accepted: boolean;
-    readonly profile?: string;
-}
+type MinikubeStartResult =
+    { readonly accepted: false } |
+    { readonly accepted: true; readonly profile?: string; readonly useWsl: boolean };
 
 const MINIKUBE_PROFILE_NOT_FOUND_EXIT_CODE = 85;
 
 async function startMinikube(context: Context, options: MinikubeOptions): Promise<MinikubeStartResult> {
-    if (!await checkPresent(context, CheckPresentMode.Alert)) {
+    const resolution = await resolveForOperation(context, CheckPresentMode.Alert);
+    if (!resolution) {
         return { accepted: false };
     }
     const command = minikubeStartCommand(options);
@@ -212,14 +248,21 @@ async function startMinikube(context: Context, options: MinikubeOptions): Promis
     item.text = 'minikube-starting';
     item.show();
 
-    const status = await minikubeStatus(context, command.result.profile, true);
+    let status: MinikubeInfo;
+    try {
+        status = await minikubeStatusWithResolution(context, resolution, command.result.profile, true);
+    } catch (err) {
+        item.hide();
+        vscode.window.showErrorMessage(`Failed to start cluster: ${err}`);
+        return { accepted: false };
+    }
     if (status.running) {
         vscode.window.showWarningMessage('Minikube cluster is already started.');
         item.text = 'minikube-running';
-        return { accepted: true, profile: command.result.profile };
+        return { accepted: true, profile: command.result.profile, useWsl: resolution.useWsl };
     }
 
-    executeMinikubeCommand(context, command.result.args).then((result) => {
+    executeMinikubeCommand(context, resolution, command.result.args).then((result) => {
         if (result && result.code === 0) {
             vscode.window.showInformationMessage('Cluster started.');
             item.text = 'minikube-running';
@@ -231,25 +274,26 @@ async function startMinikube(context: Context, options: MinikubeOptions): Promis
         item.hide();
         vscode.window.showErrorMessage(`Failed to start cluster: ${err}`);
     });
-    return { accepted: true, profile: command.result.profile };
+    return { accepted: true, profile: command.result.profile, useWsl: resolution.useWsl };
 }
 
 async function stopMinikube(context: Context, profile?: string): Promise<void> {
-    if (!await checkPresent(context, CheckPresentMode.Alert)) {
+    const resolution = await resolveForOperation(context, CheckPresentMode.Alert);
+    if (!resolution) {
         return;
     }
     const item = getStatusBar();
     item.text = 'minikube-stopping';
     item.show();
 
-    const status = await minikubeStatus(context, profile);
+    const status = await minikubeStatusWithResolution(context, resolution, profile);
     if (!status.running) {
         vscode.window.showWarningMessage('Minikube cluster is already stopped.');
         return;
     }
 
     try {
-        const result = await executeMinikubeCommand(context, minikubeLifecycleArgs('stop', profile));
+        const result = await executeMinikubeCommand(context, resolution, minikubeLifecycleArgs('stop', profile));
         if (result && result.code === 0) {
             vscode.window.showInformationMessage('Cluster stopped.');
             item.hide();
@@ -264,11 +308,20 @@ async function stopMinikube(context: Context, profile?: string): Promise<void> {
 }
 
 async function minikubeStatus(context: Context, profile?: string, missingProfileIsStopped = false): Promise<MinikubeInfo> {
-    if (!await checkPresent(context, CheckPresentMode.Silent)) {
+    const resolution = await resolveForOperation(context, CheckPresentMode.Silent);
+    if (!resolution) {
         throw new Error('Minikube executable could not be found!');
     }
+    return minikubeStatusWithResolution(context, resolution, profile, missingProfileIsStopped);
+}
 
-    const result = await executeMinikubeCommand(context, minikubeLifecycleArgs('status', profile));
+async function minikubeStatusWithResolution(
+    context: Context,
+    resolution: MinikubeResolution,
+    profile?: string,
+    missingProfileIsStopped = false
+): Promise<MinikubeInfo> {
+    const result = await executeMinikubeCommand(context, resolution, minikubeLifecycleArgs('status', profile));
 
     if (missingProfileIsStopped && result?.code === MINIKUBE_PROFILE_NOT_FOUND_EXIT_CODE) {
         return { running: false, message: result.stdout || result.stderr };
@@ -289,26 +342,25 @@ async function minikubeStatus(context: Context, profile?: string, missingProfile
     throw new Error(`Failed to get status: ${result ? result.stderr : "Unable to run Minikube"}`);
 }
 
-async function executeMinikubeCommand(context: Context, args: readonly string[]): Promise<ProcessResult | undefined> {
-    if (isWindowsCommandScript(context.shell, context.binPath)) {
+async function executeMinikubeCommand(
+    _context: Context,
+    resolution: MinikubeResolution,
+    args: readonly string[]
+): Promise<ProcessResult | undefined> {
+    if (!resolution.useWsl && resolution.windows && /\.(?:cmd|bat)$/i.test(resolution.path.replace(/"$/, ''))) {
         return undefined;
     }
-    const execOpts = context.shell.execOpts();
-    const wsl = getUseWsl() ? windowsSystemExecutable(execOpts.env || process.env) : undefined;
-    if (getUseWsl() && !wsl) {
-        return undefined;
-    }
-    const invocation = getUseWsl() ? {
-        executable: wsl!,
-        args: ['--exec', context.binPath, ...args],
-        cwd: execOpts.cwd,
-        env: execOpts.env,
+    const invocation = resolution.useWsl ? {
+        executable: resolution.wsl!,
+        args: ['--exec', resolution.path, ...args],
+        cwd: resolution.cwd,
+        env: resolution.environment,
     } : {
-        executable: execPath(context.shell, context.binPath),
+        executable: resolution.path,
         args,
-        ...(context.argv0 ? { argv0: context.argv0 } : {}),
-        cwd: execOpts.cwd,
-        env: execOpts.env,
+        ...(resolution.argv0 ? { argv0: resolution.argv0 } : {}),
+        cwd: resolution.cwd,
+        env: resolution.environment,
     };
     try {
         return await processes.executeCommand(invocation);
@@ -318,70 +370,88 @@ async function executeMinikubeCommand(context: Context, args: readonly string[])
 }
 
 async function invokeMinikubeCommand(context: Context, args: readonly string[]): Promise<ProcessResult | undefined> {
-    if (!await checkPresent(context, CheckPresentMode.Silent)) {
+    const resolution = await resolveForOperation(context, CheckPresentMode.Silent);
+    if (!resolution) {
         return undefined;
     }
-    return executeMinikubeCommand(context, args);
+    return executeMinikubeCommand(context, resolution, args);
 }
 
 async function checkPresent(context: Context, mode: CheckPresentMode): Promise<boolean> {
-    if (context.binFound) {
-        return true;
-    }
-
-    return await checkForMinikubeInternal(context, mode);
+    return !!await resolveForOperation(context, mode);
 }
 
-async function checkForMinikubeInternal(context: Context, mode: CheckPresentMode): Promise<boolean> {
+async function resolveForOperation(context: Context, mode: CheckPresentMode): Promise<MinikubeResolution | undefined> {
+    const execution = executionContext(context);
+    if (context.fixedBinary) {
+        return context.fixedUseWsl === execution.useWsl && context.fixedPath ?
+            { ...execution, path: context.fixedPath } : undefined;
+    }
+    return resolveMinikube(context, mode, execution);
+}
+
+function executionContext(context: Context): MinikubeExecutionContext {
+    const useWsl = !!getUseWsl();
+    const execOpts = context.shell.execOpts();
+    const cwd = execOpts.cwd ?? process.cwd();
+    const workspaceRoots = [...new Set([
+        cwd,
+        ...(vscode.workspace.workspaceFolders || []).map((folder) => folder.uri.fsPath),
+    ])];
+    return {
+        useWsl,
+        windows: !useWsl && context.shell.isWindows(),
+        cwd,
+        environment: execOpts.env,
+        workspaceRoots,
+        ...(useWsl ? { wsl: windowsSystemExecutable(execOpts.env || process.env) } : {}),
+    };
+}
+
+async function resolveMinikube(
+    context: Context,
+    mode: CheckPresentMode,
+    execution: MinikubeExecutionContext
+): Promise<MinikubeResolution | undefined> {
     const binName = 'minikube';
     const bin = getToolPath(context.host, context.shell, binName);
     if (bin) {
-        if (!getUseWsl() && isWindowsCommandScript(context.shell, bin)) {
+        if (!execution.useWsl && execution.windows && /\.(?:cmd|bat)$/i.test(bin.replace(/"$/, ''))) {
             if (mode === CheckPresentMode.Alert) {
                 context.host.showErrorMessage(`Configured Minikube path '${bin}' is a command script; configure a minikube.exe path for shell-free execution.`);
             }
-            return false;
+            return undefined;
         }
-        const found = getUseWsl() ? await guestFileExists(context, bin) : await context.fs.existsAsync(bin);
+        const found = execution.useWsl ? await guestFileExists(bin, execution) : await context.fs.existsAsync(bin);
         if (found) {
-            context.binFound = true;
-            context.binPath = bin;
-            return true;
+            return { ...execution, path: execution.windows && !/\.(?:exe|com)$/i.test(bin) ? `${bin}.exe` : bin };
         }
         if (mode === CheckPresentMode.Alert) {
             showConfiguredMinikubeMissing(context.host, `${bin} does not exist!`);
         }
-        return false;
+        return undefined;
     }
 
-    const resolved = await resolveMinikubeExecutable(context);
+    const resolved = await resolveMinikubeExecutable(context, execution);
     if (resolved) {
-        context.binFound = true;
-        context.binPath = resolved.path;
-        context.argv0 = resolved.argv0;
-        return true;
+        return { ...execution, ...resolved };
     }
     if (mode === CheckPresentMode.Alert) {
         showUnconfiguredMinikubeMissing(context.host, `Could not find "${binName}" binary.`);
     }
-    return false;
+    return undefined;
 }
 
-async function guestFileExists(context: Context, file: string): Promise<boolean> {
-    if (!path.posix.isAbsolute(file) || hasControlCharacters(file)) {
-        return false;
-    }
-    const execOpts = context.shell.execOpts();
-    const wsl = windowsSystemExecutable(execOpts.env || process.env);
-    if (!wsl) {
+async function guestFileExists(file: string, execution: MinikubeExecutionContext): Promise<boolean> {
+    if (!execution.wsl || !path.posix.isAbsolute(file) || hasControlCharacters(file)) {
         return false;
     }
     try {
         const result = await processes.executeCommand({
-            executable: wsl,
+            executable: execution.wsl,
             args: ['--exec', '/usr/bin/test', '-x', file],
-            cwd: execOpts.cwd,
-            env: execOpts.env,
+            cwd: execution.cwd,
+            env: execution.environment,
         });
         return result.code === 0;
     } catch (_err) {
@@ -394,35 +464,36 @@ interface ResolvedMinikubeExecutable {
     readonly argv0?: string;
 }
 
-async function resolveMinikubeExecutable(context: Context): Promise<ResolvedMinikubeExecutable | undefined> {
-    const execOpts = context.shell.execOpts();
-    if (getUseWsl()) {
-        const wsl = windowsSystemExecutable(execOpts.env || process.env);
-        if (!wsl) {
+async function resolveMinikubeExecutable(
+    context: Context,
+    execution: MinikubeExecutionContext
+): Promise<ResolvedMinikubeExecutable | undefined> {
+    if (execution.useWsl) {
+        if (!execution.wsl) {
             return undefined;
         }
         try {
             const found = await processes.executeCommand({
-                executable: wsl,
+                executable: execution.wsl,
                 args: ['--exec', '/usr/bin/which', 'minikube'],
-                cwd: execOpts.cwd,
-                env: execOpts.env,
+                cwd: execution.cwd,
+                env: execution.environment,
             });
             const alias = found.code === 0 ? singleAbsoluteGuestPath(found.stdout) : undefined;
             if (!alias) {
                 return undefined;
             }
             const resolved = await processes.executeCommand({
-                executable: wsl,
+                executable: execution.wsl,
                 args: ['--exec', '/usr/bin/readlink', '-f', alias],
-                cwd: execOpts.cwd,
-                env: execOpts.env,
+                cwd: execution.cwd,
+                env: execution.environment,
             });
             const executable = resolved.code === 0 ? singleAbsoluteGuestPath(resolved.stdout) : undefined;
-            const resolvedDirectoryResult = await executeWsl(context, wsl, ['/usr/bin/readlink', '-f', path.posix.dirname(alias)]);
+            const resolvedDirectoryResult = await executeWsl(execution, ['/usr/bin/readlink', '-f', path.posix.dirname(alias)]);
             const executableDirectory = resolvedDirectoryResult.code === 0 ? singleAbsoluteGuestPath(resolvedDirectoryResult.stdout) : undefined;
-            if (!executable || !executableDirectory || !await guestFileExists(context, executable) ||
-                !await isWslExecutableOutsideWorkspaces(context, wsl, alias, executableDirectory, executable)) {
+            if (!executable || !executableDirectory || !await guestFileExists(executable, execution) ||
+                !await isWslExecutableOutsideWorkspaces(execution, alias, executableDirectory, executable)) {
                 return undefined;
             }
             return { path: alias };
@@ -431,20 +502,17 @@ async function resolveMinikubeExecutable(context: Context): Promise<ResolvedMini
         }
     }
 
-    const alias = context.shell.which(context.shell.isWindows() ? 'minikube.exe' : 'minikube')?.trim();
-    if (!alias || !path.isAbsolute(alias) || (context.shell.isWindows() && path.extname(alias).toLowerCase() !== '.exe')) {
+    const alias = context.shell.which(execution.windows ? 'minikube.exe' : 'minikube')?.trim();
+    if (!alias || !path.isAbsolute(alias) || (execution.windows && path.extname(alias).toLowerCase() !== '.exe')) {
         return undefined;
     }
     const executable = canonicalHostPath(alias);
     const executableDirectory = executable && canonicalHostPath(path.dirname(alias));
-    if (!executable || !executableDirectory || !trustedPathContains(execOpts.env || process.env, executableDirectory, context.shell.isWindows())) {
+    if (!executable || !executableDirectory ||
+        !trustedPathContains(execution.environment || process.env, executableDirectory, execution.windows)) {
         return undefined;
     }
-    const workspaceRoots = [...new Set([
-        ...(execOpts.cwd ? [execOpts.cwd] : []),
-        ...(vscode.workspace.workspaceFolders || []).map((folder) => folder.uri.fsPath),
-    ])];
-    for (const root of workspaceRoots) {
+    for (const root of execution.workspaceRoots) {
         const workspace = canonicalHostPath(root);
         if (!workspace || workspace === path.parse(workspace).root || isWithinHostPath(workspace, executableDirectory) || isWithinHostPath(workspace, executable)) {
             return undefined;
@@ -454,23 +522,17 @@ async function resolveMinikubeExecutable(context: Context): Promise<ResolvedMini
 }
 
 async function isWslExecutableOutsideWorkspaces(
-    context: Context,
-    wsl: string,
+    execution: MinikubeExecutionContext,
     alias: string,
     executableDirectory: string,
     executable: string
 ): Promise<boolean> {
-    const execOpts = context.shell.execOpts();
-    const roots = [...new Set([
-        ...(execOpts.cwd ? [execOpts.cwd] : []),
-        ...(vscode.workspace.workspaceFolders || []).map((folder) => folder.uri.fsPath),
-    ])];
-    for (const root of roots) {
-        const workspace = await wslWorkspacePath(context, wsl, root);
+    for (const root of execution.workspaceRoots) {
+        const workspace = await wslWorkspacePath(execution, root);
         if (!workspace) {
             return false;
         }
-        const canonicalResult = await executeWsl(context, wsl, ['/usr/bin/readlink', '-f', workspace]);
+        const canonicalResult = await executeWsl(execution, ['/usr/bin/readlink', '-f', workspace]);
         const canonicalWorkspace = canonicalResult.code === 0 ? singleAbsoluteGuestPath(canonicalResult.stdout) : undefined;
         if (!canonicalWorkspace || canonicalWorkspace === '/' ||
             isWithinPosixPath(workspace, alias) ||
@@ -482,7 +544,7 @@ async function isWslExecutableOutsideWorkspaces(
     return true;
 }
 
-async function wslWorkspacePath(context: Context, wsl: string, workspace: string): Promise<string | undefined> {
+async function wslWorkspacePath(execution: MinikubeExecutionContext, workspace: string): Promise<string | undefined> {
     if (/^\\\\wsl(?:\.localhost)?\\/i.test(workspace)) {
         return undefined;
     }
@@ -490,19 +552,18 @@ async function wslWorkspacePath(context: Context, wsl: string, workspace: string
         return workspace;
     }
     if (path.win32.isAbsolute(workspace)) {
-        const result = await executeWsl(context, wsl, ['/usr/bin/wslpath', '-a', '-u', workspace]);
+        const result = await executeWsl(execution, ['/usr/bin/wslpath', '-a', '-u', workspace]);
         return result.code === 0 ? singleAbsoluteGuestPath(result.stdout) : undefined;
     }
     return undefined;
 }
 
-function executeWsl(context: Context, wsl: string, args: readonly string[]): Promise<ProcessResult> {
-    const execOpts = context.shell.execOpts();
+function executeWsl(execution: MinikubeExecutionContext, args: readonly string[]): Promise<ProcessResult> {
     return processes.executeCommand({
-        executable: wsl,
+        executable: execution.wsl!,
         args: ['--exec', ...args],
-        cwd: execOpts.cwd,
-        env: execOpts.env,
+        cwd: execution.cwd,
+        env: execution.environment,
     });
 }
 

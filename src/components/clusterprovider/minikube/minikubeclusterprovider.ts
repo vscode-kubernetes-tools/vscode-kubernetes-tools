@@ -8,6 +8,8 @@ import { minikubeLifecycleArgs, minikubeStartCommand, MINIKUBE_VM_DRIVERS } from
 import { Wizard, NEXT_FN } from '../../wizard/wizard';
 import { Sequence, Observable } from '../../../utils/observable';
 import { trackReadiness } from '../readinesstracker';
+import { escape as htmlEscape } from 'lodash';
+import { getUseWsl } from '../../config/config';
 
 export interface Context {
     readonly minikube: Minikube;
@@ -70,6 +72,10 @@ async function promptForConfiguration(previousData: any, action: clusterprovider
         </select></td>
         </tr>
         <tr>
+        <td>Minikube Profile:</td>
+        <td style='text-align: right'><input name='profile' type='text' value='' placeholder='minikube' /></td>
+        </tr>
+        <tr>
         <td>Additional Flags:</td>
         <td style='text-align: right'><input name='additionalflags' type='text' value='' /></td>
         </tr>
@@ -93,14 +99,24 @@ async function runMinikubeCommand(context: Context, args: readonly string[]): Pr
     };
 }
 
-async function createCluster(previousData: any, context: Context): Promise<string> {
+export async function createCluster(previousData: any, context: Context): Promise<string> {
     const options = {
         vmDriver: previousData.vmdriver,
-        additionalFlags: previousData.additionalflags
+        additionalFlags: previousData.additionalflags,
+        profile: previousData.profile,
     };
     const command = minikubeStartCommand(options);
     const runnable = command.succeeded ? await context.minikube.isRunnable() : command;
-    const started = runnable.succeeded && await context.minikube.start(options);
+    let started = false;
+    let startUseWsl: boolean | undefined;
+    if (runnable.succeeded) {
+        try {
+            startUseWsl = !!getUseWsl();
+            started = await context.minikube.start(options);
+        } catch (_err) {
+            started = false;
+        }
+    }
     const result = started ? runnable : runnable.succeeded ?
         { succeeded: false as const, error: ['Unable to start Minikube.'] } :
         runnable;
@@ -116,7 +132,7 @@ async function createCluster(previousData: any, context: Context): Promise<strin
          ${styles()}
          <form id='form'>
          <input type='hidden' name='nextStep' value='wait' />
-         ${propagationFields(previousData)}
+         ${propagationFields({ ...previousData, minikubeusewsl: startUseWsl })}
          <p class='success'>Minikube is creating the cluster, but this may take some time. You can now close this window,
          or wait for creation to complete so that we can add the new cluster to your Kubernetes configuration.</p>
          <p><button onclick=${NEXT_FN} class='link-button'>Wait and add the new cluster &gt;</button></p>
@@ -124,7 +140,7 @@ async function createCluster(previousData: any, context: Context): Promise<strin
          </div>` :
         `<p class='error'>An error occurred while creating the cluster. Is 'minikube' installed and in your PATH?</p>
          <p><b>Details</b></p>
-         <p>${createResult.result.error[0]}</p>`;
+         <p>${htmlEscape(createResult.result.error[0])}</p>`;
     return `<!-- Complete -->
             <h1 id='h'>${title}</h1>
             ${styles()}
@@ -137,33 +153,50 @@ function refreshCountIndicator(refreshCount: number): string {
     return ".".repeat(refreshCount % 4);
 }
 
-function waitForClusterAndReportConfigResult(previousData: any, context: Context): Observable<string> {
+export function waitForClusterAndReportConfigResult(previousData: any, context: Context): Observable<string> {
+    return trackReadiness(100, (refreshCount) => waitForClusterOnce(previousData, context, refreshCount));
+}
 
-    async function waitOnce(refreshCount: number): Promise<[string, boolean]> {
-        const command = minikubeStartCommand({
-            vmDriver: previousData.vmdriver,
-            additionalFlags: previousData.additionalflags,
-        });
-        const waitResult = await runMinikubeCommand(context, minikubeLifecycleArgs('status', command.succeeded ? command.result.profile : undefined));
-        if (!waitResult.result.succeeded) {
-            const failed = waitResult.result as Failed;
-            const message = `<h1>Waiting for minikube cluster${refreshCountIndicator(refreshCount)}</h1>
-            <p>Current Status</p>
-            <pre><code>${failed.error[0]}</code></pre>
-            <form id='form'>
-            <input type='hidden' name='nextStep' value='wait' />
-            ${propagationFields(previousData)}
-            </form>
-            `;
-            return [message, true];
-        }
-
-        await refreshExplorer();
-
-        return [renderConfigurationResult(), false];
+export async function waitForClusterOnce(previousData: any, context: Context, refreshCount: number): Promise<[string, boolean]> {
+    if (minikubeModeChanged(previousData)) {
+        return [`<h1>Error waiting for minikube cluster</h1>
+        <p>The Minikube execution mode changed after the cluster start was requested.</p>`, false];
+    }
+    const command = minikubeStartCommand({
+        vmDriver: previousData.vmdriver,
+        additionalFlags: previousData.additionalflags,
+        profile: previousData.profile,
+    });
+    if (!command.succeeded) {
+        return [`<h1>Error waiting for minikube cluster</h1>
+        <p>${htmlEscape(command.error[0])}</p>`, false];
+    }
+    const waitResult = await runMinikubeCommand(context, minikubeLifecycleArgs('status', command.result.profile));
+    if (minikubeModeChanged(previousData)) {
+        return [`<h1>Error waiting for minikube cluster</h1>
+        <p>The Minikube execution mode changed after the cluster start was requested.</p>`, false];
+    }
+    if (!waitResult.result.succeeded) {
+        const failed = waitResult.result as Failed;
+        const message = `<h1>Waiting for minikube cluster${refreshCountIndicator(refreshCount)}</h1>
+        <p>Current Status</p>
+        <pre><code>${htmlEscape(failed.error[0])}</code></pre>
+        <form id='form'>
+        <input type='hidden' name='nextStep' value='wait' />
+        ${propagationFields(previousData)}
+        </form>
+        `;
+        return [message, true];
     }
 
-    return trackReadiness(100, waitOnce);
+    await refreshExplorer();
+
+    return [renderConfigurationResult(), false];
+}
+
+function minikubeModeChanged(previousData: any): boolean {
+    return previousData.minikubeusewsl !== undefined &&
+        (previousData.minikubeusewsl === true || previousData.minikubeusewsl === 'true') !== !!getUseWsl();
 }
 
 function renderConfigurationResult(): string {

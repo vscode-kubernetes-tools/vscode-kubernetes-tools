@@ -21,9 +21,7 @@ export function trackReadiness<T>(interval: number, f: (refreshCount: number) =>
                 const [value, retry] = await f(refreshCount);
                 await this.notify(value);
                 if (!retry) {
-                    while (observers.length > 0) {
-                        observers.unshift();
-                    }
+                    observers.length = 0;
                     return;
                 }
                 ++refreshCount;
