@@ -23,7 +23,8 @@ interface AzureCliExecutable {
 export async function executeAzureCli(context: AzureCliContext, args: readonly string[]): Promise<ShellResult | undefined> {
     try {
         const execOpts = context.shell.execOpts();
-        const executable = await resolveAzureCliExecutable(context, execOpts.cwd, execOpts.env);
+        const cwd = execOpts.cwd ?? process.cwd();
+        const executable = await resolveAzureCliExecutable(context, cwd, execOpts.env);
         if (!executable) {
             return undefined;
         }
@@ -31,7 +32,7 @@ export async function executeAzureCli(context: AzureCliContext, args: readonly s
             executable: executable.executable,
             args: [...executable.argsPrefix, ...args],
             ...(executable.argv0 ? { argv0: executable.argv0 } : {}),
-            cwd: execOpts.cwd,
+            cwd,
             env: executable.environment ? { ...(execOpts.env || process.env), ...executable.environment } : execOpts.env,
         }, undefined, monitorForAuthPrompt);
     } catch (err) {
@@ -271,9 +272,6 @@ async function wslWorkspacePath(
     cwd: string | undefined,
     environment: NodeJS.ProcessEnv | undefined
 ): Promise<string | undefined> {
-    if (/^\\\\(?:wsl\$|wsl\.localhost)\\/i.test(workspace)) {
-        return undefined;
-    }
     if (path.posix.isAbsolute(workspace) && !hasControlCharacters(workspace)) {
         return workspace;
     }
@@ -288,7 +286,7 @@ async function executeWslUtility(context: AzureCliContext, args: readonly string
     try {
         const execOpts = context.shell.execOpts();
         const wsl = windowsSystemExecutable(execOpts.env || process.env);
-        return wsl ? await executeWsl(wsl, args, execOpts.cwd, execOpts.env) : undefined;
+        return wsl ? await executeWsl(wsl, args, execOpts.cwd ?? process.cwd(), execOpts.env) : undefined;
     } catch (err) {
         return { code: -1, stdout: '', stderr: err instanceof Error ? err.message : String(err) };
     }
@@ -359,13 +357,17 @@ function isWithinPosixPath(parent: string, child: string): boolean {
 }
 
 function singleAbsoluteGuestPath(output: string): string | undefined {
-    const lines = output.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length > 0);
-    return lines.length === 1 && path.posix.isAbsolute(lines[0]) && !hasControlCharacters(lines[0]) ? lines[0] : undefined;
+    const value = removeSingleTrailingNewline(output);
+    return value.length > 0 && path.posix.isAbsolute(value) && !hasControlCharacters(value) ? value : undefined;
 }
 
 function singleLine(output: string): string | undefined {
-    const lines = output.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length > 0);
-    return lines.length === 1 && !hasControlCharacters(lines[0]) ? lines[0] : undefined;
+    const value = removeSingleTrailingNewline(output);
+    return value.length > 0 && !hasControlCharacters(value) ? value : undefined;
+}
+
+function removeSingleTrailingNewline(value: string): string {
+    return value.endsWith('\r\n') ? value.slice(0, -2) : value.endsWith('\n') ? value.slice(0, -1) : value;
 }
 
 function hasControlCharacters(value: string): boolean {

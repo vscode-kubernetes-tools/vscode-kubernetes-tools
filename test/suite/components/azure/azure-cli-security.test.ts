@@ -3,7 +3,7 @@ import * as nativeFs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as sinon from 'sinon';
-import { Uri, workspace } from 'vscode';
+import { Uri, workspace, WorkspaceFolder } from 'vscode';
 import * as config from '../../../../src/components/config/config';
 import * as processApi from '../../../../src/process';
 import { FS } from '../../../../src/fs';
@@ -80,6 +80,18 @@ suite('Azure CLI command security', () => {
         }, undefined, sinon.match.func);
     });
 
+    test('uses the inherited working directory for validation and execution', async () => {
+        sandbox.stub(config, 'getUseWsl').returns(false);
+        sandbox.stub(workspace, 'workspaceFolders').value(undefined);
+        const alias = systemExecutable();
+        const env = { PATH: path.dirname(alias) };
+        const execute = sandbox.stub(processApi, 'executeCommand').resolves({ code: 0, stdout: 'ok', stderr: '' });
+        const context = fakeContext(fakeShell(process.platform === 'win32', env, undefined, alias));
+
+        assert.deepStrictEqual(await executeAzureCli(context, ['account', 'show']), { code: 0, stdout: 'ok', stderr: '' });
+        assert.strictEqual(execute.firstCall.args[0].cwd, process.cwd());
+    });
+
     test('rejects a native Azure CLI executable resolved from the execution directory', async () => {
         sandbox.stub(config, 'getUseWsl').returns(false);
         const directory = nativeFs.mkdtempSync(path.join(os.tmpdir(), 'azure-workspace-'));
@@ -90,6 +102,25 @@ suite('Azure CLI command security', () => {
         sandbox.stub(workspace, 'workspaceFolders').value(undefined);
         const execute = sandbox.stub(processApi, 'executeCommand');
         const context = fakeContext(fakeShell(process.platform === 'win32', { PATH: bin }, directory, alias));
+
+        try {
+            assert.strictEqual(await executeAzureCli(context, ['account', 'show']), undefined);
+            sinon.assert.notCalled(execute);
+        } finally {
+            nativeFs.rmSync(directory, { recursive: true, force: true });
+        }
+    });
+
+    test('rejects a native Azure CLI executable from the inherited execution directory', async () => {
+        sandbox.stub(config, 'getUseWsl').returns(false);
+        sandbox.stub(workspace, 'workspaceFolders').value(undefined);
+        const directory = nativeFs.mkdtempSync(path.join(process.cwd(), '.azure-cwd-'));
+        const bin = path.join(directory, 'bin');
+        const alias = path.join(bin, process.platform === 'win32' ? 'az.exe' : 'az');
+        nativeFs.mkdirSync(bin);
+        nativeFs.copyFileSync(systemExecutable(), alias);
+        const execute = sandbox.stub(processApi, 'executeCommand');
+        const context = fakeContext(fakeShell(process.platform === 'win32', { PATH: bin }, undefined, alias));
 
         try {
             assert.strictEqual(await executeAzureCli(context, ['account', 'show']), undefined);
@@ -217,6 +248,89 @@ suite('Azure CLI command security', () => {
         ]);
     });
 
+    test('maps same-distribution WSL UNC workspace roots before containment checks', async () => {
+        sandbox.stub(config, 'getUseWsl').returns(true);
+        const roots = [
+            '\\\\wsl$\\Ubuntu\\home\\user\\one',
+            '\\\\wsl.localhost\\Ubuntu\\home\\user\\two',
+        ];
+        sandbox.stub(workspace, 'workspaceFolders').value(roots.map(fakeWorkspaceFolder));
+        const mappings = new Map([
+            [roots[0], '/home/user/one'],
+            [roots[1], '/home/user/two'],
+        ]);
+        const execute = sandbox.stub(processApi, 'executeCommand').callsFake(async (invocation) => {
+            const args = invocation.args;
+            if (args[1] === '/usr/bin/which') { return { code: 0, stdout: '/usr/local/bin/az\n', stderr: '' }; }
+            if (args[1] === '/usr/bin/test') { return { code: 0, stdout: '', stderr: '' }; }
+            if (args[1] === '/usr/bin/wslpath') {
+                const converted = mappings.get(args[4]);
+                return converted ?
+                    { code: 0, stdout: `${converted}\n`, stderr: '' } :
+                    { code: 1, stdout: '', stderr: 'different distribution' };
+            }
+            if (args[1] === '/usr/bin/readlink' && args[3] === '/usr/local/bin/az') {
+                return { code: 0, stdout: '/opt/azure-cli/bin/az\n', stderr: '' };
+            }
+            if (args[1] === '/usr/bin/readlink') { return { code: 0, stdout: `${args[3]}\n`, stderr: '' }; }
+            return { code: 0, stdout: 'ok', stderr: '' };
+        });
+        const context = fakeContext(fakeShell(false, windowsEnvironment(), '/safe/workspace'));
+
+        assert.deepStrictEqual(await executeAzureCli(context, ['account', 'show']), { code: 0, stdout: 'ok', stderr: '' });
+        assert.deepStrictEqual(execute.args
+            .filter((call) => call[0].args[1] === '/usr/bin/wslpath')
+            .map((call) => call[0].args), [
+                ['--exec', '/usr/bin/wslpath', '-a', '-u', roots[0]],
+                ['--exec', '/usr/bin/wslpath', '-a', '-u', roots[1]],
+            ]);
+    });
+
+    test('rejects a WSL UNC workspace root from another distribution', async () => {
+        sandbox.stub(config, 'getUseWsl').returns(true);
+        const root = '\\\\wsl$\\Debian\\home\\user\\workspace';
+        sandbox.stub(workspace, 'workspaceFolders').value([fakeWorkspaceFolder(root)]);
+        const execute = sandbox.stub(processApi, 'executeCommand').callsFake(async (invocation) => {
+            const args = invocation.args;
+            if (args[1] === '/usr/bin/which') { return { code: 0, stdout: '/usr/local/bin/az\n', stderr: '' }; }
+            if (args[1] === '/usr/bin/test') { return { code: 0, stdout: '', stderr: '' }; }
+            if (args[1] === '/usr/bin/wslpath') { return { code: 1, stdout: '', stderr: 'different distribution' }; }
+            if (args[1] === '/usr/bin/readlink' && args[3] === '/usr/local/bin/az') {
+                return { code: 0, stdout: '/opt/azure-cli/bin/az\n', stderr: '' };
+            }
+            if (args[1] === '/usr/bin/readlink') { return { code: 0, stdout: `${args[3]}\n`, stderr: '' }; }
+            return { code: 0, stdout: 'unexpected launch', stderr: '' };
+        });
+        const context = fakeContext(fakeShell(false, windowsEnvironment(), '/safe/workspace'));
+
+        assert.strictEqual(await executeAzureCli(context, ['account', 'show']), undefined);
+        assert.ok(execute.args.some((call) => call[0].args.join('\0') === [
+            '--exec', '/usr/bin/wslpath', '-a', '-u', root,
+        ].join('\0')));
+        assert.ok(!execute.args.some((call) => call[0].args[1] === '/opt/azure-cli/bin/az'));
+    });
+
+    test('preserves trailing whitespace when checking a WSL UNC workspace root', async () => {
+        sandbox.stub(config, 'getUseWsl').returns(true);
+        const whitespace = '\u00a0';
+        const root = `\\\\wsl$\\Ubuntu\\home\\user\\workspace${whitespace}`;
+        const guestRoot = `/home/user/workspace${whitespace}`;
+        const alias = `${guestRoot}/bin/az`;
+        sandbox.stub(workspace, 'workspaceFolders').value([fakeWorkspaceFolder(root)]);
+        const execute = sandbox.stub(processApi, 'executeCommand').callsFake(async (invocation) => {
+            const args = invocation.args;
+            if (args[1] === '/usr/bin/which') { return { code: 0, stdout: `${alias}\n`, stderr: '' }; }
+            if (args[1] === '/usr/bin/test') { return { code: 0, stdout: '', stderr: '' }; }
+            if (args[1] === '/usr/bin/wslpath') { return { code: 0, stdout: `${guestRoot}\n`, stderr: '' }; }
+            if (args[1] === '/usr/bin/readlink') { return { code: 0, stdout: `${args[3]}\n`, stderr: '' }; }
+            return { code: 0, stdout: 'unexpected launch', stderr: '' };
+        });
+        const context = fakeContext(fakeShell(false, windowsEnvironment(), '/safe/workspace'));
+
+        assert.strictEqual(await executeAzureCli(context, ['account', 'show']), undefined);
+        assert.ok(!execute.args.some((call) => call[0].args[1] === alias && call[0].args[2] === 'account'));
+    });
+
     test('pins WSL and rejects guest Azure CLI paths inside the workspace', async () => {
         sandbox.stub(config, 'getUseWsl').returns(true);
         sandbox.stub(workspace, 'workspaceFolders').value(undefined);
@@ -282,7 +396,7 @@ function fakeContext(shell: Shell) {
 function fakeShell(
     windows: boolean,
     env: NodeJS.ProcessEnv,
-    cwd: string,
+    cwd: string | undefined,
     executable?: string
 ): Shell {
     return {
@@ -293,6 +407,10 @@ function fakeShell(
         execOpts: () => ({ cwd, env }),
         which: () => executable || null,
     } as unknown as Shell;
+}
+
+function fakeWorkspaceFolder(root: string, index = 0): WorkspaceFolder {
+    return { uri: { fsPath: root } as Uri, name: `workspace-${index}`, index };
 }
 
 function systemExecutable(): string {
