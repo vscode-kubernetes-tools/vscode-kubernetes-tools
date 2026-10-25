@@ -60,7 +60,6 @@ import { registerYamlSchemaSupport, updateYAMLSchema } from './yaml-support/yaml
 import * as clusterproviderregistry from './components/clusterprovider/clusterproviderregistry';
 import * as azureclusterprovider from './components/clusterprovider/azure/azureclusterprovider';
 import * as minikubeclusterprovider from './components/clusterprovider/minikube/minikubeclusterprovider';
-import { MinikubeOptions } from './components/clusterprovider/minikube/minikube';
 import { refreshExplorer } from './components/clusterprovider/common/explorer';
 import { KubernetesCompletionProvider } from "./yaml-support/yaml-snippet";
 import { showWorkspaceFolderPick } from './hostutils';
@@ -223,7 +222,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.vsKubernetesAddWatch', (explorerNode: ClusterExplorerNode) => { addWatch(treeProvider, explorerNode); }),
         registerCommand('extension.vsKubernetesDeleteWatch', (explorerNode: ClusterExplorerNode) => { deleteWatch(treeProvider, explorerNode); }),
         registerCommand('extension.vsMinikubeStop', () => minikube.stop()),
-        registerCommand('extension.vsMinikubeStart', () => minikube.start({} as MinikubeOptions)),
+        registerCommand('extension.vsMinikubeStart', () => minikube.start({})),
         registerCommand('extension.vsMinikubeStatus', async () => {
             try {
                 const status = await minikube.status();
@@ -329,7 +328,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
     telemetry.invalidateClusterType(undefined, kubectl);
 
     await azureclusterprovider.init(clusterProviderRegistry, { shell: shell, fs: fs });
-    await minikubeclusterprovider.init(clusterProviderRegistry, { shell: shell, minikube: minikube });
+    await minikubeclusterprovider.init(clusterProviderRegistry, { minikube });
     // On save, refresh the Helm YAML preview.
     vscode.workspace.onDidSaveTextDocument((e: vscode.TextDocument) => {
         const activeTextEditor = vscode.window.activeTextEditor;

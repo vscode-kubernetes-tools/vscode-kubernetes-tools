@@ -3,14 +3,13 @@ import { styles, formStyles, waitScript, ActionResult, Diagnostic, fromShellExit
 import { propagationFields, formPage } from '../common/form';
 import { refreshExplorer } from '../common/explorer';
 import { succeeded, Failed } from '../../../errorable';
-import { Shell } from '../../../shell';
-import { Minikube, MinikubeOptions } from './minikube';
+import { Minikube } from './minikube';
+import { minikubeLifecycleArgs, minikubeStartCommand, MINIKUBE_VM_DRIVERS } from './commands';
 import { Wizard, NEXT_FN } from '../../wizard/wizard';
 import { Sequence, Observable } from '../../../utils/observable';
 import { trackReadiness } from '../readinesstracker';
 
 export interface Context {
-    readonly shell: Shell;
     readonly minikube: Minikube;
 }
 
@@ -67,14 +66,7 @@ async function promptForConfiguration(previousData: any, action: clusterprovider
         <tr>
         <td>Minikube VM Driver</td>
         <td style='text-align: right'><select name='vmdriver' id='vmdriver'>
-           <option selected='true'>virtualbox</option>
-           <option>vmwarefusion</option>
-           <option>kvm</option>
-           <option>xhyve</option>
-           <option>hyperv</option>
-           <option>hyperkit</option>
-           <option>kvm2</option>
-           <option>none</option>
+           ${MINIKUBE_VM_DRIVERS.map((driver, index) => `<option${index === 0 ? " selected='true'" : ''}>${driver}</option>`).join('')}
         </select></td>
         </tr>
         <tr>
@@ -91,8 +83,8 @@ async function configureKubernetes(): Promise<string> {
     return renderConfigurationResult();
 }
 
-async function runMinikubeCommand(context: Context, cmd: string): Promise<ActionResult<Diagnostic>> {
-    const sr = await context.shell.exec(cmd);
+async function runMinikubeCommand(context: Context, args: readonly string[]): Promise<ActionResult<Diagnostic>> {
+    const sr = await context.minikube.invokeCommand(args);
 
     const createCluster = await fromShellExitCodeOnly(sr, "Unable to run Minikube");
     return {
@@ -102,16 +94,20 @@ async function runMinikubeCommand(context: Context, cmd: string): Promise<Action
 }
 
 async function createCluster(previousData: any, context: Context): Promise<string> {
-    const runnable = await context.minikube.isRunnable();
-    const createResult = {
-        actionDescription: 'creating cluster',
-        result: runnable
-    };
-
-    context.minikube.start({
+    const options = {
         vmDriver: previousData.vmdriver,
         additionalFlags: previousData.additionalflags
-    } as MinikubeOptions);
+    };
+    const command = minikubeStartCommand(options);
+    const runnable = command.succeeded ? await context.minikube.isRunnable() : command;
+    const started = runnable.succeeded && await context.minikube.start(options);
+    const result = started ? runnable : runnable.succeeded ?
+        { succeeded: false as const, error: ['Unable to start Minikube.'] } :
+        runnable;
+    const createResult = {
+        actionDescription: 'creating cluster',
+        result,
+    };
 
     const title = createResult.result.succeeded ? 'Cluster creation has started' : `Error ${createResult.actionDescription}`;
     const message = succeeded(createResult.result) ?
@@ -144,7 +140,11 @@ function refreshCountIndicator(refreshCount: number): string {
 function waitForClusterAndReportConfigResult(previousData: any, context: Context): Observable<string> {
 
     async function waitOnce(refreshCount: number): Promise<[string, boolean]> {
-        const waitResult = await runMinikubeCommand(context, 'minikube status');
+        const command = minikubeStartCommand({
+            vmDriver: previousData.vmdriver,
+            additionalFlags: previousData.additionalflags,
+        });
+        const waitResult = await runMinikubeCommand(context, minikubeLifecycleArgs('status', command.succeeded ? command.result.profile : undefined));
         if (!waitResult.result.succeeded) {
             const failed = waitResult.result as Failed;
             const message = `<h1>Waiting for minikube cluster${refreshCountIndicator(refreshCount)}</h1>
