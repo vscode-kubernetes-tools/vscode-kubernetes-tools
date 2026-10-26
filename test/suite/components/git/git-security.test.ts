@@ -52,7 +52,6 @@ suite('Git sync security', () => {
         executeCommand.onFirstCall().resolves({ code: 0, stdout: `${resolvedCommit}\n`, stderr: '' });
         executeCommand.onSecondCall().resolves({ code: 0, stdout: '2 days ago\n', stderr: '' });
         const env = { PATH: path.dirname(TEST_GIT_PATH) };
-        const gitAlias = path.join(path.dirname(TEST_GIT_PATH), process.platform === 'win32' ? 'git.exe' : 'git');
         const git = new Git(fakeShell(TEST_WORKSPACE, env));
 
         const resolved = await git.resolveCommit('release-1');
@@ -65,7 +64,7 @@ suite('Git sync security', () => {
         sinon.assert.calledTwice(executeCommand);
         assert.deepStrictEqual(executeCommand.firstCall.args[0], {
             executable: fs.realpathSync.native(TEST_GIT_PATH),
-            argv0: gitAlias,
+            argv0: TEST_GIT_PATH,
             args: [
                 '-c', 'core.warnAmbiguousRefs=true',
                 'rev-parse', '--verify', 'release-1^{commit}'
@@ -75,7 +74,7 @@ suite('Git sync security', () => {
         });
         assert.deepStrictEqual(executeCommand.secondCall.args[0], {
             executable: fs.realpathSync.native(TEST_GIT_PATH),
-            argv0: gitAlias,
+            argv0: TEST_GIT_PATH,
             args: ['log', '--pretty=%ar', '-n', '1', `${resolvedCommit}^{commit}`],
             cwd: TEST_WORKSPACE,
             env,
