@@ -285,6 +285,7 @@ suite('Minikube command security', () => {
             const args = invocation.args;
             if (args[1] === '/usr/bin/which') { return { code: 0, stdout: '/usr/local/bin/minikube\n', stderr: '' }; }
             if (args[1] === '/usr/bin/test') { return { code: 0, stdout: '', stderr: '' }; }
+            if (args[1] === '/usr/bin/wslpath') { return { code: 0, stdout: '/mnt/c/workspace\n', stderr: '' }; }
             if (args[1] === '/usr/bin/readlink' && args[3] === '/usr/local/bin/minikube') {
                 return { code: 0, stdout: '/opt/minikube/minikube\n', stderr: '' };
             }
