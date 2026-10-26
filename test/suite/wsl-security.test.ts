@@ -3,6 +3,7 @@ import * as sinon from 'sinon';
 import childProcesses = require('child_process');
 import nativeFs = require('fs');
 import * as path from 'path';
+import * as os from 'os';
 import type { SpawnSyncReturns } from 'child_process';
 import type { KubeConfig } from '@kubernetes/client-node';
 import * as config from '../../src/components/config/config';
@@ -118,7 +119,7 @@ suite('WSL argument security', () => {
         assert.strictEqual(shell.home(), '/home/user');
         assert.deepStrictEqual(invoke.lastCall.args[0], ['printenv', 'HOME']);
         shell.which('tool&marker');
-        assert.deepStrictEqual(invoke.lastCall.args[0], ['which', '--', 'tool&marker']);
+        assert.deepStrictEqual(invoke.lastCall.args[0], ['sh', '-c', 'exec env VSCODE_KUBERNETES_TOOL="$1" "${SHELL:-/bin/sh}" -c \'which -- "$VSCODE_KUBERNETES_TOOL"\'', 'vscode-kubernetes-which', 'tool&marker']);
         shell.cat('/tmp/file "quoted" & marker');
         assert.deepStrictEqual(invoke.lastCall.args[0], ['cat', '--', '/tmp/file "quoted" & marker']);
         shell.ls('/tmp/folder;$(marker)');
@@ -133,6 +134,28 @@ suite('WSL argument security', () => {
         sinon.assert.calledOnceWithExactly(invoke, ['sh', '-c', 'printf "%s" "${KUBECONFIG:-$HOME/.kube/config}"']);
     });
 
+    test('discovers tools using default-shell PATH initialization with literal names', function () {
+        if (process.platform === 'win32' || !nativeFs.existsSync('/bin/zsh')) { this.skip(); }
+        const directory = nativeFs.mkdtempSync(path.join(os.tmpdir(), 'wsl-discovery-'));
+        const bin = path.join(directory, 'bin');
+        nativeFs.mkdirSync(bin);
+        nativeFs.writeFileSync(path.join(directory, '.zshenv'), 'export PATH="$VSCODE_TEST_TOOL_DIR:$PATH"\n');
+        const tool = path.join(bin, 'tool&literal');
+        nativeFs.writeFileSync(tool, '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+        sandbox.stub(wsl, 'execWslSync').callsFake((args) => {
+            const result = childProcesses.spawnSync(args[0], args.slice(1), {
+                encoding: 'utf8', shell: false,
+                env: { ...process.env, SHELL: '/bin/zsh', ZDOTDIR: directory, VSCODE_TEST_TOOL_DIR: bin, PATH: '/usr/bin:/bin' },
+            });
+            return { code: result.status ?? -1, stdout: result.stdout, stderr: result.stderr };
+        });
+        try {
+            assert.strictEqual(shell.which('tool&literal')?.trim(), tool);
+        } finally {
+            nativeFs.rmSync(directory, { recursive: true, force: true });
+        }
+    });
+
     test('uses configured kubeconfig paths only as data when reading content', async () => {
         const path = '/home/user/config & marker;$(echo x)';
         sandbox.stub(config, 'getActiveKubeconfig').returns(path);
@@ -140,20 +163,20 @@ suite('WSL argument security', () => {
             code: 0, stdout: 'apiVersion: v1\nkind: Config\nclusters: []\ncontexts: []\nusers: []\n', stderr: '',
         });
         await loadKubeconfig();
-        sinon.assert.calledOnceWithExactly(invoke, ['cat', '--', path]);
+        sinon.assert.calledOnceWithExactly(invoke, ['env', 'LC_ALL=C', 'cat', '--', path]);
     });
 
     test('merges a WSL kubeconfig list without treating it as one filename', async () => {
         sandbox.stub(config, 'getActiveKubeconfig').returns('/first & config:/second;config');
         const invoke = sandbox.stub(wsl, 'execWslSync').callsFake((args) => {
-            if (args[2] === '/first & config') { return { code: 0, stdout: kubeconfigText('first'), stderr: '' }; }
-            if (args[2] === '/second;config') { return { code: 0, stdout: kubeconfigText('second'), stderr: '' }; }
+            if (args[4] === '/first & config') { return { code: 0, stdout: kubeconfigText('first'), stderr: '' }; }
+            if (args[4] === '/second;config') { return { code: 0, stdout: kubeconfigText('second'), stderr: '' }; }
             return { code: 1, stdout: '', stderr: 'No such file' };
         });
         const kubeconfig = await loadKubeconfig();
         assert.strictEqual(kubeconfig.getCurrentContext(), 'first');
         assert.deepStrictEqual(kubeconfig.getContexts().map((context: { name: string }) => context.name), ['first', 'second']);
-        assert.deepStrictEqual(invoke.args.map((call) => call[0]), [['cat', '--', '/first & config'], ['cat', '--', '/second;config']]);
+        assert.deepStrictEqual(invoke.args.map((call) => call[0]), [['env', 'LC_ALL=C', 'cat', '--', '/first & config'], ['env', 'LC_ALL=C', 'cat', '--', '/second;config']]);
     });
 
     test('splits WSL kubeconfig paths using the guest separator and ignores empty entries', () => {
@@ -164,6 +187,7 @@ suite('WSL argument security', () => {
     test('preserves host kubeconfig loading and the first selected context', async () => {
         (config.getUseWsl as sinon.SinonStub).returns(false);
         sandbox.stub(config, 'getActiveKubeconfig').returns(`first${path.delimiter}second`);
+        sandbox.stub(nativeFs, 'readFileSync').withArgs(sinon.match.in(['first', 'second'])).returns('{}');
         const kubernetes = await import('@kubernetes/client-node');
         const load = sandbox.stub(kubernetes.KubeConfig.prototype, 'loadFromFile').callsFake(function (this: KubeConfig, file: string) {
             this.loadFromString(kubeconfigText(file));
@@ -180,6 +204,72 @@ suite('WSL argument security', () => {
         const invoke = sandbox.stub(wsl, 'execWslSync');
         await assert.rejects(loadKubeconfig(), /No kubeconfig paths specified/);
         sinon.assert.notCalled(invoke);
+    });
+
+    test('skips missing and empty WSL sources, including the first and middle entries', async () => {
+        sandbox.stub(config, 'getActiveKubeconfig').returns('/missing:/empty:/first:/missing-middle:/blank:/second');
+        sandbox.stub(wsl, 'execWslSync').callsFake((args) => {
+            const file = args[4];
+            if (file.startsWith('/missing')) { return { code: 1, stdout: '', stderr: 'cat: No such file or directory' }; }
+            return { code: 0, stdout: file === '/empty' ? '' : file === '/blank' ? ' \n\t' : kubeconfigText(file), stderr: '' };
+        });
+        const kubeconfig = await loadKubeconfig();
+        assert.strictEqual(kubeconfig.getCurrentContext(), '/first');
+        assert.deepStrictEqual(kubeconfig.getContexts().map((context: { name: string }) => context.name), ['/first', '/second']);
+    });
+
+    test('returns an empty config when every WSL source is missing', async () => {
+        sandbox.stub(config, 'getActiveKubeconfig').returns('/missing:/also-missing');
+        sandbox.stub(wsl, 'execWslSync').returns({ code: 1, stdout: '', stderr: 'cat: No such file or directory' });
+        assert.deepStrictEqual((await loadKubeconfig()).getContexts(), []);
+    });
+
+    test('reports the WSL source path for permissions and malformed content', async () => {
+        sandbox.stub(config, 'getActiveKubeconfig').returns('/private');
+        const invoke = sandbox.stub(wsl, 'execWslSync').returns({ code: 1, stdout: '', stderr: 'Permission denied' });
+        await assert.rejects(loadKubeconfig(), /\/private.*Permission denied/);
+        invoke.returns({ code: 0, stdout: '[invalid', stderr: '' });
+        await assert.rejects(loadKubeconfig(), /\/private/);
+    });
+
+    test('keeps first named entries and the first nonempty current context', async () => {
+        sandbox.stub(config, 'getActiveKubeconfig').returns('/empty-context:/first:/last:/first');
+        const first = JSON.parse(kubeconfigText('shared'));
+        first['current-context'] = 'A';
+        const last = JSON.parse(kubeconfigText('shared'));
+        last['current-context'] = 'B';
+        last.clusters[0].cluster.server = 'https://later.invalid';
+        last.users[0].user.token = 'later';
+        last.contexts[0].context.namespace = 'later';
+        const invoke = sandbox.stub(wsl, 'execWslSync').callsFake((args) => ({
+            code: 0, stderr: '', stdout: args[4] === '/empty-context' ? '{}' : JSON.stringify(args[4] === '/first' ? first : last),
+        }));
+        const kubeconfig = await loadKubeconfig();
+        assert.strictEqual(kubeconfig.getCurrentContext(), 'A');
+        assert.strictEqual(kubeconfig.getClusters().length, 1);
+        assert.strictEqual(kubeconfig.getClusters()[0].server, 'https://example.invalid');
+        assert.strictEqual(kubeconfig.getUsers().length, 1);
+        assert.strictEqual(kubeconfig.getUsers()[0].token, undefined);
+        assert.strictEqual(kubeconfig.getContexts().length, 1);
+        assert.strictEqual(kubeconfig.getContexts()[0].namespace, undefined);
+        assert.strictEqual(invoke.callCount, 3);
+    });
+
+    test('skips missing and blank host sources but preserves other read errors', async () => {
+        (config.getUseWsl as sinon.SinonStub).returns(false);
+        sandbox.stub(config, 'getActiveKubeconfig').returns(['missing', 'blank', 'valid'].join(path.delimiter));
+        const read = sandbox.stub(nativeFs, 'readFileSync');
+        read.withArgs('missing').throws(Object.assign(new Error('missing'), { code: 'ENOENT' }));
+        read.withArgs('blank').returns(' \n');
+        read.withArgs('valid').returns(kubeconfigText('valid'));
+        const kubernetes = await import('@kubernetes/client-node');
+        const load = sandbox.stub(kubernetes.KubeConfig.prototype, 'loadFromFile').callsFake(function (this: KubeConfig) {
+            this.loadFromString(kubeconfigText('valid'));
+        });
+        assert.strictEqual((await loadKubeconfig()).getCurrentContext(), 'valid');
+        sinon.assert.calledOnceWithExactly(load, 'valid');
+        read.withArgs('missing').throws(Object.assign(new Error('permission denied'), { code: 'EACCES' }));
+        await assert.rejects(loadKubeconfig(), /missing.*permission denied/);
     });
 });
 

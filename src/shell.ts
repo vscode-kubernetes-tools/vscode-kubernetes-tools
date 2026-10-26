@@ -265,7 +265,8 @@ function pathEntrySeparator() {
 
 function which(bin: string): string | null {
     if (getUseWsl()) {
-        const result = execWslSync(['which', '--', bin]);
+        // Match legacy execution's default-shell PATH without evaluating the tool name.
+        const result = execWslSync(['sh', '-c', 'exec env VSCODE_KUBERNETES_TOOL="$1" "${SHELL:-/bin/sh}" -c \'which -- "$VSCODE_KUBERNETES_TOOL"\'', 'vscode-kubernetes-which', bin]);
         if (result.code !== 0) {
             throw new Error(result.stderr);
         }

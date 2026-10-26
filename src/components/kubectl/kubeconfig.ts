@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { fs } from '../../fs';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
+import * as nativeFs from 'fs';
 import { execWslSync } from '../../wsl';
 import { refreshExplorer } from '../clusterprovider/common/explorer';
 import { getActiveKubeconfig, getUseWsl } from '../config/config';
@@ -45,24 +46,36 @@ export async function loadKubeconfig(): Promise<any> {
         throw new Error('No kubeconfig paths specified');
     }
     let currentContext: string | undefined;
-    for (let i = 0; i < files.length; i++) {
-        const source = i === 0 ? kubeconfig : new kubernetes.KubeConfig();
-        if (kubeconfigPath.pathType === 'host') {
-            source.loadFromFile(files[i]);
-        } else {
-            const result = execWslSync(['cat', '--', files[i]]);
-            if (result.code !== 0) {
-                throw new Error(`Impossible to retrieve the kubeconfig content from WSL at path '${files[i]}'. Error code: ${result.code}. Error output: ${result.stderr.trim()}`);
+    for (const file of new Set(files)) {
+        const source = new kubernetes.KubeConfig();
+        try {
+            if (kubeconfigPath.pathType === 'host') {
+                if (!nativeFs.readFileSync(file, 'utf8').trim()) { continue; }
+                source.loadFromFile(file);
+            } else {
+                const result = execWslSync(['env', 'LC_ALL=C', 'cat', '--', file]);
+                if (result.code !== 0) {
+                    if (result.code === 1 && result.stderr.trimEnd().endsWith(': No such file or directory')) { continue; }
+                    throw new Error(`Error code: ${result.code}. Error output: ${result.stderr.trim()}`);
+                }
+                if (!result.stdout.trim()) { continue; }
+                source.loadFromString(result.stdout);
             }
-            source.loadFromString(result.stdout);
+        } catch (error) {
+            if (kubeconfigPath.pathType === 'host' && (error as NodeJS.ErrnoException).code === 'ENOENT') { continue; }
+            throw new Error(`Unable to load kubeconfig at path '${file}': ${error instanceof Error ? error.message : String(error)}`);
         }
-        if (i === 0) {
-            currentContext = source.getCurrentContext();
-        } else {
-            kubeconfig.mergeConfig(source);
+        for (const cluster of source.getClusters()) {
+            if (!kubeconfig.getCluster(cluster.name)) { kubeconfig.addCluster(cluster); }
         }
+        for (const user of source.getUsers()) {
+            if (!kubeconfig.getUser(user.name)) { kubeconfig.addUser(user); }
+        }
+        for (const context of source.getContexts()) {
+            if (!kubeconfig.getContextObject(context.name)) { kubeconfig.addContext(context); }
+        }
+        currentContext ||= source.getCurrentContext();
     }
-    // Merging must not replace the first file's selected context.
     if (currentContext) {
         kubeconfig.setCurrentContext(currentContext);
     }
