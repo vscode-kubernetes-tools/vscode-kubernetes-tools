@@ -4,6 +4,7 @@ import { Shell } from '../../shell';
 import { Errorable } from '../../errorable';
 import { CommandInvocation, executeCommand, ProcessResult } from '../../process';
 import { getUseWsl } from '../config/config';
+import * as vscode from 'vscode';
 
 const IMAGE_TAG_PATTERN = /^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$/;
 
@@ -53,8 +54,16 @@ interface HostGitExecutable {
     readonly argv0: string;
 }
 
-function hostGitExecutable(shell: Shell, cwd: string | undefined, env: NodeJS.ProcessEnv): HostGitExecutable | undefined {
-    const alias = shell.which(process.platform === 'win32' ? 'git.exe' : 'git')?.trim();
+function hostGitExecutable(
+    shell: Shell,
+    cwd: string | undefined,
+    env: NodeJS.ProcessEnv,
+    workspaceRoots: readonly string[],
+    resolveFromEnvironment: boolean
+): HostGitExecutable | undefined {
+    const alias = resolveFromEnvironment ?
+        executableOnPath(process.platform === 'win32' ? 'git.exe' : 'git', env) :
+        shell.which(process.platform === 'win32' ? 'git.exe' : 'git')?.trim();
     if (!alias || !path.isAbsolute(alias)) {
         return undefined;
     }
@@ -78,15 +87,20 @@ function hostGitExecutable(shell: Shell, cwd: string | undefined, env: NodeJS.Pr
     if (!cwd || !path.isAbsolute(cwd)) {
         return undefined;
     }
-    const lexicalWorkspace = path.resolve(cwd);
-    const lexicalExecutable = path.resolve(alias);
-    if (isWithinPath(lexicalWorkspace, lexicalExecutable)) {
-        return undefined;
-    }
-    const workspace = canonicalPath(cwd);
-    if (!workspace || workspace === path.parse(workspace).root ||
-        isWithinPath(workspace, executableDirectory) || isWithinPath(workspace, candidate)) {
-        return undefined;
+    for (const root of [...new Set([cwd, ...workspaceRoots])]) {
+        if (!path.isAbsolute(root)) {
+            return undefined;
+        }
+        const lexicalWorkspace = path.resolve(root);
+        const lexicalExecutable = path.resolve(alias);
+        if (isWithinPath(lexicalWorkspace, lexicalExecutable)) {
+            return undefined;
+        }
+        const workspace = canonicalPath(root);
+        if (!workspace || workspace === path.parse(workspace).root ||
+            isWithinPath(workspace, executableDirectory) || isWithinPath(workspace, candidate)) {
+            return undefined;
+        }
     }
     return { executable: candidate, argv0: alias };
 }
@@ -108,11 +122,20 @@ export function gitRevisionFromImage(image: string): string | undefined {
 export class Git {
     constructor(private readonly shell: Shell) {}
 
-    private async git(args: readonly string[]): Promise<ProcessResult | undefined> {
+    private async git(
+        args: readonly string[],
+        cwdOverride?: string,
+        hardenDescribe = false
+    ): Promise<ProcessResult | undefined> {
         try {
-            const { cwd, env } = this.shell.execOpts();
+            const { cwd, env: shellEnv } = this.shell.execOpts();
+            const env = hardenDescribe ? sanitiseGitEnvironment(shellEnv) : shellEnv;
+            const effectiveCwd = cwdOverride || cwd;
             const useWsl = getUseWsl();
-            const hostExecutable = useWsl ? undefined : hostGitExecutable(this.shell, cwd, env);
+            const roots = hardenDescribe ?
+                (vscode.workspace.workspaceFolders || []).map((folder) => folder.uri.fsPath) : [];
+            const hostExecutable = useWsl ? undefined :
+                hostGitExecutable(this.shell, effectiveCwd, env, roots, hardenDescribe);
             const executable = useWsl ? wslExecutable() : hostExecutable?.executable;
             if (!executable) {
                 return undefined;
@@ -120,18 +143,22 @@ export class Git {
             const invocation: CommandInvocation = useWsl ? {
                 executable,
                 args: ['--exec', '/usr/bin/git', ...args],
-                cwd,
+                cwd: effectiveCwd,
             } : {
                 executable,
                 argv0: hostExecutable!.argv0,
                 args,
-                cwd,
+                cwd: effectiveCwd,
                 env,
             };
             return await executeCommand(invocation);
         } catch (_err) {
             return undefined;
         }
+    }
+
+    public describe(cwd: string): Promise<ProcessResult | undefined> {
+        return this.git(['-c', 'core.fsmonitor=false', 'describe', '--always', '--dirty'], cwd, true);
     }
 
     public async resolveCommit(revision: string): Promise<Errorable<string>> {
@@ -179,4 +206,36 @@ export class Git {
         }
         return { succeeded: false, error: [sr?.stderr.trim() || 'Unable to run Git.'] };
     }
+}
+
+function executableOnPath(name: string, environment: NodeJS.ProcessEnv): string | undefined {
+    const pathValue = environmentPath(environment);
+    if (!pathValue) {
+        return undefined;
+    }
+    for (const entry of pathValue.split(path.delimiter)) {
+        if (!entry || !path.isAbsolute(entry) || path.dirname(entry) === entry) {
+            return undefined;
+        }
+        const candidate = path.join(entry, name);
+        try {
+            if (fs.statSync(candidate).isFile()) {
+                fs.accessSync(candidate, fs.constants.X_OK);
+                return candidate;
+            }
+        } catch (_err) {
+            // Continue to the next PATH entry.
+        }
+    }
+    return undefined;
+}
+
+function sanitiseGitEnvironment(environment: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+    const result = { ...environment };
+    for (const key of Object.keys(result)) {
+        if (['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR', 'GIT_INDEX_FILE', 'GIT_OBJECT_DIRECTORY'].includes(key.toUpperCase())) {
+            delete result[key];
+        }
+    }
+    return result;
 }

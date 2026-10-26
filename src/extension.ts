@@ -26,7 +26,6 @@ import * as configmaps from './configMap';
 import * as kuberesources from './kuberesources';
 import { useNamespaceKubernetes } from './components/kubectl/namespace';
 import { EventDisplayMode, getEvents } from './components/kubectl/events';
-import * as docker from './docker';
 import { kubeChannel } from './kubeChannel';
 import { create as kubectlCreate } from './kubectl';
 import * as kubectlUtils from './kubectlUtils';
@@ -81,8 +80,9 @@ import { sleep } from './sleep';
 import { CloudExplorer, CloudExplorerTreeNode } from './components/cloudexplorer/cloudexplorer';
 import { mergeToKubeconfig, getKubeconfigPath, KubeconfigPath } from './components/kubectl/kubeconfig';
 import { PortForwardStatusBarManager } from './components/kubectl/port-forward-ui';
-import { getBuildCommand, getPushCommand } from './image/imageUtils';
-import { getImageBuildTool } from './components/config/config';
+import { getDefaultImageName } from './image/imageUtils';
+import { getCurrentBuildTool } from './image/imageToolRegistry';
+import { sanitiseRepositoryComponent } from './image/imageReference';
 import { ClusterExplorerNode, ClusterExplorerConfigurationValueNode, ClusterExplorerResourceNode, ClusterExplorerResourceFolderNode } from './components/clusterexplorer/node';
 import { create as activeContextTrackerCreate } from './components/contextmanager/active-context-tracker';
 import { WatchManager } from './components/kubectl/watch';
@@ -928,40 +928,6 @@ function getWatchDisplayName(node: ClusterExplorerNode): string | undefined {
     return undefined;
 }
 
-function findVersion() {
-    return {
-        then: findVersionInternal
-    };
-}
-
-function findVersionInternal(fn: (text: string) => void): void {
-    if (!vscode.workspace.rootPath) {
-        vscode.window.showErrorMessage("This command requires a single open folder.");
-        return;
-    }
-
-    // No .git dir, use 'latest'
-    // TODO: use 'git rev-parse' to detect upstream directories
-    if (!fs.existsSync(path.join(vscode.workspace.rootPath, '.git'))) {
-        fn('latest');
-        return;
-    }
-
-    shell.execCore('git describe --always --dirty', shell.execOpts()).then(
-        ({code, stdout, stderr}) => {
-            if (code !== 0) {
-                vscode.window.showErrorMessage('git log returned: ' + code);
-                console.log(stderr);
-                fn('error');
-                return;
-            }
-            fn(stdout);
-        }, (err) => {
-            fn('error');
-            vscode.window.showErrorMessage(`git describe failed: ${err}`);
-        });
-}
-
 export async function findAllPods(): Promise<FindPodsResult> {
     return await findPodsCore('');
 }
@@ -1008,28 +974,16 @@ export interface FindPodsResult {
     readonly pods: Pod[];
 }
 
-function findNameAndImage() {
-    return {
-        then: findNameAndImageInternal
-    };
-}
-
-function findNameAndImageInternal(fn: (name: string, image: string) => void) {
+async function findNameAndImage(): Promise<{ name: string; image: string } | undefined> {
     if (vscode.workspace.rootPath === undefined) {
         vscode.window.showErrorMessage('This command requires an open folder.');
-        return;
+        return undefined;
     }
     const folderName = path.basename(vscode.workspace.rootPath);
-    const name = docker.sanitiseTag(folderName);
-    findVersion().then((version) => {
-        let image = `${name}:${version}`;
-        const user = interpolateVariables(vscode.workspace.getConfiguration().get("vsdocker.imageUser", undefined));
-        if (user) {
-            image = `${user}/${image}`;
-        }
-
-        fn(name.trim(), image.trim());
-    });
+    const name = sanitiseRepositoryComponent(folderName);
+    const user = interpolateVariables(vscode.workspace.getConfiguration().get("vsdocker.imageUser", undefined));
+    const image = await getDefaultImageName(vscode.workspace.rootPath, user);
+    return { name, image };
 }
 
 async function scaleKubernetes(target?: any) {
@@ -1115,16 +1069,22 @@ function diagnosePushError(_exitCode: number, error: string): string {
 }
 
 function buildPushThenExec(fn: (name: string, image: string) => void): void {
-    findNameAndImage().then((name, image) => {
-        vscode.window.withProgress({ location: vscode.ProgressLocation.Window }, async (p) => {
+    void vscode.window.withProgress({ location: vscode.ProgressLocation.Window }, async (p) => {
+        try {
+            const details = await findNameAndImage();
+            if (!details) {
+                return;
+            }
+            const { name, image } = details;
             try {
                 p.report({ message: "Building an image..." });
-                const buildTool = getImageBuildTool();
-                const buildResult = await shell.exec(await getBuildCommand(image));
+                const tool = await getCurrentBuildTool({ cwd: vscode.workspace.rootPath });
+                const buildTool = tool.displayName;
+                const buildResult = await tool.execute(tool.buildArgs(image));
                 if (buildResult && buildResult.code === 0) {
                     vscode.window.showInformationMessage(image + ' built.');
                     p.report({ message: "Pushing the image..." });
-                    const pushResult = await shell.exec(await getPushCommand(image));
+                    const pushResult = await tool.execute(tool.pushArgs(image));
                     if (pushResult && pushResult.code === 0) {
                         vscode.window.showInformationMessage(image + ' pushed.');
                         fn(name, image);
@@ -1147,7 +1107,11 @@ function buildPushThenExec(fn: (name: string, image: string) => void): void {
                 vscode.window.showErrorMessage(errorMessage);
                 kubeChannel.showOutput(`Failed building/pushing an image: ${errorMessage}`);
             }
-        });
+        } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : String(err);
+            vscode.window.showErrorMessage(errorMessage);
+            kubeChannel.showOutput(`Failed preparing an image name: ${errorMessage}`);
+        }
     });
 }
 
@@ -2097,31 +2061,38 @@ function serviceExists(serviceName: string, handler: (exists: boolean) => void) 
 }
 
 function removeDebugKubernetes() {
-    findNameAndImage().then((name, _image) => {
-        const deploymentName = name + '-debug';
-        deploymentExists(deploymentName, (deployment) => {
-            serviceExists(deploymentName, (service) => {
-                if (!deployment && !service) {
-                    vscode.window.showInformationMessage(deploymentName + ': nothing to clean up');
+    if (!vscode.workspace.rootPath) {
+        vscode.window.showErrorMessage('This command requires an open folder.');
+        return;
+    }
+    const name = sanitiseRepositoryComponent(path.basename(vscode.workspace.rootPath));
+    if (!name) {
+        vscode.window.showErrorMessage('The workspace folder name cannot be used as a Kubernetes workload name.');
+        return;
+    }
+    const deploymentName = name + '-debug';
+    deploymentExists(deploymentName, (deployment) => {
+        serviceExists(deploymentName, (service) => {
+            if (!deployment && !service) {
+                vscode.window.showInformationMessage(deploymentName + ': nothing to clean up');
+                return;
+            }
+
+            const toDelete = deployment ? ('deployment' + (service ? ' and service' : '')) : 'service';
+            vscode.window.showWarningMessage(`This will delete ${toDelete} ${deploymentName}`, 'Delete').then((opt) => {
+                if (opt !== 'Delete') {
                     return;
                 }
 
-                const toDelete = deployment ? ('deployment' + (service ? ' and service' : '')) : 'service';
-                vscode.window.showWarningMessage(`This will delete ${toDelete} ${deploymentName}`, 'Delete').then((opt) => {
-                    if (opt !== 'Delete') {
-                        return;
-                    }
+                if (service) {
+                    kubectl.invokeCommandThen('delete service ' + deploymentName, (er) => kubectl.reportResult(er, {}));
+                }
 
-                    if (service) {
-                        kubectl.invokeCommandThen('delete service ' + deploymentName, (er) => kubectl.reportResult(er, {}));
-                    }
-
-                    if (deployment) {
-                        kubectl.invokeCommandThen('delete deployment ' + deploymentName, (er) => kubectl.reportResult(er, {}));
-                    }
-                },
-                (err) => vscode.window.showErrorMessage(`Error getting confirmation of delete: ${err}`));
-            });
+                if (deployment) {
+                    kubectl.invokeCommandThen('delete deployment ' + deploymentName, (er) => kubectl.reportResult(er, {}));
+                }
+            },
+            (err) => vscode.window.showErrorMessage(`Error getting confirmation of delete: ${err}`));
         });
     });
 }
