@@ -260,7 +260,11 @@ class KubectlImpl implements Kubectl {
         if (result.resultKind === 'exec-child-process-started') {
             const child = result.childProcess;
             if (this.backgroundCancellation.signal.aborted) {
-                child.kill();
+                if (child.exitCode === null && child.signalCode === null) {
+                    const closed = new Promise<void>((resolve) => child.once('close', () => resolve()));
+                    child.kill();
+                    await closed;
+                }
                 return { resultKind: 'exec-failed', execProgram: result.execProgram, command: result.command, error: 'Command cancelled.' };
             }
             this.childProcesses.push(child);

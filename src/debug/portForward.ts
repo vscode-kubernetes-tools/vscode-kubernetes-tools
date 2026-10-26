@@ -2,9 +2,11 @@ import type { ChildProcess } from 'child_process';
 import type { CancellationToken } from 'vscode';
 import { kubeChannel } from '../kubeChannel';
 
-export function waitForPortForward(process: ChildProcess, token?: CancellationToken): Promise<void> {
+export function waitForPortForward(process: ChildProcess, mappings: readonly string[], token?: CancellationToken): Promise<void> {
     return new Promise<void>((resolve, reject) => {
         let pending = '';
+        let pendingError = '';
+        const remaining = new Set(mappings);
         let ready = false;
         let settled = false;
         const finish = (error?: Error) => {
@@ -26,10 +28,15 @@ export function waitForPortForward(process: ChildProcess, token?: CancellationTo
         };
         const onOutput = (chunk: Buffer | string) => {
             const output = pending + chunk.toString();
-            if (/Forwarding\s+from\s+(?:127\.0\.0\.1|\[::1\]):/.test(output)) {
-                finish();
+            const lines = output.split('\n');
+            pending = lines.pop()!.slice(-4096);
+            for (const line of lines) {
+                const match = /^Forwarding from (?:127\.0\.0\.1|\[::1\]):(\d+) -> (\d+)\r?$/.exec(line);
+                if (match) {
+                    remaining.delete(`${match[1]}:${match[2]}`);
+                    if (remaining.size === 0) { finish(); }
+                }
             }
-            pending = output.slice(-4096);
         };
         const onError = (error: Error) => {
             if (ready) {
@@ -38,7 +45,15 @@ export function waitForPortForward(process: ChildProcess, token?: CancellationTo
                 finish(error);
             }
         };
-        const onStderr = (chunk: Buffer | string) => kubeChannel.showOutput(chunk.toString(), 'port-forward');
+        const onStderr = (chunk: Buffer | string) => {
+            kubeChannel.showOutput(chunk.toString(), 'port-forward');
+            const text = pendingError + chunk.toString();
+            const match = /Unable to listen on port (\d+)/.exec(text);
+            if (!ready && match && mappings.some((mapping) => mapping.split(':')[0] === match[1])) {
+                finish(new Error(`Cannot set up port forwarding: unable to listen on port ${match[1]}.`));
+            }
+            pendingError = text.slice(-4096);
+        };
         const cancel = () => {
             if (ready) {
                 process.kill();

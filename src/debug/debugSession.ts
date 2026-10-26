@@ -95,6 +95,8 @@ export class DebugSession implements IDebugSession {
 
         vscode.window.withProgress({ location: vscode.ProgressLocation.Window }, async (p) => {
             let appName: string | undefined;
+            let resourceCleanup: Promise<void> | undefined;
+            const cleanupResource = () => appName ? resourceCleanup ??= this.promptForCleanup(`deployment/${appName}`) : Promise.resolve();
             try {
                 // Build/push docker image.
                 p.report({ message: "Building Docker image..."});
@@ -126,13 +128,13 @@ export class DebugSession implements IDebugSession {
                 p.report({ message: `Starting ${this.debugProvider!.getDebuggerType()} debug session...`});  // safe because checked outside the lambda
                 await this.startDebugSession(appName, cwd, proxyResult, podName, undefined, async () => {
                     kubeChannel.showOutput("The debug session exited.");
-                    await this.promptForCleanup(`deployment/${appName}`);
+                    await cleanupResource();
                 });
             } catch (error) {
                 vscode.window.showErrorMessage(String(error));
                 kubeChannel.showOutput(`Debug on Kubernetes failed. The errors were: ${error}.`);
                 if (appName) {
-                    await this.promptForCleanup(`deployment/${appName}`);
+                    await cleanupResource();
                 }
                 kubeChannel.showOutput(`\nTo learn more about the usage of the debug feature, take a look at ${debugCommandDocumentationUrl}`);
             }
@@ -352,7 +354,10 @@ export class DebugSession implements IDebugSession {
 
         // Wait for the port-forward proxy to be ready.
         kubeChannel.showOutput("Waiting for port forwarding to be ready...");
-        await waitForPortForward(proxyResult.proxyProcess);
+        await waitForPortForward(proxyResult.proxyProcess, [
+            `${proxyResult.proxyDebugPort}:${debugPort}`,
+            ...(appPort ? [`${proxyResult.proxyAppPort}:${appPort}`] : []),
+        ]);
         kubeChannel.showOutput("Port forwarding is ready.");
 
         return proxyResult;

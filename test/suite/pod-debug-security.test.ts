@@ -1,6 +1,8 @@
 import * as assert from 'assert';
 import * as sinon from 'sinon';
-import { CancellationTokenSource, window } from 'vscode';
+import { CancellationTokenSource, window, workspace, Uri, debug, DebugConfiguration, DebugSession as VSCodeDebugSession } from 'vscode';
+import type { WorkspaceFolder } from 'vscode';
+import nativeFs = require('fs');
 import { EventEmitter } from 'events';
 import { PassThrough } from 'stream';
 import type { ChildProcess } from 'child_process';
@@ -22,6 +24,8 @@ import type { IDebugProvider } from '../../src/debug/debugProvider';
 import { NodejsDebugProvider } from '../../src/debug/nodejsDebugProvider';
 import { PythonDebugProvider } from '../../src/debug/pythonDebugProvider';
 import { waitForPortForward } from '../../src/debug/portForward';
+import { registerDebugSessionCleanup } from '../../src/debug/sessionCleanup';
+import { DockerfileParser } from '../../src/docker/dockerfileParser';
 import { findPodsByLabel, waitForRunningPod } from '../../src/kubectlUtils';
 import { kubeChannel } from '../../src/kubeChannel';
 
@@ -198,7 +202,7 @@ suite('Pod and debug command security', () => {
 
     test('waits for a split port-forward readiness message then drains output', async () => {
         const child = fakeChild();
-        const ready = waitForPortForward(child as unknown as ChildProcess);
+        const ready = waitForPortForward(child as unknown as ChildProcess, ['8080:80']);
         child.stdout.write('Forwarding from 127.');
         child.stdout.write('0.0.1:8080 -> 80\n');
         await ready;
@@ -210,15 +214,79 @@ suite('Pod and debug command security', () => {
 
     test('recognizes readiness before truncating a large output chunk', async () => {
         const child = fakeChild();
-        const ready = waitForPortForward(child as unknown as ChildProcess);
+        const ready = waitForPortForward(child as unknown as ChildProcess, ['8080:80']);
         child.stdout.write('Forwarding from 127.0.0.1:8080 -> 80\n' + 'x'.repeat(8192));
         await ready;
         child.emit('close', 0, null);
     });
 
+    test('waits for every mapping without counting IPv4 and IPv6 twice', async () => {
+        const child = fakeChild();
+        let resolved = false;
+        const ready = waitForPortForward(child as unknown as ChildProcess, ['8080:80', '9229:9229']).then(() => { resolved = true; });
+        child.stdout.write('Forwarding from 127.0.0.1:8080 -> 80\nForwarding from [::1]:8080 -> 80\n');
+        await Promise.resolve();
+        assert.strictEqual(resolved, false);
+        child.stdout.write('Forwarding from [::1]:9229 -> 9229\n');
+        await ready;
+        child.emit('close', 0, null);
+    });
+
+    test('rejects a bind failure after another mapping is already forwarding', async () => {
+        const child = fakeChild();
+        const ready = waitForPortForward(child as unknown as ChildProcess, ['8080:80', '9229:9229']);
+        child.stdout.write('Forwarding from 127.0.0.1:8080 -> 80\n');
+        child.stderr.write('Unable to listen on po');
+        child.stderr.write('rt 9229: address already in use\n');
+        await assert.rejects(ready, /9229/);
+        sinon.assert.calledOnce(child.kill);
+        child.emit('close', 1, null);
+    });
+
+    test('ignores unrelated debug sessions and cleans up its own launch once', () => {
+        let terminate!: (session: VSCodeDebugSession) => void;
+        const dispose = sandbox.stub();
+        sandbox.stub(debug, 'onDidTerminateDebugSession').callsFake((listener) => {
+            terminate = listener;
+            return { dispose };
+        });
+        const configuration: DebugConfiguration = { type: 'node', request: 'attach', name: 'Attach to Process' };
+        const onCleanup = sandbox.stub();
+        const cleanup = registerDebugSessionCleanup(configuration, onCleanup);
+        terminate({ configuration: { ...configuration, kubernetesLaunchId: 'unrelated' } } as unknown as VSCodeDebugSession);
+        sinon.assert.notCalled(onCleanup);
+        terminate({ configuration } as VSCodeDebugSession);
+        cleanup();
+        sinon.assert.calledOnce(onCleanup);
+        sinon.assert.calledOnce(dispose);
+    });
+
+    test('waits for close when cancellation races with a startup error without killing an unspawned child', async () => {
+        sandbox.stub(config, 'getUseWsl').returns(false);
+        const child = fakeChild();
+        sandbox.stub(processes, 'spawnCommand').returns(child as unknown as ChildProcess);
+        const shell = { isWindows: () => false, execOpts: () => ({}) } as unknown as Shell;
+        const kubectl = createOnBinary({} as Host, {} as FS, shell, '/selected/kubectl');
+        try {
+            let completed = false;
+            const pending = kubectl.spawnCommandArgs(['get', 'pods']).then((result) => { completed = true; return result; });
+            await new Promise<void>((resolve) => setImmediate(resolve));
+            kubectl.dispose();
+            child.emit('error', new Error('ENOENT'));
+            await Promise.resolve();
+            assert.strictEqual(completed, false);
+            sinon.assert.notCalled(child.kill);
+            child.emit('close', -1, null);
+            assert.strictEqual((await pending).resultKind, 'exec-failed');
+            sinon.assert.notCalled(child.kill);
+        } finally {
+            kubectl.dispose();
+        }
+    });
+
     test('reports process errors after readiness instead of silently ignoring them', async () => {
         const child = fakeChild();
-        const ready = waitForPortForward(child as unknown as ChildProcess);
+        const ready = waitForPortForward(child as unknown as ChildProcess, ['8080:80']);
         child.stdout.write('Forwarding from 127.0.0.1:8080 -> 80\n');
         await ready;
         child.emit('error', new Error('connection failed'));
@@ -232,6 +300,59 @@ suite('Pod and debug command security', () => {
         const cleanup = sandbox.stub().resolves(undefined);
         await assert.rejects(session['startDebugging']('/workspace', 'session', 9229, undefined, 'p', undefined, cleanup), /provider failed/);
         sinon.assert.calledOnce(cleanup);
+    });
+
+    test('prompts for deployment cleanup only once when launch startup rejects', async () => {
+        const session = new DebugSession(fakeKubectl(sandbox.stub()));
+        const internals = session as unknown as {
+            buildDockerImage(): Promise<string>;
+            runAsDeployment(): Promise<string>;
+            findDebugPod(): Promise<string>;
+            waitForPod(): Promise<void>;
+            setupPortForward(): Promise<{ proxyProcess: ChildProcess; proxyDebugPort: number; proxyAppPort: number }>;
+            promptForCleanup(resource: string): Promise<void>;
+        };
+        const child = fakeChild();
+        sandbox.stub(nativeFs, 'existsSync').returns(true);
+        sandbox.stub(DockerfileParser.prototype, 'parse').returns({} as ReturnType<DockerfileParser['parse']>);
+        sandbox.stub(workspace, 'getConfiguration').returns({ get: () => 'registry/team' } as unknown as ReturnType<typeof workspace.getConfiguration>);
+        sandbox.stub(shellModule.shell, 'execOpts').returns({});
+        sandbox.stub(internals, 'buildDockerImage').resolves('registry/team/app:tag');
+        sandbox.stub(internals, 'runAsDeployment').resolves('app-debug');
+        sandbox.stub(internals, 'findDebugPod').resolves('p');
+        sandbox.stub(internals, 'waitForPod').resolves();
+        sandbox.stub(internals, 'setupPortForward').resolves({ proxyProcess: child as unknown as ChildProcess, proxyDebugPort: 9229, proxyAppPort: 8080 });
+        const cleanup = sandbox.stub(internals, 'promptForCleanup').resolves();
+        sandbox.stub(window, 'showErrorMessage').resolves(undefined);
+        const token = new CancellationTokenSource();
+        const progress = sandbox.stub(window, 'withProgress').callsFake(async (_options, task) => task({ report: () => {} }, token.token));
+        try {
+            const provider = {
+                isDebuggerInstalled: async () => true,
+                resolvePortsFromFile: async () => ({ debugPort: 9229, appPort: 8080 }),
+                getDebugArgs: async () => ({ cancelled: false }),
+                getDebuggerType: () => 'node',
+                startDebugging: async () => { throw new Error('provider failed'); },
+            } as unknown as IDebugProvider;
+            await session.launch({ uri: Uri.file('/workspace'), name: 'test', index: 0 } as WorkspaceFolder, provider);
+            await progress.firstCall.returnValue;
+            sinon.assert.calledOnceWithExactly(cleanup, 'deployment/app-debug');
+            sinon.assert.calledOnce(child.kill);
+        } finally {
+            token.dispose();
+        }
+    });
+
+    test('detects a background authentication URL before a long partial-line suffix', () => {
+        const clock = sandbox.useFakeTimers();
+        const warning = sandbox.stub(window, 'showWarningMessage').resolves(undefined);
+        const child = fakeChild();
+        shellModule.monitorForAuthPrompt(child as unknown as ChildProcess);
+        child.stderr.write('https://microsoft.com/devicelogin ' + 'x'.repeat(8192));
+        sinon.assert.calledOnce(warning);
+        child.stderr.write('\n');
+        sinon.assert.calledOnce(warning);
+        clock.tick(1000);
     });
 
     test('rejects native Windows command scripts without a shell fallback', async () => {
@@ -249,7 +370,7 @@ suite('Pod and debug command security', () => {
     test('reports port-forward errors and exit before readiness', async () => {
         for (const event of ['error', 'close']) {
             const child = fakeChild();
-            const ready = waitForPortForward(child as unknown as ChildProcess);
+            const ready = waitForPortForward(child as unknown as ChildProcess, ['8080:80']);
             child.emit(event, event === 'error' ? new Error('spawn failed') : 1);
             await assert.rejects(ready);
             sinon.assert.called(child.kill);
@@ -261,7 +382,7 @@ suite('Pod and debug command security', () => {
         for (const started of [false, true]) {
             const child = fakeChild();
             const token = new CancellationTokenSource();
-            const ready = waitForPortForward(child as unknown as ChildProcess, token.token);
+            const ready = waitForPortForward(child as unknown as ChildProcess, ['8080:80'], token.token);
             if (started) {
                 child.stdout.write('Forwarding from [::1]:8080 -> 80\n');
                 await ready;
@@ -280,7 +401,7 @@ suite('Pod and debug command security', () => {
         const source = new CancellationTokenSource();
         source.cancel();
         try {
-            await assert.rejects(waitForPortForward(child as unknown as ChildProcess, source.token));
+            await assert.rejects(waitForPortForward(child as unknown as ChildProcess, ['8080:80'], source.token));
             assert.strictEqual(child.stdout.listenerCount('data'), 0);
             assert.strictEqual(child.stderr.listenerCount('data'), 0);
             assert.strictEqual(child.listenerCount('error'), 0);
@@ -336,6 +457,16 @@ suite('Pod and debug command security', () => {
                 if (stage === 'starting') {
                     await new Promise<void>((resolve) => setImmediate(resolve));
                     kubectl.dispose();
+                    sinon.assert.notCalled(child.kill);
+                    child.emit('spawn');
+                    child.emit('close', 0, null);
+                }
+                if (stage === 'ownership') {
+                    let completed = false;
+                    void pending.then(() => { completed = true; });
+                    await new Promise<void>((resolve) => setImmediate(resolve));
+                    assert.strictEqual(completed, false);
+                    child.emit('close', 0, null);
                 }
                 const result = await pending;
                 assert.strictEqual(result.resultKind, stage === 'running' ? 'exec-child-process-started' : 'exec-failed');
@@ -384,6 +515,7 @@ suite('Pod and debug command security', () => {
 
 function fakeChild() {
     return Object.assign(new EventEmitter(), {
+        pid: 123,
         stdout: new PassThrough(), stderr: new PassThrough(), kill: sinon.stub().returns(true),
         exitCode: null as number | null, signalCode: null as NodeJS.Signals | null,
     });

@@ -49,6 +49,7 @@ import { logsKubernetes } from './components/kubectl/logs';
 import { deleteResourceWithConfirmation, isSafeNamespace, listNamespaceResources, listResourceNames, normaliseResourceReadTarget, normaliseResourceTarget } from './components/kubectl/resource-commands';
 import { listPods, queryContainers } from './components/kubectl/pod-commands';
 import { waitForPortForward } from './debug/portForward';
+import { registerDebugSessionCleanup } from './debug/sessionCleanup';
 import { hostPathToWsl, invokeFileCommandWithFeedback } from './components/kubectl/file-commands';
 import { Errorable, failed, succeeded } from './errorable';
 import { Git, gitRevisionFromImage } from './components/git/git';
@@ -2015,7 +2016,7 @@ const doDebug = async (name: string, image: string, cmd: string) => {
         }
         const forwarding = pfer.childProcess;
         try {
-            await waitForPortForward(forwarding);
+            await waitForPortForward(forwarding, ['5858:5858', '8000:8000']);
         } catch (error) {
             vscode.window.showErrorMessage(String(error));
             return;
@@ -2030,19 +2031,13 @@ const doDebug = async (name: string, image: string, cmd: string) => {
             remoteRoot: '/'
         };
 
-        const onTerminate = vscode.debug.onDidTerminateDebugSession((session) => {
-            if (session.name === debugConfiguration.name && session.type === debugConfiguration.type) {
-                forwarding.kill();
-                onTerminate.dispose();
-            }
-        });
+        const cleanup = registerDebugSessionCleanup(debugConfiguration, () => { forwarding.kill(); });
         vscode.debug.startDebugging(
             undefined,
             debugConfiguration
         ).then((started) => {
             if (!started) {
-                forwarding.kill();
-                onTerminate.dispose();
+                cleanup();
                 return;
             }
             vscode.window.showInformationMessage('Debug session established', 'Expose Service').then((opt) => {
@@ -2067,8 +2062,7 @@ const doDebug = async (name: string, image: string, cmd: string) => {
             },
             (err) => vscode.window.showErrorMessage(`Error getting port info: ${err}`));
         }, (err) => {
-            forwarding.kill();
-            onTerminate.dispose();
+            cleanup();
             vscode.window.showErrorMessage(`Error getting expose info: ${err.message}`);
         });
     });

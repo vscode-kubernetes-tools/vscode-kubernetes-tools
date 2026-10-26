@@ -389,25 +389,41 @@ export async function invokeBackgroundArgs(context: Context, args: readonly stri
         const childProcess = spawnCommand(invocation);
         monitorForAuthPrompt(childProcess);
         return await new Promise<ArgsBackgroundExecResult>((resolve) => {
+            let spawned = false;
+            let aborted = false;
+            let settled = false;
             const finish = (result: ArgsBackgroundExecResult) => {
+                if (settled) { return; }
+                settled = true;
                 signal?.removeEventListener('abort', cancel);
                 resolve(result);
             };
             const cancel = () => {
-                childProcess.kill();
-                finish({ resultKind: 'exec-failed', execProgram: context.binary, command, error: 'Command cancelled.' });
+                aborted = true;
+                if (spawned && childProcess.pid && childProcess.pid > 0) {
+                    childProcess.kill();
+                }
             };
             signal?.addEventListener('abort', cancel, { once: true });
-            childProcess.once('error', (error: Error) => finish({
-                resultKind: 'exec-failed', execProgram: context.binary, command, error: error.message,
-            }));
+            childProcess.once('error', (error: Error) => {
+                if (!aborted) {
+                    finish({ resultKind: 'exec-failed', execProgram: context.binary, command, error: error.message });
+                }
+            });
+            childProcess.once('close', () => {
+                if (aborted) {
+                    finish({ resultKind: 'exec-failed', execProgram: context.binary, command, error: 'Command cancelled.' });
+                }
+            });
             childProcess.once('spawn', () => {
-                if (signal?.aborted) {
+                spawned = true;
+                if (aborted || signal?.aborted) {
                     cancel();
                 } else {
                     finish({ resultKind: 'exec-child-process-started', execProgram: context.binary, command, childProcess });
                 }
             });
+            if (signal?.aborted) { cancel(); }
         });
     } catch (error) {
         return { resultKind: 'exec-failed', execProgram: context.binary, command, error: String(error) };
