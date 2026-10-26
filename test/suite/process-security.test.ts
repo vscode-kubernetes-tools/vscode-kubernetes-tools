@@ -177,11 +177,30 @@ suite('Process security', () => {
         ), (error: unknown) => error instanceof ProcessExecutionError && error.reason === 'execution-failed');
     });
 
-    test('cleans up a source that closes stdout but does not exit', async () => {
-        await assert.rejects(executeCommandPiped(
-            { executable: process.execPath, args: ['-e', 'require("fs").closeSync(1);setInterval(()=>{},1000)'] },
-            { executable: process.execPath, args: ['-e', 'process.stdin.resume();process.stdin.on("end",()=>process.exit(0))'] }
-        ), (error: unknown) => error instanceof ProcessExecutionError && error.reason === 'execution-failed');
+    test('cleans up a live source after stdout reaches EOF', async () => {
+        const controller = new AbortController();
+        let sourceClosed = false;
+        let source: ChildProcess | undefined;
+        const watchdog = setTimeout(() => controller.abort(), 7000);
+        try {
+            await assert.rejects(executeCommandPiped(
+                { executable: process.execPath, args: ['-e', 'setInterval(()=>{},1000)'] },
+                { executable: process.execPath, args: ['-e', 'process.stdin.resume();process.stdin.on("end",()=>process.exit(0))'] },
+                undefined,
+                (child) => {
+                    source = child;
+                    child.once('close', () => { sourceClosed = true; });
+                    // Windows duplicates child stdio handles, so signal EOF on the parent stream.
+                    child.stdout!.push(null);
+                },
+                { signal: controller.signal }
+            ), (error: unknown) => error instanceof ProcessExecutionError && error.reason === 'execution-failed');
+            assert.strictEqual(source?.stdout?.readableEnded, true);
+            assert.strictEqual(sourceClosed, true);
+        } finally {
+            clearTimeout(watchdog);
+            controller.abort();
+        }
     });
 
     test('keeps the signal of an early pipeline destination', async function () {
