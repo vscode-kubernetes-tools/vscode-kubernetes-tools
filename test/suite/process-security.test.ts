@@ -179,7 +179,7 @@ suite('Process security', () => {
 
     test('cleans up a source that closes stdout but does not exit', async () => {
         await assert.rejects(executeCommandPiped(
-            { executable: process.execPath, args: ['-e', 'process.stdout.end();setInterval(()=>{},1000)'] },
+            { executable: process.execPath, args: ['-e', 'require("fs").closeSync(1);setInterval(()=>{},1000)'] },
             { executable: process.execPath, args: ['-e', 'process.stdin.resume();process.stdin.on("end",()=>process.exit(0))'] }
         ), (error: unknown) => error instanceof ProcessExecutionError && error.reason === 'execution-failed');
     });
