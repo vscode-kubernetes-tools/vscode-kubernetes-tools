@@ -3,7 +3,7 @@ import * as nativeFs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as sinon from 'sinon';
-import { Uri, window, workspace } from 'vscode';
+import { Uri, window, workspace, WorkspaceFolder } from 'vscode';
 import * as config from '../../../../src/components/config/config';
 import * as processApi from '../../../../src/process';
 import { FS } from '../../../../src/fs';
@@ -229,6 +229,92 @@ suite('Minikube command security', () => {
         for (const call of execute.args) {
             assert.strictEqual(call[0].executable, 'C:\\Windows\\System32\\wsl.exe');
         }
+    });
+
+    test('maps same-distribution WSL UNC workspace roots before containment checks', async () => {
+        sandbox.stub(config, 'getUseWsl').returns(true);
+        sandbox.stub(config, 'getToolPath').returns(undefined);
+        const roots = [
+            '\\\\wsl$\\Ubuntu\\home\\user\\one',
+            '\\\\wsl.localhost\\Ubuntu\\home\\user\\two',
+        ];
+        sandbox.stub(workspace, 'workspaceFolders').value(roots.map(fakeWorkspaceFolder));
+        const mappings = new Map([
+            [roots[0], '/home/user/one'],
+            [roots[1], '/home/user/two'],
+        ]);
+        const execute = sandbox.stub(processApi, 'executeCommand').callsFake(async (invocation) => {
+            const args = invocation.args;
+            if (args[1] === '/usr/bin/which') { return { code: 0, stdout: '/usr/local/bin/minikube\n', stderr: '' }; }
+            if (args[1] === '/usr/bin/test') { return { code: 0, stdout: '', stderr: '' }; }
+            if (args[1] === '/usr/bin/wslpath') {
+                const converted = mappings.get(args[4]);
+                return converted ?
+                    { code: 0, stdout: `${converted}\n`, stderr: '' } :
+                    { code: 1, stdout: '', stderr: 'different distribution' };
+            }
+            if (args[1] === '/usr/bin/readlink' && args[3] === '/usr/local/bin/minikube') {
+                return { code: 0, stdout: '/opt/minikube/minikube\n', stderr: '' };
+            }
+            if (args[1] === '/usr/bin/readlink') { return { code: 0, stdout: `${args[3]}\n`, stderr: '' }; }
+            return { code: 0, stdout: 'ok', stderr: '' };
+        });
+        const minikube = create(fakeHost(), fakeFs(), fakeShell(false, windowsEnvironment(), '/safe/workspace'));
+
+        assert.deepStrictEqual(await minikube.invokeCommand(['status']), { code: 0, stdout: 'ok', stderr: '' });
+        assert.deepStrictEqual(execute.args
+            .filter((call) => call[0].args[1] === '/usr/bin/wslpath')
+            .map((call) => call[0].args), [
+                ['--exec', '/usr/bin/wslpath', '-a', '-u', roots[0]],
+                ['--exec', '/usr/bin/wslpath', '-a', '-u', roots[1]],
+            ]);
+    });
+
+    test('rejects a WSL UNC workspace root from another distribution', async () => {
+        sandbox.stub(config, 'getUseWsl').returns(true);
+        sandbox.stub(config, 'getToolPath').returns(undefined);
+        const root = '\\\\wsl.localhost\\Debian\\home\\user\\workspace';
+        sandbox.stub(workspace, 'workspaceFolders').value([fakeWorkspaceFolder(root)]);
+        const execute = sandbox.stub(processApi, 'executeCommand').callsFake(async (invocation) => {
+            const args = invocation.args;
+            if (args[1] === '/usr/bin/which') { return { code: 0, stdout: '/usr/local/bin/minikube\n', stderr: '' }; }
+            if (args[1] === '/usr/bin/test') { return { code: 0, stdout: '', stderr: '' }; }
+            if (args[1] === '/usr/bin/wslpath') { return { code: 1, stdout: '', stderr: 'different distribution' }; }
+            if (args[1] === '/usr/bin/readlink' && args[3] === '/usr/local/bin/minikube') {
+                return { code: 0, stdout: '/opt/minikube/minikube\n', stderr: '' };
+            }
+            if (args[1] === '/usr/bin/readlink') { return { code: 0, stdout: `${args[3]}\n`, stderr: '' }; }
+            return { code: 0, stdout: 'unexpected launch', stderr: '' };
+        });
+        const minikube = create(fakeHost(), fakeFs(), fakeShell(false, windowsEnvironment(), '/safe/workspace'));
+
+        assert.strictEqual(await minikube.invokeCommand(['status']), undefined);
+        assert.ok(execute.args.some((call) => call[0].args.join('\0') === [
+            '--exec', '/usr/bin/wslpath', '-a', '-u', root,
+        ].join('\0')));
+        assert.ok(!execute.args.some((call) => call[0].args[1] === '/usr/local/bin/minikube' && call[0].args[2] === 'status'));
+    });
+
+    test('preserves trailing whitespace when checking a WSL UNC workspace root', async () => {
+        sandbox.stub(config, 'getUseWsl').returns(true);
+        sandbox.stub(config, 'getToolPath').returns(undefined);
+        const whitespace = '\u00a0';
+        const root = `\\\\wsl$\\Ubuntu\\home\\user\\workspace${whitespace}`;
+        const guestRoot = `/home/user/workspace${whitespace}`;
+        const alias = `${guestRoot}/bin/minikube`;
+        sandbox.stub(workspace, 'workspaceFolders').value([fakeWorkspaceFolder(root)]);
+        const execute = sandbox.stub(processApi, 'executeCommand').callsFake(async (invocation) => {
+            const args = invocation.args;
+            if (args[1] === '/usr/bin/which') { return { code: 0, stdout: `${alias}\n`, stderr: '' }; }
+            if (args[1] === '/usr/bin/test') { return { code: 0, stdout: '', stderr: '' }; }
+            if (args[1] === '/usr/bin/wslpath') { return { code: 0, stdout: `${guestRoot}\n`, stderr: '' }; }
+            if (args[1] === '/usr/bin/readlink') { return { code: 0, stdout: `${args[3]}\n`, stderr: '' }; }
+            return { code: 0, stdout: 'unexpected launch', stderr: '' };
+        });
+        const minikube = create(fakeHost(), fakeFs(), fakeShell(false, windowsEnvironment(), '/safe/workspace'));
+
+        assert.strictEqual(await minikube.invokeCommand(['status']), undefined);
+        assert.ok(!execute.args.some((call) => call[0].args[1] === alias && call[0].args[2] === 'status'));
     });
 
     test('rejects an unconfigured WSL executable resolved inside the workspace', async () => {
@@ -567,6 +653,10 @@ function fakeMinikube(overrides: Partial<Minikube>): Minikube {
 
 function fakeFs(): FS {
     return { existsAsync: async () => true } as unknown as FS;
+}
+
+function fakeWorkspaceFolder(root: string, index = 0): WorkspaceFolder {
+    return { uri: { fsPath: root } as Uri, name: `workspace-${index}`, index };
 }
 
 function fakeShell(

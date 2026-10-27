@@ -545,9 +545,6 @@ async function isWslExecutableOutsideWorkspaces(
 }
 
 async function wslWorkspacePath(execution: MinikubeExecutionContext, workspace: string): Promise<string | undefined> {
-    if (/^\\\\wsl(?:\.localhost)?\\/i.test(workspace)) {
-        return undefined;
-    }
     if (path.posix.isAbsolute(workspace) && !hasControlCharacters(workspace)) {
         return workspace;
     }
@@ -603,8 +600,12 @@ function isWithinPosixPath(parent: string, child: string): boolean {
 }
 
 function singleAbsoluteGuestPath(output: string): string | undefined {
-    const lines = output.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length > 0);
-    return lines.length === 1 && path.posix.isAbsolute(lines[0]) && !hasControlCharacters(lines[0]) ? lines[0] : undefined;
+    const value = removeSingleTrailingNewline(output);
+    return value.length > 0 && path.posix.isAbsolute(value) && !hasControlCharacters(value) ? value : undefined;
+}
+
+function removeSingleTrailingNewline(value: string): string {
+    return value.endsWith('\r\n') ? value.slice(0, -2) : value.endsWith('\n') ? value.slice(0, -1) : value;
 }
 
 function hasControlCharacters(value: string): boolean {
