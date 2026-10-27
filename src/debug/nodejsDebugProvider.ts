@@ -124,6 +124,6 @@ export class NodejsDebugProvider implements IDebugProvider {
         if (!debugCommand) {
             return { cancelled: true };
         }
-        return { cancelled: false, value: `-i --attach=false -- ${debugCommand}` };
+        return { cancelled: false, value: debugCommand };
     }
 }
