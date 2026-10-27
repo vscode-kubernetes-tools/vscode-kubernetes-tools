@@ -15,6 +15,12 @@ import * as yaml from 'js-yaml';
 // The lookup must be synchronous: vscode-yaml's schema contributor API is synchronous, and
 // linting runs on every keystroke. Hence an index maintained in the background rather than
 // reading kustomization.yaml on demand.
+//
+// Parsing here is a sink for untrusted workspace content: activation reads every matching
+// kustomization, including files nobody opened. So the index parses with CORE_SCHEMA rather
+// than the default. That drops merge keys outright instead of relying on the merge budget
+// the default schema applies, and drops `!!omap` with them; both have been the subject of
+// CPU-exhaustion advisories. A kustomization needs neither.
 
 // The three names kustomize itself recognises, and only those: see
 // RecognizedKustomizationFileNames in kustomize's api/konfig/general.go. In particular
@@ -210,6 +216,12 @@ async function indexKustomization(uri: vscode.Uri): Promise<void> {
     }
 }
 
+// The index's parse step. Exported so the schema choice is covered by a test rather than
+// being a line anyone could quietly revert to yaml.load's default.
+export function parseKustomization(text: string): unknown {
+    return yaml.load(text, { schema: yaml.CORE_SCHEMA });
+}
+
 // The patch paths one kustomization names, or undefined if it could not be read at all --
 // unreadable, or mid-edit and not yet valid YAML. Callers drop what they knew in that
 // case rather than keeping a stale answer: over-reporting warnings is better than hiding
@@ -217,7 +229,7 @@ async function indexKustomization(uri: vscode.Uri): Promise<void> {
 async function readPatchPaths(uri: vscode.Uri): Promise<readonly string[] | undefined> {
     try {
         const bytes = await vscode.workspace.fs.readFile(uri);
-        const parsed = yaml.load(Buffer.from(bytes).toString('utf8'));
+        const parsed = parseKustomization(Buffer.from(bytes).toString('utf8'));
         return patchFilePaths(parsed, path.dirname(uri.fsPath));
     } catch {
         return undefined;

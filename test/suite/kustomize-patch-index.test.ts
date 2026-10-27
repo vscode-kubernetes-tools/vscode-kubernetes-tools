@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
 
-import { isAtOrUnder, patchFilePaths } from '../../src/yaml-support/kustomize-patch-index';
+import { isAtOrUnder, parseKustomization, patchFilePaths } from '../../src/yaml-support/kustomize-patch-index';
 
 // Mirrors normalisePath in the module under test. Without it the expected values keep the
 // drive-letter casing path.resolve produces, while the production code lowercases it, and
@@ -14,7 +14,7 @@ function normalise(fsPath: string): string {
 const DIR = normalise(path.resolve(path.sep, 'work', 'overlays', 'local'));
 
 function pathsIn(kustomizationYaml: string): readonly string[] {
-    return patchFilePaths(yaml.load(kustomizationYaml), DIR);
+    return patchFilePaths(parseKustomization(kustomizationYaml), DIR);
 }
 
 function resolved(...segments: string[]): string {
@@ -141,6 +141,31 @@ patchesJson6902:
       kind: Deployment
 `);
             assert.deepStrictEqual([], [...paths]);
+        });
+
+    });
+
+    // The index parses workspace files nobody opened, so the schema it uses is a security
+    // boundary, not a detail. CORE_SCHEMA carries neither merge keys nor !!omap, both of
+    // which have been the subject of CPU-exhaustion advisories against js-yaml.
+    suite("parseKustomization method", () => {
+
+        test("...does not expand merge keys", () => {
+            const parsed = parseKustomization(`
+base: &base
+  path: from-the-anchor.yaml
+patches:
+  - <<: *base
+`) as { patches: Array<Record<string, unknown>> };
+            // With merge semantics this entry would gain a `path`. Without them the key
+            // stays literal, so nothing is indexed.
+            assert.strictEqual(undefined, parsed.patches[0].path);
+            assert.deepStrictEqual([], [...patchFilePaths(parsed, DIR)]);
+        });
+
+        test("...still reads a plain kustomization", () => {
+            const parsed = parseKustomization('patches:\n  - path: patch.yaml\n') as Record<string, unknown>;
+            assert.deepStrictEqual([resolved('patch.yaml')], [...patchFilePaths(parsed, DIR)]);
         });
 
     });
