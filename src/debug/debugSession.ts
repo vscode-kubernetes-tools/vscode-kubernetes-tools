@@ -12,7 +12,6 @@ import * as providerRegistry from "./providerRegistry";
 import { kubeChannel } from "../kubeChannel";
 import { Kubectl } from "../kubectl";
 import * as kubectlUtils from "../kubectlUtils";
-import { shell } from "../shell";
 
 import { DockerfileParser } from "../docker/dockerfileParser";
 import * as dockerUtils from "../docker/dockerUtils";
@@ -23,6 +22,8 @@ import { definedOf } from "../utils/array";
 import * as imageUtils from "../image/imageUtils";
 import { ExecResult } from "../binutilplusplus";
 import { interpolateVariables } from "../utils/interpolation";
+import { getImageBuildTool } from '../components/config/config';
+import { requireTaggedImageReference } from '../image/imageReference';
 import { waitForPortForward } from './portForward';
 import { listPods, readPod } from '../components/kubectl/pod-commands';
 
@@ -81,10 +82,6 @@ export class DebugSession implements IDebugSession {
         const portInfo = await this.debugProvider.resolvePortsFromFile(dockerfile, containerEnv);
         const debugArgs = await this.debugProvider.getDebugArgs();
 
-        if (!imagePrefix) {
-            await vscode.window.showErrorMessage("No Docker image prefix set for image push. Please set 'vsdocker.imageUser' in your Kubernetes extension settings.");
-            return;
-        }
         if (!portInfo || !portInfo.debugPort || !portInfo.appPort) {
             await this.openInBrowser("Cannot resolve debug/application port from Dockerfile. See the documentation for how to use this command.", debugCommandDocumentationUrl);
             return;
@@ -100,8 +97,7 @@ export class DebugSession implements IDebugSession {
             try {
                 // Build/push docker image.
                 p.report({ message: "Building Docker image..."});
-                const shellOpts = Object.assign({ }, shell.execOpts(), { cwd });
-                const imageName = await this.buildDockerImage(imagePrefix, shellOpts);
+                const imageName = await this.buildContainerImage(imagePrefix, cwd);
 
                 // Run docker image in k8s container.
                 p.report({ message: "Running Docker image on Kubernetes..."});
@@ -299,24 +295,22 @@ export class DebugSession implements IDebugSession {
         return debugProvider;
     }
 
-    private async buildDockerImage(imagePrefix: string, shellOpts: any): Promise<string> {
-        kubeChannel.showOutput("Starting to build/push Docker image...", "Docker build/push");
-        if (!imagePrefix) {
-            // In order to allow local kubernetes cluster (e.g. minikube) to have access to local docker images,
-            // need override docker-env before running docker build.
-            const dockerEnv = await dockerUtils.resolveKubernetesDockerEnv(this.kubectl);
-            shellOpts.env = Object.assign({}, shellOpts.env, dockerEnv);
+    private async buildContainerImage(imagePrefix: string | undefined, cwd: string): Promise<string> {
+        kubeChannel.showOutput("Starting to build/push container image...", "Container image build/push");
+        const options = { cwd };
+        if (!imagePrefix && getImageBuildTool() !== 'Docker') {
+            throw new Error('A registry image prefix is required when using Buildah for Kubernetes debugging.');
         }
-        const imageName = await imageUtils.buildAndPushImage(shellOpts, imagePrefix);
-        kubeChannel.showOutput(`Finished building/pushing Docker image ${imageName}.`);
+        const dockerEnv = imagePrefix ? undefined : await dockerUtils.resolveKubernetesDockerEnv(this.kubectl, options);
+        const imageName = await imageUtils.buildAndPushImage({ cwd, env: dockerEnv }, imagePrefix);
+        kubeChannel.showOutput(`Finished building/pushing container image ${imageName}.`);
 
         return imageName;
     }
 
     private async runAsDeployment(image: string, exposedPorts: number[], containerEnv: any, debugArgs?: string): Promise<string> {
         kubeChannel.showOutput(`Starting to run image ${image} on Kubernetes cluster...`, "Run on Kubernetes");
-        const imageName = image.split(":")[0];
-        const baseName = imageName.substring(imageName.lastIndexOf("/")+1);
+        const baseName = requireTaggedImageReference(image).repositoryLeaf;
         const deploymentName = `${baseName}-debug-${Date.now()}`;
         const appName = await kubectlUtils.runAsDeployment(this.kubectl, deploymentName, image, exposedPorts, containerEnv, debugArgs);
         kubeChannel.showOutput(`Finished launching image ${image} as a deployment ${appName} on Kubernetes cluster.`);

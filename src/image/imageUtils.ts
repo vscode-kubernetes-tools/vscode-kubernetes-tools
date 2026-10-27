@@ -1,84 +1,79 @@
-import * as path from "path";
-import * as vscode from "vscode";
+import * as path from 'path';
+import * as vscode from 'vscode';
+import * as nativeFs from 'fs';
+import { Git } from '../components/git/git';
+import { kubeChannel } from '../kubeChannel';
+import { shell } from '../shell';
+import { ContainerImageBuildTool, getCurrentBuildTool, ImageToolExecutionOptions } from './imageToolRegistry';
+import { isValidImageTag, requireTaggedImageReference, sanitiseRepositoryComponent } from './imageReference';
 
-import { getCurrentBuildTool } from './imageToolRegistry';
-import { kubeChannel } from "../kubeChannel";
-import { shell } from "../shell";
+const git = new Git(shell);
 
-/**
- * Build the container image first. If imagePrefix is not empty, push the image to remote image registry, too.
- *
- * @param shellOpts any option available to Node.js's child_process.exec().
- * @param imagePrefix the image prefix for container images (e.g. 'docker.io/brendanburns').
- * @return the image name.
- */
-export async function buildAndPushImage(shellOpts: any, imagePrefix?: string): Promise<string> {
-    const cwd = shellOpts.cwd || vscode.workspace.rootPath;
+export async function buildAndPushImage(options: ImageToolExecutionOptions, imagePrefix?: string): Promise<string> {
+    if (!vscode.workspace.isTrusted) {
+        throw new Error('Container image builds are disabled in untrusted workspaces.');
+    }
+    const cwd = options.cwd || shell.execOpts().cwd;
+    if (!cwd || !path.isAbsolute(cwd)) {
+        throw new Error('Image builds require an absolute working directory.');
+    }
     const image = await getDefaultImageName(cwd, imagePrefix);
-    await buildImage(image, shellOpts);
+    const tool = await getCurrentBuildTool(options);
+    await buildImage(tool, image);
     if (imagePrefix) {
-        await pushImage(image, shellOpts);
+        await pushImage(tool, image);
     }
     return image;
 }
 
-/**
- * Returns a promise that resolves to a command line for building the given image.
- * Rejects if couldn't get a command line.
- */
-export async function getBuildCommand(image: string): Promise<string> {
-    const tool = await getCurrentBuildTool();
-    return tool.getBuildCommand(image);
-}
-
-/**
- * Returns a promise that resolves to a command line for pushing the given image.
- * Rejects if couldn't get a command line.
- */
-export async function getPushCommand(image: string): Promise<string> {
-    const tool = await getCurrentBuildTool();
-    return tool.getPushCommand(image);
-}
-
-function sanitiseTag(name: string) {
-    // Name components may contain lowercase letters, digits and separators.
-    // A separator is defined as a period, one or two underscores, or one or
-    // more dashes. A name component may not start or end with a separator.
-    // https://docs.docker.com/engine/reference/commandline/tag/#extended-description
-
-    return name.toLowerCase().replace(/[^a-z0-9._-]/g, '-');
-}
-
-async function getDefaultImageName(cwd: string, imagePrefix?: string): Promise<string> {
-    const name = sanitiseTag(path.basename(cwd));
+export async function getDefaultImageName(cwd: string, imagePrefix?: string): Promise<string> {
+    if (!vscode.workspace.isTrusted) {
+        throw new Error('Container image builds are disabled in untrusted workspaces.');
+    }
+    const name = sanitiseRepositoryComponent(path.basename(cwd));
     const version = await findVersion(cwd);
-    let image = `${name}:${version}`;
-    if (imagePrefix) {
-        image = `${imagePrefix}/${image}`;
+    const image = imagePrefix ? `${imagePrefix}/${name}:${version}` : `${name}:${version}`;
+    return requireTaggedImageReference(image).value;
+}
+
+export async function findVersion(cwd: string): Promise<string> {
+    const result = await git.describe(cwd);
+    const version = result?.code === 0 ? result.stdout.trim() : '';
+    if (isValidImageTag(version)) {
+        return version;
     }
-    return image;
+    if (hasGitDirectory(cwd)) {
+        throw new Error(result?.stderr.trim() || 'Unable to determine a valid Git revision for the image tag.');
+    }
+    return 'latest';
 }
 
-async function findVersion(cwd: string): Promise<string> {
-    const shellOpts = Object.assign({ }, shell.execOpts(), { cwd });
-    const shellResult = await shell.execCore('git describe --always --dirty', shellOpts);
-    return shellResult.code === 0 ? shellResult.stdout.trim() : "latest";
+function hasGitDirectory(cwd: string): boolean {
+    let current = path.resolve(cwd);
+    while (true) {
+        if (nativeFs.existsSync(path.join(current, '.git'))) {
+            return true;
+        }
+        const parent = path.dirname(current);
+        if (parent === current) {
+            return false;
+        }
+        current = parent;
+    }
 }
 
-async function buildImage(image: string, shellOpts: any): Promise<void> {
-    const buildCommand = await getBuildCommand(image);
-    const result = await shell.execCore(buildCommand, shellOpts);
+export async function buildImage(tool: ContainerImageBuildTool, image: string): Promise<void> {
+    const result = await tool.execute(tool.buildArgs(image));
     if (result.code !== 0) {
         throw new Error(`Image build failed: ${result.stderr}`);
     }
-    kubeChannel.showOutput(image + ' built.');
+    kubeChannel.showOutput(`${image} built.`);
 }
 
-async function pushImage(image: string, shellOpts: any): Promise<void> {
-    const pushCommand = await getPushCommand(image);
-    const result = await shell.execCore(pushCommand, shellOpts);
+export async function pushImage(tool: ContainerImageBuildTool, image: string): Promise<void> {
+    const result = await tool.execute(tool.pushArgs(image));
     if (result.code !== 0) {
         throw new Error(`Image push failed: ${result.stderr}`);
     }
-    kubeChannel.showOutput(image + ' pushed.');
+    kubeChannel.showOutput(`${image} pushed.`);
 }

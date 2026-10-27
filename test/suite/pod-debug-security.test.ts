@@ -305,7 +305,7 @@ suite('Pod and debug command security', () => {
     test('prompts for deployment cleanup only once when launch startup rejects', async () => {
         const session = new DebugSession(fakeKubectl(sandbox.stub()));
         const internals = session as unknown as {
-            buildDockerImage(): Promise<string>;
+            buildContainerImage(): Promise<string>;
             runAsDeployment(): Promise<string>;
             findDebugPod(): Promise<string>;
             waitForPod(): Promise<void>;
@@ -317,7 +317,7 @@ suite('Pod and debug command security', () => {
         sandbox.stub(DockerfileParser.prototype, 'parse').returns({} as ReturnType<DockerfileParser['parse']>);
         sandbox.stub(workspace, 'getConfiguration').returns({ get: () => 'registry/team' } as unknown as ReturnType<typeof workspace.getConfiguration>);
         sandbox.stub(shellModule.shell, 'execOpts').returns({});
-        sandbox.stub(internals, 'buildDockerImage').resolves('registry/team/app:tag');
+        sandbox.stub(internals, 'buildContainerImage').resolves('registry/team/app:tag');
         sandbox.stub(internals, 'runAsDeployment').resolves('app-debug');
         sandbox.stub(internals, 'findDebugPod').resolves('p');
         sandbox.stub(internals, 'waitForPod').resolves();

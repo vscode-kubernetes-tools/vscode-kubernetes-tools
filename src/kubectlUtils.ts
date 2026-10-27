@@ -12,6 +12,7 @@ import { fileCommandArgs, hostPathToWsl } from './components/kubectl/file-comman
 import { getUseWsl } from './components/config/config';
 import { listPods } from './components/kubectl/pod-commands';
 import { remoteShellCommandArgs, runImageArgs } from './components/kubectl/workload-commands';
+import { requireTaggedImageReference } from './image/imageReference';
 
 export interface KubectlContext {
     readonly clusterName: string;
@@ -438,12 +439,11 @@ export async function switchNamespace(kubectl: Kubectl, namespace: string): Prom
  * @return the deployment name.
  */
 export async function runAsDeployment(kubectl: Kubectl, deploymentName: string, image: string, exposedPorts: number[], env: any, debugCommand?: string): Promise<string> {
-    const imageName = image.split(":")[0];
-    const imagePrefix = imageName.substring(0, imageName.lastIndexOf("/")+1);
+    const parsedImage = requireTaggedImageReference(image);
+    const imagePrefix = !!parsedImage.registry || parsedImage.repository.includes('/');
 
     if (!deploymentName) {
-        const baseName = imageName.substring(imageName.lastIndexOf("/")+1);
-        deploymentName = `${baseName}-${Date.now()}`;
+        deploymentName = `${parsedImage.repositoryLeaf}-${Date.now()}`;
     }
 
     const runArgs = runImageArgs(deploymentName, image, {

@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as sinon from 'sinon';
 import * as tmp from 'tmp';
+import * as vscode from 'vscode';
 import * as config from '../../../../src/components/config/config';
 import * as processApi from '../../../../src/process';
 import { Git, gitRevisionFromImage } from '../../../../src/components/git/git';
@@ -415,6 +416,30 @@ suite('Git sync security', () => {
                 fs.realpathSync.native(path.join(realGitDirectory, executableName))
             );
             assert.strictEqual(executeCommand.firstCall.args[0].argv0, aliasedGit);
+        } finally {
+            directory.removeCallback();
+        }
+    });
+
+    test('rejects Git from another folder in a multi-root workspace', async () => {
+        sandbox.stub(config, 'getUseWsl').returns(false);
+        const executeCommand = sandbox.stub(processApi, 'executeCommand');
+        const directory = tmp.dirSync({ unsafeCleanup: true });
+        const firstWorkspace = path.join(directory.name, 'first');
+        const secondWorkspace = path.join(directory.name, 'second');
+        const bin = path.join(secondWorkspace, 'bin');
+        fs.mkdirSync(firstWorkspace);
+        fs.mkdirSync(bin, { recursive: true });
+        const executable = path.join(bin, process.platform === 'win32' ? 'git.exe' : 'git');
+        fs.copyFileSync(TEST_GIT_PATH, executable);
+        sandbox.stub(vscode.workspace, 'workspaceFolders').value([
+            { uri: vscode.Uri.file(firstWorkspace), name: 'first', index: 0 },
+            { uri: vscode.Uri.file(secondWorkspace), name: 'second', index: 1 },
+        ]);
+        try {
+            const git = new Git(fakeShell(firstWorkspace, { PATH: bin }, executable));
+            assert.strictEqual(await git.describe(firstWorkspace), undefined);
+            sinon.assert.notCalled(executeCommand);
         } finally {
             directory.removeCallback();
         }
