@@ -9,6 +9,12 @@ import { parseLineOutput } from './outputUtils';
 import { affectsUs } from './components/config/config';
 import { Dictionary } from './utils/dictionary';
 import { assetUri } from './assets';
+import {
+    helmRepoSearchArgs,
+    isSafeHelmRepositoryChartReference,
+    isSafeHelmRepositoryChartVersion,
+    isSafeHelmRepositoryName,
+} from './components/helm/commands';
 
 export const HELM_EXPLORER_NODE_CATEGORY = 'helm-explorer-node';
 
@@ -88,7 +94,7 @@ export class HelmRepoExplorer implements vscode.TreeDataProvider<HelmObject> {
     }
 
     async refresh(): Promise<void> {
-        await helm.helmExecAsync('repo update');
+        await helm.helmExecRepositoryArgsAsync(['repo', 'update']);
         this.onDidChangeTreeDataEmitter.fire(undefined);
     }
 }
@@ -212,28 +218,30 @@ class HelmRepoChartVersionImpl extends HelmExplorerNodeImpl implements HelmRepoC
 }
 
 async function listHelmRepos(): Promise<Errorable<HelmRepoImpl[]>> {
-    const sr = await helm.helmExecAsync("repo list");
+    const sr = await helm.helmExecRepositoryArgsAsync(['repo', 'list']);
     // TODO: prompt to run 'helm init' here if needed...
     if (!sr || sr.code !== 0) {
         return { succeeded: false, error: [sr ? sr.stderr : "Unable to run Helm"] };
     }
 
-    const repos = sr.stdout.split('\n')
-                           .slice(1)
-                           .map((l) => l.trim())
-                           .filter((l) => l.length > 0)
-                           .map((l) => l.split('\t').map((bit) => bit.trim()))
-                           .map((bits) => new HelmRepoImpl(bits[0]));
+    const rows = sr.stdout.split('\n')
+                          .slice(1)
+                          .map((l) => l.trim())
+                          .filter((l) => l.length > 0)
+                          .map((l) => l.split('\t').map((bit) => bit.trim()));
+    if (rows.some((bits) => bits.length < 1 || !isSafeHelmRepositoryName(bits[0]))) {
+        return { succeeded: false, error: ['Helm returned an invalid repository name.'] };
+    }
+    const repos = rows.map((bits) => new HelmRepoImpl(bits[0]));
     return { succeeded: true, result: repos };
 }
 
 async function listHelmRepoCharts(repoName: string): Promise<Errorable<HelmRepoChartImpl[]>> {
+    if (!isSafeHelmRepositoryName(repoName)) {
+        return { succeeded: false, error: ['Invalid Helm repository name.'] };
+    }
     const syntaxVersion = await helm.helmSyntaxVersion();
-    // Helm v2 uses 'search', v3+ uses 'search repo'
-    const searchCmd = (syntaxVersion === helm.HelmSyntaxVersion.V3 || syntaxVersion === helm.HelmSyntaxVersion.V4) ? 'search repo' : 'search';
-    // Helm v4 removed the -l shorthand, use --versions instead (both show all chart versions)
-    const versionFlag = (syntaxVersion === helm.HelmSyntaxVersion.V4) ? '--versions' : '-l';
-    const sr = await helm.helmExecAsync(`${searchCmd} ${repoName}/ ${versionFlag}`);
+    const sr = await helm.helmExecRepositoryArgsAsync(helmRepoSearchArgs(syntaxVersion, repoName));
     if (!sr || sr.code !== 0) {
         return { succeeded: false, error: [ sr ? sr.stderr : "Unable to run Helm" ]};
     }
@@ -246,6 +254,12 @@ async function listHelmRepoCharts(repoName: string): Promise<Errorable<HelmRepoC
     // Charts can embed newlines in their descriptions. We need to merge
     // 'entries' that are actually continuations with their 'parents.'
     const entries = mergeContinuationEntries(rawEntries);
+    const caseInsensitiveRepository = syntaxVersion !== helm.HelmSyntaxVersion.V3 && syntaxVersion !== helm.HelmSyntaxVersion.V4;
+    if (!entries || entries.some((entry) =>
+        !isSafeHelmRepositoryChartReference(entry.name, repoName, caseInsensitiveRepository) ||
+        !isSafeHelmRepositoryChartVersion(entry['chart version']))) {
+        return { succeeded: false, error: ['Helm returned invalid chart metadata.'] };
+    }
 
     const charts = _.chain(entries)
                     .groupBy((e) => e.name)
@@ -255,11 +269,14 @@ async function listHelmRepoCharts(repoName: string): Promise<Errorable<HelmRepoC
     return { succeeded: true, result: charts };
 }
 
-function mergeContinuationEntries(entries: Dictionary<string>[]): Dictionary<string>[] {
+function mergeContinuationEntries(entries: Dictionary<string>[]): Dictionary<string>[] | undefined {
     const result = Array.of<Dictionary<string>>();
     for (const entry of entries) {
         if (Object.keys(entry).length === 1) {
             // It's a continuation - merge it with the last entry that wasn't a continuation
+            if (result.length === 0) {
+                return undefined;
+            }
             mergeEntry(result[result.length - 1], entry);
         } else {
             // It's a new entry - push it
