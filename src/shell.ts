@@ -8,7 +8,7 @@ import { host } from './host';
 import { ChildProcess } from 'child_process';
 import { getKubeconfigPath } from './components/kubectl/kubeconfig';
 import { ExecResult } from './binutilplusplus';
-import { escapeShellArg } from './utils/shell-escape';
+import { execWslSync, normalizeWslPath } from './wsl';
 import { kubeChannel } from './kubeChannel';
 
 export enum Platform {
@@ -97,7 +97,11 @@ function concatIfSafe(homeDrive: string | undefined, homePath: string | undefine
 
 function home(): string {
     if (getUseWsl()) {
-        return shelljs.exec('wsl.exe echo ${HOME}').stdout.trim();
+        const result = execWslSync(['printenv', 'HOME']);
+        if (result.code !== 0) {
+            throw new Error(result.stderr);
+        }
+        return result.stdout.replace(/\r?\n$/, '');
     }
     return process.env['HOME'] ||
         concatIfSafe(process.env['HOMEDRIVE'], process.env['HOMEPATH']) ||
@@ -189,6 +193,16 @@ export function monitorForAuthPrompt(proc: ChildProcess): void {
 
     let authPromptDetected = false;
     let stderrBuffer = '';
+    const inspect = (text: string) => {
+        if (AUTH_PROMPT_PATTERN.test(text) && !authNotificationShown && !authPromptDetected) {
+            authNotificationShown = true;
+            authPromptDetected = true;
+            const start = Math.max(0, text.search(AUTH_PROMPT_PATTERN) - 1024);
+            kubeChannel.showOutput(text.slice(start, start + 4096), 'Authentication Required');
+            vscode.window.showWarningMessage('Authentication required. See Kubernetes output for instructions.');
+            setTimeout(() => { authNotificationShown = false; }, 1000);
+        }
+    };
 
     proc.stderr.on('data', (data: Buffer | string) => {
         stderrBuffer += data.toString();
@@ -199,17 +213,12 @@ export function monitorForAuthPrompt(proc: ChildProcess): void {
             const line = stderrBuffer.slice(0, newlineIndex + 1);
             stderrBuffer = stderrBuffer.slice(newlineIndex + 1);
 
-            if (AUTH_PROMPT_PATTERN.test(line) && !authNotificationShown) {
-                authNotificationShown = true;
-                authPromptDetected = true;
-                kubeChannel.showOutput(line, 'Authentication Required');
-                vscode.window.showWarningMessage('Authentication required. See Kubernetes output for instructions.');
-                // Reset flag after cooldown so future auth prompts can show
-                setTimeout(() => { authNotificationShown = false; }, 1000);
-            }
+            inspect(line);
 
             newlineIndex = stderrBuffer.indexOf('\n');
         }
+        inspect(stderrBuffer);
+        stderrBuffer = stderrBuffer.slice(-4096);
     });
 
     // Notify user when auth completes successfully
@@ -261,7 +270,8 @@ function pathEntrySeparator() {
 
 function which(bin: string): string | null {
     if (getUseWsl()) {
-        const result = shelljs.exec(`wsl.exe which ${escapeShellArg(bin)}`);
+        // Match legacy execution's default-shell PATH without evaluating the tool name.
+        const result = execWslSync(['sh', '-c', 'exec env VSCODE_KUBERNETES_TOOL="$1" "${SHELL:-/bin/sh}" -c \'which -- "$VSCODE_KUBERNETES_TOOL"\'', 'vscode-kubernetes-which', bin]);
         if (result.code !== 0) {
             throw new Error(result.stderr);
         }
@@ -272,8 +282,7 @@ function which(bin: string): string | null {
 
 function cat(path: string): string {
     if (getUseWsl()) {
-        const filePath = path.replace(/\\/g, '/');
-        const result = shelljs.exec(`wsl.exe cat ${escapeShellArg(filePath)}`);
+        const result = execWslSync(['cat', '--', normalizeWslPath(path)]);
         if (result.code !== 0) {
             throw new Error(result.stderr);
         }
@@ -284,8 +293,7 @@ function cat(path: string): string {
 
 function ls(path: string): string[] {
     if (getUseWsl()) {
-        const filePath = path.replace(/\\/g, '/');
-        const result = shelljs.exec(`wsl.exe ls ${escapeShellArg(filePath)}`);
+        const result = execWslSync(['ls', '-1', '--', normalizeWslPath(path)]);
         if (result.code !== 0) {
             throw new Error(result.stderr);
         }

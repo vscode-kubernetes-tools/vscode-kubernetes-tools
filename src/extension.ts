@@ -46,6 +46,9 @@ import { dashboardKubernetes } from './components/kubectl/dashboard';
 import { portForwardKubernetes } from './components/kubectl/port-forward';
 import { logsKubernetes } from './components/kubectl/logs';
 import { deleteResourceWithConfirmation, isSafeNamespace, listNamespaceResources, listResourceNames, normaliseResourceReadTarget, normaliseResourceTarget } from './components/kubectl/resource-commands';
+import { listPods, queryContainers } from './components/kubectl/pod-commands';
+import { waitForPortForward } from './debug/portForward';
+import { registerDebugSessionCleanup } from './debug/sessionCleanup';
 import { hostPathToWsl, invokeFileCommandWithFeedback } from './components/kubectl/file-commands';
 import { Errorable, failed, succeeded } from './errorable';
 import { Git, gitRevisionFromImage } from './components/git/git';
@@ -59,13 +62,12 @@ import { registerYamlSchemaSupport, updateYAMLSchema } from './yaml-support/yaml
 import * as clusterproviderregistry from './components/clusterprovider/clusterproviderregistry';
 import * as azureclusterprovider from './components/clusterprovider/azure/azureclusterprovider';
 import * as minikubeclusterprovider from './components/clusterprovider/minikube/minikubeclusterprovider';
-import { MinikubeOptions } from './components/clusterprovider/minikube/minikube';
 import { refreshExplorer } from './components/clusterprovider/common/explorer';
 import { KubernetesCompletionProvider } from "./yaml-support/yaml-snippet";
 import { showWorkspaceFolderPick } from './hostutils';
 import { KubernetesResourceVirtualFileSystemProvider, K8S_RESOURCE_SCHEME, kubefsUri, K8S_RESOURCE_SCHEME_READONLY, KUBECTL_DESCRIBE_AUTHORITY } from './kuberesources.virtualfs';
 import { KubernetesResourceLinkProvider } from './kuberesources.linkprovider';
-import { Container, isKubernetesResource, KubernetesCollection, Pod, KubernetesResource } from './kuberesources.objectmodel';
+import { Container, isKubernetesResource, Pod, KubernetesResource } from './kuberesources.objectmodel';
 import { setActiveKubeconfig, getKnownKubeconfigs, addKnownKubeconfig } from './components/config/config';
 import { HelmDocumentSymbolProvider } from './helm.symbolProvider';
 import { HelmBlockMatchingProvider } from './helm.blockMatchingProvider';
@@ -78,7 +80,7 @@ import { APIBroker } from './api/contract/api';
 import { apiBroker } from './api/implementation/apibroker';
 import { sleep } from './sleep';
 import { CloudExplorer, CloudExplorerTreeNode } from './components/cloudexplorer/cloudexplorer';
-import { mergeToKubeconfig, getKubeconfigPath, KubeconfigPath } from './components/kubectl/kubeconfig';
+import { mergeToKubeconfig, getKubeconfigPath, getKubeconfigFiles, KubeconfigPath } from './components/kubectl/kubeconfig';
 import { PortForwardStatusBarManager } from './components/kubectl/port-forward-ui';
 import { getDefaultImageName } from './image/imageUtils';
 import { getCurrentBuildTool } from './image/imageToolRegistry';
@@ -224,7 +226,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.vsKubernetesAddWatch', (explorerNode: ClusterExplorerNode) => { addWatch(treeProvider, explorerNode); }),
         registerCommand('extension.vsKubernetesDeleteWatch', (explorerNode: ClusterExplorerNode) => { deleteWatch(treeProvider, explorerNode); }),
         registerCommand('extension.vsMinikubeStop', () => minikube.stop()),
-        registerCommand('extension.vsMinikubeStart', () => minikube.start({} as MinikubeOptions)),
+        registerCommand('extension.vsMinikubeStart', () => minikube.start({})),
         registerCommand('extension.vsMinikubeStatus', async () => {
             try {
                 const status = await minikube.status();
@@ -330,7 +332,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
     telemetry.invalidateClusterType(undefined, kubectl);
 
     await azureclusterprovider.init(clusterProviderRegistry, { shell: shell, fs: fs });
-    await minikubeclusterprovider.init(clusterProviderRegistry, { shell: shell, minikube: minikube });
+    await minikubeclusterprovider.init(clusterProviderRegistry, { minikube });
     // On save, refresh the Helm YAML preview.
     vscode.workspace.onDidSaveTextDocument((e: vscode.TextDocument) => {
         const activeTextEditor = vscode.window.activeTextEditor;
@@ -931,15 +933,15 @@ function getWatchDisplayName(node: ClusterExplorerNode): string | undefined {
 }
 
 export async function findAllPods(): Promise<FindPodsResult> {
-    return await findPodsCore('');
+    return await findPodsCore();
 }
 
 async function findPodsByLabel(labelQuery: string): Promise<FindPodsResult> {
-    return await findPodsCore(`-l ${labelQuery}`);
+    return await findPodsCore(labelQuery);
 }
 
-async function findPodsCore(findPodCmdOptions: string): Promise<FindPodsResult> {
-    const podList = await kubectl.asJson<KubernetesCollection<Pod>>(` get pods -o json ${findPodCmdOptions}`);
+async function findPodsCore(selector?: string): Promise<FindPodsResult> {
+    const podList = await listPods(kubectl, selector);
 
     if (failed(podList)) {
         vscode.window.showErrorMessage('Kubectl command failed: ' + podList.error[0]);
@@ -1489,27 +1491,13 @@ async function getContainers(resource: ContainerContainer): Promise<Container[] 
     return undefined;
 }
 
-async function getContainerQuery(resource: ContainerContainer, containerType: string): Promise<Container[] | undefined> {
-    const q = shell.isWindows() ? `'` : `"`;
-    const lit = (l: string) => `{${q}${l}${q}}`;
-    const query = `${lit("NAME\\tIMAGE\\n")}\
-    {range ${resource.containersQueryPath}.${containerType}[*]}{.name}${lit("\\t")}{.image}${lit("\\n")}{end}`;
-    const queryArg = shell.isWindows() ? `"${query}"` : `'${query}'`;
-    let cmd = `get ${resource.kindName} -o jsonpath=${queryArg}`;
-    if (resource.namespace && resource.namespace.length > 0) {
-        cmd += ' --namespace=' + resource.namespace;
-    }
-    const c = await kubectl.asLines(cmd);
+async function getContainerQuery(resource: ContainerContainer, containerType: 'containers' | 'initContainers'): Promise<Container[] | undefined> {
+    const c = await queryContainers(kubectl, resource, containerType);
     if (failed(c)) {
         vscode.window.showErrorMessage("Failed to get containers in resource: " + c.error[0]);
         return undefined;
     }
-    const containersEx = c.result.map((s) => {
-        const bits = s.split('\t');
-        return { name: bits[0] ? bits[0].trim() : '', image: bits[1] ? bits[1].trim() : '', initContainer: containerType === 'initContainers'};
-    });
-
-    return containersEx.filter((c) => c.name !== '');
+    return c.result;
 }
 
 export async function getContainersForResource(resource: ContainerContainer): Promise<Container[] | null> {
@@ -1925,13 +1913,13 @@ const debugAttachKubernetes = async (explorerNode: ClusterExplorerResourceNode) 
 };
 
 async function selectPodKubernetes(): Promise<string | undefined> {
-    const pods =  await kubectlUtils.getResourceAsJson<KubernetesCollection<Pod>>(kubectl, "pods");
-    if (!pods) {
+    const pods = await listPods(kubectl);
+    if (!pods.succeeded) {
         vscode.window.showInformationMessage('Unable to list any pods. No pod found in the current namespace.');
         return;
     }
 
-    const podPickItems = pods.items.map((pod) => {
+    const podPickItems = pods.result.items.map((pod) => {
         return {
             label: `${pod.metadata.name} (on ${pod.spec.nodeName})`,
             name: pod.metadata.name
@@ -1996,10 +1984,16 @@ const doDebug = async (name: string, image: string, cmd: string) => {
     vscode.window.showInformationMessage('Debug pod running as: ' + podName);
 
     waitForRunningPod(podName, async () => {
-        const pfer = await kubectl.invokeCommand(` port-forward ${podName} 5858:5858 8000:8000`);
-        const pfsucc = await kubectl.reportResult(pfer, {});
-
-        if (!pfsucc) {
+        const pfer = await kubectl.spawnCommandArgs(['port-forward', `pod/${podName}`, '5858:5858', '8000:8000']);
+        if (pfer.resultKind !== 'exec-child-process-started') {
+            await kubectl.reportFailure(pfer, { whatFailed: 'Failed to forward debug ports' });
+            return;
+        }
+        const forwarding = pfer.childProcess;
+        try {
+            await waitForPortForward(forwarding, ['5858:5858', '8000:8000']);
+        } catch (error) {
+            vscode.window.showErrorMessage(String(error));
             return;
         }
 
@@ -2012,10 +2006,15 @@ const doDebug = async (name: string, image: string, cmd: string) => {
             remoteRoot: '/'
         };
 
+        const cleanup = registerDebugSessionCleanup(debugConfiguration, () => { forwarding.kill(); });
         vscode.debug.startDebugging(
             undefined,
             debugConfiguration
-        ).then(() => {
+        ).then((started) => {
+            if (!started) {
+                cleanup();
+                return;
+            }
             vscode.window.showInformationMessage('Debug session established', 'Expose Service').then((opt) => {
                 if (opt !== 'Expose Service') {
                     return;
@@ -2041,29 +2040,19 @@ const doDebug = async (name: string, image: string, cmd: string) => {
                 });
             },
             (err) => vscode.window.showErrorMessage(`Error getting port info: ${err}`));
-        }, (err) => vscode.window.showErrorMessage(`Error getting expose info: ${err.message}`));
+        }, (err) => {
+            cleanup();
+            vscode.window.showErrorMessage(`Error getting expose info: ${err.message}`);
+        });
     });
 };
 
 const waitForRunningPod = (name: string, callback: () => void) => {
-    kubectl.invokeCommandThen(` get pods ${name} -o jsonpath --template="{.status.phase}"`,
-        async (er) => {
-            const succ = await kubectl.reportResult(er, {});
-            if (!succ) {
-                return;
-            }
-
-            if (succ.stdout === 'Running') {
-                callback();
-                return;
-            }
-
-            setTimeout(() => waitForRunningPod(name, callback), 1000);
-        });
+    kubectlUtils.waitForRunningPod(kubectl, name).then(callback).catch((error) => vscode.window.showErrorMessage(String(error)));
 };
 
 function exists(kind: string, name: string, handler: (exists: boolean) => void) {
-    kubectl.invokeCommandThen(`get ${kind} ${name}`, (er) => {
+    kubectl.invokeCommandArgs(['get', `${kind}/${name}`]).then((er) => {
         handler(er.resultKind === 'exec-succeeded');
     });
 }
@@ -2101,11 +2090,11 @@ function removeDebugKubernetes() {
                 }
 
                 if (service) {
-                    kubectl.invokeCommandThen('delete service ' + deploymentName, (er) => kubectl.reportResult(er, {}));
+                    kubectl.invokeCommandArgs(['delete', `service/${deploymentName}`]).then((er) => kubectl.reportResult(er, {}));
                 }
 
                 if (deployment) {
-                    kubectl.invokeCommandThen('delete deployment ' + deploymentName, (er) => kubectl.reportResult(er, {}));
+                    kubectl.invokeCommandArgs(['delete', `deployment/${deploymentName}`]).then((er) => kubectl.reportResult(er, {}));
                 }
             },
             (err) => vscode.window.showErrorMessage(`Error getting confirmation of delete: ${err}`));
@@ -2247,10 +2236,7 @@ async function useKubeconfigKubernetes(kubeconfig?: string): Promise<void> {
 async function validateKubeconfigPath() {
     // kubeconfig existence check
     const kc = getKubeconfigPath();
-    const p = kc.pathType === 'host' ? kc.hostPath : kc.wslPath;
-    // add awareness of multiple kubeconfigs
-    const listSep = path.delimiter; // ';' on Windows, ':' on Linux
-    const paths = p.split(listSep);
+    const paths = getKubeconfigFiles(kc);
     for (const path of paths) {
         let exists: boolean;
         if (kc.pathType === 'host') {
@@ -2258,7 +2244,7 @@ async function validateKubeconfigPath() {
         } else {
         // on WSL, shell out to test if the file exists
             try {
-                execFileSync('wsl.exe', ['test', '-e', path], { stdio: 'ignore' });
+                execFileSync('wsl.exe', ['--exec', 'test', '-e', path], { stdio: 'ignore' });
                 exists = true;
             } catch {
                 exists = false;
