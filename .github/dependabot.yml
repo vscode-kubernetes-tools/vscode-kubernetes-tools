@@ -15,6 +15,14 @@ updates:
       default-days: 7
     groups:
       npm-minor-and-patch:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+      npm-security-minor-and-patch:
+        applies-to: security-updates
         patterns:
           - "*"
         update-types:
@@ -31,6 +39,14 @@ updates:
       default-days: 7
     groups:
       github-actions-minor-and-patch:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+      github-actions-security-minor-and-patch:
+        applies-to: security-updates
         patterns:
           - "*"
         update-types:
