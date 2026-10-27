@@ -9,8 +9,10 @@ updates:
     directory: "/" # Location of package manifests
     schedule:
       interval: "cron"
-      cronjob: "0 9 1,15 * *"
+      cronjob: "0 9 1,16 * *"
       timezone: "Etc/UTC"
+    cooldown:
+      default-days: 7
     groups:
       npm-minor-and-patch:
         patterns:
@@ -23,8 +25,10 @@ updates:
     directory: "/"
     schedule:
       interval: "cron"
-      cronjob: "0 9 1,15 * *"
+      cronjob: "0 9 1,16 * *"
       timezone: "Etc/UTC"
+    cooldown:
+      default-days: 7
     groups:
       github-actions-minor-and-patch:
         patterns:
