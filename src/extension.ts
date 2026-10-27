@@ -82,7 +82,7 @@ import { APIBroker } from './api/contract/api';
 import { apiBroker } from './api/implementation/apibroker';
 import { sleep } from './sleep';
 import { CloudExplorer, CloudExplorerTreeNode } from './components/cloudexplorer/cloudexplorer';
-import { mergeToKubeconfig, getKubeconfigPath, KubeconfigPath } from './components/kubectl/kubeconfig';
+import { mergeToKubeconfig, getKubeconfigPath, getKubeconfigFiles, KubeconfigPath } from './components/kubectl/kubeconfig';
 import { PortForwardStatusBarManager } from './components/kubectl/port-forward-ui';
 import { getBuildCommand, getPushCommand } from './image/imageUtils';
 import { getImageBuildTool } from './components/config/config';
@@ -2266,10 +2266,7 @@ async function useKubeconfigKubernetes(kubeconfig?: string): Promise<void> {
 async function validateKubeconfigPath() {
     // kubeconfig existence check
     const kc = getKubeconfigPath();
-    const p = kc.pathType === 'host' ? kc.hostPath : kc.wslPath;
-    // add awareness of multiple kubeconfigs
-    const listSep = path.delimiter; // ';' on Windows, ':' on Linux
-    const paths = p.split(listSep);
+    const paths = getKubeconfigFiles(kc);
     for (const path of paths) {
         let exists: boolean;
         if (kc.pathType === 'host') {
@@ -2277,7 +2274,7 @@ async function validateKubeconfigPath() {
         } else {
         // on WSL, shell out to test if the file exists
             try {
-                execFileSync('wsl.exe', ['test', '-e', path], { stdio: 'ignore' });
+                execFileSync('wsl.exe', ['--exec', 'test', '-e', path], { stdio: 'ignore' });
                 exists = true;
             } catch {
                 exists = false;
