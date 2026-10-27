@@ -204,6 +204,48 @@ suite('Image tool command security', () => {
         fixture.remove();
     });
 
+    test('resolves inherited Docker config against the image build directory', async () => {
+        sandbox.stub(config, 'getUseWsl').returns(false);
+        sandbox.stub(workspace, 'workspaceFolders').value(undefined);
+        const fixture = executableFixture('docker');
+        sandbox.stub(shell, 'execOpts').returns({
+            cwd: process.cwd(),
+            env: { PATH: fixture.bin, DOCKER_CONFIG: '.' },
+        });
+        sandbox.stub(shell, 'isWindows').returns(process.platform === 'win32');
+        const execute = sandbox.stub(processApi, 'executeCommand').resolves({ code: 0, stdout: '', stderr: '' });
+
+        const tool = await resolveImageTool('Docker', { cwd: fixture.cwd });
+        assert.ok(tool);
+        await tool.execute(tool.pushArgs('team/app:tag'));
+        const environment = execute.firstCall.args[0].env!;
+        assert.strictEqual(Object.keys(environment).some((key) => key.toLowerCase() === 'docker_config'), false);
+        fixture.remove();
+    });
+
+    test('normalizes inherited Docker config outside the image workspace', async () => {
+        sandbox.stub(config, 'getUseWsl').returns(false);
+        sandbox.stub(workspace, 'workspaceFolders').value(undefined);
+        const fixture = executableFixture('docker');
+        const configDirectory = path.join(path.dirname(fixture.cwd), 'docker-config');
+        nativeFs.mkdirSync(configDirectory);
+        sandbox.stub(shell, 'execOpts').returns({
+            cwd: process.cwd(),
+            env: { PATH: fixture.bin, DOCKER_CONFIG: '../docker-config' },
+        });
+        sandbox.stub(shell, 'isWindows').returns(process.platform === 'win32');
+        const execute = sandbox.stub(processApi, 'executeCommand').resolves({ code: 0, stdout: '', stderr: '' });
+
+        const tool = await resolveImageTool('Docker', { cwd: fixture.cwd });
+        assert.ok(tool);
+        await tool.execute(tool.pushArgs('team/app:tag'));
+        const environment = execute.firstCall.args[0].env!;
+        const configKey = Object.keys(environment).find((key) => key.toLowerCase() === 'docker_config');
+        assert.ok(configKey);
+        assert.strictEqual(environment[configKey], configDirectory);
+        fixture.remove();
+    });
+
     test('uses exact Docker API version argv and omits invalid output', async () => {
         sandbox.stub(config, 'getUseWsl').returns(false);
         sandbox.stub(workspace, 'workspaceFolders').value(undefined);
@@ -249,13 +291,24 @@ suite('Image tool command security', () => {
     });
 
     test('classifies registry-port images as remotely pullable', async () => {
-        const invokeCommand = sandbox.stub().resolves({ resultKind: 'exec-succeeded', stdout: 'created' });
-        const kubectl = { invokeCommand } as unknown as Kubectl;
+        const invokeCommandArgs = sandbox.stub().resolves({ resultKind: 'exec-succeeded', stdout: 'created' });
+        const kubectl = { invokeCommandArgs } as unknown as Kubectl;
 
         await runAsDeployment(kubectl, 'app-debug', 'localhost:5000/team/app:tag', [], {});
-        const command = invokeCommand.firstCall.args[0] as string;
-        assert.ok(command.includes('--image=localhost:5000/team/app:tag'));
-        assert.ok(!command.includes('--image-pull-policy=Never'));
+        sinon.assert.calledOnceWithExactly(invokeCommandArgs, [
+            'run', 'app-debug', '--image=localhost:5000/team/app:tag',
+        ]);
+    });
+
+    test('rejects invalid images before deploying them', async () => {
+        const invokeCommandArgs = sandbox.stub();
+        const kubectl = { invokeCommandArgs } as unknown as Kubectl;
+
+        await assert.rejects(
+            () => runAsDeployment(kubectl, 'app-debug', 'team/app:tag;$(marker)', [], {}),
+            /Invalid tagged container image/
+        );
+        sinon.assert.notCalled(invokeCommandArgs);
     });
 });
 

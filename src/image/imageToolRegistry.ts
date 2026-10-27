@@ -115,7 +115,7 @@ function executionContext(options: ImageToolExecutionOptions): ImageExecutionCon
         }
         hostEnv[key] = value;
     }
-    const env = sanitiseExecutionEnvironment(hostEnv, workspaceRoots, process.platform === 'win32');
+    const env = sanitiseExecutionEnvironment(hostEnv, cwd, workspaceRoots, process.platform === 'win32');
     return {
         cwd,
         env,
@@ -216,6 +216,7 @@ function firstExecutableOnPath(name: string, environment: NodeJS.ProcessEnv, win
 
 function sanitiseExecutionEnvironment(
     environment: NodeJS.ProcessEnv,
+    cwd: string,
     workspaceRoots: readonly string[],
     windows: boolean
 ): NodeJS.ProcessEnv {
@@ -234,9 +235,14 @@ function sanitiseExecutionEnvironment(
         ).join(path.delimiter);
     }
     for (const key of Object.keys(result)) {
-        if (key.toLowerCase() === 'docker_config' && result[key] &&
-            workspaceRoots.some((root) => isWorkspacePathEntry(root, result[key]!))) {
-            delete result[key];
+        const value = result[key];
+        if (key.toLowerCase() === 'docker_config' && value) {
+            const configPath = path.isAbsolute(value) ? value : path.resolve(cwd, value);
+            if (workspaceRoots.some((root) => isWorkspacePathEntry(root, configPath))) {
+                delete result[key];
+            } else {
+                result[key] = configPath;
+            }
         }
     }
     return result;
