@@ -9,9 +9,10 @@ import { parseLineOutput } from './outputUtils';
 import * as compatibility from './components/kubectl/compatibility';
 import { getToolPath, affectsUs, getUseWsl, KubectlVersioning, suppressKubectlNotFound } from './components/config/config';
 import { ensureSuitableKubectl } from './components/kubectl/autoversion';
-import { invokeForResult, invokeForResultArgs, ExternalBinary, FindBinaryStatus, ExecResult, ExecSucceeded, discardFailureInteractive, logText, parseJSON, findBinary, showErrorMessageWithInstallPrompt, parseTable, ExecBinNotFound, invokeTracking, FailedExecResult, ParsedExecResult, parseLinedText, BackgroundExecResult, invokeBackground, RunningProcess } from './binutilplusplus';
+import { invokeForResult, invokeForResultArgs, executeForResultArgs, ExternalBinary, FindBinaryStatus, ExecResult, ExecSucceeded, discardFailureInteractive, logText, parseJSON, findBinary, showErrorMessageWithInstallPrompt, parseTable, ExecBinNotFound, invokeTracking, FailedExecResult, ParsedExecResult, parseLinedText, BackgroundExecResult, invokeBackground, RunningProcess } from './binutilplusplus';
 import { updateYAMLSchema } from './yaml-support/yaml-schema';
 import { Dictionary } from './utils/dictionary';
+import { ProcessExecutionOptions, ProcessResult } from './process';
 
 const KUBECTL_OUTPUT_COLUMN_SEPARATOR = /\s\s+/g;
 
@@ -34,6 +35,7 @@ export interface Kubectl {
     ensurePresent(options: EnsurePresentOptions): Promise<boolean>;
     invokeCommand(command: string, stdin?: string): Promise<ExecResult>;
     invokeCommandArgs(args: readonly string[], stdin?: string): Promise<ExecResult>;
+    executeCommandArgs(args: readonly string[], stdin?: string, options?: ProcessExecutionOptions): Promise<ProcessResult>;
     invokeCommandThen<T>(command: string, fn: (execResult: ExecResult) => T): Promise<T>;
     observeCommand(args: string[]): Promise<RunningProcess>;
     spawnCommand(args: string[]): Promise<BackgroundExecResult>;
@@ -81,7 +83,7 @@ interface Context {
     readonly host: Host;
     readonly fs: FS;
     readonly shell: Shell;
-    readonly pathfinder: (() => Promise<string>) | undefined;
+    readonly pathfinder: ((signal?: AbortSignal) => Promise<string>) | undefined;
     binFound: boolean;
     binPath: string;
     readonly binary: ExternalBinary;
@@ -99,7 +101,7 @@ const KUBECTL_BINARY: ExternalBinary = {
 let checkedCompatibility = false;  // We don't want to spam the user (or CPU!) repeatedly running the version check
 
 class KubectlImpl implements Kubectl {
-    constructor(host: Host, fs: FS, shell: Shell, pathfinder: (() => Promise<string>) | undefined, kubectlFound: false /* TODO: this is now safe to remove */) {
+    constructor(host: Host, fs: FS, shell: Shell, pathfinder: ((signal?: AbortSignal) => Promise<string>) | undefined, kubectlFound: false /* TODO: this is now safe to remove */) {
         this.context = {
             host : host,
             fs : fs,
@@ -115,6 +117,7 @@ class KubectlImpl implements Kubectl {
     private readonly context: Context;
     private sharedTerminal: Terminal | null = null;
     private childProcesses: ChildProcess[] = [];
+    private readonly commandCancellation = new AbortController();
 
     checkPresent(errorMessageMode: CheckPresentMessageMode): Promise<boolean> {
         return checkPresent(this.context, errorMessageMode);
@@ -235,6 +238,11 @@ class KubectlImpl implements Kubectl {
         return await invokeForResultArgs(this.context, args, stdin);
     }
 
+    async executeCommandArgs(args: readonly string[], stdin?: string, options: ProcessExecutionOptions = {}): Promise<ProcessResult> {
+        const signal = options.signal ? AbortSignal.any([options.signal, this.commandCancellation.signal]) : this.commandCancellation.signal;
+        return executeForResultArgs(this.context, args, stdin, { ...options, signal });
+    }
+
     async invokeCommandThen<T>(command: string, fn: (execResult: ExecResult) => T): Promise<T> {
         const er = await this.invokeCommand(command);
         const result = fn(er);
@@ -326,6 +334,7 @@ class KubectlImpl implements Kubectl {
     }
 
     dispose() {
+        this.commandCancellation.abort();
         this.childProcesses.forEach((child) => {
             if (!child.killed) {
                 child.kill();
@@ -362,7 +371,7 @@ function createSingleVersion(host: Host, fs: FS, shell: Shell): Kubectl {
 
 function createAutoVersioned(host: Host, fs: FS, shell: Shell): Kubectl {
     const bootstrapper = createSingleVersion(host, fs, shell);
-    const pathfinder = async () => (await ensureSuitableKubectl(bootstrapper, shell, host)) || 'kubectl';
+    const pathfinder = async (signal?: AbortSignal) => (await ensureSuitableKubectl(bootstrapper, shell, host, signal)) || 'kubectl';
     return new KubectlImpl(host, fs, shell, pathfinder, false);
 }
 
