@@ -1,10 +1,9 @@
 import { Kubectl } from "../kubectl";
 import { ExecResult } from "../binutilplusplus";
+import { containerExecArgs } from '../components/kubectl/pod-commands';
 
 async function isBashOnContainer(kubectl: Kubectl, podName: string, podNamespace: string | undefined, containerName: string | undefined): Promise<boolean> {
-    const nsarg = podNamespace ? `--namespace ${podNamespace}` : '';
-    const containerCommand = containerName ? `-c ${containerName}` : '';
-    const result = await kubectl.invokeCommand(`exec ${podName} ${nsarg} ${containerCommand} -- ls -la /bin/bash`);
+    const result = await kubectl.invokeCommandArgs(containerExecArgs(podName, podNamespace, containerName, ['ls', '-la', '/bin/bash']));
     return ExecResult.succeeded(result);
 }
 

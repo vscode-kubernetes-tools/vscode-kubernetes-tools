@@ -9,7 +9,7 @@ import { parseLineOutput } from './outputUtils';
 import * as compatibility from './components/kubectl/compatibility';
 import { getToolPath, affectsUs, getUseWsl, KubectlVersioning, suppressKubectlNotFound } from './components/config/config';
 import { ensureSuitableKubectl } from './components/kubectl/autoversion';
-import { invokeForResult, invokeForResultArgs, ExternalBinary, FindBinaryStatus, ExecResult, ExecSucceeded, discardFailureInteractive, logText, parseJSON, findBinary, showErrorMessageWithInstallPrompt, parseTable, ExecBinNotFound, invokeTracking, FailedExecResult, ParsedExecResult, parseLinedText, BackgroundExecResult, invokeBackground, RunningProcess } from './binutilplusplus';
+import { invokeForResult, invokeForResultArgs, ExternalBinary, FindBinaryStatus, ExecResult, ExecSucceeded, discardFailureInteractive, logText, parseJSON, findBinary, showErrorMessageWithInstallPrompt, parseTable, ExecBinNotFound, invokeTracking, FailedExecResult, ParsedExecResult, parseLinedText, BackgroundExecResult, invokeBackground, RunningProcess, ArgsBackgroundExecResult, invokeBackgroundArgs } from './binutilplusplus';
 import { updateYAMLSchema } from './yaml-support/yaml-schema';
 import { Dictionary } from './utils/dictionary';
 
@@ -37,6 +37,7 @@ export interface Kubectl {
     invokeCommandThen<T>(command: string, fn: (execResult: ExecResult) => T): Promise<T>;
     observeCommand(args: string[]): Promise<RunningProcess>;
     spawnCommand(args: string[]): Promise<BackgroundExecResult>;
+    spawnCommandArgs(args: readonly string[]): Promise<ArgsBackgroundExecResult>;
 
     // transiently shouty
     invokeCommandWithFeedback(command: string, uiOptions: string | LongRunningUIOptions): Promise<ExecResult>;
@@ -115,6 +116,7 @@ class KubectlImpl implements Kubectl {
     private readonly context: Context;
     private sharedTerminal: Terminal | null = null;
     private childProcesses: ChildProcess[] = [];
+    private readonly backgroundCancellation = new AbortController();
 
     checkPresent(errorMessageMode: CheckPresentMessageMode): Promise<boolean> {
         return checkPresent(this.context, errorMessageMode);
@@ -253,6 +255,26 @@ class KubectlImpl implements Kubectl {
         return execResult;
     }
 
+    async spawnCommandArgs(args: readonly string[]): Promise<ArgsBackgroundExecResult> {
+        const result = await invokeBackgroundArgs(this.context, args, this.backgroundCancellation.signal);
+        if (result.resultKind === 'exec-child-process-started') {
+            const child = result.childProcess;
+            if (this.backgroundCancellation.signal.aborted) {
+                if (child.exitCode === null && child.signalCode === null) {
+                    const closed = new Promise<void>((resolve) => child.once('close', () => resolve()));
+                    child.kill();
+                    await closed;
+                }
+                return { resultKind: 'exec-failed', execProgram: result.execProgram, command: result.command, error: 'Command cancelled.' };
+            }
+            this.childProcesses.push(child);
+            child.once('close', () => {
+                this.childProcesses = this.childProcesses.filter((process) => process !== child);
+            });
+        }
+        return result;
+    }
+
     async invokeCommandWithFeedback(command: string, uiOptions: string | LongRunningUIOptions): Promise<ExecResult> {
         return await this.context.host.longRunning(uiOptions, () =>
             this.invokeCommand(command)
@@ -326,6 +348,7 @@ class KubectlImpl implements Kubectl {
     }
 
     dispose() {
+        this.backgroundCancellation.abort();
         this.childProcesses.forEach((child) => {
             if (!child.killed) {
                 child.kill();

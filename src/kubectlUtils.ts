@@ -10,6 +10,7 @@ import { ResourceKind } from "./kuberesources";
 import { isSafeNamespace, isSafeResourceType, listResourceNames, normaliseResourceReadTarget, normaliseResourceTarget } from './components/kubectl/resource-commands';
 import { fileCommandArgs, hostPathToWsl } from './components/kubectl/file-commands';
 import { getUseWsl } from './components/config/config';
+import { listPods } from './components/kubectl/pod-commands';
 import { remoteShellCommandArgs, runImageArgs } from './components/kubectl/workload-commands';
 
 export interface KubectlContext {
@@ -471,7 +472,7 @@ export async function runAsDeployment(kubectl: Kubectl, deploymentName: string, 
  * @return the pod list.
  */
 export async function findPodsByLabel(kubectl: Kubectl, labelQuery: string): Promise<KubernetesCollection<Pod>> {
-    const getResult = await kubectl.asJson<KubernetesCollection<Pod>>(`get pods -o json -l ${labelQuery}`);
+    const getResult = await listPods(kubectl, labelQuery);
     if (failed(getResult)) {
         throw new Error('Kubectl command failed: ' + getResult.error[0]);
     }
@@ -484,18 +485,27 @@ export async function findPodsByLabel(kubectl: Kubectl, labelQuery: string): Pro
  * @param kubectl the kubectl client.
  * @param podName the pod name.
  */
-export async function waitForRunningPod(kubectl: Kubectl, podName: string): Promise<void> {
+export async function waitForRunningPod(kubectl: Kubectl, podName: string, namespace?: string, token?: vscode.CancellationToken): Promise<void> {
     while (true) {
-        const er = await kubectl.invokeCommand(`get pod/${podName} --no-headers`);
+        if (token?.isCancellationRequested) {
+            throw new vscode.CancellationError();
+        }
+        const nsarg = namespace ? [`--namespace=${namespace}`] : [];
+        const er = await kubectl.invokeCommandArgs(['get', `pod/${podName}`, ...nsarg, '--no-headers']);
+        if (token?.isCancellationRequested) {
+            throw new vscode.CancellationError();
+        }
         if (ExecResult.failed(er)) {
             throw new Error(ExecResult.failureMessage(er, { whatFailed: 'Failed to get pod status' }));
         }
-        const status = er.stdout.split(/\s+/)[2];
+        // Pod phase can remain Running while containers are crash-looping.
+        const status = er.stdout.trim().split(/\s+/)[2] || '';
+        const pending = status === 'Pending' || status === 'ContainerCreating' || status.startsWith('Init');
         kubeChannel.showOutput(`pod/${podName} status: ${status}`);
         if (status === "Running") {
             return;
-        } else if (!isTransientPodState(status)) {
-            const logsResult = await kubectl.invokeCommand(`logs pod/${podName}`);
+        } else if (!pending) {
+            const logsResult = await kubectl.invokeCommandArgs(['logs', `pod/${podName}`, ...nsarg]);
             kubeChannel.showOutput(`Failed to start the pod "${podName}". Its status is "${status}".
                 Pod logs:\n${shellMessage(logsResult, "Unable to retrieve logs")}`);
             throw new Error(`Failed to start the pod "${podName}". Its status is "${status}".`);
@@ -503,10 +513,6 @@ export async function waitForRunningPod(kubectl: Kubectl, podName: string): Prom
 
         await sleep(1000);
     }
-}
-
-function isTransientPodState(status: string): boolean {
-    return status === "ContainerCreating" || status === "Pending" || status === "Succeeded" || status.startsWith("Init");
 }
 
 /**
