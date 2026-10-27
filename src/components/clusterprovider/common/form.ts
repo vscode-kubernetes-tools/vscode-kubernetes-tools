@@ -1,6 +1,7 @@
 import { formStyles, styles } from '../../../wizard';
 import { NEXT_FN } from '../../wizard/wizard';
 import { SENDING_STEP_KEY } from '../clusterproviderserver';
+import { escape as htmlEscape } from 'lodash';
 
 // HTML rendering boilerplate
 
@@ -10,7 +11,7 @@ export function propagationFields(previousData: any): string {
     let formFields = "";
     for (const k in previousData) {
         if (DO_NOT_PROPAGATE.indexOf(k) < 0) {
-            formFields = formFields + `<input type='hidden' name='${k}' value='${previousData[k]}' />\n`;
+            formFields += `<input type='hidden' name='${htmlEscape(k)}' value='${htmlEscape(String(previousData[k]))}' />\n`;
         }
     }
     return formFields;
