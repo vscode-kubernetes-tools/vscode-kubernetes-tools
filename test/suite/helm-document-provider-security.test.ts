@@ -82,6 +82,35 @@ suite('Helm document provider security', () => {
         sinon.assert.notCalled(helmExecArgsAsync);
     });
 
+    test('rejects drive-relative local paths through repository providers', async () => {
+        const helmSyntaxVersion = sandbox.stub(helmExec, 'helmSyntaxVersion');
+        const helmExecArgsAsync = sandbox.stub(helmExec, 'helmExecRepositoryArgsAsync');
+        const query = helmChartQuery('D:repo/chart', '1.2.3');
+        const inspectUri = vscode.Uri.from({
+            scheme: helm.INSPECT_CHART_SCHEME,
+            authority: helm.INSPECT_REPO_AUTHORITY,
+            path: '/chart.html',
+            query,
+        });
+        const valuesUri = vscode.Uri.from({
+            scheme: helm.FETCH_VALUES_SCHEME,
+            authority: helm.INSPECT_REPO_AUTHORITY,
+            path: '/values.yaml',
+            query,
+        });
+
+        await assert.rejects(
+            () => new HelmInspectDocumentProvider().provideTextDocumentContent(inspectUri, {} as vscode.CancellationToken),
+            /Invalid Helm chart URI/
+        );
+        await assert.rejects(
+            () => new HelmValuesDocumentProvider().provideTextDocumentContent(valuesUri, {} as vscode.CancellationToken),
+            /Invalid Helm values URI/
+        );
+        sinon.assert.notCalled(helmSyntaxVersion);
+        sinon.assert.notCalled(helmExecArgsAsync);
+    });
+
     test('uses chart inspection for local Inspect Chart requests', async () => {
         const chartDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'helm-inspect-'));
         fs.writeFileSync(path.join(chartDirectory, 'Chart.yaml'), 'apiVersion: v2\nname: sample\nversion: 1.0.0\n');

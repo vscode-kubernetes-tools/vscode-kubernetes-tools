@@ -116,7 +116,7 @@ export function helmFetchedChartDirectoryName(chartReference: string): string | 
 }
 
 export function isExplicitHelmLocalChartReference(chartReference: string): boolean {
-    return path.isAbsolute(chartReference) || path.win32.isAbsolute(chartReference) ||
+    return /^[A-Za-z]:/.test(chartReference) || path.isAbsolute(chartReference) || path.win32.isAbsolute(chartReference) ||
         chartReference.startsWith('./') || chartReference.startsWith('../') ||
         chartReference.startsWith('.\\') || chartReference.startsWith('..\\');
 }

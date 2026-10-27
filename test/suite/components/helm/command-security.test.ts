@@ -110,7 +110,10 @@ suite('Helm command security', () => {
         assert.strictEqual(isExplicitHelmLocalChartReference('./charts/app'), true);
         assert.strictEqual(isExplicitHelmLocalChartReference('/tmp/charts/app'), true);
         assert.strictEqual(isExplicitHelmLocalChartReference('C:\\charts\\app'), true);
+        assert.strictEqual(isExplicitHelmLocalChartReference('D:repo/chart'), true);
+        assert.strictEqual(isExplicitHelmLocalChartReference('d:..\\chart'), true);
         assert.strictEqual(isExplicitHelmLocalChartReference('stable/app'), false);
+        assert.strictEqual(isExplicitHelmLocalChartReference('team:prod/chart'), false);
         assert.strictEqual(isExplicitHelmLocalChartReference('oci://registry.test/charts/app'), false);
     });
 
@@ -128,7 +131,12 @@ suite('Helm command security', () => {
             chart: 'repo/chart',
             version: 'v1.2',
         });
+        assert.deepStrictEqual(parseHelmRepositoryChartQuery(helmChartQuery('team:prod/chart', 'v1.2')), {
+            chart: 'team:prod/chart',
+            version: 'v1.2',
+        });
         assert.strictEqual(parseHelmRepositoryChartQuery(helmChartQuery('/tmp/chart', '1.2.3')), undefined);
+        assert.strictEqual(parseHelmRepositoryChartQuery(helmChartQuery('D:repo/chart', '1.2.3')), undefined);
         assert.strictEqual(parseHelmRepositoryChartQuery(helmChartQuery('oci://registry/chart', '1.2.3')), undefined);
         assert.strictEqual(parseHelmRepositoryChartQuery(helmChartQuery('repo/chart', '^1.2')), undefined);
     });
@@ -151,6 +159,8 @@ suite('Helm command security', () => {
         assert.strictEqual(isSafeHelmRepositoryChartReference('myrepo/chart', 'MyRepo', true), true);
         assert.strictEqual(isSafeHelmRepositoryChartReference('repo/../chart', 'repo', false), false);
         assert.strictEqual(isSafeHelmRepositoryChartReference('C:/work/chart', 'C:', false), false);
+        assert.strictEqual(isSafeHelmRepositoryChartReference('D:repo/chart', 'D:repo', false), false);
+        assert.strictEqual(isSafeHelmRepositoryChartReference('team:prod/chart', 'team:prod', false), true);
         assert.strictEqual(isSafeHelmRepositoryName('..'), false);
         assert.strictEqual(isSafeHelmRepositoryName('.hidden'), false);
         assert.strictEqual(isSafeHelmRepositoryName('foo\\bar'), false);
