@@ -28,6 +28,15 @@ import * as yaml from 'js-yaml';
 // all on a case-sensitive filesystem.
 const KUSTOMIZATION_GLOB = '**/{kustomization.yaml,kustomization.yml,Kustomization}';
 
+// Bounds on what one kustomization may cost us. Every one of these is far beyond what a
+// real kustomization reaches -- they exist so that a crafted file cannot stall the
+// extension host or inflate a small input into a large retained set. Exceeding a limit
+// drops the entry rather than truncating: a half-read kustomization would silently
+// un-exclude the patches it did not get to, and over-reporting beats hiding.
+const MAX_KUSTOMIZATION_BYTES = 1024 * 1024;
+const MAX_PATCH_ENTRIES = 2048;
+const MAX_PATH_LENGTH = 4096;
+
 // Patch paths keyed by the kustomization that declared them, so that editing one
 // kustomization only re-indexes that file.
 const patchesByKustomization = new Map<string, readonly string[]>();
@@ -229,6 +238,9 @@ export function parseKustomization(text: string): unknown {
 async function readPatchPaths(uri: vscode.Uri): Promise<readonly string[] | undefined> {
     try {
         const bytes = await vscode.workspace.fs.readFile(uri);
+        if (bytes.byteLength > MAX_KUSTOMIZATION_BYTES) {
+            return undefined;  // treated as unreadable: see the note on the limits
+        }
         const parsed = parseKustomization(Buffer.from(bytes).toString('utf8'));
         return patchFilePaths(parsed, path.dirname(uri.fsPath));
     } catch {
@@ -281,16 +293,25 @@ export function patchFilePaths(kustomization: unknown, containingDirectory: stri
     }
 
     const k = kustomization as Record<string, unknown>;
-    const paths: string[] = [];
+    // A set, not a list: the same patch named twice costs us nothing twice, and the cap
+    // below should count what we retain rather than what was written.
+    const paths = new Set<string>();
 
     const addFile = (entry: unknown) => {
-        if (typeof entry !== 'string' || entry.length === 0) {
+        if (typeof entry !== 'string' || entry.length === 0 || entry.length > MAX_PATH_LENGTH) {
+            return;
+        }
+        if (paths.size >= MAX_PATCH_ENTRIES) {
             return;
         }
         if (isInlinePatch(entry) || isRemoteReference(entry)) {
             return;
         }
-        paths.push(normalisePath(path.resolve(containingDirectory, entry)));
+        const resolved = path.resolve(containingDirectory, entry);
+        if (resolved.length > MAX_PATH_LENGTH) {
+            return;
+        }
+        paths.add(normalisePath(resolved));
     };
 
     // patches: entries are { path } for a file or { patch } for an inline patch.
@@ -312,7 +333,7 @@ export function patchFilePaths(kustomization: unknown, containingDirectory: stri
         addFile(entry);
     }
 
-    return paths;
+    return Array.from(paths);
 }
 
 function asArray(value: unknown): readonly unknown[] {

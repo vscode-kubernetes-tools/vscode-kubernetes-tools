@@ -145,6 +145,40 @@ patchesJson6902:
 
     });
 
+    // The index reads files nobody opened, so a crafted kustomization must not be able to
+    // stall activation or inflate a small input into a large retained set.
+    suite("extraction limits", () => {
+
+        test("...deduplicates a path named more than once", () => {
+            const paths = pathsIn(`
+patches:
+  - path: patch.yaml
+  - path: patch.yaml
+patchesStrategicMerge:
+  - patch.yaml
+`);
+            assert.deepStrictEqual([resolved('patch.yaml')], [...paths]);
+        });
+
+        test("...caps the number of entries it retains", () => {
+            const entries = Array.from({ length: 5000 }, (_, i) => `  - path: patch-${i}.yaml`).join('\n');
+            const paths = pathsIn(`patches:\n${entries}\n`);
+            assert.strictEqual(2048, paths.length);
+        });
+
+        test("...ignores an entry longer than the path limit", () => {
+            const paths = pathsIn(`patches:\n  - path: ${'a'.repeat(5000)}.yaml\n`);
+            assert.deepStrictEqual([], [...paths]);
+        });
+
+        test("...ignores an entry whose resolved path exceeds the limit", () => {
+            const deep = Array.from({ length: 300 }, () => 'nested-directory-name').join('/');
+            const paths = pathsIn(`patches:\n  - path: ${deep}/patch.yaml\n`);
+            assert.deepStrictEqual([], [...paths]);
+        });
+
+    });
+
     // The index parses workspace files nobody opened, so the schema it uses is a security
     // boundary, not a detail. CORE_SCHEMA carries neither merge keys nor !!omap, both of
     // which have been the subject of CPU-exhaustion advisories against js-yaml.
