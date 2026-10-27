@@ -82,6 +82,11 @@ function coversAKnownKustomization(uri: vscode.Uri): boolean {
 // Whether `candidate` is `container` itself or sits somewhere beneath it. Compared a
 // segment at a time rather than as raw strings, so that /work/overlay is not taken to
 // contain /work/overlay-2. Exported for testing.
+//
+// This is lexical: a symlink inside the root pointing outside it still resolves outside.
+// Closing that means a filesystem call per entry, and isKustomizePatch has to stay
+// synchronous for vscode-yaml's contributor API, so it would have to happen during
+// indexing.
 export function isAtOrUnder(candidate: string, container: string): boolean {
     if (candidate === container) {
         return true;
@@ -307,8 +312,20 @@ export function patchFilePaths(kustomization: unknown, containingDirectory: stri
         if (isInlinePatch(entry) || isRemoteReference(entry)) {
             return;
         }
+        if (path.isAbsolute(entry)) {
+            return;  // see the note below
+        }
         const resolved = path.resolve(containingDirectory, entry);
         if (resolved.length > MAX_PATH_LENGTH) {
+            return;
+        }
+        // Kustomize loads patches under LoadRestrictionsRootOnly by default: a patch
+        // target outside the kustomization's own directory is rejected. Match that. The
+        // index is a suppression set, so without this a kustomization could turn off
+        // schema and lint diagnostics for any open document on the machine -- an absolute
+        // entry because path.resolve returns it unchanged, a `../` entry by walking out,
+        // and across workspace folders either way, since the set is global.
+        if (!isAtOrUnder(normalisePath(resolved), normalisePath(containingDirectory))) {
             return;
         }
         paths.add(normalisePath(resolved));

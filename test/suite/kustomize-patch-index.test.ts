@@ -57,9 +57,9 @@ patchesJson6902:
         test("...resolves relative to the kustomization directory", () => {
             const paths = pathsIn(`
 patches:
-  - path: ../shared/patch-resources.yaml
+  - path: components/patch-resources.yaml
 `);
-            assert.deepStrictEqual([resolved('..', 'shared', 'patch-resources.yaml')], [...paths]);
+            assert.deepStrictEqual([resolved('components', 'patch-resources.yaml')], [...paths]);
         });
 
         test("...ignores resources, which are complete objects", () => {
@@ -141,6 +141,41 @@ patchesJson6902:
       kind: Deployment
 `);
             assert.deepStrictEqual([], [...paths]);
+        });
+
+    });
+
+    // Kustomize loads patches under LoadRestrictionsRootOnly by default and rejects a
+    // target outside the kustomization's own directory. The index has to match that: it is
+    // a suppression set, so a target that escapes would let one kustomization turn off
+    // schema and lint diagnostics for an unrelated open document, including one in another
+    // workspace folder, since the set is global.
+    suite("load restrictions", () => {
+
+        test("...ignores a patch that walks out of the kustomization directory", () => {
+            assert.deepStrictEqual([], [...pathsIn('patches:\n  - path: ../shared/patch.yaml\n')]);
+        });
+
+        test("...ignores an absolute patch path", () => {
+            const outside = path.resolve(path.sep, 'elsewhere', 'patch.yaml');
+            assert.deepStrictEqual([], [...pathsIn(`patches:\n  - path: ${outside}\n`)]);
+        });
+
+        test("...ignores a deprecated patchesStrategicMerge entry that walks out", () => {
+            assert.deepStrictEqual([], [...pathsIn('patchesStrategicMerge:\n  - ../../far/patch.yaml\n')]);
+        });
+
+        test("...ignores a sibling directory sharing a name prefix", () => {
+            assert.deepStrictEqual([], [...pathsIn('patches:\n  - path: ../local-2/patch.yaml\n')]);
+        });
+
+        test("...keeps a patch nested below the kustomization directory", () => {
+            const paths = pathsIn('patches:\n  - path: nested/deeper/patch.yaml\n');
+            assert.deepStrictEqual([resolved('nested', 'deeper', 'patch.yaml')], [...paths]);
+        });
+
+        test("...keeps a patch that walks out and back into the same directory", () => {
+            assert.deepStrictEqual([resolved('patch.yaml')], [...pathsIn('patches:\n  - path: ../local/patch.yaml\n')]);
         });
 
     });
