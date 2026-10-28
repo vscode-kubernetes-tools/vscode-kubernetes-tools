@@ -22,7 +22,7 @@ suite("Installation layout", () => {
 
         test("...arm and darwin is amd64", async () => {
             sandbox.stub(process, 'arch').value('arm');
-            const platform = await platformArch('darwin');
+            const platform = await platformArch('darwin', 'x86_64');
             assert.strictEqual(platform, 'amd64');
         });
 
@@ -40,7 +40,7 @@ suite("Installation layout", () => {
 
         test("...arm64 and darwin is arm64", async () => {
             sandbox.stub(process, 'arch').value('arm64');
-            const platform = await platformArch('darwin');
+            const platform = await platformArch('darwin', 'arm64');
             assert.strictEqual(platform, 'arm64');
         });
 
@@ -58,7 +58,7 @@ suite("Installation layout", () => {
 
         test("...amd64 and darwin is amd64", async () => {
             sandbox.stub(process, 'arch').value('amd64');
-            const platform = await platformArch('darwin');
+            const platform = await platformArch('darwin', 'x86_64');
             assert.strictEqual(platform, 'amd64');
         });
 
@@ -66,6 +66,11 @@ suite("Installation layout", () => {
             sandbox.stub(process, 'arch').value('amd64');
             const platform = await platformArch('windows');
             assert.strictEqual(platform, 'amd64');
+        });
+
+        test("...Rosetta uses the Darwin kernel architecture", () => {
+            sandbox.stub(process, 'arch').value('x64');
+            assert.strictEqual(platformArch('darwin', 'arm64'), 'arm64');
         });
 
     });

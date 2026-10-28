@@ -12,6 +12,7 @@ import { ensureSuitableKubectl } from './components/kubectl/autoversion';
 import { invokeForResult, invokeForResultArgs, ExternalBinary, FindBinaryStatus, ExecResult, ExecSucceeded, discardFailureInteractive, logText, parseJSON, findBinary, showErrorMessageWithInstallPrompt, parseTable, ExecBinNotFound, invokeTracking, FailedExecResult, ParsedExecResult, parseLinedText, BackgroundExecResult, invokeBackground, RunningProcess, ArgsBackgroundExecResult, invokeBackgroundArgs } from './binutilplusplus';
 import { updateYAMLSchema } from './yaml-support/yaml-schema';
 import { Dictionary } from './utils/dictionary';
+import { getWindowsSystemExecutable } from './wsl';
 
 const KUBECTL_OUTPUT_COLUMN_SEPARATOR = /\s\s+/g;
 
@@ -486,8 +487,13 @@ async function runAsTerminal(context: Context, command: readonly string[], termi
         let cmd = [...command];
         if (getUseWsl()) {
             cmd = ['--exec', execPath, ...cmd];
-            // Note VS Code is picky here. It requires the '.exe' to work
-            execPath = 'wsl.exe';
+            const execOpts = context.shell.execOpts();
+            const wsl = getWindowsSystemExecutable('wsl.exe', execOpts.env || process.env);
+            if (!wsl) {
+                await context.host.showErrorMessage('Unable to find the Windows system WSL executable.');
+                return undefined;
+            }
+            execPath = wsl;
         } else if (binutil.isWindowsCommandScript(context.shell, execPath)) {
             await context.host.showErrorMessage(`Cannot launch configured kubectl command script '${execPath}' without a shell. Configure a kubectl.exe path instead.`);
             return undefined;
@@ -571,6 +577,7 @@ function killProcessCallback(): (process: ChildProcess) => void {
 }
 
 async function path(context: Context): Promise<string> {
-    const bin = await unquotedBaseKubectlPath(context);
+    const bin = context.pathfinder ? await context.pathfinder() :
+        (context.binFound ? context.binPath : await unquotedBaseKubectlPath(context));
     return binutil.execPath(context.shell, bin);
 }

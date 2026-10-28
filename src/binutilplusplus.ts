@@ -1,5 +1,5 @@
 import * as rx from 'rxjs';
-import { ChildProcess, spawn as spawnChildProcess } from "child_process";
+import { ChildProcess } from "child_process";
 import { Host } from './host';
 import { FS } from './fs';
 import { Shell } from './shell';
@@ -9,7 +9,8 @@ import { parseLineOutput } from './outputUtils';
 import { Dictionary } from './utils/dictionary';
 import { monitorForAuthPrompt } from './shell';
 import { CommandInvocation, executeCommand, executeCommandPiped, renderArgsForDisplay, snapPipeInvocation, spawnCommand } from './process';
-import { execPath, isWindowsCommandScript } from './binutil';
+import { execPath, findBinaryPath, isWindowsCommandScript, wslBinaryPathExists } from './binutil';
+import { getWindowsSystemExecutable } from './wsl';
 
 export interface ExternalBinary {
     readonly displayName: string;
@@ -166,7 +167,17 @@ async function unquotedBaseBinPath(context: Context): Promise<string> {
         return await context.pathfinder();
     }
     if (context.status && context.status.found && context.status.how === 'config') {
-        return context.status.where!;
+        return context.status.where;
+    }
+    return context.binary.binBaseName;
+}
+
+async function executablePath(context: Context): Promise<string> {
+    if (context.pathfinder) {
+        return await context.pathfinder();
+    }
+    if (context.status && context.status.found && context.status.how !== 'pathfinder') {
+        return context.status.where;
     }
     return context.binary.binBaseName;
 }
@@ -180,14 +191,18 @@ async function baseBinPath(context: Context): Promise<string> {
 }
 
 async function commandInvocation(context: Context, args: readonly string[]): Promise<CommandInvocation> {
-    const executable = await unquotedBaseBinPath(context);
+    const executable = await executablePath(context);
     if (isWindowsCommandScript(context.shell, executable)) {
         throw new Error(`Configured ${context.binary.displayName} path '${executable}' is a command script; configure an .exe path for shell-free execution.`);
     }
     const execOpts = context.shell.execOpts();
     if (getUseWsl()) {
+        const wsl = getWindowsSystemExecutable('wsl.exe', execOpts.env || process.env);
+        if (!wsl) {
+            throw new Error('Unable to find the Windows system WSL executable.');
+        }
         return {
-            executable: 'wsl.exe',
+            executable: wsl,
             args: ['--exec', executable, ...args],
             cwd: execOpts.cwd,
             env: execOpts.env,
@@ -225,8 +240,7 @@ async function findBinaryCore(context: Context): Promise<FindBinaryStatus> {
     if (configuredPath) {
         // Does the file exist?
         if (getUseWsl()) {
-            const sr = await context.shell.exec(`ls ${configuredPath}`);
-            const found = (!!sr && sr.code === 0);
+            const found = await wslBinaryPathExists(context.shell, configuredPath);
             return { found, how: 'config', where: configuredPath };
         } else {
             const found = await context.fs.existsAsync(configuredPath);
@@ -234,23 +248,9 @@ async function findBinaryCore(context: Context): Promise<FindBinaryStatus> {
         }
     }
 
-    // No config so look on the system PATH
-    const cmd = context.shell.isWindows() ? `where.exe ${context.binary.binBaseName}.exe` : `which ${context.binary.binBaseName}`;
-
-    const opts = {
-        async: true,
-        env: {
-            HOME: process.env.HOME,
-            PATH: process.env.PATH
-        }
-    };
-
-    const execResult = await context.shell.execCore(cmd, opts);
-    if (execResult.code !== 0) {
-        return { found: false, how: 'path' };
-    }
-
-    return { found: true, how: 'path', where: execResult.stdout };
+    // No config so look on the system PATH.
+    const resolvedPath = await findBinaryPath(context.shell, context.binary.binBaseName);
+    return resolvedPath ? { found: true, how: 'path', where: resolvedPath } : { found: false, how: 'path' };
 }
 
 // This is silent - building block for experiences that need an input->output invoke
@@ -290,7 +290,7 @@ export async function invokeForResultArgs(context: Context, args: readonly strin
     try {
         const invocation = await commandInvocation(context, args);
         if (getEnableSnapFlag() && context.shell.isUnix()) {
-            const destination = snapPipeInvocation(invocation, getUseWsl());
+            const destination = snapPipeInvocation(invocation, getUseWsl(), invocation.executable);
             const result = await executeCommandPiped(invocation, destination, stdin, monitorForAuthPrompt);
             if (result.code === 0) {
                 return { resultKind: 'exec-succeeded', execProgram: context.binary, command, stdout: result.stdout };
@@ -320,12 +320,12 @@ export async function invokeTracking(context: Context, args: string[]): Promise<
     let disposer: () => void;
 
     if (fbr.found) {
-        const bin = await baseBinPath(context);
-        const execOpts = context.shell.execOpts();
+        const invocation = await commandInvocation(context, args);
 
         let pending = '';
-        const childProcess = spawnChildProcess(bin, args, execOpts);
-        childProcess.stdout.on('data', (chunk: Buffer) => {
+        const childProcess = spawnCommand(invocation);
+        monitorForAuthPrompt(childProcess);
+        childProcess.stdout?.on('data', (chunk: Buffer) => {
             const chunkText = chunk.toString('utf8');
             const todo = pending + chunkText;
             const lines = todo.split('\n').map((l) => l.trim());
@@ -342,7 +342,7 @@ export async function invokeTracking(context: Context, args: string[]): Promise<
             if (code === 0) {
                 linesSubject.complete();
             } else {
-                const message = `Process "${bin}" exited with code ${code}${signal ? ` (signal: ${signal})` : ''}`;
+                const message = `Process "${invocation.executable}" exited with code ${code}${signal ? ` (signal: ${signal})` : ''}`;
                 linesSubject.error(new Error(message));
             }
         });
@@ -366,9 +366,8 @@ export async function invokeBackground(context: Context, args: string[]): Promis
         return { resultKind: 'exec-bin-not-found', execProgram: context.binary, command: args.join(' '), findResult: fbr };
     }
 
-    const bin = await baseBinPath(context);
-
-    const childProcess = spawnChildProcess(bin, args, context.shell.execOpts());
+    const childProcess = spawnCommand(await commandInvocation(context, args));
+    monitorForAuthPrompt(childProcess);
     return { resultKind: 'exec-child-process-started', execProgram: context.binary, command: args.join(' '), childProcess };
 }
 

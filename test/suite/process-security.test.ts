@@ -69,12 +69,12 @@ suite('Process security', () => {
 
     test('keeps the Snap pipeline destination inside WSL', () => {
         assert.deepStrictEqual(snapPipeInvocation({
-            executable: 'wsl.exe',
+            executable: 'C:\\Windows\\System32\\wsl.exe',
             args: ['--exec', '/usr/bin/kubectl', 'get', 'pods'],
             cwd: '/workspace',
             env: { PATH: '/usr/bin' },
-        }, true), {
-            executable: 'wsl.exe',
+        }, true, 'C:\\Windows\\System32\\wsl.exe'), {
+            executable: 'C:\\Windows\\System32\\wsl.exe',
             args: ['--exec', 'cat'],
             cwd: '/workspace',
             env: { PATH: '/usr/bin' },

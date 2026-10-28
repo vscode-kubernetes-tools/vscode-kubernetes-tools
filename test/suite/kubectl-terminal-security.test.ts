@@ -39,14 +39,14 @@ suite('Kubectl terminal security', () => {
     test('uses wsl.exe --exec for WSL', async () => {
         sandbox.stub(config, 'getUseWsl').returns(true);
         const createTerminal = sinon.stub().returns({ show: sinon.spy() });
-        const kubectl = createOnBinary(fakeHost(createTerminal), fakeFs(), fakeShell(false), '/usr/local/bin/kubectl');
+        const kubectl = createOnBinary(fakeHost(createTerminal), fakeFs(), fakeShell(false, { SystemRoot: 'C:\\Windows' }), '/usr/local/bin/kubectl');
 
         await kubectl.invokeArgsInNewTerminal(['get', 'pods', '--selector', 'app=$(marker)'], 'kubectl');
 
         sinon.assert.calledOnceWithExactly(
             createTerminal,
             'kubectl',
-            'wsl.exe',
+            'C:\\Windows\\System32\\wsl.exe',
             ['--exec', '/usr/local/bin/kubectl', 'get', 'pods', '--selector', 'app=$(marker)'],
             undefined
         );
@@ -127,7 +127,7 @@ function fakeFs(): FS {
     return { existsAsync: async () => true } as unknown as FS;
 }
 
-function fakeShell(windows: boolean): Shell {
+function fakeShell(windows: boolean, env: NodeJS.ProcessEnv = {}): Shell {
     return {
         isWindows: () => windows,
         isUnix: () => !windows,
@@ -135,7 +135,7 @@ function fakeShell(windows: boolean): Shell {
         home: () => '',
         combinePath: () => '',
         fileUri: () => { throw new Error('unused'); },
-        execOpts: () => ({ cwd: '/workspace', env: {} }),
+        execOpts: () => ({ cwd: '/workspace', env }),
         exec: async () => undefined,
         execStreaming: async () => undefined,
         execCore: async () => ({ code: 0, stdout: '', stderr: '' }),

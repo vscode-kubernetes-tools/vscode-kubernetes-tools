@@ -180,10 +180,11 @@ export function executeCommandPiped(
 
 export function snapPipeInvocation(
     invocation: CommandInvocation,
-    useWsl: boolean
+    useWsl: boolean,
+    wslExecutable = 'wsl.exe'
 ): CommandInvocation {
     return useWsl ? {
-        executable: 'wsl.exe',
+        executable: wslExecutable,
         args: ['--exec', 'cat'],
         cwd: invocation.cwd,
         env: invocation.env,
