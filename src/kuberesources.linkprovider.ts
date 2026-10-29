@@ -102,17 +102,18 @@ function sibling(node: yl.YamlMappingItem, name: string): string | undefined {
 }
 
 function getLinkFromPair(document: vscode.TextDocument, sourceKind: string, node: yl.YamlMappingItem): vscode.DocumentLink | undefined {
-    const uri = getLinkUri(sourceKind, node);
+    const uri = getLinkUri(sourceKind, node, document.uri);
     if (!uri) {
         return undefined;
     }
     return new vscode.DocumentLink(range(document, node), uri);
 }
 
-function getLinkUri(sourceKind: string, node: yl.YamlMappingItem): vscode.Uri | undefined {
+function getLinkUri(sourceKind: string, node: yl.YamlMappingItem, documentUri: vscode.Uri): vscode.Uri | undefined {
     // Things that apply to all source resource types
     if (key(node) === 'release' && parentKey(node) === 'labels') {
-        return helmfsUri(node.value.raw, undefined);
+        const namespace = querystring.parse(documentUri.query, '&', '=', { maxKeys: 0 }).ns;
+        return helmfsUri(node.value.raw, undefined, typeof namespace === 'string' ? namespace : undefined);
     }
     if (key(node) === 'namespace' && parentKey(node) === 'metadata') {
         return kubefsUri(null, `ns/${node.value.raw}`, 'yaml');

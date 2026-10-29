@@ -18,6 +18,7 @@ export interface HelmChartRequest {
 const MAX_HELM_QUERY_LENGTH = 8192;
 const MAX_HELM_CHART_REFERENCE_LENGTH = 1024;
 const MAX_HELM_REPOSITORY_NAME_LENGTH = 253;
+const MAX_HELM_RELEASE_NAME_LENGTH = 253;
 const MAX_HELM_VERSION_LENGTH = 256;
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f]/;
 const HELM_REPOSITORY_VERSION = /^v?[0-9]+(?:\.[0-9]+){0,2}(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
@@ -104,6 +105,44 @@ export function helmInstallArgs(
         ...(namespace ? ['--namespace', namespace] : []),
         ...(syntaxVersion === HelmSyntaxVersion.V3 || syntaxVersion === HelmSyntaxVersion.V4 ? ['--generate-name'] : []),
     ];
+}
+
+export function helmListArgs(namespace?: string, offset?: string): string[] {
+    return ['list', '--max', '0', '--output', 'json', ...(namespace ? ['--namespace', namespace] : []), ...(offset ? ['--offset', offset] : [])];
+}
+
+export function helmGetArgs(version: HelmSyntaxVersion, release: string, revision?: number, namespace?: string): string[] {
+    return [
+        'get',
+        ...(version === HelmSyntaxVersion.V2 ? [] : ['all']),
+        ...(revision !== undefined ? ['--revision', String(revision)] : []),
+        ...helmReleaseNamespaceArgs(version, namespace),
+        '--', release,
+    ];
+}
+
+export function helmHistoryArgs(version: HelmSyntaxVersion, release: string, namespace?: string): string[] {
+    return ['history', '--output', 'json', ...helmReleaseNamespaceArgs(version, namespace), '--', release];
+}
+
+export function helmRollbackArgs(version: HelmSyntaxVersion, release: string, revision: number, namespace?: string): string[] {
+    return ['rollback', '--cleanup-on-fail', ...helmReleaseNamespaceArgs(version, namespace), '--', release, String(revision)];
+}
+
+export function helmUninstallArgs(version: HelmSyntaxVersion, release: string, namespace?: string): string[] {
+    return ['del', ...helmReleaseNamespaceArgs(version, namespace), '--', release];
+}
+
+function helmReleaseNamespaceArgs(version: HelmSyntaxVersion, namespace?: string): string[] {
+    return namespace && version !== HelmSyntaxVersion.V2 ? ['--namespace', namespace] : [];
+}
+
+export function isSafeHelmReleaseName(value: unknown): value is string {
+    return isSafeHelmValue(value, MAX_HELM_RELEASE_NAME_LENGTH);
+}
+
+export function isSafeHelmRevision(value: unknown): value is number {
+    return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
 }
 
 export function helmFetchedChartDirectoryName(chartReference: string): string | undefined {

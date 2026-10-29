@@ -1,5 +1,6 @@
 import * as _ from 'lodash';
 import * as filepath from 'path';
+import * as querystring from 'querystring';
 import * as tmp from 'tmp';
 import * as vscode from 'vscode';
 import * as YAML from 'yamljs';
@@ -12,10 +13,16 @@ import {
     helmFetchedChartDirectoryName,
     helmFileQuery,
     helmInstallArgs,
+    helmHistoryArgs,
+    helmListArgs,
+    helmRollbackArgs,
+    helmUninstallArgs,
     HelmSyntaxVersion,
     isSafeHelmChartReference,
     isSafeHelmChartVersion,
     isExplicitHelmLocalChartReference,
+    isSafeHelmReleaseName,
+    isSafeHelmRevision,
 } from './components/helm/commands';
 import {
     executeHelmCommand,
@@ -42,6 +49,7 @@ import { currentNamespace } from './kubectlUtils';
 import { HELM_RESOURCE_AUTHORITY, K8S_RESOURCE_SCHEME } from './kuberesources.virtualfs';
 import { helm as logger } from './logger';
 import { parseLineOutput } from './outputUtils';
+import { renderArgsForDisplay } from './process';
 import { ExecCallback, monitorForAuthPrompt, shell as sh, ShellResult } from './shell';
 import { openHelmGeneratedValuesFile, preview } from './utils/preview';
 import * as fs from './wsl-fs';
@@ -77,8 +85,26 @@ export interface HelmRelease {
     readonly description: string;
 }
 
-function helmReleaseFromJSON(json: any): HelmRelease {
-    return { appVersion: json.app_version, ...json };
+function helmReleaseFromJSON(json: unknown): HelmRelease {
+    if (!json || typeof json !== 'object') {
+        throw new Error('Helm returned an invalid release history.');
+    }
+    const release = json as Record<string, unknown>;
+    const appVersion = release.app_version ?? release.appVersion ?? '';
+    const updated = release.updated === undefined ? '' : release.updated;
+    if (!isSafeHelmRevision(release.revision) || typeof updated !== 'string' ||
+        typeof release.status !== 'string' || typeof release.chart !== 'string' ||
+        typeof appVersion !== 'string' || typeof release.description !== 'string') {
+        throw new Error('Helm returned an invalid release history.');
+    }
+    return {
+        revision: release.revision,
+        updated,
+        status: release.status,
+        chart: release.chart,
+        appVersion,
+        description: release.description,
+    };
 }
 
 // This file contains utilities for executing command line tools, notably Helm.
@@ -384,7 +410,7 @@ export function helmDryRun() {
     });
 }
 
-export function helmGet(resourceNode?: ClusterExplorerNode) {
+export async function helmGet(resourceNode?: ClusterExplorerNode): Promise<void> {
     if (!resourceNode) {
         return;
     }
@@ -396,15 +422,20 @@ export function helmGet(resourceNode?: ClusterExplorerNode) {
     }
     const releaseName = resourceNode.releaseName;
     const revisionNumber = (resourceNode.nodeType === NODE_TYPES.helm.history ? resourceNode.release.revision : undefined);
-    const uri = helmfsUri(releaseName, revisionNumber);
-    vscode.workspace.openTextDocument(uri).then((doc) => {
-        if (doc) {
-            vscode.window.showTextDocument(doc);
-        }
-    });
+    const namespace = resourceNode.namespace;
+    if (!isSafeHelmReleaseName(releaseName) || (namespace !== undefined && !isSafeNamespace(namespace)) ||
+        (revisionNumber !== undefined && !isSafeHelmRevision(revisionNumber))) {
+        vscode.window.showErrorMessage('Invalid Helm release, namespace or revision.');
+        return;
+    }
+    const uri = helmfsUri(releaseName, revisionNumber, namespace);
+    const doc = await vscode.workspace.openTextDocument(uri);
+    if (doc) {
+        await vscode.window.showTextDocument(doc);
+    }
 }
 
-export function helmUninstall(resourceNode?: ClusterExplorerNode) {
+export async function helmUninstall(resourceNode?: ClusterExplorerNode): Promise<void> {
     if (!resourceNode) {
         return;
     }
@@ -412,39 +443,56 @@ export function helmUninstall(resourceNode?: ClusterExplorerNode) {
         return;
     }
     const releaseName = resourceNode.releaseName;
+    const namespace = resourceNode.namespace;
+    if (!isSafeHelmReleaseName(releaseName) || (namespace !== undefined && !isSafeNamespace(namespace))) {
+        vscode.window.showErrorMessage('Invalid Helm release or namespace.');
+        return;
+    }
     logger.log("⎈⎈⎈ Uninstalling " + releaseName);
-    vscode.window.showWarningMessage(`You are about to uninstall ${releaseName}. This action cannot be undone.`, 'Uninstall').then((opt) => {
-        if (opt === "Uninstall") {
-            host.longRunning(`Uninstalling ${releaseName}...`, () =>
-                helmExecAsync(`del ${releaseName}`).then((sr) => {
-                    logger.log(sr?.stdout || "");
-                    logger.log(sr?.stderr || "");
-                    if (!sr || sr.code !== 0) {
-                        logger.log("⎈⎈⎈ UNINSTALL FAILED");
-                        vscode.window.showErrorMessage(`Error uninstalling ${releaseName}: ${sr?.stderr || ""}`);
-                    } else {
-                        vscode.window.showInformationMessage(`Release ${releaseName} successfully uninstalled.`);
-                        refreshExplorer();
-                    }
-                })
-            );
+    const opt = await vscode.window.showWarningMessage(`You are about to uninstall ${releaseName}. This action cannot be undone.`, 'Uninstall');
+    if (opt !== 'Uninstall') {
+        return;
+    }
+    await host.longRunning(`Uninstalling ${releaseName}...`, async () => {
+        const syntaxVersion = await helmSyntaxVersion();
+        const sr = await helmExecArgsAsync(helmUninstallArgs(syntaxVersion, releaseName, namespace));
+        logger.log(sr?.stdout || "");
+        logger.log(sr?.stderr || "");
+        if (!sr || sr.code !== 0) {
+            logger.log("⎈⎈⎈ UNINSTALL FAILED");
+            vscode.window.showErrorMessage(`Error uninstalling ${releaseName}: ${sr?.stderr || ""}`);
+        } else {
+            vscode.window.showInformationMessage(`Release ${releaseName} successfully uninstalled.`);
+            refreshExplorer();
         }
     });
 }
 
-export async function helmGetHistory(release: string): Promise<Errorable<HelmRelease[]>> {
-    if (!ensureHelm(EnsureMode.Alert)) {
+export async function helmGetHistory(release: string, namespace?: string): Promise<Errorable<HelmRelease[]>> {
+    if (!isSafeHelmReleaseName(release) || (namespace !== undefined && !isSafeNamespace(namespace))) {
+        return { succeeded: false, error: ['Invalid Helm release or namespace.'] };
+    }
+    const executable = await resolveHelmForArgs(EnsureMode.Alert);
+    if (!executable) {
         return { succeeded: false, error: [ "Helm client is not installed" ] };
     }
-    const sr = await helmExecAsync(`history ${release} --output json`);
+    const syntaxVersion = namespace ? await helmSyntaxVersion() : HelmSyntaxVersion.Unknown;
+    const sr = await executeHelmArgs(executable, helmHistoryArgs(syntaxVersion, release, namespace));
     if (!sr || sr.code !== 0) {
         const message = `Helm fetch history failed: ${sr ? sr.stderr : "Unable to run Helm"}`;
         await vscode.window.showErrorMessage(message);
         return { succeeded: false, error: [message] };
-    } else {
-        const releasesJSON: any[] = JSON.parse(sr.stdout);
+    }
+    try {
+        const releasesJSON: unknown = JSON.parse(sr.stdout);
+        if (!Array.isArray(releasesJSON)) {
+            throw new Error('Helm returned an invalid release history.');
+        }
         const releases = releasesJSON.map(helmReleaseFromJSON);
         return { succeeded: true, result: releases.reverse() };
+    } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { succeeded: false, error: [message] };
     }
 }
 
@@ -452,38 +500,48 @@ export async function helmRollback(resourceNode?: HelmHistoryNode) {
     if (!resourceNode) {
         return;
     }
-    if (resourceNode.release.status === "deployed") {
+    const releaseName = resourceNode.releaseName;
+    const namespace = resourceNode.namespace;
+    const release = resourceNode.release;
+    if (!isSafeHelmReleaseName(releaseName) || (namespace !== undefined && !isSafeNamespace(namespace)) ||
+        !isSafeHelmRevision(release.revision)) {
+        vscode.window.showErrorMessage('Invalid Helm release, namespace or revision.');
+        return;
+    }
+    if (release.status.toLowerCase() === "deployed") {
         vscode.window.showInformationMessage('This is the currently deployed release');
         return;
     }
-    const releaseName = resourceNode.releaseName;
-    const release = resourceNode.release;
-    vscode.window.showWarningMessage(`You are about to rollback ${releaseName} to release version ${release.revision}. Continue?`, 'Rollback').then((opt) => {
-        if (opt === "Rollback") {
-            host.longRunning(`Rolling back ${releaseName} to revision ${release.revision}...`, () =>
-                helmExecAsync(`rollback ${releaseName} ${release.revision} --cleanup-on-fail`).then((sr) => {
-                    logger.log(sr?.stdout || "");
-                    logger.log(sr?.stderr || "");
-                    if (!sr || sr.code !== 0) {
-                        vscode.window.showErrorMessage(`Error rolling back to ${release.revision} for ${releaseName}: ${sr?.stderr || ""}`);
-                    } else {
-                        vscode.window.showInformationMessage(`Release ${releaseName} successfully rolled back to ${release.revision}.`);
-                        refreshExplorer();
-                    }
-                })
-            );
+    const opt = await vscode.window.showWarningMessage(`You are about to rollback ${releaseName} to release version ${release.revision}. Continue?`, 'Rollback');
+    if (opt !== 'Rollback') {
+        return;
+    }
+    await host.longRunning(`Rolling back ${releaseName} to revision ${release.revision}...`, async () => {
+        const syntaxVersion = await helmSyntaxVersion();
+        const sr = await helmExecArgsAsync(helmRollbackArgs(syntaxVersion, releaseName, release.revision, namespace));
+        logger.log(sr?.stdout || "");
+        logger.log(sr?.stderr || "");
+        if (!sr || sr.code !== 0) {
+            vscode.window.showErrorMessage(`Error rolling back to ${release.revision} for ${releaseName}: ${sr?.stderr || ""}`);
+        } else {
+            vscode.window.showInformationMessage(`Release ${releaseName} successfully rolled back to ${release.revision}.`);
+            refreshExplorer();
         }
     });
 }
 
-export function helmfsUri(releaseName: string, revision: number | undefined): vscode.Uri {
-    const revisionSuffix = revision ? `-${revision}` : '';
-    const revisionQuery = revision ? `&revision=${revision}` : '';
+export function helmfsUri(releaseName: string, revision: number | undefined, namespace?: string): vscode.Uri {
+    const revisionSuffix = revision !== undefined ? `-${revision}` : '';
 
-    const docname = `helmrelease-${releaseName}${revisionSuffix}.txt`;
+    const docname = helmDocumentName(`helmrelease-${releaseName}${revisionSuffix}.txt`);
     const nonce = new Date().getTime();
-    const uri = `${K8S_RESOURCE_SCHEME}://${HELM_RESOURCE_AUTHORITY}/${docname}?value=${releaseName}${revisionQuery}&_=${nonce}`;
-    return vscode.Uri.parse(uri);
+    const query = querystring.stringify({
+        value: releaseName,
+        ...(revision !== undefined ? { revision } : {}),
+        ...(namespace ? { ns: namespace } : {}),
+        _: nonce,
+    });
+    return vscode.Uri.from({ scheme: K8S_RESOURCE_SCHEME, authority: HELM_RESOURCE_AUTHORITY, path: `/${docname}`, query });
 }
 
 // helmPackage runs the Helm package on a chart within your project.
@@ -982,43 +1040,119 @@ export async function helmInvokeCommandWithFeedback(command: string, uiOptions: 
     );
 }
 
-const HELM_PAGING_PREFIX = "next:";
+export async function helmInvokeCommandArgsWithFeedback(args: readonly string[], uiOptions: string | LongRunningUIOptions): Promise<ExecResult> {
+    return await host.longRunning(uiOptions, async () => {
+        const command = renderArgsForDisplay(args);
+        const result = await helmExecArgsAsync(args);
+        if (!result) {
+            return { resultKind: 'exec-failed', execProgram: HELM_BINARY, command };
+        }
+        if (result.code !== 0) {
+            return {
+                resultKind: 'exec-errored', execProgram: HELM_BINARY, command,
+                code: result.code, stderr: result.stderr || result.stdout || 'Unable to run Helm',
+            };
+        }
+        return { resultKind: 'exec-succeeded', execProgram: HELM_BINARY, command, stdout: result.stdout };
+    });
+}
+
+function helmListPageFromJSON(json: unknown): { releases: Record<string, string>[]; next?: string } {
+    let entries: unknown[];
+    let next: string | undefined;
+    const legacy = !Array.isArray(json);
+    if (Array.isArray(json)) {
+        entries = json;
+    } else {
+        if (!json || typeof json !== 'object') {
+            throw new Error('Helm returned an invalid release list.');
+        }
+        const page = json as Record<string, unknown>;
+        if (!Array.isArray(page.Releases) || typeof page.Next !== 'string') {
+            throw new Error('Helm returned an invalid release list.');
+        }
+        entries = page.Releases;
+        next = page.Next || undefined;
+        if (next !== undefined && !isSafeHelmReleaseName(next)) {
+            throw new Error('Helm returned an invalid paging offset.');
+        }
+    }
+    return { releases: entries.map((entry) => helmListedReleaseFromJSON(entry, legacy)), next };
+}
+
+function helmListedReleaseFromJSON(json: unknown, legacy: boolean): Record<string, string> {
+    if (!json || typeof json !== 'object' || Array.isArray(json)) {
+        throw new Error('Helm returned an invalid release list.');
+    }
+    const release = json as Record<string, unknown>;
+    const fields = legacy ? {
+        name: release.Name, namespace: release.Namespace, revision: release.Revision, updated: release.Updated,
+        status: release.Status, chart: release.Chart, 'app version': release.AppVersion,
+    } : {
+        name: release.name, namespace: release.namespace, revision: release.revision, updated: release.updated,
+        status: release.status, chart: release.chart, 'app version': release.app_version,
+    };
+    const result: Record<string, string> = {};
+    for (const [key, value] of Object.entries(fields)) {
+        if (value === undefined) {
+            continue;
+        }
+        if (typeof value !== 'string' && !(key === 'revision' && isSafeHelmRevision(value))) {
+            throw new Error('Helm returned an invalid release list.');
+        }
+        result[key] = String(value);
+    }
+    if (!isSafeHelmReleaseName(result.name) || typeof result.status !== 'string' ||
+        (result.namespace !== undefined && result.namespace !== '' && !isSafeNamespace(result.namespace))) {
+        throw new Error('Helm returned an invalid release identifier or namespace.');
+    }
+    return result;
+}
 
 export async function helmListAll(namespace?: string): Promise<Errorable<{ [key: string]: string }[]>> {
-    if (!ensureHelm(EnsureMode.Alert)) {
+    if (namespace !== undefined && namespace !== '' && !isSafeNamespace(namespace)) {
+        return { succeeded: false, error: ['Invalid Helm namespace.'] };
+    }
+    const executable = await resolveHelmForArgs(EnsureMode.Alert);
+    if (!executable) {
         return { succeeded: false, error: [ "Helm client is not installed" ] };
     }
 
     const releases: {[key: string]: string}[] = [];
-    let offset: string | null = null;
+    let offset: string | undefined;
+    const seenOffsets = new Set<string>();
 
     do {
-        const nsarg = namespace ? `--namespace ${namespace}` : "";
-        const offsetarg: string = offset ? `--offset ${offset}` : "";
-        const sr = await helmExecAsync(`list --max 0 ${nsarg} ${offsetarg}`);
+        const sr = await executeHelmArgs(executable, helmListArgs(namespace, offset));
 
         if (!sr || sr.code !== 0) {
             return { succeeded: false, error: [ sr ? sr.stderr : "Unable to run Helm" ] };
         }
 
-        const lines = sr.stdout.split('\n')
-                               .map((s) => s.trim())
-                               .filter((l) => l.length > 0);
-        if (lines.length > 0) {
-            if (lines[0].startsWith(HELM_PAGING_PREFIX)) {
-                const pagingInfo = lines.shift()!;  // safe because we have checked the length
-                offset = pagingInfo.substring(HELM_PAGING_PREFIX.length).trim();
-            } else {
-                offset = null;
+        if (!sr.stdout.trim()) {
+            break;
+        }
+        try {
+            const page = helmListPageFromJSON(JSON.parse(sr.stdout));
+            offset = page.next;
+            if (offset !== undefined) {
+                if (seenOffsets.has(offset)) {
+                    return { succeeded: false, error: ['Helm returned a repeated paging offset.'] };
+                }
+                seenOffsets.add(offset);
             }
+            releases.push(...page.releases);
+        } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+            return { succeeded: false, error: [message] };
         }
-        if (lines.length > 0) {
-            const helmReleases = parseLineOutput(lines, helm.HELM_OUTPUT_COLUMN_SEPARATOR);
-            releases.push(...helmReleases);
-        }
-    } while (offset !== null);
+    } while (offset !== undefined);
 
     return { succeeded: true, result: releases };
+}
+
+export async function ensureHelmForArgs(mode: EnsureMode): Promise<boolean> {
+    return !!await resolveHelmForArgs(mode);
 }
 
 export function ensureHelm(mode: EnsureMode) {

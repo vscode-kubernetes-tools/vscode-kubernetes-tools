@@ -57,11 +57,13 @@ export interface ClusterExplorerConfigurationValueNode extends ClusterExplorerNo
 export interface ClusterExplorerHelmReleaseNode extends ClusterExplorerNodeBase {
     readonly nodeType: KubernetesExplorerNodeTypeHelmRelease;
     readonly releaseName: string;
+    readonly namespace?: string;
 }
 
 export interface ClusterExplorerHelmHistoryNode extends ClusterExplorerNodeBase {
     readonly nodeType: KubernetesExplorerNodeTypeHelmHistory;
     readonly releaseName: string;
+    readonly namespace?: string;
     readonly release: HelmRelease;
 }
 
