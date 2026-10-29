@@ -13,7 +13,7 @@ export class HelmReleasesFolder extends GroupingFolderNode /* TODO: not really *
         super("Helm Release", "Helm Releases", "vsKubernetes.nonResourceFolder"); // TODO: folder.grouping is not quite right... but...
     }
     async getChildren(kubectl: Kubectl, _host: Host): Promise<ClusterExplorerNode[]> {
-        if (!helmexec.ensureHelm(helmexec.EnsureMode.Silent)) {
+        if (!await helmexec.ensureHelmForArgs(helmexec.EnsureMode.Silent)) {
             return [new MessageNode("Helm client is not installed")];
         }
         const currentNS = await kubectlUtils.currentNamespace(kubectl);
@@ -21,6 +21,6 @@ export class HelmReleasesFolder extends GroupingFolderNode /* TODO: not really *
         if (failed(releases)) {
             return [new MessageNode("Helm list error", releases.error[0])];
         }
-        return releases.result.map((r) => new HelmReleaseNode(r.name, r.status));
+        return releases.result.map((r) => new HelmReleaseNode(r.name, r.status, r.namespace || currentNS || undefined));
     }
 }
