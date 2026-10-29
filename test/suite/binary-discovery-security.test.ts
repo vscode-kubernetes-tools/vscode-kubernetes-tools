@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import * as nativeFs from 'fs';
+import nativeFs = require('fs');
 import * as os from 'os';
 import * as path from 'path';
 import * as sinon from 'sinon';
@@ -70,6 +70,25 @@ suite('Binary discovery security', () => {
         } finally {
             fixture.remove();
         }
+    });
+
+    test('rejects drive-less rooted Windows PATH entries', async () => {
+        sandbox.stub(config, 'getUseWsl').returns(false);
+        const stat = sandbox.stub(nativeFs, 'statSync').returns({ isFile: () => true } as nativeFs.Stats);
+        const driveShell = fakeShell(true, { Path: '\\Tools;C:\\Safe Tools' });
+
+        assert.strictEqual(await findBinaryPath(driveShell, 'kubectl'), 'C:\\Safe Tools\\kubectl.exe');
+        sinon.assert.calledOnceWithExactly(stat, 'C:\\Safe Tools\\kubectl.exe');
+
+        stat.resetHistory();
+        const uncShell = fakeShell(true, { Path: '\\Tools;\\\\server\\share\\Tools' });
+        assert.strictEqual(await findBinaryPath(uncShell, 'kubectl'), '\\\\server\\share\\Tools\\kubectl.exe');
+        sinon.assert.calledOnceWithExactly(stat, '\\\\server\\share\\Tools\\kubectl.exe');
+
+        stat.resetHistory();
+        const deviceShell = fakeShell(true, { Path: '\\\\?\\C:\\Tools;\\\\.\\pipe\\Tools;\\\\?/C:/Mixed;\\\\./pipe/Mixed;//?/C:/Forward;//./pipe/Forward' });
+        assert.strictEqual(await findBinaryPath(deviceShell, 'kubectl'), undefined);
+        sinon.assert.notCalled(stat);
     });
 
     test('discovers a WSL executable with a fixed script and literal tool name', async () => {

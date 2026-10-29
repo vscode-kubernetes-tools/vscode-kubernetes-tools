@@ -7,7 +7,7 @@ import * as binutil from './binutil';
 import { Errorable } from './errorable';
 import { parseLineOutput } from './outputUtils';
 import * as compatibility from './components/kubectl/compatibility';
-import { getToolPath, affectsUs, getUseWsl, KubectlVersioning, suppressKubectlNotFound } from './components/config/config';
+import { getActiveKubeconfig, getToolPath, affectsUs, getUseWsl, KubectlVersioning, suppressKubectlNotFound } from './components/config/config';
 import { ensureSuitableKubectl } from './components/kubectl/autoversion';
 import { invokeForResult, invokeForResultArgs, ExternalBinary, FindBinaryStatus, ExecResult, ExecSucceeded, discardFailureInteractive, logText, parseJSON, findBinary, showErrorMessageWithInstallPrompt, parseTable, ExecBinNotFound, invokeTracking, FailedExecResult, ParsedExecResult, parseLinedText, BackgroundExecResult, invokeBackground, RunningProcess, ArgsBackgroundExecResult, invokeBackgroundArgs } from './binutilplusplus';
 import { updateYAMLSchema } from './yaml-support/yaml-schema';
@@ -86,6 +86,7 @@ interface Context {
     readonly pathfinder: (() => Promise<string>) | undefined;
     binFound: boolean;
     binPath: string;
+    binaryRevision: number;
     readonly binary: ExternalBinary;
     status: FindBinaryStatus | undefined;
 }
@@ -101,7 +102,16 @@ const KUBECTL_BINARY: ExternalBinary = {
 let checkedCompatibility = false;  // We don't want to spam the user (or CPU!) repeatedly running the version check
 
 class KubectlImpl implements Kubectl {
-    constructor(host: Host, fs: FS, shell: Shell, pathfinder: (() => Promise<string>) | undefined, kubectlFound: false /* TODO: this is now safe to remove */) {
+    constructor(
+        host: Host,
+        fs: FS,
+        shell: Shell,
+        pathfinder: (() => Promise<string>) | undefined,
+        kubectlFound: false, // TODO: this is now safe to remove
+        watchExecutionConfiguration: boolean,
+        watchActiveKubeconfig: boolean,
+        private readonly ownedKubectl?: Kubectl
+    ) {
         this.context = {
             host : host,
             fs : fs,
@@ -109,13 +119,39 @@ class KubectlImpl implements Kubectl {
             pathfinder: pathfinder,
             binFound : kubectlFound,
             binPath : 'kubectl',
+            binaryRevision: 0,
             binary: KUBECTL_BINARY,
             status: undefined
         };
+        if (watchExecutionConfiguration && host.onDidChangeConfiguration) {
+            let executionConfiguration = kubectlExecutionConfiguration(this.context, watchActiveKubeconfig);
+            this.configurationChangeDisposable = host.onDidChangeConfiguration((change) => {
+                if (affectsUs(change)) {
+                    this.disposeSharedTerminal();
+                }
+                if (!affectsKubectlExecutionConfiguration(change)) {
+                    return;
+                }
+                const nextExecutionConfiguration = kubectlExecutionConfiguration(this.context, watchActiveKubeconfig);
+                if (nextExecutionConfiguration === executionConfiguration) {
+                    return;
+                }
+                executionConfiguration = nextExecutionConfiguration;
+                this.context.binaryRevision++;
+                this.context.binFound = false;
+                this.context.binPath = KUBECTL_BINARY.binBaseName;
+                this.context.status = undefined;
+                checkedCompatibility = false;
+                this.disposeSharedTerminal();
+            });
+        }
     }
 
     private readonly context: Context;
+    private readonly configurationChangeDisposable: Disposable | undefined;
     private sharedTerminal: Terminal | null = null;
+    private sharedTerminalConfigurationDisposable: Disposable | undefined;
+    private sharedTerminalCloseDisposable: Disposable | undefined;
     private childProcesses: ChildProcess[] = [];
     private readonly backgroundCancellation = new AbortController();
 
@@ -133,14 +169,23 @@ class KubectlImpl implements Kubectl {
         });
     }
     async invokeInNewTerminal(command: string, terminalName: string, onClose?: (e: Terminal) => any, pipeTo?: string, iconPath?: ThemeIcon): Promise<Disposable> {
-        const terminal = this.context.host.createTerminal(terminalName, undefined, undefined, iconPath);
+        const terminal = await createLegacyTerminal(this.context, command, pipeTo, terminalName, iconPath);
+        if (!terminal) {
+            return new Disposable(() => {});
+        }
         const disposable = this.context.host.onDidCloseTerminal(onClose ? onClose : onCloseDefault(terminal.processId));
-        await invokeInTerminal(this.context, command, pipeTo, terminal);
         return disposable;
     }
-    invokeInSharedTerminal(command: string): Promise<void> {
+    async invokeInSharedTerminal(command: string): Promise<void> {
+        const revision = this.context.binaryRevision;
+        if (!await checkPresent(this.context, CheckPresentMessageMode.Command)) {
+            return;
+        }
+        if (revision !== this.context.binaryRevision) {
+            return this.invokeInSharedTerminal(command);
+        }
         const terminal = this.getSharedTerminal();
-        return invokeInTerminal(this.context, command, undefined, terminal);
+        sendToTerminal(command, undefined, terminal);
     }
     async runAsTerminal(command: string[], terminalName: string): Promise<void> {
         await runAsTerminal(this.context, command, terminalName);
@@ -177,19 +222,30 @@ class KubectlImpl implements Kubectl {
     private getSharedTerminal(): Terminal {
         if (!this.sharedTerminal) {
             this.sharedTerminal = this.context.host.createTerminal('kubectl');
-            const disposable = this.context.host.onDidCloseTerminal((terminal) => {
+            this.sharedTerminalCloseDisposable = this.context.host.onDidCloseTerminal((terminal) => {
                 if (terminal === this.sharedTerminal) {
                     this.sharedTerminal = null;
-                    disposable.dispose();
+                    this.sharedTerminalCloseDisposable?.dispose();
+                    this.sharedTerminalCloseDisposable = undefined;
                 }
             });
-            this.context.host.onDidChangeConfiguration((change) => {
-                if (affectsUs(change) && this.sharedTerminal) {
-                    this.sharedTerminal.dispose();
-                }
-            });
+            if (!this.configurationChangeDisposable) {
+                this.sharedTerminalConfigurationDisposable ??= this.context.host.onDidChangeConfiguration((change) => {
+                    if (affectsUs(change)) {
+                        this.disposeSharedTerminal();
+                    }
+                });
+            }
         }
         return this.sharedTerminal;
+    }
+
+    private disposeSharedTerminal(): void {
+        const terminal = this.sharedTerminal;
+        this.sharedTerminal = null;
+        this.sharedTerminalCloseDisposable?.dispose();
+        this.sharedTerminalCloseDisposable = undefined;
+        terminal?.dispose();
     }
 
     async checkPossibleIncompatibility(afterError: ExecResult): Promise<void> {
@@ -349,6 +405,10 @@ class KubectlImpl implements Kubectl {
     }
 
     dispose() {
+        this.configurationChangeDisposable?.dispose();
+        this.sharedTerminalConfigurationDisposable?.dispose();
+        this.disposeSharedTerminal();
+        this.ownedKubectl?.dispose();
         this.backgroundCancellation.abort();
         this.childProcesses.forEach((child) => {
             if (!child.killed) {
@@ -356,6 +416,24 @@ class KubectlImpl implements Kubectl {
             }
         });
     }
+}
+
+function kubectlExecutionConfiguration(context: Context, includeActiveKubeconfig: boolean): string {
+    return JSON.stringify({
+        useWsl: !!getUseWsl(),
+        configuredPath: getToolPath(context.host, context.shell, KUBECTL_BINARY.configKeyName),
+        ...(includeActiveKubeconfig ? { activeKubeconfig: getActiveKubeconfig() } : {}),
+    });
+}
+
+function affectsKubectlExecutionConfiguration(change: { affectsConfiguration(section: string): boolean }): boolean {
+    return [
+        'vs-kubernetes',
+        'vscode-kubernetes.kubectl-path',
+        'vscode-kubernetes.kubectl-path-windows',
+        'vscode-kubernetes.kubectl-path-mac',
+        'vscode-kubernetes.kubectl-path-linux',
+    ].some((section) => change.affectsConfiguration(section));
 }
 
 function onCloseDefault(processId: Thenable<number | undefined>): (e: Terminal) => any {
@@ -381,18 +459,18 @@ export function create(versioning: KubectlVersioning, host: Host, fs: FS, shell:
 }
 
 function createSingleVersion(host: Host, fs: FS, shell: Shell): Kubectl {
-    return new KubectlImpl(host, fs, shell, undefined, false);
+    return new KubectlImpl(host, fs, shell, undefined, false, true, false);
 }
 
 function createAutoVersioned(host: Host, fs: FS, shell: Shell): Kubectl {
     const bootstrapper = createSingleVersion(host, fs, shell);
     const pathfinder = async () => (await ensureSuitableKubectl(bootstrapper, shell, host)) || 'kubectl';
-    return new KubectlImpl(host, fs, shell, pathfinder, false);
+    return new KubectlImpl(host, fs, shell, pathfinder, false, true, true, bootstrapper);
 }
 
 export function createOnBinary(host: Host, fs: FS, shell: Shell, bin: string): Kubectl {
     const pathfinder = async () => bin;
-    return new KubectlImpl(host, fs, shell, pathfinder, false);
+    return new KubectlImpl(host, fs, shell, pathfinder, false, false, false);
 }
 
 export enum CheckPresentMessageMode {
@@ -401,11 +479,17 @@ export enum CheckPresentMessageMode {
 }
 
 async function checkPresent(context: Context, errorMessageMode: CheckPresentMessageMode): Promise<boolean> {
-    if (context.binFound || context.pathfinder) {
-        return true;
-    }
+    while (true) {
+        if (context.binFound || context.pathfinder) {
+            return true;
+        }
 
-    return await checkForKubectlInternal(context, errorMessageMode);
+        const revision = context.binaryRevision;
+        const present = await checkForKubectlInternal(context, errorMessageMode);
+        if (revision === context.binaryRevision) {
+            return present;
+        }
+    }
 }
 
 async function checkForKubectlInternal(context: Context, errorMessageMode: CheckPresentMessageMode): Promise<boolean> {
@@ -427,8 +511,8 @@ function getCheckKubectlContextMessage(errorMessageMode: CheckPresentMessageMode
 }
 
 async function invokeAsync(context: Context, command: string, stdin?: string, callback?: (proc: ChildProcess) => void): Promise<ShellResult | undefined> {
-    if (await checkPresent(context, CheckPresentMessageMode.Command)) {
-        const bin = await baseKubectlPath(context);
+    const bin = await resolveKubectlPath(context, CheckPresentMessageMode.Command, baseKubectlPath);
+    if (bin) {
         const cmd = `${bin} ${command}`;
         let sr: ShellResult | undefined;
         if (stdin) {
@@ -458,8 +542,9 @@ async function checkPossibleIncompatibilityLegacy(context: Context): Promise<voi
 }
 
 async function spawnAsChild(context: Context, command: string[], callback?: (proc: ChildProcess) => void): Promise<ChildProcess | undefined> {
-    if (await checkPresent(context, CheckPresentMessageMode.Command)) {
-        const child = await spawnChildProcess(await path(context), command, context.shell.execOpts());
+    const executable = await resolveKubectlPath(context, CheckPresentMessageMode.Command, path);
+    if (executable) {
+        const child = await spawnChildProcess(executable, command, context.shell.execOpts());
         if (callback) {
             callback(child);
         }
@@ -468,22 +553,45 @@ async function spawnAsChild(context: Context, command: string[], callback?: (pro
     return undefined;
 }
 
-async function invokeInTerminal(context: Context, command: string, pipeTo: string | undefined, terminal: Terminal): Promise<void> {
-    if (await checkPresent(context, CheckPresentMessageMode.Command)) {
-        // You might be tempted to think we needed to add 'wsl' here if user is using wsl
-        // but this runs in the context of a vanilla terminal, which is controlled by the
-        // existing preference, so it's not necessary.
-        // But a user does need to default VS code to use WSL in the settings.json
-        const kubectlCommand = `kubectl ${command}`;
-        const fullCommand = pipeTo ? `${kubectlCommand} | ${pipeTo}` : kubectlCommand;
-        terminal.sendText(fullCommand);
-        terminal.show();
+function sendToTerminal(command: string, pipeTo: string | undefined, terminal: Terminal): void {
+    // This legacy API runs in the user's configured terminal shell. Feature migrations replace it with direct argv terminals.
+    const kubectlCommand = `kubectl ${command}`;
+    terminal.sendText(pipeTo ? `${kubectlCommand} | ${pipeTo}` : kubectlCommand);
+    terminal.show();
+}
+
+async function createLegacyTerminal(
+    context: Context,
+    command: string,
+    pipeTo: string | undefined,
+    terminalName: string,
+    iconPath?: ThemeIcon
+): Promise<Terminal | undefined> {
+    while (true) {
+        const revision = context.binaryRevision;
+        if (!await checkPresent(context, CheckPresentMessageMode.Command)) {
+            if (revision !== context.binaryRevision) {
+                continue;
+            }
+            return undefined;
+        }
+        if (revision !== context.binaryRevision) {
+            continue;
+        }
+        const terminal = context.host.createTerminal(terminalName, undefined, undefined, iconPath);
+        if (revision !== context.binaryRevision) {
+            terminal.dispose();
+            continue;
+        }
+        sendToTerminal(command, pipeTo, terminal);
+        return terminal;
     }
 }
 
 async function runAsTerminal(context: Context, command: readonly string[], terminalName: string, iconPath?: ThemeIcon): Promise<Terminal | undefined> {
-    if (await checkPresent(context, CheckPresentMessageMode.Command)) {
-        let execPath = await path(context);
+    const executable = await resolveKubectlPath(context, CheckPresentMessageMode.Command, path);
+    if (executable) {
+        let execPath = executable;
         let cmd = [...command];
         if (getUseWsl()) {
             cmd = ['--exec', execPath, ...cmd];
@@ -503,6 +611,26 @@ async function runAsTerminal(context: Context, command: readonly string[], termi
         return term;
     }
     return undefined;
+}
+
+async function resolveKubectlPath(
+    context: Context,
+    errorMessageMode: CheckPresentMessageMode,
+    resolvePath: (context: Context) => Promise<string>
+): Promise<string | undefined> {
+    while (true) {
+        const revision = context.binaryRevision;
+        if (!await checkPresent(context, errorMessageMode)) {
+            if (revision !== context.binaryRevision) {
+                continue;
+            }
+            return undefined;
+        }
+        const executable = await resolvePath(context);
+        if (revision === context.binaryRevision) {
+            return executable;
+        }
+    }
 }
 
 async function unquotedBaseKubectlPath(context: Context): Promise<string> {

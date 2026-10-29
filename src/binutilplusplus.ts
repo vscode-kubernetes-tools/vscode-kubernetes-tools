@@ -160,6 +160,7 @@ export interface Context {
     readonly pathfinder: (() => Promise<string>) | undefined;
     readonly binary: ExternalBinary;
     status: FindBinaryStatus | undefined;
+    readonly binaryRevision?: number;
 }
 
 async function unquotedBaseBinPath(context: Context): Promise<string> {
@@ -216,17 +217,65 @@ async function commandInvocation(context: Context, args: readonly string[]): Pro
     };
 }
 
+type CommandResolution =
+    { readonly found: false; readonly findResult: FindBinaryStatus } |
+    { readonly found: true; readonly invocation: CommandInvocation; readonly revision: number | undefined };
+
+async function resolveCommandInvocation(context: Context, args: readonly string[]): Promise<CommandResolution> {
+    while (true) {
+        const revision = context.binaryRevision;
+        const findResult = await findBinary(context);
+        if (revision !== context.binaryRevision) {
+            continue;
+        }
+        if (!findResult.found) {
+            return { found: false, findResult };
+        }
+        const invocation = await commandInvocation(context, args);
+        if (revision === context.binaryRevision) {
+            return { found: true, invocation, revision };
+        }
+    }
+}
+
+type LegacyBinaryResolution =
+    { readonly found: false; readonly findResult: FindBinaryStatus } |
+    { readonly found: true; readonly bin: string; readonly revision: number | undefined };
+
+async function resolveLegacyBinary(context: Context): Promise<LegacyBinaryResolution> {
+    while (true) {
+        const revision = context.binaryRevision;
+        const findResult = await findBinary(context);
+        if (revision !== context.binaryRevision) {
+            continue;
+        }
+        if (!findResult.found) {
+            return { found: false, findResult };
+        }
+        const bin = await baseBinPath(context);
+        if (revision === context.binaryRevision) {
+            return { found: true, bin, revision };
+        }
+    }
+}
+
 // This is silent - just caching over findBinaryCore
 export async function findBinary(context: Context): Promise<FindBinaryStatus> {
-    if (context.status && context.status.found) {
-        return context.status;
+    while (true) {
+        if (context.status && context.status.found) {
+            return context.status;
+        }
+
+        const revision = context.binaryRevision;
+        const fbr = await findBinaryCore(context);
+        if (revision !== context.binaryRevision) {
+            continue;
+        }
+
+        context.status = fbr;
+
+        return fbr;
     }
-
-    const fbr = await findBinaryCore(context);
-
-    context.status = fbr;
-
-    return fbr;
 }
 
 // This is silent: tells us whether we can find the required binary
@@ -255,15 +304,19 @@ async function findBinaryCore(context: Context): Promise<FindBinaryStatus> {
 
 // This is silent - building block for experiences that need an input->output invoke
 export async function invokeForResult(context: Context, command: string, stdin: string | undefined): Promise<ExecResult> {
-    const fbr = await findBinary(context);
-    if (!fbr.found) {
-        return { resultKind: 'exec-bin-not-found', execProgram: context.binary, command, findResult: fbr };
+    let resolution: LegacyBinaryResolution;
+    while (true) {
+        resolution = await resolveLegacyBinary(context);
+        if (!resolution.found) {
+            return { resultKind: 'exec-bin-not-found', execProgram: context.binary, command, findResult: resolution.findResult };
+        }
+        if (resolution.revision === context.binaryRevision) {
+            break;
+        }
     }
-    const enableSnapFlag = getEnableSnapFlag();
-    const bin = await baseBinPath(context);
-    let cmd = `${bin} ${command}`;
+    let cmd = `${resolution.bin} ${command}`;
     // Hack to make kubectl cmds returns the output when it is installed using snap
-    if (enableSnapFlag && context.shell.isUnix()) {
+    if (getEnableSnapFlag() && context.shell.isUnix()) {
         cmd = `${cmd} | cat`;
     }
     const sr = await context.shell.exec(cmd, stdin);
@@ -282,26 +335,24 @@ export async function invokeForResult(context: Context, command: string, stdin: 
 // Shell-free counterpart to invokeForResult. New internal callers should use this API.
 export async function invokeForResultArgs(context: Context, args: readonly string[], stdin: string | undefined): Promise<ExecResult> {
     const command = renderArgsForDisplay(args);
-    const fbr = await findBinary(context);
-    if (!fbr.found) {
-        return { resultKind: 'exec-bin-not-found', execProgram: context.binary, command, findResult: fbr };
-    }
-
     try {
-        const invocation = await commandInvocation(context, args);
-        if (getEnableSnapFlag() && context.shell.isUnix()) {
-            const destination = snapPipeInvocation(invocation, getUseWsl(), invocation.executable);
-            const result = await executeCommandPiped(invocation, destination, stdin, monitorForAuthPrompt);
+        while (true) {
+            const resolution = await resolveCommandInvocation(context, args);
+            if (!resolution.found) {
+                return { resultKind: 'exec-bin-not-found', execProgram: context.binary, command, findResult: resolution.findResult };
+            }
+            if (resolution.revision !== context.binaryRevision) {
+                continue;
+            }
+            const invocation = resolution.invocation;
+            const result = getEnableSnapFlag() && context.shell.isUnix() ?
+                await executeCommandPiped(invocation, snapPipeInvocation(invocation, getUseWsl(), invocation.executable), stdin, monitorForAuthPrompt) :
+                await executeCommand(invocation, stdin, monitorForAuthPrompt);
             if (result.code === 0) {
                 return { resultKind: 'exec-succeeded', execProgram: context.binary, command, stdout: result.stdout };
             }
             return { resultKind: 'exec-errored', execProgram: context.binary, command, code: result.code, stderr: result.stderr };
         }
-        const result = await executeCommand(invocation, stdin, monitorForAuthPrompt);
-        if (result.code === 0) {
-            return { resultKind: 'exec-succeeded', execProgram: context.binary, command, stdout: result.stdout };
-        }
-        return { resultKind: 'exec-errored', execProgram: context.binary, command, code: result.code, stderr: result.stderr };
     } catch (err) {
         const error = err instanceof Error ? err.message : String(err);
         return { resultKind: 'exec-failed', execProgram: context.binary, command, error };
@@ -315,12 +366,18 @@ export interface RunningProcess {
 
 export async function invokeTracking(context: Context, args: string[]): Promise<RunningProcess> {
     const linesSubject = new rx.Subject<string>();
-
-    const fbr = await findBinary(context);
     let disposer: () => void;
 
-    if (fbr.found) {
-        const invocation = await commandInvocation(context, args);
+    while (true) {
+        const resolution = await resolveCommandInvocation(context, args);
+        if (!resolution.found) {
+            linesSubject.error({ resultKind: 'exec-bin-not-found', execProgram: context.binary, command: args.join(' '), findResult: resolution.findResult });
+            break;
+        }
+        if (resolution.revision !== context.binaryRevision) {
+            continue;
+        }
+        const invocation = resolution.invocation;
 
         let pending = '';
         const childProcess = spawnCommand(invocation);
@@ -347,8 +404,7 @@ export async function invokeTracking(context: Context, args: string[]): Promise<
             }
         });
         disposer = () => childProcess.kill();
-    } else {
-        linesSubject.error({ resultKind: 'exec-bin-not-found', execProgram: context.binary, command: args.join(' '), findResult: fbr });
+        break;
     }
 
     return { lines: linesSubject, terminate: () => {
@@ -361,14 +417,18 @@ export async function invokeTracking(context: Context, args: string[]): Promise<
 }
 
 export async function invokeBackground(context: Context, args: string[]): Promise<BackgroundExecResult> {
-    const fbr = await findBinary(context);
-    if (!fbr.found) {
-        return { resultKind: 'exec-bin-not-found', execProgram: context.binary, command: args.join(' '), findResult: fbr };
+    while (true) {
+        const resolution = await resolveCommandInvocation(context, args);
+        if (!resolution.found) {
+            return { resultKind: 'exec-bin-not-found', execProgram: context.binary, command: args.join(' '), findResult: resolution.findResult };
+        }
+        if (resolution.revision !== context.binaryRevision) {
+            continue;
+        }
+        const childProcess = spawnCommand(resolution.invocation);
+        monitorForAuthPrompt(childProcess);
+        return { resultKind: 'exec-child-process-started', execProgram: context.binary, command: args.join(' '), childProcess };
     }
-
-    const childProcess = spawnCommand(await commandInvocation(context, args));
-    monitorForAuthPrompt(childProcess);
-    return { resultKind: 'exec-child-process-started', execProgram: context.binary, command: args.join(' '), childProcess };
 }
 
 export async function invokeBackgroundArgs(context: Context, args: readonly string[], signal?: AbortSignal): Promise<ArgsBackgroundExecResult> {
@@ -377,15 +437,21 @@ export async function invokeBackgroundArgs(context: Context, args: readonly stri
         if (signal?.aborted) {
             throw new Error('Command cancelled.');
         }
-        const fbr = await findBinary(context);
-        if (!fbr.found) {
-            return { resultKind: 'exec-bin-not-found', execProgram: context.binary, command, findResult: fbr };
+        let childProcess: ChildProcess;
+        while (true) {
+            const resolution = await resolveCommandInvocation(context, args);
+            if (!resolution.found) {
+                return { resultKind: 'exec-bin-not-found', execProgram: context.binary, command, findResult: resolution.findResult };
+            }
+            if (signal?.aborted) {
+                throw new Error('Command cancelled.');
+            }
+            if (resolution.revision !== context.binaryRevision) {
+                continue;
+            }
+            childProcess = spawnCommand(resolution.invocation);
+            break;
         }
-        const invocation = await commandInvocation(context, args);
-        if (signal?.aborted) {
-            throw new Error('Command cancelled.');
-        }
-        const childProcess = spawnCommand(invocation);
         monitorForAuthPrompt(childProcess);
         return await new Promise<ArgsBackgroundExecResult>((resolve) => {
             let spawned = false;

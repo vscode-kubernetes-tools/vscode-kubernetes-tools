@@ -13,6 +13,7 @@ export interface BinCheckContext {
     readonly shell: Shell;
     binFound: boolean;
     binPath: string;
+    readonly binaryRevision?: number;
 }
 
 export type BinaryCommandExecutor = typeof executeCommand;
@@ -89,7 +90,7 @@ function findNativeBinaryPath(shell: Shell, binName: string): string | undefined
     const filename = windows && !binName.toLowerCase().endsWith('.exe') ? `${binName}.exe` : binName;
     for (const rawEntry of pathValue.split(delimiter)) {
         const entry = windows && rawEntry.length > 1 && rawEntry.startsWith('"') && rawEntry.endsWith('"') ? rawEntry.slice(1, -1) : rawEntry;
-        if (!entry || !pathApi.isAbsolute(entry)) {
+        if (!entry || !isFullyQualifiedPathEntry(entry, windows)) {
             continue;
         }
         const candidate = pathApi.join(entry, filename);
@@ -106,6 +107,19 @@ function findNativeBinaryPath(shell: Shell, binName: string): string | undefined
         }
     }
     return undefined;
+}
+
+function isFullyQualifiedPathEntry(entry: string, windows: boolean): boolean {
+    if (!windows) {
+        return path.isAbsolute(entry);
+    }
+    const normalised = entry.replace(/\//g, '\\');
+    if (normalised.startsWith('\\\\?\\') || normalised.startsWith('\\\\.\\')) {
+        return false;
+    }
+    const driveQualified = /^[A-Za-z]:\\/.test(normalised);
+    const ordinaryUnc = /^\\\\[^\\]+\\[^\\]+(?:\\|$)/.test(normalised);
+    return driveQualified || ordinaryUnc;
 }
 
 function singleAbsoluteGuestPath(output: string): string | undefined {
@@ -159,9 +173,13 @@ function alertNoBin(host: Host, binName: string, failureReason: CheckPresentFail
 }
 
 export async function checkForBinary(context: BinCheckContext, bin: string | undefined, binName: string, inferFailedMessage: string, configuredFileMissingMessage: string, alertOnFail: boolean): Promise<boolean> {
+    const revision = context.binaryRevision;
     if (!bin) {
         const binaryPath = await findBinaryPath(context.shell, binName);
 
+        if (revision !== context.binaryRevision) {
+            return false;
+        }
         if (!binaryPath) {
             if (alertOnFail) {
                 alertNoBin(context.host, binName, 'inferFailed', inferFailedMessage);
@@ -175,11 +193,11 @@ export async function checkForBinary(context: BinCheckContext, bin: string | und
         return true;
     }
 
-    if (!config.getUseWsl()) {
-        context.binFound = context.fs.existsSync(bin);
-    } else {
-        context.binFound = await wslBinaryPathExists(context.shell, bin);
+    const found = !config.getUseWsl() ? context.fs.existsSync(bin) : await wslBinaryPathExists(context.shell, bin);
+    if (revision !== context.binaryRevision) {
+        return false;
     }
+    context.binFound = found;
     if (context.binFound) {
         context.binPath = bin;
     } else {
