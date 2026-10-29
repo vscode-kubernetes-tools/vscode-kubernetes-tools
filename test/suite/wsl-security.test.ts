@@ -18,25 +18,37 @@ suite('WSL argument security', () => {
     teardown(() => sandbox.restore());
 
     test('starts WSL with literal arguments and no host shell', () => {
+        const previousSystemRoot = process.env.SystemRoot;
+        process.env.SystemRoot = 'C:\\Windows';
         const spawn = sandbox.stub(childProcesses, 'spawnSync').returns({
             status: 0, stdout: 'out', stderr: 'warning', signal: null,
         } as SpawnSyncReturns<string>);
         const args = ['cat', '--', '/tmp/a & b;$(marker) %PATH% !x! "quoted"'];
-        assert.deepStrictEqual(wsl.execWslSync(args), { code: 0, stdout: 'out', stderr: 'warning' });
-        sinon.assert.calledOnceWithExactly(spawn, 'wsl.exe', ['--exec', ...args], {
-            encoding: 'utf8', shell: false, windowsHide: true, maxBuffer: 20 * 1024 * 1024,
-        });
-        assert.strictEqual(args[0], 'cat');
+        try {
+            assert.deepStrictEqual(wsl.execWslSync(args), { code: 0, stdout: 'out', stderr: 'warning' });
+            sinon.assert.calledOnceWithExactly(spawn, 'C:\\Windows\\System32\\wsl.exe', ['--exec', ...args], {
+                encoding: 'utf8', shell: false, windowsHide: true, maxBuffer: 20 * 1024 * 1024,
+            });
+            assert.strictEqual(args[0], 'cat');
+        } finally {
+            restoreEnvironmentVariable('SystemRoot', previousSystemRoot);
+        }
     });
 
     test('reports missing WSL, output-limit errors, and signal termination', () => {
+        const previousSystemRoot = process.env.SystemRoot;
+        process.env.SystemRoot = 'C:\\Windows';
         const spawn = sandbox.stub(childProcesses, 'spawnSync');
-        for (const code of ['ENOENT', 'ENOBUFS']) {
-            spawn.returns({ error: Object.assign(new Error(code), { code }), status: null, signal: null, pid: 0, output: [], stdout: '', stderr: '' });
-            assert.throws(() => wsl.execWslSync(['cat', '--', '/path']), new RegExp(code));
+        try {
+            for (const code of ['ENOENT', 'ENOBUFS']) {
+                spawn.returns({ error: Object.assign(new Error(code), { code }), status: null, signal: null, pid: 0, output: [], stdout: '', stderr: '' });
+                assert.throws(() => wsl.execWslSync(['cat', '--', '/path']), new RegExp(code));
+            }
+            spawn.returns({ status: null, stdout: '', stderr: '', signal: 'SIGTERM' } as SpawnSyncReturns<string>);
+            assert.strictEqual(wsl.execWslSync(['cat', '--', '/path']).code, -1);
+        } finally {
+            restoreEnvironmentVariable('SystemRoot', previousSystemRoot);
         }
-        spawn.returns({ status: null, stdout: '', stderr: '', signal: 'SIGTERM' } as SpawnSyncReturns<string>);
-        assert.strictEqual(wsl.execWslSync(['cat', '--', '/path']).code, -1);
     });
 
     test('uses stat instead of an interpolated ls/grep pipeline', () => {
@@ -280,4 +292,12 @@ function kubeconfigText(name: string): string {
         clusters: [{ name, cluster: { server: 'https://example.invalid' } }],
         users: [{ name, user: {} }],
     });
+}
+
+function restoreEnvironmentVariable(name: string, value: string | undefined): void {
+    if (value === undefined) {
+        delete process.env[name];
+    } else {
+        process.env[name] = value;
+    }
 }

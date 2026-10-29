@@ -3,7 +3,6 @@
 import * as https from 'https';
 import * as download from '../download/download';
 import * as fs from 'fs';
-import mkdirp = require('mkdirp');
 import * as path from 'path';
 import * as unzipper from 'unzipper';
 import * as tar from 'tar';
@@ -12,6 +11,8 @@ import { Errorable, failed, succeeded } from '../../errorable';
 import { addPathToConfig, toolPathOSKey, getUseWsl } from '../config/config';
 import { getInstallFolder, platformUrlString, formatBin, platformArch } from './installationlayout';
 import { IncomingMessage } from 'http';
+import * as processes from '../../process';
+import { normalizeWslPath, getWindowsSystemExecutable } from '../../wsl';
 
 enum ArchiveKind {
     Tar,
@@ -34,7 +35,7 @@ export async function installKubectl(shell: Shell): Promise<Errorable<null>> {
     }
 
     const installFolder = getInstallFolder(shell, tool);
-    mkdirp.sync(installFolder);
+    await fs.promises.mkdir(installFolder, { recursive: true });
 
     const kubectlUrl = `https://dl.k8s.io/release/${version.result.trim()}/bin/${os}/${arch}/${binFile}`;
     const downloadFile = path.join(installFolder, binFile);
@@ -44,7 +45,7 @@ export async function installKubectl(shell: Shell): Promise<Errorable<null>> {
     }
 
     if (shell.isUnix()) {
-        fs.chmodSync(downloadFile, '0755');
+        await fs.promises.chmod(downloadFile, 0o755);
     }
 
     await addPathToConfig(toolPathOSKey(platform, tool), downloadFile);
@@ -132,7 +133,12 @@ export async function installMinikube(shell: Shell, version: string | null): Pro
     }
 
     if (shell.isUnix()) {
-        await shell.exec(`chmod +x ${executableFullPath}`);
+        try {
+            await makeExecutable(executableFullPath, shell);
+        } catch (err) {
+            // Preserve the existing best-effort permission update behavior.
+            console.warn(`Unable to make the installed Minikube binary executable: ${err}`);
+        }
     }
     const configKey = toolPathOSKey(shell.platform(), tool);
     await addPathToConfig(configKey, executableFullPath);
@@ -162,28 +168,33 @@ async function installFromArchive(sourceUrl: string, destinationFolder: string, 
     }
 
     const archiveFile = downloadResult.result;
+    try {
+        // unarchive it
+        const unarchiveResult = await unarchive(archiveFile, destinationFolder, shell, archiveKind);
+        if (failed(unarchiveResult)) {
+            return { succeeded: false, error: ['Failed to unpack: error was ' + unarchiveResult.error[0]] };
+        }
 
-    // unarchive it
-    const unarchiveResult = await unarchive(archiveFile, destinationFolder, shell, archiveKind);
-    if (failed(unarchiveResult)) {
-        return { succeeded: false, error: ['Failed to unpack: error was ' + unarchiveResult.error[0]] };
+        // add path to config
+        let executableFullPath = path.join(destinationFolder, executablePath);
+        if (getUseWsl()) {
+            executableFullPath = executableFullPath.replace(/\\/g, '/');
+        }
+        await addPathToConfig(configKey, executableFullPath);
+
+        return { succeeded: true, result: null };
+    } finally {
+        try {
+            fs.unlinkSync(archiveFile);
+        } catch (_err) {
+            // Temporary-file cleanup must not replace the install result.
+        }
     }
-
-    // add path to config
-    let executableFullPath = path.join(destinationFolder, executablePath);
-    if (getUseWsl()) {
-        executableFullPath = executableFullPath.replace(/\\/g, '/');
-    }
-    await addPathToConfig(configKey, executableFullPath);
-
-    fs.unlinkSync(archiveFile);
-
-    return { succeeded: true, result: null };
 }
 
 async function unarchive(sourceFile: string, destinationFolder: string, shell: Shell, archiveKind: ArchiveKind): Promise<Errorable<null>> {
     if (archiveKind === ArchiveKind.Tar) {
-        return await untar(sourceFile, destinationFolder, shell);
+        return await extractTarArchive(sourceFile, destinationFolder, shell);
     } else {
         return await unzip(sourceFile, destinationFolder);
     }
@@ -198,30 +209,78 @@ function unzip(sourceFile: string, destinationFolder: string): Promise<Errorable
     });
 }
 
-async function untar(sourceFile: string, destinationFolder: string, shell: Shell): Promise<Errorable<null>> {
+export type InstallerCommandExecutor = typeof processes.executeCommand;
+
+export async function makeExecutable(
+    executablePath: string,
+    shell: Shell,
+    execute: InstallerCommandExecutor = processes.executeCommand
+): Promise<void> {
+    if (!getUseWsl()) {
+        await fs.promises.chmod(executablePath, 0o755);
+        return;
+    }
+
+    const opts = shell.execOpts();
+    const environment = opts.env || process.env;
+    const wsl = getWindowsSystemExecutable('wsl.exe', environment);
+    const guestPath = normalizeWslPath(executablePath);
+    if (!wsl || !path.posix.isAbsolute(guestPath)) {
+        throw new Error('Unable to resolve the installed binary path in WSL.');
+    }
+    const result = await execute({
+        executable: wsl,
+        args: ['--exec', '/usr/bin/chmod', '0755', '--', guestPath],
+        cwd: opts.cwd,
+        env: environment,
+    });
+    if (result.code !== 0) {
+        throw new Error(result.stderr || 'Unable to update executable permissions.');
+    }
+}
+
+export async function extractTarArchive(
+    sourceFile: string,
+    destinationFolder: string,
+    shell: Shell,
+    execute: InstallerCommandExecutor = processes.executeCommand
+): Promise<Errorable<null>> {
     try {
         if (getUseWsl()) {
-            const destination = destinationFolder.replace(/\\/g, '/');
-            let result = await shell.exec(`mkdir -p ${destination}`);
-            if (!result || result.code !== 0) {
-                const message = result ? result.stderr : "Unable to run mkdir";
+            const opts = shell.execOpts();
+            const environment = opts.env || process.env;
+            const wsl = getWindowsSystemExecutable('wsl.exe', environment);
+            const destination = normalizeWslPath(destinationFolder);
+            if (!wsl || !path.posix.isAbsolute(destination)) {
+                throw new Error('Unable to resolve WSL archive paths.');
+            }
+            const invokeWsl = (args: readonly string[]) => execute({
+                executable: wsl,
+                args: ['--exec', ...args],
+                cwd: opts.cwd,
+                env: environment,
+            });
+            const converted = await invokeWsl(['/usr/bin/wslpath', '-a', '-u', sourceFile]);
+            const source = converted.code === 0 ? singleAbsoluteGuestPath(converted.stdout) : undefined;
+            if (!source) {
+                throw new Error(converted.stderr || 'Unable to convert the archive path for WSL.');
+            }
+            let result = await invokeWsl(['/usr/bin/mkdir', '-p', '--', destination]);
+            if (result.code !== 0) {
+                const message = result.stderr || "Unable to run mkdir";
                 console.log(message);
                 throw new Error(`Error making directory: ${message}`);
             }
-            const drive = sourceFile[0].toLowerCase();
-            const filePath = sourceFile.substring(2).replace(/\\/g, '/');
-            const fileName = `/mnt/${drive}/${filePath}`;
-            const cmd = `tar -C ${destination} -xf ${fileName}`;
-            result = await shell.exec(cmd);
-            if (!result || result.code !== 0) {
-                const message = result ? result.stderr : "Unable to run tar";
+            result = await invokeWsl(['/usr/bin/tar', '--directory', destination, '--extract', '--file', source]);
+            if (result.code !== 0) {
+                const message = result.stderr || "Unable to run tar";
                 console.log(message);
                 throw new Error(`Error unpacking: ${message}`);
             }
             return { succeeded: true, result: null };
         }
         if (!fs.existsSync(destinationFolder)) {
-            mkdirp.sync(destinationFolder);
+            await fs.promises.mkdir(destinationFolder, { recursive: true });
         }
         await tar.x({
             cwd: destinationFolder,
@@ -232,4 +291,10 @@ async function untar(sourceFile: string, destinationFolder: string, shell: Shell
         console.log(e);
         return { succeeded: false, error: [ "tar extract failed" ] /* TODO: extract error from exception */ };
     }
+}
+
+function singleAbsoluteGuestPath(output: string): string | undefined {
+    const lines = output.split(/\r?\n/).filter((line) => line.length > 0);
+    const value = lines.length === 1 ? lines[0] : undefined;
+    return value && path.posix.isAbsolute(value) && !/[\u0000-\u001f\u007f]/.test(value) ? value : undefined;
 }

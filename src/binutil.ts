@@ -2,6 +2,10 @@ import * as config from './components/config/config';
 import { Shell } from './shell';
 import { Host } from './host';
 import { FS } from './fs';
+import * as nativeFs from 'fs';
+import * as path from 'path';
+import { executeCommand } from './process';
+import { getWindowsSystemExecutable } from './wsl';
 
 export interface BinCheckContext {
     readonly host: Host;
@@ -9,34 +13,119 @@ export interface BinCheckContext {
     readonly shell: Shell;
     binFound: boolean;
     binPath: string;
+    readonly binaryRevision?: number;
 }
 
-interface FindBinaryResult {
-    err: number | null;
-    output: string;
-}
+export type BinaryCommandExecutor = typeof executeCommand;
 
-async function findBinary(shell: Shell, binName: string): Promise<FindBinaryResult> {
-    let cmd = `which ${binName}`;
+const BINARY_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/;
 
-    if (shell.isWindows()) {
-        cmd = `where.exe ${binName}.exe`;
+export async function findBinaryPath(shell: Shell, binName: string, execute: BinaryCommandExecutor = executeCommand): Promise<string | undefined> {
+    if (!BINARY_NAME_PATTERN.test(binName)) {
+        return undefined;
+    }
+    if (!config.getUseWsl()) {
+        return findNativeBinaryPath(shell, binName);
     }
 
-    const opts = {
-        async: true,
-        env: {
-            HOME: process.env.HOME,
-            PATH: process.env.PATH
+    const opts = shell.execOpts();
+    const environment = opts.env || process.env;
+    const wsl = getWindowsSystemExecutable('wsl.exe', environment);
+    if (!wsl) {
+        return undefined;
+    }
+    try {
+        // A fixed script is required to preserve PATH initialization by the user's guest shell.
+        const result = await execute({
+            executable: wsl,
+            args: [
+                '--exec', '/bin/sh', '-c',
+                'exec /usr/bin/env VSCODE_KUBERNETES_TOOL="$1" "${SHELL:-/bin/sh}" -c \'which -- "$VSCODE_KUBERNETES_TOOL"\'',
+                'vscode-kubernetes-which', binName,
+            ],
+            cwd: opts.cwd,
+            env: environment,
+        });
+        return result.code === 0 ? singleAbsoluteGuestPath(result.stdout) : undefined;
+    } catch (_err) {
+        return undefined;
+    }
+}
+
+export async function wslBinaryPathExists(shell: Shell, binaryPath: string, execute: BinaryCommandExecutor = executeCommand): Promise<boolean> {
+    if (!binaryPath) {
+        return false;
+    }
+    const opts = shell.execOpts();
+    const environment = opts.env || process.env;
+    const wsl = getWindowsSystemExecutable('wsl.exe', environment);
+    if (!wsl) {
+        return false;
+    }
+    try {
+        const result = await execute({
+            executable: wsl,
+            args: ['--exec', '/usr/bin/test', '-e', binaryPath],
+            cwd: opts.cwd,
+            env: environment,
+        });
+        return result.code === 0;
+    } catch (_err) {
+        return false;
+    }
+}
+
+function findNativeBinaryPath(shell: Shell, binName: string): string | undefined {
+    const environment = shell.execOpts().env || process.env;
+    const windows = shell.isWindows();
+    const pathKey = windows ? Object.keys(environment).find((key) => key.toLowerCase() === 'path') : 'PATH';
+    const pathValue = pathKey ? environment[pathKey] : undefined;
+    if (!pathValue) {
+        return undefined;
+    }
+
+    const pathApi = windows ? path.win32 : path;
+    const delimiter = windows ? ';' : path.delimiter;
+    const filename = windows && !binName.toLowerCase().endsWith('.exe') ? `${binName}.exe` : binName;
+    for (const rawEntry of pathValue.split(delimiter)) {
+        const entry = windows && rawEntry.length > 1 && rawEntry.startsWith('"') && rawEntry.endsWith('"') ? rawEntry.slice(1, -1) : rawEntry;
+        if (!entry || !isFullyQualifiedPathEntry(entry, windows)) {
+            continue;
         }
-    };
-
-    const execResult = await shell.execCore(cmd, opts);
-    if (execResult.code) {
-        return { err: execResult.code, output: execResult.stderr };
+        const candidate = pathApi.join(entry, filename);
+        try {
+            if (!nativeFs.statSync(candidate).isFile()) {
+                continue;
+            }
+            if (!windows) {
+                nativeFs.accessSync(candidate, nativeFs.constants.X_OK);
+            }
+            return candidate;
+        } catch (_err) {
+            // Continue to the next PATH entry.
+        }
     }
+    return undefined;
+}
 
-    return { err: null, output: execResult.stdout };
+function isFullyQualifiedPathEntry(entry: string, windows: boolean): boolean {
+    if (!windows) {
+        return path.isAbsolute(entry);
+    }
+    const normalised = entry.replace(/\//g, '\\');
+    if (normalised.startsWith('\\\\?\\') || normalised.startsWith('\\\\.\\')) {
+        return false;
+    }
+    const driveQualified = /^[A-Za-z]:\\/.test(normalised);
+    const ordinaryUnc = /^\\\\[^\\]+\\[^\\]+(?:\\|$)/.test(normalised);
+    return driveQualified || ordinaryUnc;
+}
+
+function singleAbsoluteGuestPath(output: string): string | undefined {
+    const lines = output.split(/\r?\n/).filter((line) => line.length > 0);
+    const value = lines.length === 1 ? lines[0] : undefined;
+    return value && path.posix.isAbsolute(value) && !CONTROL_CHARACTERS.test(value) ? value : undefined;
 }
 
 export function execPath(shell: Shell, basePath: string): string {
@@ -84,10 +173,14 @@ function alertNoBin(host: Host, binName: string, failureReason: CheckPresentFail
 }
 
 export async function checkForBinary(context: BinCheckContext, bin: string | undefined, binName: string, inferFailedMessage: string, configuredFileMissingMessage: string, alertOnFail: boolean): Promise<boolean> {
+    const revision = context.binaryRevision;
     if (!bin) {
-        const fb = await findBinary(context.shell, binName);
+        const binaryPath = await findBinaryPath(context.shell, binName);
 
-        if (fb.err || fb.output.length === 0) {
+        if (revision !== context.binaryRevision) {
+            return false;
+        }
+        if (!binaryPath) {
             if (alertOnFail) {
                 alertNoBin(context.host, binName, 'inferFailed', inferFailedMessage);
             }
@@ -95,16 +188,16 @@ export async function checkForBinary(context: BinCheckContext, bin: string | und
         }
 
         context.binFound = true;
+        context.binPath = binaryPath;
 
         return true;
     }
 
-    if (!config.getUseWsl()) {
-        context.binFound = context.fs.existsSync(bin);
-    } else {
-        const sr = await context.shell.exec(`ls ${bin}`);
-        context.binFound = (!!sr && sr.code === 0);
+    const found = !config.getUseWsl() ? context.fs.existsSync(bin) : await wslBinaryPathExists(context.shell, bin);
+    if (revision !== context.binaryRevision) {
+        return false;
     }
+    context.binFound = found;
     if (context.binFound) {
         context.binPath = bin;
     } else {
