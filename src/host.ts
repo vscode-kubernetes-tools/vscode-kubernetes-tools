@@ -328,7 +328,7 @@ const PROCESS_TERMINAL_RUNNER = [
     'process.on("SIGTERM",()=>forward("SIGTERM",true));',
     'if(process.platform!=="win32")process.on("SIGHUP",()=>forward("SIGHUP",true));',
     'const fail=(error)=>{failed=true;console.error(error.message);process.exitCode=1;};',
-    'const start=(payload)=>{child=spawn(payload.executable,payload.args,{cwd:payload.cwd,env:payload.env,shell:false,stdio:"inherit",windowsHide:true});child.once("error",fail);child.once("close",(code)=>{finished=true;process.exitCode=failed?1:(code??1);if(exitAfterChild)process.exit();else if(process.stdin.isTTY&&process.stdout.isTTY)process.stdin.resume();});};',
+    'const start=(payload)=>{child=spawn(payload.executable,payload.args,{cwd:payload.cwd,env:payload.env,shell:false,stdio:"inherit",windowsHide:process.platform!=="win32"});child.once("error",fail);child.once("close",(code)=>{finished=true;process.exitCode=failed?1:(code??1);if(exitAfterChild)process.exit();else if(process.stdin.isTTY&&process.stdout.isTTY)process.stdin.resume();});};',
     'if(!token)throw new Error("Missing process terminal token.");',
     'const socket=net.createConnection({host:"127.0.0.1",port:connection.port});',
     'socket.setTimeout(10000,()=>socket.destroy(new Error("Process terminal payload timed out.")));',
