@@ -128,10 +128,7 @@ export function createProcessTerminalOptions(options: ProcessTerminalOptions): v
         shellArgs: processTerminalRunnerArgs(options),
         // The child's working directory is encoded below. Keep VS Code's terminal resolver away from it.
         cwd: path.parse(process.execPath).root,
-        env: {
-            ELECTRON_RUN_AS_NODE: '1',
-            VSCODE_KUBERNETES_PROCESS_ENV: encodedEnvironment(options.env),
-        },
+        env: processTerminalEnvironment(options.env),
         strictEnv: true,
         isTransient: true,
     };
@@ -139,11 +136,19 @@ export function createProcessTerminalOptions(options: ProcessTerminalOptions): v
 
 async function runProcessInTerminal(options: ProcessTerminalOptions): Promise<ProcessTerminalExecution> {
     const terminal = vscode.window.createTerminal(createProcessTerminalOptions(options));
-    let complete!: () => void;
-    const completed = new Promise<void>((resolve) => { complete = resolve; });
+    let resolveCompleted!: () => void;
+    let settled = false;
+    const completed = new Promise<void>((resolve) => { resolveCompleted = resolve; });
+    const complete = () => {
+        if (settled) {
+            return;
+        }
+        settled = true;
+        closeListener?.dispose();
+        resolveCompleted();
+    };
     const closeListener = vscode.window.onDidCloseTerminal((closedTerminal) => {
         if (closedTerminal === terminal) {
-            closeListener.dispose();
             complete();
         }
     });
@@ -152,9 +157,17 @@ async function runProcessInTerminal(options: ProcessTerminalOptions): Promise<Pr
         if (await terminal.processId === undefined) {
             throw new Error('The terminal process did not start.');
         }
-        return { completed, terminate: () => terminal.dispose() };
+        return {
+            completed,
+            terminate: () => {
+                try {
+                    terminal.dispose();
+                } finally {
+                    complete();
+                }
+            },
+        };
     } catch (error) {
-        closeListener.dispose();
         terminal.dispose();
         complete();
         throw error;
@@ -197,6 +210,20 @@ export function processTerminalRunnerArgs(options: ProcessTerminalOptions): stri
 
 function encodedEnvironment(environment: NodeJS.ProcessEnv | undefined): string {
     return Buffer.from(JSON.stringify(definedEnvironment(environment || process.env))).toString('base64url');
+}
+
+function processTerminalEnvironment(childEnvironment: NodeJS.ProcessEnv | undefined): Record<string, string> {
+    const environment: Record<string, string> = {};
+    if (process.platform === 'win32') {
+        for (const [key, value] of Object.entries(process.env)) {
+            if (value !== undefined && /^(?:SystemRoot|windir|temp|tmp)$/i.test(key)) {
+                environment[key] = value;
+            }
+        }
+    }
+    environment.ELECTRON_RUN_AS_NODE = '1';
+    environment.VSCODE_KUBERNETES_PROCESS_ENV = encodedEnvironment(childEnvironment);
+    return environment;
 }
 
 function definedEnvironment(environment: NodeJS.ProcessEnv): Record<string, string> {

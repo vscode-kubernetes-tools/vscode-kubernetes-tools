@@ -90,6 +90,9 @@ suite('Process output terminal security', () => {
         assert.strictEqual(payload.cwd, '/workspace path');
         assert.strictEqual(terminal.env!.ELECTRON_RUN_AS_NODE, '1');
         assert.match(terminal.env!.VSCODE_KUBERNETES_PROCESS_ENV!, /^[A-Za-z0-9_-]+$/);
+        if (process.platform === 'win32') {
+            assert.strictEqual(terminal.env!.SystemRoot || terminal.env!.SYSTEMROOT, process.env.SystemRoot || process.env.SYSTEMROOT);
+        }
         assert.strictEqual(terminal.cwd, path.parse(process.execPath).root);
         assert.strictEqual(terminal.strictEnv, true);
         assert.strictEqual(terminal.isTransient, true);
