@@ -45,7 +45,7 @@ import * as telemetry from './telemetry-helper';
 import { dashboardKubernetes } from './components/kubectl/dashboard';
 import { portForwardKubernetes } from './components/kubectl/port-forward';
 import { logsKubernetes } from './components/kubectl/logs';
-import { deleteResourceWithConfirmation, isSafeNamespace, listNamespaceResources, listResourceNames, normaliseResourceReadTarget, normaliseResourceTarget } from './components/kubectl/resource-commands';
+import { deleteResourceWithConfirmation, getResourceArgs, getStructuredResourceArgs, getStructuredResourceKindArgs, isSafeNamespace, listNamespaceResources, listResourceNames, normaliseResourceReadTarget, normaliseResourceTarget } from './components/kubectl/resource-commands';
 import { listPods, queryContainers } from './components/kubectl/pod-commands';
 import { waitForPortForward } from './debug/portForward';
 import { registerDebugSessionCleanup } from './debug/sessionCleanup';
@@ -880,24 +880,45 @@ async function exposeKubernetes() {
     await kubectl.reportResult(er, {});
 }
 
-function kubectlId(explorerNode: ClusterExplorerResourceNode | ClusterExplorerResourceFolderNode) {
-    if (explorerNode.nodeType === explorer.NODE_TYPES.resource) {
-        return explorerNode.kindName;
-    }
-    return explorerNode.kind.abbreviation;
+export interface GetCommandDependencies {
+    readonly prompt: () => Promise<string | undefined>;
+    readonly invoke: (args: readonly string[], terminalName: string) => Promise<void>;
+    readonly showError: (message: string) => Thenable<string | undefined>;
 }
 
+const DEFAULT_GET_COMMAND_DEPENDENCIES: GetCommandDependencies = {
+    prompt: async () => await findKindNameOrPrompt(kuberesources.commonKinds, 'get', {
+        nameOptional: true,
+        skipFreeTextPrompt: config.isMinimalWorkflow(),
+    }),
+    invoke: async (args, terminalName) => await kubectl.invokeArgsInOutputTerminal(args, terminalName),
+    showError: (message) => vscode.window.showErrorMessage(message),
+};
+
 async function getKubernetes(explorerNode?: any) {
+    return getKubernetesCore(explorerNode, DEFAULT_GET_COMMAND_DEPENDENCIES);
+}
+
+export async function getKubernetesCore(explorerNode: any, dependencies: GetCommandDependencies) {
     if (explorerNode) {
         const node = explorerNode as ClusterExplorerResourceNode | ClusterExplorerResourceFolderNode;
-        const id = kubectlId(node);
-        const nsarg = (node.nodeType === explorer.NODE_TYPES.resource && node.namespace) ? `--namespace ${node.namespace}` : '';
-        kubectl.invokeInSharedTerminal(`get ${id} ${nsarg} -o wide`);
+        const args = node.nodeType === explorer.NODE_TYPES.resource ?
+            getStructuredResourceArgs(node.kind?.abbreviation, node.name, node.namespace) :
+            node.nodeType === explorer.NODE_TYPES.folder.resource ? getStructuredResourceKindArgs(node.kind?.abbreviation) : undefined;
+        if (!args) {
+            await dependencies.showError('Invalid Kubernetes resource target.');
+            return;
+        }
+        await dependencies.invoke(args, 'Kubernetes Get');
     } else {
-        const isMinimalWorkflow = config.isMinimalWorkflow();
-        const value = await findKindNameOrPrompt(kuberesources.commonKinds, 'get', { nameOptional: true, skipFreeTextPrompt: isMinimalWorkflow });
+        const value = await dependencies.prompt();
         if (value) {
-            kubectl.invokeInSharedTerminal(` get ${value} -o wide`);
+            const args = getResourceArgs(value);
+            if (!args) {
+                await dependencies.showError('Invalid Kubernetes resource target.');
+                return;
+            }
+            await dependencies.invoke(args, 'Kubernetes Get');
         }
     }
 }
@@ -2316,9 +2337,13 @@ async function setContextKubernetes(targetContext: string) {
     }
 }
 
-async function clusterInfoKubernetes(_explorerNode: ClusterExplorerNode) {
+async function clusterInfoKubernetes(_explorerNode: ClusterExplorerNode | undefined) {
+    await clusterInfoKubernetesCore(async (args, terminalName) => await kubectl.invokeArgsInOutputTerminal(args, terminalName));
+}
+
+export async function clusterInfoKubernetesCore(invoke: (args: readonly string[], terminalName: string) => Promise<void>) {
     // If a node is passed, it's always the active cluster so we don't need to use the argument
-    kubectl.invokeInSharedTerminal("cluster-info");
+    await invoke(['cluster-info'], 'Kubernetes Cluster Info');
 }
 
 async function deleteContextKubernetes(explorerNode: ClusterExplorerNode) {

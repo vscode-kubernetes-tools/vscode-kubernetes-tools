@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { shellEnvironment } from './shell';
 import { showWorkspaceFolderPick } from './hostutils';
 import { Dictionary } from './utils/dictionary';
@@ -13,6 +14,7 @@ export interface Host {
     withProgress<R>(task: (progress: vscode.Progress<{ message?: string }>) => Thenable<R>): Thenable<R>;
     getConfiguration(key: string): any;
     createTerminal(name?: string, shellPath?: string, shellArgs?: string[], iconPath?: vscode.ThemeIcon): vscode.Terminal;
+    runProcessInTerminal(options: ProcessTerminalOptions): Promise<ProcessTerminalExecution>;
     onDidCloseTerminal(listener: (e: vscode.Terminal) => any): vscode.Disposable;
     onDidChangeConfiguration(listener: (ch: vscode.ConfigurationChangeEvent) => any): vscode.Disposable;
     activeDocument(): vscode.TextDocument | undefined;
@@ -30,6 +32,7 @@ export const host: Host = {
     withProgress: withProgress,
     getConfiguration : getConfiguration,
     createTerminal : createTerminal,
+    runProcessInTerminal: runProcessInTerminal,
     onDidCloseTerminal : onDidCloseTerminal,
     onDidChangeConfiguration : onDidChangeConfiguration,
     showInputBox : showInputBox,
@@ -43,6 +46,19 @@ export const host: Host = {
 export interface LongRunningUIOptions {
     readonly title: string;
     readonly operationKey?: string;
+}
+
+export interface ProcessTerminalOptions {
+    readonly name: string;
+    readonly executable: string;
+    readonly args: readonly string[];
+    readonly cwd?: string;
+    readonly env?: NodeJS.ProcessEnv;
+}
+
+export interface ProcessTerminalExecution {
+    readonly completed: Promise<void>;
+    terminate(): void;
 }
 
 function showInputBox(options: vscode.InputBoxOptions, token?: vscode.CancellationToken): Thenable<string | undefined> {
@@ -103,6 +119,90 @@ function createTerminal(name?: string, shellPath?: string, shellArgs?: string[],
         iconPath: iconPath
     };
     return vscode.window.createTerminal(terminalOptions);
+}
+
+export function createProcessTerminalOptions(options: ProcessTerminalOptions): vscode.TerminalOptions {
+    return {
+        name: options.name,
+        shellPath: process.execPath,
+        shellArgs: processTerminalRunnerArgs(options),
+        // The child's working directory is encoded below. Keep VS Code's terminal resolver away from it.
+        cwd: path.parse(process.execPath).root,
+        env: {
+            ELECTRON_RUN_AS_NODE: '1',
+            VSCODE_KUBERNETES_PROCESS_ENV: encodedEnvironment(options.env),
+        },
+        strictEnv: true,
+        isTransient: true,
+    };
+}
+
+async function runProcessInTerminal(options: ProcessTerminalOptions): Promise<ProcessTerminalExecution> {
+    const terminal = vscode.window.createTerminal(createProcessTerminalOptions(options));
+    let complete!: () => void;
+    const completed = new Promise<void>((resolve) => { complete = resolve; });
+    const closeListener = vscode.window.onDidCloseTerminal((closedTerminal) => {
+        if (closedTerminal === terminal) {
+            closeListener.dispose();
+            complete();
+        }
+    });
+    try {
+        terminal.show();
+        if (await terminal.processId === undefined) {
+            throw new Error('The terminal process did not start.');
+        }
+        return { completed, terminate: () => terminal.dispose() };
+    } catch (error) {
+        closeListener.dispose();
+        terminal.dispose();
+        complete();
+        throw error;
+    }
+}
+
+interface ProcessTerminalPayload {
+    readonly executable: string;
+    readonly args: readonly string[];
+    readonly cwd?: string;
+}
+
+const PROCESS_TERMINAL_RUNNER = [
+    'const {spawn}=require("child_process");',
+    'const p=JSON.parse(Buffer.from(process.argv[1],"base64url").toString("utf8"));',
+    'const env=JSON.parse(Buffer.from(process.env.VSCODE_KUBERNETES_PROCESS_ENV,"base64url").toString("utf8"));',
+    'let failed=false;',
+    'const child=spawn(p.executable,p.args,{cwd:p.cwd,env,shell:false,stdio:"inherit",windowsHide:true});',
+    'let stopping=false;',
+    'let finished=false;',
+    'let exitAfterChild=false;',
+    'const forward=(signal,exit)=>{exitAfterChild||=exit;if(finished){process.exit();return;}if(stopping)return;stopping=true;if(child.exitCode===null&&child.signalCode===null){child.kill(signal);const timer=setTimeout(()=>{if(child.exitCode===null&&child.signalCode===null)child.kill("SIGKILL");},2000);timer.unref();}};',
+    'process.on("SIGINT",()=>forward("SIGINT",false));',
+    'process.on("SIGTERM",()=>forward("SIGTERM",true));',
+    'if(process.platform!=="win32")process.on("SIGHUP",()=>forward("SIGHUP",true));',
+    'child.once("error",(error)=>{failed=true;console.error(error.message);process.exitCode=1;});',
+    'child.once("close",(code)=>{finished=true;process.exitCode=failed?1:(code??1);if(exitAfterChild)process.exit();else if(process.stdin.isTTY&&process.stdout.isTTY)process.stdin.resume();});',
+].join('');
+
+export function processTerminalRunnerArgs(options: ProcessTerminalOptions): string[] {
+    // Keep variable-like values opaque to VS Code. The fixed runner decodes the invocation and creates the child
+    // with shell:false inside the real terminal PTY.
+    const payload: ProcessTerminalPayload = {
+        executable: options.executable,
+        args: [...options.args],
+        cwd: options.cwd || process.cwd(),
+    };
+    return ['-e', PROCESS_TERMINAL_RUNNER, Buffer.from(JSON.stringify(payload)).toString('base64url')];
+}
+
+function encodedEnvironment(environment: NodeJS.ProcessEnv | undefined): string {
+    return Buffer.from(JSON.stringify(definedEnvironment(environment || process.env))).toString('base64url');
+}
+
+function definedEnvironment(environment: NodeJS.ProcessEnv): Record<string, string> {
+    return Object.fromEntries(
+        Object.entries(environment).filter((entry): entry is [string, string] => entry[1] !== undefined)
+    );
 }
 
 function onDidCloseTerminal(listener: (e: vscode.Terminal) => any): vscode.Disposable {

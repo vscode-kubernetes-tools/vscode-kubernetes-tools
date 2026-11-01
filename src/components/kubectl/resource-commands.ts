@@ -67,6 +67,35 @@ export async function listNamespaceResources(kubectl: Kubectl, namespace: string
 
 export type ResourceNameListResult = Errorable<string[]> & { readonly execFailure?: FailedExecResult };
 
+export function getResourceArgs(resource: string, namespace?: string): string[] | undefined {
+    const target = normaliseResourceReadTarget(resource, true);
+    if (!target || (namespace !== undefined && namespace !== '' && !isSafeNamespace(namespace))) {
+        return undefined;
+    }
+    return ['get', target, ...(namespace ? ['--namespace', namespace] : []), '-o', 'wide'];
+}
+
+export function getStructuredResourceArgs(resourceType: unknown, resourceName: unknown, namespace?: unknown): string[] | undefined {
+    if (typeof resourceType !== 'string' || typeof resourceName !== 'string' ||
+        (namespace !== undefined && typeof namespace !== 'string')) {
+        return undefined;
+    }
+    const kind = resourceType.toLowerCase();
+    if (!isSafeResourceType(kind) || !isSafeResourceName(resourceName) ||
+        (namespace !== undefined && namespace !== '' && !isSafeNamespace(namespace))) {
+        return undefined;
+    }
+    return ['get', `${kind}/${resourceName}`, ...(namespace ? ['--namespace', namespace] : []), '-o', 'wide'];
+}
+
+export function getStructuredResourceKindArgs(resourceType: unknown): string[] | undefined {
+    if (typeof resourceType !== 'string') {
+        return undefined;
+    }
+    const kind = resourceType.toLowerCase();
+    return isSafeResourceType(kind) ? ['get', kind, '-o', 'wide'] : undefined;
+}
+
 export async function listResourceNames(kubectl: Kubectl, resourceType: string, namespace?: string): Promise<ResourceNameListResult> {
     if (!isSafeResourceType(resourceType) || (namespace !== undefined && namespace !== '' && !isSafeNamespace(namespace))) {
         return { succeeded: false, error: ['Invalid Kubernetes resource type or namespace.'] };

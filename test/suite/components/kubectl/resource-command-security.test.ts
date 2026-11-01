@@ -3,12 +3,34 @@ import * as sinon from 'sinon';
 import { Kubectl } from '../../../../src/kubectl';
 import {
     deleteResourceWithConfirmation,
+    getResourceArgs,
+    getStructuredResourceArgs,
+    getStructuredResourceKindArgs,
     listNamespaceResources,
     normaliseResourceReadTarget,
     normaliseResourceTarget,
 } from '../../../../src/components/kubectl/resource-commands';
 
 suite('Resource command security', () => {
+    test('builds Get arguments without rendering resource values as command text', () => {
+        assert.deepStrictEqual(getResourceArgs('Pod/api;$(marker)', 'team-a'), [
+            'get', 'pod/api;$(marker)', '--namespace', 'team-a', '-o', 'wide',
+        ]);
+        assert.deepStrictEqual(getResourceArgs('Custom.Example.io', ''), [
+            'get', 'custom.example.io', '-o', 'wide',
+        ]);
+        assert.strictEqual(getResourceArgs('pod/api -n other'), undefined);
+        assert.strictEqual(getResourceArgs('pod/api', 'team;other'), undefined);
+        assert.deepStrictEqual(getStructuredResourceArgs('Role', 'team reader ${env:SECRET}', 'team-a'), [
+            'get', 'role/team reader ${env:SECRET}', '--namespace', 'team-a', '-o', 'wide',
+        ]);
+        assert.strictEqual(getStructuredResourceArgs('Role', 'bad/name', 'team-a'), undefined);
+        assert.deepStrictEqual(getStructuredResourceKindArgs('Pods'), ['get', 'pods', '-o', 'wide']);
+        assert.strictEqual(getStructuredResourceArgs(undefined, 'api', 'team-a'), undefined);
+        assert.strictEqual(getStructuredResourceArgs('Pod', undefined, 'team-a'), undefined);
+        assert.strictEqual(getStructuredResourceKindArgs(undefined), undefined);
+    });
+
     test('normalises supported resource input without splitting arbitrary text', () => {
         assert.strictEqual(normaliseResourceTarget('deployment api', false), 'deployment/api');
         assert.strictEqual(normaliseResourceTarget('deployment/api', false), 'deployment/api');

@@ -1,6 +1,6 @@
 import { Terminal, Disposable, ThemeIcon } from 'vscode';
 import { ChildProcess, spawn as spawnChildProcess } from "child_process";
-import { Host, host, LongRunningUIOptions } from './host';
+import { Host, host, LongRunningUIOptions, ProcessTerminalExecution, ProcessTerminalOptions } from './host';
 import { FS } from './fs';
 import { Shell, ShellResult } from './shell';
 import * as binutil from './binutil';
@@ -25,6 +25,7 @@ export interface Kubectl {
     invokeInSharedTerminal(command: string): Promise<void>;
     runAsTerminal(command: string[], terminalName: string): Promise<void>;
     invokeArgsInNewTerminal(args: readonly string[], terminalName: string, onClose?: (e: Terminal) => any, iconPath?: ThemeIcon): Promise<Disposable>;
+    invokeArgsInOutputTerminal(args: readonly string[], terminalName: string): Promise<void>;
 
     // TODO: analyse uses for these and convert these over
     asLines(command: string): Promise<Errorable<string[]>>;
@@ -143,6 +144,7 @@ class KubectlImpl implements Kubectl {
                 this.context.status = undefined;
                 checkedCompatibility = false;
                 this.disposeSharedTerminal();
+                this.terminateOutputTerminals();
             });
         }
     }
@@ -153,6 +155,8 @@ class KubectlImpl implements Kubectl {
     private sharedTerminalConfigurationDisposable: Disposable | undefined;
     private sharedTerminalCloseDisposable: Disposable | undefined;
     private childProcesses: ChildProcess[] = [];
+    private readonly outputTerminalExecutions = new Set<ProcessTerminalExecution>();
+    private disposed = false;
     private readonly backgroundCancellation = new AbortController();
 
     checkPresent(errorMessageMode: CheckPresentMessageMode): Promise<boolean> {
@@ -202,6 +206,27 @@ class KubectlImpl implements Kubectl {
             }
         });
         return disposable;
+    }
+    async invokeArgsInOutputTerminal(args: readonly string[], terminalName: string): Promise<void> {
+        const invocation = await resolveTerminalInvocation(this.context, args);
+        if (!invocation) {
+            return;
+        }
+        const { revision, ...processOptions } = invocation;
+        if (this.disposed || revision !== this.context.binaryRevision) {
+            return;
+        }
+        try {
+            const execution = await this.context.host.runProcessInTerminal({ name: terminalName, ...processOptions });
+            if (this.disposed || revision !== this.context.binaryRevision) {
+                execution.terminate();
+                return;
+            }
+            this.outputTerminalExecutions.add(execution);
+            void execution.completed.finally(() => this.outputTerminalExecutions.delete(execution));
+        } catch (error) {
+            await this.context.host.showErrorMessage(`Unable to start kubectl output terminal: ${String(error)}`);
+        }
     }
     asLines(command: string): Promise<Errorable<string[]>> {
         return asLines(this.context, command);
@@ -405,16 +430,24 @@ class KubectlImpl implements Kubectl {
     }
 
     dispose() {
+        this.disposed = true;
         this.configurationChangeDisposable?.dispose();
         this.sharedTerminalConfigurationDisposable?.dispose();
         this.disposeSharedTerminal();
         this.ownedKubectl?.dispose();
         this.backgroundCancellation.abort();
+        this.terminateOutputTerminals();
         this.childProcesses.forEach((child) => {
             if (!child.killed) {
                 child.kill();
             }
         });
+    }
+
+    private terminateOutputTerminals(): void {
+        const executions = [...this.outputTerminalExecutions];
+        this.outputTerminalExecutions.clear();
+        executions.forEach((execution) => execution.terminate());
     }
 }
 
@@ -459,7 +492,7 @@ export function create(versioning: KubectlVersioning, host: Host, fs: FS, shell:
 }
 
 function createSingleVersion(host: Host, fs: FS, shell: Shell): Kubectl {
-    return new KubectlImpl(host, fs, shell, undefined, false, true, false);
+    return new KubectlImpl(host, fs, shell, undefined, false, true, true);
 }
 
 function createAutoVersioned(host: Host, fs: FS, shell: Shell): Kubectl {
@@ -589,28 +622,54 @@ async function createLegacyTerminal(
 }
 
 async function runAsTerminal(context: Context, command: readonly string[], terminalName: string, iconPath?: ThemeIcon): Promise<Terminal | undefined> {
-    const executable = await resolveKubectlPath(context, CheckPresentMessageMode.Command, path);
-    if (executable) {
-        let execPath = executable;
-        let cmd = [...command];
+    const invocation = await resolveTerminalInvocation(context, command);
+    if (!invocation) {
+        return undefined;
+    }
+    const terminal = context.host.createTerminal(terminalName, invocation.executable, [...invocation.args], iconPath);
+    terminal.show();
+    return terminal;
+}
+
+type ResolvedTerminalInvocation = Omit<ProcessTerminalOptions, 'name'> & { readonly revision: number };
+
+async function resolveTerminalInvocation(context: Context, args: readonly string[]): Promise<ResolvedTerminalInvocation | undefined> {
+    while (true) {
+        const revision = context.binaryRevision;
+        const executable = await resolveKubectlPath(context, CheckPresentMessageMode.Command, path);
+        if (!executable) {
+            return undefined;
+        }
+        const execOpts = context.shell.execOpts();
+        let invocation: Omit<ProcessTerminalOptions, 'name'>;
         if (getUseWsl()) {
-            cmd = ['--exec', execPath, ...cmd];
-            const execOpts = context.shell.execOpts();
             const wsl = getWindowsSystemExecutable('wsl.exe', execOpts.env || process.env);
             if (!wsl) {
                 await context.host.showErrorMessage('Unable to find the Windows system WSL executable.');
                 return undefined;
             }
-            execPath = wsl;
-        } else if (binutil.isWindowsCommandScript(context.shell, execPath)) {
-            await context.host.showErrorMessage(`Cannot launch configured kubectl command script '${execPath}' without a shell. Configure a kubectl.exe path instead.`);
-            return undefined;
+            invocation = {
+                executable: wsl,
+                args: ['--exec', executable, ...args],
+                cwd: execOpts.cwd,
+                env: execOpts.env,
+            };
+        } else {
+            if (binutil.isWindowsCommandScript(context.shell, executable)) {
+                await context.host.showErrorMessage(`Cannot launch configured kubectl command script '${executable}' without a shell. Configure a kubectl.exe path instead.`);
+                return undefined;
+            }
+            invocation = {
+                executable,
+                args: [...args],
+                cwd: execOpts.cwd,
+                env: execOpts.env,
+            };
         }
-        const term = context.host.createTerminal(terminalName, execPath, cmd, iconPath);
-        term.show();
-        return term;
+        if (revision === context.binaryRevision) {
+            return { ...invocation, revision };
+        }
     }
-    return undefined;
 }
 
 async function resolveKubectlPath(
