@@ -96,6 +96,8 @@ suite('Process output terminal security', () => {
                 assert.match(terminal.shellPath!, /\\System32\\WindowsPowerShell\\v1\.0\\powershell\.exe$/i);
                 assert.deepStrictEqual(runnerArgs.slice(0, 4), ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand']);
                 assert.match(runnerArgs[4], /^[A-Za-z0-9+/=]+$/);
+                assert.strictEqual(terminal.env!.ProgramFiles, process.env.ProgramFiles);
+                assert.strictEqual(terminal.env!['ProgramFiles(x86)'], process.env['ProgramFiles(x86)']);
             } else {
                 assert.strictEqual(terminal.shellPath, process.execPath);
                 assert.strictEqual(runnerArgs.length, 3);

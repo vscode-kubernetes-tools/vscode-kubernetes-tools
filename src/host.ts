@@ -387,7 +387,7 @@ function processTerminalEnvironment(token: string, port: number): Record<string,
     const environment: Record<string, string> = {};
     if (process.platform === 'win32') {
         for (const [key, value] of Object.entries(process.env)) {
-            if (value !== undefined && /^(?:SystemRoot|windir|temp|tmp)$/i.test(key)) {
+            if (value !== undefined && /^(?:SystemRoot|windir|temp|tmp|ProgramFiles(?:\(x86\))?)$/i.test(key)) {
                 environment[key] = value;
             }
         }
