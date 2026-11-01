@@ -16,7 +16,7 @@ suite('Process output terminal security', () => {
     test('runs the child inside a persistent real terminal TTY', async function () {
         this.timeout(15000);
         const directory = nativeFs.mkdtempSync(path.join(os.tmpdir(), 'kubectl-terminal-tty-'));
-        const childDirectory = path.join(directory, '${env:UNCHANGED} child cwd');
+        const childDirectory = path.join(directory, '${workspaceFolder} child cwd');
         nativeFs.mkdirSync(childDirectory);
         const marker = path.join(directory, 'tty.json');
         const values = [
