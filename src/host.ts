@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import * as crypto from 'crypto';
+import * as net from 'net';
 import * as path from 'path';
 import { shellEnvironment } from './shell';
 import { showWorkspaceFolderPick } from './hostutils';
@@ -121,21 +123,152 @@ function createTerminal(name?: string, shellPath?: string, shellArgs?: string[],
     return vscode.window.createTerminal(terminalOptions);
 }
 
-export function createProcessTerminalOptions(options: ProcessTerminalOptions): vscode.TerminalOptions {
+export interface ProcessTerminalLaunch {
+    readonly terminalOptions: vscode.TerminalOptions;
+    readonly started: Promise<void>;
+    dispose(): void;
+}
+
+export async function createProcessTerminalLaunch(options: ProcessTerminalOptions): Promise<ProcessTerminalLaunch> {
+    const payload = Buffer.from(JSON.stringify(processTerminalPayload(options)), 'utf8');
+    if (payload.length > 16 * 1024 * 1024) {
+        throw new Error('The process terminal invocation exceeded the 16 MiB limit.');
+    }
+    const token = crypto.randomBytes(32).toString('base64url');
+    const tokenBuffer = Buffer.from(token, 'utf8');
+    const sockets = new Set<net.Socket>();
+    let resolveStarted!: () => void;
+    let rejectStarted!: (error: Error) => void;
+    let settled = false;
+    let disposed = false;
+    let transportClosed = false;
+    let startupTimer: NodeJS.Timeout | undefined;
+    const started = new Promise<void>((resolve, reject) => {
+        resolveStarted = resolve;
+        rejectStarted = reject;
+    });
+    const server = net.createServer((socket) => {
+        sockets.add(socket);
+        let authenticated = false;
+        let authentication = Buffer.alloc(0);
+        socket.setTimeout(5000, () => socket.destroy(new Error('Process terminal authentication timed out.')));
+        socket.on('data', (chunk: Buffer) => {
+            if (authenticated || disposed) {
+                return;
+            }
+            authentication = Buffer.concat([authentication, chunk]);
+            const newline = authentication.indexOf(0x0a);
+            if (newline < 0) {
+                if (authentication.length > tokenBuffer.length) {
+                    socket.destroy();
+                }
+                return;
+            }
+            const supplied = authentication.subarray(0, newline);
+            if (newline !== authentication.length - 1 || supplied.length !== tokenBuffer.length ||
+                !crypto.timingSafeEqual(supplied, tokenBuffer)) {
+                socket.destroy();
+                return;
+            }
+            authenticated = true;
+            const header = Buffer.allocUnsafe(4);
+            header.writeUInt32BE(payload.length);
+            socket.end(Buffer.concat([header, payload]));
+            sockets.delete(socket);
+            succeed();
+        });
+        socket.on('error', (error) => {
+            if (authenticated) {
+                fail(error);
+            }
+        });
+        socket.on('close', () => {
+            sockets.delete(socket);
+            if (authenticated && !settled) {
+                fail(new Error('The process terminal payload connection closed early.'));
+            }
+        });
+    });
+    const closeTransport = () => {
+        if (transportClosed) {
+            return;
+        }
+        transportClosed = true;
+        if (startupTimer) {
+            clearTimeout(startupTimer);
+            startupTimer = undefined;
+        }
+        server.close();
+        sockets.forEach((socket) => socket.destroy());
+        sockets.clear();
+    };
+    const succeed = () => {
+        if (settled || disposed) {
+            return;
+        }
+        settled = true;
+        closeTransport();
+        resolveStarted();
+    };
+    const fail = (error: Error) => {
+        if (settled) {
+            return;
+        }
+        settled = true;
+        closeTransport();
+        rejectStarted(error);
+    };
+    await new Promise<void>((resolve, reject) => {
+        const onError = (error: Error) => {
+            server.off('listening', onListening);
+            reject(error);
+        };
+        const onListening = () => {
+            server.off('error', onError);
+            resolve();
+        };
+        server.once('error', onError);
+        server.once('listening', onListening);
+        server.listen(0, '127.0.0.1');
+    });
+    server.on('error', fail);
+    startupTimer = setTimeout(() => fail(new Error('Timed out starting the process terminal.')), 10000);
+    startupTimer.unref();
+    const address = server.address();
+    if (!address || typeof address === 'string') {
+        fail(new Error('Unable to allocate the process terminal payload channel.'));
+        await started;
+        throw new Error('unreachable');
+    }
     return {
-        name: options.name,
-        shellPath: process.execPath,
-        shellArgs: processTerminalRunnerArgs(options),
-        // The child's working directory is encoded below. Keep VS Code's terminal resolver away from it.
-        cwd: path.parse(process.execPath).root,
-        env: processTerminalEnvironment(options.env),
-        strictEnv: true,
-        isTransient: true,
+        terminalOptions: {
+            name: options.name,
+            shellPath: process.execPath,
+            shellArgs: processTerminalRunnerArgs(address.port),
+            cwd: path.parse(process.execPath).root,
+            env: processTerminalEnvironment(token),
+            strictEnv: true,
+            isTransient: true,
+        },
+        started,
+        dispose: () => {
+            disposed = true;
+            fail(new Error('The process terminal was disposed before startup.'));
+            closeTransport();
+        },
     };
 }
 
 async function runProcessInTerminal(options: ProcessTerminalOptions): Promise<ProcessTerminalExecution> {
-    const terminal = vscode.window.createTerminal(createProcessTerminalOptions(options));
+    const launch = await createProcessTerminalLaunch(options);
+    let terminal: vscode.Terminal;
+    try {
+        terminal = vscode.window.createTerminal(launch.terminalOptions);
+    } catch (error) {
+        launch.dispose();
+        await launch.started.catch(() => {});
+        throw error;
+    }
     let resolveCompleted!: () => void;
     let settled = false;
     const completed = new Promise<void>((resolve) => { resolveCompleted = resolve; });
@@ -145,6 +278,7 @@ async function runProcessInTerminal(options: ProcessTerminalOptions): Promise<Pr
         }
         settled = true;
         closeListener?.dispose();
+        launch.dispose();
         resolveCompleted();
     };
     const closeListener = vscode.window.onDidCloseTerminal((closedTerminal) => {
@@ -154,9 +288,7 @@ async function runProcessInTerminal(options: ProcessTerminalOptions): Promise<Pr
     });
     try {
         terminal.show();
-        if (await terminal.processId === undefined) {
-            throw new Error('The terminal process did not start.');
-        }
+        await launch.started;
         return {
             completed,
             terminate: () => {
@@ -177,42 +309,48 @@ async function runProcessInTerminal(options: ProcessTerminalOptions): Promise<Pr
 interface ProcessTerminalPayload {
     readonly executable: string;
     readonly args: readonly string[];
-    readonly cwd?: string;
+    readonly cwd: string;
+    readonly env: Readonly<Record<string, string>>;
 }
 
 const PROCESS_TERMINAL_RUNNER = [
+    'const net=require("net");',
     'const {spawn}=require("child_process");',
-    'const p=JSON.parse(Buffer.from(process.argv[1],"base64url").toString("utf8"));',
-    'const env=JSON.parse(Buffer.from(process.env.VSCODE_KUBERNETES_PROCESS_ENV,"base64url").toString("utf8"));',
+    'const connection=JSON.parse(Buffer.from(process.argv[1],"base64url").toString("utf8"));',
+    'const token=process.env.VSCODE_KUBERNETES_PROCESS_TOKEN;delete process.env.VSCODE_KUBERNETES_PROCESS_TOKEN;delete process.env.ELECTRON_RUN_AS_NODE;',
+    'let child;let expected;let received=Buffer.alloc(0);',
     'let failed=false;',
-    'const child=spawn(p.executable,p.args,{cwd:p.cwd,env,shell:false,stdio:"inherit",windowsHide:true});',
     'let stopping=false;',
     'let finished=false;',
     'let exitAfterChild=false;',
-    'const forward=(signal,exit)=>{exitAfterChild||=exit;if(finished){process.exit();return;}if(stopping)return;stopping=true;if(child.exitCode===null&&child.signalCode===null){child.kill(signal);const timer=setTimeout(()=>{if(child.exitCode===null&&child.signalCode===null)child.kill("SIGKILL");},2000);timer.unref();}};',
+    'const forward=(signal,exit)=>{exitAfterChild||=exit;if(finished||!child){process.exit();return;}if(stopping)return;stopping=true;if(child.exitCode===null&&child.signalCode===null){child.kill(signal);const timer=setTimeout(()=>{if(child.exitCode===null&&child.signalCode===null)child.kill("SIGKILL");},2000);timer.unref();}};',
     'process.on("SIGINT",()=>forward("SIGINT",false));',
     'process.on("SIGTERM",()=>forward("SIGTERM",true));',
     'if(process.platform!=="win32")process.on("SIGHUP",()=>forward("SIGHUP",true));',
-    'child.once("error",(error)=>{failed=true;console.error(error.message);process.exitCode=1;});',
-    'child.once("close",(code)=>{finished=true;process.exitCode=failed?1:(code??1);if(exitAfterChild)process.exit();else if(process.stdin.isTTY&&process.stdout.isTTY)process.stdin.resume();});',
+    'const fail=(error)=>{failed=true;console.error(error.message);process.exitCode=1;};',
+    'const start=(payload)=>{child=spawn(payload.executable,payload.args,{cwd:payload.cwd,env:payload.env,shell:false,stdio:"inherit",windowsHide:true});child.once("error",fail);child.once("close",(code)=>{finished=true;process.exitCode=failed?1:(code??1);if(exitAfterChild)process.exit();else if(process.stdin.isTTY&&process.stdout.isTTY)process.stdin.resume();});};',
+    'if(!token)throw new Error("Missing process terminal token.");',
+    'const socket=net.createConnection({host:"127.0.0.1",port:connection.port});',
+    'socket.setTimeout(10000,()=>socket.destroy(new Error("Process terminal payload timed out.")));',
+    'socket.once("connect",()=>socket.write(token+"\\n"));',
+    'socket.on("data",(chunk)=>{received=Buffer.concat([received,chunk]);if(expected===undefined&&received.length>=4){expected=received.readUInt32BE(0);if(expected>16*1024*1024){socket.destroy(new Error("Process terminal payload was too large."));return;}}if(expected!==undefined&&received.length>=expected+4){const body=received.subarray(4,expected+4);socket.removeAllListeners();socket.end();try{start(JSON.parse(body.toString("utf8")));}catch(error){fail(error);}}});',
+    'socket.once("error",fail);',
 ].join('');
 
-export function processTerminalRunnerArgs(options: ProcessTerminalOptions): string[] {
-    // Keep variable-like values opaque to VS Code. The fixed runner decodes the invocation and creates the child
-    // with shell:false inside the real terminal PTY.
-    const payload: ProcessTerminalPayload = {
+export function processTerminalRunnerArgs(port: number): string[] {
+    return ['-e', PROCESS_TERMINAL_RUNNER, Buffer.from(JSON.stringify({ port })).toString('base64url')];
+}
+
+function processTerminalPayload(options: ProcessTerminalOptions): ProcessTerminalPayload {
+    return {
         executable: options.executable,
         args: [...options.args],
         cwd: options.cwd || process.cwd(),
+        env: definedEnvironment(options.env || process.env),
     };
-    return ['-e', PROCESS_TERMINAL_RUNNER, Buffer.from(JSON.stringify(payload)).toString('base64url')];
 }
 
-function encodedEnvironment(environment: NodeJS.ProcessEnv | undefined): string {
-    return Buffer.from(JSON.stringify(definedEnvironment(environment || process.env))).toString('base64url');
-}
-
-function processTerminalEnvironment(childEnvironment: NodeJS.ProcessEnv | undefined): Record<string, string> {
+function processTerminalEnvironment(token: string): Record<string, string> {
     const environment: Record<string, string> = {};
     if (process.platform === 'win32') {
         for (const [key, value] of Object.entries(process.env)) {
@@ -222,7 +360,7 @@ function processTerminalEnvironment(childEnvironment: NodeJS.ProcessEnv | undefi
         }
     }
     environment.ELECTRON_RUN_AS_NODE = '1';
-    environment.VSCODE_KUBERNETES_PROCESS_ENV = encodedEnvironment(childEnvironment);
+    environment.VSCODE_KUBERNETES_PROCESS_TOKEN = token;
     return environment;
 }
 

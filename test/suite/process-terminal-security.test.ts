@@ -3,13 +3,11 @@ import * as nativeFs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { createProcessTerminalOptions, host, ProcessTerminalExecution } from '../../src/host';
+import { createProcessTerminalLaunch, host, ProcessTerminalExecution, ProcessTerminalLaunch } from '../../src/host';
 import { executeCommand, spawnCommand } from '../../src/process';
 
 interface RunnerPayload {
-    readonly executable: string;
-    readonly args: string[];
-    readonly cwd?: string;
+    readonly port: number;
 }
 
 suite('Process output terminal security', () => {
@@ -25,7 +23,7 @@ suite('Process output terminal security', () => {
         ];
         const childScript = [
             'require("fs").writeFileSync(process.argv[1],JSON.stringify({',
-            'args:process.argv.slice(2),cwd:process.cwd(),pid:process.pid,sentinel:process.env.VSCODE_K8S_RUNNER_TEST,',
+            'args:process.argv.slice(2),cwd:process.cwd(),literal:process.env.KUBERNETES_LITERAL_TEST,pid:process.pid,sentinel:process.env.VSCODE_K8S_RUNNER_TEST,',
             'stdin:!!process.stdin.isTTY,stdout:!!process.stdout.isTTY,stderr:!!process.stderr.isTTY}))',
         ].join('');
         const existingTerminals = new Set(vscode.window.terminals);
@@ -37,7 +35,12 @@ suite('Process output terminal security', () => {
                 executable: process.execPath,
                 args: ['-e', childScript, marker, ...values],
                 cwd: childDirectory,
-                env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', VSCODE_K8S_RUNNER_TEST: '${env:UNCHANGED}' },
+                env: {
+                    ...process.env,
+                    ELECTRON_RUN_AS_NODE: '1',
+                    KUBERNETES_LITERAL_TEST: '${config:UNCHANGED}',
+                    VSCODE_K8S_RUNNER_TEST: '${env:UNCHANGED}',
+                },
             });
             terminal = vscode.window.terminals.find((candidate) =>
                 candidate.name === 'Kubernetes TTY Probe' && !existingTerminals.has(candidate)
@@ -49,6 +52,7 @@ suite('Process output terminal security', () => {
             assert.deepStrictEqual(result, {
                 args: values,
                 cwd: nativeFs.realpathSync(childDirectory),
+                literal: '${config:UNCHANGED}',
                 pid: result.pid,
                 sentinel: '${env:UNCHANGED}',
                 stdin: true, stdout: true, stderr: true,
@@ -65,41 +69,39 @@ suite('Process output terminal security', () => {
         }
     });
 
-    test('uses an encoded process runner and keeps short-lived output visible', () => {
+    test('uses an authenticated loopback channel and keeps child data out of terminal options', async () => {
         const args = ['get', 'pod/${env:SECRET};$(marker)', '--namespace', 'team-a', '-o', 'wide'];
-        const terminal = createProcessTerminalOptions({
+        const launch = await createProcessTerminalLaunch({
             name: 'Kubernetes Get',
             executable: '/opt/Kube Tools/kubectl',
             args,
             cwd: '/workspace path',
             env: { ...process.env, INCLUDED: 'yes', OMITTED: undefined },
         });
-
-        assert.deepStrictEqual(args, ['get', 'pod/${env:SECRET};$(marker)', '--namespace', 'team-a', '-o', 'wide']);
-        assert.strictEqual(terminal.name, 'Kubernetes Get');
-        assert.strictEqual(terminal.shellPath, process.execPath);
-        assert.ok(Array.isArray(terminal.shellArgs));
-        const runnerArgs = terminal.shellArgs as string[];
-        assert.strictEqual(runnerArgs.length, 3);
-        assert.strictEqual(runnerArgs[0], '-e');
-        assert.ok(!runnerArgs.join('').includes('${env:SECRET}'));
-        assert.match(runnerArgs[2], /^[A-Za-z0-9_-]+$/);
-        const payload = decodePayload(runnerArgs[2]);
-        assert.strictEqual(payload.executable, '/opt/Kube Tools/kubectl');
-        assert.deepStrictEqual(payload.args, args);
-        assert.strictEqual(payload.cwd, '/workspace path');
-        assert.strictEqual(terminal.env!.ELECTRON_RUN_AS_NODE, '1');
-        assert.match(terminal.env!.VSCODE_KUBERNETES_PROCESS_ENV!, /^[A-Za-z0-9_-]+$/);
-        if (process.platform === 'win32') {
-            assert.strictEqual(terminal.env!.SystemRoot || terminal.env!.SYSTEMROOT, process.env.SystemRoot || process.env.SYSTEMROOT);
+        try {
+            const terminal = launch.terminalOptions;
+            assert.deepStrictEqual(args, ['get', 'pod/${env:SECRET};$(marker)', '--namespace', 'team-a', '-o', 'wide']);
+            assert.strictEqual(terminal.name, 'Kubernetes Get');
+            assert.strictEqual(terminal.shellPath, process.execPath);
+            assert.ok(Array.isArray(terminal.shellArgs));
+            const runnerArgs = terminal.shellArgs as string[];
+            assert.strictEqual(runnerArgs.length, 3);
+            assert.strictEqual(runnerArgs[0], '-e');
+            assert.ok(!runnerArgs.join('').includes('${env:SECRET}'));
+            assert.match(runnerArgs[2], /^[A-Za-z0-9_-]+$/);
+            assert.ok(decodePayload(runnerArgs[2]).port > 0);
+            assert.strictEqual(terminal.env!.ELECTRON_RUN_AS_NODE, '1');
+            assert.match(terminal.env!.VSCODE_KUBERNETES_PROCESS_TOKEN!, /^[A-Za-z0-9_-]{43}$/);
+            assert.strictEqual(terminal.env!.INCLUDED, undefined);
+            assert.ok(!runnerArgs.join('').includes('/opt/Kube Tools/kubectl'));
+            assert.ok(!JSON.stringify(terminal.env).includes('yes'));
+            assert.strictEqual(terminal.cwd, path.parse(process.execPath).root);
+            assert.strictEqual(terminal.strictEnv, true);
+            assert.strictEqual(terminal.isTransient, true);
+        } finally {
+            launch.dispose();
+            await launch.started.catch(() => {});
         }
-        assert.strictEqual(terminal.cwd, path.parse(process.execPath).root);
-        assert.strictEqual(terminal.strictEnv, true);
-        assert.strictEqual(terminal.isTransient, true);
-        assert.strictEqual(terminal.env!.INCLUDED, undefined);
-        const environment = decodeEnvironment(terminal.env!.VSCODE_KUBERNETES_PROCESS_ENV!);
-        assert.strictEqual(environment.INCLUDED, 'yes');
-        assert.strictEqual(environment.OMITTED, undefined);
     });
 
     test('passes variable-like and hostile values byte-for-byte through the runner', async () => {
@@ -108,40 +110,90 @@ suite('Process output terminal security', () => {
             'space value', 'quote"single\'backslash\\', ';$(marker)', '%PATH%', '!COMSPEC!',
         ];
         const childScript = 'process.stdout.write(JSON.stringify({args:process.argv.slice(1),sentinel:process.env.VSCODE_K8S_RUNNER_TEST}))';
-        const terminal = createProcessTerminalOptions({
+        const launch = await createProcessTerminalLaunch({
             name: 'Kubernetes Get',
             executable: process.execPath,
             args: ['-e', childScript, '--', ...values],
             env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', VSCODE_K8S_RUNNER_TEST: 'preserved' },
         });
-        const runnerArgs = terminal.shellArgs as string[];
-
-        assert.ok(!runnerArgs.join('').includes('${env:VSCODE_K8S_SENTINEL}'));
-        const result = await executeCommand({
-            executable: terminal.shellPath!,
-            args: runnerArgs,
-            cwd: terminal.cwd as string,
-            env: definedEnvironment(terminal.env!),
-        });
-
-        assert.strictEqual(result.code, 0, result.stderr);
-        assert.deepStrictEqual(JSON.parse(result.stdout), { args: values, sentinel: 'preserved' });
+        try {
+            const runnerArgs = launch.terminalOptions.shellArgs as string[];
+            assert.ok(!runnerArgs.join('').includes('${env:VSCODE_K8S_SENTINEL}'));
+            const result = await executeTerminalRunner(launch);
+            assert.strictEqual(result.code, 0, result.stderr);
+            assert.deepStrictEqual(JSON.parse(result.stdout), { args: values, sentinel: 'preserved' });
+        } finally {
+            launch.dispose();
+        }
     });
 
     test('propagates child failures through the runner', async () => {
-        const terminal = createProcessTerminalOptions({
+        const launch = await createProcessTerminalLaunch({
             name: 'Kubernetes Get',
             executable: process.execPath,
             args: ['-e', 'process.exit(7)'],
             env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
         });
-        const result = await executeCommand({
-            executable: terminal.shellPath!,
-            args: terminal.shellArgs as string[],
-            cwd: terminal.cwd as string,
-            env: definedEnvironment(terminal.env!),
+        try {
+            const result = await executeTerminalRunner(launch);
+            assert.strictEqual(result.code, 7);
+        } finally {
+            launch.dispose();
+        }
+    });
+
+    test('keeps large environment entries out of a single launch value', async () => {
+        const environment: NodeJS.ProcessEnv = { ...process.env, ELECTRON_RUN_AS_NODE: '1' };
+        for (let index = 0; index < 100; index++) {
+            environment[`VSCODE_K8S_LARGE_${index}`] = `${index}:` + 'x'.repeat(1024);
+        }
+        const childScript = 'for(let i=0;i<100;i++){if(process.env[`VSCODE_K8S_LARGE_${i}`]!==`${i}:`+"x".repeat(1024))process.exit(9)}';
+        const launch = await createProcessTerminalLaunch({
+            name: 'Kubernetes Environment Probe',
+            executable: process.execPath,
+            args: ['-e', childScript],
+            env: environment,
         });
-        assert.strictEqual(result.code, 7);
+        try {
+            assert.ok(Object.values(launch.terminalOptions.env!).every((value) => typeof value !== 'string' || value.length < 2048));
+            assert.ok(JSON.stringify(decodePayload((launch.terminalOptions.shellArgs as string[])[2])).length < 128);
+            if (process.platform !== 'win32') {
+                const result = await executeTerminalRunner(launch);
+                assert.strictEqual(result.code, 0, result.stderr);
+            }
+        } finally {
+            launch.dispose();
+            await launch.started.catch(() => {});
+        }
+    });
+
+    test('isolates wrapper-sensitive and transport-like environment names', async () => {
+        const values = {
+            NODE_DEBUG: 'child_process',
+            NODE_OPTIONS: '--no-warnings',
+            VSCODE_KUBERNETES_CHILD_COLLISION_0: 'transport-like',
+            VSCODE_KUBERNETES_SECRET: 'do-not-log-this-secret',
+        };
+        const childScript = 'process.stdout.write(JSON.stringify(Object.fromEntries(process.argv.slice(1).map((key)=>[key,process.env[key]]))))';
+        const launch = await createProcessTerminalLaunch({
+            name: 'Kubernetes Sensitive Environment Probe',
+            executable: process.execPath,
+            args: ['-e', childScript, '--', ...Object.keys(values)],
+            env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', ...values },
+        });
+
+        try {
+            const terminal = launch.terminalOptions;
+            assert.strictEqual(terminal.env!.NODE_DEBUG, undefined);
+            assert.strictEqual(terminal.env!.NODE_OPTIONS, undefined);
+            assert.strictEqual(terminal.env!.VSCODE_KUBERNETES_SECRET, undefined);
+            const result = await executeTerminalRunner(launch);
+            assert.strictEqual(result.code, 0, result.stderr);
+            assert.deepStrictEqual(JSON.parse(result.stdout), values);
+            assert.ok(!result.stderr.includes(values.VSCODE_KUBERNETES_SECRET));
+        } finally {
+            launch.dispose();
+        }
     });
 
     test('forwards terminal teardown signals to the child', async function () {
@@ -157,18 +209,20 @@ suite('Process output terminal security', () => {
             'process.on("SIGHUP",()=>{fs.writeFileSync(process.argv[2],"SIGHUP");process.exit(0)});',
             'fs.writeFileSync(process.argv[1],"ready");setInterval(()=>{},1000);',
         ].join('');
-        const terminal = createProcessTerminalOptions({
+        const launch = await createProcessTerminalLaunch({
             name: 'Kubernetes Signal Probe',
             executable: process.execPath,
             args: ['-e', childScript, ready, signalled],
             env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
         });
+        const terminal = launch.terminalOptions;
         const wrapper = spawnCommand({
             executable: terminal.shellPath!,
             args: terminal.shellArgs as string[],
             cwd: terminal.cwd as string,
             env: definedEnvironment(terminal.env!),
         });
+        await launch.started;
         const exited = waitForExit(wrapper);
         try {
             await waitForFile(ready);
@@ -179,17 +233,26 @@ suite('Process output terminal security', () => {
             if (wrapper.exitCode === null && wrapper.signalCode === null) {
                 wrapper.kill('SIGKILL');
             }
+            launch.dispose();
             nativeFs.rmSync(directory, { recursive: true, force: true });
         }
     });
 });
 
 function decodePayload(value: string): RunnerPayload {
-    return JSON.parse(Buffer.from(value, 'base64url').toString('utf8')) as RunnerPayload;
+    return JSON.parse(Buffer.from(value, 'base64url').toString('utf8'));
 }
 
-function decodeEnvironment(value: string): NodeJS.ProcessEnv {
-    return JSON.parse(Buffer.from(value, 'base64url').toString('utf8')) as NodeJS.ProcessEnv;
+async function executeTerminalRunner(launch: ProcessTerminalLaunch) {
+    const terminal = launch.terminalOptions;
+    const result = executeCommand({
+        executable: terminal.shellPath!,
+        args: terminal.shellArgs as string[],
+        cwd: terminal.cwd as string,
+        env: definedEnvironment(terminal.env!),
+    });
+    await launch.started;
+    return await result;
 }
 
 async function waitForFile(file: string): Promise<void> {
