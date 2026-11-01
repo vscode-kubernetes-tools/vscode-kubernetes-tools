@@ -243,10 +243,7 @@ export async function createProcessTerminalLaunch(options: ProcessTerminalOption
     return {
         terminalOptions: {
             name: options.name,
-            shellPath: process.execPath,
-            shellArgs: processTerminalRunnerArgs(address.port),
-            cwd: path.parse(process.execPath).root,
-            env: processTerminalEnvironment(token),
+            ...processTerminalRunner(address.port, token),
             strictEnv: true,
             isTransient: true,
         },
@@ -328,7 +325,7 @@ const PROCESS_TERMINAL_RUNNER = [
     'process.on("SIGTERM",()=>forward("SIGTERM",true));',
     'if(process.platform!=="win32")process.on("SIGHUP",()=>forward("SIGHUP",true));',
     'const fail=(error)=>{failed=true;console.error(error.message);process.exitCode=1;};',
-    'const start=(payload)=>{child=spawn(payload.executable,payload.args,{cwd:payload.cwd,env:payload.env,shell:false,stdio:"inherit",windowsHide:process.platform!=="win32"});child.once("error",fail);child.once("close",(code)=>{finished=true;process.exitCode=failed?1:(code??1);if(exitAfterChild)process.exit();else if(process.stdin.isTTY&&process.stdout.isTTY)process.stdin.resume();});};',
+    'const start=(payload)=>{child=spawn(payload.executable,payload.args,{cwd:payload.cwd,env:payload.env,shell:false,stdio:"inherit",windowsHide:true});child.once("error",fail);child.once("close",(code)=>{finished=true;process.exitCode=failed?1:(code??1);if(exitAfterChild)process.exit();else if(process.stdin.isTTY&&process.stdout.isTTY)process.stdin.resume();});};',
     'if(!token)throw new Error("Missing process terminal token.");',
     'const socket=net.createConnection({host:"127.0.0.1",port:connection.port});',
     'socket.setTimeout(10000,()=>socket.destroy(new Error("Process terminal payload timed out.")));',
@@ -337,8 +334,44 @@ const PROCESS_TERMINAL_RUNNER = [
     'socket.once("error",fail);',
 ].join('');
 
+const WINDOWS_PROCESS_TERMINAL_RUNNER = [
+    '$ErrorActionPreference="Stop"',
+    'function Read-Exactly($Stream,[byte[]]$Buffer){$offset=0;while($offset -lt $Buffer.Length){$read=$Stream.Read($Buffer,$offset,$Buffer.Length-$offset);if($read -le 0){throw "Process terminal payload closed early."};$offset+=$read}}',
+    String.raw`function Quote-Argument([string]$Value){if($Value.Length -gt 0 -and $Value -notmatch '[\s"]'){return $Value};$builder=New-Object System.Text.StringBuilder;[void]$builder.Append('"');$slashes=0;foreach($character in $Value.ToCharArray()){if($character -eq '\'){$slashes++;continue};if($character -eq '"'){[void]$builder.Append(('\' * ($slashes*2+1)));[void]$builder.Append('"');$slashes=0;continue};if($slashes){[void]$builder.Append(('\' * $slashes));$slashes=0};[void]$builder.Append($character)};if($slashes){[void]$builder.Append(('\' * ($slashes*2)))};[void]$builder.Append('"');return $builder.ToString()}`,
+    '$port=[int]$env:VSCODE_KUBERNETES_PROCESS_PORT;$token=$env:VSCODE_KUBERNETES_PROCESS_TOKEN;Remove-Item Env:VSCODE_KUBERNETES_PROCESS_PORT,Env:VSCODE_KUBERNETES_PROCESS_TOKEN -ErrorAction SilentlyContinue',
+    '$client=New-Object System.Net.Sockets.TcpClient;$client.Connect("127.0.0.1",$port);$stream=$client.GetStream();$authentication=[System.Text.Encoding]::UTF8.GetBytes($token+"`n");$stream.Write($authentication,0,$authentication.Length)',
+    '$header=New-Object byte[] 4;Read-Exactly $stream $header;$length=[System.Net.IPAddress]::NetworkToHostOrder([System.BitConverter]::ToInt32($header,0));if($length -lt 0 -or $length -gt 16777216){throw "Process terminal payload was too large."};$body=New-Object byte[] $length;Read-Exactly $stream $body;$client.Dispose();$payload=ConvertFrom-Json ([System.Text.Encoding]::UTF8.GetString($body))',
+    '$start=New-Object System.Diagnostics.ProcessStartInfo;$start.FileName=[string]$payload.executable;$start.Arguments=(($payload.args|ForEach-Object { Quote-Argument ([string]$_) }) -join " ");$start.WorkingDirectory=[string]$payload.cwd;$start.UseShellExecute=$false;$start.CreateNoWindow=$false;$start.EnvironmentVariables.Clear();$payload.env.PSObject.Properties|ForEach-Object {$start.EnvironmentVariables[$_.Name]=[string]$_.Value}',
+    '$child=[System.Diagnostics.Process]::Start($start);$child.WaitForExit();$exitCode=$child.ExitCode;if([Console]::IsInputRedirected -or [Console]::IsOutputRedirected){exit $exitCode};while($true){Start-Sleep -Seconds 3600}',
+].join(';');
+
 export function processTerminalRunnerArgs(port: number): string[] {
     return ['-e', PROCESS_TERMINAL_RUNNER, Buffer.from(JSON.stringify({ port })).toString('base64url')];
+}
+
+function processTerminalRunner(port: number, token: string): Pick<vscode.TerminalOptions, 'shellPath' | 'shellArgs' | 'cwd' | 'env'> {
+    if (process.platform !== 'win32') {
+        return {
+            shellPath: process.execPath,
+            shellArgs: processTerminalRunnerArgs(port),
+            cwd: path.parse(process.execPath).root,
+            env: {
+                ELECTRON_RUN_AS_NODE: '1',
+                VSCODE_KUBERNETES_PROCESS_TOKEN: token,
+            },
+        };
+    }
+    const systemRoot = process.env.SystemRoot || process.env.SYSTEMROOT || process.env.windir || process.env.WINDIR;
+    if (!systemRoot) {
+        throw new Error('Unable to determine the Windows system directory.');
+    }
+    const powershell = path.win32.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+    return {
+        shellPath: powershell,
+        shellArgs: ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(WINDOWS_PROCESS_TERMINAL_RUNNER, 'utf16le').toString('base64')],
+        cwd: path.win32.parse(powershell).root,
+        env: processTerminalEnvironment(token, port),
+    };
 }
 
 function processTerminalPayload(options: ProcessTerminalOptions): ProcessTerminalPayload {
@@ -350,7 +383,7 @@ function processTerminalPayload(options: ProcessTerminalOptions): ProcessTermina
     };
 }
 
-function processTerminalEnvironment(token: string): Record<string, string> {
+function processTerminalEnvironment(token: string, port: number): Record<string, string> {
     const environment: Record<string, string> = {};
     if (process.platform === 'win32') {
         for (const [key, value] of Object.entries(process.env)) {
@@ -359,7 +392,7 @@ function processTerminalEnvironment(token: string): Record<string, string> {
             }
         }
     }
-    environment.ELECTRON_RUN_AS_NODE = '1';
+    environment.VSCODE_KUBERNETES_PROCESS_PORT = String(port);
     environment.VSCODE_KUBERNETES_PROCESS_TOKEN = token;
     return environment;
 }

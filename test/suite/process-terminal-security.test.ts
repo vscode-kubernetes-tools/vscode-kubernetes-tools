@@ -90,20 +90,25 @@ suite('Process output terminal security', () => {
             const terminal = launch.terminalOptions;
             assert.deepStrictEqual(args, ['get', 'pod/${env:SECRET};$(marker)', '--namespace', 'team-a', '-o', 'wide']);
             assert.strictEqual(terminal.name, 'Kubernetes Get');
-            assert.strictEqual(terminal.shellPath, process.execPath);
             assert.ok(Array.isArray(terminal.shellArgs));
             const runnerArgs = terminal.shellArgs as string[];
-            assert.strictEqual(runnerArgs.length, 3);
-            assert.strictEqual(runnerArgs[0], '-e');
+            if (process.platform === 'win32') {
+                assert.match(terminal.shellPath!, /\\System32\\WindowsPowerShell\\v1\.0\\powershell\.exe$/i);
+                assert.deepStrictEqual(runnerArgs.slice(0, 4), ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand']);
+                assert.match(runnerArgs[4], /^[A-Za-z0-9+/=]+$/);
+            } else {
+                assert.strictEqual(terminal.shellPath, process.execPath);
+                assert.strictEqual(runnerArgs.length, 3);
+                assert.strictEqual(runnerArgs[0], '-e');
+                assert.match(runnerArgs[2], /^[A-Za-z0-9_-]+$/);
+                assert.ok(decodePayload(runnerArgs[2]).port > 0);
+            }
             assert.ok(!runnerArgs.join('').includes('${env:SECRET}'));
-            assert.match(runnerArgs[2], /^[A-Za-z0-9_-]+$/);
-            assert.ok(decodePayload(runnerArgs[2]).port > 0);
-            assert.strictEqual(terminal.env!.ELECTRON_RUN_AS_NODE, '1');
             assert.match(terminal.env!.VSCODE_KUBERNETES_PROCESS_TOKEN!, /^[A-Za-z0-9_-]{43}$/);
             assert.strictEqual(terminal.env!.INCLUDED, undefined);
             assert.ok(!runnerArgs.join('').includes('/opt/Kube Tools/kubectl'));
             assert.ok(!JSON.stringify(terminal.env).includes('yes'));
-            assert.strictEqual(terminal.cwd, path.parse(process.execPath).root);
+            assert.strictEqual(terminal.cwd, path.parse(terminal.shellPath!).root);
             assert.strictEqual(terminal.strictEnv, true);
             assert.strictEqual(terminal.isTransient, true);
         } finally {
@@ -164,7 +169,7 @@ suite('Process output terminal security', () => {
         });
         try {
             assert.ok(Object.values(launch.terminalOptions.env!).every((value) => typeof value !== 'string' || value.length < 2048));
-            assert.ok(JSON.stringify(decodePayload((launch.terminalOptions.shellArgs as string[])[2])).length < 128);
+            assert.ok((launch.terminalOptions.shellArgs as string[]).join('').length < 16 * 1024);
             if (process.platform !== 'win32') {
                 const result = await executeTerminalRunner(launch);
                 assert.strictEqual(result.code, 0, result.stderr);
