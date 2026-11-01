@@ -28,6 +28,16 @@ suite('Process output terminal security', () => {
         ].join('');
         const existingTerminals = new Set(vscode.window.terminals);
         let terminal: vscode.Terminal | undefined;
+        let terminalOpenListener: vscode.Disposable | undefined;
+        const terminalOpened = new Promise<vscode.Terminal>((resolve) => {
+            terminalOpenListener = vscode.window.onDidOpenTerminal((candidate) => {
+                if (candidate.name === 'Kubernetes TTY Probe' && !existingTerminals.has(candidate)) {
+                    terminalOpenListener?.dispose();
+                    terminalOpenListener = undefined;
+                    resolve(candidate);
+                }
+            });
+        });
         let execution: ProcessTerminalExecution | undefined;
         try {
             execution = await host.runProcessInTerminal({
@@ -42,10 +52,7 @@ suite('Process output terminal security', () => {
                     VSCODE_K8S_RUNNER_TEST: '${env:UNCHANGED}',
                 },
             });
-            terminal = vscode.window.terminals.find((candidate) =>
-                candidate.name === 'Kubernetes TTY Probe' && !existingTerminals.has(candidate)
-            );
-            assert.ok(terminal);
+            terminal = await terminalOpened;
             await waitForFile(marker);
             const result = JSON.parse(nativeFs.readFileSync(marker, 'utf8'));
             await waitForProcessExit(result.pid);
@@ -63,6 +70,7 @@ suite('Process output terminal security', () => {
             execution = undefined;
             terminal = undefined;
         } finally {
+            terminalOpenListener?.dispose();
             execution?.terminate();
             terminal?.dispose();
             nativeFs.rmSync(directory, { recursive: true, force: true });
