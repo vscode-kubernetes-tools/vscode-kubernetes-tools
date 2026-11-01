@@ -1,9 +1,9 @@
 import * as os from 'os';
 import * as path from 'path';
+import { execFileSync } from 'child_process';
 
 import { fs } from '../../fs';
 import { Platform, Shell } from "../../shell";
-import * as shelljs from 'shelljs';
 
 export function vsKubernetesFolder(shell: Shell): string {
     const originalDir = path.join(shell.home(), `.vs-kubernetes`);
@@ -52,21 +52,24 @@ export function formatBin(tool: string, platform: Platform): string | null {
     return toolPath;
 }
 
-export function platformArch(os: string) {
-    // on macOS ask the kernel directly
-    if (os === "darwin") {
-        try {
-            const arch = shelljs.exec("uname -m", { silent: true }).stdout.trim();
-            return arch === "arm64" ? "arm64" : "amd64";
-        } catch {
-      // fall-back to Node’s process.arch
-        }
+export function platformArch(platform: string, machine?: string): string {
+    if (platform === 'darwin') {
+        return (machine || darwinMachine()) === 'arm64' ? 'arm64' : 'amd64';
     }
-    if (process.arch === 'arm' && os === 'linux') {
+    if (process.arch === 'arm' && platform === 'linux') {
         return 'arm';
     } else if (process.arch === 'arm64') {
         return 'arm64';
     } else {
         return 'amd64';
+    }
+}
+
+function darwinMachine(): string {
+    try {
+        // Keep the kernel probe used for Rosetta detection without invoking a shell.
+        return execFileSync('/usr/bin/uname', ['-m'], { encoding: 'utf8', windowsHide: true }).trim();
+    } catch (_err) {
+        return os.machine();
     }
 }
