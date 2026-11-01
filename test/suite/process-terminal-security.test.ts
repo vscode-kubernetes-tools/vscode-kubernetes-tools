@@ -260,14 +260,20 @@ function decodePayload(value: string): RunnerPayload {
 
 async function executeTerminalRunner(launch: ProcessTerminalLaunch) {
     const terminal = launch.terminalOptions;
-    const result = executeCommand({
+    const resultPromise = executeCommand({
         executable: terminal.shellPath!,
         args: terminal.shellArgs as string[],
         cwd: terminal.cwd as string,
         env: definedEnvironment(terminal.env!),
     });
-    await launch.started;
-    return await result;
+    const startup = await Promise.race([
+        launch.started.then(() => undefined),
+        resultPromise.then((result) => result),
+    ]);
+    if (startup) {
+        throw new Error(`Process terminal runner exited before startup with code ${startup.code}: ${startup.stderr || startup.stdout}`);
+    }
+    return await resultPromise;
 }
 
 async function waitForFile(file: string): Promise<void> {
