@@ -96,8 +96,26 @@ suite('Process output terminal security', () => {
                 assert.match(terminal.shellPath!, /\\System32\\WindowsPowerShell\\v1\.0\\powershell\.exe$/i);
                 assert.deepStrictEqual(runnerArgs.slice(0, 4), ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand']);
                 assert.match(runnerArgs[4], /^[A-Za-z0-9+/=]+$/);
-                assert.strictEqual(terminal.env!.ProgramFiles, process.env.ProgramFiles);
-                assert.strictEqual(terminal.env!['ProgramFiles(x86)'], process.env['ProgramFiles(x86)']);
+                assert.strictEqual(terminal.env!.VSCODE_KUBERNETES_PROCESS_PERSIST, '1');
+                const port = Number(terminal.env!.VSCODE_KUBERNETES_PROCESS_PORT);
+                assert.ok(Number.isInteger(port) && port > 0 && port <= 65535);
+                assert.ok(process.env.USERPROFILE);
+                assert.ok(process.env.LOCALAPPDATA);
+                assert.ok(process.env.APPDATA);
+                assert.strictEqual(terminal.env!.USERPROFILE, process.env.USERPROFILE);
+                assert.strictEqual(terminal.env!.LOCALAPPDATA, process.env.LOCALAPPDATA);
+                assert.strictEqual(terminal.env!.APPDATA, process.env.APPDATA);
+                assert.strictEqual(terminal.env!.COR_ENABLE_PROFILING, undefined);
+                assert.strictEqual(terminal.env!.NODE_OPTIONS, undefined);
+                assert.strictEqual(terminal.env!.VSCODE_IPC_HOOK_CLI, undefined);
+                const powershellRoot = path.win32.dirname(terminal.shellPath!);
+                const systemRoot = path.win32.resolve(powershellRoot, '..', '..', '..');
+                assert.strictEqual(terminal.env!.SystemRoot, systemRoot);
+                assert.strictEqual(terminal.env!.windir, systemRoot);
+                assert.strictEqual(terminal.env!.Path, [path.win32.join(systemRoot, 'System32'), systemRoot, powershellRoot].join(';'));
+                assert.strictEqual(terminal.env!.PATHEXT, '.COM;.EXE;.BAT;.CMD');
+                assert.strictEqual(terminal.env!.ComSpec, path.win32.join(systemRoot, 'System32', 'cmd.exe'));
+                assert.strictEqual(terminal.env!.PSModulePath, path.win32.join(powershellRoot, 'Modules'));
             } else {
                 assert.strictEqual(terminal.shellPath, process.execPath);
                 assert.strictEqual(runnerArgs.length, 3);
@@ -187,6 +205,9 @@ suite('Process output terminal security', () => {
             NODE_DEBUG: 'child_process',
             NODE_OPTIONS: '--no-warnings',
             VSCODE_KUBERNETES_CHILD_COLLISION_0: 'transport-like',
+            VSCODE_KUBERNETES_PROCESS_PERSIST: 'child-persist',
+            VSCODE_KUBERNETES_PROCESS_PORT: 'child-port',
+            VSCODE_KUBERNETES_PROCESS_TOKEN: 'child-token',
             VSCODE_KUBERNETES_SECRET: 'do-not-log-this-secret',
         };
         const childScript = 'process.stdout.write(JSON.stringify(Object.fromEntries(process.argv.slice(1).map((key)=>[key,process.env[key]]))))';
@@ -260,11 +281,15 @@ function decodePayload(value: string): RunnerPayload {
 
 async function executeTerminalRunner(launch: ProcessTerminalLaunch) {
     const terminal = launch.terminalOptions;
+    const environment = definedEnvironment(terminal.env!);
+    if (process.platform === 'win32') {
+        environment.VSCODE_KUBERNETES_PROCESS_PERSIST = '0';
+    }
     const resultPromise = executeCommand({
         executable: terminal.shellPath!,
         args: terminal.shellArgs as string[],
         cwd: terminal.cwd as string,
-        env: definedEnvironment(terminal.env!),
+        env: environment,
     });
     const startup = await Promise.race([
         launch.started.then(() => undefined),

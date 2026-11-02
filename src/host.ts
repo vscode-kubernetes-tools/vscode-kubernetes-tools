@@ -336,14 +336,17 @@ const PROCESS_TERMINAL_RUNNER = [
 
 const WINDOWS_PROCESS_TERMINAL_RUNNER = [
     '$ErrorActionPreference="Stop"',
+    '$env:PSModulePath=$PSHOME+"\\Modules"',
     'function Read-Exactly($Stream,[byte[]]$Buffer){$offset=0;while($offset -lt $Buffer.Length){$read=$Stream.Read($Buffer,$offset,$Buffer.Length-$offset);if($read -le 0){throw "Process terminal payload closed early."};$offset+=$read}}',
     String.raw`function Quote-Argument([string]$Value){if($Value.Length -gt 0 -and $Value -notmatch '[\s"]'){return $Value};$builder=New-Object System.Text.StringBuilder;[void]$builder.Append('"');$slashes=0;foreach($character in $Value.ToCharArray()){if($character -eq '\'){$slashes++;continue};if($character -eq '"'){[void]$builder.Append(('\' * ($slashes*2+1)));[void]$builder.Append('"');$slashes=0;continue};if($slashes){[void]$builder.Append(('\' * $slashes));$slashes=0};[void]$builder.Append($character)};if($slashes){[void]$builder.Append(('\' * ($slashes*2)))};[void]$builder.Append('"');return $builder.ToString()}`,
-    '$port=[int]$env:VSCODE_KUBERNETES_PROCESS_PORT;$token=$env:VSCODE_KUBERNETES_PROCESS_TOKEN;Remove-Item Env:VSCODE_KUBERNETES_PROCESS_PORT,Env:VSCODE_KUBERNETES_PROCESS_TOKEN -ErrorAction SilentlyContinue',
+    '$port=[int]$env:VSCODE_KUBERNETES_PROCESS_PORT;$token=$env:VSCODE_KUBERNETES_PROCESS_TOKEN;$persist=$env:VSCODE_KUBERNETES_PROCESS_PERSIST -eq "1";Remove-Item Env:VSCODE_KUBERNETES_PROCESS_PORT,Env:VSCODE_KUBERNETES_PROCESS_TOKEN,Env:VSCODE_KUBERNETES_PROCESS_PERSIST -ErrorAction SilentlyContinue',
     '$client=New-Object System.Net.Sockets.TcpClient;$client.Connect("127.0.0.1",$port);$stream=$client.GetStream();$authentication=[System.Text.Encoding]::UTF8.GetBytes($token+"`n");$stream.Write($authentication,0,$authentication.Length)',
     '$header=New-Object byte[] 4;Read-Exactly $stream $header;$length=[System.Net.IPAddress]::NetworkToHostOrder([System.BitConverter]::ToInt32($header,0));if($length -lt 0 -or $length -gt 16777216){throw "Process terminal payload was too large."};$body=New-Object byte[] $length;Read-Exactly $stream $body;$client.Dispose();$payload=ConvertFrom-Json ([System.Text.Encoding]::UTF8.GetString($body))',
     '$start=New-Object System.Diagnostics.ProcessStartInfo;$start.FileName=[string]$payload.executable;$start.Arguments=(($payload.args|ForEach-Object { Quote-Argument ([string]$_) }) -join " ");$start.WorkingDirectory=[string]$payload.cwd;$start.UseShellExecute=$false;$start.CreateNoWindow=$false;$start.EnvironmentVariables.Clear();$payload.env.PSObject.Properties|ForEach-Object {$start.EnvironmentVariables[$_.Name]=[string]$_.Value}',
-    '$child=[System.Diagnostics.Process]::Start($start);$child.WaitForExit();$exitCode=$child.ExitCode;if([Console]::IsInputRedirected -or [Console]::IsOutputRedirected){exit $exitCode};while($true){Start-Sleep -Seconds 3600}',
+    '$child=[System.Diagnostics.Process]::Start($start);$child.WaitForExit();$exitCode=$child.ExitCode;if(-not $persist){exit $exitCode};while($true){Start-Sleep -Seconds 3600}',
 ].join(';');
+
+const WINDOWS_PROCESS_TERMINAL_ENVIRONMENT = /^(?:ALLUSERSPROFILE|APPDATA|CommonProgramFiles(?:\(x86\)|\(Arm\))?|CommonProgramW6432|COMPUTERNAME|DriverData|HOMEDRIVE|HOMEPATH|LOCALAPPDATA|LOGONSERVER|NUMBER_OF_PROCESSORS|OS|PROCESSOR_(?:ARCHITECTURE|ARCHITEW6432|IDENTIFIER|LEVEL|REVISION)|ProgramData|ProgramFiles(?:\(x86\)|\(Arm\))?|ProgramW6432|PUBLIC|SESSIONNAME|SystemDrive|TEMP|TMP|USERDNSDOMAIN|USERNAME|USERDOMAIN(?:_ROAMINGPROFILE)?|USERPROFILE)$/i;
 
 export function processTerminalRunnerArgs(port: number): string[] {
     return ['-e', PROCESS_TERMINAL_RUNNER, Buffer.from(JSON.stringify({ port })).toString('base64url')];
@@ -370,7 +373,7 @@ function processTerminalRunner(port: number, token: string): Pick<vscode.Termina
         shellPath: powershell,
         shellArgs: ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(WINDOWS_PROCESS_TERMINAL_RUNNER, 'utf16le').toString('base64')],
         cwd: path.win32.parse(powershell).root,
-        env: processTerminalEnvironment(token, port),
+        env: processTerminalEnvironment(token, port, systemRoot),
     };
 }
 
@@ -383,15 +386,21 @@ function processTerminalPayload(options: ProcessTerminalOptions): ProcessTermina
     };
 }
 
-function processTerminalEnvironment(token: string, port: number): Record<string, string> {
+function processTerminalEnvironment(token: string, port: number, systemRoot: string): Record<string, string> {
     const environment: Record<string, string> = {};
-    if (process.platform === 'win32') {
-        for (const [key, value] of Object.entries(process.env)) {
-            if (value !== undefined && /^(?:SystemRoot|windir|temp|tmp|ProgramFiles(?:\(x86\))?)$/i.test(key)) {
-                environment[key] = value;
-            }
+    for (const [key, value] of Object.entries(process.env)) {
+        if (value !== undefined && WINDOWS_PROCESS_TERMINAL_ENVIRONMENT.test(key)) {
+            environment[key] = value;
         }
     }
+    const powershellRoot = path.win32.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0');
+    environment.SystemRoot = systemRoot;
+    environment.windir = systemRoot;
+    environment.Path = [path.win32.join(systemRoot, 'System32'), systemRoot, powershellRoot].join(';');
+    environment.PATHEXT = '.COM;.EXE;.BAT;.CMD';
+    environment.ComSpec = path.win32.join(systemRoot, 'System32', 'cmd.exe');
+    environment.PSModulePath = path.win32.join(powershellRoot, 'Modules');
+    environment.VSCODE_KUBERNETES_PROCESS_PERSIST = '1';
     environment.VSCODE_KUBERNETES_PROCESS_PORT = String(port);
     environment.VSCODE_KUBERNETES_PROCESS_TOKEN = token;
     return environment;
