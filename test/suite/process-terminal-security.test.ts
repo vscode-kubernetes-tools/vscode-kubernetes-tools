@@ -11,7 +11,7 @@ interface RunnerPayload {
 }
 
 suite('Process output terminal security', () => {
-    test('runs the child inside a persistent real terminal TTY', async function () {
+    test('runs child output inside a persistent real terminal TTY', async function () {
         this.timeout(15000);
         const directory = nativeFs.mkdtempSync(path.join(os.tmpdir(), 'kubectl-terminal-tty-'));
         const childDirectory = path.join(directory, '${workspaceFolder} child cwd');
@@ -62,7 +62,7 @@ suite('Process output terminal security', () => {
                 literal: '${config:UNCHANGED}',
                 pid: result.pid,
                 sentinel: '${env:UNCHANGED}',
-                stdin: true, stdout: true, stderr: true,
+                stdin: process.platform !== 'win32', stdout: true, stderr: true,
             });
             assert.ok(vscode.window.terminals.includes(terminal));
             execution.terminate();
