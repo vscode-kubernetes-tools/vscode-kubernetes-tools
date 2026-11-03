@@ -449,7 +449,8 @@ export async function helmUninstall(resourceNode?: ClusterExplorerNode): Promise
         return;
     }
     logger.log("⎈⎈⎈ Uninstalling " + releaseName);
-    const opt = await vscode.window.showWarningMessage(`You are about to uninstall ${releaseName}. This action cannot be undone.`, 'Uninstall');
+    const target = namespace ? `${releaseName} in namespace ${namespace}` : releaseName;
+    const opt = await vscode.window.showWarningMessage(`You are about to uninstall ${target}. This action cannot be undone.`, 'Uninstall');
     if (opt !== 'Uninstall') {
         return;
     }
@@ -512,7 +513,8 @@ export async function helmRollback(resourceNode?: HelmHistoryNode) {
         vscode.window.showInformationMessage('This is the currently deployed release');
         return;
     }
-    const opt = await vscode.window.showWarningMessage(`You are about to rollback ${releaseName} to release version ${release.revision}. Continue?`, 'Rollback');
+    const target = namespace ? `${releaseName} in namespace ${namespace}` : releaseName;
+    const opt = await vscode.window.showWarningMessage(`You are about to rollback ${target} to release version ${release.revision}. Continue?`, 'Rollback');
     if (opt !== 'Rollback') {
         return;
     }

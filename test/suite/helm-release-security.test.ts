@@ -306,7 +306,7 @@ suite('Helm release security', () => {
         await helmExec.helmUninstall(new HelmReleaseNode(release, 'deployed', 'team-a'));
 
         assert.deepStrictEqual(commandArguments(), [['del', '--namespace', 'team-a', '--', release]]);
-        sinon.assert.calledOnceWithExactly(warning, `You are about to uninstall ${release}. This action cannot be undone.`, 'Uninstall');
+        sinon.assert.calledOnceWithExactly(warning, `You are about to uninstall ${release} in namespace team-a. This action cannot be undone.`, 'Uninstall');
         sinon.assert.calledOnceWithExactly(information, `Release ${release} successfully uninstalled.`);
         sinon.assert.calledOnce(refresh);
         sinon.assert.notCalled(error);
@@ -319,7 +319,7 @@ suite('Helm release security', () => {
         await helmExec.helmRollback(new HelmHistoryNode(release, historyRevision(3), 'team-a'));
 
         assert.deepStrictEqual(commandArguments(), [['rollback', '--cleanup-on-fail', '--namespace', 'team-a', '--', release, '3']]);
-        sinon.assert.calledOnceWithExactly(warning, `You are about to rollback ${release} to release version 3. Continue?`, 'Rollback');
+        sinon.assert.calledOnceWithExactly(warning, `You are about to rollback ${release} in namespace team-a to release version 3. Continue?`, 'Rollback');
         sinon.assert.calledOnceWithExactly(information, `Release ${release} successfully rolled back to 3.`);
         sinon.assert.calledOnce(refresh);
         sinon.assert.notCalled(error);
@@ -409,6 +409,38 @@ suite('Helm release security', () => {
 
         assert.ok(releases[0] instanceof HelmReleaseNode);
         assert.strictEqual(releases[0].namespace, 'team-a');
+    });
+
+    test('does not let a release-list response redirect operations out of the selected namespace', async () => {
+        sandbox.stub(kubectlUtils, 'currentNamespace').resolves('team-a');
+        sandbox.stub(helmExec, 'helmListAll').resolves({ succeeded: true, result: [{ name: 'app', status: 'deployed', namespace: 'team-b' }] });
+        const history = sandbox.stub(helmExec, 'helmGetHistory').resolves({ succeeded: true, result: [historyRevision(3)] });
+        const open = sandbox.stub(vscode.workspace, 'openTextDocument').resolves({} as vscode.TextDocument);
+        sandbox.stub(vscode.window, 'showTextDocument').resolves({} as vscode.TextEditor);
+        warning.onFirstCall().resolves('Uninstall');
+        warning.onSecondCall().resolves('Rollback');
+
+        const releases = await new HelmReleasesFolder().getChildren({} as Kubectl, host);
+        assert.ok(releases[0] instanceof HelmReleaseNode);
+        assert.strictEqual(releases[0].namespace, 'team-a');
+        const revisions = await releases[0].getChildren({} as Kubectl, host);
+        assert.ok(revisions);
+        assert.ok(revisions[0] instanceof HelmHistoryNode);
+        assert.strictEqual(revisions[0].namespace, 'team-a');
+        await helmExec.helmGet(releases[0]);
+        await helmExec.helmGet(revisions[0]);
+        await helmExec.helmUninstall(releases[0]);
+        await helmExec.helmRollback(revisions[0]);
+
+        sinon.assert.calledOnceWithExactly(history, 'app', 'team-a');
+        for (const call of open.getCalls()) {
+            assert.strictEqual(querystring.parse((call.args[0] as vscode.Uri).query).ns, 'team-a');
+        }
+        assert.deepStrictEqual(commandArguments(), [
+            ['del', '--namespace', 'team-a', '--', 'app'],
+            ['rollback', '--cleanup-on-fail', '--namespace', 'team-a', '--', 'app', '3'],
+        ]);
+        assert.ok(warning.getCalls().every((call) => call.args[0].includes('namespace team-a') && !call.args[0].includes('team-b')));
     });
 
     test('uses safe executable resolution for explorer availability checks', async () => {
@@ -594,18 +626,10 @@ suite('Helm release virtual documents', () => {
         sinon.assert.calledOnceWithExactly(showErrorMessage, 'Get command failed: get failed');
     });
 
-    test('keeps a YAML release label as data through link creation and document loading', async () => {
+    test('keeps a YAML release label as data without inferring the release namespace from the resource', async () => {
         const release = 'release&ns=other#fragment;$(marker)';
         const text = `apiVersion: v1\nkind: Pod\nmetadata:\n  labels:\n    release: ${release}\n`;
-        const document = {
-            uri: kubefsUri('team-a', 'pods/app', 'yaml'),
-            version: 1,
-            getText: () => text,
-            positionAt: (offset: number) => {
-                const lines = text.substring(0, offset).split('\n');
-                return new vscode.Position(lines.length - 1, lines[lines.length - 1].length);
-            },
-        } as vscode.TextDocument;
+        const document = resourceDocument(text, 'team-b');
 
         const links = await Promise.resolve(new KubernetesResourceLinkProvider().provideDocumentLinks(document, {} as vscode.CancellationToken));
         assert.ok(links);
@@ -613,12 +637,74 @@ suite('Helm release virtual documents', () => {
         assert.ok(link?.target);
         const query = querystring.parse(link.target.query);
         assert.strictEqual(query.value, release);
-        assert.strictEqual(query.ns, 'team-a');
+        assert.strictEqual(query.ns, undefined);
         assert.strictEqual(link.target.fragment, '');
         assert.strictEqual(await provider.loadResource(link.target), 'release content');
-        sinon.assert.calledOnceWithExactly(invoke, ['get', 'all', '--namespace', 'team-a', '--', release], `Loading ${release}...`);
+        sinon.assert.calledOnceWithExactly(invoke, ['get', 'all', '--', release], `Loading ${release}...`);
+    });
+
+    for (const [label, annotationKey, annotationValue] of [
+        ['plain', 'meta.helm.sh/release-namespace', 'team-a'],
+        ['double-quoted', '"meta.helm.sh/release-namespace"', '"team-a"'],
+        ['single-quoted', "'meta.helm.sh/release-namespace'", "'team-a'"],
+        ['escaped', '"meta.helm.sh/release-namespace"', '"\\u0074eam-a"'],
+    ]) {
+        test(`uses the ${label} Helm namespace annotation for a cross-namespace resource link`, async () => {
+            const text = `apiVersion: v1\nkind: Service\nmetadata:\n  namespace: team-b\n  annotations:\n    ${annotationKey}: ${annotationValue}\n  labels:\n    release: app\n`;
+            const links = await Promise.resolve(new KubernetesResourceLinkProvider().provideDocumentLinks(resourceDocument(text, 'team-b'), {} as vscode.CancellationToken));
+            const link = links?.find((candidate) => candidate.target?.authority === HELM_RESOURCE_AUTHORITY);
+            assert.ok(link?.target);
+            assert.strictEqual(querystring.parse(link.target.query).ns, 'team-a');
+
+            assert.strictEqual(await provider.loadResource(link.target), 'release content');
+
+            sinon.assert.calledOnceWithExactly(invoke, ['get', 'all', '--namespace', 'team-a', '--', 'app'], 'Loading app...');
+        });
+    }
+
+    test('keeps release namespace annotations local to their own resource in a List', async () => {
+        const text = [
+            'apiVersion: v1', 'kind: List', 'items:',
+            '  - apiVersion: v1', '    kind: Service', '    metadata:',
+            '      annotations:', '        meta.helm.sh/release-namespace: team-a',
+            '      labels:', '        release: first',
+            '  - apiVersion: v1', '    kind: Service', '    metadata:',
+            '      labels:', '        release: second',
+        ].join('\n');
+        const links = await Promise.resolve(new KubernetesResourceLinkProvider().provideDocumentLinks(resourceDocument(text, 'team-b'), {} as vscode.CancellationToken));
+        const targets = links?.filter((link) => link.target?.authority === HELM_RESOURCE_AUTHORITY)
+            .map((link) => querystring.parse(link.target!.query));
+
+        assert.ok(targets);
+        assert.deepStrictEqual(targets.map((query) => [query.value, query.ns]), [['first', 'team-a'], ['second', undefined]]);
+    });
+
+    test('rejects an invalid annotated namespace rather than falling back to the resource namespace', async () => {
+        const text = 'apiVersion: v1\nkind: Service\nmetadata:\n  annotations:\n    meta.helm.sh/release-namespace: "team;$(marker)"\n  labels:\n    release: app\n';
+        const links = await Promise.resolve(new KubernetesResourceLinkProvider().provideDocumentLinks(resourceDocument(text, 'team-b'), {} as vscode.CancellationToken));
+        const link = links?.find((candidate) => candidate.target?.authority === HELM_RESOURCE_AUTHORITY);
+        assert.ok(link?.target);
+
+        await assert.rejects(() => provider.loadResource(link.target!));
+
+        sinon.assert.notCalled(syntaxVersion);
+        sinon.assert.notCalled(invoke);
     });
 });
+
+let resourceDocumentVersion = 0;
+
+function resourceDocument(text: string, namespace: string): vscode.TextDocument {
+    return {
+        uri: kubefsUri(namespace, 'services/app', 'yaml'),
+        version: ++resourceDocumentVersion,
+        getText: () => text,
+        positionAt: (offset: number) => {
+            const lines = text.substring(0, offset).split('\n');
+            return new vscode.Position(lines.length - 1, lines[lines.length - 1].length);
+        },
+    } as vscode.TextDocument;
+}
 
 function releaseList(name: string, namespace = 'team-a'): string {
     return JSON.stringify([{

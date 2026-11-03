@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as querystring from 'querystring';
 import * as _ from 'lodash';
+import * as YAML from 'yamljs';
 
 import * as kuberesources from './kuberesources';
 import { kubefsUri } from './kuberesources.virtualfs';
@@ -102,18 +103,17 @@ function sibling(node: yl.YamlMappingItem, name: string): string | undefined {
 }
 
 function getLinkFromPair(document: vscode.TextDocument, sourceKind: string, node: yl.YamlMappingItem): vscode.DocumentLink | undefined {
-    const uri = getLinkUri(sourceKind, node, document.uri);
+    const uri = getLinkUri(sourceKind, node);
     if (!uri) {
         return undefined;
     }
     return new vscode.DocumentLink(range(document, node), uri);
 }
 
-function getLinkUri(sourceKind: string, node: yl.YamlMappingItem, documentUri: vscode.Uri): vscode.Uri | undefined {
+function getLinkUri(sourceKind: string, node: yl.YamlMappingItem): vscode.Uri | undefined {
     // Things that apply to all source resource types
     if (key(node) === 'release' && parentKey(node) === 'labels') {
-        const namespace = querystring.parse(documentUri.query, '&', '=', { maxKeys: 0 }).ns;
-        return helmfsUri(node.value.raw, undefined, typeof namespace === 'string' ? namespace : undefined);
+        return helmfsUri(node.value.raw, undefined, helmReleaseNamespace(node));
     }
     if (key(node) === 'namespace' && parentKey(node) === 'metadata') {
         return kubefsUri(null, `ns/${node.value.raw}`, 'yaml');
@@ -135,6 +135,32 @@ function getLinkUri(sourceKind: string, node: yl.YamlMappingItem, documentUri: v
             return getLinkUriFromPVC(node);
         default:
             return undefined;
+    }
+}
+
+function helmReleaseNamespace(node: yl.YamlMappingItem): string | undefined {
+    const labels = node.parent;
+    const metadata = labels?.parent;
+    if (!labels || parentKey(labels) !== 'metadata' || !metadata || !yl.isMapping(metadata)) {
+        return undefined;
+    }
+    const annotations = metadata.mappings.find((item) => yamlString(item.key) === 'annotations')?.value;
+    if (!annotations || !yl.isMapping(annotations)) {
+        return undefined;
+    }
+    const namespace = annotations.mappings.find((item) => yamlString(item.key) === 'meta.helm.sh/release-namespace')?.value;
+    return namespace ? yamlString(namespace) : undefined;
+}
+
+function yamlString(node: yl.YamlNode): string | undefined {
+    if (node.kind !== 'SCALAR') {
+        return undefined;
+    }
+    try {
+        const value: unknown = YAML.parse(node.raw);
+        return typeof value === 'string' ? value : undefined;
+    } catch {
+        return undefined;
     }
 }
 
