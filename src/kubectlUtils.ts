@@ -82,7 +82,7 @@ export interface ConfigReadOptions {
 }
 
 async function getKubeconfig(kubectl: Kubectl, options: ConfigReadOptions): Promise<Kubeconfig | null> {
-    const config = await kubectl.readJSON<any>("config view -o json");
+    const config = ExecResult.map<Kubeconfig>(await kubectl.invokeCommandArgs(['config', 'view', '-o', 'json']), JSON.parse);
     if (ExecResult.failed(config)) {
         if (options.silent) {
             console.log(ExecResult.failureMessage(config, {}));
@@ -140,8 +140,12 @@ export async function getCurrentContext(kubectl: Kubectl, options: ConfigReadOpt
     return contexts.find((c) => c.active);
 }
 
+export function setCurrentContext(kubectl: Kubectl, contextName: string): Promise<ExecResult> {
+    return kubectl.invokeCommandArgs(['config', 'use-context', '--', contextName]);
+}
+
 export async function deleteCluster(kubectl: Kubectl, context: KubectlContext): Promise<boolean> {
-    const deleteClusterResult = await kubectl.invokeCommandWithFeedback(`config delete-cluster ${context.clusterName}`, "Deleting cluster...");
+    const deleteClusterResult = await kubectl.invokeCommandArgsWithFeedback(['config', 'delete-cluster', '--', context.clusterName], "Deleting cluster...");
     if (ExecResult.failed(deleteClusterResult)) {
         const whatFailed = `Failed to remove the underlying cluster for context ${context.clusterName} from the kubeconfig`;
         kubeChannel.showOutput(ExecResult.failureMessage(deleteClusterResult, { whatFailed }), `Delete ${context.contextName}`);
@@ -158,14 +162,14 @@ export async function deleteCluster(kubectl: Kubectl, context: KubectlContext): 
         vscode.window.showWarningMessage(`Failed to remove the underlying cluster for context ${context.contextName}. See Output window for more details.`);
     }
 
-    const deleteUserResult = await kubectl.invokeCommandWithFeedback(`config unset users.${context.userName}`, "Deleting user...");
+    const deleteUserResult = await kubectl.invokeCommandArgsWithFeedback(['config', 'unset', '--', `users.${context.userName}`], "Deleting user...");
     if (ExecResult.failed(deleteUserResult)) {
         const whatFailed = `Failed to remove the underlying user for context ${context.contextName} from the kubeconfig`;
         kubeChannel.showOutput(ExecResult.failureMessage(deleteUserResult, { whatFailed }));
         vscode.window.showWarningMessage(`Failed to remove the underlying user for context ${context.contextName}. See Output window for more details.`);
     }
 
-    const deleteContextResult = await kubectl.invokeCommandWithFeedback(`config delete-context ${context.contextName}`, "Deleting context...");
+    const deleteContextResult = await kubectl.invokeCommandArgsWithFeedback(['config', 'delete-context', '--', context.contextName], "Deleting context...");
     if (ExecResult.failed(deleteContextResult)) {
         const whatFailed = `Failed to delete the specified cluster's context ${context.contextName} from the kubeconfig`;
         kubeChannel.showOutput(ExecResult.failureMessage(deleteContextResult, { whatFailed }));
