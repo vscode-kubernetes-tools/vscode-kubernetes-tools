@@ -10,7 +10,12 @@ export const selectedPodsChildSource = {
         if (!labelSelector) {
             return [];
         }
-        const pods = await kubectlUtils.getPods(kubectl, labelSelector);
+        const serviceSelector = parent.kind.manifestKind === kuberesources.allKinds.service.manifestKind;
+        if (serviceSelector && typeof labelSelector === 'object' && !Array.isArray(labelSelector) && Object.keys(labelSelector).length === 0) {
+            return [];
+        }
+        const selector = serviceSelector ? { matchLabels: labelSelector } : labelSelector;
+        const pods = await kubectlUtils.getPods(kubectl, selector, { namespace: parent.namespace });
         return pods.map((p) => ResourceNode.create(kuberesources.allKinds.pod, p.name, p.metadata, { podInfo: p }));
     }
 };
