@@ -156,6 +156,7 @@ class KubectlImpl implements Kubectl {
     private sharedTerminalCloseDisposable: Disposable | undefined;
     private childProcesses: ChildProcess[] = [];
     private readonly outputTerminalExecutions = new Set<ProcessTerminalExecution>();
+    private readonly pendingOutputTerminalLaunches = new Set<AbortController>();
     private disposed = false;
     private readonly backgroundCancellation = new AbortController();
 
@@ -216,8 +217,13 @@ class KubectlImpl implements Kubectl {
         if (this.disposed || revision !== this.context.binaryRevision) {
             return;
         }
+        const cancellation = new AbortController();
+        this.pendingOutputTerminalLaunches.add(cancellation);
         try {
-            const execution = await this.context.host.runProcessInTerminal({ name: terminalName, ...processOptions });
+            const execution = await this.context.host.runProcessInTerminal(
+                { name: terminalName, ...processOptions },
+                cancellation.signal
+            );
             if (this.disposed || revision !== this.context.binaryRevision) {
                 execution.terminate();
                 return;
@@ -225,7 +231,11 @@ class KubectlImpl implements Kubectl {
             this.outputTerminalExecutions.add(execution);
             void execution.completed.finally(() => this.outputTerminalExecutions.delete(execution));
         } catch (error) {
-            await this.context.host.showErrorMessage(`Unable to start kubectl output terminal: ${String(error)}`);
+            if (!cancellation.signal.aborted && !this.disposed && revision === this.context.binaryRevision) {
+                await this.context.host.showErrorMessage(`Unable to start kubectl output terminal: ${String(error)}`);
+            }
+        } finally {
+            this.pendingOutputTerminalLaunches.delete(cancellation);
         }
     }
     asLines(command: string): Promise<Errorable<string[]>> {
@@ -445,6 +455,9 @@ class KubectlImpl implements Kubectl {
     }
 
     private terminateOutputTerminals(): void {
+        const pending = [...this.pendingOutputTerminalLaunches];
+        this.pendingOutputTerminalLaunches.clear();
+        pending.forEach((cancellation) => cancellation.abort());
         const executions = [...this.outputTerminalExecutions];
         this.outputTerminalExecutions.clear();
         executions.forEach((execution) => execution.terminate());

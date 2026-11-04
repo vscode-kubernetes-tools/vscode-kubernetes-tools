@@ -71,13 +71,17 @@ suite('Kubectl terminal security', () => {
         await kubectl.invokeArgsInOutputTerminal(args, 'Kubernetes Get');
 
         assert.deepStrictEqual(args, ['get', 'pod/api;$(marker)', '-o', 'wide']);
-        sinon.assert.calledOnceWithExactly(runProcessInTerminal, {
-            name: 'Kubernetes Get',
-            executable: '/opt/Kube Tools/kubectl',
-            args,
-            cwd: '/workspace',
-            env: { PATH: '/usr/bin' },
-        });
+        sinon.assert.calledOnceWithExactly(
+            runProcessInTerminal,
+            {
+                name: 'Kubernetes Get',
+                executable: '/opt/Kube Tools/kubectl',
+                args,
+                cwd: '/workspace',
+                env: { PATH: '/usr/bin' },
+            },
+            sinon.match.has('aborted', false)
+        );
         sinon.assert.notCalled(createTerminal);
     });
 
@@ -93,13 +97,17 @@ suite('Kubectl terminal security', () => {
 
         await kubectl.invokeArgsInOutputTerminal(['cluster-info'], 'Kubernetes Cluster Info');
 
-        sinon.assert.calledOnceWithExactly(runProcessInTerminal, {
-            name: 'Kubernetes Cluster Info',
-            executable: 'C:\\Windows\\System32\\wsl.exe',
-            args: ['--exec', '/usr/local/bin/kubectl', 'cluster-info'],
-            cwd: '/workspace',
-            env: { PATH: '/usr/bin', SystemRoot: 'C:\\Windows' },
-        });
+        sinon.assert.calledOnceWithExactly(
+            runProcessInTerminal,
+            {
+                name: 'Kubernetes Cluster Info',
+                executable: 'C:\\Windows\\System32\\wsl.exe',
+                args: ['--exec', '/usr/local/bin/kubectl', 'cluster-info'],
+                cwd: '/workspace',
+                env: { PATH: '/usr/bin', SystemRoot: 'C:\\Windows' },
+            },
+            sinon.match.has('aborted', false)
+        );
     });
 
     test('reports output-terminal startup failures', async () => {
@@ -119,6 +127,68 @@ suite('Kubectl terminal security', () => {
             showErrorMessage,
             'Unable to start kubectl output terminal: Error: terminals unavailable'
         );
+    });
+
+    test('cancels a pending output terminal on configuration changes without reporting an error', async () => {
+        sandbox.stub(config, 'getUseWsl').returns(false);
+        let configuredPath = '/first/kubectl';
+        sandbox.stub(config, 'getToolPath').callsFake(() => configuredPath);
+        let configurationChanged!: (event: ConfigurationChangeEvent) => void;
+        let pendingSignal!: AbortSignal;
+        let rejectLaunch!: (error: Error) => void;
+        const runProcessInTerminal = sinon.stub().callsFake((_options: unknown, signal?: AbortSignal) => {
+            pendingSignal = signal!;
+            return new Promise<ProcessTerminalExecution>((_resolve, reject) => { rejectLaunch = reject; });
+        });
+        const showErrorMessage = sinon.stub().resolves(undefined);
+        const kubectl = create(
+            config.KubectlVersioning.UserProvided,
+            fakeHost(sinon.stub(), showErrorMessage, (listener) => {
+                configurationChanged = listener;
+                return { dispose: sinon.stub() };
+            }, runProcessInTerminal),
+            fakeFs(),
+            fakeShell(false)
+        );
+
+        const launch = kubectl.invokeArgsInOutputTerminal(['cluster-info'], 'Kubernetes Cluster Info');
+        await new Promise<void>((resolve) => setImmediate(resolve));
+        assert.strictEqual(pendingSignal.aborted, false);
+        configuredPath = '/second/kubectl';
+        configurationChanged({ affectsConfiguration: (section) => section === 'vscode-kubernetes.kubectl-path' });
+        assert.strictEqual(pendingSignal.aborted, true);
+        rejectLaunch(new Error('Process terminal launch cancelled.'));
+        await launch;
+
+        sinon.assert.notCalled(showErrorMessage);
+        kubectl.dispose();
+    });
+
+    test('cancels a pending output terminal on disposal', async () => {
+        sandbox.stub(config, 'getUseWsl').returns(false);
+        let pendingSignal!: AbortSignal;
+        let rejectLaunch!: (error: Error) => void;
+        const runProcessInTerminal = sinon.stub().callsFake((_options: unknown, signal?: AbortSignal) => {
+            pendingSignal = signal!;
+            return new Promise<ProcessTerminalExecution>((_resolve, reject) => { rejectLaunch = reject; });
+        });
+        const showErrorMessage = sinon.stub().resolves(undefined);
+        const kubectl = createOnBinary(
+            fakeHost(sinon.stub(), showErrorMessage, undefined, runProcessInTerminal),
+            fakeFs(),
+            fakeShell(false),
+            '/usr/local/bin/kubectl'
+        );
+
+        const launch = kubectl.invokeArgsInOutputTerminal(['cluster-info'], 'Kubernetes Cluster Info');
+        await new Promise<void>((resolve) => setImmediate(resolve));
+        assert.strictEqual(pendingSignal.aborted, false);
+        kubectl.dispose();
+        assert.strictEqual(pendingSignal.aborted, true);
+        rejectLaunch(new Error('Process terminal launch cancelled.'));
+        await launch;
+
+        sinon.assert.notCalled(showErrorMessage);
     });
 
     test('terminates active output terminals on configuration changes and disposal', async () => {

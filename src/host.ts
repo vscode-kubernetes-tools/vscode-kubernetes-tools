@@ -16,7 +16,7 @@ export interface Host {
     withProgress<R>(task: (progress: vscode.Progress<{ message?: string }>) => Thenable<R>): Thenable<R>;
     getConfiguration(key: string): any;
     createTerminal(name?: string, shellPath?: string, shellArgs?: string[], iconPath?: vscode.ThemeIcon): vscode.Terminal;
-    runProcessInTerminal(options: ProcessTerminalOptions): Promise<ProcessTerminalExecution>;
+    runProcessInTerminal(options: ProcessTerminalOptions, signal?: AbortSignal): Promise<ProcessTerminalExecution>;
     onDidCloseTerminal(listener: (e: vscode.Terminal) => any): vscode.Disposable;
     onDidChangeConfiguration(listener: (ch: vscode.ConfigurationChangeEvent) => any): vscode.Disposable;
     activeDocument(): vscode.TextDocument | undefined;
@@ -256,49 +256,68 @@ export async function createProcessTerminalLaunch(options: ProcessTerminalOption
     };
 }
 
-async function runProcessInTerminal(options: ProcessTerminalOptions): Promise<ProcessTerminalExecution> {
+async function runProcessInTerminal(options: ProcessTerminalOptions, signal?: AbortSignal): Promise<ProcessTerminalExecution> {
+    if (signal?.aborted) {
+        throw new Error('Process terminal launch cancelled.');
+    }
     const launch = await createProcessTerminalLaunch(options);
-    let terminal: vscode.Terminal;
-    try {
-        terminal = vscode.window.createTerminal(launch.terminalOptions);
-    } catch (error) {
+    if (signal?.aborted) {
         launch.dispose();
         await launch.started.catch(() => {});
-        throw error;
+        throw new Error('Process terminal launch cancelled.');
     }
+    let terminal: vscode.Terminal | undefined;
+    let closeListener: vscode.Disposable | undefined;
     let resolveCompleted!: () => void;
     let settled = false;
     const completed = new Promise<void>((resolve) => { resolveCompleted = resolve; });
     const complete = () => {
+        closeListener?.dispose();
+        closeListener = undefined;
+        signal?.removeEventListener('abort', terminate);
+        launch.dispose();
         if (settled) {
             return;
         }
         settled = true;
-        closeListener?.dispose();
-        launch.dispose();
         resolveCompleted();
     };
-    const closeListener = vscode.window.onDidCloseTerminal((closedTerminal) => {
-        if (closedTerminal === terminal) {
+    const terminate = () => {
+        try {
+            terminal?.dispose();
+        } finally {
             complete();
         }
-    });
+    };
+    signal?.addEventListener('abort', terminate, { once: true });
     try {
+        if (signal?.aborted) {
+            throw new Error('Process terminal launch cancelled.');
+        }
+        terminal = vscode.window.createTerminal(launch.terminalOptions);
+        closeListener = vscode.window.onDidCloseTerminal((closedTerminal) => {
+            if (closedTerminal === terminal) {
+                complete();
+            }
+        });
+        if (signal?.aborted) {
+            throw new Error('Process terminal launch cancelled.');
+        }
         terminal.show();
         await launch.started;
+        if (signal?.aborted) {
+            throw new Error('Process terminal launch cancelled.');
+        }
         return {
             completed,
-            terminate: () => {
-                try {
-                    terminal.dispose();
-                } finally {
-                    complete();
-                }
-            },
+            terminate,
         };
     } catch (error) {
-        terminal.dispose();
-        complete();
+        terminate();
+        await launch.started.catch(() => {});
+        if (signal?.aborted) {
+            throw new Error('Process terminal launch cancelled.');
+        }
         throw error;
     }
 }
@@ -310,22 +329,59 @@ interface ProcessTerminalPayload {
     readonly env: Readonly<Record<string, string>>;
 }
 
+const POSIX_PROCESS_TERMINAL_CHILD = [
+    'set -m',
+    'exec 4>&1 5>&2',
+    'exec 1>/dev/null 2>/dev/null',
+    'target_done=0',
+    'cleaning=0',
+    'cleanup() {',
+    'test "$cleaning" -eq 1 && return',
+    'cleaning=1',
+    'trap "" HUP INT QUIT TERM',
+    'if test "$target_done" -eq 1; then sleep 0.25; else sleep 2; fi',
+    'kill -KILL -- "-$$"',
+    '}',
+    'run_command() {',
+    'trap cleanup HUP INT QUIT TERM',
+    'set +m',
+    '/bin/sh -c \'trap - HUP INT QUIT TERM; exec "$@"\' process-terminal-target "$@" 1>&4 2>&5 3>&- 4>&- 5>&- 6>&-',
+    'status=$?',
+    'target_done=1',
+    'printf "%s\\n" "$status" >&6',
+    'while :; do sleep 3600; done',
+    '}',
+    'run_command "$@" &',
+    'group=$!',
+    'printf "%s\\n" "$group" >&3',
+    'exec 3>&- 6>&-',
+    'fg %1 >/dev/null 2>&1',
+    'exit $?',
+].join('\n');
+
 const PROCESS_TERMINAL_RUNNER = [
     'const net=require("net");',
     'const {spawn}=require("child_process");',
     'const connection=JSON.parse(Buffer.from(process.argv[1],"base64url").toString("utf8"));',
-    'const token=process.env.VSCODE_KUBERNETES_PROCESS_TOKEN;delete process.env.VSCODE_KUBERNETES_PROCESS_TOKEN;delete process.env.ELECTRON_RUN_AS_NODE;',
-    'let child;let expected;let received=Buffer.alloc(0);',
+    'const token=process.env.VSCODE_KUBERNETES_PROCESS_TOKEN;const persist=process.env.VSCODE_KUBERNETES_PROCESS_PERSIST==="1";delete process.env.VSCODE_KUBERNETES_PROCESS_TOKEN;delete process.env.VSCODE_KUBERNETES_PROCESS_PERSIST;delete process.env.ELECTRON_RUN_AS_NODE;',
+    'let child;let group;let expected;let received=Buffer.alloc(0);let groupStatus="";let exitStatus="";',
     'let failed=false;',
-    'let stopping=false;',
+    'let cancelled=false;',
+    'let cleaning=false;',
+    'let cleanupDone=false;',
+    'let childClosed=false;',
     'let finished=false;',
     'let exitAfterChild=false;',
-    'const forward=(signal,exit)=>{exitAfterChild||=exit;if(finished||!child){process.exit();return;}if(stopping)return;stopping=true;if(child.exitCode===null&&child.signalCode===null){child.kill(signal);const timer=setTimeout(()=>{if(child.exitCode===null&&child.signalCode===null)child.kill("SIGKILL");},2000);timer.unref();}};',
+    'let cleanupTimer;',
+    'const signalGroup=(signal)=>{if(!group)return false;try{process.kill(-group,signal);return true;}catch(error){if(error.code==="ESRCH")return false;fail(error);return false;}};',
+    'const complete=()=>{if(finished||!childClosed||!cleanupDone)return;finished=true;if(exitAfterChild||!persist)process.exit();else if(process.stdin.isTTY&&process.stdout.isTTY)process.stdin.resume();};',
+    'let cleanupSignal;const cleanGroup=(signal)=>{cleanupSignal||=signal;if(cleaning||!group)return;cleaning=true;if(!signalGroup(cleanupSignal))child.kill("SIGKILL");cleanupTimer=setTimeout(()=>{if(!childClosed)child.kill("SIGKILL");},persist?4000:250);};',
+    'const forward=(signal,exit)=>{exitAfterChild||=exit;if(finished){if(exit)process.exit();return;}if(!child){cancelled=true;process.exit();return;}if(!persist){if(child.exitCode===null&&child.signalCode===null){child.kill(signal);const timer=setTimeout(()=>{if(child.exitCode===null&&child.signalCode===null)child.kill("SIGKILL");},2000);timer.unref();}return;}cleanGroup(signal);};',
     'process.on("SIGINT",()=>forward("SIGINT",false));',
     'process.on("SIGTERM",()=>forward("SIGTERM",true));',
     'if(process.platform!=="win32")process.on("SIGHUP",()=>forward("SIGHUP",true));',
     'const fail=(error)=>{failed=true;console.error(error.message);process.exitCode=1;};',
-    'const start=(payload)=>{child=spawn(payload.executable,payload.args,{cwd:payload.cwd,env:payload.env,shell:false,stdio:"inherit",windowsHide:true});child.once("error",fail);child.once("close",(code)=>{finished=true;process.exitCode=failed?1:(code??1);if(exitAfterChild)process.exit();else if(process.stdin.isTTY&&process.stdout.isTTY)process.stdin.resume();});};',
+    'const start=(payload)=>{if(cancelled)return;if(!persist){child=spawn(payload.executable,payload.args,{cwd:payload.cwd,env:payload.env,shell:false,stdio:"inherit",windowsHide:true});child.once("error",fail);child.once("close",(code)=>{childClosed=true;cleanupDone=true;process.exitCode=failed?1:(code??1);complete();});return;}child=spawn("/bin/sh",["-i","-c",process.argv[2],"process-terminal", "/usr/bin/env","-i","--",...Object.entries(payload.env).map(([key,value])=>key+"="+value),payload.executable,...payload.args],{cwd:payload.cwd,env:{PATH:"/usr/bin:/bin"},shell:false,stdio:["inherit","inherit","inherit","pipe","ignore","ignore","pipe"],windowsHide:true});child.stdio[3].setEncoding("utf8");child.stdio[3].on("data",(chunk)=>{const newline=(groupStatus+=chunk).indexOf("\\n");if(newline<0)return;const value=groupStatus.slice(0,newline);groupStatus=groupStatus.slice(newline+1);if(group===undefined){group=Number(value);if(!Number.isSafeInteger(group)||group<=0){fail(new Error("Invalid process terminal group."));child.kill("SIGKILL");return;}if(cleanupSignal)cleanGroup(cleanupSignal);}});child.stdio[6].setEncoding("utf8");child.stdio[6].on("data",(chunk)=>{const newline=(exitStatus+=chunk).indexOf("\\n");if(newline<0)return;const value=exitStatus.slice(0,newline);exitStatus=exitStatus.slice(newline+1);const code=Number(value);if(!Number.isSafeInteger(code)||code<0||code>255)fail(new Error("Invalid process terminal exit status."));else process.exitCode=code;cleanGroup("SIGTERM");});child.once("error",fail);child.once("close",(code)=>{childClosed=true;cleanupDone=true;clearTimeout(cleanupTimer);if(process.exitCode===undefined)process.exitCode=failed?1:(code??1);complete();});};',
     'if(!token)throw new Error("Missing process terminal token.");',
     'const socket=net.createConnection({host:"127.0.0.1",port:connection.port});',
     'socket.setTimeout(10000,()=>socket.destroy(new Error("Process terminal payload timed out.")));',
@@ -349,7 +405,12 @@ const WINDOWS_PROCESS_TERMINAL_RUNNER = [
 const WINDOWS_PROCESS_TERMINAL_ENVIRONMENT = /^(?:ALLUSERSPROFILE|APPDATA|CommonProgramFiles(?:\(x86\)|\(Arm\))?|CommonProgramW6432|COMPUTERNAME|DriverData|HOMEDRIVE|HOMEPATH|LOCALAPPDATA|LOGONSERVER|NUMBER_OF_PROCESSORS|OS|PROCESSOR_(?:ARCHITECTURE|ARCHITEW6432|IDENTIFIER|LEVEL|REVISION)|ProgramData|ProgramFiles(?:\(x86\)|\(Arm\))?|ProgramW6432|PUBLIC|SESSIONNAME|SystemDrive|TEMP|TMP|USERDNSDOMAIN|USERNAME|USERDOMAIN(?:_ROAMINGPROFILE)?|USERPROFILE)$/i;
 
 export function processTerminalRunnerArgs(port: number): string[] {
-    return ['-e', PROCESS_TERMINAL_RUNNER, Buffer.from(JSON.stringify({ port })).toString('base64url')];
+    return [
+        '-e',
+        PROCESS_TERMINAL_RUNNER,
+        Buffer.from(JSON.stringify({ port })).toString('base64url'),
+        POSIX_PROCESS_TERMINAL_CHILD,
+    ];
 }
 
 function processTerminalRunner(port: number, token: string): Pick<vscode.TerminalOptions, 'shellPath' | 'shellArgs' | 'cwd' | 'env'> {
@@ -360,6 +421,7 @@ function processTerminalRunner(port: number, token: string): Pick<vscode.Termina
             cwd: path.parse(process.execPath).root,
             env: {
                 ELECTRON_RUN_AS_NODE: '1',
+                VSCODE_KUBERNETES_PROCESS_PERSIST: '1',
                 VSCODE_KUBERNETES_PROCESS_TOKEN: token,
             },
         };

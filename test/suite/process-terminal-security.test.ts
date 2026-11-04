@@ -22,9 +22,12 @@ suite('Process output terminal security', () => {
             'space value', 'quote"single\'backslash\\', ';$(marker)', '%PATH%', '!COMSPEC!',
         ];
         const childScript = [
-            'require("fs").writeFileSync(process.argv[1],JSON.stringify({',
+            'const fs=require("fs");const {execFileSync}=require("child_process");',
+            'const hasControllingTerminal=process.platform==="win32"||(()=>{try{const fd=fs.openSync("/dev/tty","r");fs.closeSync(fd);return true}catch{return false}})();',
+            'const isForeground=process.platform==="win32"||execFileSync("/bin/ps",["-o","pgid=","-p",String(process.pid)]).toString().trim()===execFileSync("/bin/ps",["-o","tpgid=","-p",String(process.pid)]).toString().trim();',
+            'fs.writeFileSync(process.argv[1],JSON.stringify({',
             'args:process.argv.slice(2),cwd:process.cwd(),literal:process.env.KUBERNETES_LITERAL_TEST,pid:process.pid,sentinel:process.env.VSCODE_K8S_RUNNER_TEST,',
-            'stdin:!!process.stdin.isTTY,stdout:!!process.stdout.isTTY,stderr:!!process.stderr.isTTY}))',
+            'controllingTerminal:hasControllingTerminal,foreground:isForeground,stdin:!!process.stdin.isTTY,stdout:!!process.stdout.isTTY,stderr:!!process.stderr.isTTY}))',
         ].join('');
         const existingTerminals = new Set(vscode.window.terminals);
         let terminal: vscode.Terminal | undefined;
@@ -59,6 +62,8 @@ suite('Process output terminal security', () => {
             assert.deepStrictEqual(result, {
                 args: values,
                 cwd: nativeFs.realpathSync(childDirectory),
+                controllingTerminal: true,
+                foreground: true,
                 literal: '${config:UNCHANGED}',
                 pid: result.pid,
                 sentinel: '${env:UNCHANGED}',
@@ -118,10 +123,11 @@ suite('Process output terminal security', () => {
                 assert.strictEqual(terminal.env!.PSModulePath, path.win32.join(powershellRoot, 'Modules'));
             } else {
                 assert.strictEqual(terminal.shellPath, process.execPath);
-                assert.strictEqual(runnerArgs.length, 3);
+                assert.strictEqual(runnerArgs.length, 4);
                 assert.strictEqual(runnerArgs[0], '-e');
                 assert.match(runnerArgs[2], /^[A-Za-z0-9_-]+$/);
                 assert.ok(decodePayload(runnerArgs[2]).port > 0);
+                assert.ok(runnerArgs[3].includes('run_command "$@"'));
             }
             assert.ok(!runnerArgs.join('').includes('${env:SECRET}'));
             assert.match(terminal.env!.VSCODE_KUBERNETES_PROCESS_TOKEN!, /^[A-Za-z0-9_-]{43}$/);
@@ -134,6 +140,82 @@ suite('Process output terminal security', () => {
         } finally {
             launch.dispose();
             await launch.started.catch(() => {});
+        }
+    });
+
+    test('cancels a pending terminal before publishing or starting its child', async () => {
+        const directory = nativeFs.mkdtempSync(path.join(os.tmpdir(), 'kubectl-terminal-cancel-'));
+        const marker = path.join(directory, 'started');
+        const cancellation = new AbortController();
+        const existingTerminals = new Set(vscode.window.terminals);
+        try {
+            const execution = host.runProcessInTerminal({
+                name: 'Kubernetes Cancelled Probe',
+                executable: process.execPath,
+                args: ['-e', 'require("fs").writeFileSync(process.argv[1],"started")', marker],
+                env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+            }, cancellation.signal);
+            cancellation.abort();
+
+            await assert.rejects(execution, /Process terminal launch cancelled/);
+            assert.strictEqual(nativeFs.existsSync(marker), false);
+            assert.strictEqual(
+                vscode.window.terminals.some((terminal) => terminal.name === 'Kubernetes Cancelled Probe' && !existingTerminals.has(terminal)),
+                false
+            );
+        } finally {
+            vscode.window.terminals
+                .filter((terminal) => terminal.name === 'Kubernetes Cancelled Probe' && !existingTerminals.has(terminal))
+                .forEach((terminal) => terminal.dispose());
+            nativeFs.rmSync(directory, { recursive: true, force: true });
+        }
+    });
+
+    test('closes command-owned helpers with the real terminal', async function () {
+        if (process.platform === 'win32') {
+            this.skip();
+        }
+        this.timeout(15000);
+        const directory = nativeFs.mkdtempSync(path.join(os.tmpdir(), 'kubectl-terminal-real-helper-'));
+        const marker = path.join(directory, 'processes.json');
+        let childPid: number | undefined;
+        let helperPid: number | undefined;
+        let execution: ProcessTerminalExecution | undefined;
+        const childScript = [
+            'const fs=require("fs");const {spawn}=require("child_process");',
+            'const helper=spawn(process.execPath,["-e","setInterval(()=>{},1000)"],{env:process.env,stdio:"ignore"});',
+            'helper.unref();fs.writeFileSync(process.argv[1],JSON.stringify({child:process.pid,helper:helper.pid}));',
+            'setInterval(()=>{},1000);',
+        ].join('');
+        try {
+            execution = await host.runProcessInTerminal({
+                name: 'Kubernetes Helper Terminal Probe',
+                executable: process.execPath,
+                args: ['-e', childScript, marker],
+                env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+            });
+            await waitForFile(marker);
+            const processes = JSON.parse(nativeFs.readFileSync(marker, 'utf8'));
+            childPid = processes.child;
+            helperPid = processes.helper;
+            assert.ok(Number.isInteger(childPid) && childPid! > 0);
+            assert.ok(Number.isInteger(helperPid) && helperPid! > 0);
+
+            execution.terminate();
+            await execution.completed;
+            execution = undefined;
+            await Promise.all([waitForProcessExit(childPid!), waitForProcessExit(helperPid!)]);
+        } finally {
+            execution?.terminate();
+            for (const pid of [childPid, helperPid]) {
+                if (pid && isProcessRunning(pid)) {
+                    process.kill(pid, 'SIGKILL');
+                }
+            }
+            vscode.window.terminals
+                .filter((terminal) => terminal.name === 'Kubernetes Helper Terminal Probe')
+                .forEach((terminal) => terminal.dispose());
+            nativeFs.rmSync(directory, { recursive: true, force: true });
         }
     });
 
@@ -252,11 +334,13 @@ suite('Process output terminal security', () => {
             env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
         });
         const terminal = launch.terminalOptions;
+        const environment = definedEnvironment(terminal.env!);
+        environment.VSCODE_KUBERNETES_PROCESS_PERSIST = '0';
         const wrapper = spawnCommand({
             executable: terminal.shellPath!,
             args: terminal.shellArgs as string[],
             cwd: terminal.cwd as string,
-            env: definedEnvironment(terminal.env!),
+            env: environment,
         });
         await launch.started;
         const exited = waitForExit(wrapper);
@@ -273,6 +357,7 @@ suite('Process output terminal security', () => {
             nativeFs.rmSync(directory, { recursive: true, force: true });
         }
     });
+
 });
 
 function decodePayload(value: string): RunnerPayload {
@@ -282,9 +367,7 @@ function decodePayload(value: string): RunnerPayload {
 async function executeTerminalRunner(launch: ProcessTerminalLaunch) {
     const terminal = launch.terminalOptions;
     const environment = definedEnvironment(terminal.env!);
-    if (process.platform === 'win32') {
-        environment.VSCODE_KUBERNETES_PROCESS_PERSIST = '0';
-    }
+    environment.VSCODE_KUBERNETES_PROCESS_PERSIST = '0';
     const resultPromise = executeCommand({
         executable: terminal.shellPath!,
         args: terminal.shellArgs as string[],
