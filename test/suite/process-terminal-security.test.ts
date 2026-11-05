@@ -123,11 +123,12 @@ suite('Process output terminal security', () => {
                 assert.strictEqual(terminal.env!.PSModulePath, path.win32.join(powershellRoot, 'Modules'));
             } else {
                 assert.strictEqual(terminal.shellPath, process.execPath);
-                assert.strictEqual(runnerArgs.length, 4);
+                assert.strictEqual(runnerArgs.length, 5);
                 assert.strictEqual(runnerArgs[0], '-e');
                 assert.match(runnerArgs[2], /^[A-Za-z0-9_-]+$/);
                 assert.ok(decodePayload(runnerArgs[2]).port > 0);
-                assert.ok(runnerArgs[3].includes('run_command "$@"'));
+                assert.ok(runnerArgs[3].includes('fg %1'));
+                assert.ok(runnerArgs[4].includes('spawn(payload.executable,payload.args'));
             }
             assert.ok(!runnerArgs.join('').includes('${env:SECRET}'));
             assert.match(terminal.env!.VSCODE_KUBERNETES_PROCESS_TOKEN!, /^[A-Za-z0-9_-]{43}$/);
@@ -178,13 +179,16 @@ suite('Process output terminal security', () => {
         this.timeout(15000);
         const directory = nativeFs.mkdtempSync(path.join(os.tmpdir(), 'kubectl-terminal-real-helper-'));
         const marker = path.join(directory, 'processes.json');
+        const environmentSecret = `process-terminal-secret-${process.pid}-${Date.now()}`;
         let childPid: number | undefined;
         let helperPid: number | undefined;
         let execution: ProcessTerminalExecution | undefined;
         const childScript = [
-            'const fs=require("fs");const {spawn}=require("child_process");',
-            'const helper=spawn(process.execPath,["-e","setInterval(()=>{},1000)"],{env:process.env,stdio:"ignore"});',
-            'helper.unref();fs.writeFileSync(process.argv[1],JSON.stringify({child:process.pid,helper:helper.pid}));',
+            'const fs=require("fs");const {execFileSync,spawn}=require("child_process");',
+            'const helperCode="for(const signal of [\\"SIGHUP\\",\\"SIGINT\\",\\"SIGQUIT\\",\\"SIGTERM\\"])process.on(signal,()=>{});setInterval(()=>{},1000)";',
+            'const helper=spawn(process.execPath,["-e",helperCode],{env:process.env,stdio:"ignore"});',
+            'const commands=execFileSync("/bin/ps",["-axo","command="],{encoding:"utf8"});',
+            'helper.unref();fs.writeFileSync(process.argv[1],JSON.stringify({child:process.pid,helper:helper.pid,secretInProcessArgs:commands.includes(process.env.PROCESS_TERMINAL_ARGV_SECRET)}));',
             'setInterval(()=>{},1000);',
         ].join('');
         try {
@@ -192,12 +196,13 @@ suite('Process output terminal security', () => {
                 name: 'Kubernetes Helper Terminal Probe',
                 executable: process.execPath,
                 args: ['-e', childScript, marker],
-                env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+                env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', PROCESS_TERMINAL_ARGV_SECRET: environmentSecret },
             });
             await waitForFile(marker);
             const processes = JSON.parse(nativeFs.readFileSync(marker, 'utf8'));
             childPid = processes.child;
             helperPid = processes.helper;
+            assert.strictEqual(processes.secretInProcessArgs, false);
             assert.ok(Number.isInteger(childPid) && childPid! > 0);
             assert.ok(Number.isInteger(helperPid) && helperPid! > 0);
 
@@ -214,6 +219,49 @@ suite('Process output terminal security', () => {
             }
             vscode.window.terminals
                 .filter((terminal) => terminal.name === 'Kubernetes Helper Terminal Probe')
+                .forEach((terminal) => terminal.dispose());
+            nativeFs.rmSync(directory, { recursive: true, force: true });
+        }
+    });
+
+    test('cleans up a resistant helper after the command exits', async function () {
+        if (process.platform === 'win32') {
+            this.skip();
+        }
+        this.timeout(15000);
+        const directory = nativeFs.mkdtempSync(path.join(os.tmpdir(), 'kubectl-terminal-exited-helper-'));
+        const marker = path.join(directory, 'processes.json');
+        let childPid: number | undefined;
+        let helperPid: number | undefined;
+        let execution: ProcessTerminalExecution | undefined;
+        const childScript = [
+            'const fs=require("fs");const {spawn}=require("child_process");',
+            'const helperCode="for(const signal of [\\"SIGHUP\\",\\"SIGINT\\",\\"SIGQUIT\\",\\"SIGTERM\\"])process.on(signal,()=>{});setInterval(()=>{},1000)";',
+            'const helper=spawn(process.execPath,["-e",helperCode],{env:process.env,stdio:"ignore"});',
+            'helper.unref();fs.writeFileSync(process.argv[1],JSON.stringify({child:process.pid,helper:helper.pid}));',
+        ].join('');
+        try {
+            execution = await host.runProcessInTerminal({
+                name: 'Kubernetes Exited Helper Probe',
+                executable: process.execPath,
+                args: ['-e', childScript, marker],
+                env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+            });
+            await waitForFile(marker);
+            const processes = JSON.parse(nativeFs.readFileSync(marker, 'utf8'));
+            childPid = processes.child;
+            helperPid = processes.helper;
+            await Promise.all([waitForProcessExit(childPid!), waitForProcessExit(helperPid!)]);
+            assert.ok(vscode.window.terminals.some((terminal) => terminal.name === 'Kubernetes Exited Helper Probe'));
+        } finally {
+            execution?.terminate();
+            for (const pid of [childPid, helperPid]) {
+                if (pid && isProcessRunning(pid)) {
+                    process.kill(pid, 'SIGKILL');
+                }
+            }
+            vscode.window.terminals
+                .filter((terminal) => terminal.name === 'Kubernetes Exited Helper Probe')
                 .forEach((terminal) => terminal.dispose());
             nativeFs.rmSync(directory, { recursive: true, force: true });
         }
