@@ -146,6 +146,7 @@ export function setCurrentContext(kubectl: Kubectl, contextName: string): Promis
 
 export async function deleteCluster(kubectl: Kubectl, context: KubectlContext): Promise<boolean> {
     const deleteClusterResult = await kubectl.invokeCommandArgsWithFeedback(['config', 'delete-cluster', '--', context.clusterName], "Deleting cluster...");
+    let associatedDataRemoved = ExecResult.succeeded(deleteClusterResult);
     if (ExecResult.failed(deleteClusterResult)) {
         const whatFailed = `Failed to remove the underlying cluster for context ${context.clusterName} from the kubeconfig`;
         kubeChannel.showOutput(ExecResult.failureMessage(deleteClusterResult, { whatFailed }), `Delete ${context.contextName}`);
@@ -162,11 +163,32 @@ export async function deleteCluster(kubectl: Kubectl, context: KubectlContext): 
         vscode.window.showWarningMessage(`Failed to remove the underlying cluster for context ${context.contextName}. See Output window for more details.`);
     }
 
-    const deleteUserResult = await kubectl.invokeCommandArgsWithFeedback(['config', 'unset', '--', `users.${context.userName}`], "Deleting user...");
-    if (ExecResult.failed(deleteUserResult)) {
-        const whatFailed = `Failed to remove the underlying user for context ${context.contextName} from the kubeconfig`;
-        kubeChannel.showOutput(ExecResult.failureMessage(deleteUserResult, { whatFailed }));
-        vscode.window.showWarningMessage(`Failed to remove the underlying user for context ${context.contextName}. See Output window for more details.`);
+    if (context.userName) {
+        let deleteUserResult = await kubectl.invokeCommandArgsWithFeedback(['config', 'delete-user', '--', context.userName], "Deleting user...");
+        let legacyClient = false;
+        if (deleteUserResult.resultKind === 'exec-errored') {
+            const version = await kubectl.invokeCommandArgs(['version', '--client=true', '-o', 'json']);
+            if (ExecResult.succeeded(version)) {
+                try {
+                    const { clientVersion } = JSON.parse(version.stdout) as { clientVersion: { major: string; minor: string } };
+                    legacyClient = clientVersion.major === '1' && Number.parseInt(clientVersion.minor) < 20;
+                } catch {
+                    // An unknown version must not enable the legacy fallback.
+                }
+            }
+            // A dot-free key is unambiguous in the legacy property-path parser.
+            if (legacyClient && !context.userName.includes('.')) {
+                deleteUserResult = await kubectl.invokeCommandArgsWithFeedback(['config', 'unset', '--', `users.${context.userName}`], "Deleting user...");
+            }
+        }
+        if (ExecResult.failed(deleteUserResult)) {
+            associatedDataRemoved = false;
+            const whatFailed = `Failed to remove the underlying user for context ${context.contextName} from the kubeconfig`;
+            kubeChannel.showOutput(ExecResult.failureMessage(deleteUserResult, { whatFailed }));
+            const upgradeMessage = legacyClient && context.userName.includes('.') ?
+                ' Upgrade kubectl to 1.20 or later to delete user names containing dots.' : '';
+            vscode.window.showWarningMessage(`Failed to remove the underlying user for context ${context.contextName}.${upgradeMessage} See Output window for more details.`);
+        }
     }
 
     const deleteContextResult = await kubectl.invokeCommandArgsWithFeedback(['config', 'delete-context', '--', context.contextName], "Deleting context...");
@@ -177,7 +199,9 @@ export async function deleteCluster(kubectl: Kubectl, context: KubectlContext): 
         return false;
     }
 
-    vscode.window.showInformationMessage(`Deleted context '${context.contextName}' and associated data from the kubeconfig.`);
+    vscode.window.showInformationMessage(associatedDataRemoved ?
+        `Deleted context '${context.contextName}' and associated data from the kubeconfig.` :
+        `Deleted context '${context.contextName}', but some associated data could not be removed. See Output window for more details.`);
     return true;
 }
 
