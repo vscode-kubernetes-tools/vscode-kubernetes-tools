@@ -656,7 +656,8 @@ async function resolveTerminalInvocation(context: Context, args: readonly string
         const execOpts = context.shell.execOpts();
         let invocation: Omit<ProcessTerminalOptions, 'name'>;
         if (getUseWsl()) {
-            const wsl = getWindowsSystemExecutable('wsl.exe', execOpts.env || process.env);
+            const environment = wslTerminalEnvironment(execOpts.env || process.env);
+            const wsl = getWindowsSystemExecutable('wsl.exe', environment);
             if (!wsl) {
                 await context.host.showErrorMessage('Unable to find the Windows system WSL executable.');
                 return undefined;
@@ -665,7 +666,7 @@ async function resolveTerminalInvocation(context: Context, args: readonly string
                 executable: wsl,
                 args: ['--exec', executable, ...args],
                 cwd: execOpts.cwd,
-                env: execOpts.env,
+                env: environment,
             };
         } else {
             if (binutil.isWindowsCommandScript(context.shell, executable)) {
@@ -683,6 +684,14 @@ async function resolveTerminalInvocation(context: Context, args: readonly string
             return { ...invocation, revision };
         }
     }
+}
+
+function wslTerminalEnvironment(environment: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+    const shared = (environment.WSLENV || '')
+        .split(':')
+        .filter((entry) => entry.length > 0 && entry.split('/')[0] !== 'KUBECONFIG');
+    shared.push('KUBECONFIG/u');
+    return { ...environment, WSLENV: shared.join(':') };
 }
 
 async function resolveKubectlPath(

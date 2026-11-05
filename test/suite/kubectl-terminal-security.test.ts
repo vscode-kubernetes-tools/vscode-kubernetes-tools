@@ -91,7 +91,12 @@ suite('Kubectl terminal security', () => {
         const kubectl = createOnBinary(
             fakeHost(sinon.stub(), undefined, undefined, runProcessInTerminal),
             fakeFs(),
-            fakeShell(false, { PATH: '/usr/bin', SystemRoot: 'C:\\Windows' }),
+            fakeShell(false, {
+                PATH: '/usr/bin',
+                SystemRoot: 'C:\\Windows',
+                KUBECONFIG: '/home/user/.kube/selected',
+                WSLENV: 'EXISTING/u:KUBECONFIG/p:OTHER',
+            }),
             '/usr/local/bin/kubectl'
         );
 
@@ -104,7 +109,12 @@ suite('Kubectl terminal security', () => {
                 executable: 'C:\\Windows\\System32\\wsl.exe',
                 args: ['--exec', '/usr/local/bin/kubectl', 'cluster-info'],
                 cwd: '/workspace',
-                env: { PATH: '/usr/bin', SystemRoot: 'C:\\Windows' },
+                env: {
+                    PATH: '/usr/bin',
+                    SystemRoot: 'C:\\Windows',
+                    KUBECONFIG: '/home/user/.kube/selected',
+                    WSLENV: 'EXISTING/u:OTHER:KUBECONFIG/u',
+                },
             },
             sinon.match.has('aborted', false)
         );
