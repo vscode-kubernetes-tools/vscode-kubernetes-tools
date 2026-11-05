@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as crypto from 'crypto';
+import * as fs from 'fs';
 import * as net from 'net';
 import * as path from 'path';
 import { shellEnvironment } from './shell';
@@ -130,7 +131,7 @@ export interface ProcessTerminalLaunch {
 }
 
 export async function createProcessTerminalLaunch(options: ProcessTerminalOptions): Promise<ProcessTerminalLaunch> {
-    const payload = Buffer.from(JSON.stringify(processTerminalPayload(options)), 'utf8');
+    const payload = Buffer.from(JSON.stringify(await processTerminalPayload(options)), 'utf8');
     if (payload.length > 16 * 1024 * 1024) {
         throw new Error('The process terminal invocation exceeded the 16 MiB limit.');
     }
@@ -396,13 +397,16 @@ const PROCESS_TERMINAL_RUNNER = [
 const WINDOWS_PROCESS_TERMINAL_RUNNER = [
     '$ErrorActionPreference="Stop"',
     '$env:PSModulePath=$PSHOME+"\\Modules"',
+    // PowerShell can replace its standard input handle even inside ConPTY. Give the
+    // child the console input handle explicitly, without routing input through a pipe.
+    `Add-Type -TypeDefinition 'using System;using System.Diagnostics;using System.Runtime.InteropServices;public static class ProcessTerminalConsole{[DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)]static extern IntPtr CreateFile(string name,uint access,uint share,IntPtr security,uint creation,uint flags,IntPtr template);[DllImport("kernel32.dll")]static extern IntPtr GetStdHandle(int id);[DllImport("kernel32.dll",SetLastError=true)]static extern bool SetStdHandle(int id,IntPtr handle);[DllImport("kernel32.dll",SetLastError=true)]static extern bool SetHandleInformation(IntPtr handle,uint mask,uint flags);[DllImport("kernel32.dll")]static extern bool CloseHandle(IntPtr handle);public static Process Start(ProcessStartInfo start,bool interactive){if(!interactive)return Process.Start(start);IntPtr input=CreateFile("CONIN$",0xC0000000,3,IntPtr.Zero,3,0,IntPtr.Zero);if(input==new IntPtr(-1))throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());IntPtr previous=GetStdHandle(-10);try{if(!SetHandleInformation(input,1,1)||!SetStdHandle(-10,input))throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());return Process.Start(start);}finally{SetStdHandle(-10,previous);CloseHandle(input);}}}'`,
     'function Read-Exactly($Stream,[byte[]]$Buffer){$offset=0;while($offset -lt $Buffer.Length){$read=$Stream.Read($Buffer,$offset,$Buffer.Length-$offset);if($read -le 0){throw "Process terminal payload closed early."};$offset+=$read}}',
     String.raw`function Quote-Argument([string]$Value){if($Value.Length -gt 0 -and $Value -notmatch '[\s"]'){return $Value};$builder=New-Object System.Text.StringBuilder;[void]$builder.Append('"');$slashes=0;foreach($character in $Value.ToCharArray()){if($character -eq '\'){$slashes++;continue};if($character -eq '"'){[void]$builder.Append(('\' * ($slashes*2+1)));[void]$builder.Append('"');$slashes=0;continue};if($slashes){[void]$builder.Append(('\' * $slashes));$slashes=0};[void]$builder.Append($character)};if($slashes){[void]$builder.Append(('\' * ($slashes*2)))};[void]$builder.Append('"');return $builder.ToString()}`,
     '$port=[int]$env:VSCODE_KUBERNETES_PROCESS_PORT;$token=$env:VSCODE_KUBERNETES_PROCESS_TOKEN;$persist=$env:VSCODE_KUBERNETES_PROCESS_PERSIST -eq "1";Remove-Item Env:VSCODE_KUBERNETES_PROCESS_PORT,Env:VSCODE_KUBERNETES_PROCESS_TOKEN,Env:VSCODE_KUBERNETES_PROCESS_PERSIST -ErrorAction SilentlyContinue',
     '$client=New-Object System.Net.Sockets.TcpClient;$client.Connect("127.0.0.1",$port);$stream=$client.GetStream();$authentication=[System.Text.Encoding]::UTF8.GetBytes($token+"`n");$stream.Write($authentication,0,$authentication.Length)',
     '$header=New-Object byte[] 4;Read-Exactly $stream $header;$length=[System.Net.IPAddress]::NetworkToHostOrder([System.BitConverter]::ToInt32($header,0));if($length -lt 0 -or $length -gt 16777216){throw "Process terminal payload was too large."};$body=New-Object byte[] $length;Read-Exactly $stream $body;$client.Dispose();$payload=ConvertFrom-Json ([System.Text.Encoding]::UTF8.GetString($body))',
     '$start=New-Object System.Diagnostics.ProcessStartInfo;$start.FileName=[string]$payload.executable;$start.Arguments=(($payload.args|ForEach-Object { Quote-Argument ([string]$_) }) -join " ");$start.WorkingDirectory=[string]$payload.cwd;$start.UseShellExecute=$false;$start.CreateNoWindow=$false;$start.EnvironmentVariables.Clear();$payload.env.PSObject.Properties|ForEach-Object {$start.EnvironmentVariables[$_.Name]=[string]$_.Value}',
-    '$child=[System.Diagnostics.Process]::Start($start);$child.WaitForExit();$exitCode=$child.ExitCode;if(-not $persist){exit $exitCode};while($true){Start-Sleep -Seconds 3600}',
+    '$child=[ProcessTerminalConsole]::Start($start,$persist);$child.WaitForExit();$exitCode=$child.ExitCode;if(-not $persist){exit $exitCode};while($true){Start-Sleep -Seconds 3600}',
 ].join(';');
 
 const WINDOWS_PROCESS_TERMINAL_ENVIRONMENT = /^(?:ALLUSERSPROFILE|APPDATA|CommonProgramFiles(?:\(x86\)|\(Arm\))?|CommonProgramW6432|COMPUTERNAME|DriverData|HOMEDRIVE|HOMEPATH|LOCALAPPDATA|LOGONSERVER|NUMBER_OF_PROCESSORS|OS|PROCESSOR_(?:ARCHITECTURE|ARCHITEW6432|IDENTIFIER|LEVEL|REVISION)|ProgramData|ProgramFiles(?:\(x86\)|\(Arm\))?|ProgramW6432|PUBLIC|SESSIONNAME|SystemDrive|TEMP|TMP|USERDNSDOMAIN|USERNAME|USERDOMAIN(?:_ROAMINGPROFILE)?|USERPROFILE)$/i;
@@ -443,12 +447,39 @@ function processTerminalRunner(port: number, token: string): Pick<vscode.Termina
     };
 }
 
-function processTerminalPayload(options: ProcessTerminalOptions): ProcessTerminalPayload {
+async function processTerminalPayload(options: ProcessTerminalOptions): Promise<ProcessTerminalPayload> {
+    const cwd = options.cwd || process.cwd();
+    const env = definedEnvironment(options.env || process.env);
+    let executable = options.executable;
+    // CreateProcess searches the wrapper's PATH, not the environment supplied to
+    // the child. Resolve against the execution environment before restricting it.
+    if (process.platform === 'win32' && !/[\\/]/.test(executable) && !path.win32.isAbsolute(executable)) {
+        const searchPath = Object.entries(env).find(([key]) => key.toLowerCase() === 'path')?.[1] || '';
+        const directories = searchPath.split(';').filter(Boolean);
+        const names = path.win32.extname(executable) ? [executable] : [executable, `${executable}.exe`];
+        let resolved: string | undefined;
+        for (const directory of directories) {
+            for (const name of names) {
+                const candidate = path.win32.resolve(cwd, directory.replace(/^"(.*)"$/, '$1'), name);
+                if (await fs.promises.stat(candidate).then((stat) => stat.isFile(), () => false)) {
+                    resolved = candidate;
+                    break;
+                }
+            }
+            if (resolved) {
+                break;
+            }
+        }
+        if (!resolved) {
+            throw new Error(`Unable to find process terminal executable: ${executable}`);
+        }
+        executable = resolved;
+    }
     return {
-        executable: options.executable,
+        executable,
         args: [...options.args],
-        cwd: options.cwd || process.cwd(),
-        env: definedEnvironment(options.env || process.env),
+        cwd,
+        env,
     };
 }
 

@@ -67,7 +67,7 @@ suite('Process output terminal security', () => {
                 literal: '${config:UNCHANGED}',
                 pid: result.pid,
                 sentinel: '${env:UNCHANGED}',
-                stdin: process.platform !== 'win32', stdout: true, stderr: true,
+                stdin: true, stdout: true, stderr: true,
             });
             assert.ok(vscode.window.terminals.includes(terminal));
             execution.terminate();
@@ -79,6 +79,58 @@ suite('Process output terminal security', () => {
             execution?.terminate();
             terminal?.dispose();
             nativeFs.rmSync(directory, { recursive: true, force: true });
+        }
+    });
+
+    test('reads interactive terminal input for login plugins', async function () {
+        this.timeout(15000);
+        const directory = nativeFs.mkdtempSync(path.join(os.tmpdir(), 'kubectl-terminal-input-'));
+        const ready = path.join(directory, 'ready');
+        const marker = path.join(directory, 'input.json');
+        const name = 'Kubernetes Login Input Probe';
+        let execution: ProcessTerminalExecution | undefined;
+        try {
+            execution = await host.runProcessInTerminal({
+                name,
+                executable: process.execPath,
+                args: ['-e', [
+                    'const fs=require("fs");let input="";',
+                    'process.stdin.setEncoding("utf8");process.stdin.on("data",chunk=>{input+=chunk;if(input.includes("\\n")||input.includes("\\r")){fs.writeFileSync(process.argv[2],JSON.stringify({input:input.trim(),tty:!!process.stdin.isTTY}));process.exit(0)}});',
+                    'fs.writeFileSync(process.argv[1],"ready");',
+                ].join(''), ready, marker],
+                env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+            });
+            await waitForFile(ready);
+            const terminal = vscode.window.terminals.find((candidate) => candidate.name === name);
+            assert.ok(terminal);
+            terminal.sendText('login-code-123');
+            await waitForFile(marker);
+            assert.deepStrictEqual(JSON.parse(nativeFs.readFileSync(marker, 'utf8')), { input: 'login-code-123', tty: true });
+        } finally {
+            execution?.terminate();
+            nativeFs.rmSync(directory, { recursive: true, force: true });
+        }
+    });
+
+    test('resolves a bare Windows executable using the child PATH', async function () {
+        if (process.platform !== 'win32') {
+            this.skip();
+        }
+        this.timeout(15000);
+        const environment = Object.fromEntries(Object.entries(process.env).filter(([key]) => key.toLowerCase() !== 'path'));
+        const launch = await createProcessTerminalLaunch({
+            name: 'Kubernetes PATH Probe',
+            executable: path.basename(process.execPath),
+            args: ['-e', 'process.stdout.write("resolved-from-child-path")'],
+            env: { ...environment, Path: path.dirname(process.execPath), ELECTRON_RUN_AS_NODE: '1' },
+        });
+        try {
+            assert.ok(!launch.terminalOptions.env!.Path!.includes(path.dirname(process.execPath)));
+            const result = await executeTerminalRunner(launch);
+            assert.strictEqual(result.code, 0, result.stderr);
+            assert.strictEqual(result.stdout, 'resolved-from-child-path');
+        } finally {
+            launch.dispose();
         }
     });
 

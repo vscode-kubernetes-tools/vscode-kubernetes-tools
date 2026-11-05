@@ -19,7 +19,7 @@ suite('Resource command security', () => {
         assert.deepStrictEqual(getResourceArgs('Custom.Example.io', ''), [
             'get', 'custom.example.io', '-o', 'wide',
         ]);
-        assert.strictEqual(getResourceArgs('pod/api -n other'), undefined);
+        assert.deepStrictEqual(getResourceArgs('pod/api -n other'), ['get', 'pod/api', '-n', 'other', '-o', 'wide']);
         assert.strictEqual(getResourceArgs('pod/api', 'team;other'), undefined);
         assert.deepStrictEqual(getStructuredResourceArgs('Role', 'team reader ${env:SECRET}', 'team-a'), [
             'get', 'role/team reader ${env:SECRET}', '--namespace', 'team-a', '-o', 'wide',

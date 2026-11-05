@@ -38,13 +38,33 @@ suite('Read-only terminal command security', () => {
         );
     });
 
-    test('rejects malformed or ambiguous Get targets before launch', async () => {
+    test('preserves multi-resource queries and flags as structured argv', async () => {
+        for (const [query, args] of [
+            ['Pods,Services', ['pods,services']],
+            ['pods --all-namespaces', ['pods', '--all-namespaces']],
+            ['pod/api --namespace other', ['pod/api', '--namespace', 'other']],
+            ['pods api worker', ['pods', 'api', 'worker']],
+            ['pods -l "app in (api, worker)"', ['pods', '-l', 'app in (api, worker)']],
+            ["pods --context '${env:SECRET};$(marker)'", ['pods', '--context', '${env:SECRET};$(marker)']],
+        ] as const) {
+            const dependencies = fakeGetDependencies(query);
+            await getKubernetesCore(undefined, dependencies);
+            sinon.assert.calledOnceWithExactly(dependencies.invoke as sinon.SinonStub,
+                ['get', ...args, '-o', 'wide'], 'Kubernetes Get');
+            sinon.assert.notCalled(dependencies.showError as sinon.SinonStub);
+        }
+    });
+
+    test('rejects malformed Get targets before launch', async () => {
         for (const [node, prompted] of [
             [{ nodeType: 'other' }, undefined],
             [{ nodeType: 'resource', kind: { abbreviation: 'Pod' }, namespace: 'team-a' }, undefined],
             [{ nodeType: 'resource', name: 'api', namespace: 'team-a' }, undefined],
             [{ nodeType: 'folder.resource' }, undefined],
-            [undefined, 'pod/api --namespace other'],
+            [undefined, 'pods,'],
+            [undefined, 'pods --selector "unterminated'],
+            [undefined, '--filename=https://example.com'],
+            [undefined, 'pods\nservices'],
         ] as const) {
             const dependencies = fakeGetDependencies(prompted);
             await getKubernetesCore(node, dependencies);

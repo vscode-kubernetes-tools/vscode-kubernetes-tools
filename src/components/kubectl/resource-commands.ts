@@ -68,11 +68,63 @@ export async function listNamespaceResources(kubectl: Kubectl, namespace: string
 export type ResourceNameListResult = Errorable<string[]> & { readonly execFailure?: FailedExecResult };
 
 export function getResourceArgs(resource: string, namespace?: string): string[] | undefined {
-    const target = normaliseResourceReadTarget(resource, true);
-    if (!target || (namespace !== undefined && namespace !== '' && !isSafeNamespace(namespace))) {
+    const args = splitGetQuery(resource);
+    if (!args?.length || (namespace !== undefined && namespace !== '' && !isSafeNamespace(namespace))) {
         return undefined;
     }
-    return ['get', target, ...(namespace ? ['--namespace', namespace] : []), '-o', 'wide'];
+    const targets = args[0].split(',').map((target) => normaliseResourceReadTarget(target, true));
+    if (targets.some((target) => !target)) {
+        return undefined;
+    }
+    args[0] = targets.join(',');
+    if (args.length === 2 && !args[1].startsWith('-') && !args[0].includes('/') && !args[0].includes(',')) {
+        if (!isSafeResourceName(args[1])) {
+            return undefined;
+        }
+        args.splice(0, 2, `${args[0]}/${args[1]}`);
+    }
+    return ['get', ...args, ...(namespace ? ['--namespace', namespace] : []), '-o', 'wide'];
+}
+
+// Only tokenize user-entered query text. Explorer values already have argument boundaries.
+// Quotes group values; shell operators, substitutions and variables are never evaluated.
+function splitGetQuery(query: string): string[] | undefined {
+    if (/[\u0000-\u001f\u007f-\u009f]/.test(query)) {
+        return undefined;
+    }
+    const args: string[] = [];
+    let value = '';
+    let quote: string | undefined;
+    let started = false;
+    for (let index = 0; index < query.length; index++) {
+        const character = query[index];
+        if (character === '\\' && quote !== "'" && index + 1 < query.length &&
+            (query[index + 1] === quote || /[\s\\'"]/.test(query[index + 1]))) {
+            value += query[++index];
+            started = true;
+        } else if (character === quote) {
+            quote = undefined;
+        } else if (!quote && (character === "'" || character === '"')) {
+            quote = character;
+            started = true;
+        } else if (!quote && /\s/.test(character)) {
+            if (started) {
+                args.push(value);
+                value = '';
+                started = false;
+            }
+        } else {
+            value += character;
+            started = true;
+        }
+    }
+    if (quote) {
+        return undefined;
+    }
+    if (started) {
+        args.push(value);
+    }
+    return args;
 }
 
 export function getStructuredResourceArgs(resourceType: unknown, resourceName: unknown, namespace?: unknown): string[] | undefined {
