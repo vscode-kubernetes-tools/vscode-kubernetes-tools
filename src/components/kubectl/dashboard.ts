@@ -1,189 +1,91 @@
-'use strict';
-
 import * as vscode from 'vscode';
 import * as browser from '../platform/browser';
-
-import { createReadStream } from 'fs';
-import { resolve } from 'path';
-import { fs } from '../../fs';
-import { portForwardToPod, buildPortMapping } from './port-forward';
 import { Kubectl } from '../../kubectl';
 import { Node, KubernetesCollection, Pod } from '../../kuberesources.objectmodel';
 import { failed } from '../../errorable';
+import { isValidPodName } from './pod-commands';
+import { proxy, ProxySession, startForwardingProcess, proxyLifecycleRevision } from './proxy';
 
-const KUBE_DASHBOARD_URL = "http://localhost:8001/ui/";
-const TERMINAL_NAME = "Kubernetes Dashboard";
-const PROXY_OUTPUT_FILE = resolve(__dirname, 'proxy.out');
+interface DashboardSession { readonly process: ProxySession; readonly url: string; }
+const dashboards = new WeakMap<Kubectl, Promise<DashboardSession | undefined>>();
 
-// The instance of the terminal running Kubectl Dashboard
-let terminal: vscode.Terminal | null = null;
-
-interface DashboardPodInfo {
-    readonly name: string;
-    readonly port: number;
-    readonly scheme: string;
-}
-
-/**
- * Determines if the selected cluster is AKS or not by examining
- * all the attached nodes for two heuristics:
- * 1. Is every node an agent?
- * 2. Is the node name prefixed with `aks-`? (TODO: identify if there's a better method for this/convince AKS team to add a label) for this.
- * @returns Boolean identifying if we think this is an AKS cluster.
- */
-async function isAKSCluster (kubectl: Kubectl): Promise<boolean> {
-    const nodes = await kubectl.asJson<KubernetesCollection<Node>>('get nodes -o json');
-    if (failed(nodes)) {
-        return false;
-    }
-
-    const nodeItems = nodes.result.items;
-    for (const nodeItem of nodeItems) {
-        const isAKSNode = isNodeAKS(nodeItem);
-
-        if (!isAKSNode) {
-            return false;
-        }
-    }
-
-   return true;
-}
-
-function isNodeAKS(node: Node): boolean {
-    const name: string = node.metadata.name;
-    const roleLabel: string = node.metadata.labels ? node.metadata.labels["kubernetes.io/role"] : '';
-
-    // Kind of a hack to determine if we're using an AKS cluster…
-    const isAKSNode = name.startsWith('aks-');
-    const isAgentRole = roleLabel === "agent";
-
-    return isAKSNode && isAgentRole;
-}
-
-/**
- * Finds the name of the dashboard pod running in the kube-system namespace
- * on the cluster.
- *
- * @returns The name of the dashboard pod.
- */
-async function findDashboardPod(kubectl: Kubectl): Promise<DashboardPodInfo | undefined> {
-    const dashboardPod = await kubectl.asJson<KubernetesCollection<Pod>>(
-        "get pod -n kube-system -l k8s-app=kubernetes-dashboard -o json"
-    );
-    if (failed(dashboardPod)) {
+export function dashboardPodInfo(pod: Pod | undefined): { name: string; port: number; scheme: string } | undefined {
+    const probe = pod?.spec?.containers?.[0]?.livenessProbe?.httpGet;
+    if (!pod || !isValidPodName(pod.metadata?.name) || !probe ||
+        !Number.isInteger(probe.port) || probe.port < 1 || probe.port > 65535 ||
+        (probe.scheme !== undefined && probe.scheme !== 'HTTP' && probe.scheme !== 'HTTPS')) {
         return undefined;
     }
-    const livenessProbeHttpGet = dashboardPod.result.items[0].spec.containers[0].livenessProbe!.httpGet;
-    return { name: dashboardPod.result.items[0].metadata.name, port: livenessProbeHttpGet.port, scheme: livenessProbeHttpGet.scheme };
+    return { name: pod.metadata.name, port: probe.port, scheme: (probe.scheme || 'HTTP').toLowerCase() };
 }
 
-/**
- * Stopgap to open the dashboard for AKS users. We port-forward directly
- * to the kube-system dashboard pod instead of invoking `kubectl proxy`.
- */
-async function openDashboardForAKSCluster (kubectl: Kubectl): Promise<void> {
-    const dashboardPod = await findDashboardPod(kubectl);
-    if (!dashboardPod) {
-        return;
+async function startDashboard(kubectl: Kubectl): Promise<DashboardSession | undefined> {
+    const revision = proxyLifecycleRevision();
+    const nodes = await kubectl.asJsonArgs<KubernetesCollection<Node>>(['get', 'nodes', '-o', 'json']);
+    if (revision !== proxyLifecycleRevision()) { return undefined; }
+    if (failed(nodes)) {
+        await vscode.window.showErrorMessage(`Could not determine dashboard cluster: ${nodes.error.join(' ')}`);
+        return undefined;
     }
-
-    // Local port 9090 could be bound to something else.
-    const portMapping = buildPortMapping(String(dashboardPod.port));
-    const boundPort = await portForwardToPod(kubectl, dashboardPod.name, portMapping, 'kube-system');
-
-    setTimeout(() => {
-        browser.open(`${dashboardPod.scheme}://localhost:${boundPort[0]}`);
-    }, 2500);
-    return;
-}
-
-/**
- * Runs `kubectl proxy` in a terminal process spawned by the extension, and opens the Kubernetes
- * dashboard in the user's preferred browser.
- */
-export async function dashboardKubernetes (kubectl: Kubectl): Promise<void> {
-    // AKS clusters are handled differently due to some intricacies
-    // in the way the dashboard works between k8s versions, and between
-    // providers. In an ideal world, we'd only use `kubectl proxy`, this
-    // is intended as a stopgap until we can re-evaluate the implementation
-    // in the future.
-    const isAKS = await isAKSCluster(kubectl);
-
+    const items = nodes.result?.items;
+    if (!Array.isArray(items)) {
+        await vscode.window.showErrorMessage('The Kubernetes endpoint returned invalid node metadata.');
+        return undefined;
+    }
+    const isAKS = items.length > 0 && items.every((node) =>
+        typeof node?.metadata?.name === 'string' && node.metadata.name.startsWith('aks-') &&
+        node.metadata.labels?.['kubernetes.io/role'] === 'agent');
+    let process;
+    let scheme = 'http';
     if (isAKS) {
-        await openDashboardForAKSCluster(kubectl);
-        return;
-    }
-
-    // If we've already got a terminal instance, just open the dashboard.
-    if (terminal) {
-        browser.open(KUBE_DASHBOARD_URL);
-        return;
-    }
-
-    let outputExists;
-
-    try {
-        outputExists = await fs.existsAsync(PROXY_OUTPUT_FILE);
-        if (!outputExists) {
-            await fs.openAsync(PROXY_OUTPUT_FILE, 'w+');
+        const pods = await kubectl.asJsonArgs<KubernetesCollection<Pod>>([
+            'get', 'pods', '--namespace', 'kube-system', '--selector', 'k8s-app=kubernetes-dashboard', '-o', 'json',
+        ]);
+        if (revision !== proxyLifecycleRevision()) { return undefined; }
+        const info = !failed(pods) && Array.isArray(pods.result?.items) ? dashboardPodInfo(pods.result.items[0]) : undefined;
+        if (!info) {
+            await vscode.window.showErrorMessage('Could not find a dashboard pod with a valid HTTP port.');
+            return undefined;
         }
-    } catch (e) {
-        vscode.window.showErrorMessage("Something went wrong when ensuring the Kubernetes API Proxy output stream existed");
-        return;
+        scheme = info.scheme;
+        process = await startForwardingProcess(kubectl, [
+            'port-forward', `pod/${info.name}`, '--namespace', 'kube-system', '--address=127.0.0.1', `0:${info.port}`,
+        ], /(?:^|\n)Forwarding from 127\.0\.0\.1:(\d+) -> \d+\r?\n/);
+    } else {
+        process = await proxy(kubectl, 'random');
     }
-
-    // Read kubectl proxy's stdout as a stream.
-    createReadStream(
-        PROXY_OUTPUT_FILE,
-        {encoding: 'utf8'}
-    ).on('data', (data: string | Buffer) => onStreamData(data));
-
-    // stdout is also written to a file via `tee`. We read this file as a stream
-    // to listen for when the server is ready.
-    await kubectl.invokeInNewTerminal('proxy', TERMINAL_NAME, onClosedTerminal, `tee ${PROXY_OUTPUT_FILE}`);
+    if (failed(process)) {
+        await vscode.window.showErrorMessage(`Could not start Kubernetes Dashboard: ${process.error.join(' ')}`);
+        return undefined;
+    }
+    if (revision !== proxyLifecycleRevision()) {
+        process.result.dispose();
+        return undefined;
+    }
+    return { process: process.result, url: `${scheme}://127.0.0.1:${process.result.port}${isAKS ? '' : '/ui/'}` };
 }
 
-/**
- * Called when the terminal window is closed by the user.
- * @param proxyTerminal
- */
-const onClosedTerminal = async (proxyTerminal: vscode.Terminal) => {
-    // Make sure we only dispose when it's *our* terminal we want gone.
-    if (proxyTerminal.name !== TERMINAL_NAME) {
+export async function dashboardKubernetes(kubectl: Kubectl): Promise<void> {
+    let pending = dashboards.get(kubectl);
+    if (pending) {
+        const existing = await pending;
+        if (!existing || !existing.process.isActive) {
+            if (dashboards.get(kubectl) === pending) { dashboards.delete(kubectl); }
+            pending = dashboards.get(kubectl);
+        }
+    }
+    if (!pending) {
+        pending = startDashboard(kubectl);
+        dashboards.set(kubectl, pending);
+    }
+    const dashboard = await pending;
+    if (!dashboard || !dashboard.process.isActive) {
+        if (dashboards.get(kubectl) === pending) { dashboards.delete(kubectl); }
         return;
     }
-
-    terminal = null;
-    console.log("Closing Kubernetes API Proxy");
-
-    try {
-        await fs.unlinkAsync(PROXY_OUTPUT_FILE);
-        console.log('Kubernetes API Proxy stream removed');
-    } catch (e) {
-        console.log('Could not remove Kubernetes API Proxy stream');
-    }
-};
-
-/**
- * Callback to read data written to the Kubernetes API Proxy output stream.
- * @param data
- */
-const onStreamData = (data: string | Buffer) => {
-    // Everything's alright…
-    const dataStr = data.toString();
-    if (dataStr.startsWith("Starting to serve")) {
-        // Let the proxy warm up a bit… otherwise we might hit a browser's error page.
-        setTimeout(() => {
-            browser.open(KUBE_DASHBOARD_URL);
-        }, 2500);
-
-        vscode.window.showInformationMessage(`Kubernetes Dashboard running at ${KUBE_DASHBOARD_URL}`);
-        return;
-    }
-
-    // Maybe we've bound to the port already outside of the extension?
-    vscode.window.showErrorMessage("Could not start the Kubernetes Dashboard. Is it already running?");
-    if (terminal) {
-        terminal.dispose();
-    }
-};
+    void dashboard.process.completed.then(() => {
+        if (dashboards.get(kubectl) === pending) { dashboards.delete(kubectl); }
+    });
+    browser.open(dashboard.url);
+    await vscode.window.showInformationMessage(`Kubernetes Dashboard running at ${dashboard.url}`);
+}

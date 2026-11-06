@@ -1,71 +1,141 @@
-import { Errorable } from "../../errorable";
-import { Kubectl } from "../../kubectl";
-import { ChildProcess } from "child_process";
-
-export async function proxy(kubectl: Kubectl, port: number | 'random'): Promise<Errorable<ProxySession>> {
-    const portNumber = (port === 'random') ? 0 : port;
-    const args = ['proxy', `--port=${portNumber}`];
-
-    // TODO: option to show a cancellable progress indicator while opening proxy?  We don't really need this for the Swagger scenario though
-    const proxyingProcess = await kubectl.spawnCommand(args);
-    if (proxyingProcess.resultKind === 'exec-bin-not-found') {
-        return { succeeded: false, error: ['Failed to invoke kubectl: program not found'] };
-    }
-
-    const forwarding = await waitForOutput(proxyingProcess.childProcess, /Starting to serve on \d+\.\d+\.\d+\.\d+:(\d+)/);
-
-    if (forwarding.waitResult === 'process-exited') {
-        return { succeeded: false, error: ['Failed to open proxy to cluster']};  // TODO: get the error moar betters
-    }
-
-    if (forwarding.matchedOutput.length < 2) {
-        return { succeeded: false, error: [`Failed to open proxy to cluster: unexpected kubectl output ${forwarding.matchedOutput[0]}`]};  // TODO: get the error moar betters
-    }
-
-    const actualPort = Number.parseInt(forwarding.matchedOutput[1]);
-    const dispose = () => { proxyingProcess.childProcess.kill(); };
-
-    return {
-        succeeded: true,
-        result: { port: actualPort, dispose: dispose }
-    };
-}
+import * as vscode from 'vscode';
+import { Errorable } from '../../errorable';
+import { ExecResult } from '../../binutilplusplus';
+import { Kubectl } from '../../kubectl';
+import { StringDecoder } from 'string_decoder';
 
 export interface ProxySession {
     readonly port: number;
+    readonly completed: Promise<void>;
+    readonly isActive: boolean;
     dispose(): void;
 }
 
-// TODO: expands on code from API port forward impl: deduplicate
+const sessions = new Set<AbortController>();
+let lifecycleRevision = 0;
 
-interface WaitForOutputSucceeded {
-    readonly waitResult: 'succeeded';
-    readonly matchedOutput: RegExpExecArray;
+export function proxyLifecycleRevision(): number { return lifecycleRevision; }
+
+export function disposeProxySessions(): void {
+    lifecycleRevision++;
+    for (const session of sessions) { session.abort(); }
 }
 
-interface WaitForOutputProcessExited {
-    readonly waitResult: 'process-exited';
+export function initialiseProxyLifecycle(
+    context: vscode.ExtensionContext,
+    onContextChanged: vscode.Event<unknown>,
+    onKubeconfigChanged: vscode.Event<unknown>
+): void {
+    onContextChanged(disposeProxySessions, undefined, context.subscriptions);
+    onKubeconfigChanged(disposeProxySessions, undefined, context.subscriptions);
+    vscode.workspace.onDidChangeConfiguration((event) => {
+        if (event.affectsConfiguration('vs-kubernetes') || event.affectsConfiguration('vscode-kubernetes')) {
+            disposeProxySessions();
+        }
+    }, undefined, context.subscriptions);
+    context.subscriptions.push({ dispose: disposeProxySessions });
 }
 
-type WaitForOutputResult = WaitForOutputSucceeded | WaitForOutputProcessExited;
+export async function proxy(kubectl: Kubectl, port: number | 'random', signal?: AbortSignal): Promise<Errorable<ProxySession>> {
+    if (port !== 'random' && (!Number.isInteger(port) || port < 1 || port > 65535)) {
+        return { succeeded: false, error: ['Invalid Kubernetes proxy port.'] };
+    }
+    return startForwardingProcess(kubectl, ['proxy', '--address=127.0.0.1', `--port=${port === 'random' ? 0 : port}`],
+        /(?:^|\n)Starting to serve on 127\.0\.0\.1:(\d+)\r?\n/, signal);
+}
 
-function waitForOutput(process: ChildProcess, pattern: RegExp): Promise<WaitForOutputResult> {
-    return new Promise<WaitForOutputResult>((resolve) => {
-        let didOutput = false;
-
-        process.stdout?.on('data', async (data) => {
-            const message = `${data}`;
-            const matchResult = pattern.exec(message);
-            if (matchResult && matchResult.length > 0) {
-                didOutput = true;
-                resolve({ waitResult: 'succeeded', matchedOutput: matchResult });
+// Both proxy and the AKS dashboard port-forward use this argv-only readiness and
+// ownership boundary. A session owns pending startup as well as its direct child.
+export async function startForwardingProcess(
+    kubectl: Kubectl, args: readonly string[], readiness: RegExp, signal?: AbortSignal, startupTimeout = 30000
+): Promise<Errorable<ProxySession>> {
+    const cancellation = new AbortController();
+    const abort = () => cancellation.abort();
+    if (signal?.aborted) { abort(); }
+    signal?.addEventListener('abort', abort, { once: true });
+    sessions.add(cancellation);
+    let resolveCompleted!: () => void;
+    const completed = new Promise<void>((resolve) => { resolveCompleted = resolve; });
+    const release = () => {
+        sessions.delete(cancellation);
+        signal?.removeEventListener('abort', abort);
+        resolveCompleted();
+    };
+    if (cancellation.signal.aborted) {
+        release();
+        return { succeeded: false, error: ['Kubernetes forwarding cancelled.'] };
+    }
+    const result = await kubectl.spawnCommandArgs(args).catch((error) => ({
+        resultKind: 'exec-failed' as const, execProgram: { binBaseName: 'kubectl', displayName: 'Kubectl', configKeyName: 'kubectl', offersInstall: true },
+        command: '', error: String(error),
+    }));
+    if (result.resultKind !== 'exec-child-process-started') {
+        release();
+        return { succeeded: false, error: [cancellation.signal.aborted ? 'Kubernetes forwarding cancelled.' : ExecResult.failureMessage(result, {})] };
+    }
+    const child = result.childProcess;
+    return new Promise<Errorable<ProxySession>>((resolve) => {
+        let settled = false;
+        let closed = false;
+        let killTimer: NodeJS.Timeout | undefined;
+        let output = '';
+        let stderr = '';
+        const decoder = new StringDecoder('utf8');
+        const finish = (value: Errorable<ProxySession>) => {
+            if (settled) { return; }
+            settled = true;
+            clearTimeout(startupTimer);
+            resolve(value);
+        };
+        const stop = () => {
+            if (!closed && !killTimer) {
+                killTimer = setTimeout(() => {
+                    if (child.exitCode === null && child.signalCode === null && child.pid && child.pid > 0) { child.kill('SIGKILL'); }
+                    child.stdin?.destroy(); child.stdout?.destroy(); child.stderr?.destroy();
+                }, 2000);
+                killTimer.unref();
+                if (child.exitCode === null && child.signalCode === null && child.pid && child.pid > 0) { child.kill(); }
             }
-        });
-
-        process.on('close', async (_code) => {
-            if (!didOutput) {
-                resolve({ waitResult: 'process-exited'});
+            finish({ succeeded: false, error: ['Kubernetes forwarding cancelled.'] });
+        };
+        const fail = (message: string) => {
+            finish({ succeeded: false, error: [message] });
+            cancellation.abort();
+        };
+        const startupTimer = setTimeout(() => fail('Timed out starting Kubernetes forwarding.'), startupTimeout);
+        startupTimer.unref();
+        cancellation.signal.addEventListener('abort', stop, { once: true });
+        child.stdin?.end();
+        child.stdout?.on('data', (chunk: Buffer) => {
+            if (settled || cancellation.signal.aborted) { return; }
+            output += decoder.write(chunk);
+            const match = readiness.exec(output);
+            if (match) {
+                const actualPort = Number(match[1]);
+                if (!Number.isInteger(actualPort) || actualPort < 1 || actualPort > 65535) {
+                    fail('Kubernetes forwarding returned an invalid port.');
+                    return;
+                }
+                finish({ succeeded: true, result: {
+                    port: actualPort, completed,
+                    get isActive() { return !closed && !cancellation.signal.aborted && child.exitCode === null && child.signalCode === null; },
+                    dispose: abort,
+                } });
             }
+            output = output.slice(-8192);
         });
+        child.stderr?.on('data', (chunk: Buffer) => { stderr = (stderr + chunk.toString('utf8')).slice(-8192); });
+        child.once('error', (error) => fail(`Failed to start Kubernetes forwarding: ${error.message}`));
+        const onClose = () => {
+            closed = true;
+            if (killTimer) { clearTimeout(killTimer); }
+            clearTimeout(startupTimer);
+            cancellation.signal.removeEventListener('abort', stop);
+            finish({ succeeded: false, error: [stderr || 'Kubernetes forwarding exited before readiness.'] });
+            release();
+        };
+        child.once('close', onClose);
+        if (cancellation.signal.aborted) { stop(); }
+        if (child.exitCode !== null || child.signalCode !== null) { onClose(); }
     });
 }

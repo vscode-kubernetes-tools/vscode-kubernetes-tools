@@ -43,6 +43,7 @@ import { HelmTemplateCompletionProvider } from './helm.completionProvider';
 import { Reporter } from './telemetry';
 import * as telemetry from './telemetry-helper';
 import { dashboardKubernetes } from './components/kubectl/dashboard';
+import { initialiseProxyLifecycle } from './components/kubectl/proxy';
 import { portForwardKubernetes } from './components/kubectl/port-forward';
 import { logsKubernetes } from './components/kubectl/logs';
 import { deleteResourceWithConfirmation, getResourceArgs, getStructuredResourceArgs, getStructuredResourceKindArgs, isSafeNamespace, listNamespaceResources, listResourceNames, normaliseResourceReadTarget, normaliseResourceTarget } from './components/kubectl/resource-commands';
@@ -142,6 +143,7 @@ export const HELM_TPL_MODE: vscode.DocumentFilter = { language: "helm", scheme: 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export async function activate(context: vscode.ExtensionContext): Promise<APIBroker> {
+    initialiseProxyLifecycle(context, activeContextTracker.activeChanged, onDidChangeKubeconfigEmitter.event);
     await validateKubeconfigPath();
     setAssetContext(context);
 
