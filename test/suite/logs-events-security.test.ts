@@ -81,12 +81,31 @@ suite('Logs and Events argv security', () => {
         const bytes = Buffer.from('hello €');
         process.stdout.write(bytes.subarray(0, bytes.length - 1));
         process.stdout.write(bytes.subarray(bytes.length - 1));
-        assert.strictEqual(f.addContent.args.map(([value]) => value).join(''), 'hello €');
+        sinon.assert.notCalled(f.addContent);
+        process.stdout.write('\nsecond');
+        sinon.assert.calledOnceWithExactly(f.addContent, 'hello €\n');
+        process.stdout.write(' row\r');
+        sinon.assert.calledOnce(f.addContent);
+        process.stdout.write('\n');
+        assert.deepStrictEqual(f.addContent.args, [['hello €\n'], ['second row\r\n']]);
         f.panel.deleteAppendContentProcess();
         process.stdout.write('ignored');
         process.emit('close', null);
         sinon.assert.calledOnce(process.kill);
         sinon.assert.notCalled(vscode.window.showErrorMessage as sinon.SinonStub);
+    });
+
+    test('follow flushes its unfinished final line on natural close', async () => {
+        const f = fixture();
+        const process = child();
+        f.spawn.resolves({ resultKind: 'exec-child-process-started', childProcess: process });
+        await getLogsForContainer(f.panel, f.kubectl, 'team-a', 'pod/api', '', LogsDisplayMode.Follow, false, '0', -1, LogsDestination.Webview);
+        process.stdout.write('first\nsecond\nunfinished');
+        assert.deepStrictEqual(f.addContent.args, [['first\nsecond\n']]);
+        process.stdout.write(' final row');
+        process.emit('close', 0);
+        assert.deepStrictEqual(f.addContent.args, [['first\nsecond\n'], ['unfinished final row']]);
+        sinon.assert.notCalled(process.kill);
     });
 
     test('Stop while a follow launch is pending terminates the late process', async () => {

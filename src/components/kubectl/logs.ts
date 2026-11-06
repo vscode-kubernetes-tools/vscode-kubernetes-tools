@@ -129,6 +129,7 @@ export async function getLogsForContainer(
             let closed = false;
             let timer: NodeJS.Timeout | undefined;
             const decoder = new StringDecoder('utf8');
+            let pendingLine = '';
             let stderr = '';
             stopChild = () => {
                 if (closed || timer) { return; }
@@ -142,14 +143,22 @@ export async function getLogsForContainer(
                 timer.unref();
             };
             child.stdin?.end();
-            child.stdout?.on('data', (chunk: Buffer) => { if (!cancelled) { panel.addContent(decoder.write(chunk)); } });
+            child.stdout?.on('data', (chunk: Buffer) => {
+                if (cancelled) { return; }
+                pendingLine += decoder.write(chunk);
+                const newline = pendingLine.lastIndexOf('\n');
+                if (newline >= 0) {
+                    panel.addContent(pendingLine.slice(0, newline + 1));
+                    pendingLine = pendingLine.slice(newline + 1);
+                }
+            });
             child.stderr?.on('data', (chunk: Buffer) => { stderr = (stderr + chunk.toString('utf8')).slice(-8192); });
             child.on('error', (error) => { if (!cancelled) { void vscode.window.showErrorMessage(`Follow logs failed: ${String(error)}`); } });
             child.once('close', (code) => {
                 closed = true;
                 if (timer) { clearTimeout(timer); }
                 if (!cancelled) {
-                    const remaining = decoder.end();
+                    const remaining = pendingLine + decoder.end();
                     if (remaining) { panel.addContent(remaining); }
                     if (code !== 0) { void vscode.window.showErrorMessage(`Follow logs failed: ${stderr || `kubectl exited with code ${code}`}`); }
                 }
