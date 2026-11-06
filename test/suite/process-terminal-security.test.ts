@@ -45,7 +45,7 @@ suite('Process output terminal security', () => {
         try {
             execution = await host.runProcessInTerminal({
                 name: 'Kubernetes TTY Probe',
-                executable: process.execPath,
+                executable: terminalInputProbeExecutable(),
                 args: ['-e', childScript, marker, ...values],
                 cwd: childDirectory,
                 env: {
@@ -92,7 +92,7 @@ suite('Process output terminal security', () => {
         try {
             execution = await host.runProcessInTerminal({
                 name,
-                executable: process.execPath,
+                executable: terminalInputProbeExecutable(),
                 args: ['-e', [
                     'const fs=require("fs");let input="";',
                     'process.stdin.setEncoding("utf8");process.stdin.on("data",chunk=>{input+=chunk;if(input.includes("\\n")||input.includes("\\r")){fs.writeFileSync(process.argv[2],JSON.stringify({input:input.trim(),tty:!!process.stdin.isTTY}));process.exit(0)}});',
@@ -462,6 +462,17 @@ suite('Process output terminal security', () => {
 
 function decodePayload(value: string): RunnerPayload {
     return JSON.parse(Buffer.from(value, 'base64url').toString('utf8'));
+}
+
+function terminalInputProbeExecutable(): string {
+    if (process.platform !== 'win32') {
+        return process.execPath;
+    }
+    // Electron's GUI executable has different CRT stdin initialization from the
+    // console applications (kubectl and credential plugins) this runner starts.
+    const node = process.env.npm_node_execpath;
+    assert.ok(node && path.isAbsolute(node), 'Run Windows terminal probes through npm test to select native Node.');
+    return node;
 }
 
 async function executeTerminalRunner(launch: ProcessTerminalLaunch) {
