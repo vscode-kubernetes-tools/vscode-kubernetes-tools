@@ -152,10 +152,35 @@ suite('Dashboard and proxy process security', () => {
         let resolve!: (value: unknown) => void;
         Object.assign(f.kubectl, { asJsonArgs: sinon.stub().returns(new Promise((done) => { resolve = done; })) });
         const pending = dashboardKubernetes(f.kubectl);
+        const waiting = dashboardKubernetes(f.kubectl);
         disposeProxySessions();
         resolve({ succeeded: true, result: { items: [] } });
-        await pending;
+        await Promise.all([pending, waiting]);
         sinon.assert.notCalled(f.spawn);
         sinon.assert.notCalled(browser.open as sinon.SinonStub);
+        Object.assign(f.kubectl, { asJsonArgs: sinon.stub().resolves({ succeeded: true, result: { items: [] } }) });
+        const fresh = dashboardKubernetes(f.kubectl);
+        await new Promise((done) => setImmediate(done));
+        f.process.stdout.write('Starting to serve on 127.0.0.1:5678\n');
+        await fresh;
+        sinon.assert.calledOnce(f.spawn);
+        sinon.assert.calledOnceWithExactly(browser.open as sinon.SinonStub, 'http://127.0.0.1:5678/ui/');
+    });
+
+    test('node discovery denial falls back to proxy but malformed successful metadata does not', async () => {
+        const f = fixture();
+        Object.assign(f.kubectl, { asJsonArgs: sinon.stub().resolves({ succeeded: false, error: ['Forbidden'] }) });
+        const pending = dashboardKubernetes(f.kubectl);
+        await new Promise((done) => setImmediate(done));
+        f.process.stdout.write('Starting to serve on 127.0.0.1:5678\n');
+        await pending;
+        sinon.assert.calledOnceWithExactly(f.spawn, ['proxy', '--address=127.0.0.1', '--port=0']);
+        sinon.assert.calledOnceWithExactly(browser.open as sinon.SinonStub, 'http://127.0.0.1:5678/ui/');
+
+        const malformed = fixture();
+        Object.assign(malformed.kubectl, { asJsonArgs: sinon.stub().resolves({ succeeded: true, result: { items: {} } }) });
+        await dashboardKubernetes(malformed.kubectl);
+        sinon.assert.notCalled(malformed.spawn);
+        sinon.assert.calledOnceWithExactly(vscode.window.showErrorMessage as sinon.SinonStub, 'The Kubernetes endpoint returned invalid node metadata.');
     });
 });

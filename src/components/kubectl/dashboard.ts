@@ -23,11 +23,9 @@ async function startDashboard(kubectl: Kubectl): Promise<DashboardSession | unde
     const revision = proxyLifecycleRevision();
     const nodes = await kubectl.asJsonArgs<KubernetesCollection<Node>>(['get', 'nodes', '-o', 'json']);
     if (revision !== proxyLifecycleRevision()) { return undefined; }
-    if (failed(nodes)) {
-        await vscode.window.showErrorMessage(`Could not determine dashboard cluster: ${nodes.error.join(' ')}`);
-        return undefined;
-    }
-    const items = nodes.result?.items;
+    // Node discovery is only an AKS heuristic. Namespace-scoped users may not
+    // have permission to list nodes but can still use the normal proxy path.
+    const items = failed(nodes) ? [] : nodes.result?.items;
     if (!Array.isArray(items)) {
         await vscode.window.showErrorMessage('The Kubernetes endpoint returned invalid node metadata.');
         return undefined;
@@ -66,9 +64,11 @@ async function startDashboard(kubectl: Kubectl): Promise<DashboardSession | unde
 }
 
 export async function dashboardKubernetes(kubectl: Kubectl): Promise<void> {
+    const revision = proxyLifecycleRevision();
     let pending = dashboards.get(kubectl);
     if (pending) {
         const existing = await pending;
+        if (revision !== proxyLifecycleRevision()) { return; }
         if (!existing || !existing.process.isActive) {
             if (dashboards.get(kubectl) === pending) { dashboards.delete(kubectl); }
             pending = dashboards.get(kubectl);
@@ -79,6 +79,7 @@ export async function dashboardKubernetes(kubectl: Kubectl): Promise<void> {
         dashboards.set(kubectl, pending);
     }
     const dashboard = await pending;
+    if (revision !== proxyLifecycleRevision()) { return; }
     if (!dashboard || !dashboard.process.isActive) {
         if (dashboards.get(kubectl) === pending) { dashboards.delete(kubectl); }
         return;
