@@ -8,6 +8,7 @@ import { create, createOnBinary } from '../../src/kubectl';
 import { Platform, Shell } from '../../src/shell';
 import * as processApi from '../../src/process';
 import * as autoversion from '../../src/components/kubectl/autoversion';
+import type { ProcessTerminalExecution } from '../../src/host';
 
 suite('Kubectl terminal security', () => {
     let sandbox: sinon.SinonSandbox;
@@ -53,6 +54,234 @@ suite('Kubectl terminal security', () => {
             ['--exec', '/usr/local/bin/kubectl', 'get', 'pods', '--selector', 'app=$(marker)'],
             undefined
         );
+    });
+
+    test('runs short-lived output through a persistent process terminal', async () => {
+        sandbox.stub(config, 'getUseWsl').returns(false);
+        const runProcessInTerminal = sinon.stub().resolves({ completed: Promise.resolve(), terminate: sinon.stub() });
+        const createTerminal = sinon.stub();
+        const kubectl = createOnBinary(
+            fakeHost(createTerminal, undefined, undefined, runProcessInTerminal),
+            fakeFs(),
+            fakeShell(false, { PATH: '/usr/bin' }),
+            '/opt/Kube Tools/kubectl'
+        );
+        const args = ['get', 'pod/api;$(marker)', '-o', 'wide'];
+
+        await kubectl.invokeArgsInOutputTerminal(args, 'Kubernetes Get');
+
+        assert.deepStrictEqual(args, ['get', 'pod/api;$(marker)', '-o', 'wide']);
+        sinon.assert.calledOnceWithExactly(
+            runProcessInTerminal,
+            {
+                name: 'Kubernetes Get',
+                executable: '/opt/Kube Tools/kubectl',
+                args,
+                cwd: '/workspace',
+                env: { PATH: '/usr/bin' },
+            },
+            sinon.match.has('aborted', false)
+        );
+        sinon.assert.notCalled(createTerminal);
+    });
+
+    test('runs WSL output terminals through the pinned system launcher', async () => {
+        sandbox.stub(config, 'getUseWsl').returns(true);
+        const runProcessInTerminal = sinon.stub().resolves({ completed: Promise.resolve(), terminate: sinon.stub() });
+        const kubectl = createOnBinary(
+            fakeHost(sinon.stub(), undefined, undefined, runProcessInTerminal),
+            fakeFs(),
+            fakeShell(false, {
+                PATH: '/usr/bin',
+                SystemRoot: 'C:\\Windows',
+                KUBECONFIG: '/home/user/.kube/selected',
+                WSLENV: 'EXISTING/u:KUBECONFIG/p:OTHER',
+            }),
+            '/usr/local/bin/kubectl'
+        );
+
+        await kubectl.invokeArgsInOutputTerminal(['cluster-info'], 'Kubernetes Cluster Info');
+
+        sinon.assert.calledOnceWithExactly(
+            runProcessInTerminal,
+            {
+                name: 'Kubernetes Cluster Info',
+                executable: 'C:\\Windows\\System32\\wsl.exe',
+                args: ['--exec', '/usr/local/bin/kubectl', 'cluster-info'],
+                cwd: '/workspace',
+                env: {
+                    PATH: '/usr/bin',
+                    SystemRoot: 'C:\\Windows',
+                    KUBECONFIG: '/home/user/.kube/selected',
+                    WSLENV: 'EXISTING/u:OTHER:KUBECONFIG/u',
+                },
+            },
+            sinon.match.has('aborted', false)
+        );
+    });
+
+    test('reports output-terminal startup failures', async () => {
+        sandbox.stub(config, 'getUseWsl').returns(false);
+        const runProcessInTerminal = sinon.stub().rejects(new Error('terminals unavailable'));
+        const showErrorMessage = sinon.stub().resolves(undefined);
+        const kubectl = createOnBinary(
+            fakeHost(sinon.stub(), showErrorMessage, undefined, runProcessInTerminal),
+            fakeFs(),
+            fakeShell(false),
+            '/usr/local/bin/kubectl'
+        );
+
+        await kubectl.invokeArgsInOutputTerminal(['cluster-info'], 'Kubernetes Cluster Info');
+
+        sinon.assert.calledOnceWithExactly(
+            showErrorMessage,
+            'Unable to start kubectl output terminal: Error: terminals unavailable'
+        );
+    });
+
+    test('cancels a pending output terminal on configuration changes without reporting an error', async () => {
+        sandbox.stub(config, 'getUseWsl').returns(false);
+        let configuredPath = '/first/kubectl';
+        sandbox.stub(config, 'getToolPath').callsFake(() => configuredPath);
+        let configurationChanged!: (event: ConfigurationChangeEvent) => void;
+        let pendingSignal!: AbortSignal;
+        let rejectLaunch!: (error: Error) => void;
+        const runProcessInTerminal = sinon.stub().callsFake((_options: unknown, signal?: AbortSignal) => {
+            pendingSignal = signal!;
+            return new Promise<ProcessTerminalExecution>((_resolve, reject) => { rejectLaunch = reject; });
+        });
+        const showErrorMessage = sinon.stub().resolves(undefined);
+        const kubectl = create(
+            config.KubectlVersioning.UserProvided,
+            fakeHost(sinon.stub(), showErrorMessage, (listener) => {
+                configurationChanged = listener;
+                return { dispose: sinon.stub() };
+            }, runProcessInTerminal),
+            fakeFs(),
+            fakeShell(false)
+        );
+
+        const launch = kubectl.invokeArgsInOutputTerminal(['cluster-info'], 'Kubernetes Cluster Info');
+        await new Promise<void>((resolve) => setImmediate(resolve));
+        assert.strictEqual(pendingSignal.aborted, false);
+        configuredPath = '/second/kubectl';
+        configurationChanged({ affectsConfiguration: (section) => section === 'vscode-kubernetes.kubectl-path' });
+        assert.strictEqual(pendingSignal.aborted, true);
+        rejectLaunch(new Error('Process terminal launch cancelled.'));
+        await launch;
+
+        sinon.assert.notCalled(showErrorMessage);
+        kubectl.dispose();
+    });
+
+    test('cancels a pending output terminal on disposal', async () => {
+        sandbox.stub(config, 'getUseWsl').returns(false);
+        let pendingSignal!: AbortSignal;
+        let rejectLaunch!: (error: Error) => void;
+        const runProcessInTerminal = sinon.stub().callsFake((_options: unknown, signal?: AbortSignal) => {
+            pendingSignal = signal!;
+            return new Promise<ProcessTerminalExecution>((_resolve, reject) => { rejectLaunch = reject; });
+        });
+        const showErrorMessage = sinon.stub().resolves(undefined);
+        const kubectl = createOnBinary(
+            fakeHost(sinon.stub(), showErrorMessage, undefined, runProcessInTerminal),
+            fakeFs(),
+            fakeShell(false),
+            '/usr/local/bin/kubectl'
+        );
+
+        const launch = kubectl.invokeArgsInOutputTerminal(['cluster-info'], 'Kubernetes Cluster Info');
+        await new Promise<void>((resolve) => setImmediate(resolve));
+        assert.strictEqual(pendingSignal.aborted, false);
+        kubectl.dispose();
+        assert.strictEqual(pendingSignal.aborted, true);
+        rejectLaunch(new Error('Process terminal launch cancelled.'));
+        await launch;
+
+        sinon.assert.notCalled(showErrorMessage);
+    });
+
+    test('terminates active output terminals on configuration changes and disposal', async () => {
+        sandbox.stub(config, 'getUseWsl').returns(false);
+        let configuredPath = '/usr/local/bin/kubectl';
+        sandbox.stub(config, 'getToolPath').callsFake(() => configuredPath);
+        let configurationChanged!: (event: ConfigurationChangeEvent) => void;
+        let complete!: () => void;
+        const terminate = sinon.stub();
+        const runProcessInTerminal = sinon.stub().resolves({
+            completed: new Promise<void>((resolve) => { complete = resolve; }),
+            terminate,
+        });
+        const kubectl = create(
+            config.KubectlVersioning.UserProvided,
+            fakeHost(sinon.stub(), undefined, (listener) => {
+                configurationChanged = listener;
+                return { dispose: sinon.stub() };
+            }, runProcessInTerminal),
+            fakeFs(),
+            fakeShell(false)
+        );
+
+        await kubectl.invokeArgsInOutputTerminal(['cluster-info'], 'Kubernetes Cluster Info');
+        configuredPath = '/opt/kubectl';
+        configurationChanged({ affectsConfiguration: (section) => section === 'vscode-kubernetes.kubectl-path' });
+        sinon.assert.calledOnce(terminate);
+        complete();
+        await Promise.resolve();
+        kubectl.dispose();
+        sinon.assert.calledOnce(terminate);
+    });
+
+    test('does not start an output terminal after disposal during discovery', async () => {
+        sandbox.stub(config, 'getUseWsl').returns(false);
+        sandbox.stub(config, 'getToolPath').returns(undefined);
+        let resolvePath!: (executable: string) => void;
+        const pathSelection = new Promise<string>((resolve) => { resolvePath = resolve; });
+        const runProcessInTerminal = sinon.stub();
+        sandbox.stub(autoversion, 'ensureSuitableKubectl').returns(pathSelection);
+        const autoKubectl = create(
+            config.KubectlVersioning.Infer,
+            fakeHost(sinon.stub(), undefined, undefined, runProcessInTerminal),
+            fakeFs(),
+            fakeShell(false)
+        );
+
+        const launch = autoKubectl.invokeArgsInOutputTerminal(['cluster-info'], 'Kubernetes Cluster Info');
+        await new Promise<void>((resolve) => setImmediate(resolve));
+        autoKubectl.dispose();
+        resolvePath('/old/kubectl');
+        await launch;
+
+        sinon.assert.notCalled(runProcessInTerminal);
+    });
+
+    test('terminates an output terminal returned after a configuration race', async () => {
+        sandbox.stub(config, 'getUseWsl').returns(false);
+        let configuredPath = '/first/kubectl';
+        sandbox.stub(config, 'getToolPath').callsFake(() => configuredPath);
+        let configurationChanged!: (event: ConfigurationChangeEvent) => void;
+        let returnExecution!: (execution: ProcessTerminalExecution) => void;
+        const runProcessInTerminal = sinon.stub().returns(new Promise<ProcessTerminalExecution>((resolve) => { returnExecution = resolve; }));
+        const terminate = sinon.stub();
+        const kubectl = create(
+            config.KubectlVersioning.UserProvided,
+            fakeHost(sinon.stub(), undefined, (listener) => {
+                configurationChanged = listener;
+                return { dispose: sinon.stub() };
+            }, runProcessInTerminal),
+            fakeFs(),
+            fakeShell(false)
+        );
+
+        const launch = kubectl.invokeArgsInOutputTerminal(['cluster-info'], 'Kubernetes Cluster Info');
+        await new Promise<void>((resolve) => setImmediate(resolve));
+        configuredPath = '/second/kubectl';
+        configurationChanged({ affectsConfiguration: (section) => section === 'vscode-kubernetes.kubectl-path' });
+        returnExecution({ completed: Promise.resolve(), terminate });
+        await launch;
+
+        sinon.assert.calledOnce(terminate);
+        kubectl.dispose();
     });
 
     test('preserves an uppercase Windows executable suffix', async () => {
@@ -277,10 +506,12 @@ suite('Kubectl terminal security', () => {
 function fakeHost(
     createTerminal: sinon.SinonStub,
     showErrorMessage: sinon.SinonStub = sinon.stub().resolves(undefined),
-    onDidChangeConfiguration: Host['onDidChangeConfiguration'] = () => ({ dispose: () => {} })
+    onDidChangeConfiguration: Host['onDidChangeConfiguration'] = () => ({ dispose: () => {} }),
+    runProcessInTerminal: Host['runProcessInTerminal'] = async () => ({ completed: Promise.resolve(), terminate: () => {} }) as ProcessTerminalExecution
 ): Host {
     return {
         createTerminal,
+        runProcessInTerminal,
         onDidCloseTerminal: () => ({ dispose: () => {} }),
         onDidChangeConfiguration,
         showErrorMessage,
@@ -295,7 +526,7 @@ function fakeHost(
         readDocument: async () => { throw new Error('unused'); },
         selectRootFolder: async () => undefined,
         longRunning: async (_options: any, action: any) => action(),
-    } as Host;
+    } as unknown as Host;
 }
 
 function fakeFs(): FS {
