@@ -15,6 +15,7 @@ export class LogsPanel extends WebPanel {
     private static kubectl: Kubectl;
     private namespace: string | undefined;
     private kindName: string;
+    private disposed = false;
 
     public appendContentProcess: RunningProcess | undefined;
 
@@ -46,8 +47,16 @@ export class LogsPanel extends WebPanel {
         panel.webview.onDidReceiveMessage(async (event)  => {
             switch (event.command) {
                 case 'start': {
-                    const options = JSON.parse(event.options);
-                    getLogsForContainer(
+                    let options;
+                    try {
+                        options = JSON.parse(event.options);
+                        if (!options || typeof options !== 'object' || Array.isArray(options) ||
+                            typeof options.follow !== 'boolean') { throw new Error('Invalid options'); }
+                    } catch {
+                        await vscode.window.showErrorMessage('Invalid Kubernetes log options.');
+                        break;
+                    }
+                    await getLogsForContainer(
                         this,
                         LogsPanel.kubectl,
                         this.namespace,
@@ -55,7 +64,7 @@ export class LogsPanel extends WebPanel {
                         options.container,
                         options.follow ? LogsDisplayMode.Follow : LogsDisplayMode.Show,
                         options.timestamp,
-                        options.since,
+                        options.since === 0 ? '0' : options.since,
                         options.tail,
                         options.destination);
                     break;
@@ -118,6 +127,10 @@ export class LogsPanel extends WebPanel {
 
     public setAppendContentProcess(proc: RunningProcess) {
         this.deleteAppendContentProcess();
+        if (this.disposed) {
+            proc.terminate();
+            return;
+        }
         this.appendContentProcess = proc;
     }
 
@@ -134,6 +147,7 @@ export class LogsPanel extends WebPanel {
     }
 
     protected dispose() {
+        this.disposed = true;
         this.deleteAppendContentProcess();
         super.dispose(LogsPanel.currentPanels);
     }

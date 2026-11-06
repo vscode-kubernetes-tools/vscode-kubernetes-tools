@@ -1,7 +1,8 @@
-import { ThemeIcon } from 'vscode';
+import * as vscode from 'vscode';
 import { Kubectl } from '../../kubectl';
 import * as kubectlUtils from '../../kubectlUtils';
 import { ClusterExplorerResourceNode } from '../clusterexplorer/node';
+import { eventsArgs } from './log-command';
 
 export enum EventDisplayMode {
     Show,
@@ -17,12 +18,10 @@ export async function getEvents(kubectl: Kubectl, displayMode: EventDisplayMode,
         eventsNS = await kubectlUtils.currentNamespace(kubectl);
     }
 
-    let cmd = `get events --namespace ${eventsNS}`;
-
-    if (displayMode === EventDisplayMode.Follow) {
-        cmd += ' -w';
-        return kubectl.invokeInNewTerminal(cmd, 'Kubernetes Events', undefined, undefined, new ThemeIcon('bell'));
-    } else {
-        return kubectl.invokeInSharedTerminal(cmd);
+    const args = eventsArgs(eventsNS, displayMode === EventDisplayMode.Follow);
+    if (!args) {
+        await vscode.window.showErrorMessage('Invalid Kubernetes Events namespace.');
+        return;
     }
+    return kubectl.invokeArgsInOutputTerminal(args, 'Kubernetes Events');
 }
