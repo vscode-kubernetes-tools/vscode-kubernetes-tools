@@ -1,0 +1,8 @@
+# Canonical extensionless kustomization name, one of the three kustomize recognises.
+resources:
+  - service.yaml
+
+patches:
+  - path: patch-service.yaml
+    target:
+      kind: Service
