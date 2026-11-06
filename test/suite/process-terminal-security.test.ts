@@ -25,9 +25,9 @@ suite('Process output terminal security', () => {
             'const fs=require("fs");const {execFileSync}=require("child_process");',
             'const hasControllingTerminal=process.platform==="win32"||(()=>{try{const fd=fs.openSync("/dev/tty","r");fs.closeSync(fd);return true}catch{return false}})();',
             'const isForeground=process.platform==="win32"||execFileSync("/bin/ps",["-o","pgid=","-p",String(process.pid)]).toString().trim()===execFileSync("/bin/ps",["-o","tpgid=","-p",String(process.pid)]).toString().trim();',
-            'fs.writeFileSync(process.argv[1],JSON.stringify({',
+            'const pendingMarker=process.argv[1]+".pending";fs.writeFileSync(pendingMarker,JSON.stringify({',
             'args:process.argv.slice(2),cwd:process.cwd(),literal:process.env.KUBERNETES_LITERAL_TEST,pid:process.pid,sentinel:process.env.VSCODE_K8S_RUNNER_TEST,',
-            'controllingTerminal:hasControllingTerminal,foreground:isForeground,stdin:!!process.stdin.isTTY,stdout:!!process.stdout.isTTY,stderr:!!process.stderr.isTTY}))',
+            'controllingTerminal:hasControllingTerminal,foreground:isForeground,stdin:!!process.stdin.isTTY,stdout:!!process.stdout.isTTY,stderr:!!process.stderr.isTTY}));fs.renameSync(pendingMarker,process.argv[1]);',
         ].join('');
         const existingTerminals = new Set(vscode.window.terminals);
         let terminal: vscode.Terminal | undefined;
