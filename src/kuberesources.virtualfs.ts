@@ -5,7 +5,8 @@ import * as querystring from 'querystring';
 
 import { Kubectl } from './kubectl';
 import { Host } from './host';
-import { helmSyntaxVersion, HelmSyntaxVersion, helmInvokeCommandWithFeedback } from './helm.exec';
+import { helmSyntaxVersion, helmInvokeCommandArgsWithFeedback } from './helm.exec';
+import { helmGetArgs, isSafeHelmReleaseName, isSafeHelmRevision } from './components/helm/commands';
 import * as config from './components/config/config';
 import { ExecResult } from './binutilplusplus';
 import { Errorable } from './errorable';
@@ -129,11 +130,18 @@ export class KubernetesResourceVirtualFileSystemProvider implements FileSystemPr
                 ], `Loading ${value}...`);
                 return { succeeded: true, result: ker };
             }
-            case HELM_RESOURCE_AUTHORITY:
-                const scopearg = ((await helmSyntaxVersion()) === HelmSyntaxVersion.V2) ? '' : 'all';
-                const revarg = revision ? ` --revision=${revision}` : '';
-                const her = await helmInvokeCommandWithFeedback(`get ${scopearg} ${value}${revarg}`, `Loading ${value}...`);
+            case HELM_RESOURCE_AUTHORITY: {
+                const releaseRevision = revision === undefined ? undefined : Number(revision);
+                if (!isSafeHelmReleaseName(value) || (ns !== undefined && !isSafeNamespace(ns)) ||
+                    (revision !== undefined && (!/^(?:0|[1-9][0-9]*)$/.test(revision) || !isSafeHelmRevision(releaseRevision)))) {
+                    return { succeeded: false, error: ['Invalid Helm release URI.'] };
+                }
+                const syntaxVersion = await helmSyntaxVersion();
+                const her = await helmInvokeCommandArgsWithFeedback(
+                    helmGetArgs(syntaxVersion, value, releaseRevision, ns), `Loading ${value}...`
+                );
                 return { succeeded: true, result: her };
+            }
             case KUBECTL_DESCRIBE_AUTHORITY: {
                 const target = normaliseResourceReadTarget(value, true);
                 if (!target || (ns !== undefined && !isSafeNamespace(ns))) {
