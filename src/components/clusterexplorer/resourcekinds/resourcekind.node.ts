@@ -6,7 +6,7 @@ import { ClusterExplorerNode } from "../node";
 
 export const nodePodsChildSource = {
     async children(kubectl: Kubectl, parent: ResourceNode): Promise<ClusterExplorerNode[]> {
-        const pods = await kubectlUtils.getPods(kubectl, null, 'all');
+        const pods = await kubectlUtils.getPods(kubectl, null, { allNamespaces: true });
         const filteredPods = pods.filter((p) => `node/${p.nodeName}` === parent.kindName);
         return filteredPods.map((p) => ResourceNode.create(kuberesources.allKinds.pod, p.name, p.metadata, { podInfo: p }));
     }

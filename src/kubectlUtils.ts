@@ -10,7 +10,7 @@ import { ResourceKind } from "./kuberesources";
 import { isSafeNamespace, isSafeResourceType, listResourceNames, normaliseResourceReadTarget, normaliseResourceTarget } from './components/kubectl/resource-commands';
 import { fileCommandArgs, hostPathToWsl } from './components/kubectl/file-commands';
 import { getUseWsl } from './components/config/config';
-import { listPods } from './components/kubectl/pod-commands';
+import { isValidPodName, listPods, podTableArgs, PodQueryOptions } from './components/kubectl/pod-commands';
 import { remoteShellCommandArgs, runImageArgs } from './components/kubectl/workload-commands';
 import { requireTaggedImageReference } from './image/imageReference';
 
@@ -368,43 +368,41 @@ export async function getResourceWithSelector(resource: string, kubectl: Kubectl
     });
 }
 
-export async function getPods(kubectl: Kubectl, selector: any, namespace: string | null = null): Promise<PodInfo[]> {
-    const ns = namespace || await currentNamespace(kubectl);
-    let nsFlag = `--namespace=${ns}`;
-    if (ns === 'all') {
-        nsFlag = '--all-namespaces';
-    }
-    const labels = Array.of<string>();
-    let matchLabelObj = selector;
-    if (selector && selector.matchLabels) {
-        matchLabelObj = selector.matchLabels;
-    }
-    if (matchLabelObj) {
-        Object.keys(matchLabelObj).forEach((key) => {
-            labels.push(`${key}=${matchLabelObj[key]}`);
-        });
-    }
-    let labelStr = "";
-    if (labels.length > 0) {
-        labelStr = "--selector=" + labels.join(",");
+export async function getPods(kubectl: Kubectl, selector: unknown, scope: string | PodQueryOptions | null = null): Promise<PodInfo[]> {
+    const options: PodQueryOptions = typeof scope === 'string' ? { namespace: scope } : scope ?? {};
+    const allNamespaces = options.allNamespaces === true;
+    const ns = allNamespaces ? '' : options.namespace || await currentNamespace(kubectl);
+    const args = podTableArgs(selector, ns, allNamespaces);
+    if (!args) {
+        vscode.window.showErrorMessage('Invalid Kubernetes namespace or pod selector.');
+        return [];
     }
 
-    const pods = await kubectl.readTable(`get pods -o wide ${nsFlag} ${labelStr}`);
+    const pods = await kubectl.readTableArgs(args);
     if (ExecResult.failed(pods)) {
         kubectl.reportFailure(pods, {});
         return [];
     }
 
-    return pods.result.map((item) => {
-        return {
+    const result: PodInfo[] = [];
+    for (const item of pods.result) {
+        const namespace = allNamespaces ? item.namespace : ns || item.namespace || '';
+        if (!isValidPodName(item.name) || typeof namespace !== 'string' ||
+            (namespace !== '' && !isSafeNamespace(namespace)) || (allNamespaces && namespace === '') ||
+            (!allNamespaces && ns && item.namespace && item.namespace !== ns)) {
+            vscode.window.showErrorMessage('The Kubernetes endpoint returned invalid pod metadata.');
+            return [];
+        }
+        result.push({
             name: item.name,
-            namespace: item.namespace || ns,
+            namespace,
             nodeName: item.node,
             status: item.status,
-            metadata: { name: item.name, namespace: item.namespace || ns },
+            metadata: { name: item.name, namespace },
             ready: item.ready
-        };
-    });
+        });
+    }
+    return result;
 }
 
 export async function currentNamespace(kubectl: Kubectl): Promise<string> {
