@@ -82,7 +82,7 @@ export interface ConfigReadOptions {
 }
 
 async function getKubeconfig(kubectl: Kubectl, options: ConfigReadOptions): Promise<Kubeconfig | null> {
-    const config = await kubectl.readJSON<any>("config view -o json");
+    const config = ExecResult.map<Kubeconfig>(await kubectl.invokeCommandArgs(['config', 'view', '-o', 'json']), JSON.parse);
     if (ExecResult.failed(config)) {
         if (options.silent) {
             console.log(ExecResult.failureMessage(config, {}));
@@ -140,8 +140,13 @@ export async function getCurrentContext(kubectl: Kubectl, options: ConfigReadOpt
     return contexts.find((c) => c.active);
 }
 
+export function setCurrentContext(kubectl: Kubectl, contextName: string): Promise<ExecResult> {
+    return kubectl.invokeCommandArgs(['config', 'use-context', '--', contextName]);
+}
+
 export async function deleteCluster(kubectl: Kubectl, context: KubectlContext): Promise<boolean> {
-    const deleteClusterResult = await kubectl.invokeCommandWithFeedback(`config delete-cluster ${context.clusterName}`, "Deleting cluster...");
+    const deleteClusterResult = await kubectl.invokeCommandArgsWithFeedback(['config', 'delete-cluster', '--', context.clusterName], "Deleting cluster...");
+    let associatedDataRemoved = ExecResult.succeeded(deleteClusterResult);
     if (ExecResult.failed(deleteClusterResult)) {
         const whatFailed = `Failed to remove the underlying cluster for context ${context.clusterName} from the kubeconfig`;
         kubeChannel.showOutput(ExecResult.failureMessage(deleteClusterResult, { whatFailed }), `Delete ${context.contextName}`);
@@ -158,14 +163,35 @@ export async function deleteCluster(kubectl: Kubectl, context: KubectlContext): 
         vscode.window.showWarningMessage(`Failed to remove the underlying cluster for context ${context.contextName}. See Output window for more details.`);
     }
 
-    const deleteUserResult = await kubectl.invokeCommandWithFeedback(`config unset users.${context.userName}`, "Deleting user...");
-    if (ExecResult.failed(deleteUserResult)) {
-        const whatFailed = `Failed to remove the underlying user for context ${context.contextName} from the kubeconfig`;
-        kubeChannel.showOutput(ExecResult.failureMessage(deleteUserResult, { whatFailed }));
-        vscode.window.showWarningMessage(`Failed to remove the underlying user for context ${context.contextName}. See Output window for more details.`);
+    if (context.userName) {
+        let deleteUserResult = await kubectl.invokeCommandArgsWithFeedback(['config', 'delete-user', '--', context.userName], "Deleting user...");
+        let legacyClient = false;
+        if (deleteUserResult.resultKind === 'exec-errored') {
+            const version = await kubectl.invokeCommandArgs(['version', '--client=true', '-o', 'json']);
+            if (ExecResult.succeeded(version)) {
+                try {
+                    const { clientVersion } = JSON.parse(version.stdout) as { clientVersion: { major: string; minor: string } };
+                    legacyClient = clientVersion.major === '1' && Number.parseInt(clientVersion.minor) < 20;
+                } catch {
+                    // An unknown version must not enable the legacy fallback.
+                }
+            }
+            // A dot-free key is unambiguous in the legacy property-path parser.
+            if (legacyClient && !context.userName.includes('.')) {
+                deleteUserResult = await kubectl.invokeCommandArgsWithFeedback(['config', 'unset', '--', `users.${context.userName}`], "Deleting user...");
+            }
+        }
+        if (ExecResult.failed(deleteUserResult)) {
+            associatedDataRemoved = false;
+            const whatFailed = `Failed to remove the underlying user for context ${context.contextName} from the kubeconfig`;
+            kubeChannel.showOutput(ExecResult.failureMessage(deleteUserResult, { whatFailed }));
+            const upgradeMessage = legacyClient && context.userName.includes('.') ?
+                ' Upgrade kubectl to 1.20 or later to delete user names containing dots.' : '';
+            vscode.window.showWarningMessage(`Failed to remove the underlying user for context ${context.contextName}.${upgradeMessage} See Output window for more details.`);
+        }
     }
 
-    const deleteContextResult = await kubectl.invokeCommandWithFeedback(`config delete-context ${context.contextName}`, "Deleting context...");
+    const deleteContextResult = await kubectl.invokeCommandArgsWithFeedback(['config', 'delete-context', '--', context.contextName], "Deleting context...");
     if (ExecResult.failed(deleteContextResult)) {
         const whatFailed = `Failed to delete the specified cluster's context ${context.contextName} from the kubeconfig`;
         kubeChannel.showOutput(ExecResult.failureMessage(deleteContextResult, { whatFailed }));
@@ -173,7 +199,9 @@ export async function deleteCluster(kubectl: Kubectl, context: KubectlContext): 
         return false;
     }
 
-    vscode.window.showInformationMessage(`Deleted context '${context.contextName}' and associated data from the kubeconfig.`);
+    vscode.window.showInformationMessage(associatedDataRemoved ?
+        `Deleted context '${context.contextName}' and associated data from the kubeconfig.` :
+        `Deleted context '${context.contextName}', but some associated data could not be removed. See Output window for more details.`);
     return true;
 }
 

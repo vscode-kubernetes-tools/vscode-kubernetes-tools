@@ -2326,7 +2326,7 @@ async function useContextKubernetes(explorerNode: ClusterExplorerNode) {
 }
 
 async function setContextKubernetes(targetContext: string) {
-    const er = await kubectl.invokeCommand(`config use-context "${targetContext}"`);
+    const er = await kubectlUtils.setCurrentContext(kubectl, targetContext);
     if (ExecResult.succeeded(er)) {
         telemetry.invalidateClusterType(targetContext);
         activeContextTracker.setActive(targetContext);

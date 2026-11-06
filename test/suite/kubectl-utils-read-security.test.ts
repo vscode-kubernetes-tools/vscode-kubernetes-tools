@@ -201,12 +201,12 @@ suite('Kubectl read security', () => {
     });
 
     test('omits an unavailable current namespace from data resource reads', async () => {
-        const readJSON = blankCurrentNamespace();
+        const invokeCommandArgs = blankCurrentNamespace();
         const asJsonArgs = sinon.stub().resolves({
             succeeded: true,
             result: { kind: 'Secret', metadata: { name: 'credentials', namespace: '' }, data: {} },
         });
-        const kubectl = { readJSON, asJsonArgs } as unknown as Kubectl;
+        const kubectl = { invokeCommandArgs, asJsonArgs } as unknown as Kubectl;
 
         const result = await getAsDataResource('credentials', 'secret', kubectl);
 
@@ -215,12 +215,12 @@ suite('Kubectl read security', () => {
     });
 
     test('uses the kubectl namespace default for data resource folders', async () => {
-        const readJSON = blankCurrentNamespace();
+        const invokeCommandArgs = blankCurrentNamespace();
         const readTableArgs = sinon.stub().resolves({
             resultKind: 'exec-succeeded',
             result: [{ name: 'settings' }],
         });
-        const kubectl = { readJSON, readTableArgs } as unknown as Kubectl;
+        const kubectl = { invokeCommandArgs, readTableArgs } as unknown as Kubectl;
 
         const result = await getAsDataResources('configmaps', kubectl);
 
@@ -244,12 +244,12 @@ suite('Kubectl read security', () => {
     });
 
     test('preserves an absent selector without turning it into match-all', async () => {
-        const readJSON = sinon.stub().resolves({
+        const invokeCommandArgs = sinon.stub().resolves({
             resultKind: 'exec-succeeded',
-            result: {
+            stdout: JSON.stringify({
                 'current-context': 'dev',
                 contexts: [{ name: 'dev', context: { cluster: 'cluster', user: 'user', namespace: 'team-a' } }],
-            },
+            }),
         });
         const asJsonArgs = sinon.stub().resolves({
             succeeded: true,
@@ -261,7 +261,7 @@ suite('Kubectl read security', () => {
                 }],
             },
         });
-        const kubectl = { readJSON, asJsonArgs } as unknown as Kubectl;
+        const kubectl = { invokeCommandArgs, asJsonArgs } as unknown as Kubectl;
 
         const resources = await getResourceWithSelector('services', kubectl);
 
@@ -273,7 +273,7 @@ suite('Kubectl read security', () => {
     });
 
     test('uses the kubectl namespace default when reading selectors', async () => {
-        const readJSON = blankCurrentNamespace();
+        const invokeCommandArgs = blankCurrentNamespace();
         const asJsonArgs = sinon.stub().resolves({
             succeeded: true,
             result: {
@@ -284,7 +284,7 @@ suite('Kubectl read security', () => {
                 }],
             },
         });
-        const kubectl = { readJSON, asJsonArgs } as unknown as Kubectl;
+        const kubectl = { invokeCommandArgs, asJsonArgs } as unknown as Kubectl;
 
         const resources = await getResourceWithSelector('services', kubectl);
 
@@ -331,6 +331,6 @@ suite('Kubectl read security', () => {
 function blankCurrentNamespace(): sinon.SinonStub {
     return sinon.stub().resolves({
         resultKind: 'exec-succeeded',
-        result: { 'current-context': '', contexts: [] },
+        stdout: JSON.stringify({ 'current-context': '', contexts: [] }),
     });
 }
