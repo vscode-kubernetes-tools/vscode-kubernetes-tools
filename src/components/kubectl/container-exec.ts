@@ -40,10 +40,27 @@ export function parseContainerCommand(value: string): string[] | undefined {
         } else if (!quote && (character === '"' || character === "'")) {
             quote = character;
             started = true;
-        } else if (character === '\\' && quote !== "'" &&
-            (value[index + 1] === '"' || (!quote && !!value[index + 1] && /\s/.test(value[index + 1])))) {
-            current += value[++index];
-            started = true;
+        } else if (character === '\\' && quote !== "'") {
+            let end = index;
+            while (value[end] === '\\') { end++; }
+            if (value[end] === '"') {
+                const count = end - index;
+                current += '\\'.repeat(Math.floor(count / 2));
+                if (count % 2 === 1) {
+                    current += '"';
+                } else {
+                    quote = quote === '"' ? undefined : '"';
+                }
+                index = end;
+                started = true;
+            } else if (!quote && end === index + 1 && !!value[end] && /\s/.test(value[end])) {
+                current += value[++index];
+                started = true;
+            } else {
+                current += '\\'.repeat(end - index);
+                index = end - 1;
+                started = true;
+            }
         } else if (!quote && /[;&|<>`]/.test(character)) {
             return undefined;
         } else {

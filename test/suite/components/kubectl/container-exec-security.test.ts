@@ -77,6 +77,15 @@ suite('Container Exec argument security', () => {
         }
     });
 
+    test('handles trailing Windows backslashes without swallowing the next argument', () => {
+        assert.deepStrictEqual(parseContainerCommand(String.raw`echo "C:\Program Files\\" next`), ['echo', 'C:\\Program Files\\', 'next']);
+        assert.deepStrictEqual(parseContainerCommand(String.raw`echo "\\server\share\\" next`), ['echo', '\\\\server\\share\\', 'next']);
+        assert.deepStrictEqual(parseContainerCommand(String.raw`echo "C:\data\\\\" next`), ['echo', 'C:\\data\\\\', 'next']);
+        assert.deepStrictEqual(parseContainerCommand(String.raw`echo "slash\\\"quote" next`), ['echo', 'slash\\"quote', 'next']);
+        assert.deepStrictEqual(parseContainerCommand(String.raw`echo 'C:\Program Files\' next`), ['echo', 'C:\\Program Files\\', 'next']);
+        assert.strictEqual(parseContainerCommand(String.raw`echo "C:\Program Files\" next`), undefined);
+    });
+
     test('rejects shell operators and malformed quoting before discovery or launch', async () => {
         for (const command of ['echo hello; touch marker', 'echo hello | cat', 'echo hello > file', 'echo `marker`', 'echo "unterminated', 'echo\nother', 'echo\0other', '"" argument', '   ']) {
             const deps = dependencies(command);

@@ -13,6 +13,18 @@ python -c "print(123)"
 "C:\Program Files\Tools\tool.exe" "C:\data\input.txt"
 ```
 
+Backslashes remain literal except immediately before a double quote: pairs produce
+one backslash, and an odd remaining backslash escapes the quote. Double a trailing
+backslash before a closing double quote, or use single quotes to keep it literal:
+
+```text
+echo "C:\Program Files\\" next
+echo '\\server\share\' next
+```
+
+Both examples keep `next` as a separate argument. Ordinary Windows/UNC separators
+are preserved, and `\"` inside double quotes passes a literal quote.
+
 Commands are passed directly to the container. The local shell does not expand
 variables, substitutions, wildcards, pipelines, or redirections. `$HOME`, `%PATH%`,
 and `${env:NAME}` remain literal argument values. Unquoted shell operators are
