@@ -394,19 +394,48 @@ const PROCESS_TERMINAL_RUNNER = [
     'socket.once("error",fail);',
 ].join('');
 
+const WINDOWS_PROCESS_TERMINAL_CONSOLE = [
+    'using System;using System.Diagnostics;using System.Runtime.InteropServices;using System.Collections.Generic;',
+    'public static class ProcessTerminalConsole{',
+    '[StructLayout(LayoutKind.Sequential,CharSet=CharSet.Unicode)]struct StartupInfo{public int size;public string reserved,desktop,title;public int x,y,xSize,ySize,xChars,yChars,fill,flags;public short show,reservedSize;public IntPtr reservedBytes,input,output,error;}',
+    '[StructLayout(LayoutKind.Sequential)]struct ProcessInfo{public IntPtr process,thread;public int processId,threadId;}',
+    '[DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)]static extern IntPtr CreateFile(string name,uint access,uint share,IntPtr security,uint creation,uint flags,IntPtr template);',
+    '[DllImport("kernel32.dll")]static extern IntPtr GetStdHandle(int id);',
+    '[DllImport("kernel32.dll",SetLastError=true)]static extern bool SetHandleInformation(IntPtr handle,uint mask,uint flags);',
+    '[DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)]static extern bool CreateProcess(string application,System.Text.StringBuilder command,IntPtr processSecurity,IntPtr threadSecurity,bool inherit,uint flags,IntPtr environment,string directory,ref StartupInfo startup,out ProcessInfo process);',
+    '[DllImport("kernel32.dll",SetLastError=true)]static extern uint WaitForSingleObject(IntPtr handle,uint timeout);',
+    '[DllImport("kernel32.dll",SetLastError=true)]static extern bool GetExitCodeProcess(IntPtr handle,out uint code);',
+    '[DllImport("kernel32.dll")]static extern bool CloseHandle(IntPtr handle);',
+    'static Exception Error(){return new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());}',
+    'public static int Run(ProcessStartInfo start,bool interactive){',
+    'if(!interactive){using(Process child=Process.Start(start)){child.WaitForExit();return child.ExitCode;}}',
+    'IntPtr input=CreateFile("CONIN$",0xC0000000,3,IntPtr.Zero,3,0,IntPtr.Zero);if(input==new IntPtr(-1))throw Error();',
+    'IntPtr environment=IntPtr.Zero;ProcessInfo process=new ProcessInfo();',
+    'try{',
+    'if(!SetHandleInformation(input,1,1))throw Error();',
+    'StartupInfo startup=new StartupInfo();startup.size=Marshal.SizeOf(typeof(StartupInfo));startup.flags=0x100;startup.input=input;startup.output=GetStdHandle(-11);startup.error=GetStdHandle(-12);',
+    'List<string> keys=new List<string>();foreach(string key in start.EnvironmentVariables.Keys)keys.Add(key);keys.Sort(StringComparer.OrdinalIgnoreCase);',
+    'System.Text.StringBuilder block=new System.Text.StringBuilder();foreach(string key in keys){block.Append(key).Append("=").Append(start.EnvironmentVariables[key]).Append((char)0);}block.Append((char)0);environment=Marshal.StringToHGlobalUni(block.ToString());',
+    'System.Text.StringBuilder command=new System.Text.StringBuilder();command.Append((char)34).Append(start.FileName).Append((char)34).Append(" ").Append(start.Arguments);',
+    'if(!CreateProcess(start.FileName,command,IntPtr.Zero,IntPtr.Zero,true,0x400,environment,start.WorkingDirectory,ref startup,out process))throw Error();',
+    'if(WaitForSingleObject(process.process,0xFFFFFFFF)!=0)throw Error();uint code;if(!GetExitCodeProcess(process.process,out code))throw Error();return unchecked((int)code);',
+    '}finally{if(process.thread!=IntPtr.Zero)CloseHandle(process.thread);if(process.process!=IntPtr.Zero)CloseHandle(process.process);if(environment!=IntPtr.Zero)Marshal.FreeHGlobal(environment);CloseHandle(input);}',
+    '}}',
+].join('');
+
 const WINDOWS_PROCESS_TERMINAL_RUNNER = [
     '$ErrorActionPreference="Stop"',
     '$env:PSModulePath=$PSHOME+"\\Modules"',
-    // PowerShell can replace its standard input handle even inside ConPTY. Give the
-    // child the console input handle explicitly, without routing input through a pipe.
-    `Add-Type -TypeDefinition 'using System;using System.Diagnostics;using System.Runtime.InteropServices;public static class ProcessTerminalConsole{[DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)]static extern IntPtr CreateFile(string name,uint access,uint share,IntPtr security,uint creation,uint flags,IntPtr template);[DllImport("kernel32.dll")]static extern IntPtr GetStdHandle(int id);[DllImport("kernel32.dll",SetLastError=true)]static extern bool SetStdHandle(int id,IntPtr handle);[DllImport("kernel32.dll",SetLastError=true)]static extern bool SetHandleInformation(IntPtr handle,uint mask,uint flags);[DllImport("kernel32.dll")]static extern bool CloseHandle(IntPtr handle);public static Process Start(ProcessStartInfo start,bool interactive){if(!interactive)return Process.Start(start);IntPtr input=CreateFile("CONIN$",0xC0000000,3,IntPtr.Zero,3,0,IntPtr.Zero);if(input==new IntPtr(-1))throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());IntPtr previous=GetStdHandle(-10);try{if(!SetHandleInformation(input,1,1)||!SetStdHandle(-10,input))throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());return Process.Start(start);}finally{SetStdHandle(-10,previous);CloseHandle(input);}}}'`,
+    // .NET Process.Start replaces stdin with its cached managed handle. Supply
+    // CONIN$ directly through native STARTUPINFO for children in the real terminal.
+    `Add-Type -TypeDefinition '${WINDOWS_PROCESS_TERMINAL_CONSOLE}'`,
     'function Read-Exactly($Stream,[byte[]]$Buffer){$offset=0;while($offset -lt $Buffer.Length){$read=$Stream.Read($Buffer,$offset,$Buffer.Length-$offset);if($read -le 0){throw "Process terminal payload closed early."};$offset+=$read}}',
     String.raw`function Quote-Argument([string]$Value){if($Value.Length -gt 0 -and $Value -notmatch '[\s"]'){return $Value};$builder=New-Object System.Text.StringBuilder;[void]$builder.Append('"');$slashes=0;foreach($character in $Value.ToCharArray()){if($character -eq '\'){$slashes++;continue};if($character -eq '"'){[void]$builder.Append(('\' * ($slashes*2+1)));[void]$builder.Append('"');$slashes=0;continue};if($slashes){[void]$builder.Append(('\' * $slashes));$slashes=0};[void]$builder.Append($character)};if($slashes){[void]$builder.Append(('\' * ($slashes*2)))};[void]$builder.Append('"');return $builder.ToString()}`,
     '$port=[int]$env:VSCODE_KUBERNETES_PROCESS_PORT;$token=$env:VSCODE_KUBERNETES_PROCESS_TOKEN;$persist=$env:VSCODE_KUBERNETES_PROCESS_PERSIST -eq "1";Remove-Item Env:VSCODE_KUBERNETES_PROCESS_PORT,Env:VSCODE_KUBERNETES_PROCESS_TOKEN,Env:VSCODE_KUBERNETES_PROCESS_PERSIST -ErrorAction SilentlyContinue',
     '$client=New-Object System.Net.Sockets.TcpClient;$client.Connect("127.0.0.1",$port);$stream=$client.GetStream();$authentication=[System.Text.Encoding]::UTF8.GetBytes($token+"`n");$stream.Write($authentication,0,$authentication.Length)',
     '$header=New-Object byte[] 4;Read-Exactly $stream $header;$length=[System.Net.IPAddress]::NetworkToHostOrder([System.BitConverter]::ToInt32($header,0));if($length -lt 0 -or $length -gt 16777216){throw "Process terminal payload was too large."};$body=New-Object byte[] $length;Read-Exactly $stream $body;$client.Dispose();$payload=ConvertFrom-Json ([System.Text.Encoding]::UTF8.GetString($body))',
     '$start=New-Object System.Diagnostics.ProcessStartInfo;$start.FileName=[string]$payload.executable;$start.Arguments=(($payload.args|ForEach-Object { Quote-Argument ([string]$_) }) -join " ");$start.WorkingDirectory=[string]$payload.cwd;$start.UseShellExecute=$false;$start.CreateNoWindow=$false;$start.EnvironmentVariables.Clear();$payload.env.PSObject.Properties|ForEach-Object {$start.EnvironmentVariables[$_.Name]=[string]$_.Value}',
-    '$child=[ProcessTerminalConsole]::Start($start,$persist);$child.WaitForExit();$exitCode=$child.ExitCode;if(-not $persist){exit $exitCode};while($true){Start-Sleep -Seconds 3600}',
+    '$exitCode=[ProcessTerminalConsole]::Run($start,$persist);if(-not $persist){exit $exitCode};while($true){Start-Sleep -Seconds 3600}',
 ].join(';');
 
 const WINDOWS_PROCESS_TERMINAL_ENVIRONMENT = /^(?:ALLUSERSPROFILE|APPDATA|CommonProgramFiles(?:\(x86\)|\(Arm\))?|CommonProgramW6432|COMPUTERNAME|DriverData|HOMEDRIVE|HOMEPATH|LOCALAPPDATA|LOGONSERVER|NUMBER_OF_PROCESSORS|OS|PROCESSOR_(?:ARCHITECTURE|ARCHITEW6432|IDENTIFIER|LEVEL|REVISION)|ProgramData|ProgramFiles(?:\(x86\)|\(Arm\))?|ProgramW6432|PUBLIC|SESSIONNAME|SystemDrive|TEMP|TMP|USERDNSDOMAIN|USERNAME|USERDOMAIN(?:_ROAMINGPROFILE)?|USERPROFILE)$/i;
