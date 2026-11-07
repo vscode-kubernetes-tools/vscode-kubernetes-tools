@@ -49,6 +49,74 @@ suite("Kustomize patch index against a workspace", () => {
 
 });
 
+// A kustomization that exists only as a path: findFiles never returns it, which is what
+// puts it outside the scan's scope. The read is supplied by the stub below.
+const GHOST_KUSTOMIZATION = ['ghost', 'kustomization.yaml'];
+const GHOST_PATCH = ['ghost', 'patch.yaml'];
+
+// The race Tatsinnit reported on #2009: a first-time watcher read is still in flight when
+// a reconciling scan runs. The key is not in patchesByKustomization yet, so the scan never
+// saw it, never claimed a token for it, and the read publishes afterwards -- paths the
+// workspace no longer has any file for.
+//
+// Reproduced here by holding the read open across the scan rather than by removing a
+// workspace folder, which needs timing the test cannot control. The mechanic is the same:
+// what matters is that the scan does not know about the pending read.
+suite("Kustomize patch index, pending read against a rescan", () => {
+
+    let release: (() => void) | undefined;
+    const original = index.forTesting.readFile;
+
+    teardown(() => {
+        index.forTesting.readFile = original;
+        release = undefined;
+    });
+
+    test("...discards a read the reconciling scan did not know about", async function () {
+        this.timeout(20000);
+
+        const ghost = fixtureUri(...GHOST_KUSTOMIZATION);
+        const held = new Promise<void>((resolve) => { release = resolve; });
+
+        index.forTesting.readFile = async (uri: vscode.Uri) => {
+            if (uri.fsPath !== ghost.fsPath) {
+                return original(uri);
+            }
+            await held;  // keep this read in flight until the scan has finished
+            return Buffer.from('patches:\n  - path: patch.yaml\n');
+        };
+
+        // Starts the read and claims a token, but publishes nothing yet.
+        const reading = index.forTesting.reindexOne(ghost);
+
+        // A scan that does not find the ghost: it is not on disk, so findFiles cannot
+        // return it, exactly as if its folder had gone.
+        await index.forTesting.rescan();
+
+        release!();
+        await reading;
+
+        assert.strictEqual(false, index.isKustomizePatch(fixtureUri(...GHOST_PATCH)),
+            'a read the scan did not know about published after it');
+    });
+
+    test("...still indexes a read that no scan overtook", async function () {
+        this.timeout(20000);
+
+        const ghost = fixtureUri(...GHOST_KUSTOMIZATION);
+        index.forTesting.readFile = async (uri: vscode.Uri) =>
+            uri.fsPath === ghost.fsPath
+                ? Buffer.from('patches:\n  - path: patch.yaml\n')
+                : original(uri);
+
+        await index.forTesting.reindexOne(ghost);
+
+        assert.strictEqual(true, index.isKustomizePatch(fixtureUri(...GHOST_PATCH)),
+            'the guard rejected a read nothing superseded');
+    });
+
+});
+
 function fixtureUri(...segments: string[]): vscode.Uri {
     const folders = vscode.workspace.workspaceFolders;
     assert.ok(folders && folders.length > 0, 'expected the fixture workspace to be open');

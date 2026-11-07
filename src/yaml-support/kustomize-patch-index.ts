@@ -41,6 +41,12 @@ const MAX_PATH_LENGTH = 4096;
 // kustomization only re-indexes that file.
 const patchesByKustomization = new Map<string, readonly string[]>();
 
+// Keys with a single-file read in flight. A first read publishes nothing until it lands,
+// so patchesByKustomization does not know about it yet and a reconciling scan would leave
+// it alone -- and then the read would publish paths the scan had just established were
+// gone. Tracked separately so the scan can invalidate those reads too.
+const pendingReads = new Set<string>();
+
 // Reads are asynchronous and can overlap, so a slow read of an earlier revision could
 // otherwise finish last and republish stale paths. Every attempt to change what we know
 // about a kustomization takes a new token; only the newest token may write.
@@ -165,8 +171,12 @@ async function rescan(): Promise<void> {
     // its token superseded and discards its own result. Pruning claims a token too --
     // without that, a read still in flight could write back an entry we are about to
     // remove.
+    // Pending reads are read here rather than alongside scopeAtStart: one that began while
+    // findFiles was walking is exactly as unknown to this scan as one that began before it,
+    // and claiming at this point catches both. They are only invalidated, never written or
+    // deleted -- the scan has no answer for a key it did not find.
     const claimed = new Map<string, number>();
-    for (const key of [...found, ...gone]) {
+    for (const key of [...found, ...gone, ...pendingReads]) {
         const token = nextGeneration(key);
         generations.set(key, token);
         claimed.set(key, token);
@@ -218,7 +228,13 @@ async function indexKustomization(uri: vscode.Uri): Promise<void> {
     const generation = nextGeneration(key);
     generations.set(key, generation);
 
-    const paths = await readPatchPaths(uri);
+    pendingReads.add(key);
+    let paths: readonly string[] | undefined;
+    try {
+        paths = await readPatchPaths(uri);
+    } finally {
+        pendingReads.delete(key);
+    }
 
     if (generations.get(key) !== generation) {
         return;  // superseded while we were reading
@@ -229,6 +245,16 @@ async function indexKustomization(uri: vscode.Uri): Promise<void> {
         patchesByKustomization.delete(key);
     }
 }
+
+// A seam, and the only one in this file. The interleaving that needs covering -- a
+// first-time read still in flight when a reconciling scan runs -- is owned by watcher
+// timing, so a test cannot reach it without holding a read open itself. Production always
+// uses the defaults below.
+export const forTesting = {
+    readFile: (uri: vscode.Uri): Thenable<Uint8Array> => vscode.workspace.fs.readFile(uri),
+    reindexOne: (uri: vscode.Uri): Promise<void> => reindexOne(uri),
+    rescan: (): Promise<void> => rescan(),
+};
 
 // The index's parse step. Exported so the schema choice is covered by a test rather than
 // being a line anyone could quietly revert to yaml.load's default.
@@ -242,7 +268,7 @@ export function parseKustomization(text: string): unknown {
 // them.
 async function readPatchPaths(uri: vscode.Uri): Promise<readonly string[] | undefined> {
     try {
-        const bytes = await vscode.workspace.fs.readFile(uri);
+        const bytes = await forTesting.readFile(uri);
         if (bytes.byteLength > MAX_KUSTOMIZATION_BYTES) {
             return undefined;  // treated as unreadable: see the note on the limits
         }
