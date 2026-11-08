@@ -67,9 +67,14 @@ suite("Kustomize patch index, pending read against a rescan", () => {
     let release: (() => void) | undefined;
     const original = index.forTesting.readFile;
 
-    teardown(() => {
+    // Reads here publish entries for a kustomization that is not on disk, so the index is
+    // put back to what the filesystem says between tests: a leftover ghost entry would
+    // give a later test a reconciling scan that prunes the key for an unrelated reason,
+    // and the pending-read bookkeeping under test would never be exercised.
+    teardown(async () => {
         index.forTesting.readFile = original;
         release = undefined;
+        await index.forTesting.rescan();
     });
 
     test("...discards a read the reconciling scan did not know about", async function () {
@@ -98,6 +103,42 @@ suite("Kustomize patch index, pending read against a rescan", () => {
 
         assert.strictEqual(false, index.isKustomizePatch(fixtureUri(...GHOST_PATCH)),
             'a read the scan did not know about published after it');
+    });
+
+    test("...keeps tracking an overlapping read when an earlier one for the same key finishes", async function () {
+        this.timeout(20000);
+
+        const ghost = fixtureUri(...GHOST_KUSTOMIZATION);
+        const gates: Array<() => void> = [];
+
+        index.forTesting.readFile = async (uri: vscode.Uri) => {
+            if (uri.fsPath !== ghost.fsPath) {
+                return original(uri);
+            }
+            await new Promise<void>((resolve) => gates.push(resolve));
+            return Buffer.from('patches:\n  - path: patch.yaml\n');
+        };
+
+        // Two reads of the same kustomization, overlapping -- two edits in quick
+        // succession give the watcher exactly this. Each runs synchronously as far as the
+        // held read, so both are in flight here.
+        const readA = index.forTesting.reindexOne(ghost);
+        const readB = index.forTesting.reindexOne(ghost);
+        assert.strictEqual(2, gates.length, 'expected both reads to be in flight');
+
+        // The older read lands first. Its own generation guard discards its result; what
+        // matters is whether it also drops the tracking the still-pending read needs.
+        gates[0]();
+        await readA;
+
+        // A scan that does not find the ghost, as before.
+        await index.forTesting.rescan();
+
+        gates[1]();
+        await readB;
+
+        assert.strictEqual(false, index.isKustomizePatch(fixtureUri(...GHOST_PATCH)),
+            'an earlier read dropped the tracking the scan needed to invalidate a later one');
     });
 
     test("...still indexes a read that no scan overtook", async function () {

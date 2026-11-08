@@ -41,11 +41,17 @@ const MAX_PATH_LENGTH = 4096;
 // kustomization only re-indexes that file.
 const patchesByKustomization = new Map<string, readonly string[]>();
 
-// Keys with a single-file read in flight. A first read publishes nothing until it lands,
-// so patchesByKustomization does not know about it yet and a reconciling scan would leave
-// it alone -- and then the read would publish paths the scan had just established were
-// gone. Tracked separately so the scan can invalidate those reads too.
-const pendingReads = new Set<string>();
+// Keys with a single-file read in flight, against the generation of the most recent such
+// read. A first read publishes nothing until it lands, so patchesByKustomization does not
+// know about it yet and a reconciling scan would leave it alone -- and then the read would
+// publish paths the scan had just established were gone. Tracked separately so the scan
+// can invalidate those reads too.
+//
+// The generation is what makes this safe when reads for one key overlap: a bare set has a
+// single entry for the key, so the first read to finish would clear the tracking the ones
+// still in flight depend on. Only the read that owns the entry removes it, which is always
+// the last one to have started.
+const pendingReads = new Map<string, number>();
 
 // Reads are asynchronous and can overlap, so a slow read of an earlier revision could
 // otherwise finish last and republish stale paths. Every attempt to change what we know
@@ -176,7 +182,7 @@ async function rescan(): Promise<void> {
     // and claiming at this point catches both. They are only invalidated, never written or
     // deleted -- the scan has no answer for a key it did not find.
     const claimed = new Map<string, number>();
-    for (const key of [...found, ...gone, ...pendingReads]) {
+    for (const key of [...found, ...gone, ...pendingReads.keys()]) {
         const token = nextGeneration(key);
         generations.set(key, token);
         claimed.set(key, token);
@@ -228,12 +234,16 @@ async function indexKustomization(uri: vscode.Uri): Promise<void> {
     const generation = nextGeneration(key);
     generations.set(key, generation);
 
-    pendingReads.add(key);
+    pendingReads.set(key, generation);
     let paths: readonly string[] | undefined;
     try {
         paths = await readPatchPaths(uri);
     } finally {
-        pendingReads.delete(key);
+        // Only if no later read has taken the key over: that one is still in flight and
+        // still needs a scan to be able to find it.
+        if (pendingReads.get(key) === generation) {
+            pendingReads.delete(key);
+        }
     }
 
     if (generations.get(key) !== generation) {
