@@ -47,6 +47,7 @@ import { portForwardKubernetes } from './components/kubectl/port-forward';
 import { logsKubernetes } from './components/kubectl/logs';
 import { deleteResourceWithConfirmation, getResourceArgs, getStructuredResourceArgs, getStructuredResourceKindArgs, isSafeNamespace, listNamespaceResources, listResourceNames, normaliseResourceReadTarget, normaliseResourceTarget } from './components/kubectl/resource-commands';
 import { listPods, queryContainers } from './components/kubectl/pod-commands';
+import { containerExec, ContainerExecDependencies } from './components/kubectl/container-exec';
 import { waitForPortForward } from './debug/portForward';
 import { registerDebugSessionCleanup } from './debug/sessionCleanup';
 import { hostPathToWsl, invokeFileCommandWithFeedback } from './components/kubectl/file-commands';
@@ -1556,70 +1557,32 @@ export async function getContainersForResource(resource: ContainerContainer): Pr
     return containers;
 }
 
-function execKubernetes() {
-    execKubernetesCore(false);
+const CONTAINER_EXEC_DEPENDENCIES: ContainerExecDependencies = {
+    prompt: async (interactive) => await vscode.window.showInputBox({
+        prompt: 'Container command and arguments (quotes supported; no local shell expansion)',
+        value: interactive ? 'bash' : undefined,
+    }),
+    selectPod: () => selectPod(PodSelectionScope.App, PodSelectionFallback.AnyPod),
+    selectContainer: (pod) => selectContainerForPod({ ...pod, namespace: pod.namespace }),
+    suggestedShell: (pod, container) => suggestedShellForContainer(kubectl, pod.name, pod.namespace, container.name),
+    invoke: (args, name) => kubectl.invokeArgsInOutputTerminal(args, name),
+    showError: (message) => vscode.window.showErrorMessage(message),
+};
+
+async function execKubernetes(): Promise<void> {
+    await containerExec(false, CONTAINER_EXEC_DEPENDENCIES);
 }
 
-async function terminalKubernetes(explorerNode?: ClusterExplorerResourceNode) {
-    if (explorerNode) {
-        const namespace = explorerNode.namespace;
-        const podSummary = { name: explorerNode.name, namespace: namespace || undefined };  // TODO: rationalise null and undefined
-        const container = await selectContainerForPod(podSummary);
-        if (container) {
-            // For those images (e.g. built from Busybox) where bash may not be installed by default, use sh instead.
-            const suggestedShell = await suggestedShellForContainer(kubectl, podSummary.name, podSummary.namespace, container.name);
-            execTerminalOnContainer(podSummary.name, podSummary.namespace, container.name, suggestedShell);
-        }
-    } else {
-        execKubernetesCore(true);
-    }
-}
-
-async function execKubernetesCore(isTerminal: boolean): Promise<void> {
-    const opts: any = { prompt: 'Please provide a command to execute' };
-
-    if (isTerminal) {
-        opts.value = 'bash';
-    }
-
-    const cmd = await vscode.window.showInputBox(opts);
-
-    if (!cmd || cmd.length === 0) {
+async function terminalKubernetes(explorerNode?: ClusterExplorerResourceNode): Promise<void> {
+    if (explorerNode && (explorerNode.nodeType !== explorer.NODE_TYPES.resource ||
+        explorerNode.kind?.manifestKind !== kuberesources.allKinds.pod.manifestKind)) {
+        await vscode.window.showErrorMessage('Select a Kubernetes pod to open a container terminal.');
         return;
     }
-
-    const pod = await selectPod(PodSelectionScope.App, PodSelectionFallback.AnyPod);
-
-    if (!pod || !pod.metadata) {
-        return;
-    }
-
-    const container = await selectContainerForPod(summary(pod));
-
-    if (!container) {
-        return;
-    }
-
-    if (isTerminal) {
-        execTerminalOnContainer(pod.metadata.name, pod.metadata.namespace, container.name, cmd);
-        return;
-    }
-
-    const execCmd = `exec ${pod.metadata.name} -c ${container.name} -- ${cmd}`;
-    kubectl.invokeInSharedTerminal(execCmd);
-}
-
-function execTerminalOnContainer(podName: string, podNamespace: string | undefined, containerName: string | undefined, terminalCmd: string) {
-    const terminalExecCmd: string[] = ['exec', '-it', podName];
-    if (podNamespace) {
-        terminalExecCmd.push('--namespace', podNamespace);
-    }
-    if (containerName) {
-        terminalExecCmd.push('--container', containerName);
-    }
-    terminalExecCmd.push('--', terminalCmd);
-    const terminalName = `${terminalCmd} on ${podName}` + (containerName ? `/${containerName}`: '');
-    kubectl.runAsTerminal(terminalExecCmd, terminalName);
+    await containerExec(true, CONTAINER_EXEC_DEPENDENCIES, explorerNode ? {
+        name: explorerNode.name,
+        namespace: explorerNode.namespace,
+    } : undefined);
 }
 
 async function syncKubernetes(): Promise<void> {
