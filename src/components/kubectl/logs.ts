@@ -10,6 +10,9 @@ import { ContainerContainer } from '../../utils/containercontainer';
 import { ClusterExplorerResourceNode } from '../clusterexplorer/node';
 import { ExecResult } from '../../binutilplusplus';
 import { LogsDestination } from '../config/config';
+import { logsArgs } from './log-command';
+import { Subject } from 'rxjs';
+import { StringDecoder } from 'string_decoder';
 
 export enum LogsDisplayMode {
     Show,
@@ -97,67 +100,82 @@ export async function getLogsForContainer(
     tail: number,
     destination: LogsDestination
 ) {
-    const args = ['logs', kindName];
-
-    if (namespace) {
-        args.push(`--namespace=${namespace}`);
+    const args = logsArgs({ namespace, resource: kindName, container: containerName,
+        follow: displayMode === LogsDisplayMode.Follow, timestamps: showTimestamp, since, tail });
+    if (!args || (displayMode !== LogsDisplayMode.Follow && displayMode !== LogsDisplayMode.Show) ||
+        (destination !== LogsDestination.Terminal && destination !== LogsDestination.Webview)) {
+        await vscode.window.showErrorMessage('Invalid Kubernetes log options.');
+        return;
     }
-
-    if (containerName) {
-        args.push(`--container=${containerName.trim()}`);
-    }
-
-    if (displayMode === LogsDisplayMode.Follow) {
-        args.push('-f');
-    }
-
-    if (showTimestamp) {
-        args.push('--timestamps=true');
-    }
-
-    if (since !== '0') {
-        args.push(`--since=${since}`);
-    }
-
-    if (tail > -1) {
-        args.push(`--tail=${tail}`);
-    }
-
-    const cmd = args.join(' ');
 
     if (destination === LogsDestination.Terminal) {
-        if (displayMode === LogsDisplayMode.Follow) {
-            const title = `Logs: ${kindName}${containerName ? ('/' + containerName) : ''}`;
-            kubectl.invokeInNewTerminal(cmd, title, undefined, undefined, new vscode.ThemeIcon('output'));
-        } else {
-            kubectl.invokeInSharedTerminal(cmd);
-        }
+        panel.deleteAppendContentProcess();
+        await kubectl.invokeArgsInOutputTerminal(args, `Logs: ${kindName}${containerName ? ('/' + containerName) : ''}`);
         return;
     }
 
-    if (displayMode === LogsDisplayMode.Follow) {
-        const followProcess = await kubectl.observeCommand(args);
-        panel.setAppendContentProcess(followProcess);
-
-        // TODO: during rebase, we will need to also provide the followProcess.terminate method to the viewer
-        followProcess.lines.subscribe(
-            (line) => { if (line) { panel.addContent(`${line}\n`); } },
-            (err: ExecResult) => kubectl.reportResult(err, { whatFailed: `Follow logs failed` })
-        );
-
-        return;
-    }
-
+    let cancelled = false;
+    let stopChild: (() => void) | undefined;
+    const lease = { lines: new Subject<string>(), terminate: () => { cancelled = true; stopChild?.(); } };
+    panel.setAppendContentProcess(lease);
     try {
-        const result = await kubectl.invokeCommand(cmd);
+        if (displayMode === LogsDisplayMode.Follow) {
+            const result = await kubectl.spawnCommandArgs(args);
+            if (result.resultKind !== 'exec-child-process-started') {
+                if (!cancelled) { await kubectl.reportFailure(result, { whatFailed: 'Follow logs failed' }); }
+                return;
+            }
+            const child = result.childProcess;
+            let closed = false;
+            let timer: NodeJS.Timeout | undefined;
+            const decoder = new StringDecoder('utf8');
+            let pendingLine = '';
+            let stderr = '';
+            stopChild = () => {
+                if (closed || timer) { return; }
+                if (child.exitCode === null && child.signalCode === null) { child.kill(); }
+                timer = setTimeout(() => {
+                    if (!closed) {
+                        if (child.exitCode === null && child.signalCode === null) { child.kill('SIGKILL'); }
+                        child.stdout?.destroy(); child.stderr?.destroy();
+                    }
+                }, 2000);
+                timer.unref();
+            };
+            child.stdin?.end();
+            child.stdout?.on('data', (chunk: Buffer) => {
+                if (cancelled) { return; }
+                pendingLine += decoder.write(chunk);
+                const newline = pendingLine.lastIndexOf('\n');
+                if (newline >= 0) {
+                    panel.addContent(pendingLine.slice(0, newline + 1));
+                    pendingLine = pendingLine.slice(newline + 1);
+                }
+            });
+            child.stderr?.on('data', (chunk: Buffer) => { stderr = (stderr + chunk.toString('utf8')).slice(-8192); });
+            child.on('error', (error) => { if (!cancelled) { void vscode.window.showErrorMessage(`Follow logs failed: ${String(error)}`); } });
+            child.once('close', (code) => {
+                closed = true;
+                if (timer) { clearTimeout(timer); }
+                if (!cancelled) {
+                    const remaining = pendingLine + decoder.end();
+                    if (remaining) { panel.addContent(remaining); }
+                    if (code !== 0) { void vscode.window.showErrorMessage(`Follow logs failed: ${stderr || `kubectl exited with code ${code}`}`); }
+                }
+                lease.lines.complete();
+            });
+            if (cancelled) { stopChild(); }
+            return;
+        }
+        const result = await kubectl.invokeCommandArgs(args);
+        if (cancelled) { return; }
         if (ExecResult.failed(result)) {
-            kubectl.reportFailure(result, { whatFailed: 'Error reading logs' });
+            await kubectl.reportFailure(result, { whatFailed: 'Error reading logs' });
         } else {
-            panel.deleteAppendContentProcess();
             panel.addContent(result.stdout);
         }
     } catch (err) {
-        vscode.window.showErrorMessage(`Error reading logs ${err}`);
+        if (!cancelled) { await vscode.window.showErrorMessage(`Error reading logs ${err}`); }
     }
 }
 
