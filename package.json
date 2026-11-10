@@ -509,11 +509,6 @@
                     "group": "0@1"
                 },
                 {
-                    "command": "extension.vsKubernetesDashboard",
-                    "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.\\w*cluster($|\\s)/i",
-                    "group": "0@3"
-                },
-                {
                     "command": "extension.vsMinikubeStop",
                     "when": "view == extension.vsKubernetesExplorer && viewItem =~ /vsKubernetes\\.minikubeCluster/i",
                     "group": "2@1"
@@ -990,11 +985,6 @@
             {
                 "command": "extension.vsKubernetesUseNamespace",
                 "title": "Use Namespace",
-                "category": "Kubernetes"
-            },
-            {
-                "command": "extension.vsKubernetesDashboard",
-                "title": "Open Dashboard",
                 "category": "Kubernetes"
             },
             {

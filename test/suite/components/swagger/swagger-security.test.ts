@@ -1,7 +1,55 @@
 import * as assert from 'assert';
 import * as sinon from 'sinon';
 import { Kubectl } from '../../../../src/kubectl';
-import { getCrdSchemas } from '../../../../src/components/swagger/swagger';
+import { getClusterSwagger, getCrdSchemas } from '../../../../src/components/swagger/swagger';
+import * as proxyModule from '../../../../src/components/kubectl/proxy';
+import * as download from '../../../../src/components/download/download';
+import { fs } from '../../../../src/fs';
+
+suite('Swagger proxy security', () => {
+    let sandbox: sinon.SinonSandbox;
+    let dispose: sinon.SinonStub;
+
+    setup(() => {
+        sandbox = sinon.createSandbox();
+        dispose = sandbox.stub();
+        sandbox.stub(proxyModule, 'proxy').resolves({
+            succeeded: true,
+            result: { port: 4321, dispose },
+        });
+    });
+    teardown(() => sandbox.restore());
+
+    test('downloads from the IPv4 loopback proxy and disposes it', async () => {
+        sandbox.stub(download, 'toTempFile').resolves({ succeeded: true, result: '/tmp/swagger.json' });
+        sandbox.stub(fs, 'readTextFile').resolves('{"swagger":"2.0"}');
+        const unlink = sandbox.stub(fs, 'unlinkAsync').resolves();
+        const kubectl = {} as Kubectl;
+
+        assert.deepStrictEqual(await getClusterSwagger(kubectl), { succeeded: true, result: { swagger: '2.0' } });
+        sinon.assert.calledOnceWithExactly(proxyModule.proxy as sinon.SinonStub, kubectl, 'random');
+        sinon.assert.calledOnceWithExactly(download.toTempFile as sinon.SinonStub, 'http://127.0.0.1:4321/openapi/v2');
+        sinon.assert.calledOnceWithExactly(unlink, '/tmp/swagger.json');
+        sinon.assert.calledOnce(dispose);
+    });
+
+    test('disposes the proxy when the schema download fails', async () => {
+        sandbox.stub(download, 'toTempFile').resolves({ succeeded: false, error: ['download failed'] });
+
+        assert.deepStrictEqual(await getClusterSwagger({} as Kubectl), { succeeded: false, error: ['download failed'] });
+        sinon.assert.calledOnce(dispose);
+    });
+
+    test('removes the temporary file and disposes the proxy when parsing fails', async () => {
+        sandbox.stub(download, 'toTempFile').resolves({ succeeded: true, result: '/tmp/swagger.json' });
+        sandbox.stub(fs, 'readTextFile').resolves('invalid json');
+        const unlink = sandbox.stub(fs, 'unlinkAsync').resolves();
+
+        await assert.rejects(getClusterSwagger({} as Kubectl), SyntaxError);
+        sinon.assert.calledOnceWithExactly(unlink, '/tmp/swagger.json');
+        sinon.assert.calledOnce(dispose);
+    });
+});
 
 suite('Swagger CRD read security', () => {
     test('reads CRD schemas through one structured argv call', async () => {

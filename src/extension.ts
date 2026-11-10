@@ -42,7 +42,6 @@ import { HelmTemplatePreviewDocumentProvider, HelmInspectDocumentProvider, HelmD
 import { HelmTemplateCompletionProvider } from './helm.completionProvider';
 import { Reporter } from './telemetry';
 import * as telemetry from './telemetry-helper';
-import { dashboardKubernetes } from './components/kubectl/dashboard';
 import { initialiseProxyLifecycle } from './components/kubectl/proxy';
 import { portForwardKubernetes } from './components/kubectl/port-forward';
 import { logsKubernetes } from './components/kubectl/logs';
@@ -225,7 +224,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
         registerCommand('extension.vsKubernetesClusterInfo', clusterInfoKubernetes),
         registerCommand('extension.vsKubernetesDeleteContext', deleteContextKubernetes),
         registerCommand('extension.vsKubernetesUseNamespace', (explorerNode: ClusterExplorerNode) => { useNamespaceKubernetes(kubectl, explorerNode); } ),
-        registerCommand('extension.vsKubernetesDashboard', () => { dashboardKubernetes(kubectl); }),
         registerCommand('extension.vsKubernetesAddWatch', (explorerNode: ClusterExplorerNode) => { addWatch(treeProvider, explorerNode); }),
         registerCommand('extension.vsKubernetesDeleteWatch', (explorerNode: ClusterExplorerNode) => { deleteWatch(treeProvider, explorerNode); }),
         registerCommand('extension.vsMinikubeStop', () => minikube.stop()),

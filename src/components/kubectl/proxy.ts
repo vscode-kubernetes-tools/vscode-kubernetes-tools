@@ -6,18 +6,12 @@ import { StringDecoder } from 'string_decoder';
 
 export interface ProxySession {
     readonly port: number;
-    readonly completed: Promise<void>;
-    readonly isActive: boolean;
     dispose(): void;
 }
 
 const sessions = new Set<AbortController>();
-let lifecycleRevision = 0;
-
-export function proxyLifecycleRevision(): number { return lifecycleRevision; }
 
 export function disposeProxySessions(): void {
-    lifecycleRevision++;
     for (const session of sessions) { session.abort(); }
 }
 
@@ -44,8 +38,7 @@ export async function proxy(kubectl: Kubectl, port: number | 'random', signal?: 
         /(?:^|\n)Starting to serve on 127\.0\.0\.1:(\d+)\r?\n/, signal);
 }
 
-// Both proxy and the AKS dashboard port-forward use this argv-only readiness and
-// ownership boundary. A session owns pending startup as well as its direct child.
+// A session owns pending startup as well as its direct child.
 export async function startForwardingProcess(
     kubectl: Kubectl, args: readonly string[], readiness: RegExp, signal?: AbortSignal, startupTimeout = 30000
 ): Promise<Errorable<ProxySession>> {
@@ -54,12 +47,9 @@ export async function startForwardingProcess(
     if (signal?.aborted) { abort(); }
     signal?.addEventListener('abort', abort, { once: true });
     sessions.add(cancellation);
-    let resolveCompleted!: () => void;
-    const completed = new Promise<void>((resolve) => { resolveCompleted = resolve; });
     const release = () => {
         sessions.delete(cancellation);
         signal?.removeEventListener('abort', abort);
-        resolveCompleted();
     };
     if (cancellation.signal.aborted) {
         release();
@@ -117,8 +107,7 @@ export async function startForwardingProcess(
                     return;
                 }
                 finish({ succeeded: true, result: {
-                    port: actualPort, completed,
-                    get isActive() { return !closed && !cancellation.signal.aborted && child.exitCode === null && child.signalCode === null; },
+                    port: actualPort,
                     dispose: abort,
                 } });
             }
