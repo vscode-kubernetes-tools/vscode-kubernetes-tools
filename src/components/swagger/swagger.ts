@@ -9,6 +9,9 @@ import { ExecResult } from '../../binutilplusplus';
 
 export type Swagger = any;
 
+const MAX_SWAGGER_BYTES = 64 * 1024 * 1024;
+const SWAGGER_DOWNLOAD_TIMEOUT_MS = 60000;
+
 interface CustomResourceDefinition extends KubernetesResource {
     readonly spec: {
         readonly group: string;
@@ -34,10 +37,16 @@ export async function getClusterSwagger(kubectl: Kubectl): Promise<Errorable<Swa
     }
 
     const proxySession = proxyResult.result;
+    const cancellation = new AbortController();
+    const cancelDownload = () => cancellation.abort();
+    proxySession.signal.addEventListener('abort', cancelDownload, { once: true });
+    if (proxySession.signal.aborted) { cancelDownload(); }
+    const timeout = setTimeout(cancelDownload, SWAGGER_DOWNLOAD_TIMEOUT_MS);
+    timeout.unref();
 
     try {
         const uri = `http://127.0.0.1:${proxySession.port}/openapi/v2`;  // TODO: /swagger.json for server version <1.10
-        const swaggerDownload = await download.toTempFile(uri);
+        const swaggerDownload = await download.toTempFile(uri, { signal: cancellation.signal, maxBytes: MAX_SWAGGER_BYTES });
         if (failed(swaggerDownload)) {
             return swaggerDownload;
         }
@@ -52,6 +61,8 @@ export async function getClusterSwagger(kubectl: Kubectl): Promise<Errorable<Swa
             await fs.unlinkAsync(swaggerTempFile);
         }
     } finally {
+        clearTimeout(timeout);
+        proxySession.signal.removeEventListener('abort', cancelDownload);
         proxySession.dispose();
     }
 }

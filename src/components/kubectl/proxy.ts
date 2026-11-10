@@ -6,6 +6,7 @@ import { StringDecoder } from 'string_decoder';
 
 export interface ProxySession {
     readonly port: number;
+    readonly signal: AbortSignal;
     dispose(): void;
 }
 
@@ -34,7 +35,9 @@ export async function proxy(kubectl: Kubectl, port: number | 'random', signal?: 
     if (port !== 'random' && (!Number.isInteger(port) || port < 1 || port > 65535)) {
         return { succeeded: false, error: ['Invalid Kubernetes proxy port.'] };
     }
-    return startForwardingProcess(kubectl, ['proxy', '--address=127.0.0.1', `--port=${port === 'random' ? 0 : port}`],
+    return startForwardingProcess(kubectl, [
+        'proxy', '--address=127.0.0.1', `--port=${port === 'random' ? 0 : port}`, '--accept-paths=^/openapi/v2$',
+    ],
         /(?:^|\n)Starting to serve on 127\.0\.0\.1:(\d+)\r?\n/, signal);
 }
 
@@ -108,6 +111,7 @@ export async function startForwardingProcess(
                 }
                 finish({ succeeded: true, result: {
                     port: actualPort,
+                    signal: cancellation.signal,
                     dispose: abort,
                 } });
             }
@@ -120,6 +124,7 @@ export async function startForwardingProcess(
             if (killTimer) { clearTimeout(killTimer); }
             clearTimeout(startupTimer);
             cancellation.signal.removeEventListener('abort', stop);
+            if (!cancellation.signal.aborted) { cancellation.abort(); }
             finish({ succeeded: false, error: [stderr || 'Kubernetes forwarding exited before readiness.'] });
             release();
         };

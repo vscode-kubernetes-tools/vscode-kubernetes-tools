@@ -9,13 +9,15 @@ import { fs } from '../../../../src/fs';
 suite('Swagger proxy security', () => {
     let sandbox: sinon.SinonSandbox;
     let dispose: sinon.SinonStub;
+    let proxyCancellation: AbortController;
 
     setup(() => {
         sandbox = sinon.createSandbox();
-        dispose = sandbox.stub();
+        proxyCancellation = new AbortController();
+        dispose = sandbox.stub().callsFake(() => proxyCancellation.abort());
         sandbox.stub(proxyModule, 'proxy').resolves({
             succeeded: true,
-            result: { port: 4321, dispose },
+            result: { port: 4321, signal: proxyCancellation.signal, dispose },
         });
     });
     teardown(() => sandbox.restore());
@@ -28,8 +30,38 @@ suite('Swagger proxy security', () => {
 
         assert.deepStrictEqual(await getClusterSwagger(kubectl), { succeeded: true, result: { swagger: '2.0' } });
         sinon.assert.calledOnceWithExactly(proxyModule.proxy as sinon.SinonStub, kubectl, 'random');
-        sinon.assert.calledOnceWithExactly(download.toTempFile as sinon.SinonStub, 'http://127.0.0.1:4321/openapi/v2');
+        sinon.assert.calledOnce(download.toTempFile as sinon.SinonStub);
+        const [url, options] = (download.toTempFile as sinon.SinonStub).firstCall.args;
+        assert.strictEqual(url, 'http://127.0.0.1:4321/openapi/v2');
+        assert.strictEqual(options.maxBytes, 64 * 1024 * 1024);
+        assert.ok(options.signal instanceof AbortSignal);
         sinon.assert.calledOnceWithExactly(unlink, '/tmp/swagger.json');
+        sinon.assert.calledOnce(dispose);
+    });
+
+    test('cancels the schema download when the proxy stops', async () => {
+        sandbox.stub(download, 'toTempFile').callsFake(async (_url, options) =>
+            new Promise((resolve) => options?.signal?.addEventListener('abort', () =>
+                resolve({ succeeded: false, error: ['download cancelled'] }), { once: true })));
+
+        const pending = getClusterSwagger({} as Kubectl);
+        await new Promise((resolve) => setImmediate(resolve));
+        proxyCancellation.abort();
+
+        assert.deepStrictEqual(await pending, { succeeded: false, error: ['download cancelled'] });
+        sinon.assert.calledOnce(dispose);
+    });
+
+    test('times out a stalled schema download', async () => {
+        const clock = sandbox.useFakeTimers({ shouldClearNativeTimers: true });
+        sandbox.stub(download, 'toTempFile').callsFake(async (_url, options) =>
+            new Promise((resolve) => options?.signal?.addEventListener('abort', () =>
+                resolve({ succeeded: false, error: ['download cancelled'] }), { once: true })));
+
+        const pending = getClusterSwagger({} as Kubectl);
+        await clock.tickAsync(60000);
+
+        assert.deepStrictEqual(await pending, { succeeded: false, error: ['download cancelled'] });
         sinon.assert.calledOnce(dispose);
     });
 

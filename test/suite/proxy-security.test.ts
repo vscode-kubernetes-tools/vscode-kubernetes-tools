@@ -37,10 +37,14 @@ suite('Proxy process security', () => {
         const result = await pending;
         assert.ok(result.succeeded);
         assert.strictEqual(result.result.port, 1234);
-        sinon.assert.calledOnceWithExactly(f.spawn, ['proxy', '--address=127.0.0.1', '--port=0']);
+        assert.strictEqual(result.result.signal.aborted, false);
+        sinon.assert.calledOnceWithExactly(f.spawn, [
+            'proxy', '--address=127.0.0.1', '--port=0', '--accept-paths=^/openapi/v2$',
+        ]);
         const closed = new Promise<void>((resolve) => f.process.once('close', () => resolve()));
         result.result.dispose();
         await closed;
+        assert.strictEqual(result.result.signal.aborted, true);
         sinon.assert.calledOnce(f.process.kill);
     });
 
