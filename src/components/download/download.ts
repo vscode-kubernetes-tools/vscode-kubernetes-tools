@@ -1,7 +1,7 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import * as tmp from 'tmp';
-import fetch from 'node-fetch';
+import fetch, { RequestRedirect } from 'node-fetch';
 
 import { succeeded, Errorable } from '../../errorable';
 import { Dictionary } from '../../utils/dictionary';
@@ -14,6 +14,7 @@ type DownloadFunc =
 export interface DownloadOptions {
     readonly signal?: AbortSignal;
     readonly maxBytes?: number;
+    readonly redirect?: RequestRedirect;
 }
 
 let download: DownloadFunc | undefined;
@@ -29,7 +30,7 @@ enum DownloadOperationStatus {
 function ensureDownloadFunc() {
     if (!download) {
         download = (async (url: string, destinationDir?: string, options?: DownloadOptions & { filename: string }) => {
-            const res = await fetch(url, { signal: options?.signal, size: options?.maxBytes });
+            const res = await fetch(url, { signal: options?.signal, size: options?.maxBytes, redirect: options?.redirect });
             if (!res.ok) {
                 throw new Error(`Failed to download ${url}: ${res.status} ${res.statusText}`);
             }

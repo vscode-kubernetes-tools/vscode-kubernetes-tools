@@ -46,7 +46,11 @@ export async function getClusterSwagger(kubectl: Kubectl): Promise<Errorable<Swa
 
     try {
         const uri = `http://127.0.0.1:${proxySession.port}/openapi/v2`;  // TODO: /swagger.json for server version <1.10
-        const swaggerDownload = await download.toTempFile(uri, { signal: cancellation.signal, maxBytes: MAX_SWAGGER_BYTES });
+        const swaggerDownload = await download.toTempFile(uri, {
+            signal: cancellation.signal,
+            maxBytes: MAX_SWAGGER_BYTES,
+            redirect: 'error',
+        });
         if (failed(swaggerDownload)) {
             return swaggerDownload;
         }

@@ -1,5 +1,7 @@
 import * as assert from 'assert';
 import * as sinon from 'sinon';
+import { createServer, Server } from 'http';
+import { AddressInfo } from 'net';
 import { Kubectl } from '../../../../src/kubectl';
 import { getClusterSwagger, getCrdSchemas } from '../../../../src/components/swagger/swagger';
 import * as proxyModule from '../../../../src/components/kubectl/proxy';
@@ -34,6 +36,7 @@ suite('Swagger proxy security', () => {
         const [url, options] = (download.toTempFile as sinon.SinonStub).firstCall.args;
         assert.strictEqual(url, 'http://127.0.0.1:4321/openapi/v2');
         assert.strictEqual(options.maxBytes, 64 * 1024 * 1024);
+        assert.strictEqual(options.redirect, 'error');
         assert.ok(options.signal instanceof AbortSignal);
         sinon.assert.calledOnceWithExactly(unlink, '/tmp/swagger.json');
         sinon.assert.calledOnce(dispose);
@@ -81,6 +84,44 @@ suite('Swagger proxy security', () => {
         sinon.assert.calledOnceWithExactly(unlink, '/tmp/swagger.json');
         sinon.assert.calledOnce(dispose);
     });
+});
+
+suite('Swagger download boundary', () => {
+    const servers: Server[] = [];
+    teardown(async () => Promise.all(servers.splice(0).map((server) => new Promise<void>((resolve, reject) =>
+        server.close((error) => error ? reject(error) : resolve())))));
+
+    test('rejects redirects before contacting their target', async () => {
+        let targetRequests = 0;
+        const target = await listen(createServer((_request, response) => {
+            targetRequests++;
+            response.end('{}');
+        }));
+        const redirect = await listen(createServer((_request, response) => {
+            response.writeHead(302, { location: `http://127.0.0.1:${port(target)}/metadata` });
+            response.end();
+        }));
+
+        const result = await download.toTempFile(`http://127.0.0.1:${port(redirect)}/openapi/v2`, { redirect: 'error' });
+
+        assert.strictEqual(result.succeeded, false);
+        assert.strictEqual(targetRequests, 0);
+    });
+
+    async function listen(server: Server): Promise<Server> {
+        servers.push(server);
+        return new Promise((resolve, reject) => {
+            server.once('error', reject);
+            server.listen(0, '127.0.0.1', () => {
+                server.removeListener('error', reject);
+                resolve(server);
+            });
+        });
+    }
+
+    function port(server: Server): number {
+        return (server.address() as AddressInfo).port;
+    }
 });
 
 suite('Swagger CRD read security', () => {
