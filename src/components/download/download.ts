@@ -1,15 +1,21 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import * as tmp from 'tmp';
-import fetch from 'node-fetch';
+import fetch, { RequestRedirect } from 'node-fetch';
 
 import { succeeded, Errorable } from '../../errorable';
 import { Dictionary } from '../../utils/dictionary';
 import { sleep } from '../../sleep';
 
 type DownloadFunc =
-    (url: string, destinationDir?: string, options?: { filename: string })
-         => Promise<Buffer>;
+    (url: string, destinationDir?: string, options?: DownloadOptions & { filename: string })
+          => Promise<Buffer>;
+
+export interface DownloadOptions {
+    readonly signal?: AbortSignal;
+    readonly maxBytes?: number;
+    readonly redirect?: RequestRedirect;
+}
 
 let download: DownloadFunc | undefined;
 
@@ -23,8 +29,8 @@ enum DownloadOperationStatus {
 
 function ensureDownloadFunc() {
     if (!download) {
-        download = (async (url: string, destinationDir?: string, options?: any) => {
-            const res = await fetch(url);
+        download = (async (url: string, destinationDir?: string, options?: DownloadOptions & { filename: string }) => {
+            const res = await fetch(url, { signal: options?.signal, size: options?.maxBytes, redirect: options?.redirect });
             if (!res.ok) {
                 throw new Error(`Failed to download ${url}: ${res.status} ${res.statusText}`);
             }
@@ -39,19 +45,20 @@ function ensureDownloadFunc() {
     }
 }
 
-export async function toTempFile(sourceUrl: string): Promise<Errorable<string>> {
-    const tempFileObj = tmp.fileSync({ prefix: "vsk-autoinstall-" });
-    const downloadResult = await to(sourceUrl, tempFileObj.name);
+export async function toTempFile(sourceUrl: string, options?: DownloadOptions): Promise<Errorable<string>> {
+    const tempFileObj = tmp.fileSync({ prefix: "vsk-autoinstall-", discardDescriptor: true });
+    const downloadResult = await to(sourceUrl, tempFileObj.name, options);
     if (succeeded(downloadResult)) {
         return { succeeded: true, result: tempFileObj.name };
     }
+    tempFileObj.removeCallback();
     return { succeeded: false, error: downloadResult.error };
 }
 
-export async function to(sourceUrl: string, destinationFile: string): Promise<Errorable<null>> {
+export async function to(sourceUrl: string, destinationFile: string, options?: DownloadOptions): Promise<Errorable<null>> {
     ensureDownloadFunc();
     try {
-        await download!(sourceUrl, path.dirname(destinationFile), { filename: path.basename(destinationFile) });
+        await download!(sourceUrl, path.dirname(destinationFile), { ...options, filename: path.basename(destinationFile) });
         return { succeeded: true, result: null };
     } catch (e: any) {
         return { succeeded: false, error: [e.message] };

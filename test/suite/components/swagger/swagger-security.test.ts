@@ -1,7 +1,128 @@
 import * as assert from 'assert';
 import * as sinon from 'sinon';
+import { createServer, Server } from 'http';
+import { AddressInfo } from 'net';
 import { Kubectl } from '../../../../src/kubectl';
-import { getCrdSchemas } from '../../../../src/components/swagger/swagger';
+import { getClusterSwagger, getCrdSchemas } from '../../../../src/components/swagger/swagger';
+import * as proxyModule from '../../../../src/components/kubectl/proxy';
+import * as download from '../../../../src/components/download/download';
+import { fs } from '../../../../src/fs';
+
+suite('Swagger proxy security', () => {
+    let sandbox: sinon.SinonSandbox;
+    let dispose: sinon.SinonStub;
+    let proxyCancellation: AbortController;
+
+    setup(() => {
+        sandbox = sinon.createSandbox();
+        proxyCancellation = new AbortController();
+        dispose = sandbox.stub().callsFake(() => proxyCancellation.abort());
+        sandbox.stub(proxyModule, 'proxy').resolves({
+            succeeded: true,
+            result: { port: 4321, signal: proxyCancellation.signal, dispose },
+        });
+    });
+    teardown(() => sandbox.restore());
+
+    test('downloads from the IPv4 loopback proxy and disposes it', async () => {
+        sandbox.stub(download, 'toTempFile').resolves({ succeeded: true, result: '/tmp/swagger.json' });
+        sandbox.stub(fs, 'readTextFile').resolves('{"swagger":"2.0"}');
+        const unlink = sandbox.stub(fs, 'unlinkAsync').resolves();
+        const kubectl = {} as Kubectl;
+
+        assert.deepStrictEqual(await getClusterSwagger(kubectl), { succeeded: true, result: { swagger: '2.0' } });
+        sinon.assert.calledOnceWithExactly(proxyModule.proxy as sinon.SinonStub, kubectl, 'random');
+        sinon.assert.calledOnce(download.toTempFile as sinon.SinonStub);
+        const [url, options] = (download.toTempFile as sinon.SinonStub).firstCall.args;
+        assert.strictEqual(url, 'http://127.0.0.1:4321/openapi/v2');
+        assert.strictEqual(options.maxBytes, 64 * 1024 * 1024);
+        assert.strictEqual(options.redirect, 'error');
+        assert.ok(options.signal instanceof AbortSignal);
+        sinon.assert.calledOnceWithExactly(unlink, '/tmp/swagger.json');
+        sinon.assert.calledOnce(dispose);
+    });
+
+    test('cancels the schema download when the proxy stops', async () => {
+        sandbox.stub(download, 'toTempFile').callsFake(async (_url, options) =>
+            new Promise((resolve) => options?.signal?.addEventListener('abort', () =>
+                resolve({ succeeded: false, error: ['download cancelled'] }), { once: true })));
+
+        const pending = getClusterSwagger({} as Kubectl);
+        await new Promise((resolve) => setImmediate(resolve));
+        proxyCancellation.abort();
+
+        assert.deepStrictEqual(await pending, { succeeded: false, error: ['download cancelled'] });
+        sinon.assert.calledOnce(dispose);
+    });
+
+    test('times out a stalled schema download', async () => {
+        const clock = sandbox.useFakeTimers({ shouldClearNativeTimers: true });
+        sandbox.stub(download, 'toTempFile').callsFake(async (_url, options) =>
+            new Promise((resolve) => options?.signal?.addEventListener('abort', () =>
+                resolve({ succeeded: false, error: ['download cancelled'] }), { once: true })));
+
+        const pending = getClusterSwagger({} as Kubectl);
+        await clock.tickAsync(60000);
+
+        assert.deepStrictEqual(await pending, { succeeded: false, error: ['download cancelled'] });
+        sinon.assert.calledOnce(dispose);
+    });
+
+    test('disposes the proxy when the schema download fails', async () => {
+        sandbox.stub(download, 'toTempFile').resolves({ succeeded: false, error: ['download failed'] });
+
+        assert.deepStrictEqual(await getClusterSwagger({} as Kubectl), { succeeded: false, error: ['download failed'] });
+        sinon.assert.calledOnce(dispose);
+    });
+
+    test('removes the temporary file and disposes the proxy when parsing fails', async () => {
+        sandbox.stub(download, 'toTempFile').resolves({ succeeded: true, result: '/tmp/swagger.json' });
+        sandbox.stub(fs, 'readTextFile').resolves('invalid json');
+        const unlink = sandbox.stub(fs, 'unlinkAsync').resolves();
+
+        await assert.rejects(getClusterSwagger({} as Kubectl), SyntaxError);
+        sinon.assert.calledOnceWithExactly(unlink, '/tmp/swagger.json');
+        sinon.assert.calledOnce(dispose);
+    });
+});
+
+suite('Swagger download boundary', () => {
+    const servers: Server[] = [];
+    teardown(async () => Promise.all(servers.splice(0).map((server) => new Promise<void>((resolve, reject) =>
+        server.close((error) => error ? reject(error) : resolve())))));
+
+    test('rejects redirects before contacting their target', async () => {
+        let targetRequests = 0;
+        const target = await listen(createServer((_request, response) => {
+            targetRequests++;
+            response.end('{}');
+        }));
+        const redirect = await listen(createServer((_request, response) => {
+            response.writeHead(302, { location: `http://127.0.0.1:${port(target)}/metadata` });
+            response.end();
+        }));
+
+        const result = await download.toTempFile(`http://127.0.0.1:${port(redirect)}/openapi/v2`, { redirect: 'error' });
+
+        assert.strictEqual(result.succeeded, false);
+        assert.strictEqual(targetRequests, 0);
+    });
+
+    async function listen(server: Server): Promise<Server> {
+        servers.push(server);
+        return new Promise((resolve, reject) => {
+            server.once('error', reject);
+            server.listen(0, '127.0.0.1', () => {
+                server.removeListener('error', reject);
+                resolve(server);
+            });
+        });
+    }
+
+    function port(server: Server): number {
+        return (server.address() as AddressInfo).port;
+    }
+});
 
 suite('Swagger CRD read security', () => {
     test('reads CRD schemas through one structured argv call', async () => {
