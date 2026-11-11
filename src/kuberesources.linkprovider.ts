@@ -7,13 +7,18 @@ import * as kuberesources from './kuberesources';
 import { kubefsUri } from './kuberesources.virtualfs';
 import { helmfsUri } from './helm.exec';
 import * as yl from './yaml-support/yaml-locator';
+import { isSafeNamespace } from './components/kubectl/resource-commands';
 
 export class KubernetesResourceLinkProvider implements vscode.DocumentLinkProvider {
     provideDocumentLinks(document: vscode.TextDocument, _token: vscode.CancellationToken): vscode.ProviderResult<vscode.DocumentLink[]> {
+        const namespace = querystring.parse(document.uri.query, '&', '=', { maxKeys: 0 }).ns;
+        if (namespace !== undefined && (typeof namespace !== 'string' || !isSafeNamespace(namespace))) {
+            return [];
+        }
         const sourceKind = k8sKind(document);
         const yaml = yl.yamlLocator.getYamlDocuments(document);
         const leaves: yl.YamlNode[] = getLeafNodes(yaml);
-        const links = leaves.choose((l) => getLink(document, sourceKind, l));
+        const links = leaves.choose((l) => getLink(document, sourceKind, l, namespace));
         return links;
     }
 }
@@ -26,9 +31,9 @@ function getLeafNodes(yaml: yl.YamlDocument[]): yl.YamlNode[] {
     return leafNodes;
 }
 
-function getLink(document: vscode.TextDocument, sourceKind: string, node: yl.YamlNode): vscode.DocumentLink | undefined {
+function getLink(document: vscode.TextDocument, sourceKind: string, node: yl.YamlNode, namespace: string | undefined): vscode.DocumentLink | undefined {
     if (yl.isMappingItem(node)) {
-        return getLinkFromPair(document, sourceKind, node);
+        return getLinkFromPair(document, sourceKind, node, namespace);
     }
     return undefined;
 }
@@ -102,15 +107,15 @@ function sibling(node: yl.YamlMappingItem, name: string): string | undefined {
                          [0];
 }
 
-function getLinkFromPair(document: vscode.TextDocument, sourceKind: string, node: yl.YamlMappingItem): vscode.DocumentLink | undefined {
-    const uri = getLinkUri(sourceKind, node);
+function getLinkFromPair(document: vscode.TextDocument, sourceKind: string, node: yl.YamlMappingItem, namespace: string | undefined): vscode.DocumentLink | undefined {
+    const uri = getLinkUri(sourceKind, node, namespace);
     if (!uri) {
         return undefined;
     }
     return new vscode.DocumentLink(range(document, node), uri);
 }
 
-function getLinkUri(sourceKind: string, node: yl.YamlMappingItem): vscode.Uri | undefined {
+function getLinkUri(sourceKind: string, node: yl.YamlMappingItem, namespace: string | undefined): vscode.Uri | undefined {
     // Things that apply to all source resource types
     if (key(node) === 'release' && parentKey(node) === 'labels') {
         return helmfsUri(node.value.raw, undefined, helmReleaseNamespace(node));
@@ -128,7 +133,7 @@ function getLinkUri(sourceKind: string, node: yl.YamlMappingItem): vscode.Uri | 
     // Source=type-specific navigation
     switch (sourceKind) {
         case kuberesources.allKinds.deployment.abbreviation:
-            return getLinkUriFromDeployment(node);
+            return getLinkUriFromDeployment(node, namespace);
         case kuberesources.allKinds.persistentVolume.abbreviation:
             return getLinkUriFromPV(node);
         case kuberesources.allKinds.persistentVolumeClaim.abbreviation:
@@ -164,13 +169,13 @@ function yamlString(node: yl.YamlNode): string | undefined {
     }
 }
 
-function getLinkUriFromDeployment(node: yl.YamlMappingItem): vscode.Uri | undefined {
+function getLinkUriFromDeployment(node: yl.YamlMappingItem, namespace: string | undefined): vscode.Uri | undefined {
     if (key(node) === 'claimName' && parentKey(node) === 'persistentVolumeClaim') {
-        return kubefsUri(null, `pvc/${node.value.raw}`, 'yaml');
+        return kubefsUri(namespace, `pvc/${node.value.raw}`, 'yaml');
     } else if (key(node) === 'name' && parentKey(node) === 'configMap') {
-        return kubefsUri(null, `cm/${node.value.raw}`, 'yaml');
+        return kubefsUri(namespace, `cm/${node.value.raw}`, 'yaml');
     } else if (key(node) === 'name' && parentKey(node) === 'secretKeyRef') {
-        return kubefsUri(null, `secrets/${node.value.raw}`, 'yaml');
+        return kubefsUri(namespace, `secrets/${node.value.raw}`, 'yaml');
     } else {
         return undefined;
     }
