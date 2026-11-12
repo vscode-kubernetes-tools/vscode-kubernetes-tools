@@ -43,9 +43,10 @@ const patchesByKustomization = new Map<string, readonly string[]>();
 
 // Keys with a single-file read in flight, against the generation of the most recent such
 // read. A first read publishes nothing until it lands, so patchesByKustomization does not
-// know about it yet and a reconciling scan would leave it alone -- and then the read would
-// publish paths the scan had just established were gone. Tracked separately so the scan
-// can invalidate those reads too.
+// know about it yet; without this a reconciling scan would have no sign of the key at all
+// and would leave it alone, and the read would then publish paths for a kustomization the
+// scan had just established was gone. Tracked separately so that such a key is in the
+// scan's scope and gets an answer like any other.
 //
 // The generation is what makes this safe when reads for one key overlap: a bare set has a
 // single entry for the key, so the first read to finish would clear the tracking the ones
@@ -157,32 +158,38 @@ export async function initialise(context: vscode.ExtensionContext): Promise<void
 async function rescan(): Promise<void> {
     const generation = ++rescanGeneration;
 
-    // What this scan is answerable for. A kustomization that first appears while we are
-    // scanning belongs to the watcher, not to us: it is absent here, so the commit below
-    // will not prune it on the grounds that findFiles did not see it.
-    const scopeAtStart = new Set(patchesByKustomization.keys());
-
-    const kustomizations = await vscode.workspace.findFiles(KUSTOMIZATION_GLOB);
+    const kustomizations = await forTesting.findFiles(KUSTOMIZATION_GLOB);
     if (generation !== rescanGeneration) {
         return;  // another rescan started while we were walking the workspace
     }
 
-    const found = kustomizations.map((uri) => normalisePath(uri.fsPath));
-    const foundKeys = new Set(found);
-    const gone = Array.from(scopeAtStart).filter((key) => !foundKeys.has(key));
+    // What this scan will decide. The walk's results are a snapshot, and by the time it
+    // returns that snapshot has already aged: an entry may have been published while we
+    // were walking, and a read may be in flight for a file the walk never reached. Both
+    // are keys in play that the walk does not account for, and the walk cannot settle
+    // either -- whether the file is there now is a question to ask again, not one its
+    // results answer. So they join the scan's scope and are read like any other key.
+    // Reading is the whole answer: paths mean it is there, nothing means it is not, and
+    // the commit below does not care which of the two put a key in scope.
+    const scope = new Map<string, vscode.Uri>();
+    for (const uri of kustomizations) {
+        scope.set(normalisePath(uri.fsPath), uri);
+    }
+    for (const key of [...patchesByKustomization.keys(), ...pendingReads.keys()]) {
+        if (!scope.has(key)) {
+            // The key is a normalised fsPath, which on Windows is lower-cased -- it names
+            // the same file there, where paths are not case-sensitive.
+            scope.set(key, vscode.Uri.file(key));
+        }
+    }
 
-    // Claim every key this scan intends to decide, before any reading starts, so that the
-    // later read always wins: a single-file read beginning after this point takes a newer
-    // token and the commit below stands aside for it, while one that began earlier finds
-    // its token superseded and discards its own result. Pruning claims a token too --
-    // without that, a read still in flight could write back an entry we are about to
-    // remove.
-    // Pending reads are read here rather than alongside scopeAtStart: one that began while
-    // findFiles was walking is exactly as unknown to this scan as one that began before it,
-    // and claiming at this point catches both. They are only invalidated, never written or
-    // deleted -- the scan has no answer for a key it did not find.
+    // Claim every key this scan will decide, before any reading starts, so that the later
+    // read always wins: a single-file read beginning after this point takes a newer token
+    // and the commit below stands aside for it, while one that began earlier finds its
+    // token superseded and discards its own result. The claim is taken in the same turn
+    // as the scope above, so nothing can enter between the two.
     const claimed = new Map<string, number>();
-    for (const key of [...found, ...gone, ...pendingReads.keys()]) {
+    for (const key of scope.keys()) {
         const token = nextGeneration(key);
         generations.set(key, token);
         claimed.set(key, token);
@@ -192,10 +199,10 @@ async function rescan(): Promise<void> {
     // scan that turns out to be stale writes nothing at all, and the index is never left
     // empty or half-populated while we work.
     const scanned = new Map<string, readonly string[]>();
-    await Promise.all(kustomizations.map(async (uri) => {
+    await Promise.all(Array.from(scope, async ([key, uri]) => {
         const paths = await readPatchPaths(uri);
         if (paths) {
-            scanned.set(normalisePath(uri.fsPath), paths);
+            scanned.set(key, paths);
         }
     }));
 
@@ -204,12 +211,9 @@ async function rescan(): Promise<void> {
     }
 
     // Commit synchronously, skipping anything a newer read has claimed in the meantime.
-    for (const key of gone) {
-        if (generations.get(key) === claimed.get(key)) {
-            patchesByKustomization.delete(key);
-        }
-    }
-    for (const key of found) {
+    // A key that appeared after the claim above is not in scope at all, so the watcher's
+    // read of it stands: it is newer than anything this scan looked at.
+    for (const key of scope.keys()) {
         if (generations.get(key) !== claimed.get(key)) {
             continue;
         }
@@ -256,12 +260,14 @@ async function indexKustomization(uri: vscode.Uri): Promise<void> {
     }
 }
 
-// A seam, and the only one in this file. The interleaving that needs covering -- a
-// first-time read still in flight when a reconciling scan runs -- is owned by watcher
-// timing, so a test cannot reach it without holding a read open itself. Production always
-// uses the defaults below.
+// The seams, and the only ones in this file. The interleavings that need covering are
+// owned by watcher and search timing -- a read in flight across a reconciling scan, and a
+// watcher event landing while the workspace walk is still going -- so a test cannot reach
+// them without holding a read or the walk open itself. Production always uses the
+// defaults below.
 export const forTesting = {
     readFile: (uri: vscode.Uri): Thenable<Uint8Array> => vscode.workspace.fs.readFile(uri),
+    findFiles: (glob: string): Thenable<vscode.Uri[]> => vscode.workspace.findFiles(glob),
     reindexOne: (uri: vscode.Uri): Promise<void> => reindexOne(uri),
     rescan: (): Promise<void> => rescan(),
 };
