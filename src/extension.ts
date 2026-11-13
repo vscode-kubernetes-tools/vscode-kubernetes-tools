@@ -27,7 +27,7 @@ import * as kuberesources from './kuberesources';
 import { useNamespaceKubernetes } from './components/kubectl/namespace';
 import { EventDisplayMode, getEvents } from './components/kubectl/events';
 import { kubeChannel } from './kubeChannel';
-import { create as kubectlCreate } from './kubectl';
+import { create as kubectlCreate, Kubectl } from './kubectl';
 import * as kubectlUtils from './kubectlUtils';
 import * as explorer from './components/clusterexplorer/explorer';
 import * as helmRepoExplorer from './helm.repoExplorer';
@@ -45,7 +45,7 @@ import * as telemetry from './telemetry-helper';
 import { initialiseProxyLifecycle } from './components/kubectl/proxy';
 import { portForwardKubernetes } from './components/kubectl/port-forward';
 import { logsKubernetes } from './components/kubectl/logs';
-import { deleteResourceWithConfirmation, getResourceArgs, getStructuredResourceArgs, getStructuredResourceKindArgs, isSafeNamespace, listNamespaceResources, listResourceNames, normaliseResourceReadTarget, normaliseResourceTarget } from './components/kubectl/resource-commands';
+import { deleteResourceWithConfirmation, getResourceArgs, getStructuredResourceArgs, getStructuredResourceKindArgs, isSafeNamespace, isSafeResourceTarget, listNamespaceResources, listResourceNames, normaliseResourceReadTarget, normaliseResourceTarget } from './components/kubectl/resource-commands';
 import { listPods, queryContainers } from './components/kubectl/pod-commands';
 import { containerExec, ContainerExecDependencies } from './components/kubectl/container-exec';
 import { waitForPortForward } from './debug/portForward';
@@ -1715,7 +1715,7 @@ enum KubernetesDeleteMode {
     Now
 }
 
-enum DiffResultKind {
+export enum DiffResultKind {
     Succeeded,
     NoEditor,
     NoKindName,
@@ -1724,7 +1724,7 @@ enum DiffResultKind {
     NothingToDiff,
 }
 
-interface DiffResult {
+export interface DiffResult {
     readonly result: DiffResultKind;
     readonly resourceName?: string;
     readonly stderr?: string;
@@ -1814,10 +1814,11 @@ function diffKubernetes(): void {
     });
 }
 
-function diffKubernetesCore(callback: (r: DiffResult) => void): void {
+export function diffKubernetesCore(callback: (r: DiffResult) => void, kubectlClient: Kubectl = kubectl): void {
     getTextForActiveWindow((data, file) => {
         console.log(data, file);
         let kindName: string | null = null;
+        let namespace: string | undefined;
         let kindObject: Errorable<ResourceKindName> | undefined = undefined;
         let fileUri: vscode.Uri | null = null;
 
@@ -1831,6 +1832,7 @@ function diffKubernetesCore(callback: (r: DiffResult) => void): void {
                 return;
             }
             kindName = `${kindObject.result.kind}/${kindObject.result.resourceName}`;
+            namespace = kindObject.result.namespace;
             const filePath = path.join(os.tmpdir(), `local.${fileFormat}`);
             fs.writeFile(filePath, data, handleError);
             fileUri = shell.fileUri(filePath);
@@ -1845,6 +1847,7 @@ function diffKubernetesCore(callback: (r: DiffResult) => void): void {
                 return;
             }
             kindName = `${kindObject.result.kind}/${kindObject.result.resourceName}`;
+            namespace = kindObject.result.namespace;
             fileUri = file;
             if (vscode.window.activeTextEditor && vscode.window.activeTextEditor.document) {
                 const langId = vscode.window.activeTextEditor.document.languageId.toLowerCase();
@@ -1862,7 +1865,12 @@ function diffKubernetesCore(callback: (r: DiffResult) => void): void {
             return;
         }
 
-        kubectl.invokeCommandThen(` get -o ${fileFormat} ${kindName}`, (er) => {
+        if (!isSafeResourceTarget(kindName) || (namespace !== undefined && namespace !== '' && !isSafeNamespace(namespace))) {
+            callback({ result: DiffResultKind.NoKindName, reason: 'the open document contains an invalid resource kind, name or namespace' });
+            return;
+        }
+
+        kubectlClient.invokeCommandArgs(['get', '-o', fileFormat, kindName, ...(namespace ? ['--namespace', namespace] : [])]).then((er) => {
             if (er.resultKind === 'exec-errored' && er.code === 1 && er.stderr.indexOf('NotFound') >= 0) {
                 callback({ result: DiffResultKind.NoClusterResource, resourceName: kindName || undefined });  // TODO: rationalise our nulls and undefineds
                 return;
