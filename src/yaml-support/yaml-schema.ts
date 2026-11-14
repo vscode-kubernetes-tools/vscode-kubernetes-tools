@@ -8,6 +8,7 @@ import * as util from "./yaml-util";
 import { Kubectl } from '../kubectl';
 import { ActiveValueTracker } from '../components/contextmanager/active-value-tracker';
 import { BackgroundContextCache } from '../components/contextmanager/background-context-cache';
+import { clusterAccess } from '../components/clusteraccess/cluster-access';
 import { KubernetesClusterSchemaHolder } from './schema-holder';
 import { shouldSkip } from './consideration-filter';
 
@@ -25,8 +26,11 @@ let schemas: BackgroundContextCache<KubernetesClusterSchemaHolder> | null = null
 export async function registerYamlSchemaSupport(activeContextTracker: ActiveValueTracker<string | null>, kubectl: Kubectl): Promise<void> {
     schemas = new BackgroundContextCache(
         activeContextTracker,
-        () => KubernetesClusterSchemaHolder.fromActiveCluster(kubectl),
-        KubernetesClusterSchemaHolder.fallback());
+        (isAllowed) => KubernetesClusterSchemaHolder.fromActiveCluster(kubectl, isAllowed),
+        KubernetesClusterSchemaHolder.fallback(),
+        () => clusterAccess.captureAccess());
+    // Fetches the cluster schema once background access is allowed.
+    clusterAccess.onDidAllow(updateYAMLSchema);
 
     const yamlPlugin: any = await activateYamlExtension();
     if (!yamlPlugin || !yamlPlugin.registerContributor) {

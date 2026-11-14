@@ -43,7 +43,9 @@ interface Kubeconfig {
     }[] | undefined;
     readonly users: {
         readonly name: string;
-        readonly user: {};
+        readonly user: {
+            readonly exec?: object;
+        };
     }[] | undefined;
 }
 
@@ -92,6 +94,17 @@ async function getKubeconfig(kubectl: Kubectl, options: ConfigReadOptions): Prom
         return null;
     }
     return config.result;
+}
+
+// Returns true if the current context's user has an exec block, or undefined if the kubeconfig can't be read.
+export async function currentContextUsesCredentialPlugin(kubectl: Kubectl): Promise<boolean | undefined> {
+    const kubeconfig = await getKubeconfig(kubectl, { silent: true });
+    if (!kubeconfig) {
+        return undefined;
+    }
+    const context = (kubeconfig.contexts || []).find((c) => c.name === kubeconfig['current-context']);
+    const user = (kubeconfig.users || []).find((u) => u.name === context?.context.user);
+    return !!user?.user?.exec;
 }
 
 export async function getCurrentClusterConfig(kubectl: Kubectl, options: ConfigReadOptions): Promise<ClusterConfig | undefined> {

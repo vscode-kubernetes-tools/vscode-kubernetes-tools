@@ -1,6 +1,7 @@
 import { reporter } from './telemetry';
 import { Kubectl } from './kubectl';
 import { ExecResult } from './binutilplusplus';
+import { clusterAccess } from './components/clusteraccess/cluster-access';
 
 export function telemetrise(command: string, kubectl: Kubectl, callback: (...args: any[]) => any): (...args: any[]) => any {
     return (a) => {
@@ -49,6 +50,9 @@ export function invalidateClusterType(newContext: string | undefined, kubectl?: 
     cachedClusterType = ClusterType.Indeterminate;
     if (kubectl) {
         setImmediate(() => {
+            if (!clusterAccess.isAllowed()) {
+                return;
+            }
             try {
                 loadCachedClusterType(kubectl);
             } catch {
@@ -59,6 +63,10 @@ export function invalidateClusterType(newContext: string | undefined, kubectl?: 
 }
 
 async function clusterType(kubectl: Kubectl): Promise<[string, string]> {
+    // Detecting the cluster type requires a cluster call, so it's reported as indeterminate until background access is allowed.
+    if (!clusterAccess.isAllowed()) {
+        return [telemetryNameOf(ClusterType.Indeterminate), telemetryReasonOf(NonDeterminationReason.None)];
+    }
     if (cachedClusterType === ClusterType.Indeterminate || cachedClusterType === ClusterType.Unassigned) {
         await loadCachedClusterType(kubectl);
     }
@@ -121,14 +129,19 @@ async function loadCachedClusterType(kubectl: Kubectl) {
         [cachedClusterType, cachedReason] = knownClusters[latestContextName];
     }
     else {
-        [cachedClusterType, cachedReason] = await inferCurrentClusterType(kubectl);
+        const isAllowed = clusterAccess.captureAccess();
+        const result = await inferCurrentClusterType(kubectl, isAllowed);
+        if (!result || !isAllowed()) {
+            return;
+        }
+        [cachedClusterType, cachedReason] = result;
         if (latestContextName) {
             knownClusters[latestContextName] = [cachedClusterType, cachedReason];
         }
     }
 }
 
-async function inferCurrentClusterType(kubectl: Kubectl): Promise<[ClusterType, NonDeterminationReason]> {
+async function inferCurrentClusterType(kubectl: Kubectl, isAllowed: () => boolean): Promise<[ClusterType, NonDeterminationReason] | undefined> {
     if (!latestContextName) {
         const ctxer = await kubectl.invokeCommandArgs(['config', 'current-context']);
         if (ctxer.resultKind === 'exec-succeeded') {
@@ -142,6 +155,9 @@ async function inferCurrentClusterType(kubectl: Kubectl): Promise<[ClusterType, 
         return [ClusterType.Minikube, NonDeterminationReason.None];
     }
 
+    if (!isAllowed()) {
+        return;
+    }
     const cier = await kubectl.invokeCommandArgs(['cluster-info']);
     if (cier.resultKind !== 'exec-succeeded') {
         return [inferClusterTypeFromError(cier), diagnoseKubectlClusterInfoError(cier)];
@@ -165,7 +181,7 @@ async function inferCurrentClusterType(kubectl: Kubectl): Promise<[ClusterType, 
         return [ClusterType.Azure, NonDeterminationReason.None];
     }
 
-    if (latestContextName) {
+    if (latestContextName && isAllowed()) {
         const gcer = await kubectl.invokeCommandArgs(['config', 'get-contexts', '--', latestContextName]);
         if (gcer.resultKind === 'exec-succeeded') {
             if (gcer.stdout.indexOf('minikube') >= 0) {
