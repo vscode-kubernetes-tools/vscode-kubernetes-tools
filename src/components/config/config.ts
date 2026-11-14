@@ -357,6 +357,23 @@ export function setCRDCodeCompletion(enable: boolean): void {
     setConfigValue('vs-kubernetes.crd-code-completion', value);
 }
 
+export const CLUSTER_CONNECTION_SECTION = 'vscode-kubernetes';
+export const CLUSTER_CONNECTION_KEY = 'cluster-connection';
+export const CLUSTER_CONNECTION_SETTING = `${CLUSTER_CONNECTION_SECTION}.${CLUSTER_CONNECTION_KEY}`;
+
+export function isOnDemandClusterConnection(): boolean {
+    return vscode.workspace.getConfiguration(CLUSTER_CONNECTION_SECTION).get(CLUSTER_CONNECTION_KEY) === 'on-demand';
+}
+
+export function isClusterConnectionConfigured(): boolean {
+    const setting = vscode.workspace.getConfiguration(CLUSTER_CONNECTION_SECTION).inspect(CLUSTER_CONNECTION_KEY);
+    return setting?.globalValue !== undefined || setting?.workspaceValue !== undefined || setting?.workspaceFolderValue !== undefined;
+}
+
+export async function setOnDemandClusterConnection(): Promise<void> {
+    await vscode.workspace.getConfiguration(CLUSTER_CONNECTION_SECTION).update(CLUSTER_CONNECTION_KEY, 'on-demand', vscode.ConfigurationTarget.Global);
+}
+
 export function supressOutput(): boolean {
     return vscode.workspace.getConfiguration(EXTENSION_CONFIG_KEY)['vs-kubernetes.supress-output'];
 }

@@ -9,41 +9,12 @@ export class BackgroundContextCache<T> {
 
     constructor(private readonly activeContextTracker: ActiveValueTracker<string | null>,
         private readonly getActiveContextValue: () => Promise<T>,
-        private readonly fallbackValue: T)
+        private readonly fallbackValue: T,
+        // Fetches only when this returns true.
+        private readonly isUpdateAllowed: () => boolean = () => true)
     {
-        this.activeContextTracker.activeChanged(this.onActiveContextChanged, this);
-
-        const activeContext = this.activeContextTracker.active();
-        if (activeContext) {
-            this.updateCache(activeContext);
-        }
-    }
-
-    private onActiveContextChanged(newContext: string | null): void {
-        if (newContext) {
-            this.updateCache(newContext);
-        }
-    }
-
-    public async activeAsync(): Promise<T> {
-        const contextName = await this.activeContextTracker.activeAsync();
-        if (!contextName) {
-            return this.fallbackValue;
-        }
-        const result = this.cache.get(contextName);
-        if (result) {
-            return result;
-        }
-        const value = await this.getActiveContextValue();
-        this.cache.set(contextName, value);
-        return value;
-    }
-
-    public changedActiveContextValue(): void {
-        const activeContext = this.activeContextTracker.active();
-        if (activeContext) {
-            this.updateCache(activeContext);
-        }
+        this.activeContextTracker.activeChanged(this.invalidateActive, this);
+        this.invalidateActive();
     }
 
     public active(): T {
@@ -59,8 +30,16 @@ export class BackgroundContextCache<T> {
         return this.fallbackValue;
     }
 
+    // Refetches the value for the active context in the background. The cached value is served until the new one arrives.
+    public invalidateActive(): void {
+        const activeContext = this.activeContextTracker.active();
+        if (activeContext) {
+            this.updateCache(activeContext);
+        }
+    }
+
     private async updateCache(activeContextName: string): Promise<void> {
-        if (this.activeUpdates.get(activeContextName)) {
+        if (this.activeUpdates.get(activeContextName) || !this.isUpdateAllowed()) {
             return;
         }
         try {
@@ -74,13 +53,6 @@ export class BackgroundContextCache<T> {
             }
         } finally {
             this.activeUpdates.delete(activeContextName);
-        }
-    }
-
-    public invalidateActive(): void {
-        const activeContext = this.activeContextTracker.active();
-        if (activeContext) {
-            this.updateCache(activeContext);
         }
     }
 }

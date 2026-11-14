@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { Kubectl } from '../../kubectl';
 import { ignoreK8sRecommendations, setConfigValue } from '../config/config';
+import { clusterAccess } from '../clusteraccess/cluster-access';
 
 interface Recommendations {
     [crdApi: string]: string[];
@@ -42,6 +43,14 @@ export async function recommendExtensions(kubectl: Kubectl, context: vscode.Exte
     const globalValue = setting && setting.globalValue ? setting.globalValue : false;
     if (globalValue
         || ignoreK8sRecommendations()) {
+        return;
+    }
+    if (!clusterAccess.isAllowed()) {
+        const listener = clusterAccess.onDidAllow(() => {
+            listener.dispose();
+            recommendExtensions(kubectl, context);
+        });
+        context.subscriptions.push(listener);
         return;
     }
     try {
