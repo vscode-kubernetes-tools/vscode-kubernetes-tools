@@ -6,6 +6,7 @@ import * as kubectlUtils from '../../kubectlUtils';
 import { sleep } from '../../sleep';
 import * as providerResult from '../../utils/providerresult';
 import { refreshExplorer } from '../clusterprovider/common/explorer';
+import { noteExplicitUseWhenSettled } from '../clusteraccess/cluster-access';
 import { affectsUs, getResourcesToBeWatched } from '../config/config';
 import { WatchManager } from '../kubectl/watch';
 import { ExplorerExtender, ExplorerUICustomizer } from './explorer.extension';
@@ -168,7 +169,7 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
 
     private getChildrenBase(parent?: ClusterExplorerNode): vscode.ProviderResult<ClusterExplorerNode[]> {
         if (parent) {
-            return parent.getChildren(this.kubectl, this.host);
+            return noteExplicitUseWhenSettled(parent.getChildren(this.kubectl, this.host));
         }
         return this.getClusters();
     }

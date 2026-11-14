@@ -94,6 +94,12 @@ If you want to skip TLS verification for a particular cluster, you can edit your
     name: my-insecure-cluster:443
 ```
 
+### Cluster connections and sign-in
+
+By default, the extension connects to your current cluster in the background as soon as it loads (when you open a YAML or Helm file). It does this to load YAML schemas for the cluster, check for recommended extensions, and record the cluster type for telemetry. If your kubeconfig signs in through a credential plugin such as `kubelogin`, each of these connections can start a sign-in.
+
+To connect only when you use the extension, set `vscode-kubernetes.cluster-connection` to `on-demand` (Settings › Extensions › Kubernetes, or search `cluster-connection`). The extension then connects after you expand a cluster in the Clusters view or run a Kubernetes command such as Get, Apply or Describe. Until then, YAML files use the built-in schema, and files that are already open keep it until you reopen them.
+
 ## Commands and features
 
 `vs-kubernetes-tools` supports a number of commands for interacting with Kubernetes; these are accessible via the command menu (`Ctrl+Shift+P`) and may be bound to keys in the normal way.
@@ -221,6 +227,7 @@ Minikube tools to be installed and available on your PATH.
        * `vs-kubernetes.enable-minimal-workflow` - Enables the minimal workflow for several actions (Get, Describe, Scale, Expose, Switch). By executing one of those commands the queries to the cluster are reduced at minimum and users are able to freely type the resource name to use.
        * `resource-commands-on-files` - If true, show Kubernetes resource commands (Create, Apply, Delete) on file context menu for all YAML files.
    * `vsdocker.imageUser` - Image prefix for the container images e.g. 'docker.io/brendanburns'
+   * `vscode-kubernetes.cluster-connection` - When the extension connects to your current cluster for background work: `automatic` (default) or `on-demand`. See [Cluster connections and sign-in](#cluster-connections-and-sign-in).
    * `checkForMinikubeUpgrade` - On extension startup, notify if a minikube upgrade is available. Defaults to true.
    * `disable-lint` - Disable all linting of Kubernetes files
    * `disable-linters` - Disable specific linters by name

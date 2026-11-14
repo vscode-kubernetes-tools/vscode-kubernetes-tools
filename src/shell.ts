@@ -3,7 +3,7 @@
 import * as vscode from 'vscode';
 import * as shelljs from 'shelljs';
 import * as path from 'path';
-import { getToolPath, getUseWsl } from './components/config/config';
+import { getToolPath, getUseWsl, isOnDemandClusterConnection, setOnDemandClusterConnection } from './components/config/config';
 import { host } from './host';
 import { ChildProcess } from 'child_process';
 import { getKubeconfigPath } from './components/kubectl/kubeconfig';
@@ -186,6 +186,8 @@ const AUTH_PROMPT_PATTERN = /https:\/\/(?:[a-z0-9-]+\.)?microsoft(?:online)?\.co
 
 let authNotificationShown = false;
 
+export const CONNECT_ON_DEMAND_ACTION = 'Only Connect On Demand';
+
 export function monitorForAuthPrompt(proc: ChildProcess): void {
     if (!proc.stderr) {
         return;
@@ -199,7 +201,12 @@ export function monitorForAuthPrompt(proc: ChildProcess): void {
             authPromptDetected = true;
             const start = Math.max(0, text.search(AUTH_PROMPT_PATTERN) - 1024);
             kubeChannel.showOutput(text.slice(start, start + 4096), 'Authentication Required');
-            vscode.window.showWarningMessage('Authentication required. See Kubernetes output for instructions.');
+            const actions = isOnDemandClusterConnection() ? [] : [CONNECT_ON_DEMAND_ACTION];
+            vscode.window.showWarningMessage('Authentication required. See Kubernetes output for instructions.', ...actions).then((choice) => {
+                if (choice === CONNECT_ON_DEMAND_ACTION) {
+                    setOnDemandClusterConnection();
+                }
+            });
             setTimeout(() => { authNotificationShown = false; }, 1000);
         }
     };

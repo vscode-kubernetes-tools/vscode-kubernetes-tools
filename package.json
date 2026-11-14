@@ -262,6 +262,21 @@
                         "imageBuildTool": "Docker"
                     }
                 },
+                "vscode-kubernetes.cluster-connection": {
+                    "type": "string",
+                    "enum": [
+                        "automatic",
+                        "on-demand"
+                    ],
+                    "enumDescriptions": [
+                        "Connect to the current cluster in the background as soon as the extension loads.",
+                        "Connect to a cluster only after you expand it in the Clusters view or run a Kubernetes command such as Get, Apply or Describe."
+                    ],
+                    "default": "automatic",
+                    "order": 0,
+                    "title": "Cluster connection",
+                    "markdownDescription": "When the extension connects to your current cluster. In the background it loads YAML schemas, extension recommendations and telemetry data, and each connection can start a sign-in for clusters that use a credential plugin such as `kubelogin`. With `on-demand`, YAML files use the built-in schema until you use the extension; files already open keep it until they are reopened."
+                },
                 "vsdocker.imageUser": {
                     "type": "string",
                     "default": null,

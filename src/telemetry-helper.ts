@@ -1,6 +1,7 @@
 import { reporter } from './telemetry';
 import { Kubectl } from './kubectl';
 import { ExecResult } from './binutilplusplus';
+import { isOnDemandClusterConnection } from './components/config/config';
 
 export function telemetrise(command: string, kubectl: Kubectl, callback: (...args: any[]) => any): (...args: any[]) => any {
     return (a) => {
@@ -47,7 +48,7 @@ const knownClusters: { [key: string]: [ClusterType, NonDeterminationReason] } = 
 export function invalidateClusterType(newContext: string | undefined, kubectl?: Kubectl): void {
     latestContextName = newContext || null;
     cachedClusterType = ClusterType.Indeterminate;
-    if (kubectl) {
+    if (kubectl && !isOnDemandClusterConnection()) {
         setImmediate(() => {
             try {
                 loadCachedClusterType(kubectl);
@@ -59,6 +60,10 @@ export function invalidateClusterType(newContext: string | undefined, kubectl?: 
 }
 
 async function clusterType(kubectl: Kubectl): Promise<[string, string]> {
+    // Detecting the cluster type requires a cluster call, so on-demand mode reports it as indeterminate.
+    if (isOnDemandClusterConnection()) {
+        return [telemetryNameOf(ClusterType.Indeterminate), telemetryReasonOf(NonDeterminationReason.None)];
+    }
     if (cachedClusterType === ClusterType.Indeterminate || cachedClusterType === ClusterType.Unassigned) {
         await loadCachedClusterType(kubectl);
     }

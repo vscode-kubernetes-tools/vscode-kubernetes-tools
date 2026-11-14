@@ -99,6 +99,8 @@ import { fixOldInstalledBinaryPermissions } from './components/installer/fixwrit
 import { interpolateVariables } from './utils/interpolation';
 import { AKSProvider } from './components/cloudprovider/aksprovider';
 import { createJobFromCronJobArgs, exposeResourceArgs, remoteShellCommandArgs, restartResourceArgs, runImageArgs, scaleResourceArgs } from './components/kubectl/workload-commands';
+import { initialiseClusterAccess, isKubernetesCommand, noteExplicitUseWhenSettled } from './components/clusteraccess/cluster-access';
+import { showClusterConnectionNotice } from './components/clusteraccess/cluster-connection-notice';
 
 let explainActive = false;
 let swaggerSpecPromise: Promise<explainer.SwaggerModel | undefined> | null = null;
@@ -143,6 +145,7 @@ export const HELM_TPL_MODE: vscode.DocumentFilter = { language: "helm", scheme: 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export async function activate(context: vscode.ExtensionContext): Promise<APIBroker> {
+    initialiseClusterAccess(context);
     initialiseProxyLifecycle(context, activeContextTracker.activeChanged, onDidChangeKubeconfigEmitter.event);
     await validateKubeconfigPath();
     setAssetContext(context);
@@ -422,6 +425,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
     vscode.workspace.registerTextDocumentContentProvider(configmaps.uriScheme, configMapProvider);
 
     recommendExtensions(kubectl, context);
+    showClusterConnectionNotice(context, kubectl).catch((err) => console.log(`Cluster connection notice failed: ${err}`));
 
     return apiBroker(clusterProviderRegistry, kubectl, portForwardStatusBarManager, treeProvider, cloudExplorer, localTunnelDebugger, onDidChangeKubeconfigEmitter, activeContextTracker, kubectlUtils.onDidChangeNamespaceEmitter);
 }
@@ -433,7 +437,11 @@ export const deactivate = () => {
 
 function registerCommand(command: string, callback: (...args: any[]) => any): vscode.Disposable {
     const wrappedCallback = telemetry.telemetrise(command, kubectl, callback);
-    return vscode.commands.registerCommand(command, wrappedCallback);
+    if (!isKubernetesCommand(command)) {
+        return vscode.commands.registerCommand(command, wrappedCallback);
+    }
+    // Marks explicit cluster use when the command finishes.
+    return vscode.commands.registerCommand(command, (...args: any[]) => noteExplicitUseWhenSettled(wrappedCallback(...args)));
 }
 
 function registerTelemetry(context: vscode.ExtensionContext): vscode.Disposable {
