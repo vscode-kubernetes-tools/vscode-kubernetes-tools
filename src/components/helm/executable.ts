@@ -269,7 +269,7 @@ function executeWsl(
     return execute({ executable: wsl, args: ['--exec', ...args], cwd, env: environment });
 }
 
-function resolveHostPathExecutable(
+export function resolveHostPathExecutable(
     shell: Shell,
     name: string,
     environment: NodeJS.ProcessEnv,

@@ -98,6 +98,7 @@ import { setAssetContext } from './assets';
 import { fixOldInstalledBinaryPermissions } from './components/installer/fixwriteablebinaries';
 import { interpolateVariables } from './utils/interpolation';
 import { AKSProvider } from './components/cloudprovider/aksprovider';
+import { importAksKubeconfig } from './components/cloudprovider/aks-kubeconfig';
 import { createJobFromCronJobArgs, exposeResourceArgs, remoteShellCommandArgs, restartResourceArgs, runImageArgs, scaleResourceArgs } from './components/kubectl/workload-commands';
 
 let explainActive = false;
@@ -2187,7 +2188,10 @@ async function configureFromClusterKubernetes() {
         if (cluster) {
             const kconfig = await provider.result.getKubeconfigYaml(subscriptionId, cluster.resourceGroup, cluster.name);
             if (kconfig) {
-                mergeToKubeconfig(kconfig);
+                const activeKubeconfig = await importAksKubeconfig(kconfig);
+                if (activeKubeconfig) {
+                    await useKubeconfigKubernetes(activeKubeconfig);
+                }
             } else {
                 vscode.window.showErrorMessage("Failed to get kubeconfig");
             }

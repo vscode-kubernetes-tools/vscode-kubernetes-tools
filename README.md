@@ -86,6 +86,24 @@ If you want to swap between multiple kubeconfig files, you can list them in the
 `vs-kubernetes.knownKubeconfigs` configuration setting and switch between them
 using the `Set Kubeconfig` command.
 
+### Adding an AKS cluster
+
+`Kubernetes: Add Existing Cluster` asks how to authenticate when the downloaded AKS
+configuration uses device-code login. Choose **Azure CLI** to reuse an `az login`
+session for the cluster's tenant, or **Web Browser** for interactive sign-in.
+Signing into Azure in VS Code does not sign you into Azure CLI. **Device Code**
+is an explicit option for tenants that permit it; the extension does not fall back
+to it when another login method fails.
+
+Before merging, the extension shows the destination file and whether it came from
+a VS Code setting, `KUBECONFIG`, or the home-directory default. Custom and temporary
+files are supported. Selecting another destination does not automatically make it
+active. Existing entries retain the Overwrite / Keep Both / Cancel choices, and an
+existing file is backed up as `<filename>.vscode-k8s-tools-backup` before saving.
+
+See [AKS onboarding and manual testing](docs/aks-onboarding.md) for a safe test setup,
+login prerequisites and troubleshooting.
+
 If you want to skip TLS verification for a particular cluster, you can edit your ~/.kube/config and set the ```insecure-skip-tls-verify: true``` flag under the proper cluster:
 ```
 - cluster:
