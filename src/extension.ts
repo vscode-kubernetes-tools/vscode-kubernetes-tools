@@ -149,8 +149,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<APIBro
 
     await fixOldInstalledBinaryPermissions(shell);
 
-    kubectl.ensurePresent({ warningIfNotPresent: 'Kubectl not found. Many features of the Kubernetes extension will not work.' });
-
     const treeProvider = explorer.create(kubectl, host);
     const helmRepoTreeProvider = helmRepoExplorer.create(host);
     const cloudExplorer = new CloudExplorer();

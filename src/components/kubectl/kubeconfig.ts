@@ -7,6 +7,7 @@ import { execWslSync } from '../../wsl';
 import { refreshExplorer } from '../clusterprovider/common/explorer';
 import { getActiveKubeconfig, getUseWsl } from '../config/config';
 import { mkdirp } from 'mkdirp';
+import type { KubeConfig } from '@kubernetes/client-node';
 
 interface Named {
     readonly name: string;
@@ -31,38 +32,69 @@ export interface WSLKubeconfigPath {
 
 export type KubeconfigPath = HostKubeconfigPath | WSLKubeconfigPath;
 
+export interface KubeconfigSelection {
+    readonly kubeconfig?: string;
+    readonly context?: string;
+}
+
+export interface KubeconfigSource {
+    readonly file: string;
+    readonly contents: string;
+}
+
 export function getKubeconfigFiles(kubeconfigPath: KubeconfigPath): string[] {
     const files = kubeconfigPath.pathType === 'host' ? kubeconfigPath.hostPath : kubeconfigPath.wslPath;
     return files.split(kubeconfigPath.pathType === 'host' ? path.delimiter : ':').filter((file) => file.length > 0);
 }
 
-export async function loadKubeconfig(): Promise<any> {
-    const kubernetes = await import('@kubernetes/client-node');
-    const kubeconfig = new kubernetes.KubeConfig();
-    const kubeconfigPath = getKubeconfigPath();
-
+export async function readKubeconfigSources(kubeconfigPath: KubeconfigPath): Promise<readonly KubeconfigSource[]> {
     const files = getKubeconfigFiles(kubeconfigPath);
     if (files.length === 0) {
         throw new Error('No kubeconfig paths specified');
     }
-    let currentContext: string | undefined;
-    for (const file of new Set(files)) {
-        const source = new kubernetes.KubeConfig();
+    const sources: KubeconfigSource[] = [];
+    for (const selectedFile of new Set(files)) {
+        const file = kubeconfigPath.pathType === 'host' ? path.resolve(vscode.workspace.rootPath ?? process.cwd(), selectedFile) : selectedFile;
         try {
+            let contents: string;
             if (kubeconfigPath.pathType === 'host') {
-                if (!nativeFs.readFileSync(file, 'utf8').trim()) { continue; }
-                source.loadFromFile(file);
+                contents = nativeFs.readFileSync(file, 'utf8');
             } else {
                 const result = execWslSync(['env', 'LC_ALL=C', 'cat', '--', file]);
                 if (result.code !== 0) {
                     if (result.code === 1 && result.stderr.trimEnd().endsWith(': No such file or directory')) { continue; }
                     throw new Error(`Error code: ${result.code}. Error output: ${result.stderr.trim()}`);
                 }
-                if (!result.stdout.trim()) { continue; }
-                source.loadFromString(result.stdout);
+                contents = result.stdout;
+            }
+            if (contents.trim()) {
+                sources.push({ file, contents });
             }
         } catch (error) {
             if (kubeconfigPath.pathType === 'host' && (error as NodeJS.ErrnoException).code === 'ENOENT') { continue; }
+            throw new Error(`Unable to load kubeconfig at path '${file}': ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
+    return sources;
+}
+
+export async function loadKubeconfig(
+    kubeconfigPath = getKubeconfigPath(),
+    sources?: readonly KubeconfigSource[]
+): Promise<KubeConfig> {
+    const kubernetes = await import('@kubernetes/client-node');
+    const kubeconfig = new kubernetes.KubeConfig();
+    let currentContext: string | undefined;
+    for (const { file, contents } of sources ?? await readKubeconfigSources(kubeconfigPath)) {
+        const source = new kubernetes.KubeConfig();
+        try {
+            const document = yaml.load(contents);
+            if (document === undefined || document === null) { continue; }
+            source.loadFromString(contents);
+            if (kubeconfigPath.pathType === 'host') {
+                source.makePathsAbsolute(path.dirname(file));
+            }
+        } catch (error) {
             throw new Error(`Unable to load kubeconfig at path '${file}': ${error instanceof Error ? error.message : String(error)}`);
         }
         for (const cluster of source.getClusters()) {

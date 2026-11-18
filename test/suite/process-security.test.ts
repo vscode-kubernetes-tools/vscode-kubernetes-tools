@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { executeCommand, executeCommandPiped, snapPipeInvocation, spawnCommand } from '../../src/process';
+import { executeCommand, executeCommandPiped, ProcessExecutionError, snapPipeInvocation, spawnCommand } from '../../src/process';
 
 suite('Process security', () => {
     test('passes hostile values as exact arguments without a shell', async () => {
@@ -79,5 +79,79 @@ suite('Process security', () => {
             cwd: '/workspace',
             env: { PATH: '/usr/bin' },
         });
+    });
+
+    test('cancels both pipeline processes and waits for close events', async () => {
+        const controller = new AbortController();
+        let sourceClosed = false;
+        const result = executeCommandPiped(
+            { executable: process.execPath, args: ['-e', 'process.stdout.write("ready");setInterval(()=>{},1000)'] },
+            { executable: process.execPath, args: ['-e', 'process.stdin.pipe(process.stdout)'] },
+            undefined,
+            (child) => child.on('close', () => { sourceClosed = true; }),
+            { signal: controller.signal, onStdout: () => controller.abort() }
+        );
+
+        await assert.rejects(result, (error: unknown) => error instanceof ProcessExecutionError && error.reason === 'cancelled');
+        assert.strictEqual(sourceClosed, true);
+    });
+
+    test('retains the source exit status when the pipeline destination also fails', async () => {
+        const result = await executeCommandPiped(
+            { executable: process.execPath, args: ['-e', 'process.exit(7)'] },
+            { executable: process.execPath, args: ['-e', 'process.stdin.resume();process.stdin.on("end",()=>process.exit(3))'] }
+        );
+        assert.strictEqual(result.code, 7);
+    });
+
+    test('cleans up the source if the pipeline destination cannot start', async () => {
+        let sourceClosed = false;
+        const result = executeCommandPiped(
+            { executable: process.execPath, args: ['-e', 'setInterval(()=>{},1000)'] },
+            { executable: '/no-such-kubernetes-client-pilot/cat', args: [] },
+            undefined,
+            (child) => child.on('close', () => { sourceClosed = true; })
+        );
+
+        await assert.rejects(result, (error: unknown) => error instanceof ProcessExecutionError && error.reason === 'spawn-failed');
+        assert.strictEqual(sourceClosed, true);
+    });
+
+    test('escalates cancellation when a Unix process ignores SIGTERM', async function () {
+        if (process.platform === 'win32') { this.skip(); }
+        const controller = new AbortController();
+        let closed = false;
+        const result = executeCommand(
+            { executable: process.execPath, args: ['-e', 'process.on("SIGTERM",()=>{});process.stdout.write("ready");setInterval(()=>{},1000)'] },
+            undefined,
+            (child) => child.on('close', () => { closed = true; }),
+            { signal: controller.signal, onStdout: () => controller.abort() }
+        );
+
+        await assert.rejects(result, (error: unknown) => error instanceof ProcessExecutionError && error.reason === 'cancelled');
+        assert.strictEqual(closed, true);
+    });
+
+    test('waits for cleanup after the buffered output limit is exceeded', async () => {
+        let closed = false;
+        const result = executeCommand(
+            { executable: process.execPath, args: ['-e', 'process.stdout.write("x".repeat(2048));setInterval(()=>{},1000)'] },
+            undefined,
+            (child) => child.on('close', () => { closed = true; }),
+            { maxBufferBytes: 1024 }
+        );
+
+        await assert.rejects(result, (error: unknown) => error instanceof ProcessExecutionError && error.reason === 'output-limit');
+        assert.strictEqual(closed, true);
+    });
+
+    test('preserves the shared output budget for a pipeline', async () => {
+        const result = executeCommandPiped(
+            { executable: process.execPath, args: ['-e', 'process.stdout.write("x".repeat(600));process.stderr.write("y".repeat(600))'] },
+            { executable: process.execPath, args: ['-e', 'process.stdin.pipe(process.stdout)'] },
+            undefined, undefined, { maxBufferBytes: 1024 }
+        );
+
+        await assert.rejects(result, (error: unknown) => error instanceof ProcessExecutionError && error.reason === 'output-limit');
     });
 });

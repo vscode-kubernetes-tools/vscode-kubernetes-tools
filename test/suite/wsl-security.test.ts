@@ -5,7 +5,7 @@ import nativeFs = require('fs');
 import * as path from 'path';
 import * as os from 'os';
 import type { SpawnSyncReturns } from 'child_process';
-import type { KubeConfig } from '@kubernetes/client-node';
+import { workspace } from 'vscode';
 import * as config from '../../src/components/config/config';
 import * as wsl from '../../src/wsl';
 import * as wslFs from '../../src/wsl-fs';
@@ -199,15 +199,14 @@ suite('WSL argument security', () => {
     test('preserves host kubeconfig loading and the first selected context', async () => {
         (config.getUseWsl as sinon.SinonStub).returns(false);
         sandbox.stub(config, 'getActiveKubeconfig').returns(`first${path.delimiter}second`);
-        sandbox.stub(nativeFs, 'readFileSync').withArgs(sinon.match.in(['first', 'second'])).returns('{}');
-        const kubernetes = await import('@kubernetes/client-node');
-        const load = sandbox.stub(kubernetes.KubeConfig.prototype, 'loadFromFile').callsFake(function (this: KubeConfig, file: string) {
-            this.loadFromString(kubeconfigText(file));
-        });
+        const cwd = workspace.rootPath ?? process.cwd();
+        const read = sandbox.stub(nativeFs, 'readFileSync');
+        read.withArgs(path.resolve(cwd, 'first')).returns(kubeconfigText('first'));
+        read.withArgs(path.resolve(cwd, 'second')).returns(kubeconfigText('second'));
         const invoke = sandbox.stub(wsl, 'execWslSync');
         const kubeconfig = await loadKubeconfig();
         assert.strictEqual(kubeconfig.getCurrentContext(), 'first');
-        assert.deepStrictEqual(load.args, [['first'], ['second']]);
+        assert.deepStrictEqual(read.args, [[path.resolve(cwd, 'first'), 'utf8'], [path.resolve(cwd, 'second'), 'utf8']]);
         sinon.assert.notCalled(invoke);
     });
 
@@ -269,18 +268,16 @@ suite('WSL argument security', () => {
 
     test('skips missing and blank host sources but preserves other read errors', async () => {
         (config.getUseWsl as sinon.SinonStub).returns(false);
-        sandbox.stub(config, 'getActiveKubeconfig').returns(['missing', 'blank', 'valid'].join(path.delimiter));
+        sandbox.stub(config, 'getActiveKubeconfig').returns(['missing', 'blank', 'comment', 'valid'].join(path.delimiter));
         const read = sandbox.stub(nativeFs, 'readFileSync');
-        read.withArgs('missing').throws(Object.assign(new Error('missing'), { code: 'ENOENT' }));
-        read.withArgs('blank').returns(' \n');
-        read.withArgs('valid').returns(kubeconfigText('valid'));
-        const kubernetes = await import('@kubernetes/client-node');
-        const load = sandbox.stub(kubernetes.KubeConfig.prototype, 'loadFromFile').callsFake(function (this: KubeConfig) {
-            this.loadFromString(kubeconfigText('valid'));
-        });
+        const cwd = workspace.rootPath ?? process.cwd();
+        read.withArgs(path.resolve(cwd, 'missing')).throws(Object.assign(new Error('missing'), { code: 'ENOENT' }));
+        read.withArgs(path.resolve(cwd, 'blank')).returns(' \n');
+        read.withArgs(path.resolve(cwd, 'comment')).returns('# An intentionally empty source.\n');
+        read.withArgs(path.resolve(cwd, 'valid')).returns(kubeconfigText('valid'));
         assert.strictEqual((await loadKubeconfig()).getCurrentContext(), 'valid');
-        sinon.assert.calledOnceWithExactly(load, 'valid');
-        read.withArgs('missing').throws(Object.assign(new Error('permission denied'), { code: 'EACCES' }));
+        assert.strictEqual(read.callCount, 4);
+        read.withArgs(path.resolve(cwd, 'missing')).throws(Object.assign(new Error('permission denied'), { code: 'EACCES' }));
         await assert.rejects(loadKubeconfig(), /missing.*permission denied/);
     });
 });

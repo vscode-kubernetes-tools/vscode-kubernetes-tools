@@ -26,6 +26,9 @@ export class KubernetesClusterSchemaHolder {
     private crdSchemas: { [key: string]: object | undefined } = {};
 
     public static async fromActiveCluster(kubectl: Kubectl): Promise<KubernetesClusterSchemaHolder> {
+        if (!await kubectl.ensurePresent({ silent: true })) {
+            return KubernetesClusterSchemaHolder.fallback();
+        }
         const holder = new KubernetesClusterSchemaHolder();
         await holder.loadSchemaFromActiveCluster(kubectl, KUBERNETES_SCHEMA_ENUM_FILE());
         return holder;

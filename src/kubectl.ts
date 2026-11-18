@@ -9,10 +9,12 @@ import { parseLineOutput } from './outputUtils';
 import * as compatibility from './components/kubectl/compatibility';
 import { getActiveKubeconfig, getToolPath, affectsUs, getUseWsl, KubectlVersioning, suppressKubectlNotFound } from './components/config/config';
 import { ensureSuitableKubectl } from './components/kubectl/autoversion';
-import { invokeForResult, invokeForResultArgs, ExternalBinary, FindBinaryStatus, ExecResult, ExecSucceeded, discardFailureInteractive, logText, parseJSON, findBinary, showErrorMessageWithInstallPrompt, parseTable, ExecBinNotFound, invokeTracking, FailedExecResult, ParsedExecResult, parseLinedText, BackgroundExecResult, invokeBackground, RunningProcess, ArgsBackgroundExecResult, invokeBackgroundArgs } from './binutilplusplus';
+import { executeForResultArgs, invokeForResult, invokeForResultArgs, ExternalBinary, FindBinaryStatus, ExecResult, ExecSucceeded, discardFailureInteractive, logText, parseJSON, findBinary, showErrorMessageWithInstallPrompt, parseTable, ExecBinNotFound, invokeTracking, FailedExecResult, ParsedExecResult, parseLinedText, BackgroundExecResult, invokeBackground, RunningProcess, ArgsBackgroundExecResult, invokeBackgroundArgs } from './binutilplusplus';
 import { updateYAMLSchema } from './yaml-support/yaml-schema';
 import { Dictionary } from './utils/dictionary';
-import { getWindowsSystemExecutable } from './wsl';
+import { getWindowsSystemExecutable, wslKubeconfigEnvironment } from './wsl';
+import { ProcessExecutionOptions, ProcessResult } from './process';
+import type { KubeconfigSelection } from './components/kubectl/kubeconfig';
 
 const KUBECTL_OUTPUT_COLUMN_SEPARATOR = /\s\s+/g;
 
@@ -36,6 +38,7 @@ export interface Kubectl {
     ensurePresent(options: EnsurePresentOptions): Promise<boolean>;
     invokeCommand(command: string, stdin?: string): Promise<ExecResult>;
     invokeCommandArgs(args: readonly string[], stdin?: string): Promise<ExecResult>;
+    executeCommandArgs(args: readonly string[], stdin?: string, options?: ProcessExecutionOptions & KubeconfigSelection): Promise<ProcessResult>;
     invokeCommandThen<T>(command: string, fn: (execResult: ExecResult) => T): Promise<T>;
     observeCommand(args: string[]): Promise<RunningProcess>;
     spawnCommand(args: string[]): Promise<BackgroundExecResult>;
@@ -84,7 +87,7 @@ interface Context {
     readonly host: Host;
     readonly fs: FS;
     readonly shell: Shell;
-    readonly pathfinder: (() => Promise<string>) | undefined;
+    readonly pathfinder: ((signal?: AbortSignal, selection?: KubeconfigSelection) => Promise<string>) | undefined;
     binFound: boolean;
     binPath: string;
     binaryRevision: number;
@@ -107,7 +110,7 @@ class KubectlImpl implements Kubectl {
         host: Host,
         fs: FS,
         shell: Shell,
-        pathfinder: (() => Promise<string>) | undefined,
+        pathfinder: ((signal?: AbortSignal, selection?: KubeconfigSelection) => Promise<string>) | undefined,
         kubectlFound: false, // TODO: this is now safe to remove
         watchExecutionConfiguration: boolean,
         watchActiveKubeconfig: boolean,
@@ -329,6 +332,11 @@ class KubectlImpl implements Kubectl {
         return await invokeForResultArgs(this.context, args, stdin);
     }
 
+    async executeCommandArgs(args: readonly string[], stdin?: string, options: ProcessExecutionOptions & KubeconfigSelection = {}): Promise<ProcessResult> {
+        const signal = options.signal ? AbortSignal.any([options.signal, this.backgroundCancellation.signal]) : this.backgroundCancellation.signal;
+        return executeForResultArgs(this.context, args, stdin, { ...options, signal });
+    }
+
     async invokeCommandThen<T>(command: string, fn: (execResult: ExecResult) => T): Promise<T> {
         const er = await this.invokeCommand(command);
         const result = fn(er);
@@ -510,7 +518,7 @@ function createSingleVersion(host: Host, fs: FS, shell: Shell): Kubectl {
 
 function createAutoVersioned(host: Host, fs: FS, shell: Shell): Kubectl {
     const bootstrapper = createSingleVersion(host, fs, shell);
-    const pathfinder = async () => (await ensureSuitableKubectl(bootstrapper, shell, host)) || 'kubectl';
+    const pathfinder = async (signal?: AbortSignal, selection?: KubeconfigSelection) => (await ensureSuitableKubectl(bootstrapper, shell, host, signal, selection)) || 'kubectl';
     return new KubectlImpl(host, fs, shell, pathfinder, false, true, true, bootstrapper);
 }
 
@@ -656,7 +664,7 @@ async function resolveTerminalInvocation(context: Context, args: readonly string
         const execOpts = context.shell.execOpts();
         let invocation: Omit<ProcessTerminalOptions, 'name'>;
         if (getUseWsl()) {
-            const environment = wslTerminalEnvironment(execOpts.env || process.env);
+            const environment = wslKubeconfigEnvironment(execOpts.env || process.env);
             const wsl = getWindowsSystemExecutable('wsl.exe', environment);
             if (!wsl) {
                 await context.host.showErrorMessage('Unable to find the Windows system WSL executable.');
@@ -684,14 +692,6 @@ async function resolveTerminalInvocation(context: Context, args: readonly string
             return { ...invocation, revision };
         }
     }
-}
-
-function wslTerminalEnvironment(environment: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-    const shared = (environment.WSLENV || '')
-        .split(':')
-        .filter((entry) => entry.length > 0 && entry.split('/')[0] !== 'KUBECONFIG');
-    shared.push('KUBECONFIG/u');
-    return { ...environment, WSLENV: shared.join(':') };
 }
 
 async function resolveKubectlPath(

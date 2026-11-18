@@ -129,6 +129,9 @@ async function loadCachedClusterType(kubectl: Kubectl) {
 }
 
 async function inferCurrentClusterType(kubectl: Kubectl): Promise<[ClusterType, NonDeterminationReason]> {
+    if (!await kubectl.ensurePresent({ silent: true })) {
+        return [ClusterType.Indeterminate, NonDeterminationReason.GetClusterInfoFailedNoKubectl];
+    }
     if (!latestContextName) {
         const ctxer = await kubectl.invokeCommandArgs(['config', 'current-context']);
         if (ctxer.resultKind === 'exec-succeeded') {

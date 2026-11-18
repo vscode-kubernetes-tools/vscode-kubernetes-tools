@@ -1,6 +1,8 @@
 import * as assert from 'assert';
 import * as sinon from 'sinon';
 import * as vscode from 'vscode';
+import { KubeConfig } from '@kubernetes/client-node';
+import * as kubeconfig from '../../../../src/components/kubectl/kubeconfig';
 import { Kubectl } from '../../../../src/kubectl';
 import { getPods } from '../../../../src/kubectlUtils';
 import * as resources from '../../../../src/kuberesources';
@@ -15,14 +17,21 @@ const pod = { name: '1.api-0', node: 'node-a', status: 'Running', ready: '1/1' }
 suite('Selector-based pod lookup security', () => {
     let sandbox: sinon.SinonSandbox;
     let showError: sinon.SinonStub;
+    let selectedConfig: KubeConfig;
 
     setup(() => {
         sandbox = sinon.createSandbox();
         showError = sandbox.stub(vscode.window, 'showErrorMessage').resolves(undefined);
+        selectedConfig = new KubeConfig();
+        sandbox.stub(kubeconfig, 'loadKubeconfig').resolves(selectedConfig);
     });
     teardown(() => sandbox.restore());
 
     function fakeKubectl(namespace = 'team-a', rows: object[] = [pod]) {
+        selectedConfig.loadFromOptions({
+            clusters: [], users: [], currentContext: 'ctx',
+            contexts: [{ name: 'ctx', cluster: 'cluster', user: 'user', namespace }],
+        });
         const table = { resultKind: 'exec-succeeded', execProgram: binary, command: 'get pods', result: rows };
         const lookup = sandbox.stub().resolves(table);
         const legacy = sandbox.stub().rejects(new Error('Pod lookup must not use a shell command string.'));
