@@ -10,7 +10,7 @@ export interface FS {
     readFileSync(filename: string, encoding: BufferEncoding): string;
     readFileToBufferSync(filename: string): Buffer;
     writeFile(filename: string, data: any, callback: sysfs.NoParamCallback): void;
-    writeTextFile(filename: string, text: string): Promise<void>;
+    writeTextFile(filename: string, text: string, options?: { readonly mode?: number }): Promise<void>;
     writeFileSync(filename: string, data: any): void;
     dirSync(path: string): string[];
     unlinkAsync(path: string): Promise<void>;
@@ -28,7 +28,7 @@ export const fs: FS = {
     readFileToBufferSync: (filename) => sysfs.readFileSync(filename),
     renameAsync: sysfsAsync.rename,
     writeFile: (filename, data, callback) => sysfs.writeFile(filename, data, callback),
-    writeTextFile: (filename, text) => sysfsAsync.writeFile(filename, text),
+    writeTextFile: (filename, text, options) => sysfsAsync.writeFile(filename, text, options),
     writeFileSync: (filename, data) => sysfs.writeFileSync(filename, data),
     dirSync: (path) => sysfs.readdirSync(path),
 

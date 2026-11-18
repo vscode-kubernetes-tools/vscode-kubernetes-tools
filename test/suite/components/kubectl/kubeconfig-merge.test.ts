@@ -5,7 +5,8 @@ import * as path from 'path';
 import * as os from 'os';
 import * as fsNode from 'fs';
 import * as yaml from 'js-yaml';
-import { mergeToKubeconfig } from '../../../../src/components/kubectl/kubeconfig';
+import { mergeToKubeconfig, mergeToKubeconfigFile } from '../../../../src/components/kubectl/kubeconfig';
+import { fs as extensionFs } from '../../../../src/fs';
 
 // Simulates user clicking a specific button in a warning message dialog.
 // Note: we use callsFake with as any to handle overloaded method signatures.
@@ -529,5 +530,44 @@ suite("Kubeconfig Merge", () => {
             const secondContent = fsNode.readFileSync(secondPath, 'utf8');
             assert.strictEqual(secondContent, '');
         });
+    });
+
+    test('a cancelled pinned selection does not modify the destination or backup', async () => {
+        const kcPath = setupKubeconfig(makeConfig({ clusterName: 'old', userName: 'old-user', contextName: 'old-context' }));
+        const original = fsNode.readFileSync(kcPath, 'utf8');
+        assert.strictEqual(await mergeToKubeconfigFile(makeConfig({ clusterName: 'new', userName: 'new-user', contextName: 'new-context' }), kcPath, { isCurrent: () => false }), false);
+        assert.strictEqual(fsNode.readFileSync(kcPath, 'utf8'), original);
+        assert.strictEqual(fsNode.existsSync(kcPath + '.vscode-k8s-tools-backup'), false);
+    });
+
+    test('does not overwrite a destination edited while the duplicate prompt is open', async () => {
+        const original = makeConfig({ clusterName: 'same', userName: 'same-user', contextName: 'same-context' });
+        const kcPath = setupKubeconfig(original);
+        const edited = original + '# user edit\n';
+        sandbox.stub(vscode.window, 'showWarningMessage').callsFake((async () => {
+            fsNode.writeFileSync(kcPath, edited);
+            return 'Overwrite';
+        }) as unknown as typeof vscode.window.showWarningMessage);
+        assert.strictEqual(await mergeToKubeconfigFile(original, kcPath, { isCurrent: () => true }), false);
+        assert.strictEqual(fsNode.readFileSync(kcPath, 'utf8'), edited);
+        assert.strictEqual(fsNode.existsSync(kcPath + '.vscode-k8s-tools-backup'), false);
+    });
+
+    test('a write failure retains the original configuration in the backup', async () => {
+        const original = makeConfig({ clusterName: 'old', userName: 'old-user', contextName: 'old-context' });
+        const kcPath = setupKubeconfig(original);
+        sandbox.stub(extensionFs, 'writeTextFile').rejects(new Error('synthetic write failure'));
+        await assert.rejects(mergeToKubeconfigFile(makeConfig({ clusterName: 'new', userName: 'new-user', contextName: 'new-context' }), kcPath, { isCurrent: () => true }));
+        assert.strictEqual(fsNode.readFileSync(kcPath + '.vscode-k8s-tools-backup', 'utf8'), original);
+    });
+
+    test('new credential files are private and existing permissions are not widened', async function () {
+        if (process.platform === 'win32') { this.skip(); }
+        const kcPath = path.join(tempDir, 'private-config');
+        const text = makeConfig({ clusterName: 'first', userName: 'first-user', contextName: 'first-context' });
+        assert.strictEqual(await mergeToKubeconfigFile(text, kcPath), true);
+        assert.strictEqual(fsNode.statSync(kcPath).mode & 0o777, 0o600);
+        await mergeToKubeconfigFile(makeConfig({ clusterName: 'second', userName: 'second-user', contextName: 'second-context' }), kcPath);
+        assert.strictEqual(fsNode.statSync(kcPath).mode & 0o777, 0o600);
     });
 });

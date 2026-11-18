@@ -72,7 +72,7 @@ export async function ensureAzureCliDirectory(context: AzureCliContext, director
     }
 }
 
-async function resolveAzureCliExecutable(
+export async function resolveAzureCliExecutable(
     context: AzureCliContext,
     cwd: string | undefined,
     environment: NodeJS.ProcessEnv | undefined
