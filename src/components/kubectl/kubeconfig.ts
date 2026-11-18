@@ -42,6 +42,25 @@ export interface KubeconfigSource {
     readonly contents: string;
 }
 
+export interface KubeconfigEntry {
+    readonly name: string;
+    readonly value: Record<string, unknown>;
+    readonly file: string;
+}
+
+export interface KubeconfigSnapshot {
+    readonly path: KubeconfigPath;
+    readonly documents: readonly { readonly source: KubeconfigSource; readonly document: Record<string, unknown> }[];
+    readonly currentContext: string | undefined;
+    readonly clusters: readonly KubeconfigEntry[];
+    readonly contexts: readonly KubeconfigEntry[];
+    readonly users: readonly KubeconfigEntry[];
+}
+
+export function isRecord(value: unknown): value is Record<string, unknown> {
+    return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
 export function getKubeconfigFiles(kubeconfigPath: KubeconfigPath): string[] {
     const files = kubeconfigPath.pathType === 'host' ? kubeconfigPath.hostPath : kubeconfigPath.wslPath;
     return files.split(kubeconfigPath.pathType === 'host' ? path.delimiter : ':').filter((file) => file.length > 0);
@@ -76,6 +95,47 @@ export async function readKubeconfigSources(kubeconfigPath: KubeconfigPath): Pro
         }
     }
     return sources;
+}
+
+export async function readKubeconfigSnapshot(
+    kubeconfigPath = getKubeconfigPath(),
+    sources?: readonly KubeconfigSource[]
+): Promise<KubeconfigSnapshot> {
+    const documents = (sources ?? await readKubeconfigSources(kubeconfigPath)).flatMap((source) => {
+        const document: unknown = yaml.load(source.contents);
+        if (document === undefined || document === null) { return []; }
+        if (!isRecord(document)) {
+            throw new Error('The Kubernetes configuration is invalid.');
+        }
+        return [{ source, document }];
+    });
+    const entries = (field: 'clusters' | 'contexts' | 'users', key: 'cluster' | 'context' | 'user'): KubeconfigEntry[] => {
+        const merged = new Map<string, KubeconfigEntry>();
+        for (const { source, document } of documents) {
+            const values = document[field];
+            if (values === undefined || values === null) { continue; }
+            if (!Array.isArray(values)) { throw new Error('The Kubernetes configuration is invalid.'); }
+            for (const entry of values) {
+                if (!isRecord(entry) || typeof entry.name !== 'string') {
+                    throw new Error('The Kubernetes configuration is invalid.');
+                }
+                const value = entry[key];
+                if (value !== undefined && value !== null && !isRecord(value)) {
+                    throw new Error('The Kubernetes configuration is invalid.');
+                }
+                if (!merged.has(entry.name)) {
+                    merged.set(entry.name, { name: entry.name, value: value ?? {}, file: source.file });
+                }
+            }
+        }
+        return [...merged.values()];
+    };
+    const currentContext = documents.map(({ document }) => document['current-context'])
+        .find((name): name is string => typeof name === 'string' && name.length > 0);
+    return {
+        path: kubeconfigPath, documents, currentContext,
+        clusters: entries('clusters', 'cluster'), contexts: entries('contexts', 'context'), users: entries('users', 'user'),
+    };
 }
 
 export async function loadKubeconfig(

@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import * as path from 'path';
 import { Kubectl } from "./kubectl";
 import { kubeChannel } from "./kubeChannel";
 import { sleep } from "./sleep";
@@ -13,8 +14,7 @@ import { getUseWsl } from './components/config/config';
 import { isValidPodName, listPods, podTableArgs, PodQueryOptions } from './components/kubectl/pod-commands';
 import { remoteShellCommandArgs, runImageArgs } from './components/kubectl/workload-commands';
 import { requireTaggedImageReference } from './image/imageReference';
-import type { KubeConfig } from '@kubernetes/client-node';
-import { loadKubeconfig } from './components/kubectl/kubeconfig';
+import { KubeconfigSnapshot, readKubeconfigSnapshot } from './components/kubectl/kubeconfig';
 import { listNamespaces } from './components/kubernetes/namespaces';
 
 export interface KubectlContext {
@@ -59,9 +59,9 @@ export interface ConfigReadOptions {
     readonly silent?: boolean;  // TODO: get rid of this because it is ambiguous - but convenient for now!
 }
 
-async function getKubeconfig(options: ConfigReadOptions): Promise<KubeConfig | null> {
+async function getKubeconfig(options: ConfigReadOptions): Promise<KubeconfigSnapshot | null> {
     try {
-        return await loadKubeconfig();
+        return await readKubeconfigSnapshot();
     } catch {
         const message = 'Unable to read Kubernetes configuration. Check your selected kubeconfig files.';
         if (options.silent) {
@@ -75,13 +75,17 @@ async function getKubeconfig(options: ConfigReadOptions): Promise<KubeConfig | n
 
 export async function getCurrentClusterConfig(_kubectl: Kubectl, options: ConfigReadOptions): Promise<ClusterConfig | undefined> {
     const kubeConfig = await getKubeconfig(options);
-    const cluster = kubeConfig?.getCurrentCluster();
-    if (!cluster) {
+    const context = kubeConfig?.contexts.find((entry) => entry.name === kubeConfig.currentContext);
+    const cluster = kubeConfig?.clusters.find((entry) => entry.name === context?.value.cluster);
+    if (!kubeConfig || !cluster || typeof cluster.value.server !== 'string') {
         return undefined;
     }
+    const caFile = cluster.value['certificate-authority'];
+    const certificateAuthority = typeof caFile === 'string' ? caFile : undefined;
     return {
-        server: cluster.server,
-        certificateAuthority: cluster.caFile
+        server: cluster.value.server,
+        certificateAuthority: certificateAuthority && kubeConfig.path.pathType === 'host' ?
+            path.resolve(path.dirname(cluster.file), certificateAuthority) : certificateAuthority
     };
 }
 
@@ -90,17 +94,17 @@ export async function getContexts(_kubectl: Kubectl, options: ConfigReadOptions)
     if (!kubectlConfig) {
         return [];
     }
-    const currentContext = kubectlConfig.getCurrentContext();
-    const contexts = kubectlConfig.getContexts();
+    const currentContext = kubectlConfig.currentContext;
+    const contexts = kubectlConfig.contexts;
     return contexts.map((c) => {
-        const cluster = kubectlConfig.getCluster(c.cluster);
+        const cluster = kubectlConfig.clusters.find((entry) => entry.name === c.value.cluster)?.value;
         const azurePattern = /(^|\.)azmk8s\.io(?=[:\/?]|$)/i;
         return {
-            clusterName: c.cluster,
+            clusterName: typeof c.value.cluster === 'string' ? c.value.cluster : '',
             contextName: c.name,
-            userName: c.user,
+            userName: typeof c.value.user === 'string' ? c.value.user : '',
             active: c.name === currentContext,
-            provider: azurePattern.test(cluster?.server || '') ? 'AKS' : ''
+            provider: azurePattern.test(typeof cluster?.server === 'string' ? cluster.server : '') ? 'AKS' : ''
         };
     });
 }
@@ -375,11 +379,12 @@ export async function currentNamespace(_kubectl: Kubectl): Promise<string> {
     if (!kubectlConfig) {
         return "";
     }
-    const currentContext = kubectlConfig.getContextObject(kubectlConfig.getCurrentContext());
+    const currentContext = kubectlConfig.contexts.find((entry) => entry.name === kubectlConfig.currentContext);
     if (!currentContext) {
         return "";
     }
-    return currentContext.namespace || "default";
+    const namespace = currentContext.value.namespace;
+    return typeof namespace === 'string' && namespace ? namespace : "default";
 }
 
 export const onDidChangeNamespaceEmitter = new vscode.EventEmitter<string>();

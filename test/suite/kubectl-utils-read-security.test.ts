@@ -23,7 +23,9 @@ suite('Kubectl read security', () => {
     let loadConfig: sinon.SinonStub;
     setup(() => {
         selectedConfig = new KubeConfig();
-        loadConfig = sinon.stub(kubeconfig, 'loadKubeconfig').resolves(selectedConfig);
+        const readSnapshot = kubeconfig.readKubeconfigSnapshot;
+        loadConfig = sinon.stub(kubeconfig, 'readKubeconfigSnapshot').callsFake(() => readSnapshot(
+            { pathType: 'host', hostPath: '/synthetic/config' }, [{ file: '/synthetic/config', contents: selectedConfig.exportConfig() }]));
     });
     teardown(() => loadConfig.restore());
 

@@ -23,7 +23,9 @@ suite('Selector-based pod lookup security', () => {
         sandbox = sinon.createSandbox();
         showError = sandbox.stub(vscode.window, 'showErrorMessage').resolves(undefined);
         selectedConfig = new KubeConfig();
-        sandbox.stub(kubeconfig, 'loadKubeconfig').resolves(selectedConfig);
+        const readSnapshot = kubeconfig.readKubeconfigSnapshot;
+        sandbox.stub(kubeconfig, 'readKubeconfigSnapshot').callsFake(() => readSnapshot(
+            { pathType: 'host', hostPath: '/synthetic/config' }, [{ file: '/synthetic/config', contents: selectedConfig.exportConfig() }]));
     });
     teardown(() => sandbox.restore());
 

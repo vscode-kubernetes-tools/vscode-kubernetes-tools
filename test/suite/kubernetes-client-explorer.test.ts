@@ -9,9 +9,10 @@ import { host } from '../../src/host';
 import type { Kubectl } from '../../src/kubectl';
 import * as config from '../../src/components/config/config';
 import { KubernetesExplorer } from '../../src/components/clusterexplorer/explorer';
+import { currentNamespace, getCurrentClusterConfig, getCurrentContext } from '../../src/kubectlUtils';
 
 suite('Kubernetes client namespace explorer', () => {
-    test('discovers contexts and renders namespaces without looking up kubectl', async () => {
+    test('discovers contexts and renders namespaces alongside an incomplete inactive context without kubectl', async () => {
         const sandbox = sinon.createSandbox();
         const errors = sandbox.stub(window, 'showErrorMessage').resolves(undefined);
         sandbox.stub(process, 'env').value({ ...process.env, HTTP_PROXY: '', HTTPS_PROXY: '', http_proxy: '', https_proxy: '' });
@@ -36,7 +37,10 @@ suite('Kubernetes client namespace explorer', () => {
             fs.writeFileSync(configFile, JSON.stringify({
                 apiVersion: 'v1', kind: 'Config',
                 clusters: [{ name: 'cluster', cluster: { server: `http://127.0.0.1:${address.port}`, 'insecure-skip-tls-verify': true } }],
-                contexts: [{ name: 'selected', context: { cluster: 'cluster', user: 'user', namespace: 'team-a' } }],
+                contexts: [
+                    { name: 'selected', context: { cluster: 'cluster', user: 'user', namespace: 'team-a' } },
+                    { name: 'scratch', context: { namespace: 'other' } },
+                ],
                 users: [{ name: 'user', user: { token: 'synthetic-token' } }],
                 'current-context': 'selected',
             }));
@@ -46,8 +50,12 @@ suite('Kubernetes client namespace explorer', () => {
             const explorer = new KubernetesExplorer(kubectl, host);
 
             const contexts = await explorer.getChildren();
-            assert.strictEqual(contexts!.length, 1);
+            assert.strictEqual(contexts!.length, 2);
             assert.strictEqual((await explorer.getTreeItem(contexts![0])).label, 'selected');
+            assert.strictEqual((await explorer.getTreeItem(contexts![1])).label, 'scratch');
+            assert.strictEqual((await getCurrentContext(kubectl, {}))?.contextName, 'selected');
+            assert.strictEqual(await currentNamespace(kubectl), 'team-a');
+            assert.strictEqual((await getCurrentClusterConfig(kubectl, {}))?.server, `http://127.0.0.1:${address.port}`);
             const folders = await explorer.getChildren(contexts![0]);
             const namespaceFolder = folders!.find((node) => node.nodeType === 'folder.resource' && node.kind.abbreviation === 'namespace');
             assert.ok(namespaceFolder);

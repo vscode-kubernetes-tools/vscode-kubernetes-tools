@@ -25,11 +25,17 @@ sources are skipped. Relative native kubeconfig paths use the workspace working
 directory, matching CLI execution. Certificate/key paths remain relative to the
 file that supplied them.
 
-Each direct read uses a fresh SDK configuration built from captured file contents.
+Metadata discovery preserves incomplete inactive entries. Connection validation
+applies to the selected context, cluster and user, not unrelated saved contexts.
+Each direct read uses a fresh SDK configuration built from those captured entries.
 Switching contexts or selecting another kubeconfig cannot redirect later pages
 of an in-flight read. Credential state is not shared between configurations that
 happen to use the same username. Reading local context metadata does not execute
 credential plugins or contact the cluster.
+
+Anonymous direct connections use an empty user entry only in memory so client-node
+applies the cluster's configured certificate authority. Kubeconfig files are not
+modified and certificate verification is not weakened.
 
 ## Namespace transport support
 

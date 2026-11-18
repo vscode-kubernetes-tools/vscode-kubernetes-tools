@@ -74,7 +74,9 @@ suite('Kubeconfig context command security', () => {
             contexts: [{ name: context.contextName, context: { cluster: context.clusterName, user: context.userName } }],
             users: [{ name: context.userName, user: {} }],
         }));
-        sandbox.stub(kubeconfig, 'loadKubeconfig').resolves(selected);
+        const readSnapshot = kubeconfig.readKubeconfigSnapshot;
+        sandbox.stub(kubeconfig, 'readKubeconfigSnapshot').callsFake(() => readSnapshot(
+            { pathType: 'host', hostPath: '/synthetic/config' }, [{ file: '/synthetic/config', contents: selected.exportConfig() }]));
 
         assert.deepStrictEqual(await getContexts(fixture.kubectl, { silent: false }), [{ ...context, active: true }]);
 
@@ -84,7 +86,7 @@ suite('Kubeconfig context command security', () => {
 
     test('reports context discovery failures without parsing them as configuration', async () => {
         const fixture = fakeKubectl();
-        sandbox.stub(kubeconfig, 'loadKubeconfig').rejects(new Error('synthetic-private-token'));
+        sandbox.stub(kubeconfig, 'readKubeconfigSnapshot').rejects(new Error('synthetic-private-token'));
 
         assert.deepStrictEqual(await getContexts(fixture.kubectl, { silent: false }), []);
 

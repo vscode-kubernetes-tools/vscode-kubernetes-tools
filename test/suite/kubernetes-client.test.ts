@@ -5,6 +5,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { workspace } from 'vscode';
 import { createServer, IncomingMessage, Server, ServerResponse } from 'http';
+import { createServer as createHttpsServer } from 'https';
 import { KubeConfig } from '@kubernetes/client-node';
 import type { Kubectl } from '../../src/kubectl';
 import * as kubeconfig from '../../src/components/kubectl/kubeconfig';
@@ -110,11 +111,15 @@ suite('Kubernetes client namespace reads', () => {
     test('preserves first-file precedence and relative certificate paths', async () => {
         const first = JSON.parse(connection('https://first.invalid'));
         first.clusters[0].cluster['certificate-authority'] = 'ca.pem';
-        first.users[0].user = { 'client-certificate': 'client.pem', 'client-key': 'key.pem' };
+        first.users = [];
+        const credentials = path.join(directory, 'credentials');
+        fs.mkdirSync(credentials);
+        const userFile = path.join(credentials, 'config');
+        fs.writeFileSync(userFile, JSON.stringify({ users: [{ name: 'shared-user', user: { 'client-certificate': 'client.pem', 'client-key': 'key.pem' } }] }));
         const file = writeConfig(JSON.stringify(first));
         const empty = writeConfig('# An intentionally empty source.\n', 'empty');
         const duplicate = writeConfig(connection('https://second.invalid'), 'second');
-        selectedPath = { pathType: 'host', hostPath: [path.join(directory, 'missing'), empty, file, duplicate].join(path.delimiter) };
+        selectedPath = { pathType: 'host', hostPath: [path.join(directory, 'missing'), empty, file, userFile, duplicate].join(path.delimiter) };
 
         const result = await createKubernetesConnection();
 
@@ -122,9 +127,59 @@ suite('Kubernetes client namespace reads', () => {
         if (result.transport === 'client') {
             assert.strictEqual(result.config.getCurrentCluster()!.server, 'https://first.invalid');
             assert.strictEqual(result.config.getCurrentCluster()!.caFile, path.join(directory, 'ca.pem'));
-            assert.strictEqual(result.config.getCurrentUser()!.certFile, path.join(directory, 'client.pem'));
-            assert.strictEqual(result.config.getCurrentUser()!.keyFile, path.join(directory, 'key.pem'));
+            assert.strictEqual(result.config.getCurrentUser()!.certFile, path.join(credentials, 'client.pem'));
+            assert.strictEqual(result.config.getCurrentUser()!.keyFile, path.join(credentials, 'key.pem'));
         }
+    });
+
+    test('uses the configured CA for anonymous HTTPS connections without weakening certificate verification', async () => {
+        const fixtures = path.resolve(__dirname, '../../../test/fixtures/kubernetes-client');
+        const ca = fs.readFileSync(path.join(fixtures, 'ca.crt'));
+        const server = createHttpsServer({
+            cert: fs.readFileSync(path.join(fixtures, 'server.crt')),
+            key: fs.readFileSync(path.join(fixtures, 'server.key')),
+        }, (request, response) => {
+            assert.strictEqual(request.headers.authorization, undefined);
+            respond(response, ['team-a']);
+        });
+        servers.push(server);
+        await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+        const address = server.address();
+        assert.ok(address && typeof address !== 'string');
+        const contents = JSON.parse(connection(`https://127.0.0.1:${address.port}`));
+        contents.clusters[0].cluster = { server: `https://127.0.0.1:${address.port}`, 'certificate-authority-data': ca.toString('base64') };
+        delete contents.contexts[0].context.user;
+        contents.users = [];
+        const file = path.join(directory, 'config');
+
+        fs.writeFileSync(path.join(directory, 'ca.pem'), ca);
+        for (const authority of [{ 'certificate-authority-data': ca.toString('base64') }, { 'certificate-authority': 'ca.pem' }]) {
+            contents.clusters[0].cluster = { server: `https://127.0.0.1:${address.port}`, ...authority };
+            const captured = JSON.stringify(contents);
+            writeConfig(captured);
+            const result = await listNamespaces(kubectl);
+            assert.ok(result.succeeded, JSON.stringify(result));
+            assert.deepStrictEqual(result.result.items.map((item) => item.metadata.name), ['team-a']);
+            assert.strictEqual(fs.readFileSync(file, 'utf8'), captured);
+        }
+
+        contents.clusters[0].cluster = { server: `https://127.0.0.1:${address.port}` };
+        writeConfig(JSON.stringify(contents));
+        assert.ok(!(await listNamespaces(kubectl)).succeeded);
+        sinon.assert.notCalled(execute);
+    });
+
+    test('rejects an incomplete context when it is selected before loading SDK credentials or dispatching', async () => {
+        const load = sandbox.spy(KubeConfig.prototype, 'loadFromString');
+        const contents = JSON.parse(connection('https://example.invalid'));
+        contents.contexts.push({ name: 'scratch', context: { namespace: 'other' } });
+        contents['current-context'] = 'scratch';
+        writeConfig(JSON.stringify(contents));
+
+        await assert.rejects(createKubernetesConnection(), /current Kubernetes context is incomplete/);
+
+        sinon.assert.notCalled(load);
+        sinon.assert.notCalled(execute);
     });
 
     test('resolves relative kubeconfig paths using the same workspace directory as CLI execution', async () => {

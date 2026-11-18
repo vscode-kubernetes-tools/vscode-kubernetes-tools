@@ -1,9 +1,10 @@
 import type { KubeConfig } from '@kubernetes/client-node';
-import * as yaml from 'js-yaml';
 import * as path from 'path';
 import { workspace } from 'vscode';
-import { getKubeconfigFiles, getKubeconfigPath, KubeconfigSelection, loadKubeconfig, readKubeconfigSources } from '../kubectl/kubeconfig';
+import { getKubeconfigFiles, getKubeconfigPath, isRecord, KubeconfigSelection, loadKubeconfig, readKubeconfigSnapshot } from '../kubectl/kubeconfig';
 import { isSafeNamespace } from '../kubectl/resource-commands';
+
+export { isRecord } from '../kubectl/kubeconfig';
 
 export type KubernetesConnection = {
     readonly transport: 'client';
@@ -23,10 +24,6 @@ const CLIENT_CLUSTER_FIELDS = new Set([
     'server', 'certificate-authority', 'certificate-authority-data', 'insecure-skip-tls-verify', 'tls-server-name', 'proxy-url'
 ]);
 
-export function isRecord(value: unknown): value is Record<string, unknown> {
-    return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
 export async function createKubernetesConnection(): Promise<KubernetesConnection> {
     const selectedPath = getKubeconfigPath();
     const cwd = workspace.rootPath ?? process.cwd();
@@ -34,33 +31,26 @@ export async function createKubernetesConnection(): Promise<KubernetesConnection
         pathType: 'host' as const,
         hostPath: getKubeconfigFiles(selectedPath).map((file) => path.resolve(cwd, file)).join(path.delimiter),
     } : selectedPath;
-    const parsedSources = (await readKubeconfigSources(kubeconfigPath)).flatMap((source) => {
-        const document: unknown = yaml.load(source.contents);
-        if (document === undefined || document === null) { return []; }
-        if (!isRecord(document)) {
-            throw new Error('The Kubernetes configuration is invalid.');
-        }
-        return [{ source, document }];
-    });
-    const sources = parsedSources.map(({ source }) => source);
-    const documents = parsedSources.map(({ document }) => document);
-    const contextName = documents.map((document) => document['current-context']).find((name) => typeof name === 'string' && name.length > 0);
-    if (typeof contextName !== 'string') {
+    const snapshot = await readKubeconfigSnapshot(kubeconfigPath);
+    const contextName = snapshot.currentContext;
+    if (!contextName) {
         throw new Error('The Kubernetes configuration has no current context.');
     }
-    const entries = (field: string) => documents.flatMap((document) => Array.isArray(document[field]) ? document[field].filter(isRecord) : []);
-    const context = entries('contexts').find((entry) => entry.name === contextName)?.context;
-    if (!isRecord(context) || typeof context.cluster !== 'string' ||
-        !entries('clusters').some((entry) => entry.name === context.cluster) ||
+    const selectedContext = snapshot.contexts.find((entry) => entry.name === contextName);
+    const context = selectedContext?.value;
+    const selectedCluster = snapshot.clusters.find((entry) => entry.name === context?.cluster);
+    const selectedUser = typeof context?.user === 'string' && context.user !== '' ? snapshot.users.find((entry) => entry.name === context.user) : undefined;
+    if (!selectedContext || !context || typeof context.cluster !== 'string' || !selectedCluster ||
         (context.user !== undefined && context.user !== null &&
-            (typeof context.user !== 'string' || (context.user !== '' && !entries('users').some((entry) => entry.name === context.user))))) {
+            (typeof context.user !== 'string' || (context.user !== '' && !selectedUser)))) {
         throw new Error('The current Kubernetes context is incomplete.');
     }
     const namespace = context.namespace === undefined || context.namespace === null || context.namespace === '' ? 'default' : context.namespace;
     if (typeof namespace !== 'string' || !isSafeNamespace(namespace)) {
         throw new Error('The current Kubernetes namespace is invalid.');
     }
-    const cluster = entries('clusters').find((entry) => entry.name === context.cluster)?.cluster;
+    const cluster = selectedCluster.value;
+    const entries = (field: string) => snapshot.documents.flatMap(({ document }) => Array.isArray(document[field]) ? document[field].filter(isRecord) : []);
 
     // Choose compatibility paths before dispatch, never after an API failure.
     const requiresCli = kubeconfigPath.pathType === 'wsl' ||
@@ -76,6 +66,17 @@ export async function createKubernetesConnection(): Promise<KubernetesConnection
         };
     }
 
+    // client-node only applies the cluster CA when a user object exists.
+    const user = selectedUser ?? { name: 'vscode-kubernetes-anonymous', value: {}, file: selectedContext.file };
+    const sources = snapshot.documents.map(({ source }) => ({
+        file: source.file,
+        contents: JSON.stringify({
+            'current-context': contextName,
+            contexts: source.file === selectedContext.file ? [{ name: contextName, context: { ...context, user: user.name } }] : [],
+            clusters: source.file === selectedCluster.file ? [{ name: selectedCluster.name, cluster }] : [],
+            users: source.file === user.file ? [{ name: user.name, user: user.value }] : [],
+        }),
+    }));
     const config = await loadKubeconfig(kubeconfigPath, sources);
     if (!config.getCurrentCluster()) {
         throw new Error('The current Kubernetes context has no cluster.');
