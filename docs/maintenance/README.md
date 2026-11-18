@@ -16,6 +16,14 @@ To make a new release and publish it to the Marketplace, follow these steps.
 The [Azure DevOps release pipeline](../../.pipelines/1es-pipeline.yml) builds,
 signs, and publishes the extension to the Visual Studio Marketplace.
 
+Before running it, configure the non-secret Azure DevOps pipeline variable
+`AZURE_ARTIFACTS_FEED` with the full npm registry URL of a CFS-enabled Azure
+Artifacts feed in the pipeline's organization, ending in `/npm/registry/`.
+The feed must have npmjs upstream enabled, and the pipeline's build identity must
+have the Feed and Upstream Reader (Collaborator) role to restore packages from
+upstream. The pipeline authenticates the feed before installing dependencies;
+no private feed configuration needs to be committed to this repository.
+
 When starting the pipeline, set `publishVersion` to the version in `package.json`,
 without a `v` prefix. Select the approved commit for the `vscode-kubernetes-tools`
 repository resource, which defaults to upstream `main`, and confirm that CI has
