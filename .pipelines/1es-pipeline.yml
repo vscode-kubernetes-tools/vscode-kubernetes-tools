@@ -16,11 +16,8 @@ resources:
 parameters:
   - name: nodeVersion
     type: string
-    default: 20.x
+    default: 22.x
   - name: publishVersion
-    type: string
-    default: ""
-  - name: token
     type: string
     default: ""
 
@@ -46,6 +43,10 @@ extends:
       - stage: Stage
         jobs:
           - job: HostJob
+            variables:
+              NPM_CONFIG_REGISTRY: $(AZURE_ARTIFACTS_FEED)
+              NPM_CONFIG_REPLACE_REGISTRY_HOST: npmjs
+              NPM_CONFIG_USERCONFIG: $(Agent.TempDirectory)/release.npmrc
             templateContext:
               outputs:
                 - output: pipelineArtifact
@@ -75,6 +76,23 @@ extends:
               # BUILD AND PACKAGE
               # =====================================================
 
+              - script: |
+                  set -e
+                  node <<'NODE'
+                  const fs = require('node:fs');
+                  const feed = process.env.NPM_CONFIG_REGISTRY;
+                  if (!feed || !/^https:\/\/[^\s]+\/_packaging\/[^\s/]+\/npm\/registry\/$/.test(feed)) {
+                    throw new Error('Set AZURE_ARTIFACTS_FEED to the CFS-enabled Azure Artifacts npm registry URL ending in /npm/registry/.');
+                  }
+                  fs.writeFileSync(process.env.NPM_CONFIG_USERCONFIG, `registry=${feed}\nalways-auth=true\n`);
+                  NODE
+                displayName: Configure npm feed
+
+              - task: npmAuthenticate@0
+                displayName: Authenticate npm feed
+                inputs:
+                  workingFile: $(NPM_CONFIG_USERCONFIG)
+
               - script: npm ci
                 displayName: Install npm dependencies (npm ci)
 
@@ -103,9 +121,9 @@ extends:
 
               - script: |
                   set -e
-                  echo "Generating VSIX package with pinned vsce..."
-                  npx --yes @vscode/vsce@3.9.1 --version
-                  npx --yes @vscode/vsce@3.9.1 package
+                  echo "Generating VSIX package with lockfile-installed vsce..."
+                  ./node_modules/.bin/vsce --version
+                  npm run package
                 displayName: "Generate VSIX"
 
               # Find and copy the VSIX to the workspace dir.
@@ -131,15 +149,17 @@ extends:
               # MANIFEST GENERATION AND SIGNING
               # =====================================================
 
-              - pwsh: |
-                  $vsixFile = Get-ChildItem "$(Pipeline.Workspace)/vscode-extension-staging/*.vsix" | Select-Object -First 1
-                  Write-Host "Generating manifest for: $($vsixFile.FullName)"
-                  npx --yes '@vscode/vsce@3.9.1' generate-manifest -i $vsixFile.FullName -o "$(Pipeline.Workspace)/vscode-extension-staging/extension.manifest"
+              - script: |
+                  set -e
+                  VSIX_PATH=$(find "$(Pipeline.Workspace)/vscode-extension-staging/" -type f -name "*.vsix" -print -quit)
+                  echo "Generating manifest for: $VSIX_PATH"
+                  ./node_modules/.bin/vsce generate-manifest -i "$VSIX_PATH" -o "$(Pipeline.Workspace)/vscode-extension-staging/extension.manifest"
                 displayName: "Generate extension manifest"
 
-              - pwsh: |
-                  Copy-Item "$(Pipeline.Workspace)/vscode-extension-staging/extension.manifest" "$(Pipeline.Workspace)/vscode-extension-staging/extension.signature.p7s"
-                  Write-Host "Prepared manifest for signing"
+              - script: |
+                  set -e
+                  cp "$(Pipeline.Workspace)/vscode-extension-staging/extension.manifest" "$(Pipeline.Workspace)/vscode-extension-staging/extension.signature.p7s"
+                  echo "Prepared manifest for signing"
                 displayName: "Prepare manifest for signing"
 
               - task: EsrpCodeSigning@5
@@ -173,20 +193,33 @@ extends:
               - script: ls -la "$(Pipeline.Workspace)/vscode-extension-staging"
                 displayName: "List staging directory (post-sign)"
 
-              - task: Bash@3
-                displayName: "Publish VSIX to Marketplace (vsce@3.9.1)"
-                inputs:
-                  targetType: inline
-                  script: |
-                    set -e
-                    npx --yes @vscode/vsce@3.9.1 --version
+              # AzureCLI@2 requires az on the 1ES Azure Linux agent.
+              - script: |
+                  set -e
+                  if ! command -v az >/dev/null 2>&1; then
+                    echo "Azure CLI not found on the agent image. Installing..."
+                    sudo tdnf install -y azure-cli || tdnf install -y azure-cli
+                  fi
+                  az version
+                displayName: "Install Azure CLI"
+                retryCountOnTaskFailure: 3
 
-                    VSIX_PATH=$(find "$(Pipeline.Workspace)/vscode-extension-staging/" -type f -name "*.vsix" | head -n 1)
+              - task: AzureCLI@2
+                displayName: "Publish VSIX to Marketplace"
+                inputs:
+                  azureSubscription: AKS-VsCode-Release
+                  scriptType: bash
+                  scriptLocation: inlineScript
+                  inlineScript: |
+                    set -e
+                    ./node_modules/.bin/vsce --version
+
+                    VSIX_PATH=$(find "$(Pipeline.Workspace)/vscode-extension-staging/" -type f -name "*.vsix" -print -quit)
                     MANIFEST_PATH="$(Pipeline.Workspace)/vscode-extension-staging/extension.manifest"
                     SIGNATURE_PATH="$(Pipeline.Workspace)/vscode-extension-staging/extension.signature.p7s"
 
                     echo "Publishing VSIX package: $VSIX_PATH"
-                    npx --yes @vscode/vsce@3.9.1 publish --pat "$TOKEN" --packagePath "$VSIX_PATH" --manifestPath "$MANIFEST_PATH" --signaturePath "$SIGNATURE_PATH"
+                    ./node_modules/.bin/vsce publish --azure-credential --packagePath "$VSIX_PATH" --manifestPath "$MANIFEST_PATH" --signaturePath "$SIGNATURE_PATH"
                 env:
-                  TOKEN: ${{ parameters.token }}
+                  VSCE_AZURE_CREDENTIAL_TIMEOUT: 60000
 
