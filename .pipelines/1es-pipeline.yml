@@ -20,9 +20,6 @@ parameters:
   - name: publishVersion
     type: string
     default: ""
-  - name: token
-    type: string
-    default: ""
 
 extends:
   template: v1/1ES.Official.PipelineTemplate.yml@1esPipelines
@@ -173,20 +170,33 @@ extends:
               - script: ls -la "$(Pipeline.Workspace)/vscode-extension-staging"
                 displayName: "List staging directory (post-sign)"
 
-              - task: Bash@3
+              # AzureCLI@2 requires az on the 1ES Azure Linux agent.
+              - script: |
+                  set -e
+                  if ! command -v az >/dev/null 2>&1; then
+                    echo "Azure CLI not found on the agent image. Installing..."
+                    sudo tdnf install -y azure-cli || tdnf install -y azure-cli
+                  fi
+                  az version
+                displayName: "Install Azure CLI"
+                retryCountOnTaskFailure: 3
+
+              - task: AzureCLI@2
                 displayName: "Publish VSIX to Marketplace (vsce@3.9.1)"
                 inputs:
-                  targetType: inline
-                  script: |
+                  azureSubscription: AKS-VsCode-Release
+                  scriptType: bash
+                  scriptLocation: inlineScript
+                  inlineScript: |
                     set -e
                     npx --yes @vscode/vsce@3.9.1 --version
 
-                    VSIX_PATH=$(find "$(Pipeline.Workspace)/vscode-extension-staging/" -type f -name "*.vsix" | head -n 1)
+                    VSIX_PATH=$(find "$(Pipeline.Workspace)/vscode-extension-staging/" -type f -name "*.vsix" -print -quit)
                     MANIFEST_PATH="$(Pipeline.Workspace)/vscode-extension-staging/extension.manifest"
                     SIGNATURE_PATH="$(Pipeline.Workspace)/vscode-extension-staging/extension.signature.p7s"
 
                     echo "Publishing VSIX package: $VSIX_PATH"
-                    npx --yes @vscode/vsce@3.9.1 publish --pat "$TOKEN" --packagePath "$VSIX_PATH" --manifestPath "$MANIFEST_PATH" --signaturePath "$SIGNATURE_PATH"
+                    npx --yes @vscode/vsce@3.9.1 publish --azure-credential --packagePath "$VSIX_PATH" --manifestPath "$MANIFEST_PATH" --signaturePath "$SIGNATURE_PATH"
                 env:
-                  TOKEN: ${{ parameters.token }}
+                  VSCE_AZURE_CREDENTIAL_TIMEOUT: 60000
 
