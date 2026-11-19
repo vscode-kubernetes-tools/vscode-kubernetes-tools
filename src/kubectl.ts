@@ -8,7 +8,8 @@ import { Errorable } from './errorable';
 import { parseLineOutput } from './outputUtils';
 import * as compatibility from './components/kubectl/compatibility';
 import { getActiveKubeconfig, getToolPath, affectsUs, getUseWsl, KubectlVersioning, suppressKubectlNotFound } from './components/config/config';
-import { ensureSuitableKubectl } from './components/kubectl/autoversion';
+import { ensureSuitableKubectl, findCachedKubectl } from './components/kubectl/autoversion';
+import { clusterAccess } from './components/clusteraccess/cluster-access';
 import { invokeForResult, invokeForResultArgs, ExternalBinary, FindBinaryStatus, ExecResult, ExecSucceeded, discardFailureInteractive, logText, parseJSON, findBinary, showErrorMessageWithInstallPrompt, parseTable, ExecBinNotFound, invokeTracking, FailedExecResult, ParsedExecResult, parseLinedText, BackgroundExecResult, invokeBackground, RunningProcess, ArgsBackgroundExecResult, invokeBackgroundArgs } from './binutilplusplus';
 import { updateYAMLSchema } from './yaml-support/yaml-schema';
 import { Dictionary } from './utils/dictionary';
@@ -510,10 +511,32 @@ function createSingleVersion(host: Host, fs: FS, shell: Shell): Kubectl {
 
 function createAutoVersioned(host: Host, fs: FS, shell: Shell): Kubectl {
     const bootstrapper = createSingleVersion(host, fs, shell);
-    const pathfinder = async () => (await ensureSuitableKubectl(bootstrapper, shell, host)) || 'kubectl';
+    const pathfinder = async () => {
+        const isAllowed = clusterAccess.captureAccess();
+        if (isAllowed()) {
+            const inferred = await ensureSuitableKubectl(bootstrapper, shell, host, isAllowed);
+            if (inferred) {
+                return inferred;
+            }
+            if (isAllowed()) {
+                return getToolPath(host, shell, 'kubectl') || 'kubectl';
+            }
+        }
+        return localKubectlPath(bootstrapper, host, shell);
+    };
     return new KubectlImpl(host, fs, shell, pathfinder, false, true, true, bootstrapper);
 }
 
+export function createLocal(host: Host, fs: FS, shell: Shell): Kubectl {
+    const bootstrapper = createSingleVersion(host, fs, shell);
+    return new KubectlImpl(host, fs, shell, () => localKubectlPath(bootstrapper, host, shell), false, true, true, bootstrapper);
+}
+
+async function localKubectlPath(bootstrapper: Kubectl, host: Host, shell: Shell): Promise<string> {
+    // The autoversion cache contains host binaries, not WSL paths.
+    const cached = !getUseWsl() && !(await bootstrapper.ensurePresent({ silent: true })) ? findCachedKubectl(shell) : undefined;
+    return cached || getToolPath(host, shell, 'kubectl') || 'kubectl';
+}
 export function createOnBinary(host: Host, fs: FS, shell: Shell, bin: string): Kubectl {
     const pathfinder = async () => bin;
     return new KubectlImpl(host, fs, shell, pathfinder, false, false, false);

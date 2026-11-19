@@ -26,7 +26,7 @@ interface ClusterVersionCache {
     readonly versions: Dictionary<string>;
 }
 
-export async function ensureSuitableKubectl(kubectl: Kubectl, shell: Shell, host: Host): Promise<string | undefined> {
+export async function ensureSuitableKubectl(kubectl: Kubectl, shell: Shell, host: Host, isAllowed: () => boolean): Promise<string | undefined> {
     if (!(await fs.existsAsync(getBasePath(shell)))) {
         await mkdirp(getBasePath(shell));
     }
@@ -40,7 +40,7 @@ export async function ensureSuitableKubectl(kubectl: Kubectl, shell: Shell, host
     if (!context) {
         return undefined;
     }
-    const serverVersion = await getServerVersion(bootstrapperKubectl, context.contextName);
+    const serverVersion = await getServerVersion(bootstrapperKubectl, context.contextName, isAllowed);
     if (!serverVersion) {
         return undefined;
     }
@@ -136,9 +136,12 @@ async function getKubeconfigPathHash(): Promise<string | undefined> {
     return kubeconfigHashText;
 }
 
-async function getServerVersion(kubectl: Kubectl, context: string): Promise<string | undefined> {
+async function getServerVersion(kubectl: Kubectl, context: string, isAllowed: () => boolean): Promise<string | undefined> {
     await ensureCacheIsForCurrentKubeconfig();
     const cachedVersions = await AUTO_VERSION_CACHE.get();
+    if (!isAllowed()) {
+        return undefined;
+    }
     if (cachedVersions.versions[context]) {
         return cachedVersions.versions[context];
     }
@@ -166,9 +169,8 @@ async function ensureBootstrapperKubectl(naiveKubectl: Kubectl, shell: Shell, ho
 
     // There's no kubectl where we were hoping to find one. Is there one in
     // the autoversion directory?
-    const existingKubectls = getExistingAutoversionKubectls(shell);
-    if (existingKubectls.length > 0) {
-        const existingKubectl = existingKubectls[0];
+    const existingKubectl = findCachedKubectl(shell);
+    if (existingKubectl) {
         return kubectlCreateOnBinary(host, fs, shell, existingKubectl);
     }
 
@@ -188,17 +190,13 @@ async function ensureBootstrapperKubectl(naiveKubectl: Kubectl, shell: Shell, ho
     return kubectlCreateOnBinary(host, fs, shell, installedToolPath);
 }
 
-// TODO: would be nice to make this async
-function getExistingAutoversionKubectls(shell: Shell): string[] {
+export function findCachedKubectl(shell: Shell): string | undefined {
     const baseFolder = getBasePath(shell);
-    const downloadedFolders = fs.dirSync(baseFolder)
-                                .map((p) => path.join(baseFolder, p))
-                                .filter((p) => fs.statSync(p).isDirectory);
     const binName = formatBin('kubectl', shell.platform());
-    if (!binName) {
-        return [];
+    if (!binName || !fs.existsSync(baseFolder)) {
+        return undefined;
     }
-    const kubectls = downloadedFolders.map((f) => path.join(f, binName)).filter((p) => fs.existsSync(p));
-    return kubectls;
-
+    return fs.dirSync(baseFolder)
+        .map((entry) => path.join(baseFolder, entry, binName))
+        .find((candidate) => fs.existsSync(candidate));
 }

@@ -5,45 +5,15 @@ import { ActiveValueTracker } from "./active-value-tracker";
 // current value is time-consuming and best performed asynchronously.
 export class BackgroundContextCache<T> {
     private readonly cache = new Map<string, T>();
-    private readonly activeUpdates = new Map<string, boolean>();
+    private readonly activeUpdates = new Map<string, () => boolean>();
 
     constructor(private readonly activeContextTracker: ActiveValueTracker<string | null>,
-        private readonly getActiveContextValue: () => Promise<T>,
-        private readonly fallbackValue: T)
+        private readonly getActiveContextValue: (isAllowed: () => boolean) => Promise<T>,
+        private readonly fallbackValue: T,
+        private readonly captureAccess: () => () => boolean = () => () => true)
     {
-        this.activeContextTracker.activeChanged(this.onActiveContextChanged, this);
-
-        const activeContext = this.activeContextTracker.active();
-        if (activeContext) {
-            this.updateCache(activeContext);
-        }
-    }
-
-    private onActiveContextChanged(newContext: string | null): void {
-        if (newContext) {
-            this.updateCache(newContext);
-        }
-    }
-
-    public async activeAsync(): Promise<T> {
-        const contextName = await this.activeContextTracker.activeAsync();
-        if (!contextName) {
-            return this.fallbackValue;
-        }
-        const result = this.cache.get(contextName);
-        if (result) {
-            return result;
-        }
-        const value = await this.getActiveContextValue();
-        this.cache.set(contextName, value);
-        return value;
-    }
-
-    public changedActiveContextValue(): void {
-        const activeContext = this.activeContextTracker.active();
-        if (activeContext) {
-            this.updateCache(activeContext);
-        }
+        this.activeContextTracker.activeChanged(this.invalidateActive, this);
+        this.invalidateActive();
     }
 
     public active(): T {
@@ -59,28 +29,32 @@ export class BackgroundContextCache<T> {
         return this.fallbackValue;
     }
 
-    private async updateCache(activeContextName: string): Promise<void> {
-        if (this.activeUpdates.get(activeContextName)) {
-            return;
-        }
-        try {
-            this.activeUpdates.set(activeContextName, true);
-            const value = await this.getActiveContextValue();
-            // Heuristic check that the active context didn't change while getActiveContextValue
-            // was doing it thing (because it it did then the retrieved value might not be for the
-            // context we thought it was!).
-            if (this.activeContextTracker.active() === activeContextName) {
-                this.cache.set(activeContextName, value);
-            }
-        } finally {
-            this.activeUpdates.delete(activeContextName);
-        }
-    }
-
+    // Refetches the value for the active context in the background. The cached value is served until the new one arrives.
     public invalidateActive(): void {
         const activeContext = this.activeContextTracker.active();
         if (activeContext) {
             this.updateCache(activeContext);
+        }
+    }
+
+    private async updateCache(activeContextName: string): Promise<void> {
+        const isAllowed = this.captureAccess();
+        if (!isAllowed() || this.activeUpdates.get(activeContextName)?.()) {
+            return;
+        }
+        try {
+            this.activeUpdates.set(activeContextName, isAllowed);
+            const value = await this.getActiveContextValue(isAllowed);
+            // Heuristic check that the active context didn't change while getActiveContextValue
+            // was doing it thing (because it it did then the retrieved value might not be for the
+            // context we thought it was!).
+            if (this.activeContextTracker.active() === activeContextName && isAllowed()) {
+                this.cache.set(activeContextName, value);
+            }
+        } finally {
+            if (this.activeUpdates.get(activeContextName) === isAllowed) {
+                this.activeUpdates.delete(activeContextName);
+            }
         }
     }
 }

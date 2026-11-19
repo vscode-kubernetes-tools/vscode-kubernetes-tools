@@ -25,9 +25,9 @@ export class KubernetesClusterSchemaHolder {
     private schemaEnums: { [key: string]: { [key: string]: [string[]] } } = {};
     private crdSchemas: { [key: string]: object | undefined } = {};
 
-    public static async fromActiveCluster(kubectl: Kubectl): Promise<KubernetesClusterSchemaHolder> {
+    public static async fromActiveCluster(kubectl: Kubectl, isAllowed: () => boolean = () => true): Promise<KubernetesClusterSchemaHolder> {
         const holder = new KubernetesClusterSchemaHolder();
-        await holder.loadSchemaFromActiveCluster(kubectl, KUBERNETES_SCHEMA_ENUM_FILE());
+        await holder.loadSchemaFromActiveCluster(kubectl, isAllowed, KUBERNETES_SCHEMA_ENUM_FILE());
         return holder;
     }
 
@@ -38,11 +38,11 @@ export class KubernetesClusterSchemaHolder {
         return holder;
     }
 
-    private async loadSchemaFromActiveCluster(kubectl: Kubectl, schemaEnumFile?: string): Promise<void> {
+    private async loadSchemaFromActiveCluster(kubectl: Kubectl, isAllowed: () => boolean, schemaEnumFile?: string): Promise<void> {
         const clusterSwagger = await swagger.getClusterSwagger(kubectl);
-        const fetchCRDSchemasEnabled = await this.isFetchingCRDsAllowed(kubectl);
+        const fetchCRDSchemasEnabled = await this.isFetchingCRDsAllowed(kubectl, isAllowed);
         if (fetchCRDSchemasEnabled) {
-            const crdSchemas = await swagger.getCrdSchemas(kubectl);
+            const crdSchemas = await swagger.getCrdSchemas(kubectl, isAllowed);
             if (crdSchemas) {
                 this.crdSchemas = crdSchemas;
             }
@@ -51,14 +51,17 @@ export class KubernetesClusterSchemaHolder {
         this.loadSchemaFromRaw(schemaRaw, schemaEnumFile, kubectl);
     }
 
-    private async isFetchingCRDsAllowed(kubectl: Kubectl): Promise<boolean> {
-        const codeCompletionState = await getCRDCodeCompletionState();
+    private async isFetchingCRDsAllowed(kubectl: Kubectl, isAllowed: () => boolean): Promise<boolean> {
+        if (!isAllowed()) {
+            return false;
+        }
+        const codeCompletionState = getCRDCodeCompletionState();
         if (codeCompletionState !== undefined) {
             return codeCompletionState === 'enabled';
         }
 
         const crdsTypesNumber = await kubectlUtils.getCRDTypesNumber(kubectl);
-        if (failed(crdsTypesNumber)) {
+        if (!isAllowed() || failed(crdsTypesNumber)) {
             return false;
         }
         let action: string | undefined;

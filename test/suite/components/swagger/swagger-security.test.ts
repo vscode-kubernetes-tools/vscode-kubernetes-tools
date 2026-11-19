@@ -167,6 +167,41 @@ suite('Swagger CRD read security', () => {
         sinon.assert.calledOnce(invokeCommandArgs);
     });
 
+    test('skips CRD discovery when cluster access is blocked', async () => {
+        const discover = sinon.stub();
+
+        assert.strictEqual(await getCrdSchemas(fakeKubectl(discover), () => false), undefined);
+        sinon.assert.notCalled(discover);
+    });
+
+    test('skips per-CRD reads when access is blocked during discovery', async () => {
+        let allowed = true;
+        const discover = sinon.stub().callsFake(async () => {
+            allowed = false;
+            return { resultKind: 'exec-succeeded', stdout: 'example.io\twidgets\twidget\tv1,' };
+        });
+        const read = sinon.stub();
+
+        assert.strictEqual(await getCrdSchemas(fakeKubectl(discover, read), () => allowed), undefined);
+        sinon.assert.calledOnce(discover);
+        sinon.assert.notCalled(read);
+    });
+
+    test('skips remaining CRD reads when access is blocked during a per-CRD read', async () => {
+        let allowed = true;
+        const discover = sinon.stub().resolves({
+            resultKind: 'exec-succeeded',
+            stdout: 'example.io\twidgets\twidget\tv1,\nexample.io\tgadgets\tgadget\tv1,',
+        });
+        const read = sinon.stub().callsFake(async () => {
+            allowed = false;
+            return { succeeded: true, result: { spec: { versions: [] } } };
+        });
+
+        assert.strictEqual(await getCrdSchemas(fakeKubectl(discover, read), () => allowed), undefined);
+        sinon.assert.calledOnceWithExactly(read, ['get', 'crd/widgets.example.io', '-o', 'json']);
+    });
+
     test('accepts a CRD API group that begins with a digit', async () => {
         const invokeCommandArgs = sinon.stub().resolves({
             resultKind: 'exec-succeeded',

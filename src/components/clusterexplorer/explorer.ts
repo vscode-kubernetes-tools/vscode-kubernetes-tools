@@ -6,11 +6,13 @@ import * as kubectlUtils from '../../kubectlUtils';
 import { sleep } from '../../sleep';
 import * as providerResult from '../../utils/providerresult';
 import { refreshExplorer } from '../clusterprovider/common/explorer';
+import { clusterAccess } from '../clusteraccess/cluster-access';
 import { affectsUs, getResourcesToBeWatched } from '../config/config';
 import { WatchManager } from '../kubectl/watch';
 import { ExplorerExtender, ExplorerUICustomizer } from './explorer.extension';
 import { ClusterExplorerNode, ClusterExplorerResourceNode } from './node';
 import { ContextNode, MiniKubeContextNode } from './node.context';
+import { MessageNode } from './node.message';
 
 // Each item in the explorer is modelled as a ClusterExplorerNode.  This
 // is a discriminated union, using a nodeType field as its discriminator.
@@ -89,6 +91,8 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
     private readonly customisers = Array.of<ExplorerUICustomizer<ClusterExplorerNode>>();
     private refreshTimer: NodeJS.Timeout | undefined;
     private readonly refreshQueue = Array<ClusterExplorerNode>();
+    private readonly expandedWatchNodes = new Map<string, ClusterExplorerNode>();
+    private readonly manualWatchNodes = new Map<string, ClusterExplorerNode>();
 
     constructor(private readonly kubectl: Kubectl, private readonly host: Host) {
         host.onDidChangeConfiguration((change) => {
@@ -103,33 +107,57 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
             treeDataProvider: this,
             showCollapseAll: true
         });
+        let visible = viewer.visible;
         return vscode.Disposable.from(
 			viewer,
+            viewer.onDidChangeVisibility((e) => {
+                if (e.visible && !visible) {
+                    clusterAccess.noteExplicitUse();
+                }
+                visible = e.visible;
+            }),
+            clusterAccess.onDidAllow(() => {
+                this.refresh();
+                for (const node of this.expandedWatchNodes.values()) {
+                    this.expand(node);
+                }
+                for (const node of this.manualWatchNodes.values()) {
+                    this.watch(node);
+                }
+            }),
+            clusterAccess.onDidBlock(() => {
+                WatchManager.instance().pause();
+                this.refresh();
+            }),
             viewer.onDidCollapseElement(this.onElementCollapsed, this),
             viewer.onDidExpandElement(this.onElementExpanded, this)
         );
     }
 
     getTreeItem(element: ClusterExplorerNode): vscode.TreeItem | Thenable<vscode.TreeItem> {
+        const isAllowed = clusterAccess.captureAccess();
         const baseTreeItem = element.getTreeItem();
 
         const extensionAwareTreeItem = providerResult.transform(baseTreeItem, (ti) => {
             if ('kind' in element && 'apiName' in element.kind && element.kind.apiName) {
                 ti.contextValue += 'k8s-watchable';
             }
-            if (ti.collapsibleState === vscode.TreeItemCollapsibleState.None && this.extenders.some((e) => e.contributesChildren(element))) {
+            if (isAllowed() && ti.collapsibleState === vscode.TreeItemCollapsibleState.None && this.extenders.some((e) => e.contributesChildren(element))) {
                 ti.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
             }
         });
 
         let customisedTreeItem = extensionAwareTreeItem;
         for (const c of this.customisers) {
-            customisedTreeItem = providerResult.transformPossiblyAsync(extensionAwareTreeItem, (ti) => c.customize(element, ti));
+            customisedTreeItem = providerResult.transformPossiblyAsync(extensionAwareTreeItem, (ti) => isAllowed() ? c.customize(element, ti) : true);
         }
         return customisedTreeItem;
     }
 
     getChildren(parent?: ClusterExplorerNode): vscode.ProviderResult<ClusterExplorerNode[]> {
+        if (!clusterAccess.isAllowed()) {
+            return parent ? [new MessageNode('Reopen the Clusters view to connect.')] : this.getClusters();
+        }
         const baseChildren = this.getChildrenBase(parent);
         const contributedChildren = this.extenders
                                         .filter((e) => e.contributesChildren(parent))
@@ -143,8 +171,26 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
             console.log('Failed getting id for watch.');
             return;
         }
+        if (this.manualWatchNodes.get(id) !== node) {
+            WatchManager.instance().removeWatch(id);
+        }
+        this.manualWatchNodes.set(id, node);
+        const hasAccess = clusterAccess.captureAccess();
+        await this.startWatch(node, id, () => hasAccess() && this.manualWatchNodes.get(id) === node);
+    }
+
+    private async startWatch(node: ClusterExplorerNode, id: string, isAllowed: () => boolean): Promise<void> {
+        if (!isAllowed()) {
+            return;
+        }
         const namespace = await kubectlUtils.currentNamespace(this.kubectl);
+        if (!isAllowed()) {
+            return;
+        }
         const apiUri = await node.apiURI(this.kubectl, namespace);
+        if (!isAllowed()) {
+            return;
+        }
         if (!apiUri) {
             console.log('Api URI is not valid.');
             return;
@@ -155,15 +201,22 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
             }
         };
 
-        WatchManager.instance().addWatch(id, apiUri, undefined, onWatchNotification);
+        await WatchManager.instance().addWatch(id, apiUri, undefined, onWatchNotification, isAllowed);
     }
 
     stopWatching(node: ClusterExplorerNode): void
     {
         const id = this.getIdForWatch(node);
         if (id) {
+            this.manualWatchNodes.delete(id);
             WatchManager.instance().removeWatch(id);
         }
+    }
+
+    clearWatches(): void {
+        this.expandedWatchNodes.clear();
+        this.manualWatchNodes.clear();
+        WatchManager.instance().clear();
     }
 
     private getChildrenBase(parent?: ClusterExplorerNode): vscode.ProviderResult<ClusterExplorerNode[]> {
@@ -238,18 +291,32 @@ export class KubernetesExplorer implements vscode.TreeDataProvider<ClusterExplor
 
     private expand(node: ClusterExplorerNode) {
         const watchId = this.getIdForWatch(node);
+        if (!watchId) {
+            return;
+        }
+        const previousNode = this.expandedWatchNodes.get(watchId);
+        if (previousNode && previousNode !== node && !this.manualWatchNodes.has(watchId)) {
+            WatchManager.instance().removeWatch(watchId);
+        }
+        this.expandedWatchNodes.set(watchId, node);
+        const hasAccess = clusterAccess.captureAccess();
+        const isAllowed = () => hasAccess() && this.expandedWatchNodes.get(watchId) === node;
+        if (!isAllowed()) {
+            return;
+        }
         const treeItem = node.getTreeItem();
         providerResult.transform(treeItem, (ti) => {
-            if (this.shouldCreateWatch(ti.label, watchId)) {
-                this.watch(node);
+            if (isAllowed() && !this.manualWatchNodes.has(watchId) && this.shouldCreateWatch(ti.label, watchId)) {
+                this.startWatch(node, watchId, isAllowed);
             }
         });
     }
 
     private collapse(node: ClusterExplorerNode) {
         const watchId = this.getIdForWatch(node);
-        if (watchId && WatchManager.instance().existsWatch(watchId)) {
-            WatchManager.instance().removeWatch(watchId);
+        if (watchId) {
+            this.expandedWatchNodes.delete(watchId);
+            this.stopWatching(node);
         }
     }
 
