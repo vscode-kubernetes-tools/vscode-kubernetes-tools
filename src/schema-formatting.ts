@@ -24,7 +24,7 @@ export function formatComplex(name: string, description: string | undefined, typ
     let ph = '';
     // we need to sort on keys when generating documents
     for (const p of Object.keys(children).sort()) {
-        ph = ph + `**${p}** (${formatType(children[p])})\n\n${children[p].description}\n\n`;
+        ph = ph + `**${p}** (${formatType(children[p])})\n\n${children[p].description || ''}\n\n`;
     }
     let typeDescriptionPara = '';
     if (typeDescription) {
