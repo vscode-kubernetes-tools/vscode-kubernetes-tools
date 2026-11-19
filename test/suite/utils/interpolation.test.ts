@@ -34,4 +34,27 @@ suite("Interpolate Vscode variables", () => {
         sinon.assert.match(result && result.includes("workspace_path/file"), true);
     });
 
+    test("replace env variable with the value of the environment variable", () => {
+        process.env.K8S_TOOLS_INTERPOLATION_TEST = "/opt/tools";
+        try {
+            const result = interpolateVariables("${env:K8S_TOOLS_INTERPOLATION_TEST}/kubectl");
+            assert.strictEqual(result, "/opt/tools/kubectl");
+        } finally {
+            delete process.env.K8S_TOOLS_INTERPOLATION_TEST;
+        }
+    });
+
+    test("replace config variable with the value of the named setting", () => {
+        const getConfiguration = sinon.stub(vscode.workspace, "getConfiguration");
+        try {
+            getConfiguration.returns({
+                get: (section: string, defaultValue?: string) => section === "my.tools.dir" ? "/opt/tools" : defaultValue
+            } as unknown as vscode.WorkspaceConfiguration);
+            const result = interpolateVariables("${config:my.tools.dir}/kubectl");
+            assert.strictEqual(result, "/opt/tools/kubectl");
+        } finally {
+            getConfiguration.restore();
+        }
+    });
+
 });
