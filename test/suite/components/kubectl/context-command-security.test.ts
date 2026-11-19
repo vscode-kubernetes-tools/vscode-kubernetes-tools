@@ -4,9 +4,11 @@ import * as os from 'os';
 import * as path from 'path';
 import * as sinon from 'sinon';
 import * as vscode from 'vscode';
+import { KubeConfig } from '@kubernetes/client-node';
 import { findBinaryPath } from '../../../../src/binutil';
 import { ExecBinNotFound, ExecResult } from '../../../../src/binutilplusplus';
 import * as config from '../../../../src/components/config/config';
+import * as kubeconfig from '../../../../src/components/kubectl/kubeconfig';
 import { fs } from '../../../../src/fs';
 import { host } from '../../../../src/host';
 import { kubeChannel } from '../../../../src/kubeChannel';
@@ -65,26 +67,32 @@ suite('Kubeconfig context command security', () => {
 
     test('reads context identities without interpreting punctuation or whitespace', async () => {
         const fixture = fakeKubectl();
-        fixture.invoke.resolves(success(JSON.stringify({
+        const selected = new KubeConfig();
+        selected.loadFromString(JSON.stringify({
             'current-context': context.contextName,
             clusters: [{ name: context.clusterName, cluster: { server: 'https://api.example.invalid' } }],
             contexts: [{ name: context.contextName, context: { cluster: context.clusterName, user: context.userName } }],
-        })));
+            users: [{ name: context.userName, user: {} }],
+        }));
+        const readSnapshot = kubeconfig.readKubeconfigSnapshot;
+        sandbox.stub(kubeconfig, 'readKubeconfigSnapshot').callsFake(() => readSnapshot(
+            { pathType: 'host', hostPath: '/synthetic/config' }, [{ file: '/synthetic/config', contents: selected.exportConfig() }]));
 
         assert.deepStrictEqual(await getContexts(fixture.kubectl, { silent: false }), [{ ...context, active: true }]);
 
-        sinon.assert.calledOnceWithExactly(fixture.invoke, ['config', 'view', '-o', 'json']);
+        sinon.assert.notCalled(fixture.invoke);
         sinon.assert.notCalled(fixture.legacy);
     });
 
     test('reports context discovery failures without parsing them as configuration', async () => {
         const fixture = fakeKubectl();
-        const result = failure();
-        fixture.invoke.resolves(result);
+        sandbox.stub(kubeconfig, 'readKubeconfigSnapshot').rejects(new Error('synthetic-private-token'));
 
         assert.deepStrictEqual(await getContexts(fixture.kubectl, { silent: false }), []);
 
-        sinon.assert.calledOnceWithExactly(fixture.reportFailure, result, {});
+        sinon.assert.calledOnceWithExactly(vscode.window.showErrorMessage as sinon.SinonStub,
+            'Unable to read Kubernetes configuration. Check your selected kubeconfig files.');
+        sinon.assert.notCalled(fixture.invoke);
     });
 
     test('switches to an opaque, option-like context and preserves the command result', async () => {
@@ -238,6 +246,7 @@ suite('Kubeconfig context command security', () => {
             ],
         }));
         sandbox.stub(config, 'getUseWsl').returns(false);
+        sandbox.stub(config, 'getActiveKubeconfig').returns(configPath);
         sandbox.stub(config, 'getEnableSnapFlag').returns(false);
         sandbox.stub(shell, 'execOpts').returns({ cwd: directory, env: { ...process.env, KUBECONFIG: configPath } });
         sandbox.stub(host, 'longRunning').callsFake((_options, action) => action());

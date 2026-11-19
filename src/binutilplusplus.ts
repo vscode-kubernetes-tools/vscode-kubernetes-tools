@@ -8,9 +8,10 @@ import { Errorable } from './errorable';
 import { parseLineOutput } from './outputUtils';
 import { Dictionary } from './utils/dictionary';
 import { monitorForAuthPrompt } from './shell';
-import { CommandInvocation, executeCommand, executeCommandPiped, renderArgsForDisplay, snapPipeInvocation, spawnCommand } from './process';
+import { CommandInvocation, executeCommand, executeCommandPiped, ProcessExecutionError, ProcessExecutionOptions, ProcessResult, renderArgsForDisplay, snapPipeInvocation, spawnCommand } from './process';
 import { execPath, findBinaryPath, isWindowsCommandScript, wslBinaryPathExists } from './binutil';
-import { getWindowsSystemExecutable } from './wsl';
+import { getWindowsSystemExecutable, wslKubeconfigEnvironment } from './wsl';
+import type { KubeconfigSelection } from './components/kubectl/kubeconfig';
 
 export interface ExternalBinary {
     readonly displayName: string;
@@ -157,7 +158,7 @@ export interface Context {
     readonly host: Host;
     readonly fs: FS;
     readonly shell: Shell;
-    readonly pathfinder: (() => Promise<string>) | undefined;
+    readonly pathfinder: ((signal?: AbortSignal, selection?: KubeconfigSelection) => Promise<string>) | undefined;
     readonly binary: ExternalBinary;
     status: FindBinaryStatus | undefined;
     readonly binaryRevision?: number;
@@ -191,12 +192,14 @@ async function baseBinPath(context: Context): Promise<string> {
     return binPath;
 }
 
-async function commandInvocation(context: Context, args: readonly string[]): Promise<CommandInvocation> {
-    const executable = await executablePath(context);
-    if (isWindowsCommandScript(context.shell, executable)) {
-        throw new Error(`Configured ${context.binary.displayName} path '${executable}' is a command script; configure an .exe path for shell-free execution.`);
+async function commandInvocation(context: Context, args: readonly string[], selectedPath?: string, execOpts = context.shell.execOpts()): Promise<CommandInvocation> {
+    let executable = selectedPath ?? await executablePath(context);
+    if (context.shell.isWindows() && executable.startsWith('"') && executable.endsWith('"')) {
+        executable = executable.slice(1, -1);
     }
-    const execOpts = context.shell.execOpts();
+    if (!getUseWsl() && isWindowsCommandScript(context.shell, executable)) {
+        throw new ProcessExecutionError('invalid-executable', `Configured ${context.binary.displayName} path '${executable}' is a command script; configure an .exe path for shell-free execution.`);
+    }
     if (getUseWsl()) {
         const wsl = getWindowsSystemExecutable('wsl.exe', execOpts.env || process.env);
         if (!wsl) {
@@ -257,6 +260,46 @@ async function resolveLegacyBinary(context: Context): Promise<LegacyBinaryResolu
             return { found: true, bin, revision };
         }
     }
+}
+
+export async function executeForResultArgs(context: Context, args: readonly string[], stdin: string | undefined, options: ProcessExecutionOptions & KubeconfigSelection): Promise<ProcessResult> {
+    const useWsl = getUseWsl();
+    const useSnap = getEnableSnapFlag() && context.shell.isUnix();
+    const invocation = await resolveExecutionInvocation(context, args, options);
+    if (useSnap) {
+        return executeCommandPiped(invocation, snapPipeInvocation(invocation, useWsl, invocation.executable), stdin, monitorForAuthPrompt, options);
+    }
+    return executeCommand(invocation, stdin, monitorForAuthPrompt, options);
+}
+
+async function resolveExecutionInvocation(context: Context, args: readonly string[], options: ProcessExecutionOptions & KubeconfigSelection): Promise<CommandInvocation> {
+    const { signal } = options;
+    if (signal?.aborted) {
+        throw new ProcessExecutionError('cancelled', 'Command cancelled.');
+    }
+    const useWsl = !!getUseWsl();
+    const execOpts = context.shell.execOpts();
+    const environment: NodeJS.ProcessEnv = { ...(execOpts.env ?? process.env) };
+    const env = useWsl ? wslKubeconfigEnvironment(environment) : environment;
+    if (options.kubeconfig !== undefined) {
+        env.KUBECONFIG = options.kubeconfig;
+    }
+    const selection = { kubeconfig: env.KUBECONFIG, context: options.context };
+    const revision = context.binaryRevision;
+    let executable: string | undefined = context.pathfinder ? await context.pathfinder(signal, selection) :
+        getToolPath(context.host, context.shell, context.binary.configKeyName) || context.binary.binBaseName;
+    if (!/[/\\]/.test(executable) && (useWsl || !isWindowsCommandScript(context.shell, executable))) {
+        executable = await findBinaryPath(context.shell, executable, (invocation, stdin, onSpawn) =>
+            executeCommand(invocation, stdin, onSpawn, { signal }));
+    }
+    if (signal?.aborted || revision !== context.binaryRevision || !!getUseWsl() !== useWsl) {
+        throw new ProcessExecutionError('cancelled', 'Command cancelled because its execution settings changed.');
+    }
+    if (!executable) {
+        throw new ProcessExecutionError('spawn-failed', `Unable to find a safe ${context.binary.displayName} executable. Configure its executable path.`, '', '', 'ENOENT');
+    }
+    const commandArgs = options.context === undefined ? args : ['--context', options.context, ...args];
+    return commandInvocation(context, commandArgs, executable, { ...execOpts, env });
 }
 
 // This is silent - just caching over findBinaryCore

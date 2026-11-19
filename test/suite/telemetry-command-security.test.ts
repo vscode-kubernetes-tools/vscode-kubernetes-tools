@@ -37,7 +37,7 @@ suite('Telemetry command security', () => {
             if (command === 'cluster-info') { return clusterInfo; }
             return command === 'config current-context' ? currentContext : contexts;
         });
-        kubectl = { invokeCommandArgs: invoke, invokeCommand: legacy } as unknown as Kubectl;
+        kubectl = { ensurePresent: sandbox.stub().resolves(true), invokeCommandArgs: invoke, invokeCommand: legacy } as unknown as Kubectl;
         event = sandbox.stub();
         sandbox.stub(telemetry, 'reporter').value({ sendTelemetryEvent: event });
         invalidateClusterType(undefined);
@@ -111,6 +111,16 @@ suite('Telemetry command security', () => {
         assert.strictEqual(result.nonDeterminationReason, 'cluster_connection_refused');
 
         sinon.assert.calledOnceWithExactly(invoke, ['cluster-info']);
+        sinon.assert.notCalled(legacy);
+    });
+
+    test('does not probe the cluster when kubectl is unavailable', async () => {
+        (kubectl.ensurePresent as sinon.SinonStub).resolves(false);
+
+        assert.deepStrictEqual(await classify(), { command: 'test-command', clusterType: 'indeterminate',
+            nonDeterminationReason: 'error_calling_kubectl_cluster_info_no_kubectl' });
+
+        sinon.assert.notCalled(invoke);
         sinon.assert.notCalled(legacy);
     });
 });

@@ -11,5 +11,5 @@ extension as a foundation or as a helper.
 
 ## Maintenance
 
+* [Kubernetes client connection and namespace pilot](kubernetes-client.md)
 * [How to release](maintenance/README.md)
-

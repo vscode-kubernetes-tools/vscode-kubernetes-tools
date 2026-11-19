@@ -16,6 +16,14 @@ export function normalizeWslPath(filePath: string): string {
     return filePath.startsWith('/') ? filePath : filePath.replace(/\\/g, '/');
 }
 
+export function wslKubeconfigEnvironment(environment: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+    const shared = (environment.WSLENV || '')
+        .split(':')
+        .filter((entry) => entry.length > 0 && entry.split('/')[0] !== 'KUBECONFIG');
+    shared.push('KUBECONFIG/u');
+    return { ...environment, WSLENV: shared.join(':') };
+}
+
 export function execWslSync(args: readonly string[]): ShellResult {
     const executable = getWindowsSystemExecutable('wsl.exe', process.env);
     if (!executable) {

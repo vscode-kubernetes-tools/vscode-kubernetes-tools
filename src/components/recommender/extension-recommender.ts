@@ -45,6 +45,9 @@ export async function recommendExtensions(kubectl: Kubectl, context: vscode.Exte
         return;
     }
     try {
+        if (!await kubectl.ensurePresent({ silent: true })) {
+            return;
+        }
         const crdApiGroups = await getCRDApiGroups(kubectl);
 
         const extensionToPromote = new Set<string>();
