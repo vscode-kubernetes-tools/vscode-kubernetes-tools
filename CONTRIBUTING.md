@@ -52,11 +52,12 @@ When running from source (that is, debugging in the Extension Development Host),
 1. **Install node modules:** In the integrated terminal, run `npm install`.
 2. **Install extension dependencies:**
    * In the VS Code Extensions tab, search for RedHat YAML and install that extension.
-   * In the VS Code Extensions tab, search for TypeScript + Webpack Problem Matchers and install that extension.
 
 (Note that end users do *not* need to do these steps.  VS Code extension packaging and installation takes care of them.  But running from source bypasses this process so we have to do them by hand.)
 
 If you get the error `Extension 'ms-kubernetes-tools.vscode-kubernetes-tools' failed to activate` (usually followed by `command 'extension.some-command-id' not found`) then it probably means you're missing an extension dependency.
+
+Press **F5** with the **Extension** launch configuration to build and debug the extension. The `npm: watch` task stays running and rebuilds on edits. VS Code waits for the first build to finish using the matcher in [tasks.json](.vscode/tasks.json); no extra matcher extension is needed. If the build fails, see the Problems panel and the task terminal.
 
 ## The 'Create Cluster' and 'Add Existing Cluster' Commands
 

@@ -15,8 +15,44 @@
             "type": "npm",
             "script": "watch",
             "problemMatcher": [
-                "$ts-webpack",
-                "$ts-webpack-watch"
+                // Tracks build readiness and failures from webpack.config.js.
+                {
+                    "owner": "webpack",
+                    "source": "webpack",
+                    "severity": "error",
+                    "fileLocation": "absolute",
+                    "pattern": {
+                        "kind": "file",
+                        "regexp": "^\\[extension-watch\\] (.+): (Build failed; .+)$",
+                        "file": 1,
+                        "message": 2
+                    },
+                    "background": {
+                        "activeOnStart": true,
+                        "beginsPattern": "^\\[extension-watch\\] Building$",
+                        "endsPattern": "^\\[extension-watch\\] Build finished$"
+                    }
+                },
+                // Adds source locations for TypeScript errors.
+                {
+                    "owner": "webpack",
+                    "source": "ts-loader",
+                    "fileLocation": "absolute",
+                    "pattern": [
+                        {
+                            "regexp": "^\\[tsl\\] (ERROR|WARNING) in (.+)\\((\\d+),(\\d+)\\)$",
+                            "severity": 1,
+                            "file": 2,
+                            "line": 3,
+                            "column": 4
+                        },
+                        {
+                            "regexp": "^\\s+(TS\\d+): (.+)$",
+                            "code": 1,
+                            "message": 2
+                        }
+                    ]
+                }
             ],
             "isBackground": true,
             "presentation": {

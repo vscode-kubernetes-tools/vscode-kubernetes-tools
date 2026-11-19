@@ -1,7 +1,6 @@
 {
     "recommendations": [
         "redhat.vscode-yaml",
-        "dbaeumer.vscode-eslint",
-        "amodio.tsl-problem-matcher"
+        "dbaeumer.vscode-eslint"
     ]
 }
