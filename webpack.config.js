@@ -25,6 +25,29 @@ const config = {
     'utf-8-validate': 'commonjs utf-8-validate'
   },
   plugins: [
+      // Emits watch lifecycle signals for the VS Code pre-launch task.
+      {
+          apply(compiler) {
+              const name = 'ExtensionWatchStatus';
+              const reportBuildResult = (failed) => {
+                  if (failed) {
+                      console.log(`[extension-watch] ${__filename}: Build failed; see the task terminal for details.`);
+                  }
+                  console.log('[extension-watch] Build finished');
+              };
+              compiler.hooks.watchRun.tap(name, () => console.log('[extension-watch] Building'));
+              compiler.hooks.afterDone.tap(name, (stats) => {
+                  if (compiler.watchMode) {
+                      reportBuildResult(stats.hasErrors());
+                  }
+              });
+              compiler.hooks.failed.tap(name, () => {
+                  if (compiler.watchMode) {
+                      reportBuildResult(true);
+                  }
+              });
+          }
+      },
       new webpack.IgnorePlugin({ resourceRegExp: /^electron$/ }),
       // Ignore the optional @aws-sdk/client-s3 dependency pulled in by unzipper's S3 support, which we don't use.
       // See https://github.com/ZJONSSON/node-unzipper/issues/330
