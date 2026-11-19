@@ -93,7 +93,7 @@ export function interpolateVariables(value: string | undefined, recursive = fals
         return '';
     });
     value = value.replace(/\${config:(.*?)}/g, function (variable) {
-        const matches = variable.match(/\${env:(.*?)}/);
+        const matches = variable.match(/\${config:(.*?)}/);
         if (matches && matches.length > 1) {
             return vscode.workspace.getConfiguration().get(matches[1], '');
         }
