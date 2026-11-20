@@ -29,6 +29,18 @@ extends:
             steps:
               - checkout: none
 
+              - script: |
+                  set -euo pipefail
+                  if ! command -v az >/dev/null 2>&1; then
+                    if [ "$(id -u)" -eq 0 ]; then
+                      tdnf install -y azure-cli
+                    else
+                      sudo tdnf install -y azure-cli
+                    fi
+                  fi
+                  az version
+                displayName: Install Azure CLI for the diagnostic task
+
               - task: AzureCLI@2
                 displayName: Get publishing identity profile
                 inputs:
