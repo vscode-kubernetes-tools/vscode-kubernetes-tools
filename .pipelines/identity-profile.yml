@@ -1,0 +1,43 @@
+trigger: none
+pr: none
+
+resources:
+  repositories:
+    - repository: 1esPipelines
+      type: git
+      name: 1ESPipelineTemplates/1ESPipelineTemplates
+      ref: refs/tags/release
+
+extends:
+  template: v1/1ES.Official.PipelineTemplate.yml@1esPipelines
+  parameters:
+    pool:
+      name: staging-pool-amd64-mariner-2
+      image: 1es-azlinux-3-amd64-custom-disk
+      os: linux
+      hostArchitecture: amd64
+    sdl:
+      sourceAnalysisPool:
+        name: staging-pool-amd64-mariner-2
+        image: azcu-agent-amd64-windows-22-img
+        os: windows
+        hostArchitecture: amd64
+    stages:
+      - stage: IdentityProfile
+        jobs:
+          - job: GetProfile
+            steps:
+              - checkout: none
+
+              - task: AzureCLI@2
+                displayName: Get publishing identity profile
+                inputs:
+                  azureSubscription: VSCode-Marketplace-AME
+                  scriptType: bash
+                  scriptLocation: inlineScript
+                  inlineScript: |
+                    set -euo pipefail
+                    az rest \
+                      --url https://app.vssps.visualstudio.com/_apis/profile/profiles/me \
+                      --resource 499b84ac-1321-427f-aa17-267ca6975798 \
+                      --output json
