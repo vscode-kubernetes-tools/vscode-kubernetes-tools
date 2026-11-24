@@ -14,6 +14,7 @@ import { resolveAzureCliExecutable } from '../clusterprovider/azure/azure-cli';
 type LoginMode = 'azurecli' | 'interactive' | 'devicecode';
 interface LoginChoice extends vscode.QuickPickItem { readonly mode: LoginMode; }
 interface Selection { readonly rawPath: string; readonly file: string; readonly source: string; }
+interface Destination { readonly file: string; readonly contents: string | null; }
 interface DeviceCodeConfig {
     readonly config: Record<string, unknown>;
     readonly context: Record<string, unknown>;
@@ -91,15 +92,19 @@ function isCurrent(selected: Selection): boolean {
         path.resolve(getKubeconfigFiles(current)[0] || '') === selected.file;
 }
 
-async function destination(selected: Selection): Promise<string | undefined> {
+async function destination(selected: Selection): Promise<Destination | undefined> {
     let file = selected.file;
     let source = selected.source;
     while (true) {
+        const contents = await nativeFs.readFile(file, 'utf8').catch((error: NodeJS.ErrnoException) => {
+            if (error.code === 'ENOENT') { return null; }
+            throw error;
+        });
         const choice = await vscode.window.showInformationMessage(`Merge AKS credentials into ${JSON.stringify(file)}?`, {
             modal: true,
             detail: `Selected by: ${source}. Existing entries will be merged, not replaced wholesale.`,
         }, 'Merge', 'Choose Another File');
-        if (choice === 'Merge') { return file; }
+        if (choice === 'Merge') { return { file, contents }; }
         if (choice !== 'Choose Another File') { return undefined; }
         const chosen = await vscode.window.showSaveDialog({ title: 'Choose kubeconfig destination', defaultUri: vscode.Uri.file(file), saveLabel: 'Choose kubeconfig' });
         if (!chosen) { return undefined; }
@@ -175,11 +180,12 @@ export async function importAksKubeconfig(text: string): Promise<string | undefi
             mode = (await vscode.window.showQuickPick(choices, { title: 'Choose AKS authentication', placeHolder: 'Device-code login may be blocked by Conditional Access.', ignoreFocusOut: true }))?.mode;
             if (!mode) { return undefined; }
         }
-        const file = await destination(selected);
-        if (!file) { return undefined; }
+        const chosen = await destination(selected);
+        if (!chosen) { return undefined; }
+        const { file, contents } = chosen;
         if (!isCurrent(selected)) { throw new OnboardingError('The kubeconfig selection changed. Add the cluster again to confirm the destination.'); }
         const prepared = input && mode && mode !== 'devicecode' ? await convertConfig(input, mode) : text;
-        if (!await mergeToKubeconfigFile(prepared, file, { isCurrent: () => isCurrent(selected), notify: false })) { return undefined; }
+        if (!await mergeToKubeconfigFile(prepared, file, { isCurrent: () => isCurrent(selected), expectedContents: contents, notify: false })) { return undefined; }
         const message = `AKS configuration saved to ${JSON.stringify(file)}${mode ? ` (${mode} login)` : ''}.`;
         if (path.resolve(file) !== selected.file) {
             const activate = await vscode.window.showInformationMessage(`${message} This file is not active.`, 'Set as Active Kubeconfig');

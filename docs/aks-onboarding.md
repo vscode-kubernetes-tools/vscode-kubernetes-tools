@@ -19,8 +19,9 @@ Only the previous version of that backup is retained.
 The destination dialog shows the selected path and its source before writing. You
 can keep it, choose another file or cancel. Choosing another file does not change
 your active kubeconfig unless you explicitly accept **Set as Active Kubeconfig**
-after a successful save. If selection or destination contents change while the
-import is waiting for input, the import stops rather than overwriting that change.
+after a successful save. The destination contents are pinned before its confirmation
+dialog. If selection or destination contents change during confirmation, login
+preparation or duplicate selection, the import stops rather than overwriting that change.
 
 The extension does not use `/tmp` as its default kubeconfig location. A temporary
 destination may come from an existing setting, an environment variable or an explicit

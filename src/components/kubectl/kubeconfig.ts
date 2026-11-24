@@ -129,6 +129,7 @@ export async function mergeToKubeconfig(newConfigText: string): Promise<void> {
 
 export interface KubeconfigMergeOptions {
     readonly isCurrent?: () => boolean;
+    readonly expectedContents?: string | null;
     readonly notify?: boolean;
 }
 
@@ -141,6 +142,10 @@ export async function mergeToKubeconfigFile(newConfigText: string, kcfile: strin
     const mode = kcfileExists ? fs.statSync(kcfile).mode & 0o777 : 0o600;
 
     const kubeconfigText = kcfileExists ? await fs.readTextFile(kcfile) : '';
+    if (options.expectedContents !== undefined && options.expectedContents !== (kcfileExists ? kubeconfigText : null)) {
+        vscode.window.showErrorMessage('The kubeconfig destination changed. Add the cluster again to confirm where it should be saved.');
+        return false;
+    }
     const kubeconfig = (yaml.load(kubeconfigText) || {}) as Config;
     const newConfig = yaml.load(newConfigText) as Config;
 

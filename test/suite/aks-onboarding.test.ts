@@ -206,6 +206,63 @@ suite('AKS onboarding', () => {
         assert.strictEqual(fs.existsSync(target), false); sinon.assert.notCalled(execute);
     });
 
+    for (const change of ['edit', 'create', 'delete'] as const) {
+        test(`a destination ${change} during confirmation leaves the destination and backup untouched`, async () => {
+            const original = 'apiVersion: v1\nkind: Config\nclusters: []\nusers: []\ncontexts: []\n';
+            const edited = original + '# changed during confirmation\n';
+            const backup = target + '.vscode-k8s-tools-backup';
+            if (change !== 'create') { fs.writeFileSync(target, original); }
+            fs.writeFileSync(backup, 'previous backup');
+            info.callsFake((async (_message: string, options?: unknown) => {
+                if (options && typeof options === 'object' && 'modal' in options) {
+                    if (change === 'delete') { fs.unlinkSync(target); }
+                    else { fs.writeFileSync(target, edited); }
+                    return 'Merge';
+                }
+                return undefined;
+            }) as unknown as typeof vscode.window.showInformationMessage);
+            await importAksKubeconfig(yaml.dump(fixture('azurecli')));
+            if (change === 'delete') { assert.strictEqual(fs.existsSync(target), false); }
+            else { assert.strictEqual(fs.readFileSync(target, 'utf8'), edited); }
+            assert.strictEqual(fs.readFileSync(backup, 'utf8'), 'previous backup');
+            sinon.assert.calledOnce(error);
+        });
+    }
+
+    test('a chosen destination is pinned before its confirmation', async () => {
+        const chosen = vscode.Uri.file(path.join(directory, 'chosen')).fsPath;
+        const edited = '# edited chosen destination\n';
+        sandbox.stub(vscode.window, 'showSaveDialog').resolves(vscode.Uri.file(chosen));
+        info.callsFake((async (_message: string, options?: unknown) => {
+            if (options && typeof options === 'object' && 'modal' in options) {
+                if (_message.includes(JSON.stringify(chosen))) {
+                    fs.writeFileSync(chosen, edited);
+                    return 'Merge';
+                }
+                return 'Choose Another File';
+            }
+            return undefined;
+        }) as unknown as typeof vscode.window.showInformationMessage);
+        assert.strictEqual(await importAksKubeconfig(yaml.dump(fixture('azurecli'))), undefined);
+        assert.strictEqual(fs.readFileSync(chosen, 'utf8'), edited);
+        assert.strictEqual(fs.existsSync(chosen + '.vscode-k8s-tools-backup'), false);
+        assert.strictEqual(fs.existsSync(target), false);
+        sinon.assert.calledOnce(error);
+    });
+
+    test('a destination edit during conversion cancels saving and cleans up the private copy', async () => {
+        const edited = '# edited during conversion\n';
+        resolveAzure.callsFake(async () => {
+            fs.writeFileSync(target, edited);
+            return { executable: process.execPath, argsPrefix: [] };
+        });
+        await importAksKubeconfig(yaml.dump(fixture()));
+        assert.strictEqual(fs.readFileSync(target, 'utf8'), edited);
+        assert.strictEqual(fs.existsSync(target + '.vscode-k8s-tools-backup'), false);
+        assert.strictEqual(fs.existsSync(temporaryFile!), false);
+        sinon.assert.calledOnce(execute); sinon.assert.calledOnce(error);
+    });
+
     test('preserves the existing WSL merge restriction', async () => {
         (config.getUseWsl as sinon.SinonStub).returns(true);
         await importAksKubeconfig(yaml.dump(fixture()));
@@ -235,7 +292,7 @@ suite('AKS onboarding', () => {
         const chosen = path.join(directory, 'chosen');
         confirmations = ['Choose Another File', 'Merge']; activation = 'Set as Active Kubeconfig';
         sandbox.stub(vscode.window, 'showSaveDialog').resolves(vscode.Uri.file(chosen));
-        assert.strictEqual(await importAksKubeconfig(yaml.dump(fixture('azurecli'))), chosen);
+        assert.strictEqual(await importAksKubeconfig(yaml.dump(fixture('azurecli'))), vscode.Uri.file(chosen).fsPath);
         assert.ok(fs.existsSync(chosen));
     });
 
