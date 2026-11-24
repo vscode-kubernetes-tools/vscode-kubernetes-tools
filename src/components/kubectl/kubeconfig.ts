@@ -124,18 +124,35 @@ export async function mergeToKubeconfig(newConfigText: string): Promise<void> {
         return;
     }
 
-    // For multi-path KUBECONFIG, use the first path (where new config should be merged)
-    const kcfile = kubeconfigPath.hostPath.split(path.delimiter)[0];
+    await mergeToKubeconfigFile(newConfigText, getKubeconfigFiles(kubeconfigPath)[0]);
+}
+
+export interface KubeconfigMergeOptions {
+    readonly isCurrent?: () => boolean;
+    readonly expectedContents?: string | null;
+    readonly notify?: boolean;
+}
+
+export async function mergeToKubeconfigFile(newConfigText: string, kcfile: string | undefined, options: KubeconfigMergeOptions = {}): Promise<boolean> {
+    if (!kcfile) {
+        vscode.window.showErrorMessage('No kubeconfig destination was selected.');
+        return false;
+    }
     const kcfileExists = await fs.existsAsync(kcfile);
+    const mode = kcfileExists ? fs.statSync(kcfile).mode & 0o777 : 0o600;
 
     const kubeconfigText = kcfileExists ? await fs.readTextFile(kcfile) : '';
+    if (options.expectedContents !== undefined && options.expectedContents !== (kcfileExists ? kubeconfigText : null)) {
+        vscode.window.showErrorMessage('The kubeconfig destination changed. Add the cluster again to confirm where it should be saved.');
+        return false;
+    }
     const kubeconfig = (yaml.load(kubeconfigText) || {}) as Config;
     const newConfig = yaml.load(newConfigText) as Config;
 
     // null checks
     if (!kubeconfig || !newConfig) {
         vscode.window.showErrorMessage("Error fetching kubeconfig.");
-        return;
+        return false;
     }
 
     // Check for duplicate cluster / user / context names
@@ -166,7 +183,7 @@ export async function mergeToKubeconfig(newConfigText: string): Promise<void> {
 
         if (choice === 'Cancel' || !choice) {
             vscode.window.showInformationMessage('Merge cancelled.');
-            return;
+            return false;
         }
         renameWithSuffix = choice === 'Keep Both';
     }
@@ -230,18 +247,29 @@ export async function mergeToKubeconfig(newConfigText: string): Promise<void> {
     }
 
     const merged = yaml.dump(kubeconfig, { lineWidth: 1000000, noArrayIndent: true });
+    const backupFile = kcfile + '.vscode-k8s-tools-backup';
+    const backupExists = kcfileExists && await fs.existsAsync(backupFile);
+
+    if (options.isCurrent && (!options.isCurrent() ||
+        kcfileExists !== await fs.existsAsync(kcfile) ||
+        (kcfileExists && kubeconfigText !== await fs.readTextFile(kcfile)) || !options.isCurrent())) {
+        vscode.window.showErrorMessage('The kubeconfig selection or destination changed. Add the cluster again to confirm where it should be saved.');
+        return false;
+    }
 
     if (kcfileExists) {
-        const backupFile = kcfile + '.vscode-k8s-tools-backup';
-        if (await fs.existsAsync(backupFile)) {
+        if (backupExists) {
             await fs.unlinkAsync(backupFile);
         }
         await fs.renameAsync(kcfile, backupFile);
     } else {
         await mkdirp(path.dirname(kcfile));
     }
-    await fs.writeTextFile(kcfile, merged);
+    await fs.writeTextFile(kcfile, merged, { mode });
 
     await refreshExplorer();
-    await vscode.window.showInformationMessage(`New configuration merged to ${kcfile}`);
+    if (options.notify !== false) {
+        await vscode.window.showInformationMessage(`New configuration merged to ${kcfile}`);
+    }
+    return true;
 }
