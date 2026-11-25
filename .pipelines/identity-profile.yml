@@ -44,7 +44,7 @@ extends:
               - task: AzureCLI@2
                 displayName: Get publishing identity profile
                 inputs:
-                  azureSubscription: vscode-marketplace-ame
+                  azureSubscription: VSCode-Marketplace-Publish
                   scriptType: bash
                   scriptLocation: inlineScript
                   inlineScript: |
